@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(npm run lint:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": [],
+    "defaultMode": "acceptEdits"
+  }
+}

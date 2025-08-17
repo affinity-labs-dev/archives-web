@@ -1,0 +1,20 @@
+# Palace Ambience Audio Placeholder
+
+This file represents where the palace-ambience.mp3 audio file should be placed.
+
+## To add the actual audio file:
+1. Obtain a suitable ambient/atmospheric audio track (Middle Eastern palace theme)
+2. Convert to MP3 format, 128kbps, mono or stereo
+3. Name it: palace-ambience.mp3
+4. Replace this placeholder file
+
+## Audio Requirements:
+- Duration: 2-5 minutes (will loop)
+- Volume: Mixed at moderate levels
+- Style: Ambient, atmospheric, Middle Eastern/historical theme
+- Format: MP3, M4A, or WAV (MP3 preferred for size)
+
+## Sample Sources:
+- Royalty-free ambient music libraries
+- Historical/medieval ambient tracks
+- Middle Eastern atmospheric music
