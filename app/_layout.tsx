@@ -11,6 +11,7 @@ import "react-native-reanimated";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
+import { PostHogProvider } from 'posthog-react-native';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
@@ -36,24 +37,35 @@ export default function RootLayout() {
   }
 
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+  const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY!;
+  const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST!;
+  
   console.log('RootLayout - Clerk publishable key exists:', !!publishableKey);
+  console.log('RootLayout - PostHog API key exists:', !!posthogApiKey);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-        <ProgressProvider>
-          <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="landing" options={{ headerShown: false }} />
-              <Stack.Screen name="era-selection" options={{ headerShown: false }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <StatusBar style="auto" />
-          </ThemeProvider>
-        </ProgressProvider>
-      </ClerkProvider>
+      <PostHogProvider 
+        apiKey={posthogApiKey} 
+        options={{
+          host: posthogHost,
+        }}
+      >
+        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+          <ProgressProvider>
+            <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="landing" options={{ headerShown: false }} />
+                <Stack.Screen name="era-selection" options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+              <StatusBar style="auto" />
+            </ThemeProvider>
+          </ProgressProvider>
+        </ClerkProvider>
+      </PostHogProvider>
     </GestureHandlerRootView>
   );
 }

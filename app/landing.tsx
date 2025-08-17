@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -23,6 +24,7 @@ export default function LandingPage() {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const router = useRouter();
   const { isSignedIn } = useAuth();
+  const { trackScreenView, trackAppOpened, trackVideoPlayed } = useAnalytics();
 
   console.log("LandingPage - Component loaded, isSignedIn:", isSignedIn);
 
@@ -36,6 +38,12 @@ export default function LandingPage() {
     }
   );
 
+  // Track screen view and app opened when component mounts
+  useEffect(() => {
+    trackScreenView('Landing Page');
+    trackAppOpened();
+  }, [trackScreenView, trackAppOpened]);
+
   // If already signed in, redirect to era selection
   useEffect(() => {
     if (isSignedIn) {
@@ -44,12 +52,13 @@ export default function LandingPage() {
     }
   }, [isSignedIn, router]);
 
-  // Handle video loading state
+  // Handle video loading state and track video play
   useEffect(() => {
     console.log("LandingPage - Setting video as loaded");
+    trackVideoPlayed("archives_intro.mp4");
     // Set video as loaded immediately since expo-video handles loading internally
     setVideoLoaded(true);
-  }, []);
+  }, [trackVideoPlayed]);
 
   const handleGetStarted = () => {
     router.push("/archives-auth?mode=signup");

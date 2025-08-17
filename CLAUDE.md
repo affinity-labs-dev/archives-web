@@ -62,6 +62,7 @@ context/
 └── ProgressContext.tsx # Global state management for progress tracking
 
 hooks/
+├── useAnalytics.ts        # PostHog analytics integration with educational events
 ├── useBackgroundMusic.tsx # Audio system for immersive experience
 ├── useColorScheme.ts      # Theme color scheme handling
 └── useThemeColor.ts       # Color theme utilities
@@ -175,6 +176,7 @@ assets/
 
 #### Key Dependencies Understanding
 - **@clerk/clerk-expo**: Authentication with token persistence
+- **posthog-react-native**: User analytics and event tracking
 - **expo-av**: Video/audio playback for educational content
 - **expo-haptics**: Tactile feedback for interactions
 - **@react-native-async-storage/async-storage**: Progress data persistence
@@ -187,9 +189,14 @@ assets/
 #### Required Environment Variables
 ```bash
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_... # Clerk authentication key
+
 # Optional Supabase variables (for future database integration)
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# PostHog Analytics Configuration
+EXPO_PUBLIC_POSTHOG_API_KEY=phc_your_api_key_here # PostHog analytics key
+EXPO_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com # PostHog host (EU or US)
 ```
 
 #### Platform Configuration
@@ -226,11 +233,20 @@ All educational content follows a strict SwiftUI-to-React Native migration patte
 - **Adventure 3**: Complete (North African expansion, Kairouan, Iberian conquest, Battle of Tours)
 - **Adventures 4-5**: Planned future content (content structure ready, implementation pending)
 
-### Future Integration Plans
+### Analytics & Data Integration
+- **PostHog Analytics**: Complete user tracking and educational event analytics (implemented)
+  - User identification via Clerk integration
+  - Educational progress tracking (lessons, quizzes, modules)
+  - Video/audio engagement metrics
+  - Screen navigation and app lifecycle events
+  - Error tracking and debugging
 - **Supabase Database**: Cross-device progress synchronization (setup guide in `supabase-setup.md`)
-- **Analytics**: User engagement and learning analytics through Supabase
 - **Background Music**: Audio system for immersive experience (partially implemented via `useBackgroundMusic` hook)
+
+### Future Enhancement Plans
 - **Push Notifications**: Course reminders and achievement notifications
+- **Advanced Analytics**: Custom PostHog dashboards for educational insights
+- **A/B Testing**: PostHog feature flags for content optimization
 
 ### Additional Tools & Configuration
 - **stagewise.json**: Development tool configuration (port: 3100, appPort: 8081)

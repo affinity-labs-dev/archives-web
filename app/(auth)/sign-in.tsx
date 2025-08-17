@@ -3,14 +3,21 @@ import { Link, useRouter } from 'expo-router'
 import { Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native'
 import React from 'react'
 import { AppleSignInButton } from '@/components/AppleSignInButton'
+import { useAnalytics } from '@/hooks/useAnalytics'
 
 export default function Page() {
   const { signIn, setActive, isLoaded } = useSignIn()
   const router = useRouter()
+  const { identifyUser, trackScreenView } = useAnalytics()
 
   const [emailAddress, setEmailAddress] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [error, setError] = React.useState('')
+
+  // Track screen view when component mounts
+  React.useEffect(() => {
+    trackScreenView('Sign In Page')
+  }, [trackScreenView])
 
   // Handle the submission of the sign-in form
   const onSignInPress = async () => {
@@ -39,6 +46,8 @@ export default function Page() {
       // and redirect the user
       if (signInAttempt.status === 'complete') {
         await setActive({ session: signInAttempt.createdSessionId })
+        // Identify user for analytics
+        identifyUser()
         router.replace('/')
       } else {
         // If the status isn't complete, check why. User might need to
