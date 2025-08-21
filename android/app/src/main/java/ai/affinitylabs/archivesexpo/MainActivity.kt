@@ -1,4 +1,4 @@
-package com.anonymous.auth
+package ai.affinitylabs.archivesexpo
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

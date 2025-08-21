@@ -1,17 +1,19 @@
 {
   "expo": {
-    "name": "auth",
-    "slug": "auth",
+    "name": "Archives",
+    "slug": "archives",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "auth",
+    "icon": "./assets/images/app-icon.png",
+    "scheme": "archives",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "bundleIdentifier": "com.anonymous.auth"
+      "bundleIdentifier": "ai.affinitylabs.archivesexpo",
+      "appleTeamId": "L33CVM28SL",
+      "buildNumber": "6"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,12 +21,26 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.auth"
+      "package": "ai.affinitylabs.archivesexpo",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "build": {
+        "babel": {
+          "include": [
+            "@react-native-async-storage/async-storage",
+            "posthog-react-native"
+          ]
+        }
+      }
     },
     "plugins": [
       "expo-router",
@@ -37,14 +53,25 @@
           "backgroundColor": "#ffffff"
         }
       ],
+      "expo-localization",
       "expo-video",
-      "expo-localization"
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "assetBundlePatterns": [
       "**/*"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4f1f4bc4-0ced-48f3-b712-178b54175088"
+      }
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/4f1f4bc4-0ced-48f3-b712-178b54175088"
+    }
   }
 }

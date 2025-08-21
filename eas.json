@@ -1,0 +1,54 @@
+{
+  "cli": {
+    "version": ">= 0.34.0"
+  },
+  "build": {
+    "base": {
+      "node": "18.18.0",
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_d2VsY29tZWQtZmxlYS05OS5jbGVyay5hY2NvdW50cy5kZXYk",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kcgihainlnntshupiztu.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ2loYWlubG5udHNodXBpenR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODMzNzMsImV4cCI6MjA3MDI1OTM3M30.hyZB28wO88jiCh30PoLCDGt8MvsmaLjsl96a56xpyJk",
+        "EXPO_PUBLIC_POSTHOG_API_KEY": "phc_7tSzdXUrEZ1OEEsgeJcpvQHdgt3XT6AdXnmvmpUbCMI",
+        "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com",
+        "EXPO_NO_CAPABILITY_SYNC": "1"
+      }
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "resourceClass": "medium"
+      }
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "resourceClass": "medium"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "distribution": "store",
+      "channel": "production",
+      "ios": {
+        "autoIncrement": "buildNumber",
+        "resourceClass": "medium"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "sunnypanchal99@icloud.com",
+        "ascAppId": "6751173663",
+        "appleTeamId": "L33CVM28SL",
+        "sku": "ARCHIVES-EXPO-2025"
+      }
+    }
+  }
+}

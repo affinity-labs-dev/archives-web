@@ -12,8 +12,10 @@ import {
   SafeAreaView,
   Dimensions,
   Image,
+  Platform,
+  Animated,
 } from 'react-native'
-import { Video, ResizeMode } from 'expo-av'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
@@ -77,56 +79,137 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
   const [showModuleModal, setShowModuleModal] = useState(false) // Modal visibility state
   const [selectedAdventureId, setSelectedAdventureId] = useState<number | null>(null) // For adventure detail modal
   const [showAdventureModal, setShowAdventureModal] = useState(false) // Adventure modal visibility state
-  const videoRef = useRef<Video>(null)
+  
+  // Bouncing animation for first module (new user guidance)
+  const bounceY = useRef(new Animated.Value(0)).current // Vertical bounce animation
+  const [shouldShowBounce, setShouldShowBounce] = useState(false)
+  // Create video player with expo-video
+  const player = useVideoPlayer(require('@/assets/videos/adventures/UmmayadDynastyintro.mp4'), player => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
   const { 
     getAdventureProgress, 
     isModuleUnlocked,
     getModuleProgress,
-    setSelectedEra
+    setSelectedEra,
+    moduleProgress, // Add direct access to moduleProgress state for re-render triggers
+    getModuleStarCount // NEW: Clean star count function
   } = useProgress()
+
+
+  // Check if we should show the bouncing animation (first module not completed)
+  useEffect(() => {
+    const firstModuleProgress = getModuleProgress(1, 1) // Adventure 1, Module 1
+    const isFirstModuleCompleted = firstModuleProgress?.isCompleted || false
+    
+    console.log('🎯 First module bounce check:', {
+      firstModuleProgress,
+      isCompleted: isFirstModuleCompleted,
+      shouldShowBounce: !isFirstModuleCompleted
+    })
+    
+    // Only show bounce if first module is not completed
+    setShouldShowBounce(!isFirstModuleCompleted)
+    
+    // Stop bounce animation if module gets completed
+    if (isFirstModuleCompleted && shouldShowBounce) {
+      console.log('🎯 First module completed - stopping bounce animation')
+      setShouldShowBounce(false)
+    }
+  }, [getModuleProgress, shouldShowBounce])
+
+  // Start bouncing animation when shouldShowBounce is true
+  useEffect(() => {
+    if (shouldShowBounce) {
+      console.log('🎯 Starting real bounce animation for first module guidance')
+      
+      const bounceSequence = Animated.sequence([
+        // Quick upward movement (like jumping up)
+        Animated.timing(bounceY, {
+          toValue: -15, // Move up 15 pixels
+          duration: 400, // Faster upward movement
+          useNativeDriver: true,
+        }),
+        // Slower downward movement (gravity effect)
+        Animated.timing(bounceY, {
+          toValue: 0, // Return to original position
+          duration: 600, // Slower downward movement for realistic physics
+          useNativeDriver: true,
+        }),
+      ])
+
+      const loopAnimation = Animated.loop(bounceSequence, {
+        iterations: -1, // Infinite loop
+      })
+
+      loopAnimation.start()
+
+      return () => {
+        loopAnimation.stop()
+      }
+    } else {
+      // Reset animation when not needed
+      bounceY.setValue(0)
+    }
+  }, [shouldShowBounce, bounceY])
 
   // Set selected era on mount
   useEffect(() => {
     setSelectedEra('umayyad')
   }, [setSelectedEra])
 
-  // Handle video playback based on screen focus
+  // Force component re-render when moduleProgress changes (critical for star updates)
+  useEffect(() => {
+    // This effect runs whenever moduleProgress changes, forcing icon re-renders
+    // No additional logic needed - just having this dependency triggers re-renders
+  }, [moduleProgress])
+
+  // Handle video playback based on screen focus - Simple approach
   useFocusEffect(
     React.useCallback(() => {
       // Start playing when screen is focused
-      if (videoRef.current) {
-        videoRef.current.playAsync()
-        setIsVideoPlaying(true)
+      try {
+        if (player) {
+          player.play();
+          setIsVideoPlaying(true);
+        }
+      } catch (error) {
+        console.warn('Failed to play video on focus:', error);
       }
 
       return () => {
-        // Stop playing when screen loses focus
-        if (videoRef.current) {
-          videoRef.current.pauseAsync()
-          setIsVideoPlaying(false)
+        // Pause when screen loses focus
+        try {
+          if (player) {
+            player.pause();
+            setIsVideoPlaying(false);
+          }
+        } catch (error) {
+          console.warn('Failed to pause video on blur:', error);
         }
-      }
-    }, [])
+      };
+    }, [player])
   )
 
-  const handleVideoPress = async () => {
-    if (videoRef.current) {
-      const status = await videoRef.current.getStatusAsync()
-      if (status.isLoaded) {
+  const handleVideoPress = () => {
+    try {
+      if (player) {
         if (isVideoPlaying) {
-          await videoRef.current.pauseAsync()
+          player.pause();
         } else {
-          await videoRef.current.playAsync()
+          player.play();
         }
-        setIsVideoPlaying(!isVideoPlaying)
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        setIsVideoPlaying(!isVideoPlaying);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
+    } catch (error) {
+      console.warn('Video toggle failed:', error);
     }
   }
 
   const handleAdventurePress = (adventureId: number) => {
-    console.log(`🚀 DEBUG: Adventure header tapped - adventureId: ${adventureId}`)
-    console.log('🚀 DEBUG: Opening adventure detail modal')
     setSelectedAdventureId(adventureId)
     setShowAdventureModal(true)
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
@@ -137,8 +220,12 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
     const adventureId = parseInt(moduleId.split('_')[0].replace('adv', ''))
     const modId = parseInt(moduleId.split('_')[1].replace('mod', ''))
     
-    console.log('🚀 DEBUG: Adventure Icon tapped - moduleID:', moduleId)
-    console.log('🚀 DEBUG: Setting selectedModuleId to trigger ModuleModal')
+    
+    // Stop bounce animation when first module is tapped (immediate user feedback)
+    if (moduleId === 'adv1_mod1' && shouldShowBounce) {
+      console.log('🎯 First module tapped - stopping bounce animation')
+      setShouldShowBounce(false)
+    }
     
     // Check if module is unlocked
     if (!isModuleUnlocked(adventureId, modId)) {
@@ -159,6 +246,17 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
     const isUnlocked = isModuleUnlocked(adventureId, moduleId)
     const moduleProgress = getModuleProgress(adventureId, moduleId)
     const isCompleted = moduleProgress?.isCompleted || false
+    
+    // INTENSIVE DEBUG FOR ADV1 MOD3 LOOKUP
+    if (adventureId === 1 && moduleId === 3) {
+      console.log(`🚨 iconPosition.id:`, iconPosition.id)
+      console.log(`🚨 adventureId parsed:`, adventureId)
+      console.log(`🚨 moduleId parsed:`, moduleId)
+      console.log(`🚨 getModuleProgress(${adventureId}, ${moduleId}) returned:`, JSON.stringify(moduleProgress, null, 2))
+      console.log(`🚨 moduleProgress is null/undefined:`, moduleProgress === null || moduleProgress === undefined)
+    }
+    const isFirstModule = iconPosition.id === 'adv1_mod1'
+    const showBounceForThisIcon = isFirstModule && shouldShowBounce && isUnlocked
 
     // Better positioning calculations
     const mapWidth = screenWidth - 40 // Account for padding
@@ -166,9 +264,15 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
     const iconX = iconPosition.x * mapWidth
     const iconY = iconPosition.y * mapHeight
 
-    console.log(`🚀 DEBUG: Rendering icon ${iconPosition.id} at (${iconX}, ${iconY})`)
-    console.log(`🚀 DEBUG: Module state - unlocked: ${isUnlocked}, completed: ${isCompleted}`)
-    console.log(`🚀 DEBUG: Module progress:`, moduleProgress)
+    
+    if (showBounceForThisIcon) {
+      console.log('🎯 Rendering first module with bounce animation')
+    }
+
+    const IconContainer = showBounceForThisIcon ? Animated.View : View
+    const iconContainerStyle = showBounceForThisIcon 
+      ? [styles.moduleIconContainer, { transform: [{ translateY: bounceY }] }]
+      : styles.moduleIconContainer
 
     return (
       <TouchableOpacity
@@ -183,8 +287,8 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
         onPress={() => handleModulePress(iconPosition.id)}
         disabled={!isUnlocked}
       >
-        {/* Era 1 Icon with proper container and shadow */}
-        <View style={styles.moduleIconContainer}>
+        {/* Era 1 Icon with proper container and shadow - with conditional bounce animation */}
+        <IconContainer style={iconContainerStyle}>
           <Image 
             source={isUnlocked 
               ? require('@/assets/images/icons/Era 1 Icon.png')
@@ -192,18 +296,20 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
             }
             style={styles.moduleIconImage}
             onError={(error) => {
-              console.log('🚀 DEBUG: Module icon failed to load:', error.nativeEvent.error)
             }}
             onLoad={() => {
-              console.log('🚀 DEBUG: Era 1 Icon loaded successfully')
             }}
           />
           
-          {/* Star rating for quiz performance - show for all completed modules */}
+          {/* Star rating for quiz performance - NEW CLEAN LOGIC */}
           {moduleProgress?.quizCompleted && (() => {
-            // Calculate star rating based on quiz score (assuming moduleProgress has quizScore)
-            const quizScore = moduleProgress.quizScore || 1 // Default to 1 if no score stored
-            const starCount = quizScore === 1 ? 1 : quizScore <= 3 ? 2 : 3
+            // Extract adventure and module IDs from iconPosition.id (e.g., "adv1_mod3")
+            const [, adventureStr, moduleStr] = iconPosition.id.match(/adv(\d+)_mod(\d+)/) || []
+            const adventureId = parseInt(adventureStr)
+            const moduleId = parseInt(moduleStr)
+            
+            // Use the new clean star count function
+            const starCount = getModuleStarCount(adventureId, moduleId)
             
             return (
               <View style={styles.starRating}>
@@ -229,7 +335,7 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
             )
           })()}
 
-        </View>
+        </IconContainer>
       </TouchableOpacity>
     )
   }
@@ -293,10 +399,8 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
             source={adventure.mapImage} 
             style={styles.adventureMapImage}
             onError={(error) => {
-              console.log('🚀 DEBUG: Adventure map failed to load:', error.nativeEvent.error)
             }}
             onLoad={() => {
-              console.log('🚀 DEBUG: Adventure map loaded successfully')
             }}
           />
           
@@ -319,15 +423,13 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
         <View style={styles.mainContainer}>
           {/* Video Player Section - Always playing, no controls */}
           <View style={styles.videoSection}>
-            <Video
-              ref={videoRef}
+            <VideoView
+              player={player}
               style={styles.video}
-              source={require('@/assets/videos/adventures/UmmayadDynastyintro.mp4')}
-              shouldPlay={true}
-              isLooping={true}
-              isMuted={true}
-              resizeMode={ResizeMode.COVER}
-              useNativeControls={false}
+              contentFit="cover"
+              nativeControls={false}
+              allowsFullscreen={false}
+              allowsPictureInPicture={false}
             />
             
             {/* Dark overlay for better text readability - EXACT SwiftUI */}
@@ -373,7 +475,6 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
         isVisible={showModuleModal}
         moduleId={selectedModuleId}
         onDismiss={() => {
-          console.log('🚀 DEBUG: ModuleModal dismissed - clearing selectedModuleId')
           setSelectedModuleId(null)
           setShowModuleModal(false)
           // Progress sync will be handled by ModuleModal through ProgressContext
@@ -385,7 +486,6 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
         isVisible={showAdventureModal}
         adventureId={selectedAdventureId}
         onDismiss={() => {
-          console.log('🚀 DEBUG: AdventureDetailModal dismissed - clearing selectedAdventureId')
           setSelectedAdventureId(null)
           setShowAdventureModal(false)
         }}
@@ -552,6 +652,12 @@ const styles = StyleSheet.create({
     marginLeft: -40, // Half width to center
     marginTop: -40, // Half height to center
     zIndex: 10, // Ensure icons appear above map overlay
+    // Web-specific fix: ensure TouchableOpacity has no default styling
+    ...(Platform.OS === 'web' && {
+      backgroundColor: 'transparent',
+      border: 'none',
+      outline: 'none',
+    }),
   },
   moduleIconContainer: {
     width: 80, // EXACT SwiftUI: iconSize CGSize(width: 80, height: 80)
@@ -565,6 +671,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
     backgroundColor: 'transparent', // Ensure transparent background
+    // Web-specific fix: disable shadows that might create square boxes
+    ...(Platform.OS === 'web' && {
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      boxShadow: 'none',
+    }),
   },
   moduleIconImage: {
     width: 80,

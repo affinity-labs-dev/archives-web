@@ -1,7 +1,8 @@
 // useBackgroundMusic.tsx - Custom hook for background music management
 // Handles audio lifecycle, looping, and cleanup for lesson experiences
+// Migrated to expo-audio (modern API)
 
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
+import { useAudioPlayer, AudioSource } from "expo-audio";
 import { useEffect, useRef, useState } from "react";
 
 interface UseBackgroundMusicOptions {
@@ -12,7 +13,7 @@ interface UseBackgroundMusicOptions {
 }
 
 export const useBackgroundMusic = (
-  audioSource: any, // require() audio source
+  audioSource: AudioSource, // Audio source for expo-audio
   options: UseBackgroundMusicOptions = {}
 ) => {
   const {
@@ -22,66 +23,52 @@ export const useBackgroundMusic = (
     fadeOutDuration = 1000,
   } = options;
 
-  const soundRef = useRef<Audio.Sound | null>(null);
+  // Create audio player with expo-audio
+  const player = useAudioPlayer(audioSource, {
+    loop: shouldLoop,
+    volume: 0, // Start at 0 for fade-in effect
+  });
+
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Configure audio session for background music
+  // Listen for player status changes
   useEffect(() => {
-    const configureAudioSession = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          staysActiveInBackground: false, // Don't play when app is backgrounded
-          interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
-          playsInSilentModeIOS: false, // Respect silent mode
-          shouldDuckAndroid: true, // Lower volume when other apps play audio
-          interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-          playThroughEarpieceAndroid: false,
-        });
-        console.log("🎵 Audio session configured for background music");
-      } catch (error) {
-        console.error("🎵 Failed to configure audio session:", error);
+    const subscription = player.addListener('statusChange', (status) => {
+      console.log("🎵 Player status changed:", status);
+      if (status === 'readyToPlay' && !isLoaded) {
+        setIsLoaded(true);
+        setIsLoading(false);
+        console.log("🎵 Background music loaded successfully");
+      } else if (status === 'error') {
+        setIsLoading(false);
+        console.error("🎵 Background music failed to load");
       }
+    });
+
+    return () => {
+      subscription?.remove();
     };
+  }, [player, isLoaded]);
 
-    configureAudioSession();
-  }, []);
-
-  // Load and prepare audio
+  // Load audio (handled automatically by expo-audio)
   const loadAudio = async () => {
     if (isLoading || isLoaded || !audioSource) return;
-
     setIsLoading(true);
     console.log("🎵 Loading background music...");
-
-    try {
-      const { sound } = await Audio.Sound.createAsync(audioSource, {
-        shouldPlay: false,
-        isLooping: shouldLoop,
-        volume: 0, // Start at 0 for fade-in effect
-      });
-
-      soundRef.current = sound;
-      setIsLoaded(true);
-      setIsLoading(false);
-      console.log("🎵 Background music loaded successfully");
-    } catch (error) {
-      console.error("🎵 Failed to load background music:", error);
-      setIsLoading(false);
-    }
+    // expo-audio handles loading automatically
   };
 
   // Start playing with fade-in
   const play = async () => {
-    if (!soundRef.current || isPlaying) return;
+    if (!player || isPlaying) return;
 
     try {
       console.log("🎵 Starting background music with fade-in");
-      await soundRef.current.setVolumeAsync(0);
-      await soundRef.current.playAsync();
+      player.volume = 0;
+      player.play();
       setIsPlaying(true);
 
       // Fade in
@@ -94,8 +81,8 @@ export const useBackgroundMusic = (
           fadeTimeoutRef.current = setTimeout(resolve, stepDuration);
         });
 
-        if (soundRef.current && isPlaying) {
-          await soundRef.current.setVolumeAsync(i * volumeIncrement);
+        if (player && isPlaying) {
+          player.volume = i * volumeIncrement;
         }
       }
     } catch (error) {
@@ -106,7 +93,7 @@ export const useBackgroundMusic = (
 
   // Stop playing with fade-out
   const stop = async () => {
-    if (!soundRef.current || !isPlaying) return;
+    if (!player || !isPlaying) return;
 
     try {
       console.log("🎵 Stopping background music with fade-out");
@@ -123,8 +110,8 @@ export const useBackgroundMusic = (
       const volumeDecrement = currentVolume / fadeSteps;
 
       for (let i = fadeSteps; i >= 0; i--) {
-        if (soundRef.current) {
-          await soundRef.current.setVolumeAsync(i * volumeDecrement);
+        if (player) {
+          player.volume = i * volumeDecrement;
         }
 
         if (i > 0) {
@@ -134,8 +121,8 @@ export const useBackgroundMusic = (
         }
       }
 
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
+      if (player) {
+        player.pause();
       }
       setIsPlaying(false);
     } catch (error) {
@@ -145,12 +132,10 @@ export const useBackgroundMusic = (
 
   // Set volume
   const setVolume = async (newVolume: number) => {
-    if (!soundRef.current) return;
+    if (!player) return;
 
     try {
-      await soundRef.current.setVolumeAsync(
-        Math.max(0, Math.min(1, newVolume))
-      );
+      player.volume = Math.max(0, Math.min(1, newVolume));
     } catch (error) {
       console.error("🎵 Failed to set volume:", error);
     }
@@ -159,25 +144,19 @@ export const useBackgroundMusic = (
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log("🎵 Cleaning up background music");
-
       if (fadeTimeoutRef.current) {
         clearTimeout(fadeTimeoutRef.current);
       }
 
-      if (soundRef.current) {
-        soundRef.current
-          .stopAsync()
-          .then(() => {
-            soundRef.current?.unloadAsync();
-            soundRef.current = null;
-          })
-          .catch((error) => {
-            console.error("🎵 Error during cleanup:", error);
-          });
+      try {
+        if (player && typeof player.pause === 'function') {
+          player.pause();
+        }
+      } catch (error) {
+        // Silently handle audio cleanup errors - expected during component unmount
       }
     };
-  }, []);
+  }, [player]);
 
   // Auto-load audio when hook is used
   useEffect(() => {

@@ -35,7 +35,7 @@ export default function Adventure2_Module1_Lesson2({
   onDismiss,
   onBack,
 }: Adventure2_Module1_Lesson2Props) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
@@ -53,12 +53,15 @@ export default function Adventure2_Module1_Lesson2({
   
   // Animated value for smooth progress bar
   const progressBarWidth = useRef(new Animated.Value(0)).current;
+  
+  // Track last progress to prevent unnecessary animations
+  const lastProgress = useRef(0);
 
 
 
 
   // EXACT historical text content
-  const historicalText = `Switching languages wasn't easy - some governors pushed back, worried about losing power or slowing down the system. But soon, schools began teaching Arabic to new scribes, and the diwan (government office) became fully Arabized. This wasn't just a change in paperwork - it marked the beginning of Arabic as the heart of law, trade, and empire-building across the Islamic world.`;
+  const historicalText = `Switching to Arabic was not simple. Some governors resisted, afraid it would upset their control or slow the work of government. Soon, though, new scribes were trained in Arabic, and the diwān, or government office, fully adopted it. This was more than a change in paperwork, as Arabic grew into the shared language of law, trade, and empire across the Islamic world.`;
 
   // Handle video playback status and track progress
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
@@ -75,8 +78,18 @@ export default function Adventure2_Module1_Lesson2({
         const progress = status.positionMillis / status.durationMillis;
         setVideoProgress(progress);
         
-        // Update progress bar smoothly - direct setValue for continuous progress
-        progressBarWidth.setValue(progress);
+        // Only animate if progress changed significantly (prevents micro-animations)
+        const progressDiff = Math.abs(progress - lastProgress.current);
+        if (progressDiff > 0.0005) { // More sensitive threshold for ultra-smooth updates
+          lastProgress.current = progress;
+          
+          // Ultra-smooth progress bar animation
+          Animated.timing(progressBarWidth, {
+            toValue: progress,
+            duration: 50, // Very short animation for silky smooth transitions
+            useNativeDriver: false, // Width animations require native driver false
+          }).start();
+        }
         
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
@@ -108,10 +121,7 @@ export default function Adventure2_Module1_Lesson2({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Toggle play/pause
-  const handleTogglePlayback = () => {
-    setIsPlaying(!isPlaying);
-  };
+  // Removed handleTogglePlayback - now handled directly by LessonPlayer
 
   // Continue button handler - only works if reading is finished
   const handleContinue = () => {
@@ -230,9 +240,7 @@ export default function Adventure2_Module1_Lesson2({
         {/* Full-screen video player */}
         <LessonPlayer
           videoSource={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel+Videos/Adv2_M1_Reel1.mp4" }}
-          isPlaying={isPlaying}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          onTogglePlayback={handleTogglePlayback}
           autoPlay={true}
           shouldLoop={true}
         />
@@ -310,7 +318,7 @@ export default function Adventure2_Module1_Lesson2({
                   The Umayyad Administrative Revolution
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  Switching languages wasn&apos;t easy - some governors...
+                  Switching to Arabic was not simple. Some governors resisted...
                 </Text>
               </View>
             </Animated.View>
@@ -352,16 +360,16 @@ export default function Adventure2_Module1_Lesson2({
                       <Text style={styles.sectionTitle}>Key Terms</Text>
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
-                          term="Diwan"
-                          definition="Government office or administrative department in the Islamic empire"
+                          term="Diw\u0101n"
+                          definition="Government office that fully adopted Arabic as its working language"
                         />
                         <KeyTermRow
-                          term="Arabization"
-                          definition="The process of making Arabic as the official language of administration"
+                          term="Governor Resistance"
+                          definition="Some governors opposed the Arabic switch, fearing loss of control"
                         />
                         <KeyTermRow
-                          term="Hijri Calendar"
-                          definition="Islamic calendar system marking time from the Prophet's migration to Medina"
+                          term="Scribe Training"
+                          definition="New scribes were trained in Arabic to staff the changing government offices"
                         />
                       </View>
                     </View>

@@ -103,13 +103,11 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
     { text: "Jordan", isUsed: false }
   ])
 
-  const { updateModuleProgress } = useProgress()
+  const { atomicProgressUpdate, canRetakeModule } = useProgress()
 
-  console.log('🚀 DEBUG: Adventure1_Module1_Quiz appeared')
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
-    console.log('🚀 DEBUG: Quiz submit pressed for question', currentQuestionIndex + 1)
     
     // Store the user's answer - All questions are MCQ now
     const newUserAnswers = [...userAnswers]
@@ -173,22 +171,27 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
     resetCurrentQuestion()
   }
 
-  // Handle quiz completion and return to adventure - EXACT SwiftUI: onGoToAdventure
-  const handleGoToAdventure = () => {
-    console.log('🚀 DEBUG: Go to Adventure button pressed in Adventure1_Module1_Quiz')
-    console.log('🚀 DEBUG: Setting adv1_mod1 completion to true')
+  // Handle quiz completion - NEW ATOMIC SYSTEM
+  const handleQuizCompletion = async () => {
+    console.log('🚀 Quiz completion: Adventure 1 Module 1')
     
-    // Mark module as completed - EXACT SwiftUI: UserDefaults.standard.set(true, forKey: "adv1_mod1")
-    updateModuleProgress(1, 1, {
-      lessonsCompleted: ['lesson1', 'lesson2'],
-      isCompleted: true, // Module completed when quiz passed
-      quizCompleted: true,
-      quizScore: correctAnswers // Store the number of correct answers for star rating
-    })
-    
-    console.log('🚀 DEBUG: Module progress updated, calling onDismiss to return to Era')
-    console.log('🚀 DEBUG: Should return to UmmayadDynastyEra with adventure map visible')
-    onDismiss()
+    try {
+      const isRetake = canRetakeModule(1, 1)
+      
+      // Use atomic progress update
+      await atomicProgressUpdate(1, 1, {
+        type: isRetake ? 'QUIZ_RETAKEN' : 'QUIZ_COMPLETED',
+        quizScore: correctAnswers,
+        quizCorrectAnswers: correctAnswers
+      })
+      
+      console.log('✅ Quiz progress saved successfully')
+      onDismiss()
+    } catch (error) {
+      console.error('❌ Failed to save quiz progress:', error)
+      // Still dismiss to prevent user being stuck
+      onDismiss()
+    }
   }
 
   // Fill-in-blank option selection
@@ -241,7 +244,7 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
       totalQuestions={5}
       totalPoints={totalPoints}
       onRetake={resetQuiz}
-      onGoToAdventure={handleGoToAdventure}
+      onGoToAdventure={handleQuizCompletion}
       onBack={onDismiss}
     />
   }

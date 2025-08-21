@@ -41,11 +41,10 @@ export default function Adventure2_Module2_Lesson2({
   const videoRef = useRef<Video>(null)
 
   // EXACT SwiftUI text content
-  const imageText = `In markets like this one in Damascus, trust began with the scale. Merchants weighed gold dinars to make sure every coin matched the official standard. Thanks to Arabic inscriptions, buyers could read for themselves and know the money was real. This simple act of weighing built fairness across cities, from Basra to Kairouan.`
+  const imageText = `In the markets of Damascus, merchants weighed gold dinars to be sure they matched the official weight of 4.25 grams. The Arabic writing on each coin let buyers confirm its value without relying only on the seller. From Basra to Tunis, this shared standard made trade smoother and built trust across the empire.`
 
-  const videoText = `Thanks to Caliph Abd al-Malik's reforms, every dinar and dirham had the same weight and Arabic markings - no matter where it came from. People trusted their money because it looked and felt the same everywhere. This made buying, selling, and trading smoother - and gave faraway markets a shared sense of fairness.`
+  const videoText = `Caliph Abd al-Malik's reforms made every dinar and dirham the same weight and marked with Arabic, no matter where they were minted. A coin from Damascus matched one from Damascus or Egypt, so people trusted that their money was fair. This consistency made trade easier and gave distant markets a shared system they could rely on.`
 
-  console.log('🚀 DEBUG: Adventure2_Module2_Lesson2 rendered')
 
   useEffect(() => {
     // EXACT SwiftUI: withAnimation(.easeOut(duration: 0.8))
@@ -70,7 +69,6 @@ export default function Adventure2_Module2_Lesson2({
   }
 
   const handleContinue = () => {
-    console.log('🚀 DEBUG: Continue pressed in Adventure2_Module2_Lesson2')
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     onContinue()
   }

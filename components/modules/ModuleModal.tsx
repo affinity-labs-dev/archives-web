@@ -71,7 +71,6 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
   // Reset to lesson1 when modal opens with new module
   useEffect(() => {
     if (isVisible && moduleId) {
-      console.log('🚀 DEBUG: ModuleModal opened with moduleID:', moduleId)
       setCurrentStep('lesson1')
     }
   }, [isVisible, moduleId])
@@ -95,7 +94,6 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
 
   // Navigation handlers - EXACT SwiftUI flow
   const handleLessonComplete = (lessonId: string) => {
-    console.log('🚀 DEBUG: Lesson completed:', lessonId)
     
     if (moduleId) {
       const adventureId = parseInt(moduleId.split('_')[0].replace('adv', ''))
@@ -118,7 +116,6 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
 
   // Back navigation handler - navigate backward through steps
   const handleGoBack = () => {
-    console.log('🚀 DEBUG: Going back from:', currentStep)
     
     if (currentStep === 'quiz') {
       setCurrentStep('lesson2')
@@ -130,7 +127,6 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
 
   // Modal dismiss handler - EXACT SwiftUI behavior
   const handleModalDismiss = () => {
-    console.log('🚀 DEBUG: ModuleModal handleModalDismiss called')
     setCurrentStep('lesson1') // Reset for next time
     onDismiss()
   }
@@ -212,6 +208,7 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
             <Adventure1_Module3_Lesson2 
               onContinue={() => handleLessonComplete('lesson2')}
               onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
             />
           )
         case 'quiz':

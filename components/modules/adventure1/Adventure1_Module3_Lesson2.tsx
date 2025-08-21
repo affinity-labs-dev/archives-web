@@ -4,10 +4,11 @@
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Audio } from 'expo-av';
+import { useEvent } from 'expo';
 import { Ionicons } from "@expo/vector-icons";
-import { AVPlaybackStatus, ResizeMode, Video } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   Animated,
   Dimensions,
@@ -45,31 +46,31 @@ const mediaContents: MediaContent[] = [
     id: 1,
     videoUrl: "https://dzyjrzj2lngmg.cloudfront.net/carouselvideos/Adv1_M3_Media2_Video1.mp4",
     caption:
-      "Dawn over Umayyad Damascus: golden rooftops, rising minarets, and the Barada flowing as the city stirs to life",
+      "Damascus Thrives on the Barada river, it water powering farms, markets, and daily life in the new capital",
   },
   {
     id: 2,
     videoUrl: "https://dzyjrzj2lngmg.cloudfront.net/carouselvideos/Adv1_M3_Media2_Video2.mp4",
     caption:
-      "In a Damascus workshop, artisans shape fire into beauty - glass lamps glowing with the colors of a rising empire.",
+      "Damascus was famous for glassmaking, a skill adopted from the Sasanian Persians and exported across the empire",
   },
   {
     id: 3,
     videoUrl: "https://dzyjrzj2lngmg.cloudfront.net/carouselvideos/Adv1_M3_Media2_Video3.mp4",
     caption:
-      "Afternoon in Umayyad Damascus: a Damascene watches as traders from across empires fill the streets with color, language, and life",
+      "Merchants from Byzantium, Persia, and Arabia crowded markets, trading silk, spices, and knowledge",
   },
   {
     id: 4,
     videoUrl: "https://dzyjrzj2lngmg.cloudfront.net/carouselvideos/Adv1_M3_Media2_Video4.mp4",
     caption:
-      "Umayyad Damascus: bustling traders, vigilant guards, and calligraphy-covered gates welcome the world through dust and sunlight.",
+      "In tea houses, scholars debated ideas - like al Battani's discovery that a year is 365 days and 5 hours - more accurate than the Roman calendar.",
   },
   {
     id: 5,
     videoUrl: "https://dzyjrzj2lngmg.cloudfront.net/carouselvideos/Adv1_M3_Media2_Video5.mp4",
     caption:
-      "Evening in Damascus: as shadows grow long, the call to prayer echoes across the empire's beating heart.",
+      "Damascus had seven gates, like Bab al-Saghir and Bab al-Faradis, each opening to trade routes.",
   },
 ];
 
@@ -82,28 +83,58 @@ export default function Adventure1_Module3_Lesson2({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [videoProgress, setVideoProgress] = useState<number[]>([0, 0, 0, 0, 0]);
-  const [isVideoLoaded, setIsVideoLoaded] = useState<boolean[]>([
-    false,
-    false,
-    false,
-    false,
-    false,
-  ]);
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const videoRefs = useRef<Video[]>([]);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
+  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
+
+  // Create video players for each media content with proper setup
+  const videoPlayer1 = useVideoPlayer(mediaContents[0].videoUrl, player => {
+    player.loop = true;
+    player.muted = false;
+    console.log(`🎬 Video player 0 created for URL: ${mediaContents[0].videoUrl}`);
+  });
+  const videoPlayer2 = useVideoPlayer(mediaContents[1].videoUrl, player => {
+    player.loop = true;
+    player.muted = false;
+    console.log(`🎬 Video player 1 created for URL: ${mediaContents[1].videoUrl}`);
+  });
+  const videoPlayer3 = useVideoPlayer(mediaContents[2].videoUrl, player => {
+    player.loop = true;
+    player.muted = false;
+    console.log(`🎬 Video player 2 created for URL: ${mediaContents[2].videoUrl}`);
+  });
+  const videoPlayer4 = useVideoPlayer(mediaContents[3].videoUrl, player => {
+    player.loop = true;
+    player.muted = false;
+    console.log(`🎬 Video player 3 created for URL: ${mediaContents[3].videoUrl}`);
+  });
+  const videoPlayer5 = useVideoPlayer(mediaContents[4].videoUrl, player => {
+    player.loop = true;
+    player.muted = false;
+    console.log(`🎬 Video player 4 created for URL: ${mediaContents[4].videoUrl}`);
+  });
+  
+  const videoPlayers = [videoPlayer1, videoPlayer2, videoPlayer3, videoPlayer4, videoPlayer5];
+  
+  // Auto-play first video when ready
+  useEffect(() => {
+    console.log(`🎬 Setting up auto-play for first video`);
+    videoPlayer1.play();
+  }, [videoPlayer1]);
 
   // Animation values for card expansion - matching Module 2 Lesson 1
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
+  // Audio source for direct audio testing
+  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M3_L2_Desert+Whispers.mp3" };
+
   // Background music hook - Desert Whispers ambience from AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
-    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M3_L2_Desert Whispers.mp3" },
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M3_L2_Desert+Whispers.mp3" },
     {
       volume: 0.15, // 15% volume - very low ambient background (matching M2L1)
       shouldLoop: true,
@@ -122,17 +153,23 @@ export default function Adventure1_Module3_Lesson2({
     });
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
 
-  // Component mount logging + Simple audio test
+  // Component mount logging + direct audio fallback
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log('🎵 Adventure1_Module3_Lesson2 component mounted at:', timestamp);
     
-    // Simple direct audio test with AWS CloudFront
-    const testDirectAudio = async () => {
+    // Force audio start attempt immediately (no setTimeout)
+    if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
+      console.log('🎵 Attempting immediate audio start on mount');
+      backgroundMusic.play().catch(error => {
+        console.error('🎵 Immediate audio start failed:', error);
+      });
+    }
+    
+    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
+    const directAudioFallback = async () => {
       try {
-        console.log('🎵 [DIRECT TEST M3L2] Attempting to load audio from AWS CloudFront...');
-        const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M3_L2_Desert Whispers.mp3" };
-        console.log('🎵 [DIRECT TEST M3L2] Audio source:', audioSource);
+        console.log('🎵 [DIRECT FALLBACK A1M3L2] Creating direct audio as backup');
         
         const { sound } = await Audio.Sound.createAsync(audioSource, {
           shouldPlay: true,
@@ -140,29 +177,18 @@ export default function Adventure1_Module3_Lesson2({
           isLooping: true
         });
         
-        console.log('🎵 [DIRECT TEST M3L2] AWS audio created and playing successfully!');
-        
         // Store sound reference for cleanup
-        window.testSoundM3L2 = sound;
+        directAudioSoundRef.current = sound;
+        
+        console.log('🎵 [DIRECT FALLBACK A1M3L2] Direct audio created and playing successfully!');
         
       } catch (error) {
-        console.error('🎵 [DIRECT TEST M3L2] Failed to load/play AWS audio:', error);
+        console.error('🎵 [DIRECT FALLBACK A1M3L2] Direct audio fallback also failed:', error);
       }
     };
     
-    // Run direct test after a short delay
-    setTimeout(testDirectAudio, 1000);
-    
-    return () => {
-      console.log('🎵 Adventure1_Module3_Lesson2 component unmounting at:', new Date().toLocaleTimeString());
-      
-      // Cleanup direct test audio
-      if (window.testSoundM3L2) {
-        console.log('🎵 [DIRECT TEST M3L2] Cleaning up test audio');
-        window.testSoundM3L2.unloadAsync().catch(console.error);
-        window.testSoundM3L2 = null;
-      }
-    };
+    // Start direct audio fallback immediately
+    directAudioFallback();
   }, []);
 
   // Background music lifecycle management
@@ -179,7 +205,7 @@ export default function Adventure1_Module3_Lesson2({
         
         try {
           await backgroundMusic.play();
-          console.log(`🎵 [${timestamp}] Play command sent successfully`);
+          console.log(`🎵 [${timestamp}] Background music started successfully`);
         } catch (error) {
           console.error(`🎵 [${timestamp}] Failed to start background music:`, error);
         }
@@ -198,19 +224,48 @@ export default function Adventure1_Module3_Lesson2({
     }
   }, [backgroundMusic.isLoaded]);
 
+
+  // Handle video switching when index changes
+  useEffect(() => {
+    console.log(`🎬 Video index changed to: ${currentVideoIndex}`);
+    videoPlayers.forEach((player, index) => {
+      try {
+        if (index === currentVideoIndex) {
+          player.play();
+        } else {
+          console.log(`🎬 Pausing video ${index}`);
+          player.pause();
+        }
+      } catch (error) {
+        console.error(`🎬 Error controlling video ${index}:`, error);
+      }
+    });
+  }, [currentVideoIndex]);
+
   useEffect(() => {
     return () => {
-      console.log('🎵 Component unmounting - cleaning up all audio');
-      // Stop background music (regardless of playing state)
-      if (backgroundMusic.stop) {
-        console.log('🎵 Stopping background music on component unmount');
-        backgroundMusic.stop();
-      }
-      // Cleanup direct test audio
-      if (window.testSoundM3L2) {
-        console.log('🎵 Cleaning up direct test audio on unmount');
-        window.testSoundM3L2.unloadAsync().catch(console.error);
-        window.testSoundM3L2 = null;
+      try {
+        console.log('🎵 Component unmounting - cleaning up all audio');
+        
+        // Stop background music hook
+        if (backgroundMusic.stop) {
+          console.log('🎵 Stopping background music on component unmount');
+          backgroundMusic.stop();
+        }
+        
+        // Stop direct audio if it exists
+        if (directAudioSoundRef.current) {
+          try {
+            console.log('🎵 Stopping direct audio on component unmount');
+            directAudioSoundRef.current.stopAsync();
+            directAudioSoundRef.current.unloadAsync();
+            directAudioSoundRef.current = null;
+          } catch (error) {
+            console.error('🎵 Error stopping direct audio on unmount:', error);
+          }
+        }
+      } catch (error) {
+        console.error('🎵 [UNMOUNT] Error cleaning up audio:', error);
       }
     };
   }, []);
@@ -220,49 +275,15 @@ export default function Adventure1_Module3_Lesson2({
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const videoIndex = Math.round(contentOffsetX / SCREEN_WIDTH);
 
-    if (videoIndex !== currentVideoIndex) {
-      // Pause previous video
-      if (videoRefs.current[currentVideoIndex]) {
-        videoRefs.current[currentVideoIndex].pauseAsync();
-      }
-
+    if (videoIndex !== currentVideoIndex && videoIndex >= 0 && videoIndex < videoPlayers.length) {
+      console.log(`🎬 Scroll detected: switching from video ${currentVideoIndex} to ${videoIndex}`);
+      
+      // Just update the index, let useEffect handle the video switching
       setCurrentVideoIndex(videoIndex);
-
-      // Play new video
-      if (videoRefs.current[videoIndex]) {
-        videoRefs.current[videoIndex].playAsync();
-      }
-
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
-  // Handle video playback status
-  const handlePlaybackStatusUpdate = (
-    status: AVPlaybackStatus,
-    videoIndex: number
-  ) => {
-    if (status.isLoaded) {
-      if (!isVideoLoaded[videoIndex]) {
-        const newLoaded = [...isVideoLoaded];
-        newLoaded[videoIndex] = true;
-        setIsVideoLoaded(newLoaded);
-        console.log(`🎬 DEBUG: Video ${videoIndex} player ready`);
-      }
-
-      // Update video progress
-      if (status.durationMillis && status.positionMillis) {
-        const progress = status.positionMillis / status.durationMillis;
-        const newProgress = [...videoProgress];
-        newProgress[videoIndex] = progress;
-        setVideoProgress(newProgress);
-
-        console.log(
-          `🎬 Video ${videoIndex} progress: ${Math.round(progress * 100)}%`
-        );
-      }
-    }
-  };
 
   // Handle swipe gestures to expand/collapse the card - matching Module 2
   const handleSwipeGesture = (event: any) => {
@@ -354,38 +375,18 @@ export default function Adventure1_Module3_Lesson2({
           {mediaContents.map((content, index) => (
             <View key={content.id} style={styles.videoContainer}>
               {/* Full screen market scene video */}
-              <Video
-                ref={(ref) => {
-                  if (ref) videoRefs.current[index] = ref;
-                }}
-                source={{ uri: content.videoUrl }}
+              <VideoView
+                player={videoPlayers[index]}
                 style={styles.video}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={index === currentVideoIndex}
-                isLooping={true}
-                isMuted={false}
-                onPlaybackStatusUpdate={(status) =>
-                  handlePlaybackStatusUpdate(status, index)
-                }
+                contentFit="cover"
+                nativeControls={false}
               />
-
-              {/* Video progress bar overlay */}
-              <View style={styles.videoProgressContainer}>
-                <View style={styles.videoProgressBackground}>
-                  <View
-                    style={[
-                      styles.videoProgressFill,
-                      {
-                        width: `${Math.round(videoProgress[index] * 100)}%`,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-
-              {/* Text overlay at the top - matching Module 2 design */}
+              
+              {/* Text overlay with descriptive caption */}
               <View style={styles.textOverlay}>
-                <Text style={styles.captionText}>{content.caption}</Text>
+                <Text style={styles.captionText}>
+                  {content.caption}
+                </Text>
               </View>
             </View>
           ))}
@@ -396,17 +397,24 @@ export default function Adventure1_Module3_Lesson2({
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => {
-              // Stop background music when going back
+              // Stop all audio when going back
               if (backgroundMusic.isPlaying) {
                 console.log('🎵 Stopping background music on back button');
                 backgroundMusic.stop();
               }
-              // Cleanup direct test audio
-              if (window.testSoundM3L2) {
-                console.log('🎵 Cleaning up direct test audio on back');
-                window.testSoundM3L2.unloadAsync().catch(console.error);
-                window.testSoundM3L2 = null;
+              
+              // Stop direct audio if it exists
+              if (directAudioSoundRef.current) {
+                try {
+                  console.log('🎵 Stopping direct audio on back button');
+                  directAudioSoundRef.current.stopAsync();
+                  directAudioSoundRef.current.unloadAsync();
+                  directAudioSoundRef.current = null;
+                } catch (error) {
+                  console.error('🎵 Error stopping direct audio on back:', error);
+                }
               }
+              
               (onBack || onDismiss)();
             }}
           >
@@ -425,13 +433,26 @@ export default function Adventure1_Module3_Lesson2({
             onPress={
               currentVideoIndex === mediaContents.length - 1
                 ? () => {
-                    // Stop background music before continuing (no await for instant navigation)
+                    // Stop all audio before continuing (no await for instant navigation)
                     if (backgroundMusic.isPlaying) {
                       console.log(
                         "🎵 Stopping background music before continue"
                       );
                       backgroundMusic.stop(); // Remove await for instant navigation
                     }
+                    
+                    // Stop direct audio if it exists
+                    if (directAudioSoundRef.current) {
+                      try {
+                        console.log('🎵 Stopping direct audio before continue');
+                        directAudioSoundRef.current.stopAsync();
+                        directAudioSoundRef.current.unloadAsync();
+                        directAudioSoundRef.current = null;
+                      } catch (error) {
+                        console.error('🎵 Error stopping direct audio before continue:', error);
+                      }
+                    }
+                    
                     onContinue();
                   }
                 : undefined
@@ -502,7 +523,7 @@ export default function Adventure1_Module3_Lesson2({
                     Damascus: A Living Exchange
                   </Text>
                   <Text style={styles.cardSubtitle}>
-                    Walk down a street in Umayyad Damascus...
+                    Walk down a street in Umayyad Damascus and you would hear many languages...
                   </Text>
                 </TouchableOpacity>
               </Animated.View>
@@ -540,14 +561,7 @@ export default function Adventure1_Module3_Lesson2({
                           Historical Context
                         </Text>
                         <Text style={styles.historicalText}>
-                          Walk down a street in Umayyad Damascus, and you'd hear
-                          a dozen languages - but Arabic was the one everyone
-                          used to trade. Glassmakers from the former Sasanian
-                          lands set up shops, adding sparkle to local mosques.
-                          Scholars debated philosophy in tea houses. Goods,
-                          faiths, and knowledge all passed through the same city
-                          gates. Damascus wasn't just busy - it was alive with
-                          exchange.
+                          Walk down a street in Umayyad Damascus and you would hear many languages, with traders mostly using Arabic. The main road, Straight Street, crossed the old city from Bab Sharqi to the western gate. The Bible mentions that Paul the Apostle once lived in a house on the street. Persian glassmakers sold bright lamps and tiles for mosques, while scholars debated in tea houses. Goods, beliefs, and knowledge shared the same streets, and the city felt alive.
                         </Text>
                       </View>
 
@@ -556,16 +570,16 @@ export default function Adventure1_Module3_Lesson2({
                         <Text style={styles.sectionTitle}>Key Terms</Text>
                         <View style={styles.keyTermsContainer}>
                           <KeyTermRow
-                            term="Multilingual Trade"
-                            definition="Using multiple languages but Arabic as the common trading language"
+                            term="Straight Street"
+                            definition="The main road crossing Damascus from Bab Sharqi to the western gate"
                           />
                           <KeyTermRow
-                            term="Sasanian Craftsmen"
-                            definition="Skilled artisans from the former Persian empire who brought glassmaking techniques"
+                            term="Bab Sharqi"
+                            definition="The eastern gate of Damascus where Straight Street began"
                           />
                           <KeyTermRow
-                            term="Cultural Exchange"
-                            definition="The mixing of goods, faiths, and knowledge through Damascus"
+                            term="Persian Glassmakers"
+                            definition="Craftsmen who sold bright lamps and mosque tiles on Damascus streets"
                           />
                         </View>
                       </View>

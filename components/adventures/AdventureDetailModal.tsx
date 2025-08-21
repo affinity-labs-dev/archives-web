@@ -186,7 +186,7 @@ export default function AdventureDetailModal({
                 color={ArchivesTheme.colors.persianOrange} 
               />
               <Text style={styles.noteText}>
-                To start this adventure, complete the modules in order on the adventure map above.
+                To start this adventure, complete the modules in order on the adventure map in the previous page.
               </Text>
             </View>
           </View>

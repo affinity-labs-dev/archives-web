@@ -9,17 +9,12 @@ import { useProgress } from '@/context/ProgressContext'
 import UmmayadDynastyEra from '@/components/eras/UmmayadDynastyEra'
 import ComingSoonView from '@/components/eras/ComingSoonView'
 import ArchivesTheme from '@/constants/ArchivesTheme'
-import { testSupabaseConnection } from '@/lib/supabase'
 
 export default function HomeTab() {
   const { isSignedIn } = useAuth()
   const { selectedEra, isLoading } = useProgress()
   const router = useRouter()
 
-  // Supabase connection test - TEMPORARY
-  useEffect(() => {
-    testSupabaseConnection();
-  }, []);
 
   // Navigation logic
   useEffect(() => {

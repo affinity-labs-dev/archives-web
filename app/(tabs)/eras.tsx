@@ -11,6 +11,7 @@ import {
   StatusBar,
   SafeAreaView,
   Image,
+  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -169,10 +170,8 @@ function EraCard({ era, isSelected, onSelect }: EraCardProps) {
         source={era.imageName} 
         style={styles.eraCardImage}
         onError={(error) => {
-          console.log('🚀 DEBUG: Era image failed to load:', era.title, error.nativeEvent.error)
         }}
         onLoad={() => {
-          console.log('🚀 DEBUG: Era image loaded successfully:', era.title)
         }}
       />
 
@@ -292,28 +291,32 @@ const styles = StyleSheet.create({
     height: 450,
     borderRadius: 24,
     overflow: 'hidden',
-    // Default shadow
-    shadowColor: 'black',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    // Platform-specific shadow styling
+    ...(Platform.OS === 'web' 
+      ? { boxShadow: '0 8px 12px rgba(0, 0, 0, 0.15)' }
+      : {
+          shadowColor: 'black',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 8,
+        }
+    ),
   },
   eraCardSelected: {
     borderWidth: 3,
     borderColor: ArchivesTheme.colors.mossGreen,
-    // Enhanced shadow for selected state
-    shadowColor: ArchivesTheme.colors.mossGreen,
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
+    // Platform-specific enhanced shadow for selected state
+    ...(Platform.OS === 'web' 
+      ? { boxShadow: `0 10px 16px rgba(149, 156, 0, 0.3)` }
+      : {
+          shadowColor: ArchivesTheme.colors.mossGreen,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.3,
+          shadowRadius: 16,
+          elevation: 12,
+        }
+    ),
   },
   eraCardImage: {
     position: 'absolute',
@@ -354,18 +357,30 @@ const styles = StyleSheet.create({
     color: 'white',
     marginBottom: 8,
     lineHeight: 26,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 3,
+    // Platform-specific text shadow
+    ...(Platform.OS === 'web' 
+      ? { textShadow: '1px 1px 3px rgba(0, 0, 0, 0.8)' }
+      : {
+          textShadowColor: 'rgba(0, 0, 0, 0.8)',
+          textShadowOffset: { width: 1, height: 1 },
+          textShadowRadius: 3,
+        }
+    ),
   },
   eraSubtitle: {
     ...ArchivesTheme.typography.body,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.85)',
     lineHeight: 22,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 3,
+    // Platform-specific text shadow
+    ...(Platform.OS === 'web' 
+      ? { textShadow: '1px 1px 3px rgba(0, 0, 0, 0.8)' }
+      : {
+          textShadowColor: 'rgba(0, 0, 0, 0.8)',
+          textShadowOffset: { width: 1, height: 1 },
+          textShadowRadius: 3,
+        }
+    ),
   },
 
   // Progress Section
@@ -379,9 +394,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(255,255,255,0.8)',
     marginLeft: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 2,
+    // Platform-specific text shadow
+    ...(Platform.OS === 'web' 
+      ? { textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)' }
+      : {
+          textShadowColor: 'rgba(0, 0, 0, 0.8)',
+          textShadowOffset: { width: 1, height: 1 },
+          textShadowRadius: 2,
+        }
+    ),
   },
   progressSpacer: {
     flex: 1,
@@ -390,9 +411,15 @@ const styles = StyleSheet.create({
     ...ArchivesTheme.typography.bodySmall,
     fontWeight: 'bold',
     color: 'white',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 2,
+    // Platform-specific text shadow
+    ...(Platform.OS === 'web' 
+      ? { textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)' }
+      : {
+          textShadowColor: 'rgba(0, 0, 0, 0.8)',
+          textShadowOffset: { width: 1, height: 1 },
+          textShadowRadius: 2,
+        }
+    ),
   },
 
   // Selection Indicator
@@ -434,14 +461,17 @@ const styles = StyleSheet.create({
   },
   enterEraButtonActive: {
     backgroundColor: ArchivesTheme.colors.mossGreen,
-    shadowColor: ArchivesTheme.colors.mossGreen,
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    // Platform-specific button shadow
+    ...(Platform.OS === 'web' 
+      ? { boxShadow: `0 5px 10px rgba(149, 156, 0, 0.4)` }
+      : {
+          shadowColor: ArchivesTheme.colors.mossGreen,
+          shadowOffset: { width: 0, height: 5 },
+          shadowOpacity: 0.4,
+          shadowRadius: 10,
+          elevation: 8,
+        }
+    ),
   },
   enterEraButtonText: {
     ...ArchivesTheme.typography.buttonLarge,

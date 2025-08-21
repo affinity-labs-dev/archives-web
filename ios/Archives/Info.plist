@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>auth</string>
+    <string>Archives</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -27,13 +27,13 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>auth</string>
-          <string>com.anonymous.auth</string>
+          <string>archives</string>
+          <string>ai.affinitylabs.archivesexpo</string>
         </array>
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>6</string>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>

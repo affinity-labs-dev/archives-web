@@ -1,4 +1,4 @@
-package com.anonymous.auth
+package ai.affinitylabs.archivesexpo
 
 import android.app.Application
 import android.content.res.Configuration

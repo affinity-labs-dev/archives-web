@@ -19,6 +19,7 @@ import {
 import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
+import { Audio } from 'expo-av';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -34,19 +35,19 @@ const domeOfRockImages = [
     id: 1,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv2_M3_Img01.jpg",
     title: "Planning Phase",
-    caption: "Planners on the Haram al-Sharif, reviewing plans for the Dome of the Rock. Behind him, scaffolding rises over Jerusalem's sacred plateau."
+    caption: "Pre-Muslim conquest, the Temple Mount was in ruins, used as a garbage dump by Byzantine rule to keep Jews away from their holy site."
   },
   {
     id: 2,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv2_M3_Img02.jpg",
     title: "Construction in Progress", 
-    caption: "Jerusalem, 691 CE: the Dome of the Rock takes shape. Builders set stone and tile as scaffolding wraps the rising structure"
+    caption: "After the site was cleared of garbage, planners on the Haram al-Sharif prepared designs for the Dome of the Rock"
   },
   {
     id: 3,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv2_M3_Img03.jpg",
     title: "Completed Monument",
-    caption: "The Dome of the Rock at sunset: gold glows against the sky as pilgrims and scholars approach one of early Islam's most iconic landmarks"
+    caption: "Jerusalem, 691 CE: the Dome of the Rock rises, a monument built to mark the Prophet's Night Journey."
   }
 ];
 
@@ -61,22 +62,42 @@ export default function Adventure2_Module3_Lesson1({
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
+  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
 
   // Animation values for card expansion
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Background music hook - currently disabled until actual audio file is added
+  // Audio source for direct audio testing
+  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M2_L1_Desert+Whispers.mp3" };
+
+  // Background music hook - Desert Whispers ambience from AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
-    null, // TODO: Add dome-construction-ambience.mp3 file
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M2_L1_Desert+Whispers.mp3" }, // Using requested audio file
     {
-      volume: 0.35,
+      volume: 0.15, // 15% volume - very low ambient background
       shouldLoop: true,
-      fadeInDuration: 3000,
-      fadeOutDuration: 2000,
+      fadeInDuration: 1000, // 1 second fade in for faster feedback
+      fadeOutDuration: 1500, // 1.5 second fade out
     }
   );
+
+  // Enhanced debug logging for background music
+  useEffect(() => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`🎵 [${timestamp}] Adventure2_Module3_Lesson1 - Background music state:`, {
+      isLoaded: backgroundMusic.isLoaded,
+      isPlaying: backgroundMusic.isPlaying,
+      isLoading: backgroundMusic.isLoading
+    });
+    
+    // Additional debugging for audio file loading (AWS CloudFront)
+    if (!backgroundMusic.isLoaded && !backgroundMusic.isLoading) {
+      console.log('🎵 Audio not loading - AWS CloudFront source should be available');
+      console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M2_L1_Desert+Whispers.mp3');
+    }
+  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
 
   // Handle carousel scroll
   const handleScroll = (event: any) => {
@@ -92,24 +113,87 @@ export default function Adventure2_Module3_Lesson1({
   // Background music lifecycle management
   useEffect(() => {
     const startBackgroundMusic = async () => {
+      const timestamp = new Date().toLocaleTimeString();
       if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-        console.log('🎵 Starting dome construction background music');
-        await backgroundMusic.play();
+        console.log(`🎵 [${timestamp}] Starting dome construction background music`);
+        console.log(`🎵 [${timestamp}] Audio state before play:`, {
+          isLoaded: backgroundMusic.isLoaded,
+          isPlaying: backgroundMusic.isPlaying,
+          isLoading: backgroundMusic.isLoading
+        });
+        
+        try {
+          await backgroundMusic.play();
+          console.log(`🎵 [${timestamp}] Background music started successfully`);
+        } catch (error) {
+          console.error(`🎵 [${timestamp}] Failed to start background music:`, error);
+        }
+      } else if (!backgroundMusic.isLoaded) {
+        console.log(`🎵 [${timestamp}] Music not loaded yet, waiting...`);
+      } else if (backgroundMusic.isPlaying) {
+        console.log(`🎵 [${timestamp}] Music already playing`);
       }
     };
 
     if (backgroundMusic.isLoaded) {
+      console.log(`🎵 [${new Date().toLocaleTimeString()}] Audio is loaded, attempting to start playback`);
       startBackgroundMusic();
     } else {
-      console.log('🎵 Background music not available - continuing without audio');
+      console.log(`🎵 [${new Date().toLocaleTimeString()}] Background music not available - continuing without audio`);
     }
   }, [backgroundMusic.isLoaded]);
 
+  // Component mount logging + direct audio fallback
+  useEffect(() => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log('🎵 Adventure2_Module3_Lesson1 component mounted at:', timestamp);
+    
+    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
+    const directAudioFallback = async () => {
+      try {
+        console.log('🎵 [DIRECT FALLBACK A2M3L1] Creating direct audio as backup');
+        
+        const { sound } = await Audio.Sound.createAsync(audioSource, {
+          shouldPlay: true,
+          volume: 0.15,
+          isLooping: true
+        });
+        
+        // Store sound reference for cleanup
+        directAudioSoundRef.current = sound;
+        
+        console.log('🎵 [DIRECT FALLBACK A2M3L1] Direct audio created and playing successfully!');
+        
+      } catch (error) {
+        console.error('🎵 [DIRECT FALLBACK A2M3L1] Direct audio fallback also failed:', error);
+      }
+    };
+    
+    // Start direct audio fallback immediately
+    directAudioFallback();
+  }, []);
+
+  // Cleanup background music when component unmounts
   useEffect(() => {
     return () => {
-      if (backgroundMusic.isPlaying) {
+      console.log('🎵 Component unmounting - cleaning up all audio');
+      
+      // Stop background music hook
+      if (backgroundMusic.stop) {
         console.log('🎵 Stopping background music on component unmount');
         backgroundMusic.stop();
+      }
+      
+      // Stop direct audio if it exists
+      if (directAudioSoundRef.current) {
+        try {
+          console.log('🎵 Stopping direct audio on component unmount');
+          directAudioSoundRef.current.stopAsync();
+          directAudioSoundRef.current.unloadAsync();
+          directAudioSoundRef.current = null;
+        } catch (error) {
+          console.error('🎵 Error stopping direct audio on unmount:', error);
+        }
       }
     };
   }, []);
@@ -225,7 +309,27 @@ export default function Adventure2_Module3_Lesson1({
 
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={onBack || onDismiss}>
+          <TouchableOpacity style={styles.backButton} onPress={() => {
+            // Stop all audio when going back
+            if (backgroundMusic.isPlaying) {
+              console.log('🎵 Stopping background music on back button');
+              backgroundMusic.stop();
+            }
+            
+            // Stop direct audio if it exists
+            if (directAudioSoundRef.current) {
+              try {
+                console.log('🎵 Stopping direct audio on back button');
+                directAudioSoundRef.current.stopAsync();
+                directAudioSoundRef.current.unloadAsync();
+                directAudioSoundRef.current = null;
+              } catch (error) {
+                console.error('🎵 Error stopping direct audio on back:', error);
+              }
+            }
+            
+            (onBack || onDismiss)();
+          }}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </SafeAreaView>
@@ -237,12 +341,25 @@ export default function Adventure2_Module3_Lesson1({
               styles.topContinueButton,
               currentImageIndex !== domeOfRockImages.length - 1 && styles.topContinueButtonDisabled
             ]}
-            onPress={currentImageIndex === domeOfRockImages.length - 1 ? async () => {
-              // Stop background music before continuing
+            onPress={currentImageIndex === domeOfRockImages.length - 1 ? () => {
+              // Stop all audio before continuing (no await for instant navigation)
               if (backgroundMusic.isPlaying) {
                 console.log('🎵 Stopping background music before continue');
-                await backgroundMusic.stop();
+                backgroundMusic.stop(); // Remove await for instant navigation
               }
+              
+              // Stop direct audio if it exists
+              if (directAudioSoundRef.current) {
+                try {
+                  console.log('🎵 Stopping direct audio before continue');
+                  directAudioSoundRef.current.stopAsync();
+                  directAudioSoundRef.current.unloadAsync();
+                  directAudioSoundRef.current = null;
+                } catch (error) {
+                  console.error('🎵 Error stopping direct audio before continue:', error);
+                }
+              }
+              
               onContinue();
             } : undefined}
             disabled={currentImageIndex !== domeOfRockImages.length - 1}
@@ -256,17 +373,19 @@ export default function Adventure2_Module3_Lesson1({
         </SafeAreaView>
 
         {/* Page indicator dots - centered */}
-        <View style={styles.pageIndicatorsOnly}>
-          {domeOfRockImages.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.pageIndicator,
-                currentImageIndex === index && styles.pageIndicatorActive
-              ]}
-            />
-          ))}
-        </View>
+        {!isCardExpanded && (
+          <View style={styles.pageIndicatorsOnly}>
+            {domeOfRockImages.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.pageIndicator,
+                  currentImageIndex === index && styles.pageIndicatorActive
+                ]}
+              />
+            ))}
+          </View>
+        )}
 
         {/* Reading Card at Bottom - Expandable */}
         <PanGestureHandler 
@@ -302,7 +421,7 @@ export default function Adventure2_Module3_Lesson1({
                   Building the Dome of the Rock
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  Jerusalem's golden monument took shape...
+                  The Dome of the Rock is one of the oldest and most remarkable buildings...
                 </Text>
               </TouchableOpacity>
             </Animated.View>
@@ -337,7 +456,7 @@ export default function Adventure2_Module3_Lesson1({
                     <View style={styles.historicalSection}>
                       <Text style={styles.sectionTitle}>Historical Context</Text>
                       <Text style={styles.historicalText}>
-                        In 691 CE, Caliph Abd al-Malik commissioned the Dome of the Rock in Jerusalem - a monument that would define Islamic architecture for centuries. Built over the sacred rock where tradition says Abraham prepared to sacrifice Isaac and Muhammad ascended to heaven, this golden-domed structure combined Byzantine, Persian, and emerging Islamic design elements into something entirely new.
+                        The Dome of the Rock is one of the oldest and most remarkable buildings in Islamic history. Caliph Abd al-Malik began its construction in Jerusalem, and it was completed in 691 CE. Unlike earlier Roman or Byzantine churches, its design was a perfect circle with a golden dome that could be seen from all across the city. Built to honor the Prophet Muhammad&apos;s Night Journey and Ascension, it also served as a bold symbol of Islamic identity and the empire&apos;s growing power.
                       </Text>
                     </View>
 
@@ -346,16 +465,16 @@ export default function Adventure2_Module3_Lesson1({
                       <Text style={styles.sectionTitle}>Key Terms</Text>
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
-                          term="Dome of the Rock"
-                          definition="Islamic monument built in 691 CE over the sacred rock in Jerusalem"
+                          term="Perfect Circle Design"
+                          definition="Unique circular architecture with golden dome, unlike Roman or Byzantine churches"
                         />
                         <KeyTermRow
-                          term="Haram al-Sharif"
-                          definition="The sacred plateau in Jerusalem where the Dome was constructed"
+                          term="Night Journey and Ascension"
+                          definition="Prophet Muhammad's miraculous journey honored by the Dome of the Rock"
                         />
                         <KeyTermRow
-                          term="Abd al-Malik"
-                          definition="Umayyad caliph who commissioned the Dome of the Rock"
+                          term="691 CE Completion"
+                          definition="Year Abd al-Malik's remarkable building project was finished in Jerusalem"
                         />
                       </View>
                     </View>

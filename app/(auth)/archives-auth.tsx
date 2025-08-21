@@ -73,7 +73,6 @@ export default function ArchivesAuthScreen() {
         onContinue()
       } else {
         // Handle email verification or other steps
-        console.log('Sign up needs additional steps:', signUpAttempt.status)
         onContinue() // For now, proceed anyway
       }
     } catch (err: any) {

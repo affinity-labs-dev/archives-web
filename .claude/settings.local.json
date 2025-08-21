@@ -6,7 +6,11 @@
       "Bash(mkdir:*)",
       "Bash(touch:*)",
       "Bash(npm run lint:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(xcodebuild:*)",
+      "WebFetch(domain:docs.expo.dev)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

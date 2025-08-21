@@ -40,7 +40,6 @@ export default function SignUpScreen() {
       return
     }
 
-    console.log(firstName, lastName, emailAddress, password)
 
     // Start sign-up process using all required fields
     try {

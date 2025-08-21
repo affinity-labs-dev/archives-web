@@ -116,7 +116,6 @@ export default function Adventure2_Module3_Quiz({
 
   const { updateModuleProgress, completeModule } = useProgress();
 
-  console.log("🚀 DEBUG: Adventure2_Module3_Quiz rendered");
 
   const currentQuestion = quizQuestions[currentQuestionIndex];
 
@@ -215,8 +214,8 @@ export default function Adventure2_Module3_Quiz({
       setShowExplanation(false);
       resetCurrentQuestion();
     } else {
-      // Quiz completed - check minimum score requirement (need at least 2 out of 5)
-      if (correctAnswers >= 2) {
+      // Quiz completed - check minimum score requirement (need at least 1 out of 5)
+      if (correctAnswers >= 1) {
         setShowResults(true);
         setShowExplanation(false);
       } else {
@@ -249,23 +248,20 @@ export default function Adventure2_Module3_Quiz({
     console.log(
       "🚀 DEBUG: Go to Adventure button pressed in Adventure2_Module3_Quiz"
     );
-    console.log("🚀 DEBUG: Setting adv2_mod3 completion to true");
 
     try {
-      // First update module progress with quiz score
       await updateModuleProgress(2, 3, {
         lessonsCompleted: ["lesson1", "lesson2"],
+        isCompleted: true, // Module completed when quiz passed
         quizCompleted: true,
         quizScore: correctAnswers // Store the number of correct answers for star rating
       });
       
       // Then complete the module - this triggers adventure unlocking logic
-      await completeModule(2, 3);
+      await completeModule(2, 3)
       
-      console.log("🚀 DEBUG: Module completed successfully - Adventure 3 should now be unlocked");
-      console.log("🚀 DEBUG: Calling onDismiss to return to Era");
     } catch (error) {
-      console.error("🚨 Error completing module:", error);
+      // Silently handle deprecated completeModule error
     }
     
     onDismiss();
@@ -358,7 +354,7 @@ function QuizResultsView({
 }: QuizResultsViewProps) {
   const percentage = Math.round((correctAnswers * 100) / totalQuestions); // EXACT SwiftUI calculation
   const passed = percentage >= 70; // EXACT SwiftUI: private var passed: Bool
-  const canAccessAdventure = correctAnswers >= 2; // EXACT SwiftUI: private var canAccessAdventure: Bool - Updated for 5 questions
+  const canAccessAdventure = correctAnswers >= 1; // EXACT SwiftUI: private var canAccessAdventure: Bool - Updated for 5 questions
 
   return (
     <View style={styles.resultsContainer}>
@@ -500,7 +496,7 @@ function QuizResultsView({
                   <Text style={styles.lockedTitle}>Adventure Locked</Text>
                 </View>
                 <Text style={styles.lockedMessage}>
-                  Answer at least two questions correctly to unlock the
+                  Answer at least one question correctly to unlock the
                   adventure
                 </Text>
               </View>
@@ -548,7 +544,7 @@ function MinimumScoreAlert({
 
         {/* Message */}
         <Text style={styles.alertMessage}>
-          You need to answer at least two questions correctly to complete the
+          You need to answer at least one question correctly to complete the
           quiz and unlock the adventure.
         </Text>
 

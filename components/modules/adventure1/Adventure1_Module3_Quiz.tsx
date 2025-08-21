@@ -94,13 +94,11 @@ export default function Adventure1_Module3_Quiz({ onDismiss, onBack }: Adventure
   const [selectedMCQOption, setSelectedMCQOption] = useState<number | null>(null)
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(null)
 
-  const { updateModuleProgress, completeLesson, completeModule } = useProgress()
+  const { updateModuleProgress, completeLesson } = useProgress()
 
-  console.log('🚀 DEBUG: Adventure1_Module3_Quiz appeared')
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
-    console.log('🚀 DEBUG: Quiz submit pressed for question', currentQuestionIndex + 1)
     
     // Store the user's answer based on question type
     const newUserAnswers = [...userAnswers]
@@ -169,23 +167,20 @@ export default function Adventure1_Module3_Quiz({ onDismiss, onBack }: Adventure
   }
 
   // Handle quiz completion and return to adventure - EXACT SwiftUI: onGoToAdventure
+  // FIXED: Use atomic operation like Module 1 to prevent race condition
   const handleGoToAdventure = async () => {
-    console.log('🚀 DEBUG: Go to Adventure button pressed in Adventure1_Module3_Quiz')
-    console.log('🚀 DEBUG: Setting adv1_mod3 completion to true')
-    
     try {
-      // First update module progress with quiz score
+      console.log(`🚨 Saving quizScore as:`, correctAnswers)
+      
+      // CRITICAL FIX: Use single atomic operation like Module 1 instead of two separate calls
+      // This prevents race condition where completeModule overwrites the quiz score
       await updateModuleProgress(1, 3, {
         lessonsCompleted: ['lesson1', 'lesson2'],
+        isCompleted: true, // ✅ Set completion directly like Module 1
         quizCompleted: true,
         quizScore: correctAnswers // Store the number of correct answers for star rating
       })
       
-      // Then complete the module - this triggers adventure unlocking logic
-      await completeModule(1, 3)
-      
-      console.log('🚀 DEBUG: Module completed successfully - Adventure 2 should now be unlocked')
-      console.log('🚀 DEBUG: Calling onDismiss to return to Era')
     } catch (error) {
       console.error('🚨 Error completing module:', error)
     }

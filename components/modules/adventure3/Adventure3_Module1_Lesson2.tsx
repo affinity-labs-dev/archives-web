@@ -35,7 +35,7 @@ export default function Adventure3_Module1_Lesson2({
   onDismiss,
   onBack,
 }: Adventure3_Module1_Lesson2Props) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
@@ -53,9 +53,12 @@ export default function Adventure3_Module1_Lesson2({
   
   // Animated value for smooth progress bar
   const progressBarWidth = useRef(new Animated.Value(0)).current;
+  
+  // Track last progress to prevent unnecessary animations
+  const lastProgress = useRef(0);
 
   // EXACT Adventure1_Module1_Lesson1 historicalText content but for Kairouan
-  const historicalText = `Kairouan started as a military camp, but quickly became much more. With time, it grew into a capital of faith and knowledge. But the spread of Islam wasn't instant - many Berber tribes resisted, debated, and negotiated before accepting the new religion. The story of North Africa's Islamization is one of complex encounters, not just conquest. Kairouan lit the path forward.`;
+  const historicalText = `Kairouan was founded in 670 CE as a military camp but soon grew into a key city of early Islam in North Africa. It became home to the Great Mosque of Kairouan, one of the oldest in the region and a center of scholarship for centuries. The spread of Islam here was gradual, with Berber tribes often resisting or negotiating before joining the new faith.`;
 
   // Handle video playback status and track progress
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
@@ -72,8 +75,18 @@ export default function Adventure3_Module1_Lesson2({
         const progress = status.positionMillis / status.durationMillis;
         setVideoProgress(progress);
         
-        // Update progress bar smoothly - direct setValue for continuous progress
-        progressBarWidth.setValue(progress);
+        // Only animate if progress changed significantly (prevents micro-animations)
+        const progressDiff = Math.abs(progress - lastProgress.current);
+        if (progressDiff > 0.0005) { // More sensitive threshold for ultra-smooth updates
+          lastProgress.current = progress;
+          
+          // Ultra-smooth progress bar animation
+          Animated.timing(progressBarWidth, {
+            toValue: progress,
+            duration: 50, // Very short animation for silky smooth transitions
+            useNativeDriver: false, // Width animations require native driver false
+          }).start();
+        }
         
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
@@ -105,10 +118,7 @@ export default function Adventure3_Module1_Lesson2({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Toggle play/pause
-  const handleTogglePlayback = () => {
-    setIsPlaying(!isPlaying);
-  };
+  // Removed handleTogglePlayback - now handled directly by LessonPlayer
 
   // Continue button handler - only works if reading is finished
   const handleContinue = () => {
@@ -227,9 +237,7 @@ export default function Adventure3_Module1_Lesson2({
         {/* Full-screen video player */}
         <LessonPlayer
           videoSource={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel+Videos/Adv3_M1_Reel2.mp4" }}
-          isPlaying={isPlaying}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          onTogglePlayback={handleTogglePlayback}
           autoPlay={true}
           shouldLoop={true}
         />
@@ -307,7 +315,7 @@ export default function Adventure3_Module1_Lesson2({
                   Kairouan: From Military Camp to Cultural Center
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  Kairouan started as a military camp, but quickly...
+                  Kairouan was founded in 670 CE as a military camp...
                 </Text>
               </View>
             </Animated.View>
@@ -349,16 +357,16 @@ export default function Adventure3_Module1_Lesson2({
                       <Text style={styles.sectionTitle}>Key Terms</Text>
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
-                          term="Kairouan"
-                          definition="First Islamic city and center of learning in North Africa"
+                          term="Kairouan (670 CE)"
+                          definition="Founded as military camp, grew into key Islamic city in North Africa"
                         />
                         <KeyTermRow
-                          term="Berber Tribes"
-                          definition="Indigenous peoples who encountered Islamic expansion"
+                          term="Great Mosque of Kairouan"
+                          definition="One of the oldest mosques in the region, center of scholarship for centuries"
                         />
                         <KeyTermRow
-                          term="Islamization"
-                          definition="Gradual conversion process through various encounters"
+                          term="Berber Resistance and Negotiation"
+                          definition="Indigenous tribes often resisted or negotiated before joining Islam"
                         />
                       </View>
                     </View>

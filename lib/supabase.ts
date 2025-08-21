@@ -1,63 +1,63 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Web-compatible storage wrapper for Supabase
+class SupabaseWebStorage {
+  private static isClient = typeof window !== 'undefined';
+  
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web' && !SupabaseWebStorage.isClient) {
+      return null; // Return null during SSR
+    }
+    
+    try {
+      return await AsyncStorage.getItem(key);
+    } catch (error) {
+      console.warn(`Supabase storage getItem error for key ${key}:`, error);
+      return null;
+    }
+  }
+  
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web' && !SupabaseWebStorage.isClient) {
+      return; // Skip during SSR
+    }
+    
+    try {
+      await AsyncStorage.setItem(key, value);
+    } catch (error) {
+      console.warn(`Supabase storage setItem error for key ${key}:`, error);
+    }
+  }
+  
+  async removeItem(key: string): Promise<void> {
+    if (Platform.OS === 'web' && !SupabaseWebStorage.isClient) {
+      return; // Skip during SSR
+    }
+    
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch (error) {
+      console.warn(`Supabase storage removeItem error for key ${key}:`, error);
+    }
+  }
+}
+
+// Create web-compatible storage instance
+const webCompatibleStorage = new SupabaseWebStorage();
+
+// Create Supabase client with web-compatible configuration
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
+    storage: webCompatibleStorage as any, // Type assertion needed for compatibility
+    autoRefreshToken: Platform.OS !== 'web',
+    persistSession: Platform.OS !== 'web',
     detectSessionInUrl: false,
   },
 });
 
-// Test function to verify Supabase connection and database table
-export const testSupabaseConnection = async () => {
-  try {
-    console.log('🔍 Testing Supabase connection...');
-    console.log('📍 URL:', supabaseUrl);
-    console.log('🔑 Key starts with:', supabaseAnonKey.substring(0, 20) + '...');
-    
-    // Test 1: Basic connection health check
-    const { data, error } = await supabase
-      .from('_realtime')
-      .select('*')
-      .limit(1);
-    
-    if (error) {
-      // These error codes mean connection is working but table doesn't exist (normal for new projects)
-      if (error.code === '42P01' || error.code === 'PGRST205') {
-        console.log('✅ Supabase connection successful!');
-      } else {
-        console.error('❌ Supabase connection failed:', error);
-        return false;
-      }
-    } else {
-      console.log('✅ Supabase connection successful!');
-    }
-    
-    // Test 2: Check if user_progress table exists and is accessible
-    console.log('🔍 Testing user_progress table...');
-    const { data: tableData, error: tableError } = await supabase
-      .from('user_progress')
-      .select('*')
-      .limit(1);
-    
-    if (tableError) {
-      console.error('❌ user_progress table test failed:', tableError);
-      return false;
-    } else {
-      console.log('✅ user_progress table is accessible!');
-      console.log('📊 Table data:', tableData?.length || 0, 'records found');
-    }
-    
-    console.log('🎯 All tests passed! Database is ready for use.');
-    return true;
-  } catch (error) {
-    console.error('❌ Supabase test error:', error);
-    return false;
-  }
-};

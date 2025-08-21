@@ -19,7 +19,6 @@ class ProgressService {
   // Get user progress for specific module
   async getModuleProgress(userId: string, adventureId: number, moduleId: number) {
     try {
-      console.log(`📖 Getting progress for user ${userId}, adventure ${adventureId}, module ${moduleId}`);
       
       const { data, error } = await supabase
         .from('user_progress')
@@ -34,7 +33,6 @@ class ProgressService {
         throw error;
       }
       
-      console.log('✅ Module progress retrieved:', data);
       return data
     } catch (error) {
       console.error('❌ Failed to get module progress:', error);
@@ -46,7 +44,6 @@ class ProgressService {
   async completeLesson(userId: string, adventureId: number, moduleId: number, lessonNumber: 1 | 2) {
     try {
       const lessonField = `lesson${lessonNumber}_completed`
-      console.log(`📝 Completing lesson ${lessonNumber} for user ${userId}, adventure ${adventureId}, module ${moduleId}`);
       
       const { data, error } = await supabase
         .from('user_progress')
@@ -64,7 +61,6 @@ class ProgressService {
         throw error;
       }
       
-      console.log(`✅ Lesson ${lessonNumber} completed successfully:`, data);
       return data
     } catch (error) {
       console.error('❌ Failed to complete lesson:', error);
@@ -85,8 +81,6 @@ class ProgressService {
       const correctAnswers = Object.values(answers).filter(a => a.correct).length
       const quizCompleted = score >= 40 // 40% passing grade
       
-      console.log(`📊 Saving quiz results for user ${userId}, adventure ${adventureId}, module ${moduleId}`);
-      console.log(`📊 Score: ${score}%, Correct: ${correctAnswers}/${totalQuestions}, Passed: ${quizCompleted}`);
 
       // Get current progress to increment attempts
       const currentProgress = await this.getModuleProgress(userId, adventureId, moduleId)
@@ -113,7 +107,6 @@ class ProgressService {
         throw error;
       }
 
-      console.log('✅ Quiz results saved successfully:', data);
 
       // Check if module should be marked completed
       await this.checkModuleCompletion(userId, adventureId, moduleId)
@@ -128,7 +121,6 @@ class ProgressService {
   // Check and update module completion
   async checkModuleCompletion(userId: string, adventureId: number, moduleId: number) {
     try {
-      console.log(`🔍 Checking module completion for user ${userId}, adventure ${adventureId}, module ${moduleId}`);
       
       const progress = await this.getModuleProgress(userId, adventureId, moduleId)
       
@@ -137,7 +129,6 @@ class ProgressService {
           progress.lesson2_completed && 
           progress.quiz_completed) {
         
-        console.log('🎯 Module completion criteria met! Marking as completed...');
         
         const { data, error } = await supabase
           .from('user_progress')
@@ -156,14 +147,8 @@ class ProgressService {
           throw error;
         }
         
-        console.log('✅ Module marked as completed!', data);
         return data
       } else {
-        console.log('⏳ Module completion criteria not yet met:', {
-          lesson1: progress?.lesson1_completed,
-          lesson2: progress?.lesson2_completed,
-          quiz: progress?.quiz_completed
-        });
       }
       
       return progress
@@ -176,7 +161,6 @@ class ProgressService {
   // Get all progress for a user
   async getUserProgress(userId: string) {
     try {
-      console.log(`📊 Getting all progress for user ${userId}`);
       
       const { data, error } = await supabase
         .from('user_progress')
@@ -190,7 +174,6 @@ class ProgressService {
         throw error;
       }
       
-      console.log(`✅ Retrieved ${data?.length || 0} progress records for user`);
       return data
     } catch (error) {
       console.error('❌ Failed to get user progress:', error);
@@ -201,7 +184,6 @@ class ProgressService {
   // Get adventure completion status
   async getAdventureProgress(userId: string, adventureId: number) {
     try {
-      console.log(`🏛️ Getting adventure ${adventureId} progress for user ${userId}`);
       
       const { data, error } = await supabase
         .from('user_progress')
@@ -225,7 +207,6 @@ class ProgressService {
         modules: data || []
       }
       
-      console.log(`✅ Adventure ${adventureId} progress:`, result);
       return result
     } catch (error) {
       console.error('❌ Failed to get adventure progress:', error);
@@ -236,11 +217,9 @@ class ProgressService {
   // Test function to verify service is working
   async testService(userId: string) {
     try {
-      console.log('🧪 Testing ProgressService...');
       
       // Test 1: Complete a lesson
       await this.completeLesson(userId, 1, 1, 1);
-      console.log('✅ Test 1: Lesson completion - PASSED');
       
       // Test 2: Save quiz results
       await this.saveQuizResults(
@@ -255,13 +234,10 @@ class ProgressService {
         },
         3
       );
-      console.log('✅ Test 2: Quiz results - PASSED');
       
       // Test 3: Get progress
       const progress = await this.getUserProgress(userId);
-      console.log('✅ Test 3: Get progress - PASSED');
       
-      console.log('🎯 All ProgressService tests passed!');
       return true;
     } catch (error) {
       console.error('❌ ProgressService test failed:', error);

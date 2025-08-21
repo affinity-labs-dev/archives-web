@@ -5,7 +5,7 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   Animated,
   Dimensions,
@@ -35,7 +35,7 @@ export default function Adventure3_Module3_Lesson1({
   onDismiss,
   onBack,
 }: Adventure3_Module3_Lesson1Props) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
@@ -53,9 +53,17 @@ export default function Adventure3_Module3_Lesson1({
   
   // Animated value for smooth progress bar
   const progressBarWidth = useRef(new Animated.Value(0)).current;
+  
+  // Track last progress to prevent unnecessary animations
+  const lastProgress = useRef(0);
 
   // EXACT Adventure3_Module3_Lesson1 historicalText content for Battle of Tours
   const historicalText = `In 732 CE, the Umayyad army met the Frankish forces led by Charles Martel near the city of Tours. It was a tough battle. After days of fighting, the Umayyads withdrew, and Martel's victory became a major moment in European history. While the battle didn't end Muslim rule in Spain, it stopped their advance into northern Europe - a turning point that shaped the future of the continent.`;
+
+
+
+
+
 
   // Handle video playback status and track progress
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
@@ -72,8 +80,18 @@ export default function Adventure3_Module3_Lesson1({
         const progress = status.positionMillis / status.durationMillis;
         setVideoProgress(progress);
         
-        // Update progress bar smoothly - direct setValue for continuous progress
-        progressBarWidth.setValue(progress);
+        // Only animate if progress changed significantly (prevents micro-animations)
+        const progressDiff = Math.abs(progress - lastProgress.current);
+        if (progressDiff > 0.0005) { // More sensitive threshold for ultra-smooth updates
+          lastProgress.current = progress;
+          
+          // Ultra-smooth progress bar animation
+          Animated.timing(progressBarWidth, {
+            toValue: progress,
+            duration: 50, // Very short animation for silky smooth transitions
+            useNativeDriver: false, // Width animations require native driver false
+          }).start();
+        }
         
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
@@ -105,10 +123,7 @@ export default function Adventure3_Module3_Lesson1({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Toggle play/pause
-  const handleTogglePlayback = () => {
-    setIsPlaying(!isPlaying);
-  };
+  // Removed handleTogglePlayback - now handled directly by LessonPlayer
 
   // Continue button handler - only works if reading is finished
   const handleContinue = () => {
@@ -117,6 +132,7 @@ export default function Adventure3_Module3_Lesson1({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
+
 
     console.log("🔄 Continue button pressed - proceeding to lesson 2");
     onContinue();
@@ -227,9 +243,7 @@ export default function Adventure3_Module3_Lesson1({
         {/* Full-screen video player */}
         <LessonPlayer
           videoSource={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel+Videos/Adv3_M3_Reel1.mp4" }}
-          isPlaying={isPlaying}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          onTogglePlayback={handleTogglePlayback}
           autoPlay={true}
           shouldLoop={true}
         />
@@ -253,7 +267,10 @@ export default function Adventure3_Module3_Lesson1({
 
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={onBack || onDismiss}>
+          <TouchableOpacity style={styles.backButton} onPress={() => {
+            
+            (onBack || onDismiss)();
+          }}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </SafeAreaView>

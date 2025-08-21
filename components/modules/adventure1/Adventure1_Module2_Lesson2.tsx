@@ -5,7 +5,7 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   Animated,
   Dimensions,
@@ -35,7 +35,7 @@ export default function Adventure1_Module2_Lesson2({
   onDismiss,
   onBack,
 }: Adventure1_Module2_Lesson2Props) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
@@ -53,9 +53,15 @@ export default function Adventure1_Module2_Lesson2({
   
   // Animated value for smooth progress bar
   const progressBarWidth = useRef(new Animated.Value(0)).current;
+  
+  // Track last progress to prevent unnecessary animations
+  const lastProgress = useRef(0);
 
   // Historical text content for Court & Administration
-  const historicalText = `Inside the court, every role had a purpose. The wazir helped the caliph manage the empire's decisions, while the qadi settled legal disputes based on Islamic law. Meetings were held in many languages - Arabic, Greek, even Syriac - reflecting the mix of people in the empire. It wasn't just a court - it was a machine of government, powered by words, rules, and advisors from every corner of the realm.`;
+  const historicalText = `Inside the Umayyad court, every job had a clear task. The chief minister, sometimes called a wazir, helped the caliph run daily affairs, and the qadi judged cases using Islamic law. People spoke Arabic, Greek, and Syriac in meetings. In 696 CE, Abd al-Malik ordered government records to shift into Arabic, which made the system more unified.`;
+
+
+
 
   // Handle video playback status and track progress
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
@@ -72,8 +78,18 @@ export default function Adventure1_Module2_Lesson2({
         const progress = status.positionMillis / status.durationMillis;
         setVideoProgress(progress);
         
-        // Update progress bar smoothly - direct setValue for continuous progress
-        progressBarWidth.setValue(progress);
+        // Only animate if progress changed significantly (prevents micro-animations)
+        const progressDiff = Math.abs(progress - lastProgress.current);
+        if (progressDiff > 0.0005) { // More sensitive threshold for ultra-smooth updates
+          lastProgress.current = progress;
+          
+          // Ultra-smooth progress bar animation
+          Animated.timing(progressBarWidth, {
+            toValue: progress,
+            duration: 50, // Very short animation for silky smooth transitions
+            useNativeDriver: false, // Width animations require native driver false
+          }).start();
+        }
         
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
@@ -105,10 +121,7 @@ export default function Adventure1_Module2_Lesson2({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Toggle play/pause
-  const handleTogglePlayback = () => {
-    setIsPlaying(!isPlaying);
-  };
+  // Removed handleTogglePlayback - now handled directly by LessonPlayer
 
   // Continue button handler - only works if reading is finished
   const handleContinue = () => {
@@ -227,9 +240,7 @@ export default function Adventure1_Module2_Lesson2({
         {/* Full-screen video player */}
         <LessonPlayer
           videoSource={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel+Videos/Adv1_M2_Reel1.mp4" }}
-          isPlaying={isPlaying}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          onTogglePlayback={handleTogglePlayback}
           autoPlay={true}
           shouldLoop={true}
         />
@@ -253,7 +264,9 @@ export default function Adventure1_Module2_Lesson2({
 
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={onBack || onDismiss}>
+          <TouchableOpacity style={styles.backButton} onPress={() => {
+            (onBack || onDismiss)();
+          }}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </SafeAreaView>
@@ -307,7 +320,7 @@ export default function Adventure1_Module2_Lesson2({
                   The Heart of Government
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  Inside the court, every role had a purpose...
+                  Inside the Umayyad court, every job had a clear task...
                 </Text>
               </View>
             </Animated.View>
@@ -349,16 +362,16 @@ export default function Adventure1_Module2_Lesson2({
                       <Text style={styles.sectionTitle}>Key Terms</Text>
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
-                          term="Wazir"
-                          definition="A minister or advisor who helped the caliph manage the empire"
+                          term="Wazir (Chief Minister)"
+                          definition="The minister who helped the caliph run daily affairs of government"
                         />
                         <KeyTermRow
                           term="Qadi"
-                          definition="A judge who settled legal disputes based on Islamic law"
+                          definition="A judge who decided cases using Islamic law in the court system"
                         />
                         <KeyTermRow
-                          term="Multilingual Court"
-                          definition="Palace meetings conducted in Arabic, Greek, and Syriac"
+                          term="Arabic Records (696 CE)"
+                          definition="Abd al-Malik's order to shift government records into Arabic for unity"
                         />
                       </View>
                     </View>

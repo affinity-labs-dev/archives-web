@@ -36,7 +36,7 @@ export default function Adventure1_Module1_Lesson2({
   onDismiss,
   onBack,
 }: Adventure1_Module1_Lesson2Props) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
@@ -55,9 +55,12 @@ export default function Adventure1_Module1_Lesson2({
   
   // Animated value for smooth progress bar
   const progressBarWidth = useRef(new Animated.Value(0)).current;
+  
+  // Track last progress to prevent unnecessary animations
+  const lastProgress = useRef(0);
 
   // Historical text content from iOS
-  const historicalText = `Damascus grew quickly under Umayyad rule. The Barada River gave life to its fields and neighborhoods, helping the new capital flourish. Markets buzzed with trade, mosques were built, and courtiers arrived from all over the empire. The river's steady flow mirrored the rise of a new political center - one that would shape Islamic civilization for decades to come.`;
+  const historicalText = `Damascus grew quickly under Umayyad rule because of the Barada River. As the river left the mountains, people split its water into canals that turned the dry land around the city into the green Ghouta oasis. The Barada is the same river called "Abana" in the Bible. With steady water, markets and mosques spread, and the new capital came to life.`;
 
   // Handle video playback status and track progress
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
@@ -74,8 +77,18 @@ export default function Adventure1_Module1_Lesson2({
         const progress = status.positionMillis / status.durationMillis;
         setVideoProgress(progress);
         
-        // Update progress bar smoothly - direct setValue for continuous progress
-        progressBarWidth.setValue(progress);
+        // Only animate if progress changed significantly (prevents micro-animations)
+        const progressDiff = Math.abs(progress - lastProgress.current);
+        if (progressDiff > 0.0005) { // More sensitive threshold for ultra-smooth updates
+          lastProgress.current = progress;
+          
+          // Ultra-smooth progress bar animation
+          Animated.timing(progressBarWidth, {
+            toValue: progress,
+            duration: 50, // Very short animation for silky smooth transitions
+            useNativeDriver: false, // Width animations require native driver false
+          }).start();
+        }
         
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
@@ -107,10 +120,7 @@ export default function Adventure1_Module1_Lesson2({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Toggle play/pause
-  const handleTogglePlayback = () => {
-    setIsPlaying(!isPlaying);
-  };
+  // Removed handleTogglePlayback - now handled directly by LessonPlayer
 
   // Continue button handler - only works if reading is finished
   const handleContinue = () => {
@@ -229,9 +239,7 @@ export default function Adventure1_Module1_Lesson2({
         {/* Full-screen video player */}
         <LessonPlayer
           videoSource={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel+Videos/Adv1_M1_Reel2.mp4" }}
-          isPlaying={isPlaying}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          onTogglePlayback={handleTogglePlayback}
           autoPlay={true}
           shouldLoop={true}
         />
@@ -309,7 +317,7 @@ export default function Adventure1_Module1_Lesson2({
                   The Barada River&apos;s Gift
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  Damascus grew quickly under Umayyad rule...
+                  Damascus grew quickly under Umayyad rule because of the Barada River...
                 </Text>
               </View>
             </Animated.View>
@@ -352,15 +360,15 @@ export default function Adventure1_Module1_Lesson2({
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
                           term="Barada River"
-                          definition="The river that flows through Damascus, providing water and life to the city"
+                          definition="The river from the mountains that people split into canals, also called 'Abana' in the Bible"
                         />
                         <KeyTermRow
-                          term="Umayyad Capital"
-                          definition="Damascus as the center of the first Islamic empire"
+                          term="Ghouta Oasis"
+                          definition="The green fertile land around Damascus created by the Barada River's canals"
                         />
                         <KeyTermRow
-                          term="Trade Markets"
-                          definition="Commercial centers that made Damascus prosperous"
+                          term="Canal System"
+                          definition="Network of waterways that brought river water to dry land for farming and city life"
                         />
                       </View>
                     </View>

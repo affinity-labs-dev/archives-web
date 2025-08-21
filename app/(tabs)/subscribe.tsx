@@ -218,9 +218,10 @@ const styles = StyleSheet.create({
     fontWeight: '600', // SemiBold
     color: '#41425E', // Exact color from gradient
     textAlign: 'left',
-    lineHeight: 24, // 100% line height (24px * 1.0)
+    lineHeight: 28, // Increased to 117% line height (24px * 1.17) to prevent clipping
     letterSpacing: 0, // 0% letter spacing
     marginBottom: 4,
+    paddingVertical: 2, // Added vertical padding to ensure text isn't clipped
   },
   
   // Character Illustration - Updated for overlap effect
@@ -439,7 +440,7 @@ const styles = StyleSheet.create({
     fontSize: 30, // Updated to 30px
     fontWeight: '700', // Bold
     color: 'white',
-    lineHeight: 28, // Updated line height
+    lineHeight: 34, // Increased to 113% line height (30px * 1.13) to prevent clipping
     letterSpacing: -0.3, // -1% letter spacing (30px * -0.01 = -0.3)
     marginBottom: 4,
     textShadowColor: 'rgba(0, 0, 0, 0.8)',

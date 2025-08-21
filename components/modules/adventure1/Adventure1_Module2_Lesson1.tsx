@@ -36,31 +36,31 @@ const palaceInteriors = [
     id: 1,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img01.jpg",
     title: "Throne Room",
-    caption: "The throne room adorned with gold-accented mosaic tiles"
+    caption: "The throne room glittered with gold mosaics crafted by Byzantine artists, once rivals but now working for the Umayyads."
   },
   {
     id: 2,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img02.jpg",
     title: "Reception Hall", 
-    caption: "A reception hall with striped arches and hanging lamps"
+    caption: "Striped arches and lamps light the reception hall, a design that influenced buildings like Cordoba's mosque in Spain."
   },
   {
     id: 3,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img03.jpg",
     title: "Private Courtyard Garden",
-    caption: "A private courtyard garden with fountains"
+    caption: "The courtyard's fountains and trees stayed cool thanks to water channels, turning the palace into an oasis."
   },
   {
     id: 4,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img04.jpg",
     title: "Audience Chamber",
-    caption: "A tiled audience chamber"
+    caption: "In the audience chamber, laws and taxes were debated in Arabic, Greek, and Syriac."
   },
   {
     id: 5,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img05.jpg",
     title: "Scriptorium", 
-    caption: "A scriptorium with scribes copying documents"
+    caption: "Scribes in the scriptorium copied records, switching between Arabic, Greek, and Syriac."
   }
 ];
 
@@ -76,11 +76,15 @@ export default function Adventure1_Module2_Lesson1({
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
+  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
 
   // Animation values for card expansion
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
+
+  // Audio source for direct audio testing
+  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" };
 
   // Background music hook - Desert Whispers ambience from AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
@@ -109,17 +113,23 @@ export default function Adventure1_Module2_Lesson1({
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
 
-  // Component mount logging + Simple audio test
+  // Component mount logging + direct audio fallback
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log('🎵 Adventure1_Module2_Lesson1 component mounted at:', timestamp);
     
-    // Simple direct audio test with AWS CloudFront
-    const testDirectAudio = async () => {
+    // Force audio start attempt immediately (no setTimeout)
+    if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
+      console.log('🎵 Attempting immediate audio start on mount');
+      backgroundMusic.play().catch(error => {
+        console.error('🎵 Immediate audio start failed:', error);
+      });
+    }
+    
+    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
+    const directAudioFallback = async () => {
       try {
-        console.log('🎵 [DIRECT TEST] Attempting to load audio from AWS CloudFront...');
-        const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" };
-        console.log('🎵 [DIRECT TEST] Audio source:', audioSource);
+        console.log('🎵 [DIRECT FALLBACK A1M2L1] Creating direct audio as backup');
         
         const { sound } = await Audio.Sound.createAsync(audioSource, {
           shouldPlay: true,
@@ -127,29 +137,18 @@ export default function Adventure1_Module2_Lesson1({
           isLooping: true
         });
         
-        console.log('🎵 [DIRECT TEST] AWS audio created and playing successfully!');
-        
         // Store sound reference for cleanup
-        window.testSound = sound;
+        directAudioSoundRef.current = sound;
+        
+        console.log('🎵 [DIRECT FALLBACK A1M2L1] Direct audio created and playing successfully!');
         
       } catch (error) {
-        console.error('🎵 [DIRECT TEST] Failed to load/play AWS audio:', error);
+        console.error('🎵 [DIRECT FALLBACK A1M2L1] Direct audio fallback also failed:', error);
       }
     };
     
-    // Run direct test after a short delay
-    setTimeout(testDirectAudio, 1000);
-    
-    return () => {
-      console.log('🎵 Adventure1_Module2_Lesson1 component unmounting at:', new Date().toLocaleTimeString());
-      
-      // Cleanup direct test audio
-      if (window.testSound) {
-        console.log('🎵 [DIRECT TEST] Cleaning up test audio');
-        window.testSound.unloadAsync().catch(console.error);
-        window.testSound = null;
-      }
-    };
+    // Start direct audio fallback immediately
+    directAudioFallback();
   }, []);
 
   // Handle carousel scroll - matching iOS TabView behavior
@@ -178,7 +177,7 @@ export default function Adventure1_Module2_Lesson1({
         
         try {
           await backgroundMusic.play();
-          console.log(`🎵 [${timestamp}] Play command sent successfully`);
+          console.log(`🎵 [${timestamp}] Background music started successfully`);
         } catch (error) {
           console.error(`🎵 [${timestamp}] Failed to start background music:`, error);
         }
@@ -198,44 +197,29 @@ export default function Adventure1_Module2_Lesson1({
     }
   }, [backgroundMusic.isLoaded]);
 
-  // Force music playback on component mount (debugging)
-  useEffect(() => {
-    const forcePlayMusic = async () => {
-      const timestamp = new Date().toLocaleTimeString();
-      console.log(`🎵 [${timestamp}] Force play attempt - checking if we can start music immediately`);
-      
-      // Try to play after a short delay to allow audio loading
-      setTimeout(async () => {
-        if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-          console.log(`🎵 [${timestamp}] Force playing music after timeout`);
-          try {
-            await backgroundMusic.play();
-          } catch (error) {
-            console.error(`🎵 [${timestamp}] Force play failed:`, error);
-          }
-        } else {
-          console.log(`🎵 [${timestamp}] Force play skipped - loaded: ${backgroundMusic.isLoaded}, playing: ${backgroundMusic.isPlaying}`);
-        }
-      }, 2000); // Wait 2 seconds for audio to load
-    };
 
-    forcePlayMusic();
-  }, []); // Run once on mount
 
   // Cleanup background music when component unmounts
   useEffect(() => {
     return () => {
       console.log('🎵 Component unmounting - cleaning up all audio');
-      // Stop background music (regardless of playing state)
+      
+      // Stop background music hook
       if (backgroundMusic.stop) {
         console.log('🎵 Stopping background music on component unmount');
         backgroundMusic.stop();
       }
-      // Cleanup direct test audio
-      if (window.testSound) {
-        console.log('🎵 Cleaning up direct test audio on unmount');
-        window.testSound.unloadAsync().catch(console.error);
-        window.testSound = null;
+      
+      // Stop direct audio if it exists
+      if (directAudioSoundRef.current) {
+        try {
+          console.log('🎵 Stopping direct audio on component unmount');
+          directAudioSoundRef.current.stopAsync();
+          directAudioSoundRef.current.unloadAsync();
+          directAudioSoundRef.current = null;
+        } catch (error) {
+          console.error('🎵 Error stopping direct audio on unmount:', error);
+        }
       }
     };
   }, []);
@@ -358,9 +342,11 @@ export default function Adventure1_Module2_Lesson1({
                 resizeMode="cover"
               />
               
-              {/* Text overlay at the top - matching iOS design */}
+              {/* Text overlay with descriptive caption */}
               <View style={styles.textOverlay}>
-                <Text style={styles.captionText}>{interior.caption}</Text>
+                <Text style={styles.captionText}>
+                  {interior.caption}
+                </Text>
               </View>
             </View>
           ))}
@@ -369,17 +355,24 @@ export default function Adventure1_Module2_Lesson1({
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
           <TouchableOpacity style={styles.backButton} onPress={() => {
-            // Stop background music when going back
+            // Stop all audio when going back
             if (backgroundMusic.isPlaying) {
               console.log('🎵 Stopping background music on back button');
               backgroundMusic.stop();
             }
-            // Cleanup direct test audio
-            if (window.testSound) {
-              console.log('🎵 Cleaning up direct test audio on back');
-              window.testSound.unloadAsync().catch(console.error);
-              window.testSound = null;
+            
+            // Stop direct audio if it exists
+            if (directAudioSoundRef.current) {
+              try {
+                console.log('🎵 Stopping direct audio on back button');
+                directAudioSoundRef.current.stopAsync();
+                directAudioSoundRef.current.unloadAsync();
+                directAudioSoundRef.current = null;
+              } catch (error) {
+                console.error('🎵 Error stopping direct audio on back:', error);
+              }
             }
+            
             (onBack || onDismiss)();
           }}>
             <Ionicons name="chevron-back" size={24} color="white" />
@@ -394,11 +387,24 @@ export default function Adventure1_Module2_Lesson1({
               currentImageIndex !== palaceInteriors.length - 1 && styles.topContinueButtonDisabled
             ]}
             onPress={currentImageIndex === palaceInteriors.length - 1 ? () => {
-              // Stop background music before continuing (no await for instant navigation)
+              // Stop all audio before continuing (no await for instant navigation)
               if (backgroundMusic.isPlaying) {
                 console.log('🎵 Stopping background music before continue');
                 backgroundMusic.stop(); // Remove await for instant navigation
               }
+              
+              // Stop direct audio if it exists
+              if (directAudioSoundRef.current) {
+                try {
+                  console.log('🎵 Stopping direct audio before continue');
+                  directAudioSoundRef.current.stopAsync();
+                  directAudioSoundRef.current.unloadAsync();
+                  directAudioSoundRef.current = null;
+                } catch (error) {
+                  console.error('🎵 Error stopping direct audio before continue:', error);
+                }
+              }
+              
               onContinue();
             } : undefined}
             disabled={currentImageIndex !== palaceInteriors.length - 1}
@@ -460,7 +466,7 @@ export default function Adventure1_Module2_Lesson1({
                   Interiors of the Umayyad Palace
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  The throne room sparkled with mosaic tiles...
+                  The Umayyad palace in Damascus was called the Green Dome...
                 </Text>
               </TouchableOpacity>
             </Animated.View>
@@ -495,7 +501,7 @@ export default function Adventure1_Module2_Lesson1({
                     <View style={styles.historicalSection}>
                       <Text style={styles.sectionTitle}>Historical Context</Text>
                       <Text style={styles.historicalText}>
-                        The Umayyad palace in Damascus was a place of power and beauty. The throne room sparkled with mosaic tiles, each tiny piece forming part of a shimmering picture. High ceilings, carved doors, and peaceful courtyards made the palace feel like both a fortress and a sanctuary. But it wasn't just decoration - this was where laws were made, envoys were welcomed, and history was shaped.
+                        The Umayyad palace in Damascus was called the Green Dome, or al-Khadra. Muʿawiya built it beside the Umayyad Mosque as a working seat of power, with a coin mint, stables, and a prison. Sources describe a domed audience hall, marble floors, and gardens with fountains, myrtles, and vines. Later rulers still used the complex, but by the 1000s it had vanished, and travelers wrote that markets stood where the palace once was.
                       </Text>
                     </View>
 
@@ -504,16 +510,16 @@ export default function Adventure1_Module2_Lesson1({
                       <Text style={styles.sectionTitle}>Key Terms</Text>
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
-                          term="Mosaic Tiles"
-                          definition="Small pieces of colored stone or glass forming decorative patterns"
+                          term="Green Dome (al-Khadra)"
+                          definition="The name of the Umayyad palace complex built by Muʿawiya in Damascus"
                         />
                         <KeyTermRow
-                          term="Damascus"
-                          definition="Capital city of the Umayyad Caliphate"
+                          term="Audience Hall"
+                          definition="The domed reception room with marble floors where the caliph met visitors"
                         />
                         <KeyTermRow
-                          term="Throne Room"
-                          definition="The formal reception hall where the caliph held court"
+                          term="Working Palace"
+                          definition="A palace complex with coin mint, stables, and prison for government operations"
                         />
                       </View>
                     </View>

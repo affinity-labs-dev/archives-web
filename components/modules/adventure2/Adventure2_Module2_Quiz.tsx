@@ -96,11 +96,9 @@ export default function Adventure2_Module2_Quiz({ onDismiss, onBack }: Adventure
 
   const { updateModuleProgress } = useProgress()
 
-  console.log('🚀 DEBUG: Adventure2_Module2_Quiz appeared')
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
-    console.log('🚀 DEBUG: Quiz submit pressed for question', currentQuestionIndex + 1)
     
     // Store the user's answer based on question type
     const newUserAnswers = [...userAnswers]
@@ -169,21 +167,21 @@ export default function Adventure2_Module2_Quiz({ onDismiss, onBack }: Adventure
   }
 
   // Handle quiz completion and return to adventure - EXACT SwiftUI: onGoToAdventure
-  const handleGoToAdventure = () => {
-    console.log('🚀 DEBUG: Go to Adventure button pressed in Adventure2_Module2_Quiz')
-    console.log('🚀 DEBUG: Setting adv2_mod2 completion to true')
-    
-    // Mark module as completed - EXACT SwiftUI: UserDefaults.standard.set(true, forKey: "adv2_mod2")
-    updateModuleProgress(2, 2, {
-      lessonsCompleted: ['lesson1', 'lesson2'],
-      isCompleted: true, // Module completed when quiz passed
-      quizCompleted: true,
-      quizScore: correctAnswers // Store the number of correct answers for star rating
-    })
-    
-    console.log('🚀 DEBUG: Module progress updated, calling onDismiss to return to Era')
-    console.log('🚀 DEBUG: Should return to UmmayadDynastyEra with adventure map visible')
-    onDismiss()
+  const handleGoToAdventure = async () => {
+    try {
+      await updateModuleProgress(2, 2, {
+        lessonsCompleted: ['lesson1', 'lesson2'],
+        isCompleted: true, // Module completed when quiz passed
+        quizCompleted: true,
+        quizScore: correctAnswers // Store the number of correct answers for star rating
+      })
+      
+      onDismiss()
+    } catch (error) {
+      console.error('❌ Failed to save quiz progress:', error)
+      // Still dismiss to prevent user being stuck, but log the error
+      onDismiss()
+    }
   }
 
   // Get current question

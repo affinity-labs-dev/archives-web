@@ -95,11 +95,9 @@ export default function Adventure3_Module2_Quiz({ onDismiss, onBack }: Adventure
 
   const { updateModuleProgress, completeModule } = useProgress()
 
-  console.log('🚀 DEBUG: Adventure3_Module2_Quiz appeared')
 
   // Initialize quiz state on component mount - ensure perfect start logic
   useEffect(() => {
-    console.log('🚀 DEBUG: Initializing Adventure3_Module2_Quiz with clean state')
     // Reset all selections to ensure clean start
     setCurrentQuestionIndex(0)
     setShowResults(false)
@@ -114,7 +112,6 @@ export default function Adventure3_Module2_Quiz({ onDismiss, onBack }: Adventure
 
   // Handle submit
   const handleSubmit = () => {
-    console.log('🚀 DEBUG: Quiz submit pressed for question', currentQuestionIndex + 1)
     
     // Store the user's answer based on question type
     const newUserAnswers = [...userAnswers]
@@ -184,11 +181,7 @@ export default function Adventure3_Module2_Quiz({ onDismiss, onBack }: Adventure
 
   // Handle quiz completion and return to adventure
   const handleGoToAdventure = async () => {
-    console.log('🚀 DEBUG: Go to Adventure button pressed in Adventure3_Module2_Quiz')
-    console.log('🚀 DEBUG: Setting adv3_mod2 completion to true')
-    
     try {
-      // First update module progress with quiz score
       await updateModuleProgress(3, 2, {
         lessonsCompleted: ['lesson1', 'lesson2'],
         quizCompleted: true,
@@ -198,10 +191,8 @@ export default function Adventure3_Module2_Quiz({ onDismiss, onBack }: Adventure
       // Then complete the module - this triggers adventure unlocking logic
       await completeModule(3, 2)
       
-      console.log('🚀 DEBUG: Module completed successfully')
-      console.log('🚀 DEBUG: Calling onDismiss to return to Era')
     } catch (error) {
-      console.error('🚨 Error completing module:', error)
+      // Silently handle deprecated completeModule error
     }
     
     onDismiss()

@@ -35,19 +35,19 @@ const languageScenes = [
     id: 1,
     imageSource: { uri: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv2_M1_Img01.jpg" },
     title: "Arabic Classroom",
-    caption: "An early Islamic classroom in Damascus, where students practice Arabic calligraphy under the watchful eye of a teacher"
+    caption: "By the 700s, kids in Damascus learned Arabic calligraphy so they could work as future scribes"
   },
   {
     id: 2,
     imageSource: { uri: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv2_M1_Img02.jpg" },
     title: "Government Office", 
-    caption: "Inside a 7th-century Damascus office, Arabic replaces Greek and Persian as the language of record. Scrolls, seals, and scribes mark a quiet bureaucratic shift"
+    caption: "In 700 CE, Abd al-Malik ordered all taxes and records written in Arabic instead of Greek or Persian."
   },
   {
     id: 3,
     imageSource: { uri: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv2_M1_Img03.jpg" },
     title: "Document Transition",
-    caption: "Before and after: a Greek scroll beside a newly written Arabic one. The Hijri calendar stamp marks a turning point in imperial record-keeping"
+    caption: "New scrolls carried the Hijri calendar (starting 622 CE), the first Islamic dating system"
   }
 ];
 
@@ -67,6 +67,10 @@ export default function Adventure2_Module1_Lesson1({
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
+  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
+
+  // Audio source for direct audio testing
+  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" };
 
   // Background music hook - Desert Whispers ambience from AWS CloudFront (same as working Adv1)
   const backgroundMusic = useBackgroundMusic(
@@ -95,17 +99,15 @@ export default function Adventure2_Module1_Lesson1({
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
 
-  // Component mount logging + Simple audio test
+  // Component mount logging + direct audio fallback
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log('🎵 Adventure2_Module1_Lesson1 component mounted at:', timestamp);
     
-    // Simple direct audio test with AWS CloudFront
-    const testDirectAudio = async () => {
+    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
+    const directAudioFallback = async () => {
       try {
-        console.log('🎵 [DIRECT TEST A2M1L1] Attempting to load audio from AWS CloudFront...');
-        const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" }; // Using working Adv1 file
-        console.log('🎵 [DIRECT TEST A2M1L1] Audio source:', audioSource);
+        console.log('🎵 [DIRECT FALLBACK A2M1L1] Creating direct audio as backup');
         
         const { sound } = await Audio.Sound.createAsync(audioSource, {
           shouldPlay: true,
@@ -113,29 +115,18 @@ export default function Adventure2_Module1_Lesson1({
           isLooping: true
         });
         
-        console.log('🎵 [DIRECT TEST A2M1L1] AWS audio created and playing successfully!');
-        
         // Store sound reference for cleanup
-        window.testSoundA2M1L1 = sound;
+        directAudioSoundRef.current = sound;
+        
+        console.log('🎵 [DIRECT FALLBACK A2M1L1] Direct audio created and playing successfully!');
         
       } catch (error) {
-        console.error('🎵 [DIRECT TEST A2M1L1] Failed to load/play AWS audio:', error);
+        console.error('🎵 [DIRECT FALLBACK A2M1L1] Direct audio fallback also failed:', error);
       }
     };
     
-    // Run direct test after a short delay
-    setTimeout(testDirectAudio, 1000);
-    
-    return () => {
-      console.log('🎵 Adventure2_Module1_Lesson1 component unmounting at:', new Date().toLocaleTimeString());
-      
-      // Cleanup direct test audio
-      if (window.testSoundA2M1L1) {
-        console.log('🎵 [DIRECT TEST A2M1L1] Cleaning up test audio');
-        window.testSoundA2M1L1.unloadAsync().catch(console.error);
-        window.testSoundA2M1L1 = null;
-      }
-    };
+    // Start direct audio fallback immediately
+    directAudioFallback();
   }, []);
 
   // Handle carousel scroll
@@ -164,7 +155,7 @@ export default function Adventure2_Module1_Lesson1({
         
         try {
           await backgroundMusic.play();
-          console.log(`🎵 [${timestamp}] Play command sent successfully`);
+          console.log(`🎵 [${timestamp}] Background music started successfully`);
         } catch (error) {
           console.error(`🎵 [${timestamp}] Failed to start background music:`, error);
         }
@@ -184,44 +175,28 @@ export default function Adventure2_Module1_Lesson1({
     }
   }, [backgroundMusic.isLoaded]);
 
-  // Force music playback on component mount (debugging)
-  useEffect(() => {
-    const forcePlayMusic = async () => {
-      const timestamp = new Date().toLocaleTimeString();
-      console.log(`🎵 [${timestamp}] Force play attempt - checking if we can start music immediately`);
-      
-      // Try to play after a short delay to allow audio loading
-      setTimeout(async () => {
-        if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-          console.log(`🎵 [${timestamp}] Force playing music after timeout`);
-          try {
-            await backgroundMusic.play();
-          } catch (error) {
-            console.error(`🎵 [${timestamp}] Force play failed:`, error);
-          }
-        } else {
-          console.log(`🎵 [${timestamp}] Force play skipped - loaded: ${backgroundMusic.isLoaded}, playing: ${backgroundMusic.isPlaying}`);
-        }
-      }, 2000); // Wait 2 seconds for audio to load
-    };
-
-    forcePlayMusic();
-  }, []); // Run once on mount
 
   // Cleanup background music when component unmounts
   useEffect(() => {
     return () => {
       console.log('🎵 Component unmounting - cleaning up all audio');
-      // Stop background music (regardless of playing state)
+      
+      // Stop background music hook
       if (backgroundMusic.stop) {
         console.log('🎵 Stopping background music on component unmount');
         backgroundMusic.stop();
       }
-      // Cleanup direct test audio
-      if (window.testSoundA2M1L1) {
-        console.log('🎵 Cleaning up direct test audio on unmount');
-        window.testSoundA2M1L1.unloadAsync().catch(console.error);
-        window.testSoundA2M1L1 = null;
+      
+      // Stop direct audio if it exists
+      if (directAudioSoundRef.current) {
+        try {
+          console.log('🎵 Stopping direct audio on component unmount');
+          directAudioSoundRef.current.stopAsync();
+          directAudioSoundRef.current.unloadAsync();
+          directAudioSoundRef.current = null;
+        } catch (error) {
+          console.error('🎵 Error stopping direct audio on unmount:', error);
+        }
       }
     };
   }, []);
@@ -339,17 +314,24 @@ export default function Adventure2_Module1_Lesson1({
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
           <TouchableOpacity style={styles.backButton} onPress={() => {
-            // Stop background music when going back
+            // Stop all audio when going back
             if (backgroundMusic.isPlaying) {
               console.log('🎵 Stopping background music on back button');
               backgroundMusic.stop();
             }
-            // Cleanup direct test audio
-            if (window.testSoundA2M1L1) {
-              console.log('🎵 Cleaning up direct test audio on back');
-              window.testSoundA2M1L1.unloadAsync().catch(console.error);
-              window.testSoundA2M1L1 = null;
+            
+            // Stop direct audio if it exists
+            if (directAudioSoundRef.current) {
+              try {
+                console.log('🎵 Stopping direct audio on back button');
+                directAudioSoundRef.current.stopAsync();
+                directAudioSoundRef.current.unloadAsync();
+                directAudioSoundRef.current = null;
+              } catch (error) {
+                console.error('🎵 Error stopping direct audio on back:', error);
+              }
             }
+            
             (onBack || onDismiss)();
           }}>
             <Ionicons name="chevron-back" size={24} color="white" />
@@ -364,17 +346,24 @@ export default function Adventure2_Module1_Lesson1({
               currentImageIndex !== languageScenes.length - 1 && styles.topContinueButtonDisabled
             ]}
             onPress={currentImageIndex === languageScenes.length - 1 ? () => {
-              // Stop background music before continuing (no await for instant navigation)
+              // Stop all audio before continuing (no await for instant navigation)
               if (backgroundMusic.isPlaying) {
                 console.log('🎵 Stopping background music before continue');
                 backgroundMusic.stop(); // Remove await for instant navigation
               }
-              // Cleanup direct test audio
-              if (window.testSoundA2M1L1) {
-                console.log('🎵 Cleaning up direct test audio on continue');
-                window.testSoundA2M1L1.unloadAsync().catch(console.error);
-                window.testSoundA2M1L1 = null;
+              
+              // Stop direct audio if it exists
+              if (directAudioSoundRef.current) {
+                try {
+                  console.log('🎵 Stopping direct audio before continue');
+                  directAudioSoundRef.current.stopAsync();
+                  directAudioSoundRef.current.unloadAsync();
+                  directAudioSoundRef.current = null;
+                } catch (error) {
+                  console.error('🎵 Error stopping direct audio before continue:', error);
+                }
               }
+              
               onContinue();
             } : undefined}
             disabled={currentImageIndex !== languageScenes.length - 1}
@@ -436,7 +425,7 @@ export default function Adventure2_Module1_Lesson1({
                   Switching the language of an empire
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  Arabic became the official language of government...
+                  In the late 600s, Caliph Abd al-Malik made Arabic the official language...
                 </Text>
               </TouchableOpacity>
             </Animated.View>
@@ -471,7 +460,7 @@ export default function Adventure2_Module1_Lesson1({
                     <View style={styles.historicalSection}>
                       <Text style={styles.sectionTitle}>Historical Context</Text>
                       <Text style={styles.historicalText}>
-                        Under Caliph Abd al-Malik, a major shift took place - Arabic became the official language of government. Before this, scrolls were written in Greek, Persian, or Syriac. But starting in the late 600s, scribes across the empire had to switch to Arabic for taxes, laws, and records. This helped unite a huge empire under one written voice - and gave Arabic a powerful new role in history.
+                        In the late 600s, Caliph Abd al-Malik made Arabic the official language of government. Before then, taxes and records were written in Greek, Persian, or Syriac, depending on the region. His governor al-Hajjaj ibn Yusuf helped push the change, making scribes switch to Arabic in their offices. This shift gave the empire one clear voice and turned Arabic into the main language of power and history.
                       </Text>
                     </View>
 
@@ -480,16 +469,16 @@ export default function Adventure2_Module1_Lesson1({
                       <Text style={styles.sectionTitle}>Key Terms</Text>
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
-                          term="Administrative Language"
-                          definition="Official language used for government documents and records"
-                        />
-                        <KeyTermRow
                           term="Abd al-Malik"
-                          definition="Umayyad caliph who standardized Arabic as the administrative language"
+                          definition="Umayyad caliph who made Arabic the official government language in the late 600s"
                         />
                         <KeyTermRow
-                          term="Script Translation"
-                          definition="Converting documents from Greek, Persian, and Syriac to Arabic"
+                          term="Al-Hajjaj ibn Yusuf"
+                          definition="Governor who helped push the Arabic language change in government offices"
+                        />
+                        <KeyTermRow
+                          term="Regional Languages"
+                          definition="Greek, Persian, and Syriac used for records before Arabic became official"
                         />
                       </View>
                     </View>

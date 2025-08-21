@@ -30,9 +30,9 @@ export default function Adventure3_Module2_Lesson2({
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false)
 
   // EXACT Adventure3_Module1_Lesson1 text content structure
-  const text1 = `Gibraltar's name derives from 'Jabal Ṭarīq' - the Mountain of Ṭarīq. This imposing cliff became both a strategic military position and a symbolic gateway between Africa and Europe.`
+  const text1 = `In 711 CE, Tariq ibn Ziyad defeated King Roderic and the Visigoths at the Battle of Guadalete. The Visigoths were a Germanic people who had invaded and ruled Iberia since the fall of Rome, but their kingdom was divided and weak, making it open to conquest.`
   
-  const text2 = `The Umayyad conquest succeeded through strategic alliances with local populations. Ṭarīq's forces formed partnerships with various Iberian groups who were dissatisfied with Visigothic rule.`
+  const text2 = `The Muslim advance was not only fought in battles. Many locals, including Jews who had faced forced conversions and Catholics who resented Arian Visigoth nobles, saw the new rulers as more tolerant. This helped al-Andalus gain support and stability in its early years.`
 
   return (
     <View style={styles.container}>

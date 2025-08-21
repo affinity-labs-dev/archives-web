@@ -22,13 +22,13 @@ const HISTORICAL_AVATARS = [
     id: 'fatima-al-fihri',
     name: 'Fatima al-Fihri', 
     title: 'Founder of the World\'s First University',
-    image: require('@/assets/images/avatars/Fatima al-Fihri.png')
+    image: require('@/assets/images/avatars/Fatima-al-Fihri.png')
   },
   {
     id: 'ibn-sina',
     name: 'Ibn Sina',
     title: 'Philosopher-physician',
-    image: require('@/assets/images/avatars/Ibn Sina (Avicenna).png')
+    image: require('@/assets/images/avatars/Ibn-Sina-Avicenna.png')
   },
   {
     id: 'ziryab',
@@ -46,25 +46,25 @@ const HISTORICAL_AVATARS = [
     id: 'ibn-battuta',
     name: 'Ibn Battuta',
     title: 'World traveler',
-    image: require('@/assets/images/avatars/Ibn Battuta.png')
+    image: require('@/assets/images/avatars/Ibn-Battuta.png')
   },
   {
     id: 'lubna-cordoba',
     name: 'Lubna of Córdoba',
     title: 'Scholar and secretary',
-    image: require('@/assets/images/avatars/Lubna of Córdoba.png')
+    image: require('@/assets/images/avatars/Lubna-of-Cordoba.png')
   },
   {
     id: 'mariam-asturlabi',
     name: 'Mariam al-Asturlabi',
     title: 'Astrolabe maker and scientist',
-    image: require('@/assets/images/avatars/Mariam al-Asturlabi.png')
+    image: require('@/assets/images/avatars/Mariam-al-Asturlabi.png')
   },
   {
     id: 'zaynab-shahda',
     name: 'Zaynab al-Shahda',
     title: 'Scholar and teacher',
-    image: require('@/assets/images/avatars/Zaynab al-Shahda.png')
+    image: require('@/assets/images/avatars/Zaynab-al-Shahda.png')
   }
 ]
 
@@ -90,7 +90,6 @@ export default function ProfileTab() {
   
   // Profile state - EXACT SwiftUI values
   const [selectedAvatar, setSelectedAvatar] = useState(HISTORICAL_AVATARS[0])
-  const [showSettings, setShowSettings] = useState(false)
   const [showAvatarModal, setShowAvatarModal] = useState(false)
   
   // Stats - EXACT SwiftUI values
@@ -126,15 +125,9 @@ export default function ProfileTab() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
-        {/* Header with Profile Title and Settings */}
+        {/* Header with Profile Title */}
         <View style={styles.header}>
           <Text style={styles.profileTitle}>Profile</Text>
-          <TouchableOpacity 
-            style={styles.settingsButton}
-            onPress={() => setShowSettings(true)}
-          >
-            <Ionicons name="settings-outline" size={24} color={ArchivesTheme.colors.mutedNavy} />
-          </TouchableOpacity>
         </View>
         
         {/* Avatar Section - EXACT SwiftUI */}
@@ -297,22 +290,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20, // Increased top padding
     paddingBottom: 10, // Added bottom padding
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Left aligned
   },
   profileTitle: {
-    fontFamily: 'Cormorant',
-    fontSize: 30,
-    fontWeight: '700', // Bold
-    color: ArchivesTheme.colors.mutedNavy,
-    lineHeight: 30, // 100% line height (30px * 1.0)
+    fontFamily: 'DM Sans',
+    fontSize: 24,
+    fontWeight: '600', // SemiBold
+    color: '#41425E', // Exact color from gradient
+    textAlign: 'left',
+    lineHeight: 28, // Increased to 117% line height (24px * 1.17) to prevent clipping
     letterSpacing: 0, // 0% letter spacing
+    marginBottom: 4,
+    paddingVertical: 2, // Added vertical padding to ensure text isn't clipped
     paddingLeft: 8, // Added left padding like subscription text
-    paddingVertical: 4, // Added vertical padding
-  },
-  settingsButton: {
-    padding: 8,
   },
   
   // Avatar Section - EXACT SwiftUI
@@ -493,7 +483,7 @@ const styles = StyleSheet.create({
   // Sign Out Button
   signOutButton: {
     marginHorizontal: 20,
-    backgroundColor: ArchivesTheme.colors.mossGreen, // Badge yellow/green color
+    backgroundColor: ArchivesTheme.colors.persianOrange, // Persian orange color
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',

@@ -35,13 +35,13 @@ const coinStyles = [
     id: 1,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv2_M2_Img01.jpg",
     title: "Byzantine Gold Coins",
-    caption: "Byzantine gold coins showing the emperor's face - a pre-reform currency still in circulation across early Umayyad lands"
+    caption: "Initially, people used Byzantine coins showing the emperor's face - even though they weren't Muslim."
   },
   {
     id: 2,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv2_M2_Img02.jpg",
     title: "Sasanian-Style Coins", 
-    caption: "Sasanian-style gold coins with a fire altar at the center - a holdover from Persian rule before Umayyad reforms standardized currency"
+    caption: "Other coins came from Persia, had a fire altar, a symbol of Zoroastrian belief."
   }
 ];
 
@@ -56,11 +56,15 @@ export default function Adventure2_Module2_Lesson1({
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
+  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
 
   // Animation values for card expansion
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
+
+  // Audio source for direct audio testing
+  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" };
 
   // Background music hook - Desert Whispers ambience from AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
@@ -89,17 +93,15 @@ export default function Adventure2_Module2_Lesson1({
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
 
-  // Component mount logging + Simple audio test
+  // Component mount logging + direct audio fallback
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log('🎵 Adventure2_Module2_Lesson1 component mounted at:', timestamp);
     
-    // Simple direct audio test with AWS CloudFront
-    const testDirectAudio = async () => {
+    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
+    const directAudioFallback = async () => {
       try {
-        console.log('🎵 [DIRECT TEST A2M2L1] Attempting to load audio from AWS CloudFront...');
-        const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" }; // Temporarily using working Adv1 file for testing
-        console.log('🎵 [DIRECT TEST A2M2L1] Audio source:', audioSource);
+        console.log('🎵 [DIRECT FALLBACK A2M2L1] Creating direct audio as backup');
         
         const { sound } = await Audio.Sound.createAsync(audioSource, {
           shouldPlay: true,
@@ -107,29 +109,18 @@ export default function Adventure2_Module2_Lesson1({
           isLooping: true
         });
         
-        console.log('🎵 [DIRECT TEST A2M2L1] AWS audio created and playing successfully!');
-        
         // Store sound reference for cleanup
-        window.testSoundA2M2L1 = sound;
+        directAudioSoundRef.current = sound;
+        
+        console.log('🎵 [DIRECT FALLBACK A2M2L1] Direct audio created and playing successfully!');
         
       } catch (error) {
-        console.error('🎵 [DIRECT TEST A2M2L1] Failed to load/play AWS audio:', error);
+        console.error('🎵 [DIRECT FALLBACK A2M2L1] Direct audio fallback also failed:', error);
       }
     };
     
-    // Run direct test after a short delay
-    setTimeout(testDirectAudio, 1000);
-    
-    return () => {
-      console.log('🎵 Adventure2_Module2_Lesson1 component unmounting at:', new Date().toLocaleTimeString());
-      
-      // Cleanup direct test audio
-      if (window.testSoundA2M2L1) {
-        console.log('🎵 [DIRECT TEST A2M2L1] Cleaning up test audio');
-        window.testSoundA2M2L1.unloadAsync().catch(console.error);
-        window.testSoundA2M2L1 = null;
-      }
-    };
+    // Start direct audio fallback immediately
+    directAudioFallback();
   }, []);
 
   // Handle carousel scroll
@@ -157,7 +148,7 @@ export default function Adventure2_Module2_Lesson1({
         
         try {
           await backgroundMusic.play();
-          console.log(`🎵 [${timestamp}] Play command sent successfully`);
+          console.log(`🎵 [${timestamp}] Background music started successfully`);
         } catch (error) {
           console.error(`🎵 [${timestamp}] Failed to start background music:`, error);
         }
@@ -176,47 +167,31 @@ export default function Adventure2_Module2_Lesson1({
     }
   }, [backgroundMusic.isLoaded]);
 
-  // Force music playback on component mount (debugging)
-  useEffect(() => {
-    const forcePlayMusic = async () => {
-      const timestamp = new Date().toLocaleTimeString();
-      console.log(`🎵 [${timestamp}] Force play attempt - checking if we can start music immediately`);
-      
-      // Try to play after a short delay to allow audio loading
-      setTimeout(async () => {
-        if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-          console.log(`🎵 [${timestamp}] Force playing music after timeout`);
-          try {
-            await backgroundMusic.play();
-          } catch (error) {
-            console.error(`🎵 [${timestamp}] Force play failed:`, error);
-          }
-        } else {
-          console.log(`🎵 [${timestamp}] Force play skipped - loaded: ${backgroundMusic.isLoaded}, playing: ${backgroundMusic.isPlaying}`);
-        }
-      }, 2000); // Wait 2 seconds for audio to load
-    };
-
-    forcePlayMusic();
-  }, []); // Run once on mount
 
   // Cleanup background music when component unmounts
   useEffect(() => {
     return () => {
       console.log('🎵 Component unmounting - cleaning up all audio');
-      // Stop background music (regardless of playing state)
+      
+      // Stop background music hook
       if (backgroundMusic.stop) {
         console.log('🎵 Stopping background music on component unmount');
         backgroundMusic.stop();
       }
-      // Cleanup direct test audio
-      if (window.testSoundA2M2L1) {
-        console.log('🎵 Cleaning up direct test audio on unmount');
-        window.testSoundA2M2L1.unloadAsync().catch(console.error);
-        window.testSoundA2M2L1 = null;
+      
+      // Stop direct audio if it exists
+      if (directAudioSoundRef.current) {
+        try {
+          console.log('🎵 Stopping direct audio on component unmount');
+          directAudioSoundRef.current.stopAsync();
+          directAudioSoundRef.current.unloadAsync();
+          directAudioSoundRef.current = null;
+        } catch (error) {
+          console.error('🎵 Error stopping direct audio on unmount:', error);
+        }
       }
     };
-  }, []);
+  }, []); // Close the useEffect
 
   // Handle swipe gestures to expand/collapse the card
   const handleSwipeGesture = (event: any) => {
@@ -330,17 +305,24 @@ export default function Adventure2_Module2_Lesson1({
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
           <TouchableOpacity style={styles.backButton} onPress={() => {
-            // Stop background music when going back
+            // Stop all audio when going back
             if (backgroundMusic.isPlaying) {
               console.log('🎵 Stopping background music on back button');
               backgroundMusic.stop();
             }
-            // Cleanup direct test audio
-            if (window.testSoundA2M2L1) {
-              console.log('🎵 Cleaning up direct test audio on back');
-              window.testSoundA2M2L1.unloadAsync().catch(console.error);
-              window.testSoundA2M2L1 = null;
+            
+            // Stop direct audio if it exists
+            if (directAudioSoundRef.current) {
+              try {
+                console.log('🎵 Stopping direct audio on back button');
+                directAudioSoundRef.current.stopAsync();
+                directAudioSoundRef.current.unloadAsync();
+                directAudioSoundRef.current = null;
+              } catch (error) {
+                console.error('🎵 Error stopping direct audio on back:', error);
+              }
             }
+            
             (onBack || onDismiss)();
           }}>
             <Ionicons name="chevron-back" size={24} color="white" />
@@ -355,17 +337,24 @@ export default function Adventure2_Module2_Lesson1({
               currentImageIndex !== coinStyles.length - 1 && styles.topContinueButtonDisabled
             ]}
             onPress={currentImageIndex === coinStyles.length - 1 ? () => {
-              // Stop background music before continuing (no await for instant navigation)
+              // Stop all audio before continuing (no await for instant navigation)
               if (backgroundMusic.isPlaying) {
                 console.log('🎵 Stopping background music before continue');
                 backgroundMusic.stop(); // Remove await for instant navigation
               }
-              // Cleanup direct test audio
-              if (window.testSoundA2M2L1) {
-                console.log('🎵 Cleaning up direct test audio on continue');
-                window.testSoundA2M2L1.unloadAsync().catch(console.error);
-                window.testSoundA2M2L1 = null;
+              
+              // Stop direct audio if it exists
+              if (directAudioSoundRef.current) {
+                try {
+                  console.log('🎵 Stopping direct audio before continue');
+                  directAudioSoundRef.current.stopAsync();
+                  directAudioSoundRef.current.unloadAsync();
+                  directAudioSoundRef.current = null;
+                } catch (error) {
+                  console.error('🎵 Error stopping direct audio before continue:', error);
+                }
               }
+              
               onContinue();
             } : undefined}
             disabled={currentImageIndex !== coinStyles.length - 1}
@@ -427,7 +416,7 @@ export default function Adventure2_Module2_Lesson1({
                   Currency Reform Under the Umayyads
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  Before Abd al-Malik's reforms, multiple currencies...
+                  Before Abd al-Malik&apos;s reform, coins copied older empires...
                 </Text>
               </TouchableOpacity>
             </Animated.View>
@@ -462,7 +451,7 @@ export default function Adventure2_Module2_Lesson1({
                     <View style={styles.historicalSection}>
                       <Text style={styles.sectionTitle}>Historical Context</Text>
                       <Text style={styles.historicalText}>
-                        Before Abd al-Malik's reforms, multiple currencies circulated across the empire - Byzantine gold coins showed the emperor's face, while Sasanian-style coins featured fire altars from Persian rule. This created confusion in markets and made trade difficult. By standardizing currency with Islamic designs and Arabic inscriptions, the Umayyads unified their economic system and established their authority over commerce throughout the empire.
+                        Before Abd al-Malik&apos;s reform, coins copied older empires and showed emperors&apos; faces, fire altars, or crosses, and few people objected to these non-Islamic symbols. In 696 CE, he introduced new coins that dropped images completely and used only Arabic writing. The gold dinar and silver dirham carried Qur&apos;an verses and mint names, creating a single style of money that linked markets across the empire.
                       </Text>
                     </View>
 
@@ -471,16 +460,16 @@ export default function Adventure2_Module2_Lesson1({
                       <Text style={styles.sectionTitle}>Key Terms</Text>
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
-                          term="Currency Reform"
-                          definition="Abd al-Malik's standardization of Islamic coinage across the empire"
+                          term="696 CE Reform"
+                          definition="Abd al-Malik introduced new coins with only Arabic writing, no images"
                         />
                         <KeyTermRow
-                          term="Byzantine Gold Coins"
-                          definition="Pre-reform currency featuring the emperor's image"
+                          term="Dinar and Dirham"
+                          definition="Gold and silver coins carrying Qur'an verses and mint names"
                         />
                         <KeyTermRow
-                          term="Sasanian-Style Coins"
-                          definition="Persian-influenced currency with fire altar symbols"
+                          term="Non-Islamic Symbols"
+                          definition="Emperors' faces, fire altars, and crosses on pre-reform coins"
                         />
                       </View>
                     </View>

@@ -29,7 +29,7 @@ const iOSLayout = {
   
   // Image and question section
   imageQuestionSectionTopPadding: 35,  // .padding(.top, 35)
-  imageQuestionSpacing: 30,            // VStack(spacing: 30)
+  imageQuestionSpacing: 10,            // VStack(spacing: 10) - Very tight spacing
   questionTextHorizontalPadding: 20,   // .padding(.horizontal, 20)
   
   // Image exact measurements

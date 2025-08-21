@@ -34,7 +34,7 @@ export default function Adventure1_Module1_Lesson1({
   onContinue,
   onDismiss,
 }: Adventure1_Module1_Lesson1Props) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
@@ -53,18 +53,18 @@ export default function Adventure1_Module1_Lesson1({
   
   // Animated value for smooth progress bar
   const progressBarWidth = useRef(new Animated.Value(0)).current;
+  
+  // Track last progress to prevent unnecessary animations
+  const lastProgress = useRef(0);
 
   // EXACT SwiftUI historicalText content
-  const historicalText = `In 661 CE, Mu'awiya became the first Umayyad caliph and made a bold decision: he moved the capital of the growing Islamic empire to Damascus. The city's location made it perfect for ruling a vast territory - it sat at the crossroads of trade and diplomacy, close to the Mediterranean and linked to ancient Roman roads. As he took power through the bay'ah ceremony, Mu'awiya set the foundations for a new dynasty and a new center of leadership.`;
+  const historicalText = `In 661 CE, Muʿawiya became the first Umayyad caliph and moved the capital to Damascus. He gained power through the bayʿah ceremony, where leaders and citizens pledged loyalty by placing their hands in his. This public act wasn't just symbolic - it showed unity and made his rule legitimate. From Damascus, Muʿawiya built the foundations of a new dynasty and a powerful center of leadership.`;
 
   // Handle video playback status and track progress
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       if (!isVideoLoaded) {
         setIsVideoLoaded(true);
-        console.log(
-          "🎬 DEBUG: Adventure1_Module1_Lesson1 video player ready - starting playback"
-        );
       }
 
       // Update video progress for progress bar
@@ -72,13 +72,22 @@ export default function Adventure1_Module1_Lesson1({
         const progress = status.positionMillis / status.durationMillis;
         setVideoProgress(progress);
         
-        // Update progress bar smoothly - direct setValue for continuous progress
-        progressBarWidth.setValue(progress);
+        // Only animate if progress changed significantly (prevents micro-animations)
+        const progressDiff = Math.abs(progress - lastProgress.current);
+        if (progressDiff > 0.0005) { // More sensitive threshold for ultra-smooth updates
+          lastProgress.current = progress;
+          
+          // Ultra-smooth progress bar animation
+          Animated.timing(progressBarWidth, {
+            toValue: progress,
+            duration: 50, // Very short animation for silky smooth transitions
+            useNativeDriver: false, // Width animations require native driver false
+          }).start();
+        }
         
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
           setHasVideoCompleted(true);
-          console.log("🎬 Video completed - triggering card pop animation");
           triggerCardPopAnimation();
         }
       }
@@ -105,10 +114,7 @@ export default function Adventure1_Module1_Lesson1({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Toggle play/pause
-  const handleTogglePlayback = () => {
-    setIsPlaying(!isPlaying);
-  };
+  // Removed handleTogglePlayback - now handled directly by LessonPlayer
 
   // Continue button handler - only works if reading is finished
   const handleContinue = () => {
@@ -227,9 +233,7 @@ export default function Adventure1_Module1_Lesson1({
         {/* Full-screen video player */}
         <LessonPlayer
           videoSource={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel+Videos/Adv1_M1_Reel1.mp4" }}
-          isPlaying={isPlaying}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          onTogglePlayback={handleTogglePlayback}
           autoPlay={true}
           shouldLoop={true}
         />
@@ -307,7 +311,7 @@ export default function Adventure1_Module1_Lesson1({
                   Bay&apos;ah Ceremony & Damascus
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  In 661 CE, Mu&apos;awiya became the first Umayyad...
+                  In 661 CE, Muʿawiya became the first Umayyad caliph...
                 </Text>
               </View>
             </Animated.View>
@@ -350,15 +354,15 @@ export default function Adventure1_Module1_Lesson1({
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
                           term="Bay'ah"
-                          definition="A pledge of allegiance to the caliph"
+                          definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
                         />
                         <KeyTermRow
                           term="Damascus"
-                          definition="The capital city of the Umayyad Caliphate"
+                          definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
                         />
                         <KeyTermRow
-                          term="Umayyad"
-                          definition="The first great Muslim dynasty (661-750 CE)"
+                          term="Legitimacy"
+                          definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
                         />
                       </View>
                     </View>

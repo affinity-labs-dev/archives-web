@@ -19,8 +19,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: ArchivesTheme.colors.creamWhite,
           borderTopWidth: 0,
-          height: Platform.OS === 'ios' ? 88 : 65,
-          paddingBottom: Platform.OS === 'ios' ? 34 : 10,
+          height: Platform.OS === 'ios' ? 88 : Platform.OS === 'web' ? 75 : 65,
+          paddingBottom: Platform.OS === 'ios' ? 34 : Platform.OS === 'web' ? 15 : 10,
           paddingTop: 8,
           // Subtle shadow matching SwiftUI
           shadowColor: '#000',
@@ -31,8 +31,13 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontFamily: 'DM Sans',
-          fontSize: 12,
+          fontSize: Platform.OS === 'web' ? 13 : 12,
           fontWeight: '600',
+          // Web-specific font styling for proper text rendering
+          ...(Platform.OS === 'web' && {
+            lineHeight: 16,
+            marginTop: 2,
+          }),
         },
         tabBarIconStyle: {
           marginBottom: -2,

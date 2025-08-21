@@ -5,11 +5,12 @@ import ArchivesTheme from "../constants/ArchivesTheme";
 import { useAuth } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { VideoView, useVideoPlayer } from "expo-video";
+import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
   Image,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
@@ -26,17 +27,60 @@ export default function LandingPage() {
   const { isSignedIn } = useAuth();
   const { trackScreenView, trackAppOpened, trackVideoPlayed } = useAnalytics();
 
-  console.log("LandingPage - Component loaded, isSignedIn:", isSignedIn);
+  console.log('🎬 [LandingPage] Component initializing...');
+  console.log('🎬 [LandingPage] Platform:', Platform.OS);
+  console.log('🎬 [LandingPage] Screen dimensions:', { screenWidth, screenHeight });
 
-  // Initialize video player
-  const player = useVideoPlayer(
-    require("@/assets/videos/archives_intro.mp4"),
-    (player) => {
+  // Create video player for background video
+  const player = useVideoPlayer(require("@/assets/videos/archives_intro.mp4"), player => {
+    console.log('🎬 [Video Player] Initialization callback called');
+    console.log('🎬 [Video Player] Player object:', !!player);
+    
+    try {
       player.loop = true;
+      console.log('🎬 [Video Player] Loop enabled');
+      
       player.muted = true;
+      console.log('🎬 [Video Player] Muted enabled');
+      
       player.play();
+      console.log('🎬 [Video Player] Play() called');
+    } catch (error) {
+      console.error('🎬 [Video Player] Error during setup:', error);
     }
-  );
+  });
+
+  console.log('🎬 [Video Player] useVideoPlayer completed, player:', !!player);
+
+  // Simple video control - no aggressive cleanup
+  // Let React Native and expo-video handle their own lifecycle
+
+  // Add a timeout to check if video loading is stuck
+  useEffect(() => {
+    console.log('🎬 [Timeout] Setting up video loading timeout check...');
+    
+    const timeout = setTimeout(() => {
+      if (!videoLoaded) {
+        console.warn('🎬 [Timeout] Video not loaded after 10 seconds - possible issue');
+        console.log('🎬 [Timeout] Current player state:', !!player);
+        console.log('🎬 [Timeout] Platform:', Platform.OS);
+        
+        // Try to get player status if available
+        try {
+          if (player && player.status) {
+            console.log('🎬 [Timeout] Player status:', player.status);
+          }
+        } catch (error) {
+          console.error('🎬 [Timeout] Error checking player status:', error);
+        }
+      }
+    }, 10000); // 10 second timeout
+
+    return () => {
+      console.log('🎬 [Timeout] Clearing timeout...');
+      clearTimeout(timeout);
+    };
+  }, [videoLoaded, player]);
 
   // Track screen view and app opened when component mounts
   useEffect(() => {
@@ -54,11 +98,39 @@ export default function LandingPage() {
 
   // Handle video loading state and track video play
   useEffect(() => {
-    console.log("LandingPage - Setting video as loaded");
-    trackVideoPlayed("archives_intro.mp4");
-    // Set video as loaded immediately since expo-video handles loading internally
-    setVideoLoaded(true);
-  }, [trackVideoPlayed]);
+    if (!player) {
+      return;
+    }
+
+    try {
+      const subscription = player.addListener('statusChange', (status) => {
+        if (status.status === 'readyToPlay' && !videoLoaded) {
+          console.log('🎬 Video ready to play');
+          trackVideoPlayed("archives_intro.mp4");
+          setVideoLoaded(true);
+        }
+      });
+
+      return () => {
+        subscription?.remove();
+      };
+    } catch (error) {
+      console.warn('🎬 Video status listener error:', error);
+    }
+  }, [player, videoLoaded, trackVideoPlayed]);
+
+  // Simple focus-based video control
+  useEffect(() => {
+    // Auto-play video when component mounts (if loaded)
+    if (player && videoLoaded) {
+      try {
+        player.play();
+        console.log('🎬 Video started playing on mount');
+      } catch (error) {
+        console.warn('🎬 Could not auto-play video:', error);
+      }
+    }
+  }, [player, videoLoaded]);
 
   const handleGetStarted = () => {
     router.push("/archives-auth?mode=signup");
@@ -86,20 +158,24 @@ export default function LandingPage() {
           end={{ x: 1, y: 1 }}
           style={styles.fallbackGradient}
         />
+        
+        {/* Video View - Render when loaded */}
         {videoLoaded && (
           <VideoView
-            style={styles.backgroundVideo}
             player={player}
+            style={styles.backgroundVideo}
             contentFit="cover"
             nativeControls={false}
+            allowsFullscreen={false}
+            allowsPictureInPicture={false}
           />
         )}
 
-        {/* Dark Overlay - 65% opacity (exact match) */}
+        {/* Dark Overlay - 75% opacity */}
         <View
           style={[
             styles.backgroundVideo,
-            { backgroundColor: "rgba(0,0,0,0.5)" },
+            { backgroundColor: "rgba(0,0,0,0.75)" },
           ]}
         />
 

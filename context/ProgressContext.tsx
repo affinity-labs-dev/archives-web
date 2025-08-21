@@ -1,26 +1,82 @@
-// Progress Context - Manages adventure and lesson completion state
-// Replaces SwiftUI UserDefaults system with AsyncStorage + React Context
+// Progress Context - REDESIGNED for atomic progress management
+// Eliminates race conditions and synchronizes progress, quiz scores, and unlocking logic
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { Platform } from 'react-native'
+import { useProgressSync } from '@/hooks/useSyncIntegration'
 
-// Progress data types matching SwiftUI structure
-export interface ModuleProgress {
-  adventureId: number
-  moduleId: number
-  isCompleted: boolean
-  lessonsCompleted: string[] // lesson IDs like "lesson1", "lesson2"
-  quizCompleted: boolean
-  quizScore?: number // Number of correct answers for star rating
-  unlockedAt?: string // ISO date string
+// Web-compatible storage wrapper to prevent SSR issues
+class WebCompatibleStorage {
+  private static isClient = typeof window !== 'undefined';
+  
+  static async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web' && !this.isClient) {
+      return null; // Return null during SSR
+    }
+    
+    try {
+      return await AsyncStorage.getItem(key);
+    } catch (error) {
+      console.warn(`Storage getItem error for key ${key}:`, error);
+      return null;
+    }
+  }
+  
+  static async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web' && !this.isClient) {
+      return; // Skip during SSR
+    }
+    
+    try {
+      await AsyncStorage.setItem(key, value);
+    } catch (error) {
+      console.warn(`Storage setItem error for key ${key}:`, error);
+    }
+  }
 }
 
-export interface AdventureProgress {
+// Enhanced module state enum for clear progression tracking
+export enum ModuleState {
+  LOCKED = 'locked',
+  LESSON1_AVAILABLE = 'lesson1_available', 
+  LESSON1_COMPLETED = 'lesson1_completed',
+  LESSON2_AVAILABLE = 'lesson2_available',
+  LESSON2_COMPLETED = 'lesson2_completed', 
+  QUIZ_AVAILABLE = 'quiz_available',
+  MODULE_COMPLETED = 'module_completed'
+}
+
+// Progress update action types for atomic operations
+export type ProgressUpdateAction = 
+  | { type: 'LESSON_COMPLETED'; lessonId: string }
+  | { type: 'QUIZ_COMPLETED'; quizScore: number; quizCorrectAnswers: number }
+  | { type: 'QUIZ_RETAKEN'; quizScore: number; quizCorrectAnswers: number }
+  | { type: 'MODULE_RESET' }
+
+// Enhanced data structures with state machine and retaking support
+export interface ModuleProgressV2 {
+  adventureId: number
+  moduleId: number
+  state: ModuleState
+  lesson1Completed: boolean
+  lesson2Completed: boolean
+  quizCompleted: boolean
+  quizScore?: number // Number of correct answers (0-5)
+  quizAttempts: number // Track retake attempts
+  bestQuizScore?: number // Highest score achieved across all attempts
+  unlockedAt: string
+  completedAt?: string
+  lastUpdated: string
+}
+
+export interface AdventureProgressV2 {
   adventureId: number
   isUnlocked: boolean
   modulesCompleted: number
   totalModules: number
   unlockedAt?: string
+  completedAt?: string
 }
 
 export interface EraProgress {
@@ -31,6 +87,25 @@ export interface EraProgress {
   overallProgress: number // 0-100
 }
 
+// Legacy interfaces for backward compatibility during migration
+export interface ModuleProgress {
+  adventureId: number
+  moduleId: number
+  isCompleted: boolean
+  lessonsCompleted: string[]
+  quizCompleted: boolean
+  quizScore?: number
+  unlockedAt?: string
+}
+
+export interface AdventureProgress {
+  adventureId: number
+  isUnlocked: boolean
+  modulesCompleted: number
+  totalModules: number
+  unlockedAt?: string
+}
+
 interface ProgressContextType {
   // Era state
   selectedEra: string | null
@@ -39,23 +114,30 @@ interface ProgressContextType {
   // Adventure progress
   adventureProgress: AdventureProgress[]
   getAdventureProgress: (adventureId: number) => AdventureProgress | null
-  unlockAdventure: (adventureId: number) => Promise<void>
   
-  // Module progress
+  // Module progress - NEW ATOMIC SYSTEM
   moduleProgress: ModuleProgress[]
   getModuleProgress: (adventureId: number, moduleId: number) => ModuleProgress | null
-  updateModuleProgress: (adventureId: number, moduleId: number, updates: Partial<ModuleProgress>) => Promise<void>
-  completeModule: (adventureId: number, moduleId: number) => Promise<void>
-  completeLesson: (adventureId: number, moduleId: number, lessonId: string) => Promise<void>
-  completeQuiz: (adventureId: number, moduleId: number) => Promise<void>
+  atomicProgressUpdate: (adventureId: number, moduleId: number, action: ProgressUpdateAction) => Promise<void>
+  
+  // Retaking system
+  canRetakeModule: (adventureId: number, moduleId: number) => boolean
   
   // Utility functions
   isModuleUnlocked: (adventureId: number, moduleId: number) => boolean
   isLessonCompleted: (adventureId: number, moduleId: number, lessonId: string) => boolean
   getOverallProgress: () => number
+  getModuleStarCount: (adventureId: number, moduleId: number) => number
   
   // Loading state
   isLoading: boolean
+  
+  // Legacy compatibility functions (deprecated but maintained for gradual migration)
+  updateModuleProgress: (adventureId: number, moduleId: number, updates: Partial<ModuleProgress>) => Promise<void>
+  completeModule: (adventureId: number, moduleId: number) => Promise<void>
+  completeLesson: (adventureId: number, moduleId: number, lessonId: string) => Promise<void>
+  completeQuiz: (adventureId: number, moduleId: number) => Promise<void>
+  unlockAdventure: (adventureId: number) => Promise<void>
 }
 
 const ProgressContext = createContext<ProgressContextType | undefined>(undefined)
@@ -81,34 +163,66 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const [adventureProgress, setAdventureProgress] = useState<AdventureProgress[]>(INITIAL_ADVENTURE_DATA)
   const [moduleProgress, setModuleProgress] = useState<ModuleProgress[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Sync integration for background cloud sync
+  const { syncEra, syncAdventure, syncModule } = useProgressSync()
 
   // Load progress from AsyncStorage on mount
   useEffect(() => {
     loadProgressData()
   }, [])
 
+  // Data migration and validation logic
+  const migrateAndValidateData = (loadedModules: any[]): ModuleProgress[] => {
+    return loadedModules.map(module => {
+      // Ensure all required fields exist with proper defaults
+      const migratedModule: ModuleProgress = {
+        adventureId: module.adventureId,
+        moduleId: module.moduleId,
+        isCompleted: module.isCompleted || false,
+        lessonsCompleted: Array.isArray(module.lessonsCompleted) ? module.lessonsCompleted : [],
+        quizCompleted: module.quizCompleted || false,
+        quizScore: typeof module.quizScore === 'number' ? module.quizScore : undefined,
+        unlockedAt: module.unlockedAt || new Date().toISOString()
+      }
+      
+      // Data integrity validation
+      if (migratedModule.isCompleted && !migratedModule.quizCompleted) {
+        console.log(`🔧 Migrating corrupted module - Adventure ${module.adventureId} Module ${module.moduleId}`)
+        migratedModule.quizCompleted = true
+        migratedModule.quizScore = migratedModule.quizScore || 1
+        migratedModule.lessonsCompleted = ['lesson1', 'lesson2']
+      }
+      
+      return migratedModule
+    })
+  }
+
   const loadProgressData = async () => {
     try {
       setIsLoading(true)
       
       // Load selected era
-      const storedEra = await AsyncStorage.getItem(STORAGE_KEYS.SELECTED_ERA)
+      const storedEra = await WebCompatibleStorage.getItem(STORAGE_KEYS.SELECTED_ERA)
       if (storedEra) {
         setSelectedEraState(storedEra)
       }
 
       // Load adventure progress
-      const storedAdventures = await AsyncStorage.getItem(STORAGE_KEYS.ADVENTURE_PROGRESS)
+      const storedAdventures = await WebCompatibleStorage.getItem(STORAGE_KEYS.ADVENTURE_PROGRESS)
       if (storedAdventures) {
         const adventures = JSON.parse(storedAdventures) as AdventureProgress[]
         setAdventureProgress(adventures)
       }
 
-      // Load module progress
-      const storedModules = await AsyncStorage.getItem(STORAGE_KEYS.MODULE_PROGRESS)
+      // Load module progress with migration
+      const storedModules = await WebCompatibleStorage.getItem(STORAGE_KEYS.MODULE_PROGRESS)
       if (storedModules) {
-        const modules = JSON.parse(storedModules) as ModuleProgress[]
-        setModuleProgress(modules)
+        const modules = JSON.parse(storedModules)
+        const migratedModules = migrateAndValidateData(modules)
+        setModuleProgress(migratedModules)
+        
+        console.log('✅ Progress data loaded and migrated successfully')
       }
 
     } catch (error) {
@@ -118,26 +232,25 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const saveAdventureProgress = async (adventures: AdventureProgress[]) => {
+  // Immediate save for critical data - no debouncing
+  const saveProgressData = async (adventures: AdventureProgress[], modules: ModuleProgress[]) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, JSON.stringify(adventures))
+      await Promise.all([
+        WebCompatibleStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, JSON.stringify(adventures)),
+        WebCompatibleStorage.setItem(STORAGE_KEYS.MODULE_PROGRESS, JSON.stringify(modules))
+      ])
+      console.log('✅ Progress data saved successfully')
     } catch (error) {
-      console.error('Error saving adventure progress:', error)
-    }
-  }
-
-  const saveModuleProgress = async (modules: ModuleProgress[]) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.MODULE_PROGRESS, JSON.stringify(modules))
-    } catch (error) {
-      console.error('Error saving module progress:', error)
+      console.error('❌ Error saving progress data:', error)
+      throw error
     }
   }
 
   const setSelectedEra = async (eraId: string) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_ERA, eraId)
+      await WebCompatibleStorage.setItem(STORAGE_KEYS.SELECTED_ERA, eraId)
       setSelectedEraState(eraId)
+      syncEra()
     } catch (error) {
       console.error('Error saving selected era:', error)
     }
@@ -151,159 +264,30 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     return moduleProgress.find(m => m.adventureId === adventureId && m.moduleId === moduleId) || null
   }
 
-  const unlockAdventure = async (adventureId: number) => {
-    const updatedAdventures = adventureProgress.map(adventure => 
-      adventure.adventureId === adventureId
-        ? { ...adventure, isUnlocked: true, unlockedAt: new Date().toISOString() }
-        : adventure
-    )
+  // Calculate module state for UI display
+  const calculateModuleState = (module: ModuleProgress | null): ModuleState => {
+    if (!module) return ModuleState.LOCKED
     
-    setAdventureProgress(updatedAdventures)
-    await saveAdventureProgress(updatedAdventures)
+    if (module.isCompleted) return ModuleState.MODULE_COMPLETED
+    if (module.quizCompleted) return ModuleState.QUIZ_AVAILABLE
+    if (module.lessonsCompleted.includes('lesson2')) return ModuleState.LESSON2_COMPLETED
+    if (module.lessonsCompleted.includes('lesson1')) return ModuleState.LESSON1_COMPLETED
+    return ModuleState.LESSON1_AVAILABLE
   }
 
-  // Update module progress with partial updates - exactly like SwiftUI UserDefaults updates
-  const updateModuleProgress = async (
-    adventureId: number, 
-    moduleId: number, 
-    updates: Partial<ModuleProgress>
-  ) => {
-    console.log('📚 UpdateModuleProgress:', { adventureId, moduleId, updates })
+  // Get star count based on quiz score (1-2 correct = 1★, 3-4 = 2★, 5 = 3★)
+  const getModuleStarCount = (adventureId: number, moduleId: number): number => {
+    const module = getModuleProgress(adventureId, moduleId)
+    if (!module || !module.quizCompleted || typeof module.quizScore !== 'number') return 0
     
-    // Find existing module or create new one
-    const existingModule = getModuleProgress(adventureId, moduleId)
-    const updatedModule: ModuleProgress = existingModule 
-      ? { ...existingModule, ...updates }
-      : {
-          adventureId,
-          moduleId,
-          isCompleted: false,
-          lessonsCompleted: [],
-          quizCompleted: false,
-          ...updates
-        }
-    
-    // Update modules array
-    const updatedModules = existingModule
-      ? moduleProgress.map(m => 
-          m.adventureId === adventureId && m.moduleId === moduleId
-            ? updatedModule
-            : m
-        )
-      : [...moduleProgress, updatedModule]
-    
-    setModuleProgress(updatedModules)
-    await saveModuleProgress(updatedModules)
-    
-    console.log('📚 Module progress updated successfully')
+    const score = module.quizScore
+    return score <= 2 ? 1 : score <= 4 ? 2 : 3
   }
 
-  const completeModule = async (adventureId: number, moduleId: number) => {
-    // Update module progress
-    const existingModule = getModuleProgress(adventureId, moduleId)
-    const updatedModules = existingModule
-      ? moduleProgress.map(m => 
-          m.adventureId === adventureId && m.moduleId === moduleId
-            ? { ...m, isCompleted: true }
-            : m
-        )
-      : [
-          ...moduleProgress,
-          {
-            adventureId,
-            moduleId,
-            isCompleted: true,
-            lessonsCompleted: [],
-            quizCompleted: true,
-          }
-        ]
-
-    setModuleProgress(updatedModules)
-    await saveModuleProgress(updatedModules)
-
-    // Update adventure progress
-    const adventure = getAdventureProgress(adventureId)
-    if (adventure) {
-      const completedModules = updatedModules.filter(
-        m => m.adventureId === adventureId && m.isCompleted
-      ).length
-
-      const updatedAdventures = adventureProgress.map(a => 
-        a.adventureId === adventureId
-          ? { ...a, modulesCompleted: completedModules }
-          : a
-      )
-
-      setAdventureProgress(updatedAdventures)
-      await saveAdventureProgress(updatedAdventures)
-
-      // Unlock next adventure if current one is completed
-      if (completedModules === adventure.totalModules) {
-        await unlockAdventure(adventureId + 1)
-      }
-
-      // Unlock next module in same adventure
-      const nextModule = getModuleProgress(adventureId, moduleId + 1)
-      if (!nextModule && moduleId < adventure.totalModules) {
-        // Auto-unlock next module
-        const newModule: ModuleProgress = {
-          adventureId,
-          moduleId: moduleId + 1,
-          isCompleted: false,
-          lessonsCompleted: [],
-          quizCompleted: false,
-          unlockedAt: new Date().toISOString()
-        }
-        const modulesWithNext = [...updatedModules, newModule]
-        setModuleProgress(modulesWithNext)
-        await saveModuleProgress(modulesWithNext)
-      }
-    }
-  }
-
-  const completeLesson = async (adventureId: number, moduleId: number, lessonId: string) => {
-    const existingModule = getModuleProgress(adventureId, moduleId)
-    const updatedModules = existingModule
-      ? moduleProgress.map(m => 
-          m.adventureId === adventureId && m.moduleId === moduleId
-            ? { 
-                ...m, 
-                lessonsCompleted: [...new Set([...m.lessonsCompleted, lessonId])]
-              }
-            : m
-        )
-      : [
-          ...moduleProgress,
-          {
-            adventureId,
-            moduleId,
-            isCompleted: false,
-            lessonsCompleted: [lessonId],
-            quizCompleted: false,
-            unlockedAt: new Date().toISOString()
-          }
-        ]
-
-    setModuleProgress(updatedModules)
-    await saveModuleProgress(updatedModules)
-  }
-
-  const completeQuiz = async (adventureId: number, moduleId: number) => {
-    const updatedModules = moduleProgress.map(m => 
-      m.adventureId === adventureId && m.moduleId === moduleId
-        ? { ...m, quizCompleted: true }
-        : m
-    )
-
-    setModuleProgress(updatedModules)
-    await saveModuleProgress(updatedModules)
-
-    // Complete the module after quiz completion
-    await completeModule(adventureId, moduleId)
-  }
-
+  // Validate module unlocking based on sequential completion
   const isModuleUnlocked = (adventureId: number, moduleId: number): boolean => {
     const adventure = getAdventureProgress(adventureId)
+    
     if (!adventure?.isUnlocked) return false
 
     // Module 1 is unlocked if adventure is unlocked
@@ -325,23 +309,244 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     return totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0
   }
 
+  const canRetakeModule = (adventureId: number, moduleId: number): boolean => {
+    const module = getModuleProgress(adventureId, moduleId)
+    return module?.quizCompleted || false // Can retake if quiz has been completed at least once
+  }
+
+  // CORE ATOMIC PROGRESS UPDATE FUNCTION
+  const atomicProgressUpdate = async (
+    adventureId: number, 
+    moduleId: number, 
+    action: ProgressUpdateAction
+  ): Promise<void> => {
+    try {
+      console.log(`🔄 Atomic progress update: Adventure ${adventureId} Module ${moduleId}`, action)
+      
+      // Find or create module
+      let existingModule = getModuleProgress(adventureId, moduleId)
+      if (!existingModule) {
+        // Create new module if it doesn't exist
+        existingModule = {
+          adventureId,
+          moduleId,
+          isCompleted: false,
+          lessonsCompleted: [],
+          quizCompleted: false,
+          unlockedAt: new Date().toISOString()
+        }
+      }
+
+      // Create updated module based on action type
+      let updatedModule: ModuleProgress = { ...existingModule }
+
+      switch (action.type) {
+        case 'LESSON_COMPLETED':
+          // Add lesson to completed lessons (prevent duplicates)
+          if (!updatedModule.lessonsCompleted.includes(action.lessonId)) {
+            updatedModule.lessonsCompleted = [...updatedModule.lessonsCompleted, action.lessonId]
+          }
+          console.log(`✅ Lesson ${action.lessonId} completed for Adventure ${adventureId} Module ${moduleId}`)
+          break
+
+        case 'QUIZ_COMPLETED':
+        case 'QUIZ_RETAKEN':
+          // Handle quiz completion with safe retaking logic
+          const isRetake = action.type === 'QUIZ_RETAKEN'
+          const newScore = action.quizScore
+          const currentBestScore = updatedModule.quizScore || 0
+
+          if (isRetake) {
+            // For retakes, only update if score improved (never downgrade)
+            updatedModule.quizScore = Math.max(currentBestScore, newScore)
+            console.log(`🔄 Quiz retaken: ${currentBestScore} → ${newScore} (using ${updatedModule.quizScore})`)
+          } else {
+            // First time completion
+            updatedModule.quizScore = newScore
+            console.log(`✅ Quiz completed with score: ${newScore}`)
+          }
+
+          updatedModule.quizCompleted = true
+          
+          // Module is completed when quiz is passed (score >= 1)
+          if (updatedModule.quizScore >= 1) {
+            updatedModule.isCompleted = true
+            updatedModule.lessonsCompleted = ['lesson1', 'lesson2'] // Ensure lessons are marked complete
+            console.log(`🎉 Module ${moduleId} completed!`)
+          }
+          break
+
+        case 'MODULE_RESET':
+          // Reset module progress but preserve unlocking
+          updatedModule = {
+            ...existingModule,
+            isCompleted: false,
+            lessonsCompleted: [],
+            quizCompleted: false,
+            quizScore: undefined
+          }
+          console.log(`🔄 Module ${moduleId} reset`)
+          break
+      }
+
+      // Update modules array
+      const updatedModules = existingModule && moduleProgress.some(m => m.adventureId === adventureId && m.moduleId === moduleId)
+        ? moduleProgress.map(m => 
+            m.adventureId === adventureId && m.moduleId === moduleId ? updatedModule : m
+          )
+        : [...moduleProgress, updatedModule]
+
+      // Update adventure progress and handle unlocking
+      let updatedAdventures = [...adventureProgress]
+      const adventure = getAdventureProgress(adventureId)
+      
+      if (adventure && updatedModule.isCompleted) {
+        const completedModulesCount = updatedModules.filter(
+          m => m.adventureId === adventureId && m.isCompleted
+        ).length
+
+        // Update adventure completion count
+        updatedAdventures = adventureProgress.map(a => 
+          a.adventureId === adventureId
+            ? { ...a, modulesCompleted: completedModulesCount }
+            : a
+        )
+
+        // Check for adventure completion and unlocking
+        if (completedModulesCount === adventure.totalModules) {
+          console.log(`🎉 Adventure ${adventureId} completed! Unlocking next adventure...`)
+          
+          // Unlock next adventure
+          const nextAdventureId = adventureId + 1
+          if (nextAdventureId <= 5) { // Max 5 adventures
+            updatedAdventures = updatedAdventures.map(a => 
+              a.adventureId === nextAdventureId
+                ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
+                : a
+            )
+            
+            // Auto-create Module 1 for the newly unlocked adventure
+            const nextAdventureModule1: ModuleProgress = {
+              adventureId: nextAdventureId,
+              moduleId: 1,
+              isCompleted: false,
+              lessonsCompleted: [],
+              quizCompleted: false,
+              unlockedAt: new Date().toISOString()
+            }
+            updatedModules.push(nextAdventureModule1)
+            console.log(`✅ Adventure ${nextAdventureId} Module 1 auto-created`)
+          }
+        }
+
+        // Auto-unlock next module in same adventure
+        const nextModuleId = moduleId + 1
+        if (nextModuleId <= adventure.totalModules && !getModuleProgress(adventureId, nextModuleId)) {
+          const nextModule: ModuleProgress = {
+            adventureId,
+            moduleId: nextModuleId,
+            isCompleted: false,
+            lessonsCompleted: [],
+            quizCompleted: false,
+            unlockedAt: new Date().toISOString()
+          }
+          updatedModules.push(nextModule)
+          console.log(`✅ Adventure ${adventureId} Module ${nextModuleId} auto-unlocked`)
+        }
+      }
+
+      // Atomic state update and save
+      setAdventureProgress(updatedAdventures)
+      setModuleProgress(updatedModules)
+      await saveProgressData(updatedAdventures, updatedModules)
+
+      // Trigger cloud sync
+      syncModule()
+      syncAdventure()
+
+      console.log(`✅ Atomic progress update completed successfully`)
+
+    } catch (error) {
+      console.error('❌ Atomic progress update failed:', error)
+      throw error
+    }
+  }
+
+  // Legacy compatibility functions - these call the new atomic system
+  const updateModuleProgress = async (
+    adventureId: number, 
+    moduleId: number, 
+    updates: Partial<ModuleProgress>
+  ) => {
+    console.warn('⚠️ Using legacy updateModuleProgress - migrate to atomicProgressUpdate')
+    
+    // Convert legacy update to atomic action
+    if (updates.quizScore !== undefined && updates.quizCompleted) {
+      await atomicProgressUpdate(adventureId, moduleId, {
+        type: 'QUIZ_COMPLETED',
+        quizScore: updates.quizScore,
+        quizCorrectAnswers: updates.quizScore
+      })
+    } else if (updates.lessonsCompleted) {
+      // Handle lesson completion
+      const newLessons = updates.lessonsCompleted.filter(lessonId => 
+        !isLessonCompleted(adventureId, moduleId, lessonId)
+      )
+      for (const lessonId of newLessons) {
+        await atomicProgressUpdate(adventureId, moduleId, {
+          type: 'LESSON_COMPLETED',
+          lessonId
+        })
+      }
+    }
+  }
+
+  const completeLesson = async (adventureId: number, moduleId: number, lessonId: string) => {
+    console.warn('⚠️ Using legacy completeLesson - migrate to atomicProgressUpdate')
+    await atomicProgressUpdate(adventureId, moduleId, {
+      type: 'LESSON_COMPLETED',
+      lessonId
+    })
+  }
+
+  const completeQuiz = async (adventureId: number, moduleId: number) => {
+    console.warn('⚠️ Using legacy completeQuiz - migrate to atomicProgressUpdate')
+    // This function doesn't have score info, so we can't use it safely
+    throw new Error('completeQuiz is deprecated - use atomicProgressUpdate with QUIZ_COMPLETED action')
+  }
+
+  const completeModule = async (adventureId: number, moduleId: number) => {
+    console.warn('⚠️ Using legacy completeModule - this function is deprecated')
+    // Module completion should happen automatically through quiz completion
+    throw new Error('completeModule is deprecated - modules complete automatically through quiz completion')
+  }
+
+  const unlockAdventure = async (adventureId: number) => {
+    console.warn('⚠️ Using legacy unlockAdventure - unlocking should happen automatically')
+    // Adventure unlocking should happen automatically through module completion
+  }
 
   const contextValue: ProgressContextType = {
     selectedEra,
     setSelectedEra,
     adventureProgress,
     getAdventureProgress,
-    unlockAdventure,
     moduleProgress,
     getModuleProgress,
+    atomicProgressUpdate,
+    canRetakeModule,
+    isModuleUnlocked,
+    isLessonCompleted,
+    getOverallProgress,
+    getModuleStarCount,
+    isLoading,
+    
+    // Legacy compatibility (deprecated)
     updateModuleProgress,
     completeModule,
     completeLesson,
     completeQuiz,
-    isModuleUnlocked,
-    isLessonCompleted,
-    getOverallProgress,
-    isLoading,
+    unlockAdventure,
   }
 
   return (

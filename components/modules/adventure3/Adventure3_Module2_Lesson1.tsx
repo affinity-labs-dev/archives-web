@@ -36,19 +36,19 @@ const conquestImages = [
     id: 1,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv3_M2_Img01.jpg",
     title: "Landing at Gibraltar",
-    caption: "Ṭarīq ibn Ziyād lands in Iberia, 711 CE. The Rock of Gibraltar looms ahead as soldiers step ashore"
+    caption: "Tariq ibn Ziyad lands in Iberia in 711 CE; Gibraltar's name comes from Jabal Tariq, \"Mountain of Tariq."
   },
   {
     id: 2,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv3_M2_Img02.jpg",
     title: "Burning the Ships", 
-    caption: "Umayyad soldiers march inland as ships burn behind them. Fire and smoke mark the point of no return"
+    caption: "Once they land, the Umayyad troops burned their ships, leaving no way back as they marched into Iberia."
   },
   {
     id: 3,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv3_M2_Img03.jpg",
     title: "Advancing into Al-Andalus",
-    caption: "Ṭarīq advances into al-Andalus. As troops move through hills and villages, negotiations begin"
+    caption: "The Umayyads march through Iberia, making alliances with Visigoth nobles who opposed their own king"
   }
 ];
 
@@ -64,19 +64,23 @@ export default function Adventure3_Module2_Lesson1({
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
+  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
 
   // Animation values for card expansion
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Background music hook - Desert Whispers ambience from AWS CloudFront (same as working Adv1)
+  // Audio source for direct audio testing
+  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv3_M2_L1_Desert+Whispers.mp3" };
+
+  // Background music hook - Desert Whispers ambience from AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
-    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" }, // Using working Adv1 file
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv3_M2_L1_Desert+Whispers.mp3" }, // Using requested Adventure 3 Module 2 audio file
     {
       volume: 0.15, // 15% volume - very low ambient background
       shouldLoop: true,
-      fadeInDuration: 1000, // 1 second fade in (reduced from 3 seconds for faster feedback)
+      fadeInDuration: 1000, // 1 second fade in for faster feedback
       fadeOutDuration: 1500, // 1.5 second fade out
     }
   );
@@ -93,21 +97,19 @@ export default function Adventure3_Module2_Lesson1({
     // Additional debugging for audio file loading (AWS CloudFront)
     if (!backgroundMusic.isLoaded && !backgroundMusic.isLoading) {
       console.log('🎵 Audio not loading - AWS CloudFront source should be available');
-      console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3 (using working Adv1 file)');
+      console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv3_M2_L1_Desert+Whispers.mp3');
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
 
-  // Component mount logging + Simple audio test
+  // Component mount logging + direct audio fallback
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log('🎵 Adventure3_Module2_Lesson1 component mounted at:', timestamp);
     
-    // Simple direct audio test with AWS CloudFront
-    const testDirectAudio = async () => {
+    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
+    const directAudioFallback = async () => {
       try {
-        console.log('🎵 [DIRECT TEST A3M2L1] Attempting to load audio from AWS CloudFront...');
-        const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" }; // Using working Adv1 file
-        console.log('🎵 [DIRECT TEST A3M2L1] Audio source:', audioSource);
+        console.log('🎵 [DIRECT FALLBACK A3M2L1] Creating direct audio as backup');
         
         const { sound } = await Audio.Sound.createAsync(audioSource, {
           shouldPlay: true,
@@ -115,27 +117,74 @@ export default function Adventure3_Module2_Lesson1({
           isLooping: true
         });
         
-        console.log('🎵 [DIRECT TEST A3M2L1] AWS audio created and playing successfully!');
-        
         // Store sound reference for cleanup
-        window.testSoundA3M2L1 = sound;
+        directAudioSoundRef.current = sound;
+        
+        console.log('🎵 [DIRECT FALLBACK A3M2L1] Direct audio created and playing successfully!');
         
       } catch (error) {
-        console.error('🎵 [DIRECT TEST A3M2L1] Failed to load/play AWS audio:', error);
+        console.error('🎵 [DIRECT FALLBACK A3M2L1] Direct audio fallback also failed:', error);
       }
     };
     
-    // Run direct test after a short delay
-    setTimeout(testDirectAudio, 1000);
-    
+    // Start direct audio fallback immediately
+    directAudioFallback();
+  }, []);
+
+  // Background music lifecycle management
+  useEffect(() => {
+    const startBackgroundMusic = async () => {
+      const timestamp = new Date().toLocaleTimeString();
+      if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
+        console.log(`🎵 [${timestamp}] Starting conquest ambience background music`);
+        console.log(`🎵 [${timestamp}] Audio state before play:`, {
+          isLoaded: backgroundMusic.isLoaded,
+          isPlaying: backgroundMusic.isPlaying,
+          isLoading: backgroundMusic.isLoading
+        });
+        
+        try {
+          await backgroundMusic.play();
+          console.log(`🎵 [${timestamp}] Background music started successfully`);
+        } catch (error) {
+          console.error(`🎵 [${timestamp}] Failed to start background music:`, error);
+        }
+      } else if (!backgroundMusic.isLoaded) {
+        console.log(`🎵 [${timestamp}] Music not loaded yet, waiting...`);
+      } else if (backgroundMusic.isPlaying) {
+        console.log(`🎵 [${timestamp}] Music already playing`);
+      }
+    };
+
+    if (backgroundMusic.isLoaded) {
+      console.log(`🎵 [${new Date().toLocaleTimeString()}] Audio is loaded, attempting to start playback`);
+      startBackgroundMusic();
+    } else {
+      console.log(`🎵 [${new Date().toLocaleTimeString()}] Background music not available - continuing without audio`);
+    }
+  }, [backgroundMusic.isLoaded]);
+
+  // Cleanup background music when component unmounts
+  useEffect(() => {
     return () => {
-      console.log('🎵 Adventure3_Module2_Lesson1 component unmounting at:', new Date().toLocaleTimeString());
+      console.log('🎵 Component unmounting - cleaning up all audio');
       
-      // Cleanup direct test audio
-      if (window.testSoundA3M2L1) {
-        console.log('🎵 [DIRECT TEST A3M2L1] Cleaning up test audio');
-        window.testSoundA3M2L1.unloadAsync().catch(console.error);
-        window.testSoundA3M2L1 = null;
+      // Stop background music hook
+      if (backgroundMusic.stop) {
+        console.log('🎵 Stopping background music on component unmount');
+        backgroundMusic.stop();
+      }
+      
+      // Stop direct audio if it exists
+      if (directAudioSoundRef.current) {
+        try {
+          console.log('🎵 Stopping direct audio on component unmount');
+          directAudioSoundRef.current.stopAsync();
+          directAudioSoundRef.current.unloadAsync();
+          directAudioSoundRef.current = null;
+        } catch (error) {
+          console.error('🎵 Error stopping direct audio on unmount:', error);
+        }
       }
     };
   }, []);
@@ -151,82 +200,6 @@ export default function Adventure3_Module2_Lesson1({
     }
   };
 
-  // Background music lifecycle management
-  useEffect(() => {
-    // Start background music when component mounts
-    const startBackgroundMusic = async () => {
-      const timestamp = new Date().toLocaleTimeString();
-      if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-        console.log(`🎵 [${timestamp}] Starting conquest ambience background music`);
-        console.log(`🎵 [${timestamp}] Audio state before play:`, {
-          isLoaded: backgroundMusic.isLoaded,
-          isPlaying: backgroundMusic.isPlaying,
-          isLoading: backgroundMusic.isLoading
-        });
-        
-        try {
-          await backgroundMusic.play();
-          console.log(`🎵 [${timestamp}] Play command sent successfully`);
-        } catch (error) {
-          console.error(`🎵 [${timestamp}] Failed to start background music:`, error);
-        }
-      } else if (!backgroundMusic.isLoaded) {
-        console.log(`🎵 [${timestamp}] Music not loaded yet, waiting...`);
-      } else if (backgroundMusic.isPlaying) {
-        console.log(`🎵 [${timestamp}] Music already playing`);
-      }
-    };
-
-    // Auto-start music when loaded (only if audio source exists)
-    if (backgroundMusic.isLoaded) {
-      console.log(`🎵 [${new Date().toLocaleTimeString()}] Audio is loaded, attempting to start playback`);
-      startBackgroundMusic();
-    } else {
-      console.log(`🎵 [${new Date().toLocaleTimeString()}] Background music not available - continuing without audio`);
-    }
-  }, [backgroundMusic.isLoaded]);
-
-  // Force music playback on component mount (debugging)
-  useEffect(() => {
-    const forcePlayMusic = async () => {
-      const timestamp = new Date().toLocaleTimeString();
-      console.log(`🎵 [${timestamp}] Force play attempt - checking if we can start music immediately`);
-      
-      // Try to play after a short delay to allow audio loading
-      setTimeout(async () => {
-        if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-          console.log(`🎵 [${timestamp}] Force playing music after timeout`);
-          try {
-            await backgroundMusic.play();
-          } catch (error) {
-            console.error(`🎵 [${timestamp}] Force play failed:`, error);
-          }
-        } else {
-          console.log(`🎵 [${timestamp}] Force play skipped - loaded: ${backgroundMusic.isLoaded}, playing: ${backgroundMusic.isPlaying}`);
-        }
-      }, 2000); // Wait 2 seconds for audio to load
-    };
-
-    forcePlayMusic();
-  }, []); // Run once on mount
-
-  // Cleanup background music when component unmounts
-  useEffect(() => {
-    return () => {
-      console.log('🎵 Component unmounting - cleaning up all audio');
-      // Stop background music (regardless of playing state)
-      if (backgroundMusic.stop) {
-        console.log('🎵 Stopping background music on component unmount');
-        backgroundMusic.stop();
-      }
-      // Cleanup direct test audio
-      if (window.testSoundA3M2L1) {
-        console.log('🎵 Cleaning up direct test audio on unmount');
-        window.testSoundA3M2L1.unloadAsync().catch(console.error);
-        window.testSoundA3M2L1 = null;
-      }
-    };
-  }, []);
 
   // Navigate to next image (Swipe button functionality)
   const handleSwipeNext = () => {
@@ -247,10 +220,6 @@ export default function Adventure3_Module2_Lesson1({
       if (!isCardExpanded) {
         // Card is collapsed - swipe up to expand
         if (translationY < -30 || velocityY < -300) {
-          console.log("📖 Reading card swiped up - expanding card", {
-            translationY,
-            velocityY,
-          });
           expandCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
@@ -265,11 +234,6 @@ export default function Adventure3_Module2_Lesson1({
           (scrollY <= 10 && translationY > 30 && velocityY > 200);
         
         if (shouldCloseCard) {
-          console.log("📖 Reading card swiped down - collapsing card", {
-            translationY,
-            velocityY,
-            scrollY,
-          });
           collapseCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
@@ -357,11 +321,24 @@ export default function Adventure3_Module2_Lesson1({
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
           <TouchableOpacity style={styles.backButton} onPress={() => {
-            // Stop background music when going back
+            // Stop all audio when going back
             if (backgroundMusic.isPlaying) {
               console.log('🎵 Stopping background music on back button');
               backgroundMusic.stop();
             }
+            
+            // Stop direct audio if it exists
+            if (directAudioSoundRef.current) {
+              try {
+                console.log('🎵 Stopping direct audio on back button');
+                directAudioSoundRef.current.stopAsync();
+                directAudioSoundRef.current.unloadAsync();
+                directAudioSoundRef.current = null;
+              } catch (error) {
+                console.error('🎵 Error stopping direct audio on back:', error);
+              }
+            }
+            
             (onBack || onDismiss)();
           }}>
             <Ionicons name="chevron-back" size={24} color="white" />
@@ -376,11 +353,24 @@ export default function Adventure3_Module2_Lesson1({
               currentImageIndex !== conquestImages.length - 1 && styles.topContinueButtonDisabled
             ]}
             onPress={currentImageIndex === conquestImages.length - 1 ? () => {
-              // Stop background music before continuing (no await for instant navigation)
+              // Stop all audio before continuing (no await for instant navigation)
               if (backgroundMusic.isPlaying) {
                 console.log('🎵 Stopping background music before continue');
                 backgroundMusic.stop(); // Remove await for instant navigation
               }
+              
+              // Stop direct audio if it exists
+              if (directAudioSoundRef.current) {
+                try {
+                  console.log('🎵 Stopping direct audio before continue');
+                  directAudioSoundRef.current.stopAsync();
+                  directAudioSoundRef.current.unloadAsync();
+                  directAudioSoundRef.current = null;
+                } catch (error) {
+                  console.error('🎵 Error stopping direct audio before continue:', error);
+                }
+              }
+              
               onContinue();
             } : undefined}
             disabled={currentImageIndex !== conquestImages.length - 1}
@@ -439,7 +429,7 @@ export default function Adventure3_Module2_Lesson1({
                 onPress={expandCard}
               >
                 <Text style={styles.cardTitle}>
-                  Ṭarīq ibn Ziyād's Conquest of Iberia
+                  Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
                 </Text>
                 <Text style={styles.cardSubtitle}>
                   In 711 CE, Ṭarīq ibn Ziyād crossed into Iberia...
@@ -466,7 +456,7 @@ export default function Adventure3_Module2_Lesson1({
                     {/* Title Section */}
                     <View style={styles.titleSection}>
                       <Text style={styles.sheetTitle}>
-                        Ṭarīq ibn Ziyād's Conquest of Iberia
+                        Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
                       </Text>
                       <Text style={styles.sheetSubtitle}>
                         Module 2 • Lesson 1
@@ -477,7 +467,7 @@ export default function Adventure3_Module2_Lesson1({
                     <View style={styles.historicalSection}>
                       <Text style={styles.sectionTitle}>Historical Context</Text>
                       <Text style={styles.historicalText}>
-                        In 711 CE, Ṭarīq ibn Ziyād led a small but determined force across the strait into Iberia. Landing at what would become Gibraltar (Jabal Ṭarīq - "Ṭarīq's Mountain"), his soldiers faced a crucial decision. According to legend, Ṭarīq ordered the ships burned, telling his men they could only go forward - there was no retreat. This bold move transformed a raid into a conquest that would shape the peninsula for centuries.
+                        In 711 CE, General Tariq ibn Ziyad crossed from North Africa to the Iberian Peninsula with a small force. He landed at a steep cliff that later took his name, Jabal Tariq, or Gibraltar. According to tradition, he ordered his men to burn their ships, forcing them to push forward with no retreat. That moment marked the beginning of Islam&apos;s long history in Spain.
                       </Text>
                     </View>
 
@@ -487,7 +477,7 @@ export default function Adventure3_Module2_Lesson1({
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
                           term="Gibraltar"
-                          definition="From 'Jabal Ṭarīq' meaning 'Ṭarīq's Mountain', the landing point of the conquest"
+                          definition="From &apos;Jabal Ṭarīq&apos; meaning &apos;Ṭarīq&apos;s Mountain&apos;, the landing point of the conquest"
                         />
                         <KeyTermRow
                           term="Al-Andalus"

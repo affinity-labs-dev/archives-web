@@ -175,10 +175,8 @@ function EraCard({ era, isSelected, onSelect }: EraCardProps) {
         source={era.imageName} 
         style={styles.eraCardImage}
         onError={(error) => {
-          console.log('🚀 DEBUG: Era image failed to load:', era.title, error.nativeEvent.error)
         }}
         onLoad={() => {
-          console.log('🚀 DEBUG: Era image loaded successfully:', era.title)
         }}
       />
 
