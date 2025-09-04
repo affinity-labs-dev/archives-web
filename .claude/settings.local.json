@@ -10,7 +10,9 @@
       "Bash(xcodebuild:*)",
       "WebFetch(domain:docs.expo.dev)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "mcp__Ref__ref_search_documentation",
+      "WebSearch"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

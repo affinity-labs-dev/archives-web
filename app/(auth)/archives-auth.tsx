@@ -18,6 +18,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router'
 import { useSignIn, useSignUp } from '@clerk/clerk-expo'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { AppleSignInButton } from '@/components/AppleSignInButton'
+import { GoogleSignInButton } from '@/components/GoogleSignInButton'
 
 export default function ArchivesAuthScreen() {
   // Get route parameters
@@ -383,8 +384,8 @@ export default function ArchivesAuthScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Apple Sign In Button (EXACT REPLICA) */}
-            <View style={styles.appleButtonContainer}>
+            {/* Social Sign In Buttons */}
+            <View style={styles.socialButtonsContainer}>
               <AppleSignInButton
                 onSuccess={() => {
                   setIsLoading(false)
@@ -395,6 +396,19 @@ export default function ArchivesAuthScreen() {
                   setErrorMessage('Apple Sign In failed. Please try again.')
                   setShowError(true)
                   console.error('Apple Sign In Error:', error)
+                }}
+              />
+              
+              <GoogleSignInButton
+                onSuccess={() => {
+                  setIsLoading(false)
+                  onContinue()
+                }}
+                onError={(error) => {
+                  setIsLoading(false)
+                  setErrorMessage('Google Sign In failed. Please try again.')
+                  setShowError(true)
+                  console.error('Google Sign In Error:', error)
                 }}
               />
             </View>
@@ -670,10 +684,11 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.mutedNavy,
   },
 
-  // Apple button container (exact replica)
-  appleButtonContainer: {
+  // Social buttons container (exact replica)
+  socialButtonsContainer: {
     paddingHorizontal: 32,
     marginBottom: 40,
+    gap: 12,
   },
 
   // Bottom spacing

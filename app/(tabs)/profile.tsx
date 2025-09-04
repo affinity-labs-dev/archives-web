@@ -2,13 +2,132 @@
 // Matches the exact structure: historical avatars + stats + badges + achievements + settings
 
 import React, { useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, Modal, Dimensions } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, Modal, Dimensions, Alert, Linking, Platform } from 'react-native'
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
+import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 const { width: screenWidth } = Dimensions.get('window')
+
+// Privacy Policy Content
+const PRIVACY_POLICY_CONTENT = `Privacy Policy
+Archives - Operated by Affinity Labs Ltd
+
+Overview
+How we collect, use, and protect your personal data
+
+This Privacy Policy outlines how personal data is collected, used, and protected when you access or use the Archives mobile application, website, or any related services (collectively referred to as the "Archives"). Archives is operated by Affinity Labs Ltd ("we," "us," "our," "Affinity Labs," or "Archives"), the company that develops and manages the Archives platform.
+
+We understand the importance of your privacy and are committed to maintaining the confidentiality and security of your information. This document is designed to help you understand the types of information we collect, how we use it, with whom it may be shared, and your rights relating to that information.
+
+User Accounts and Collection of Information
+What information we collect when you register and use our services
+
+You are not required to create a user account or submit personal information in order to visit the Archives website. However, in order to access and use the Archives mobile or web application, you must register for an account.
+
+During the account creation process, we will request certain authentication information such as your name, date of birth, a valid email address, and a secure password. This information allows us to establish and authenticate your account, communicate with you about service updates or account-related matters, and provide a personalised experience within the app.
+
+If you make use of the application's sharing features, for example, to send quests, articles, or historical content to others, we may request that you provide contact details, such as an email address, for the intended recipient. This information is used exclusively to facilitate the delivery of your shared content and is not retained or repurposed for any unrelated use.
+
+Collection of Information Through App Usage
+Technical and usage data collected automatically
+
+Beyond the personal data you provide directly, Archives automatically collects various technical and usage-related information when you interact with our application or website. This includes details such as your browser type, device model, operating system version, IP address, screen resolution, language preferences, and time zone.
+
+We also collect behavioural data tied to your use of Archives. This may include the pages or quests you access, your quiz results, which content is saved or shared, how frequently you use the app, and which features are used most often.
+
+We use cookies and similar technologies (such as device identifiers and local storage) to support login functionality, store user preferences, and collect analytics about how Archives is used. On mobile platforms, we may also collect and process advertising identifiers, such as Apple's IDFA or Google's GAID.
+
+Use of Information
+How we use your data and legal bases for processing
+
+We use the information we collect to deliver and improve Archives, fulfil our contractual obligations to you, provide technical support, and respond to your inquiries. We may also use your information to communicate with you about service updates, new features, content recommendations, or promotional campaigns.
+
+Legal Bases for Processing (For EU and UK Users): We process your personal data when necessary for the performance of our contract with you, based on our legitimate interests, with your consent where required, or where necessary to comply with legal obligations.
+
+Sharing of Information
+When and with whom we share your data
+
+Public content: If you make your profile or historical content publicly available within Archives, other users may be able to view your name.
+
+Trusted service providers: We may share limited data with third-party vendors and service providers who assist us in delivering Archives. This includes partners who provide cloud hosting, payment processing, customer support infrastructure, and analytics services.
+
+Legal obligations and business transfers: In limited circumstances, we may disclose your information if required by law or in response to a valid legal request. We also reserve the right to transfer user data as part of a merger, acquisition, financing, or sale of company assets.
+
+Data Retention and Security
+How long we keep your data and how we protect it
+
+We retain your personal data for as long as your account is active, and for a reasonable period thereafter to support customer service, account reactivation, or legal compliance. If you delete your account, we will remove your personal data from active systems within a short time frame.
+
+We use a range of technical and organisational safeguards to protect the confidentiality and integrity of your information. These include encryption in transit and at rest, firewalls, secure access controls, and regular vulnerability scanning.
+
+Your Rights and Choices
+Your data protection rights and how to exercise them
+
+Depending on your jurisdiction, you may have the right to access the personal data we hold about you, request corrections or deletions, restrict or object to certain forms of processing, and request a copy of your data in a portable format.
+
+Account Deletion: You may delete your account through the app by going to Profile > Settings > Delete account on mobile.
+
+California Residents: You have the right to know what personal information we collect, request access or deletion, and opt out of the sale or sharing of your personal information. We do not currently sell personal information as defined under the California Consumer Privacy Act (CCPA).
+
+Children's Privacy
+Age restrictions and parental consent
+
+Archives is not intended for use by children under the age of 13, or below the age threshold in your country that requires parental consent for data processing. We do not knowingly collect personal information from children without appropriate consent.
+
+Security and Phishing
+Protecting your account from unauthorized access
+
+We are committed to helping protect you from identity theft and unauthorised access. We will never ask for your password, payment information, or national ID number through unsolicited emails, messages, or phone calls.
+
+Changes to This Policy
+How we notify you of updates
+
+We may update this Privacy Policy from time to time as our practices evolve or as legal requirements change. When we make material changes, we will post the revised version on our website or notify you through the Archives application.
+
+Contact Information
+Get in touch with any privacy questions
+
+If you have any questions about this Privacy Policy or our data handling practices, please contact us at:
+
+Email: support@affinitylabs.ai
+
+Address:
+Affinity Labs Ltd
+2nd Floor College House
+17 King Edwards Road
+London, HA4 7AE
+United Kingdom`
+
+// FAQ Data - Interactive expandable cards
+const FAQ_DATA = [
+  {
+    id: 1,
+    question: "When will Archives be available?",
+    answer: "We're launching our beta version in Q4 2025. Join our waitlist to get early access and be among the first to experience gamified Middle Eastern history!"
+  },
+  {
+    id: 2,
+    question: "Is it free?",
+    answer: "Archives will offer a freemium model with core lessons available for free. Premium features like advanced quests, detailed progress tracking, and exclusive historical content will be available through a subscription plan."
+  },
+  {
+    id: 3,
+    question: "Who is Archives designed for?",
+    answer: "Archives is designed for anyone curious about Middle Eastern history, from students and educators to history enthusiasts of all ages. Our content is carefully crafted to be engaging and educational while remaining historically accurate."
+  },
+  {
+    id: 4,
+    question: "How long are the daily lessons?",
+    answer: "Each lesson is designed to be bite-sized and takes about 5-10 minutes to complete. Perfect for your commute, coffee break, or whenever you have a few spare minutes to dive into history."
+  },
+  {
+    id: 5,
+    question: "What devices can I use Archives on?",
+    answer: "Archives is available on iOS and Android devices, with plans to expand to web browsers. Your progress syncs seamlessly across all your devices, so you can learn anywhere, anytime."
+  }
+]
 
 // Historical Avatars - EXACT SwiftUI data
 const HISTORICAL_AVATARS = [
@@ -91,6 +210,10 @@ export default function ProfileTab() {
   // Profile state - EXACT SwiftUI values
   const [selectedAvatar, setSelectedAvatar] = useState(HISTORICAL_AVATARS[0])
   const [showAvatarModal, setShowAvatarModal] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false)
+  const [showFAQModal, setShowFAQModal] = useState(false)
+  const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null)
   
   // Stats - EXACT SwiftUI values
   const stats = {
@@ -120,14 +243,61 @@ export default function ProfileTab() {
     setShowAvatarModal(false)
   }
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            // TODO: Implement account deletion logic
+            console.log('Account deletion confirmed')
+            Alert.alert('Account Deleted', 'Your account has been scheduled for deletion.')
+          }
+        }
+      ]
+    )
+  }
+
+  const handlePrivacyPolicy = () => {
+    setShowPrivacyModal(true)
+  }
+
+  const handleSupport = () => {
+    const supportURL = 'https://archiveszone.app/support'
+    Linking.openURL(supportURL).catch(() => {
+      Alert.alert('Error', 'Could not open support page')
+    })
+  }
+
+  const handleFAQ = () => {
+    setShowFAQModal(true)
+  }
+
+  const toggleFAQ = (id: number) => {
+    setExpandedFAQ(expandedFAQ === id ? null : id)
+  }
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
-        {/* Header with Profile Title */}
+        {/* Header with Profile Title and Settings Button */}
         <View style={styles.header}>
           <Text style={styles.profileTitle}>Profile</Text>
+          <TouchableOpacity 
+            style={styles.settingsButton} 
+            onPress={() => setShowSettingsModal(true)}
+          >
+            <Ionicons name="settings" size={24} color={ArchivesTheme.colors.mutedNavy} />
+          </TouchableOpacity>
         </View>
         
         {/* Avatar Section - EXACT SwiftUI */}
@@ -195,7 +365,7 @@ export default function ProfileTab() {
           
           <View style={styles.preferenceCard}>
             <View style={styles.preferenceIcon}>
-              <Ionicons name="target" size={24} color={ArchivesTheme.colors.persianOrange} />
+              <MaterialIcons name="gps-fixed" size={24} color={ArchivesTheme.colors.persianOrange} />
             </View>
             <Text style={styles.preferenceLabel}>Daily goal</Text>
             <Text style={styles.preferenceValue}>{preferences.dailyGoal} mins</Text>
@@ -271,6 +441,203 @@ export default function ProfileTab() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Settings Modal */}
+      <Modal
+        visible={showSettingsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSettingsModal(false)}
+      >
+        <SafeAreaView style={styles.modalSafeArea}>
+          <View style={styles.modalContainer}>
+            {/* Settings Modal Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setShowSettingsModal(false)}
+              >
+                <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Settings</Text>
+              <View style={styles.closeButtonPlaceholder} />
+            </View>
+
+            {/* Settings Options */}
+            <ScrollView style={styles.settingsContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.settingsOptionsContainer}>
+                
+                {/* Privacy Policy */}
+                <TouchableOpacity 
+                  style={styles.settingsOption} 
+                  onPress={() => {
+                    setShowSettingsModal(false)
+                    setTimeout(() => handlePrivacyPolicy(), 300) // Small delay for smooth transition
+                  }}
+                >
+                  <View style={styles.settingsOptionIcon}>
+                    <Ionicons name="shield-checkmark" size={24} color={ArchivesTheme.colors.persianOrange} />
+                  </View>
+                  <Text style={styles.settingsOptionText}>Privacy Policy</Text>
+                  <Ionicons name="chevron-forward" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.5} />
+                </TouchableOpacity>
+
+                {/* Support */}
+                <TouchableOpacity 
+                  style={styles.settingsOption} 
+                  onPress={() => {
+                    setShowSettingsModal(false)
+                    handleSupport()
+                  }}
+                >
+                  <View style={styles.settingsOptionIcon}>
+                    <Ionicons name="help-circle" size={24} color={ArchivesTheme.colors.persianOrange} />
+                  </View>
+                  <Text style={styles.settingsOptionText}>Support</Text>
+                  <Ionicons name="chevron-forward" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.5} />
+                </TouchableOpacity>
+
+                {/* FAQ */}
+                <TouchableOpacity 
+                  style={styles.settingsOption} 
+                  onPress={() => {
+                    setShowSettingsModal(false)
+                    handleFAQ()
+                  }}
+                >
+                  <View style={styles.settingsOptionIcon}>
+                    <Ionicons name="chatbubbles" size={24} color={ArchivesTheme.colors.persianOrange} />
+                  </View>
+                  <Text style={styles.settingsOptionText}>FAQ</Text>
+                  <Ionicons name="chevron-forward" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.5} />
+                </TouchableOpacity>
+
+                {/* Delete Account */}
+                <TouchableOpacity 
+                  style={[styles.settingsOption, styles.settingsOptionDanger]} 
+                  onPress={() => {
+                    setShowSettingsModal(false)
+                    handleDeleteAccount()
+                  }}
+                >
+                  <View style={styles.settingsOptionIcon}>
+                    <Ionicons name="trash" size={24} color="#D32F2F" />
+                  </View>
+                  <Text style={[styles.settingsOptionText, styles.settingsOptionDangerText]}>Delete Account</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#D32F2F" opacity={0.5} />
+                </TouchableOpacity>
+
+              </View>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Privacy Policy Modal */}
+      <Modal
+        visible={showPrivacyModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <SafeAreaView style={styles.modalSafeArea}>
+          <View style={styles.modalContainer}>
+            {/* Privacy Policy Modal Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setShowPrivacyModal(false)}
+              >
+                <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Privacy Policy</Text>
+              <View style={styles.closeButtonPlaceholder} />
+            </View>
+
+            {/* Privacy Policy Content */}
+            <ScrollView style={styles.privacyContent} showsVerticalScrollIndicator={true}>
+              <Text style={styles.privacyText}>{PRIVACY_POLICY_CONTENT}</Text>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* FAQ Modal */}
+      <Modal
+        visible={showFAQModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFAQModal(false)}
+      >
+        <SafeAreaView style={styles.modalSafeArea}>
+          <View style={styles.modalContainer}>
+            {/* FAQ Modal Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setShowFAQModal(false)}
+              >
+                <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>FAQ</Text>
+              <View style={styles.closeButtonPlaceholder} />
+            </View>
+
+            {/* FAQ Content */}
+            <ScrollView style={styles.faqContainer} showsVerticalScrollIndicator={true}>
+              {FAQ_DATA.map((faq, index) => (
+                <View key={faq.id} style={styles.faqItem}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.faqQuestion,
+                      expandedFAQ === faq.id && styles.faqQuestionExpanded
+                    ]}
+                    onPress={() => toggleFAQ(faq.id)}
+                  >
+                    <Text style={styles.faqQuestionText}>{faq.question}</Text>
+                    <View style={[
+                      styles.faqToggle,
+                      expandedFAQ === faq.id && styles.faqToggleExpanded
+                    ]}>
+                      <Ionicons 
+                        name="chevron-down" 
+                        size={16} 
+                        color={ArchivesTheme.colors.mutedNavy}
+                        style={{
+                          transform: [{ rotate: expandedFAQ === faq.id ? '180deg' : '0deg' }]
+                        }}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  
+                  {expandedFAQ === faq.id && (
+                    <View style={styles.faqAnswer}>
+                      <Text style={styles.faqAnswerText}>{faq.answer}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+              
+              <View style={styles.faqFooter}>
+                <Text style={styles.faqFooterText}>
+                  Have more questions?{' '}
+                  <Text 
+                    style={styles.faqEmailLink}
+                    onPress={() => {
+                      const supportURL = 'https://archiveszone.app/support'
+                      Linking.openURL(supportURL).catch(() => {
+                        Alert.alert('Error', 'Could not open support page')
+                      })
+                    }}
+                  >
+                    Contact us here
+                  </Text>
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -285,12 +652,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   
-  // Header - Updated with Profile title
+  // Header - Updated with Profile title and settings button
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20, // Increased top padding
     paddingBottom: 10, // Added bottom padding
-    alignItems: 'flex-start', // Left aligned
   },
   profileTitle: {
     fontFamily: 'DM Sans',
@@ -303,6 +672,22 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     paddingVertical: 2, // Added vertical padding to ensure text isn't clipped
     paddingLeft: 8, // Added left padding like subscription text
+  },
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: ArchivesTheme.colors.shoeBrown,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   
   // Avatar Section - EXACT SwiftUI
@@ -595,5 +980,150 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.persianOrange,
     textAlign: 'center',
     lineHeight: 16,
+  },
+
+  // Settings Modal Styles
+  settingsContent: {
+    flex: 1,
+    paddingTop: 10,
+  },
+  settingsOptionsContainer: {
+    paddingHorizontal: 0,
+  },
+  settingsOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 15,
+    marginBottom: 12,
+    shadowColor: 'rgba(0, 0, 0, 0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  settingsOptionDanger: {
+    backgroundColor: '#FFF5F5', // Light red background
+  },
+  settingsOptionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: ArchivesTheme.colors.persianOrange + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  settingsOptionText: {
+    flex: 1,
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '500',
+    color: ArchivesTheme.colors.mutedNavy,
+  },
+  settingsOptionDangerText: {
+    color: '#D32F2F', // Red text for danger option
+  },
+
+  // Privacy Policy Modal Styles
+  privacyContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  privacyText: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    lineHeight: 22,
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: 'left',
+    paddingBottom: 40,
+  },
+
+  // FAQ Modal Styles
+  faqContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  faqItem: {
+    marginBottom: 16,
+  },
+  faqQuestion: {
+    backgroundColor: '#2A3441',
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3A4551',
+  },
+  faqQuestionExpanded: {
+    backgroundColor: '#2A3441',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+  },
+  faqQuestionText: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    flex: 1,
+    paddingRight: 16,
+    lineHeight: 24,
+  },
+  faqToggle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faqToggleExpanded: {
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+  },
+  faqAnswer: {
+    backgroundColor: '#2A3441',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: '#3A4551',
+    padding: 20,
+    paddingTop: 0,
+  },
+  faqAnswerText: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#B8C5D1',
+    textAlign: 'left',
+  },
+  faqFooter: {
+    marginTop: 24,
+    marginBottom: 40,
+    padding: 20,
+    backgroundColor: 'rgba(65, 66, 94, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(65, 66, 94, 0.2)',
+  },
+  faqFooterText: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    lineHeight: 20,
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  faqEmailLink: {
+    fontFamily: 'DM Sans',
+    color: ArchivesTheme.colors.persianOrange,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 })

@@ -460,7 +460,7 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
             {/* Back to Era Button - EXACT SwiftUI styling */}
             {onBackToEra && (
               <TouchableOpacity style={styles.backToEraButton} onPress={onBackToEra}>
-                <Text style={styles.backToEraText}>Back to Era</Text>
+                <Text style={styles.backToEraText}>Back to Eras</Text>
               </TouchableOpacity>
             )}
           </View>

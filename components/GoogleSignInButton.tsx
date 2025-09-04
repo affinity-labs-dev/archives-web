@@ -17,19 +17,18 @@ export const useWarmUpBrowser = () => {
   }, [])
 }
 
-interface AppleSignInButtonProps {
+interface GoogleSignInButtonProps {
   onSuccess?: () => void
   onError?: (error: string) => void
 }
 
-export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
+export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onSuccess = () => {},
   onError = () => {},
 }) => {
-  console.log('🍎 AppleSignInButton: Component is rendering!')
   useWarmUpBrowser()
   
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_apple' })
+  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' })
   const { setActive } = useSessionList()
   const { signUp, setActive: setActiveSignUp } = useSignUp()
   const [isLoading, setIsLoading] = React.useState(false)
@@ -41,13 +40,13 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
     try {
       setIsLoading(true)
       
-      console.log('Starting Apple OAuth flow...')
+      console.log('Starting Google OAuth flow...')
       
       const { createdSessionId, signIn, signUp } = await startOAuthFlow({
         redirectUrl: Linking.createURL('/'),
       })
 
-      console.log('Apple OAuth result:', { createdSessionId, signIn, signUp })
+      console.log('Google OAuth result:', { createdSessionId, signIn, signUp })
 
       if (createdSessionId) {
         console.log('Setting active session:', createdSessionId)
@@ -70,7 +69,7 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
           }
           onSuccess()
         } else if (signUp?.status === 'missing_requirements') {
-          // Handle missing name requirements from Apple Sign In
+          // Handle missing name requirements from Google Sign In
           console.log('Sign up missing requirements - showing name collection modal')
           console.log('SignUp object:', signUp)
           
@@ -89,7 +88,7 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
         }
       }
     } catch (err: any) {
-      console.error('Apple OAuth error:', err)
+      console.error('Google OAuth error:', err)
       
       // Handle specific Clerk errors with improved messages
       if (err.errors && err.errors[0]) {
@@ -97,7 +96,7 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
         console.log('Clerk error details:', clerkError)
         
         if (clerkError.code === 'oauth_access_denied') {
-          const errorMsg = 'Apple sign-in was cancelled.'
+          const errorMsg = 'Google sign-in was cancelled.'
           onError(errorMsg)
           // Don't show alert for user cancellation
         } else if (clerkError.code === 'session_exists') {
@@ -105,15 +104,15 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
           onSuccess() // User is already signed in, treat as success
           return // Don't show error alert
         } else if (clerkError.code === 'strategy_for_user_invalid') {
-          const errorMsg = 'Apple sign-in is not available for this account. Try signing in with email and password instead.'
+          const errorMsg = 'Google sign-in is not available for this account. Try signing in with email and password instead.'
           onError(errorMsg)
           Alert.alert('Sign In Error', errorMsg)
         } else if (clerkError.code === 'oauth_invalid_request') {
-          const errorMsg = 'There was a problem with Apple sign-in configuration. Please try again or use email sign-in.'
+          const errorMsg = 'There was a problem with Google sign-in configuration. Please try again or use email sign-in.'
           onError(errorMsg)
           Alert.alert('Configuration Error', errorMsg)
         } else if (clerkError.code === 'identifier_already_signed_up') {
-          const errorMsg = 'An account with this Apple ID already exists. Please sign in instead.'
+          const errorMsg = 'An account with this Google email already exists. Please sign in instead.'
           onError(errorMsg)
           Alert.alert('Account Exists', errorMsg)
         } else if (clerkError.message?.includes('missing_requirements')) {
@@ -121,12 +120,12 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
           onError(errorMsg)
           // This should be handled above, but just in case
         } else {
-          const errorMsg = clerkError.longMessage || clerkError.message || 'Apple sign-in failed'
+          const errorMsg = clerkError.longMessage || clerkError.message || 'Google sign-in failed'
           onError(errorMsg)
-          Alert.alert('Apple Sign In Error', errorMsg)
+          Alert.alert('Google Sign In Error', errorMsg)
         }
       } else {
-        const errorMsg = 'Failed to sign in with Apple. Please try again or use email sign-in.'
+        const errorMsg = 'Failed to sign in with Google. Please try again or use email sign-in.'
         onError(errorMsg)
         Alert.alert('Sign In Error', errorMsg)
       }
@@ -187,9 +186,9 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
         disabled={isLoading}
       >
         <View style={styles.buttonContent}>
-          <Ionicons name="logo-apple" size={18} color={ArchivesTheme.colors.mutedNavy} style={styles.buttonIcon} />
+          <Ionicons name="logo-google" size={18} color={ArchivesTheme.colors.mutedNavy} style={styles.buttonIcon} />
           <Text style={styles.buttonText}>
-            {isLoading ? 'Signing in...' : 'Continue with Apple'}
+            {isLoading ? 'Signing in...' : 'Continue with Google'}
           </Text>
         </View>
       </TouchableOpacity>
