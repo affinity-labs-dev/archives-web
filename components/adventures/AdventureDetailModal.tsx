@@ -66,11 +66,18 @@ export default function AdventureDetailModal({
     <Modal
       visible={isVisible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle={Platform.OS === 'ios' ? "pageSheet" : "fullScreen"}
       onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.container}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={Platform.OS === 'ios'}
+          bounces={Platform.OS === 'ios'}
+          nestedScrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Hero Header Section - EXACT SwiftUI structure */}
           <View style={styles.heroSection}>
             {/* Hero Image */}
@@ -91,6 +98,13 @@ export default function AdventureDetailModal({
               
               {/* Swipe indicator bar */}
               <View style={styles.swipeIndicator} />
+              
+              {/* Close button for Android */}
+              {Platform.OS === 'android' && (
+                <TouchableOpacity style={styles.androidCloseButton} onPress={handleClose}>
+                  <Ionicons name="close" size={24} color="white" />
+                </TouchableOpacity>
+              )}
               
               {/* Dark overlay for text readability - EXACT SwiftUI */}
               <LinearGradient
@@ -207,6 +221,16 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    ...(Platform.OS === 'android' && {
+      minHeight: '100%',
+    }),
+  },
+  scrollContent: {
+    flexGrow: 1,
+    ...(Platform.OS === 'android' && {
+      minHeight: '100%',
+      paddingBottom: 50,
+    }),
   },
 
   // Hero Section - EXACT SwiftUI heroHeaderSection
@@ -232,6 +256,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(195, 195, 195, 1)',
     borderRadius: 2.5,
     zIndex: 2,
+  },
+  androidCloseButton: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
   },
   heroOverlay: {
     position: 'absolute',
@@ -389,6 +425,6 @@ const styles = StyleSheet.create({
 
   // Bottom Spacer
   bottomSpacer: {
-    height: 15, // Further reduced to move Back to Era button up more
+    height: Platform.OS === 'android' ? 30 : 15,
   },
 })
