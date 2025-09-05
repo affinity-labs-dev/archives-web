@@ -38,6 +38,9 @@
       "extends": "base",
       "distribution": "store",
       "channel": "production",
+      "android": {
+        "buildType": "apk"
+      },
       "ios": {
         "autoIncrement": "buildNumber",
         "resourceClass": "medium"
