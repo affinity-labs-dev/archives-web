@@ -215,13 +215,6 @@ export default function ProfileTab() {
   const [showFAQModal, setShowFAQModal] = useState(false)
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null)
   
-  // Stats - EXACT SwiftUI values
-  const stats = {
-    dayStreak: 13,
-    totalXP: 24,  
-    modules: 14
-  }
-  
 
   const handleSignOut = async () => {
     try {
@@ -312,22 +305,15 @@ export default function ProfileTab() {
           
         </View>
 
-        {/* Stats Cards - EXACT SwiftUI */}
-        <View style={styles.statsSection}>
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.dayStreak}</Text>
-              <Text style={styles.statLabel}>Day Streak</Text>
+        {/* Modules Achievement Card */}
+        <View style={styles.achievementsSection}>
+          <View style={styles.moduleAchievementCard}>
+            <View style={styles.achievementBadge}>
+              <Text style={styles.achievementNumber}>14</Text>
             </View>
-            
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalXP}</Text>
-              <Text style={styles.statLabel}>Total XP</Text>
-            </View>
-            
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.modules}</Text>
-              <Text style={styles.statLabel}>Modules</Text>
+            <Text style={styles.achievementText}>Modules finished!</Text>
+            <View style={styles.achievementIcons}>
+              <Image source={require('@/assets/images/icons/modules icon.png')} style={styles.largeModuleIcon} />
             </View>
           </View>
         </View>
@@ -345,19 +331,16 @@ export default function ProfileTab() {
           </ScrollView>
         </View>
 
-        {/* Modules Achievement Card */}
-        <View style={styles.achievementsSection}>
-          <View style={styles.moduleAchievementCard}>
-            <View style={styles.achievementBadge}>
-              <Text style={styles.achievementNumber}>14</Text>
-            </View>
-            <Text style={styles.achievementText}>Modules finished!</Text>
-            <View style={styles.achievementIcons}>
-              <Image source={require('@/assets/images/badges/scroll.png')} style={styles.moduleIcon} />
-              <Image source={require('@/assets/images/badges/scroll.png')} style={[styles.moduleIcon, styles.cardIcon]} />
-              <Image source={require('@/assets/images/badges/scroll.png')} style={[styles.moduleIcon, styles.cardIcon]} />
-            </View>
-          </View>
+        {/* XP Achievements - EXACT SwiftUI */}
+        <View style={styles.xpAchievementsSection}>
+          <Text style={styles.sectionTitle}>Achievements</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.achievementsScroll}>
+            {XP_ACHIEVEMENTS.map((achievement) => (
+              <View key={achievement.id} style={styles.achievementContainer}>
+                <Image source={achievement.image} style={styles.achievementImage} />
+              </View>
+            ))}
+          </ScrollView>
         </View>
 
 
@@ -710,42 +693,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   
-  // Stats Section - EXACT SwiftUI
-  statsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  statsContainer: {
-    flexDirection: 'row', // HStack
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: 'white', // EXACT SwiftUI: .background(Color.white)
-    borderRadius: 16, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 16)
-    padding: 20, // EXACT SwiftUI: .padding(20)
-    alignItems: 'center',
-    // EXACT SwiftUI shadow: .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-    shadowColor: 'rgba(0, 0, 0, 0.05)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statNumber: {
-    fontFamily: 'Cormorant-Bold', // EXACT SwiftUI: .font(.custom("Cormorant", size: 28))
-    fontSize: 28,
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 12))
-    fontSize: 12,
-    fontWeight: '500',
-    color: ArchivesTheme.colors.mutedNavy,
-    opacity: 0.7,
-    textAlign: 'center',
-  },
   
   // Sections - EXACT SwiftUI
   badgesSection: {
@@ -792,8 +739,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 20,
+    paddingVertical: 0,
+    paddingLeft: 16,
+    paddingRight: 4,
+    marginHorizontal: 10,
     shadowColor: 'rgba(0, 0, 0, 0.05)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
@@ -811,15 +760,15 @@ const styles = StyleSheet.create({
   },
   achievementNumber: {
     fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 24,
+    fontWeight: '800',
     color: 'white',
   },
   achievementText: {
     fontFamily: 'DM Sans',
     fontSize: 16,
     fontWeight: '500',
-    color: ArchivesTheme.colors.mutedNavy,
+    color: ArchivesTheme.colors.persianOrange,
     flex: 1,
   },
   achievementIcons: {
@@ -832,6 +781,29 @@ const styles = StyleSheet.create({
   moduleIcon: {
     width: 28,
     height: 28,
+    resizeMode: 'contain',
+  },
+  largeModuleIcon: {
+    width: 90,
+    height: 90,
+    resizeMode: 'contain',
+  },
+
+  // XP Achievements - EXACT SwiftUI
+  xpAchievementsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+  },
+  achievementsScroll: {
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+  },
+  achievementContainer: {
+    marginRight: 16,
+  },
+  achievementImage: {
+    width: 140,
+    height: 140,
     resizeMode: 'contain',
   },
   

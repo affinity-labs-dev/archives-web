@@ -93,7 +93,7 @@ eas build --platform ios --profile development  # Create development build
 - **New Architecture enabled** - React Native's new architecture for better performance
 
 ### Media Architecture
-- **expo-video** - All video playback functionality (see EXPO_VIDEO_DOCUMENTATION.md)
+- **expo-video** - All video playbook functionality (see EXPO_VIDEO_DOCUMENTATION.md)
 - **expo-av** - Background audio/music (fallback due to expo-audio AWS CloudFront compatibility issues)
 - **AWS CloudFront** - Media asset delivery for videos and audio files
 

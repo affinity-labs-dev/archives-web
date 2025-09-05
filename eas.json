@@ -18,6 +18,9 @@
       "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "ios": {
         "simulator": true,
         "resourceClass": "medium"

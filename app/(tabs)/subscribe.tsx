@@ -139,7 +139,7 @@ export default function SubscribeTab() {
             
             <View style={styles.eraCard}>
               <Image
-                source={require('@/assets/images/eras/era3-bg.png')}
+                source={require('@/assets/images/eras/era3-bg.jpg')}
                 style={styles.eraCardImage}
               />
               <LinearGradient
@@ -159,7 +159,7 @@ export default function SubscribeTab() {
             
             <View style={styles.eraCard}>
               <Image
-                source={require('@/assets/images/eras/era1-bg.png')}
+                source={require('@/assets/images/eras/era1-bg.jpg')}
                 style={styles.eraCardImage}
               />
               <LinearGradient
