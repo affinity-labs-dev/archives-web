@@ -12,6 +12,7 @@ import {
   StatusBar,
   Animated,
   Dimensions,
+  Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -252,7 +253,9 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor={ArchivesTheme.colors.creamWhite} />
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
       <SafeAreaView style={styles.container}>
         {/* Current question */}
         <QuizQuestion
@@ -264,6 +267,7 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
           isAnswerSelected={isAnswerSelected()}
           questionType="mcq"
           onBack={onBack || onDismiss}
+          quizTitle="Module 2 Quiz"
         >
           {renderQuestionContent()}
         </QuizQuestion>

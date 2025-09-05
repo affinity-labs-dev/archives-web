@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -20,6 +21,8 @@ import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const COLLAPSED_HEIGHT = 140;
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.85;
 
 interface Adventure1_Module3_Lesson1Props {
   onContinue: () => void;
@@ -33,11 +36,12 @@ export default function Adventure1_Module3_Lesson1({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
 
   // Animation values for card expansion
-  const cardHeight = useRef(new Animated.Value(160)).current;
+  const cardHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
@@ -53,28 +57,86 @@ export default function Adventure1_Module3_Lesson1({
     expandCard();
   };
 
-  // Handle swipe gestures to expand/collapse the card
-  const handleSwipeGesture = (event: any) => {
-    const { translationY, velocityY, state } = event.nativeEvent;
+  // Custom touch handlers for reliable Android swipe detection
+  const handleTouchStart = (event: any) => {
+    setTouchStart({
+      y: event.nativeEvent.pageY,
+      time: Date.now()
+    });
+  };
 
-    if (state === State.END || state === State.CANCELLED) {
-      if (!isCardExpanded) {
-        // Card is collapsed - swipe up to expand
-        if (translationY < -30 || velocityY < -300) {
-          expandCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      } else {
-        // Card is expanded - intelligent swipe down detection
-        const shouldCloseCard = 
-          (velocityY > 800) ||
-          (translationY > 50 && velocityY > 400) ||
-          (scrollY <= 10 && translationY > 30 && velocityY > 200);
-        
-        if (shouldCloseCard) {
-          collapseCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+  const handleTouchEnd = (event: any) => {
+    if (!touchStart) return;
+    
+    const touchEnd = event.nativeEvent.pageY;
+    const distance = touchStart.y - touchEnd; // Positive = swipe up
+    const time = Date.now() - touchStart.time;
+    
+    // Optimized Android swipe detection for smoothness
+    const minDistance = 40; // Increased for better gesture recognition
+    const maxTime = 300; // Shorter time for more responsive gestures
+    const velocity = Math.abs(distance) / time; // Calculate velocity
+    const velocityThreshold = 0.5; // Minimum velocity threshold
+    
+    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe up detected - expanding card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      expandCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe down detected - collapsing card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      collapseCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    // Reset touch start
+    setTouchStart(null);
+  };
+
+  // iOS PanGestureHandler for native iOS gesture experience
+  const handleSwipeGesture = (event: any) => {
+    if (Platform.OS !== 'ios') return;
+    
+    if (event.nativeEvent.state === State.END) {
+      const { translationY, velocityY } = event.nativeEvent;
+      console.log("📱 iOS PanGesture detected", {
+        translationY,
+        velocityY,
+        isCardExpanded,
+        platform: Platform.OS
+      });
+      
+      // iOS-optimized swipe detection
+      const minDistance = 30;
+      const minVelocity = 500;
+      
+      if (!isCardExpanded && 
+          (translationY < -minDistance || velocityY < -minVelocity)) {
+        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        expandCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (isCardExpanded && 
+                 (translationY > minDistance || velocityY > minVelocity)) {
+        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        collapseCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
   };
@@ -86,7 +148,7 @@ export default function Adventure1_Module3_Lesson1({
     
     Animated.parallel([
       Animated.spring(cardHeight, {
-        toValue: SCREEN_HEIGHT * 0.85,
+        toValue: EXPANDED_HEIGHT,
         useNativeDriver: false,
         tension: 100,
         friction: 8,
@@ -106,7 +168,7 @@ export default function Adventure1_Module3_Lesson1({
     
     Animated.parallel([
       Animated.spring(cardHeight, {
-        toValue: 160,
+        toValue: COLLAPSED_HEIGHT,
         useNativeDriver: false,
         tension: 100,
         friction: 8,
@@ -127,7 +189,9 @@ export default function Adventure1_Module3_Lesson1({
 
   return (
     <>
-      <StatusBar hidden />
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
       <View style={styles.container}>
         {/* Main Damascus map - completely full screen */}
         <Image 
@@ -161,17 +225,241 @@ export default function Adventure1_Module3_Lesson1({
           </TouchableOpacity>
         </SafeAreaView>
 
-        {/* Reading Card at Bottom - Expandable */}
-        <PanGestureHandler 
-          ref={panGestureRef}
-          onHandlerStateChange={handleSwipeGesture}
-          simultaneousHandlers={scrollViewGestureRef}
+        {/* Android Reading Card - Simplified Working Version with Animation */}
+        {Platform.OS === 'android' && (
+          <Animated.View 
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: cardHeight,
+              backgroundColor: "rgba(0,0,0,0.9)",
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              zIndex: 30,
+              elevation: 20,
+              shadowColor: "#000",
+              shadowOpacity: 0.2,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: -4 },
+            }}
+          >
+            {/* Top handle indicator */}
+            <View style={styles.cardHandle} />
+            
+            {/* Collapsed content */}
+            {!isCardExpanded && (
+              <Animated.View style={[
+                styles.collapsedContent,
+                { opacity: cardOpacity }
+              ]}>
+                <View style={styles.collapsedContentWrapper}>
+                  <Text style={styles.collapsedTitle}>
+                    Trade Routes Through Damascus
+                  </Text>
+                  <Text style={styles.collapsedSubtitle}>
+                    Damascus was more than a capital; it sat at the intersection of ancient roads...
+                  </Text>
+                </View>
+              </Animated.View>
+            )}
+
+            {/* Expanded content when card is swiped up */}
+            {isCardExpanded && (
+              <View style={{
+                flex: 1,
+                padding: 20,
+                paddingTop: 40,
+              }}>
+                <Text style={{
+                  fontFamily: "DM Sans",
+                  fontSize: 22,
+                  fontWeight: "700",
+                  color: "white",
+                  marginBottom: 8
+                }}>
+                  Trade Routes Through Damascus
+                </Text>
+                
+                <Text style={{
+                  fontFamily: "DM Sans", 
+                  fontSize: 14,
+                  color: "rgba(255,255,255,0.7)",
+                  marginBottom: 20
+                }}>
+                  Module 3 • Lesson 1
+                </Text>
+
+                <Text style={{
+                  fontFamily: "DM Sans",
+                  fontSize: 18,
+                  fontWeight: "600", 
+                  color: "white",
+                  marginBottom: 8
+                }}>
+                  Historical Context
+                </Text>
+
+                <Text style={{
+                  fontFamily: "DM Sans",
+                  fontSize: 14,
+                  color: "white",
+                  lineHeight: 20,
+                  marginBottom: 20
+                }}>
+                  Damascus was more than a capital; it sat at the intersection of ancient roads. The King's Highway ran up through the deserts and highlands to the city, bringing caravans from Arabia and the Red Sea. Traders slept in khans, courtyard inns with stables, storage rooms, and a well. There they rested animals, stored goods, and swapped news before entering the busy markets.
+                </Text>
+
+                <Text style={{
+                  fontFamily: "DM Sans",
+                  fontSize: 18,
+                  fontWeight: "600",
+                  color: "white", 
+                  marginBottom: 12
+                }}>
+                  Key Terms
+                </Text>
+
+                <View style={{
+                  backgroundColor: "rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  padding: 12
+                }}>
+                  <View style={{ marginBottom: 8 }}>
+                    <Text style={{ fontFamily: "DM Sans", fontSize: 14, fontWeight: "600", color: "white", marginBottom: 2 }}>King's Highway</Text>
+                    <Text style={{ fontFamily: "DM Sans", fontSize: 12, color: "rgba(255,255,255,0.8)", lineHeight: 16 }}>The ancient road through deserts and highlands that brought caravans to Damascus</Text>
+                  </View>
+
+                  <View style={{ marginBottom: 8 }}>
+                    <Text style={{ fontFamily: "DM Sans", fontSize: 14, fontWeight: "600", color: "white", marginBottom: 2 }}>Khans</Text>
+                    <Text style={{ fontFamily: "DM Sans", fontSize: 12, color: "rgba(255,255,255,0.8)", lineHeight: 16 }}>Courtyard inns with stables, storage rooms, and wells where traders rested</Text>
+                  </View>
+
+                  <View>
+                    <Text style={{ fontFamily: "DM Sans", fontSize: 14, fontWeight: "600", color: "white", marginBottom: 2 }}>Caravans from Red Sea</Text>
+                    <Text style={{ fontFamily: "DM Sans", fontSize: 12, color: "rgba(255,255,255,0.8)", lineHeight: 16 }}>Trading groups that traveled from Arabia and the Red Sea to Damascus</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </Animated.View>
+        )}
+
+        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
+        {Platform.OS === 'ios' ? (
+          // iOS: Native PanGestureHandler
+          <PanGestureHandler
+            ref={panGestureRef}
+            onGestureEvent={handleSwipeGesture}
+            onHandlerStateChange={handleSwipeGesture}
+            activeOffsetY={[-20, 20]}
+            failOffsetX={[-30, 30]}
+          >
+            <Animated.View style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }]
+              }
+            ]}>
+              <Animated.View style={[
+                styles.readingCard,
+                {
+                  height: cardHeight,
+                }
+              ]}>
+                {/* Top handle indicator */}
+                <View style={styles.cardHandle} />
+
+                {/* iOS Collapsed content */}
+                <Animated.View style={[
+                  styles.collapsedContent,
+                  { opacity: cardOpacity }
+                ]}>
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      Trade Routes Through Damascus
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      Damascus was more than a capital; it sat at the intersection of ancient roads...
+                    </Text>
+                  </View>
+                </Animated.View>
+
+                {/* Expanded content when card is swiped up */}
+                {isCardExpanded && (
+                  <Animated.View style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) }
+                  ]}>
+                    <GestureHandlerScrollView 
+                      ref={scrollViewGestureRef}
+                      style={styles.expandedScroll} 
+                      showsVerticalScrollIndicator={false}
+                      onScroll={handleReadingScroll}
+                      scrollEventThrottle={100}
+                      waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
+                    >
+                    <View style={styles.expandedContentInner}>
+                      {/* Title Section */}
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Trade Routes Through Damascus
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 3 • Lesson 1
+                        </Text>
+                      </View>
+
+                      {/* Historical Content */}
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>
+                          Damascus was more than a capital; it sat at the intersection of ancient roads. The King&apos;s Highway ran up through the deserts and highlands to the city, bringing caravans from Arabia and the Red Sea. Traders slept in khans, courtyard inns with stables, storage rooms, and a well. There they rested animals, stored goods, and swapped news before entering the busy markets.
+                        </Text>
+                      </View>
+
+                      {/* Key Terms Section */}
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="King's Highway"
+                            definition="The ancient road through deserts and highlands that brought caravans to Damascus"
+                          />
+                          <KeyTermRow
+                            term="Khans"
+                            definition="Courtyard inns with stables, storage rooms, and wells where traders rested"
+                          />
+                          <KeyTermRow
+                            term="Caravans from Red Sea"
+                            definition="Trading groups that traveled from Arabia and the Red Sea to Damascus"
+                          />
+                        </View>
+                      </View>
+
+                      {/* Bottom spacer to ensure full scroll */}
+                      <View style={styles.sheetBottomSpacer} />
+                    </View>
+                  </GestureHandlerScrollView>
+                </Animated.View>
+              )}
+            </Animated.View>
+          </Animated.View>
+        </PanGestureHandler>
+      ) : (
+        // Android: Custom Touch Handlers
+        <View 
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           <Animated.View style={[
             styles.cardContainer,
-            {
-              transform: [{ translateY: cardTranslateY }]
-            }
+            // {
+            //   transform: [{ translateY: cardTranslateY }]
+            // }
           ]}>
             <Animated.View style={[
               styles.readingCard,
@@ -182,25 +470,22 @@ export default function Adventure1_Module3_Lesson1({
               {/* Top handle indicator */}
               <View style={styles.cardHandle} />
 
-              {/* Collapsed content */}
+              {/* Android Collapsed content with improved styling */}
               <Animated.View style={[
                 styles.collapsedContent,
                 { opacity: cardOpacity }
               ]}>
-                <TouchableOpacity 
-                  style={styles.readingCardHeader}
-                  onPress={expandCard}
-                >
-                  <Text style={styles.cardTitle}>
+                <View style={styles.collapsedContentWrapper}>
+                  <Text style={styles.collapsedTitle}>
                     Trade Routes Through Damascus
                   </Text>
-                  <Text style={styles.cardSubtitle}>
+                  <Text style={styles.collapsedSubtitle}>
                     Damascus was more than a capital; it sat at the intersection of ancient roads...
                   </Text>
-                </TouchableOpacity>
+                </View>
               </Animated.View>
 
-              {/* Expanded content */}
+              {/* Expanded content when card is swiped up */}
               {isCardExpanded && (
                 <Animated.View style={[
                   styles.expandedContent,
@@ -208,7 +493,6 @@ export default function Adventure1_Module3_Lesson1({
                 ]}>
                   <GestureHandlerScrollView 
                     ref={scrollViewGestureRef}
-                    waitFor={panGestureRef}
                     style={styles.expandedScroll} 
                     showsVerticalScrollIndicator={false}
                     onScroll={handleReadingScroll}
@@ -260,7 +544,8 @@ export default function Adventure1_Module3_Lesson1({
               )}
             </Animated.View>
           </Animated.View>
-        </PanGestureHandler>
+        </View>
+      )}
       </View>
     </>
   );
@@ -294,6 +579,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+    right: 0,
+    bottom: 0,
   },
 
   // Text overlay at the top
@@ -360,14 +647,16 @@ const styles = StyleSheet.create({
   // Reading Card Container
   cardContainer: {
     position: "absolute",
-    bottom: -40,
+    bottom: 0,
     left: 0,
     right: 0,
+    zIndex: 30,
+    elevation: 20,
   },
   
   // Reading Card - Swipeable
   readingCard: {
-    height: 160,
+    height: COLLAPSED_HEIGHT,
     backgroundColor: "rgba(0,0,0,0.9)",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -504,5 +793,29 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
+  },
+
+  // Collapsed card text styles (for Android touch version)
+  collapsedContentWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 25,
+    marginTop: -15, // Move text content up slightly
+  },
+  collapsedTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 8,
+  },
+  collapsedSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    opacity: 0.8,
+    lineHeight: 20,
   },
 });

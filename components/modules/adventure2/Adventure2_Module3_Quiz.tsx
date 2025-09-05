@@ -300,6 +300,7 @@ export default function Adventure2_Module3_Quiz({
             currentQuestion.type === "truefalse" ? "trueFalse" : "mcq"
           }
           onBack={onBack || onDismiss}
+          quizTitle="Module 3 Quiz"
         >
           {renderQuestionContent()}
         </QuizQuestion>

@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -17,10 +18,13 @@ import {
   View,
   Modal,
 } from "react-native";
-import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
+import { 
+  ScrollView as GestureHandlerScrollView,
+  PanGestureHandler,
+  State
+} from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
-import { Audio } from 'expo-av';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -73,82 +77,48 @@ export default function Adventure1_Module2_Lesson1({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
-  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
+  const panGestureRef = useRef(null);
+  const [isCardGestureActive, setIsCardGestureActive] = useState(false);
 
   // Animation values for card expansion
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Audio source for direct audio testing
-  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" };
-
-  // Background music hook - Desert Whispers ambience from AWS CloudFront
+  // Background music hook - Auto-play immediately
   const backgroundMusic = useBackgroundMusic(
     { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" },
     {
-      volume: 0.15, // 15% volume - very low ambient background
+      volume: 0.5, // 50% volume
       shouldLoop: true,
-      fadeInDuration: 1000, // 1 second fade in (reduced from 3 seconds for faster feedback)
-      fadeOutDuration: 1500, // 1.5 second fade out
     }
   );
 
-  // Enhanced debug logging for background music
+
+  // Enhanced debug logging for background music - Platform-compatible
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(`🎵 [${timestamp}] Adventure1_Module2_Lesson1 - Background music state:`, {
       isLoaded: backgroundMusic.isLoaded,
       isPlaying: backgroundMusic.isPlaying,
-      isLoading: backgroundMusic.isLoading
+      isLoading: backgroundMusic.isLoading || false, // Android may not have isLoading
+      platform: Platform.OS
     });
     
     // Additional debugging for audio file loading (AWS CloudFront)
-    if (!backgroundMusic.isLoaded && !backgroundMusic.isLoading) {
+    if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
       console.log('🎵 Audio not loading - AWS CloudFront source should be available');
       console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3');
     }
-  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
+  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
 
-  // Component mount logging + direct audio fallback
+  // Component mount logging - Direct audio fallback removed (no longer needed with platform-specific audio)
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log('🎵 Adventure1_Module2_Lesson1 component mounted at:', timestamp);
-    
-    // Force audio start attempt immediately (no setTimeout)
-    if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-      console.log('🎵 Attempting immediate audio start on mount');
-      backgroundMusic.play().catch(error => {
-        console.error('🎵 Immediate audio start failed:', error);
-      });
-    }
-    
-    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
-    const directAudioFallback = async () => {
-      try {
-        console.log('🎵 [DIRECT FALLBACK A1M2L1] Creating direct audio as backup');
-        
-        const { sound } = await Audio.Sound.createAsync(audioSource, {
-          shouldPlay: true,
-          volume: 0.15,
-          isLooping: true
-        });
-        
-        // Store sound reference for cleanup
-        directAudioSoundRef.current = sound;
-        
-        console.log('🎵 [DIRECT FALLBACK A1M2L1] Direct audio created and playing successfully!');
-        
-      } catch (error) {
-        console.error('🎵 [DIRECT FALLBACK A1M2L1] Direct audio fallback also failed:', error);
-      }
-    };
-    
-    // Start direct audio fallback immediately
-    directAudioFallback();
   }, []);
 
   // Handle carousel scroll - matching iOS TabView behavior
@@ -162,40 +132,17 @@ export default function Adventure1_Module2_Lesson1({
     }
   };
 
-  // Background music lifecycle management
+  // Simple status logging - no manual triggering needed (auto-play)
   useEffect(() => {
-    // Start background music when component mounts
-    const startBackgroundMusic = async () => {
-      const timestamp = new Date().toLocaleTimeString();
-      if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-        console.log(`🎵 [${timestamp}] Starting palace ambience background music`);
-        console.log(`🎵 [${timestamp}] Audio state before play:`, {
-          isLoaded: backgroundMusic.isLoaded,
-          isPlaying: backgroundMusic.isPlaying,
-          isLoading: backgroundMusic.isLoading
-        });
-        
-        try {
-          await backgroundMusic.play();
-          console.log(`🎵 [${timestamp}] Background music started successfully`);
-        } catch (error) {
-          console.error(`🎵 [${timestamp}] Failed to start background music:`, error);
-        }
-      } else if (!backgroundMusic.isLoaded) {
-        console.log(`🎵 [${timestamp}] Music not loaded yet, waiting...`);
-      } else if (backgroundMusic.isPlaying) {
-        console.log(`🎵 [${timestamp}] Music already playing`);
-      }
-    };
-
-    // Auto-start music when loaded (only if audio source exists)
-    if (backgroundMusic.isLoaded) {
-      console.log(`🎵 [${new Date().toLocaleTimeString()}] Audio is loaded, attempting to start playback`);
-      startBackgroundMusic();
+    const timestamp = new Date().toLocaleTimeString();
+    if (backgroundMusic.isLoaded && backgroundMusic.isPlaying) {
+      console.log(`🎵 [${timestamp}] Background music auto-playing successfully`);
+    } else if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
+      console.log(`🎵 [${timestamp}] Background music loaded but not playing`);
     } else {
-      console.log(`🎵 [${new Date().toLocaleTimeString()}] Background music not available - continuing without audio`);
+      console.log(`🎵 [${timestamp}] Background music not loaded yet`);
     }
-  }, [backgroundMusic.isLoaded]);
+  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
 
 
 
@@ -210,17 +157,6 @@ export default function Adventure1_Module2_Lesson1({
         backgroundMusic.stop();
       }
       
-      // Stop direct audio if it exists
-      if (directAudioSoundRef.current) {
-        try {
-          console.log('🎵 Stopping direct audio on component unmount');
-          directAudioSoundRef.current.stopAsync();
-          directAudioSoundRef.current.unloadAsync();
-          directAudioSoundRef.current = null;
-        } catch (error) {
-          console.error('🎵 Error stopping direct audio on unmount:', error);
-        }
-      }
     };
   }, []);
 
@@ -234,43 +170,117 @@ export default function Adventure1_Module2_Lesson1({
     }
   };
 
-  // Handle swipe gestures to expand/collapse the card with smart priority
+  // Enhanced iOS PanGestureHandler with gesture coordination
   const handleSwipeGesture = (event: any) => {
-    const { translationY, velocityY, state } = event.nativeEvent;
-
-    // Detect gesture when it ends
-    if (state === State.END || state === State.CANCELLED) {
-      if (!isCardExpanded) {
-        // Card is collapsed - swipe up to expand
-        if (translationY < -30 || velocityY < -300) {
-          console.log("📖 Reading card swiped up - expanding card", {
-            translationY,
-            velocityY,
-          });
-          expandCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      } else {
-        // Card is expanded - intelligent swipe down detection
-        const shouldCloseCard = 
-          // Fast downward swipe (strong intent to close)
-          (velocityY > 800) ||
-          // Medium swipe with good distance
-          (translationY > 50 && velocityY > 400) ||
-          // Swipe down when at top of scroll content
-          (scrollY <= 10 && translationY > 30 && velocityY > 200);
-        
-        if (shouldCloseCard) {
-          console.log("📖 Reading card swiped down - collapsing card", {
-            translationY,
-            velocityY,
-            scrollY,
-          });
-          collapseCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+    if (Platform.OS !== 'ios') return;
+    
+    const { state, translationY, velocityY } = event.nativeEvent;
+    
+    // Track gesture activity for carousel coordination
+    if (state === State.BEGAN || state === State.ACTIVE) {
+      setIsCardGestureActive(true);
+      console.log("📱 iOS card gesture started - blocking carousel");
+    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      setIsCardGestureActive(false);
+      console.log("📱 iOS card gesture ended - allowing carousel");
+    }
+    
+    if (state === State.END) {
+      console.log("📱 iOS PanGesture detected", {
+        translationY,
+        velocityY,
+        isCardExpanded,
+        platform: Platform.OS
+      });
+      
+      // Improved iOS swipe detection with better sensitivity
+      const minDistance = 20; // Reduced from 30 for better responsiveness
+      const minVelocity = 300; // Reduced from 500 for easier activation
+      
+      if (!isCardExpanded && 
+          (translationY < -minDistance || velocityY < -minVelocity)) {
+        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        expandCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (isCardExpanded && 
+                 (translationY > minDistance || velocityY > minVelocity)) {
+        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        collapseCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
+  };
+
+  // Enhanced Android touch handlers with improved sensitivity
+  const handleTouchStart = (event: any) => {
+    setTouchStart({
+      y: event.nativeEvent.pageY,
+      time: Date.now()
+    });
+    setIsCardGestureActive(true);
+    console.log("📖 Android card gesture started - blocking carousel");
+  };
+
+  const handleTouchEnd = (event: any) => {
+    setIsCardGestureActive(false);
+    console.log("📖 Android card gesture ended - allowing carousel");
+    
+    if (!touchStart) return;
+    
+    const touchEnd = event.nativeEvent.pageY;
+    const distance = touchStart.y - touchEnd; // Positive = swipe up
+    const time = Date.now() - touchStart.time;
+    
+    // Improved Android swipe detection with better sensitivity
+    const minDistance = 25; // Reduced from 40 for better responsiveness
+    const maxTime = 400; // Increased from 300 for easier activation
+    const velocity = Math.abs(distance) / time; // Calculate velocity
+    const velocityThreshold = 0.3; // Reduced from 0.5 for easier activation
+    
+    console.log("📖 Android gesture analysis:", {
+      distance,
+      time,
+      velocity: velocity.toFixed(2),
+      minDistance,
+      maxTime,
+      velocityThreshold,
+      meetsDistanceRequirement: Math.abs(distance) > minDistance,
+      meetsTimeRequirement: time < maxTime,
+      meetsVelocityRequirement: velocity > velocityThreshold
+    });
+    
+    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe up detected - expanding card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      expandCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe down detected - collapsing card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      collapseCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else {
+      console.log("📖 Android gesture rejected - requirements not met");
+    }
+    
+    // Reset touch start
+    setTouchStart(null);
   };
 
   // Expand the card to full height
@@ -322,7 +332,9 @@ export default function Adventure1_Module2_Lesson1({
 
   return (
     <>
-      <StatusBar hidden />
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
       <View style={styles.container}>
         {/* Main carousel - full screen TabView equivalent */}
         <ScrollView
@@ -331,6 +343,7 @@ export default function Adventure1_Module2_Lesson1({
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScroll}
+          scrollEnabled={!isCardGestureActive} // Disable carousel when card gesture is active
           style={styles.carousel}
         >
           {palaceInteriors.map((interior, index) => (
@@ -361,17 +374,6 @@ export default function Adventure1_Module2_Lesson1({
               backgroundMusic.stop();
             }
             
-            // Stop direct audio if it exists
-            if (directAudioSoundRef.current) {
-              try {
-                console.log('🎵 Stopping direct audio on back button');
-                directAudioSoundRef.current.stopAsync();
-                directAudioSoundRef.current.unloadAsync();
-                directAudioSoundRef.current = null;
-              } catch (error) {
-                console.error('🎵 Error stopping direct audio on back:', error);
-              }
-            }
             
             (onBack || onDismiss)();
           }}>
@@ -393,17 +395,6 @@ export default function Adventure1_Module2_Lesson1({
                 backgroundMusic.stop(); // Remove await for instant navigation
               }
               
-              // Stop direct audio if it exists
-              if (directAudioSoundRef.current) {
-                try {
-                  console.log('🎵 Stopping direct audio before continue');
-                  directAudioSoundRef.current.stopAsync();
-                  directAudioSoundRef.current.unloadAsync();
-                  directAudioSoundRef.current = null;
-                } catch (error) {
-                  console.error('🎵 Error stopping direct audio before continue:', error);
-                }
-              }
               
               onContinue();
             } : undefined}
@@ -432,108 +423,216 @@ export default function Adventure1_Module2_Lesson1({
           </View>
         )}
 
-        {/* Reading Card at Bottom - Expandable */}
-        <PanGestureHandler 
-          ref={panGestureRef}
-          onHandlerStateChange={handleSwipeGesture}
-          simultaneousHandlers={scrollViewGestureRef}
-        >
-          <Animated.View style={[
-            styles.cardContainer,
-            {
-              transform: [{ translateY: cardTranslateY }]
-            }
-          ]}>
+        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
+        {Platform.OS === 'ios' ? (
+          // iOS: Native PanGestureHandler
+          <PanGestureHandler
+            ref={panGestureRef}
+            onGestureEvent={handleSwipeGesture}
+            onHandlerStateChange={handleSwipeGesture}
+            activeOffsetY={[-15, 15]} // Reduced for better sensitivity
+            failOffsetX={[-40, 40]} // Increased to prevent conflict with horizontal scroll
+            minPointers={1}
+            maxPointers={1}
+          >
             <Animated.View style={[
-              styles.readingCard,
+              styles.cardContainer,
               {
-                height: cardHeight,
+                transform: [{ translateY: cardTranslateY }]
               }
             ]}>
-            {/* Top handle indicator */}
-            <View style={styles.cardHandle} />
-
-            {/* Collapsed content */}
-            <Animated.View style={[
-              styles.collapsedContent,
-              { opacity: cardOpacity }
-            ]}>
-              <TouchableOpacity 
-                style={styles.readingCardHeader}
-                onPress={expandCard}
-              >
-                <Text style={styles.cardTitle}>
-                  Interiors of the Umayyad Palace
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  The Umayyad palace in Damascus was called the Green Dome...
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Expanded content */}
-            {isCardExpanded && (
+              {/* iOS Card Content - Use existing structure */}
               <Animated.View style={[
-                styles.expandedContent,
-                { opacity: Animated.subtract(1, cardOpacity) }
+                styles.readingCard,
+                {
+                  height: cardHeight,
+                }
               ]}>
+                {/* Top handle indicator */}
+                <View style={styles.cardHandle} />
 
-                <GestureHandlerScrollView 
-                  ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
-                  style={styles.expandedScroll} 
-                  showsVerticalScrollIndicator={false}
-                  onScroll={handleReadingScroll}
-                  scrollEventThrottle={100}
-                >
-                  <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Interiors of the Umayyad Palace
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 2 • Lesson 1
-                      </Text>
-                    </View>
-
-                    {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>
-                        The Umayyad palace in Damascus was called the Green Dome, or al-Khadra. Muʿawiya built it beside the Umayyad Mosque as a working seat of power, with a coin mint, stables, and a prison. Sources describe a domed audience hall, marble floors, and gardens with fountains, myrtles, and vines. Later rulers still used the complex, but by the 1000s it had vanished, and travelers wrote that markets stood where the palace once was.
-                      </Text>
-                    </View>
-
-                    {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Green Dome (al-Khadra)"
-                          definition="The name of the Umayyad palace complex built by Muʿawiya in Damascus"
-                        />
-                        <KeyTermRow
-                          term="Audience Hall"
-                          definition="The domed reception room with marble floors where the caliph met visitors"
-                        />
-                        <KeyTermRow
-                          term="Working Palace"
-                          definition="A palace complex with coin mint, stables, and prison for government operations"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Bottom spacer to ensure full scroll */}
-                    <View style={styles.sheetBottomSpacer} />
+                {/* iOS Collapsed content - existing structure */}
+                <Animated.View style={[
+                  styles.collapsedContent,
+                  { opacity: cardOpacity }
+                ]}>
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      Interiors of the Umayyad Palace
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      The Umayyad palace in Damascus was called the Green Dome...
+                    </Text>
                   </View>
-                </GestureHandlerScrollView>
-                
+                </Animated.View>
+
+                {/* Expanded content when card is swiped up */}
+                {isCardExpanded && (
+                  <Animated.View style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) }
+                  ]}>
+                    <GestureHandlerScrollView 
+                      ref={scrollViewGestureRef}
+                      style={styles.expandedScroll} 
+                      showsVerticalScrollIndicator={false}
+                      onScroll={handleReadingScroll}
+                      scrollEventThrottle={100}
+                      waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
+                      simultaneousHandlers={Platform.OS === 'ios' ? panGestureRef : undefined}
+                    >
+                      <View style={styles.expandedContentInner}>
+                        {/* Title Section */}
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Interiors of the Umayyad Palace
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 2 • Lesson 1
+                          </Text>
+                        </View>
+
+                        {/* Historical Content */}
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.historicalText}>
+                            The Umayyad palace in Damascus was called the Green Dome, or al-Khadra. Muʿawiya built it beside the Umayyad Mosque as a working seat of power, with a coin mint, stables, and a prison. Sources describe a domed audience hall, marble floors, and gardens with fountains, myrtles, and vines. Later rulers still used the complex, but by the 1000s it had vanished, and travelers wrote that markets stood where the palace once was.
+                          </Text>
+                        </View>
+
+                        {/* Key Terms Section */}
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Green Dome (al-Khadra)"
+                              definition="The name of the Umayyad palace complex built by Muʿawiya in Damascus"
+                            />
+                            <KeyTermRow
+                              term="Audience Hall"
+                              definition="The domed reception room with marble floors where the caliph met visitors"
+                            />
+                            <KeyTermRow
+                              term="Working Palace"
+                              definition="A palace complex with coin mint, stables, and prison for government operations"
+                            />
+                          </View>
+                        </View>
+
+                        {/* Bottom spacer to ensure full scroll */}
+                        <View style={styles.sheetBottomSpacer} />
+                      </View>
+                    </GestureHandlerScrollView>
+                  </Animated.View>
+                )}
               </Animated.View>
-            )}
             </Animated.View>
-          </Animated.View>
-        </PanGestureHandler>
+          </PanGestureHandler>
+        ) : (
+          // Android: Custom Touch Handlers
+          <View 
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <Animated.View style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }]
+              }
+            ]}>
+              <Animated.View style={[
+                styles.readingCard,
+                {
+                  height: cardHeight,
+                }
+              ]}>
+                {/* Top handle indicator */}
+                <View style={styles.cardHandle} />
+
+                {/* Android Collapsed content with improved styling */}
+                <Animated.View style={[
+                  styles.collapsedContent,
+                  { opacity: cardOpacity }
+                ]}>
+                  <View style={styles.collapsedContentWrapper}>
+                    <Text style={styles.collapsedTitle}>
+                      Interiors of the Umayyad Palace
+                    </Text>
+                    <Text style={styles.collapsedSubtitle}>
+                      The Umayyad palace in Damascus was called the Green Dome...
+                    </Text>
+                  </View>
+                </Animated.View>
+
+                {/* Expanded content when card is swiped up */}
+                {isCardExpanded && (
+                  <Animated.View style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) }
+                  ]}>
+                    <GestureHandlerScrollView 
+                      ref={scrollViewGestureRef}
+                      style={styles.expandedScroll} 
+                      showsVerticalScrollIndicator={false}
+                      onScroll={handleReadingScroll}
+                      scrollEventThrottle={100}
+                      onScrollBeginDrag={() => {
+                        console.log("📖 Android: Internal scrolling started - maintaining gesture block");
+                        setIsCardGestureActive(true);
+                      }}
+                      onScrollEndDrag={() => {
+                        console.log("📖 Android: Internal scrolling ended - allowing carousel");
+                        setIsCardGestureActive(false);
+                      }}
+                    >
+                      <View style={styles.expandedContentInner}>
+                        {/* Title Section */}
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Interiors of the Umayyad Palace
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 2 • Lesson 1
+                          </Text>
+                        </View>
+
+                        {/* Historical Content */}
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.historicalText}>
+                            The Umayyad palace in Damascus was called the Green Dome, or al-Khadra. Muʿawiya built it beside the Umayyad Mosque as a working seat of power, with a coin mint, stables, and a prison. Sources describe a domed audience hall, marble floors, and gardens with fountains, myrtles, and vines. Later rulers still used the complex, but by the 1000s it had vanished, and travelers wrote that markets stood where the palace once was.
+                          </Text>
+                        </View>
+
+                        {/* Key Terms Section */}
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Green Dome (al-Khadra)"
+                              definition="The name of the Umayyad palace complex built by Muʿawiya in Damascus"
+                            />
+                            <KeyTermRow
+                              term="Audience Hall"
+                              definition="The domed reception room with marble floors where the caliph met visitors"
+                            />
+                            <KeyTermRow
+                              term="Working Palace"
+                              definition="A palace complex with coin mint, stables, and prison for government operations"
+                            />
+                          </View>
+                        </View>
+
+                        {/* Bottom spacer to ensure full scroll */}
+                        <View style={styles.sheetBottomSpacer} />
+                      </View>
+                    </GestureHandlerScrollView>
+                  </Animated.View>
+                )}
+              </Animated.View>
+            </Animated.View>
+          </View>
+        )}
 
       </View>
     </>
@@ -814,5 +913,29 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
+  },
+
+  // Android-Specific Styles for proper text positioning
+  collapsedContentWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 25,
+    marginTop: -15, // Move text content up slightly
+  },
+  collapsedTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 8,
+  },
+  collapsedSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    opacity: 0.8,
+    lineHeight: 20,
   },
 });

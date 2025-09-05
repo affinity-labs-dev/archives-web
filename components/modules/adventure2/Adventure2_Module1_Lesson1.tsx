@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -59,6 +60,7 @@ export default function Adventure2_Module1_Lesson1({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -202,37 +204,86 @@ export default function Adventure2_Module1_Lesson1({
   }, []);
 
 
-  // Handle swipe gestures to expand/collapse the card
-  const handleSwipeGesture = (event: any) => {
-    const { translationY, velocityY, state } = event.nativeEvent;
+  // Custom touch handlers for reliable Android swipe detection
+  const handleTouchStart = (event: any) => {
+    setTouchStart({
+      y: event.nativeEvent.pageY,
+      time: Date.now()
+    });
+  };
 
-    if (state === State.END || state === State.CANCELLED) {
-      if (!isCardExpanded) {
-        // Card is collapsed - swipe up to expand
-        if (translationY < -30 || velocityY < -300) {
-          console.log("📖 Reading card swiped up - expanding card", {
-            translationY,
-            velocityY,
-          });
-          expandCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      } else {
-        // Card is expanded - intelligent swipe down detection
-        const shouldCloseCard = 
-          (velocityY > 800) ||
-          (translationY > 50 && velocityY > 400) ||
-          (scrollY <= 10 && translationY > 30 && velocityY > 200);
-        
-        if (shouldCloseCard) {
-          console.log("📖 Reading card swiped down - collapsing card", {
-            translationY,
-            velocityY,
-            scrollY,
-          });
-          collapseCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+  const handleTouchEnd = (event: any) => {
+    if (!touchStart) return;
+    
+    const touchEnd = event.nativeEvent.pageY;
+    const distance = touchStart.y - touchEnd; // Positive = swipe up
+    const time = Date.now() - touchStart.time;
+    
+    // Optimized Android swipe detection for smoothness
+    const minDistance = 40; // Increased for better gesture recognition
+    const maxTime = 300; // Shorter time for more responsive gestures
+    const velocity = Math.abs(distance) / time; // Calculate velocity
+    const velocityThreshold = 0.5; // Minimum velocity threshold
+    
+    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe up detected - expanding card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      expandCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe down detected - collapsing card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      collapseCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    // Reset touch start
+    setTouchStart(null);
+  };
+
+  // iOS PanGestureHandler for native iOS gesture experience
+  const handleSwipeGesture = (event: any) => {
+    if (Platform.OS !== 'ios') return;
+    
+    if (event.nativeEvent.state === State.END) {
+      const { translationY, velocityY } = event.nativeEvent;
+      console.log("📱 iOS PanGesture detected", {
+        translationY,
+        velocityY,
+        isCardExpanded,
+        platform: Platform.OS
+      });
+      
+      // iOS-optimized swipe detection
+      const minDistance = 30;
+      const minVelocity = 500;
+      
+      if (!isCardExpanded && 
+          (translationY < -minDistance || velocityY < -minVelocity)) {
+        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        expandCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (isCardExpanded && 
+                 (translationY > minDistance || velocityY > minVelocity)) {
+        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        collapseCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
   };
@@ -283,7 +334,9 @@ export default function Adventure2_Module1_Lesson1({
 
   return (
     <>
-      <StatusBar hidden />
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
       <View style={styles.container}>
         {/* Main carousel - full screen */}
         <ScrollView
@@ -391,108 +444,204 @@ export default function Adventure2_Module1_Lesson1({
           </View>
         )}
 
-        {/* Reading Card at Bottom - Expandable */}
-        <PanGestureHandler 
-          ref={panGestureRef}
-          onHandlerStateChange={handleSwipeGesture}
-          simultaneousHandlers={scrollViewGestureRef}
-        >
-          <Animated.View style={[
-            styles.cardContainer,
-            {
-              transform: [{ translateY: cardTranslateY }]
-            }
-          ]}>
+        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
+        {Platform.OS === 'ios' ? (
+          // iOS: Native PanGestureHandler
+          <PanGestureHandler
+            ref={panGestureRef}
+            onGestureEvent={handleSwipeGesture}
+            onHandlerStateChange={handleSwipeGesture}
+            activeOffsetY={[-20, 20]}
+            failOffsetX={[-30, 30]}
+          >
             <Animated.View style={[
-              styles.readingCard,
+              styles.cardContainer,
               {
-                height: cardHeight,
+                transform: [{ translateY: cardTranslateY }]
               }
             ]}>
-            {/* Top handle indicator */}
-            <View style={styles.cardHandle} />
-
-            {/* Collapsed content */}
-            <Animated.View style={[
-              styles.collapsedContent,
-              { opacity: cardOpacity }
-            ]}>
-              <TouchableOpacity 
-                style={styles.readingCardHeader}
-                onPress={expandCard}
-              >
-                <Text style={styles.cardTitle}>
-                  Switching the language of an empire
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  In the late 600s, Caliph Abd al-Malik made Arabic the official language...
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Expanded content */}
-            {isCardExpanded && (
               <Animated.View style={[
-                styles.expandedContent,
-                { opacity: Animated.subtract(1, cardOpacity) }
+                styles.readingCard,
+                {
+                  height: cardHeight,
+                }
               ]}>
+                {/* Top handle indicator */}
+                <View style={styles.cardHandle} />
 
-                <GestureHandlerScrollView 
-                  ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
-                  style={styles.expandedScroll} 
-                  showsVerticalScrollIndicator={false}
-                  onScroll={handleReadingScroll}
-                  scrollEventThrottle={100}
-                >
-                  <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Switching the language of an empire
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 1 • Lesson 1
-                      </Text>
-                    </View>
-
-                    {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>
-                        In the late 600s, Caliph Abd al-Malik made Arabic the official language of government. Before then, taxes and records were written in Greek, Persian, or Syriac, depending on the region. His governor al-Hajjaj ibn Yusuf helped push the change, making scribes switch to Arabic in their offices. This shift gave the empire one clear voice and turned Arabic into the main language of power and history.
-                      </Text>
-                    </View>
-
-                    {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Abd al-Malik"
-                          definition="Umayyad caliph who made Arabic the official government language in the late 600s"
-                        />
-                        <KeyTermRow
-                          term="Al-Hajjaj ibn Yusuf"
-                          definition="Governor who helped push the Arabic language change in government offices"
-                        />
-                        <KeyTermRow
-                          term="Regional Languages"
-                          definition="Greek, Persian, and Syriac used for records before Arabic became official"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Bottom spacer to ensure full scroll */}
-                    <View style={styles.sheetBottomSpacer} />
+                {/* iOS Collapsed content */}
+                <Animated.View style={[
+                  styles.collapsedContent,
+                  { opacity: cardOpacity }
+                ]}>
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      Switching the language of an empire
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      In the late 600s, Caliph Abd al-Malik made Arabic the official language...
+                    </Text>
                   </View>
-                </GestureHandlerScrollView>
-                
+                </Animated.View>
+
+                {/* Expanded content when card is swiped up */}
+                {isCardExpanded && (
+                  <Animated.View style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) }
+                  ]}>
+                    <GestureHandlerScrollView 
+                      ref={scrollViewGestureRef}
+                      style={styles.expandedScroll} 
+                      showsVerticalScrollIndicator={false}
+                      onScroll={handleReadingScroll}
+                      scrollEventThrottle={100}
+                      waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
+                    >
+                      <View style={styles.expandedContentInner}>
+                        {/* Title Section */}
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Switching the language of an empire
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 1 • Lesson 1
+                          </Text>
+                        </View>
+
+                        {/* Historical Content */}
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.historicalText}>
+                            In the late 600s, Caliph Abd al-Malik made Arabic the official language of government. Before then, taxes and records were written in Greek, Persian, or Syriac, depending on the region. His governor al-Hajjaj ibn Yusuf helped push the change, making scribes switch to Arabic in their offices. This shift gave the empire one clear voice and turned Arabic into the main language of power and history.
+                          </Text>
+                        </View>
+
+                        {/* Key Terms Section */}
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Abd al-Malik"
+                              definition="Umayyad caliph who made Arabic the official government language in the late 600s"
+                            />
+                            <KeyTermRow
+                              term="Al-Hajjaj ibn Yusuf"
+                              definition="Governor who helped push the Arabic language change in government offices"
+                            />
+                            <KeyTermRow
+                              term="Regional Languages"
+                              definition="Greek, Persian, and Syriac used for records before Arabic became official"
+                            />
+                          </View>
+                        </View>
+
+                        {/* Bottom spacer to ensure full scroll */}
+                        <View style={styles.sheetBottomSpacer} />
+                      </View>
+                    </GestureHandlerScrollView>
+                  </Animated.View>
+                )}
               </Animated.View>
-            )}
             </Animated.View>
-          </Animated.View>
-        </PanGestureHandler>
+          </PanGestureHandler>
+        ) : (
+          // Android: Custom Touch Handlers
+          <View 
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <Animated.View style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }]
+              }
+            ]}>
+              <Animated.View style={[
+                styles.readingCard,
+                {
+                  height: cardHeight,
+                }
+              ]}>
+                {/* Top handle indicator */}
+                <View style={styles.cardHandle} />
+
+                {/* Android Collapsed content with improved styling */}
+                <Animated.View style={[
+                  styles.collapsedContent,
+                  { opacity: cardOpacity }
+                ]}>
+                  <View style={styles.collapsedContentWrapper}>
+                    <Text style={styles.collapsedTitle}>
+                      Switching the language of an empire
+                    </Text>
+                    <Text style={styles.collapsedSubtitle}>
+                      In the late 600s, Caliph Abd al-Malik made Arabic the official language...
+                    </Text>
+                  </View>
+                </Animated.View>
+
+                {/* Expanded content when card is swiped up */}
+                {isCardExpanded && (
+                  <Animated.View style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) }
+                  ]}>
+                    <GestureHandlerScrollView 
+                      ref={scrollViewGestureRef}
+                      style={styles.expandedScroll} 
+                      showsVerticalScrollIndicator={false}
+                      onScroll={handleReadingScroll}
+                      scrollEventThrottle={100}
+                    >
+                      <View style={styles.expandedContentInner}>
+                        {/* Title Section */}
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Switching the language of an empire
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 1 • Lesson 1
+                          </Text>
+                        </View>
+
+                        {/* Historical Content */}
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.historicalText}>
+                            In the late 600s, Caliph Abd al-Malik made Arabic the official language of government. Before then, taxes and records were written in Greek, Persian, or Syriac, depending on the region. His governor al-Hajjaj ibn Yusuf helped push the change, making scribes switch to Arabic in their offices. This shift gave the empire one clear voice and turned Arabic into the main language of power and history.
+                          </Text>
+                        </View>
+
+                        {/* Key Terms Section */}
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Abd al-Malik"
+                              definition="Umayyad caliph who made Arabic the official government language in the late 600s"
+                            />
+                            <KeyTermRow
+                              term="Al-Hajjaj ibn Yusuf"
+                              definition="Governor who helped push the Arabic language change in government offices"
+                            />
+                            <KeyTermRow
+                              term="Regional Languages"
+                              definition="Greek, Persian, and Syriac used for records before Arabic became official"
+                            />
+                          </View>
+                        </View>
+
+                        {/* Bottom spacer to ensure full scroll */}
+                        <View style={styles.sheetBottomSpacer} />
+                      </View>
+                    </GestureHandlerScrollView>
+                  </Animated.View>
+                )}
+              </Animated.View>
+            </Animated.View>
+          </View>
+        )}
 
       </View>
     </>
@@ -773,5 +922,29 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
+  },
+
+  // Collapsed card text styles (for Android touch version)
+  collapsedContentWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 25,
+    marginTop: -15, // Move text content up slightly
+  },
+  collapsedTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 8,
+  },
+  collapsedSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    opacity: 0.8,
+    lineHeight: 20,
   },
 });

@@ -54,11 +54,22 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     "DM Sans": require("../assets/fonts/DM_Sans.ttf"),
+    "DM-Sans-Bold": require("../assets/fonts/DM_Sans-Bold.ttf"),
+    "DMSans-Bold": require("../assets/fonts/DM_Sans-Bold.ttf"),
+    "DM Sans Bold": require("../assets/fonts/DM_Sans-Bold.ttf"),
     "Cormorant": require("../assets/fonts/Cormorant.ttf"),
+    "Cormorant-Bold": require("../assets/fonts/Cormorant-Bold.ttf"),
   });
 
   console.log('RootLayout - Fonts loaded:', loaded);
   console.log('RootLayout - Platform:', Platform.OS);
+  console.log('RootLayout - Available fonts:', {
+    'SpaceMono': '✓',
+    'DM Sans': '✓', 
+    'DM Sans-Bold': '✓',
+    'Cormorant': '✓',
+    'Cormorant-Bold': '✓'
+  });
 
   if (!loaded) {
     // Show loading screen instead of null to prevent blank app
@@ -69,6 +80,23 @@ export default function RootLayout() {
       </View>
     );
   }
+
+  // Custom theme with brand background color for Android
+  const CustomTheme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      background: Platform.OS === 'android' ? '#F4EBDB' : DefaultTheme.colors.background,
+    }
+  };
+
+  const CustomDarkTheme = {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      background: Platform.OS === 'android' ? '#F4EBDB' : DarkTheme.colors.background,
+    }
+  };
 
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
   const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY!;
@@ -102,12 +130,15 @@ export default function RootLayout() {
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ 
+      flex: 1, 
+      backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined 
+    }}>
       <WebCompatiblePostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
           <BackgroundSyncProvider>
             <ProgressProvider>
-              <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+              <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
               <Stack>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />

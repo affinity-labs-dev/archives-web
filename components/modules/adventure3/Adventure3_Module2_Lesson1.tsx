@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -61,6 +62,7 @@ export default function Adventure3_Module2_Lesson1({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -211,34 +213,72 @@ export default function Adventure3_Module2_Lesson1({
     }
   };
 
-  // Handle swipe gestures to expand/collapse the card with smart priority
+  // Handle platform-specific swipe gestures to expand/collapse the card
   const handleSwipeGesture = (event: any) => {
-    const { translationY, velocityY, state } = event.nativeEvent;
-
-    // Detect gesture when it ends
-    if (state === State.END || state === State.CANCELLED) {
-      if (!isCardExpanded) {
-        // Card is collapsed - swipe up to expand
-        if (translationY < -30 || velocityY < -300) {
-          expandCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      } else {
-        // Card is expanded - intelligent swipe down detection
-        const shouldCloseCard = 
-          // Fast downward swipe (strong intent to close)
-          (velocityY > 800) ||
-          // Medium swipe with good distance
-          (translationY > 50 && velocityY > 400) ||
-          // Swipe down when at top of scroll content
-          (scrollY <= 10 && translationY > 30 && velocityY > 200);
-        
-        if (shouldCloseCard) {
-          collapseCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS === 'ios') {
+      const { translationY, velocityY, state } = event.nativeEvent;
+      console.log('🎯 iOS gesture event:', { translationY, velocityY, state });
+      
+      if (state === State.END || state === State.CANCELLED) {
+        if (!isCardExpanded) {
+          if (translationY < -30 || velocityY < -300) {
+            console.log('📖 iOS: Reading card swiped up - expanding card', { translationY, velocityY });
+            expandCard();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+        } else {
+          const shouldCloseCard = 
+            (velocityY > 800) ||
+            (translationY > 50 && velocityY > 400) ||
+            (scrollY <= 10 && translationY > 30 && velocityY > 200);
+          
+          if (shouldCloseCard) {
+            console.log('📖 iOS: Reading card swiped down - collapsing card', { translationY, velocityY, scrollY });
+            collapseCard();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
         }
       }
     }
+  };
+  
+  // Android touch handlers
+  const handleAndroidTouchStart = (event: any) => {
+    const { pageY } = event.nativeEvent;
+    setTouchStart({ y: pageY, time: Date.now() });
+    console.log('🤖 Android touch start:', { y: pageY });
+  };
+  
+  const handleAndroidTouchEnd = (event: any) => {
+    if (!touchStart) return;
+    
+    const { pageY } = event.nativeEvent;
+    const deltaY = pageY - touchStart.y;
+    const deltaTime = Date.now() - touchStart.time;
+    const velocity = Math.abs(deltaY) / deltaTime;
+    
+    console.log('🤖 Android touch end:', { deltaY, velocity, isCardExpanded });
+    
+    if (!isCardExpanded) {
+      if (deltaY < -30 || velocity > 0.3) {
+        console.log('📖 Android: Reading card swiped up - expanding card');
+        expandCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } else {
+      const shouldCloseCard = 
+        (velocity > 0.8) ||
+        (deltaY > 50 && velocity > 0.4) ||
+        (scrollY <= 10 && deltaY > 30 && velocity > 0.2);
+      
+      if (shouldCloseCard) {
+        console.log('📖 Android: Reading card swiped down - collapsing card');
+        collapseCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+    
+    setTouchStart(null);
   };
 
   // Expand the card to full height
@@ -290,7 +330,9 @@ export default function Adventure3_Module2_Lesson1({
 
   return (
     <>
-      <StatusBar hidden />
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
       <View style={styles.container}>
         {/* Main carousel - full screen TabView equivalent */}
         <ScrollView
@@ -399,17 +441,18 @@ export default function Adventure3_Module2_Lesson1({
         )}
 
         {/* Reading Card at Bottom - Expandable */}
-        <PanGestureHandler 
-          ref={panGestureRef}
-          onHandlerStateChange={handleSwipeGesture}
-          simultaneousHandlers={scrollViewGestureRef}
-        >
-          <Animated.View style={[
-            styles.cardContainer,
-            {
-              transform: [{ translateY: cardTranslateY }]
-            }
-          ]}>
+        {Platform.OS === 'ios' ? (
+          <PanGestureHandler 
+            ref={panGestureRef}
+            onHandlerStateChange={handleSwipeGesture}
+            simultaneousHandlers={scrollViewGestureRef}
+          >
+            <Animated.View style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }]
+              }
+            ]}>
             <Animated.View style={[
               styles.readingCard,
               {
@@ -422,6 +465,7 @@ export default function Adventure3_Module2_Lesson1({
             {/* Collapsed content */}
             <Animated.View style={[
               styles.collapsedContent,
+              Platform.OS === 'android' && styles.collapsedContentWrapper,
               { opacity: cardOpacity }
             ]}>
               <TouchableOpacity 
@@ -498,8 +542,113 @@ export default function Adventure3_Module2_Lesson1({
               </Animated.View>
             )}
             </Animated.View>
+            </Animated.View>
+          </PanGestureHandler>
+        ) : (
+          <Animated.View 
+            style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }]
+              }
+            ]}
+            onTouchStart={handleAndroidTouchStart}
+            onTouchEnd={handleAndroidTouchEnd}
+          >
+            <Animated.View style={[
+              styles.readingCard,
+              {
+                height: cardHeight,
+              }
+            ]}>
+            {/* Top handle indicator */}
+            <View style={styles.cardHandle} />
+
+            {/* Collapsed content */}
+            <Animated.View style={[
+              styles.collapsedContent,
+              Platform.OS === 'android' && styles.collapsedContentWrapper,
+              { opacity: cardOpacity }
+            ]}>
+              <TouchableOpacity 
+                onPress={expandCard} 
+                activeOpacity={0.8}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Ṭarīq ibn Ziyād's Conquest of Iberia
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    Landing at Gibraltar • Burning the Ships • Advancing into Al-Andalus
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Expanded content */}
+            {isCardExpanded && (
+              <Animated.View style={[
+                styles.expandedContent,
+                { opacity: Animated.subtract(1, cardOpacity) }
+              ]}>
+                <GestureHandlerScrollView 
+                  ref={scrollViewGestureRef}
+                  waitFor={panGestureRef}
+                  style={styles.expandedScroll} 
+                  showsVerticalScrollIndicator={false}
+                  onScroll={handleReadingScroll}
+                  scrollEventThrottle={100}
+                >
+                  <View style={styles.expandedContentInner}>
+                    {/* Title Section */}
+                    <View style={styles.titleSection}>
+                      <Text style={styles.sheetTitle}>
+                        Ṭarīq ibn Ziyād's Conquest of Iberia
+                      </Text>
+                      <Text style={styles.sheetSubtitle}>
+                        Module 2 • Lesson 1
+                      </Text>
+                    </View>
+
+                    {/* Historical Content */}
+                    <View style={styles.historicalSection}>
+                      <Text style={styles.sectionTitle}>The Conquest Begins</Text>
+                      <Text style={styles.historicalText}>
+                        In 711 CE, Ṭarīq ibn Ziyād landed in Iberia with an army of Berber and Arab forces, 
+                        beginning a conquest that would transform the Iberian Peninsula into Al-Andalus. 
+                        The strategic burning of ships symbolized total commitment to victory.
+                      </Text>
+                    </View>
+
+                    {/* Key Terms Section */}
+                    <View style={styles.keyTermsSection}>
+                      <Text style={styles.sectionTitle}>Key Terms</Text>
+                      <View style={styles.keyTermsContainer}>
+                        <KeyTermRow
+                          term="Gibraltar (Jabal Ṭāriq)"
+                          definition="Landing point named &lsquo;Mountain of Ṭāriq&rsquo; after the conquest leader"
+                        />
+                        <KeyTermRow
+                          term="Burning the Ships"
+                          definition="Strategic decision showing total commitment to conquest with no retreat"
+                        />
+                        <KeyTermRow
+                          term="Al-Andalus"
+                          definition="Name for Muslim-ruled Iberian Peninsula, established after conquest"
+                        />
+                      </View>
+                    </View>
+
+                    {/* Bottom spacer to ensure full scroll */}
+                    <View style={styles.sheetBottomSpacer} />
+                  </View>
+                </GestureHandlerScrollView>
+                
+              </Animated.View>
+            )}
+            </Animated.View>
           </Animated.View>
-        </PanGestureHandler>
+        )}
 
       </View>
     </>
@@ -673,6 +822,9 @@ const styles = StyleSheet.create({
   // Collapsed and expanded content styles
   collapsedContent: {
     flex: 1,
+  },
+  collapsedContentWrapper: {
+    marginTop: -15,
   },
   
   expandedContent: {

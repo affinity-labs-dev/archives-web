@@ -12,6 +12,8 @@ import {
   PanResponder,
   Animated,
   Dimensions,
+  Platform,
+  StatusBar,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -226,6 +228,7 @@ interface QuizQuestionProps {
   isAnswerSelected: boolean
   questionType?: 'mcq' | 'trueFalse' | 'fillInBlank' // Add question type for different spacing
   onBack?: () => void // Optional back button handler
+  quizTitle?: string // Dynamic quiz title (e.g., "Module 2 Quiz")
 }
 
 export function QuizQuestion({
@@ -238,6 +241,7 @@ export function QuizQuestion({
   isAnswerSelected,
   questionType = 'mcq',
   onBack,
+  quizTitle = 'Module 1 Quiz', // Default fallback for backward compatibility
 }: QuizQuestionProps) {
   
   // Get appropriate spacing based on question type
@@ -279,7 +283,7 @@ export function QuizQuestion({
               </TouchableOpacity>
             )}
             <View style={styles.questionTitleContainer}>
-              <Text style={styles.quizTitle}>Module 1 Quiz</Text>
+              <Text style={styles.quizTitle}>{quizTitle}</Text>
               <Text style={styles.questionCounter}>Question {questionNumber} of {totalQuestions}</Text>
             </View>
           </View>
@@ -441,6 +445,7 @@ const styles = StyleSheet.create({
   questionContainer: {
     flex: 1,
     backgroundColor: ArchivesTheme.colors.creamWhite, // EXACT SwiftUI: Color("CreamWhite")
+    // No Android paddingTop needed since status bar is hidden
   },
   questionScroll: {
     flex: 1,
@@ -476,9 +481,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quizTitle: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 20))
+    fontFamily: 'DM Sans-Bold', // Use explicit bold font file for Android compatibility
     fontSize: 20,
-    fontWeight: '600', // .fontWeight(.semibold)
     color: ArchivesTheme.colors.mutedNavy, // EXACT SwiftUI: Color("MutedNavy")
   },
   questionCounter: {
@@ -519,9 +523,8 @@ const styles = StyleSheet.create({
     top: iOSLayout.imageOffsetY, // EXACT iOS: .offset(y: -20)
   },
   questionText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 20))
+    fontFamily: 'DM Sans-Bold', // Use explicit bold font file for Android compatibility
     fontSize: 20, // EXACT iOS font size
-    fontWeight: '600', // .fontWeight(.semibold)
     color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
     textAlign: 'center', // EXACT SwiftUI: .multilineTextAlignment(.center)
     marginBottom: 0, // No margin - spacing handled by answer section

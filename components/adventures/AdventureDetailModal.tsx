@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   Dimensions,
   Image,
+  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -283,9 +284,8 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)', // EXACT SwiftUI: .white.opacity(0.9)
   },
   adventureTitle: {
-    fontFamily: 'Cormorant', // EXACT SwiftUI: .font(.custom("Cormorant", size: 26))
+    fontFamily: 'Cormorant-Bold', // EXACT SwiftUI: .font(.custom("Cormorant", size: 26))
     fontSize: 26,
-    fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
   },

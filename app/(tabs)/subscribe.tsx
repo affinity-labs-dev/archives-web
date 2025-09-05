@@ -2,7 +2,7 @@
 // Matches the exact structure: character illustration + EXPLORER PASS + pricing
 
 import React, { useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import ArchivesTheme from '@/constants/ArchivesTheme'
@@ -436,9 +436,8 @@ const styles = StyleSheet.create({
     // Removed backgroundColor since we have gradient
   },
   eraCardTitle: {
-    fontFamily: 'Cormorant', // Updated to Cormorant
+    fontFamily: 'Cormorant-Bold', // Updated to Cormorant
     fontSize: 30, // Updated to 30px
-    fontWeight: '700', // Bold
     color: 'white',
     lineHeight: 34, // Increased to 113% line height (30px * 1.13) to prevent clipping
     letterSpacing: -0.3, // -1% letter spacing (30px * -0.01 = -0.3)

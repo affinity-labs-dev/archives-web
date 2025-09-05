@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -59,6 +60,7 @@ export default function Adventure2_Module3_Lesson1({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -198,37 +200,36 @@ export default function Adventure2_Module3_Lesson1({
     };
   }, []);
 
-  // Handle swipe gestures to expand/collapse the card
+  // Custom touch handlers for reliable Android swipe detection
+  const handleTouchStart = (event: any) => {
+    setTouchStart({ y: event.nativeEvent.pageY, time: Date.now() });
+  };
+  const handleTouchEnd = (event: any) => {
+    if (!touchStart) return;
+    const touchEnd = event.nativeEvent.pageY, distance = touchStart.y - touchEnd, time = Date.now() - touchStart.time;
+    const minDistance = 40, maxTime = 300, velocity = Math.abs(distance) / time, velocityThreshold = 0.5;
+    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe up detected - expanding card", { distance, time, velocity: velocity.toFixed(2), platform: Platform.OS });
+      expandCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe down detected - collapsing card", { distance, time, velocity: velocity.toFixed(2), platform: Platform.OS });
+      collapseCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setTouchStart(null);
+  };
+  // iOS PanGestureHandler for native iOS gesture experience
   const handleSwipeGesture = (event: any) => {
-    const { translationY, velocityY, state } = event.nativeEvent;
-
-    if (state === State.END || state === State.CANCELLED) {
-      if (!isCardExpanded) {
-        // Card is collapsed - swipe up to expand
-        if (translationY < -30 || velocityY < -300) {
-          console.log("📖 Reading card swiped up - expanding card", {
-            translationY,
-            velocityY,
-          });
-          expandCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      } else {
-        // Card is expanded - intelligent swipe down detection
-        const shouldCloseCard = 
-          (velocityY > 800) ||
-          (translationY > 50 && velocityY > 400) ||
-          (scrollY <= 10 && translationY > 30 && velocityY > 200);
-        
-        if (shouldCloseCard) {
-          console.log("📖 Reading card swiped down - collapsing card", {
-            translationY,
-            velocityY,
-            scrollY,
-          });
-          collapseCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+    if (Platform.OS !== 'ios') return;
+    if (event.nativeEvent.state === State.END) {
+      const { translationY, velocityY } = event.nativeEvent;
+      console.log("📱 iOS PanGesture detected", { translationY, velocityY, isCardExpanded, platform: Platform.OS });
+      const minDistance = 30, minVelocity = 500;
+      if (!isCardExpanded && (translationY < -minDistance || velocityY < -minVelocity)) {
+        console.log("📱 iOS PanGesture swipe up detected - expanding card", { translationY, velocityY, platform: Platform.OS });
+        expandCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (isCardExpanded && (translationY > minDistance || velocityY > minVelocity)) {
+        console.log("📱 iOS PanGesture swipe down detected - collapsing card", { translationY, velocityY, platform: Platform.OS });
+        collapseCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
   };
@@ -279,7 +280,9 @@ export default function Adventure2_Module3_Lesson1({
 
   return (
     <>
-      <StatusBar hidden />
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
       <View style={styles.container}>
         {/* Main carousel - full screen */}
         <ScrollView
@@ -388,11 +391,8 @@ export default function Adventure2_Module3_Lesson1({
         )}
 
         {/* Reading Card at Bottom - Expandable */}
-        <PanGestureHandler 
-          ref={panGestureRef}
-          onHandlerStateChange={handleSwipeGesture}
-          simultaneousHandlers={scrollViewGestureRef}
-        >
+        {Platform.OS === 'ios' ? (
+          <PanGestureHandler ref={panGestureRef} onGestureEvent={handleSwipeGesture} onHandlerStateChange={handleSwipeGesture} activeOffsetY={[-20, 20]} failOffsetX={[-30, 30]}>
           <Animated.View style={[
             styles.cardContainer,
             {
@@ -413,17 +413,25 @@ export default function Adventure2_Module3_Lesson1({
               styles.collapsedContent,
               { opacity: cardOpacity }
             ]}>
-              <TouchableOpacity 
-                style={styles.readingCardHeader}
-                onPress={expandCard}
-              >
-                <Text style={styles.cardTitle}>
-                  Building the Dome of the Rock
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  The Dome of the Rock is one of the oldest and most remarkable buildings...
-                </Text>
-              </TouchableOpacity>
+              {Platform.OS === 'ios' ? (
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Building the Dome of the Rock
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    The Dome of the Rock is one of the oldest and most remarkable buildings...
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.collapsedContentWrapper}>
+                  <Text style={styles.collapsedTitle}>
+                    Building the Dome of the Rock
+                  </Text>
+                  <Text style={styles.collapsedSubtitle}>
+                    The Dome of the Rock is one of the oldest and most remarkable buildings...
+                  </Text>
+                </View>
+              )}
             </Animated.View>
 
             {/* Expanded content */}
@@ -435,7 +443,7 @@ export default function Adventure2_Module3_Lesson1({
 
                 <GestureHandlerScrollView 
                   ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
+                  waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                   style={styles.expandedScroll} 
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
@@ -488,7 +496,106 @@ export default function Adventure2_Module3_Lesson1({
             )}
             </Animated.View>
           </Animated.View>
-        </PanGestureHandler>
+          </PanGestureHandler>
+        ) : (
+          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <Animated.View style={[
+            styles.cardContainer,
+            {
+              transform: [{ translateY: cardTranslateY }]
+            }
+          ]}>
+            <Animated.View style={[
+              styles.readingCard,
+              {
+                height: cardHeight,
+              }
+            ]}>
+            {/* Top handle indicator */}
+            <View style={styles.cardHandle} />
+
+            {/* Collapsed content */}
+            <Animated.View style={[
+              styles.collapsedContent,
+              { opacity: cardOpacity }
+            ]}>
+              <TouchableOpacity 
+                onPress={expandCard} 
+                activeOpacity={0.8}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Building the Dome of the Rock
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    In 691-692 CE, Abd al-Malik built this architectural marvel...
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Expanded content */}
+            {isCardExpanded && (
+              <Animated.View style={[
+                styles.expandedContent,
+                { opacity: Animated.subtract(1, cardOpacity) }
+              ]}>
+
+                <GestureHandlerScrollView 
+                  ref={scrollViewGestureRef}
+                  waitFor={panGestureRef}
+                  style={styles.expandedScroll} 
+                  showsVerticalScrollIndicator={false}
+                  onScroll={handleReadingScroll}
+                  scrollEventThrottle={100}
+                >
+                  <View style={styles.expandedContentInner}>
+                    {/* Title Section */}
+                    <View style={styles.titleSection}>
+                      <Text style={styles.sheetTitle}>
+                        Building the Dome of the Rock
+                      </Text>
+                      <Text style={styles.sheetSubtitle}>
+                        Module 3 • Lesson 1
+                      </Text>
+                    </View>
+
+                    {/* Historical Content */}
+                    <View style={styles.historicalSection}>
+                      <Text style={styles.sectionTitle}>Architectural Achievement</Text>
+                      <Text style={styles.historicalText}>{historicalText}</Text>
+                    </View>
+
+                    {/* Key Terms Section */}
+                    <View style={styles.keyTermsSection}>
+                      <Text style={styles.sectionTitle}>Key Terms</Text>
+                      <View style={styles.keyTermsContainer}>
+                        <KeyTermRow
+                          term="Dome of the Rock (691-692 CE)"
+                          definition="First major architectural project of Islamic civilization in Jerusalem"
+                        />
+                        <KeyTermRow
+                          term="Abd al-Malik"
+                          definition="Umayyad caliph who commissioned this architectural masterpiece"
+                        />
+                        <KeyTermRow
+                          term="Jerusalem (Al-Quds)"
+                          definition="Holy city where this monument established Islamic architectural presence"
+                        />
+                      </View>
+                    </View>
+
+                    {/* Bottom spacer to ensure full scroll */}
+                    <View style={styles.sheetBottomSpacer} />
+                  </View>
+                </GestureHandlerScrollView>
+                
+              </Animated.View>
+            )}
+            </Animated.View>
+          </Animated.View>
+          </View>
+        )}
 
       </View>
     </>
@@ -769,5 +876,14 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
+  },
+  collapsedContentWrapper: {
+    flex: 1, justifyContent: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 25, marginTop: -15,
+  },
+  collapsedTitle: {
+    fontFamily: "DM Sans", fontSize: 18, fontWeight: "600", color: "white", marginBottom: 8,
+  },
+  collapsedSubtitle: {
+    fontFamily: "DM Sans", fontSize: 14, color: "white", opacity: 0.8, lineHeight: 20,
   },
 });

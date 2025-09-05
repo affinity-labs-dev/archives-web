@@ -15,6 +15,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
 import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -43,6 +44,7 @@ export default function Adventure1_Module1_Lesson2({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -134,18 +136,72 @@ export default function Adventure1_Module1_Lesson2({
     onContinue();
   };
 
-  // Handle swipe gestures to expand/collapse the card with smart priority
+  // Custom touch handlers for reliable Android swipe detection
+  const handleTouchStart = (event: any) => {
+    setTouchStart({
+      y: event.nativeEvent.pageY,
+      time: Date.now()
+    });
+  };
+
+  const handleTouchEnd = (event: any) => {
+    if (!touchStart) return;
+    
+    const touchEnd = event.nativeEvent.pageY;
+    const distance = touchStart.y - touchEnd; // Positive = swipe up, Negative = swipe down
+    const time = Date.now() - touchStart.time;
+    
+    // Optimized Android swipe detection for smoothness
+    const minDistance = 40; // Increased for better gesture recognition
+    const maxTime = 300; // Shorter time for more responsive gestures
+    const velocity = Math.abs(distance) / time; // Calculate velocity
+    const velocityThreshold = 0.5; // Minimum velocity threshold
+    
+    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe up detected - expanding card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      expandCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe down detected - collapsing card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      collapseCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    // Reset touch start
+    setTouchStart(null);
+  };
+
+  // iOS PanGestureHandler for native iOS gesture experience - Handle swipe gestures to expand/collapse the card with smart priority
   const handleSwipeGesture = (event: any) => {
+    if (Platform.OS !== 'ios') return;
+    
     const { translationY, velocityY, state } = event.nativeEvent;
 
     // Detect gesture when it ends
     if (state === State.END || state === State.CANCELLED) {
+      console.log("📱 iOS PanGesture detected", {
+        translationY,
+        velocityY,
+        isCardExpanded,
+        platform: Platform.OS
+      });
       if (!isCardExpanded) {
         // Card is collapsed - swipe up to expand
-        if (translationY < -30 || velocityY < -300) {
-          console.log("📖 Reading card swiped up - expanding card", {
+        if (translationY < -30 || velocityY < -500) {
+          console.log("📱 iOS PanGesture swipe up detected - expanding card", {
             translationY,
             velocityY,
+            platform: Platform.OS
           });
           expandCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -161,10 +217,11 @@ export default function Adventure1_Module1_Lesson2({
           (scrollY <= 10 && translationY > 30 && velocityY > 200);
         
         if (shouldCloseCard) {
-          console.log("📖 Reading card swiped down - collapsing card", {
+          console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
             translationY,
             velocityY,
             scrollY,
+            platform: Platform.OS
           });
           collapseCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -234,7 +291,9 @@ export default function Adventure1_Module1_Lesson2({
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="black" />
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
       <View style={styles.container}>
         {/* Full-screen video player */}
         <LessonPlayer
@@ -286,13 +345,20 @@ export default function Adventure1_Module1_Lesson2({
           </TouchableOpacity>
         </SafeAreaView>
 
-        {/* Reading Card at Bottom - Expandable */}
-        <PanGestureHandler 
-          ref={panGestureRef}
-          onHandlerStateChange={handleSwipeGesture}
-          simultaneousHandlers={scrollViewGestureRef}
+        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
+        <PanGestureHandler
+            ref={panGestureRef}
+            onGestureEvent={handleSwipeGesture}
+            onHandlerStateChange={handleSwipeGesture}
+            activeOffsetY={[-20, 20]}
+            failOffsetX={[-30, 30]}
+            simultaneousHandlers={scrollViewGestureRef}
         >
-          <Animated.View style={[
+          <View 
+            onTouchStart={Platform.OS === 'android' ? handleTouchStart : undefined}
+            onTouchEnd={Platform.OS === 'android' ? handleTouchEnd : undefined}
+          >
+            <Animated.View style={[
             styles.cardContainer,
             {
               transform: [{ translateY: cardTranslateY }]
@@ -307,20 +373,37 @@ export default function Adventure1_Module1_Lesson2({
             {/* Top handle indicator */}
             <View style={styles.cardHandle} />
 
-            {/* Collapsed content */}
-            <Animated.View style={[
-              styles.collapsedContent,
-              { opacity: cardOpacity }
-            ]}>
-              <View style={styles.readingCardHeader}>
-                <Text style={styles.cardTitle}>
-                  The Barada River&apos;s Gift
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  Damascus grew quickly under Umayyad rule because of the Barada River...
-                </Text>
-              </View>
-            </Animated.View>
+            {/* iOS Collapsed content - existing structure */}
+            {Platform.OS === 'ios' ? (
+              <Animated.View style={[
+                styles.collapsedContent,
+                { opacity: cardOpacity }
+              ]}>
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    The Barada River&apos;s Gift
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    Damascus grew quickly under Umayyad rule because of the Barada River...
+                  </Text>
+                </View>
+              </Animated.View>
+            ) : (
+              // Android Collapsed content with improved styling
+              <Animated.View style={[
+                styles.collapsedContent,
+                { opacity: cardOpacity }
+              ]}>
+                <View style={styles.collapsedContentWrapper}>
+                  <Text style={styles.collapsedTitle}>
+                    The Barada River&apos;s Gift
+                  </Text>
+                  <Text style={styles.collapsedSubtitle}>
+                    Damascus grew quickly under Umayyad rule because of the Barada River...
+                  </Text>
+                </View>
+              </Animated.View>
+            )}
 
             {/* Expanded content */}
             {isCardExpanded && (
@@ -331,7 +414,7 @@ export default function Adventure1_Module1_Lesson2({
 
                 <GestureHandlerScrollView 
                   ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
+                  waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                   style={styles.expandedScroll} 
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
@@ -382,6 +465,7 @@ export default function Adventure1_Module1_Lesson2({
             )}
             </Animated.View>
           </Animated.View>
+          </View>
         </PanGestureHandler>
 
       </View>
@@ -649,5 +733,29 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
+  },
+
+  // Collapsed card text styles (for Android touch version)
+  collapsedContentWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 25,
+    marginTop: -15, // Move text content up slightly
+  },
+  collapsedTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 8,
+  },
+  collapsedSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    opacity: 0.8,
+    lineHeight: 20,
   },
 });

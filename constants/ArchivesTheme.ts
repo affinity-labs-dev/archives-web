@@ -37,15 +37,13 @@ export const ArchivesTheme = {
     // Headers
     h1: {
       fontSize: 32,
-      fontWeight: '700' as const,
       lineHeight: 40,
-      fontFamily: 'DM Sans',
+      fontFamily: 'DM Sans-Bold',
     },
     h2: {
       fontSize: 28,
-      fontWeight: '700' as const,
       lineHeight: 36,
-      fontFamily: 'DM Sans',
+      fontFamily: 'DM Sans-Bold',
     },
     h3: {
       fontSize: 24,

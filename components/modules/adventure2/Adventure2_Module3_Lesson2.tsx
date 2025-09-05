@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -36,6 +37,7 @@ export default function Adventure2_Module3_Lesson2({
 }: Adventure2_Module3_Lesson2Props) {
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
   const directAudioSoundRef = useRef<Audio.Sound | null>(null);
@@ -163,41 +165,36 @@ export default function Adventure2_Module3_Lesson2({
     };
   }, []);
 
-  // Handle swipe gestures to expand/collapse the card with smart priority
+  // Custom touch handlers for reliable Android swipe detection
+  const handleTouchStart = (event: any) => {
+    setTouchStart({ y: event.nativeEvent.pageY, time: Date.now() });
+  };
+  const handleTouchEnd = (event: any) => {
+    if (!touchStart) return;
+    const touchEnd = event.nativeEvent.pageY, distance = touchStart.y - touchEnd, time = Date.now() - touchStart.time;
+    const minDistance = 40, maxTime = 300, velocity = Math.abs(distance) / time, velocityThreshold = 0.5;
+    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe up detected - expanding card", { distance, time, velocity: velocity.toFixed(2), platform: Platform.OS });
+      expandCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe down detected - collapsing card", { distance, time, velocity: velocity.toFixed(2), platform: Platform.OS });
+      collapseCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setTouchStart(null);
+  };
+  // iOS PanGestureHandler for native iOS gesture experience
   const handleSwipeGesture = (event: any) => {
-    const { translationY, velocityY, state } = event.nativeEvent;
-
-    // Detect gesture when it ends
-    if (state === State.END || state === State.CANCELLED) {
-      if (!isCardExpanded) {
-        // Card is collapsed - swipe up to expand
-        if (translationY < -30 || velocityY < -300) {
-          console.log("📖 Reading card swiped up - expanding card", {
-            translationY,
-            velocityY,
-          });
-          expandCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      } else {
-        // Card is expanded - intelligent swipe down detection
-        const shouldCloseCard = 
-          // Fast downward swipe (strong intent to close)
-          (velocityY > 800) ||
-          // Medium swipe with good distance
-          (translationY > 50 && velocityY > 400) ||
-          // Swipe down when at top of scroll content
-          (scrollY <= 10 && translationY > 30 && velocityY > 200);
-        
-        if (shouldCloseCard) {
-          console.log("📖 Reading card swiped down - collapsing card", {
-            translationY,
-            velocityY,
-            scrollY,
-          });
-          collapseCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+    if (Platform.OS !== 'ios') return;
+    if (event.nativeEvent.state === State.END) {
+      const { translationY, velocityY } = event.nativeEvent;
+      console.log("📱 iOS PanGesture detected", { translationY, velocityY, isCardExpanded, platform: Platform.OS });
+      const minDistance = 30, minVelocity = 500;
+      if (!isCardExpanded && (translationY < -minDistance || velocityY < -minVelocity)) {
+        console.log("📱 iOS PanGesture swipe up detected - expanding card", { translationY, velocityY, platform: Platform.OS });
+        expandCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (isCardExpanded && (translationY > minDistance || velocityY > minVelocity)) {
+        console.log("📱 iOS PanGesture swipe down detected - collapsing card", { translationY, velocityY, platform: Platform.OS });
+        collapseCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
   };
@@ -248,7 +245,9 @@ export default function Adventure2_Module3_Lesson2({
 
   return (
     <>
-      <StatusBar hidden />
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
       <View style={styles.container}>
         {/* Full screen Dome of the Rock interior image */}
         <View style={styles.imageContainer}>
@@ -328,11 +327,8 @@ export default function Adventure2_Module3_Lesson2({
         </SafeAreaView>
 
         {/* Reading Card at Bottom - Expandable */}
-        <PanGestureHandler 
-          ref={panGestureRef}
-          onHandlerStateChange={handleSwipeGesture}
-          simultaneousHandlers={scrollViewGestureRef}
-        >
+        {Platform.OS === 'ios' ? (
+          <PanGestureHandler ref={panGestureRef} onGestureEvent={handleSwipeGesture} onHandlerStateChange={handleSwipeGesture} activeOffsetY={[-20, 20]} failOffsetX={[-30, 30]}>
           <Animated.View style={[
             styles.cardContainer,
             {
@@ -353,17 +349,25 @@ export default function Adventure2_Module3_Lesson2({
               styles.collapsedContent,
               { opacity: cardOpacity }
             ]}>
-              <TouchableOpacity 
-                style={styles.readingCardHeader}
-                onPress={expandCard}
-              >
-                <Text style={styles.cardTitle}>
-                  The Sacred Stone
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey...
-                </Text>
-              </TouchableOpacity>
+              {Platform.OS === 'ios' ? (
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    The Sacred Stone
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey...
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.collapsedContentWrapper}>
+                  <Text style={styles.collapsedTitle}>
+                    The Sacred Stone
+                  </Text>
+                  <Text style={styles.collapsedSubtitle}>
+                    At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey...
+                  </Text>
+                </View>
+              )}
             </Animated.View>
 
             {/* Expanded content */}
@@ -375,7 +379,7 @@ export default function Adventure2_Module3_Lesson2({
 
                 <GestureHandlerScrollView 
                   ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
+                  waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                   style={styles.expandedScroll} 
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
@@ -428,7 +432,106 @@ export default function Adventure2_Module3_Lesson2({
             )}
             </Animated.View>
           </Animated.View>
-        </PanGestureHandler>
+          </PanGestureHandler>
+        ) : (
+          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <Animated.View style={[
+            styles.cardContainer,
+            {
+              transform: [{ translateY: cardTranslateY }]
+            }
+          ]}>
+            <Animated.View style={[
+              styles.readingCard,
+              {
+                height: cardHeight,
+              }
+            ]}>
+            {/* Top handle indicator */}
+            <View style={styles.cardHandle} />
+
+            {/* Collapsed content */}
+            <Animated.View style={[
+              styles.collapsedContent,
+              { opacity: cardOpacity }
+            ]}>
+              <TouchableOpacity 
+                onPress={expandCard} 
+                activeOpacity={0.8}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Inside the Dome: Islamic Art and Architecture
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    The interior showcases Byzantine and Persian influences...
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Expanded content */}
+            {isCardExpanded && (
+              <Animated.View style={[
+                styles.expandedContent,
+                { opacity: Animated.subtract(1, cardOpacity) }
+              ]}>
+
+                <GestureHandlerScrollView 
+                  ref={scrollViewGestureRef}
+                  waitFor={panGestureRef}
+                  style={styles.expandedScroll} 
+                  showsVerticalScrollIndicator={false}
+                  onScroll={handleReadingScroll}
+                  scrollEventThrottle={100}
+                >
+                  <View style={styles.expandedContentInner}>
+                    {/* Title Section */}
+                    <View style={styles.titleSection}>
+                      <Text style={styles.sheetTitle}>
+                        Inside the Dome: Islamic Art and Architecture
+                      </Text>
+                      <Text style={styles.sheetSubtitle}>
+                        Module 3 • Lesson 2
+                      </Text>
+                    </View>
+
+                    {/* Historical Content */}
+                    <View style={styles.historicalSection}>
+                      <Text style={styles.sectionTitle}>Artistic Innovation</Text>
+                      <Text style={styles.historicalText}>{historicalText}</Text>
+                    </View>
+
+                    {/* Key Terms Section */}
+                    <View style={styles.keyTermsSection}>
+                      <Text style={styles.sectionTitle}>Key Terms</Text>
+                      <View style={styles.keyTermsContainer}>
+                        <KeyTermRow
+                          term="Islamic Calligraphy"
+                          definition="Arabic script decorating the interior walls with Quranic verses"
+                        />
+                        <KeyTermRow
+                          term="Byzantine Mosaics"
+                          definition="Golden mosaic techniques adapted for Islamic architectural decoration"
+                        />
+                        <KeyTermRow
+                          term="Cultural Synthesis"
+                          definition="Blending of Islamic, Byzantine, and Persian artistic traditions"
+                        />
+                      </View>
+                    </View>
+
+                    {/* Bottom spacer to ensure full scroll */}
+                    <View style={styles.sheetBottomSpacer} />
+                  </View>
+                </GestureHandlerScrollView>
+                
+              </Animated.View>
+            )}
+            </Animated.View>
+          </Animated.View>
+          </View>
+        )}
 
       </View>
     </>
@@ -679,5 +782,14 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
+  },
+  collapsedContentWrapper: {
+    flex: 1, justifyContent: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 25, marginTop: -15,
+  },
+  collapsedTitle: {
+    fontFamily: "DM Sans", fontSize: 18, fontWeight: "600", color: "white", marginBottom: 8,
+  },
+  collapsedSubtitle: {
+    fontFamily: "DM Sans", fontSize: 14, color: "white", opacity: 0.8, lineHeight: 20,
   },
 });

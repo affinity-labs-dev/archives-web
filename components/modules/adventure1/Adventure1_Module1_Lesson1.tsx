@@ -15,8 +15,13 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
-import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
+import { 
+  ScrollView as GestureHandlerScrollView,
+  PanGestureHandler,
+  State
+} from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useProgress } from "@/context/ProgressContext";
 import LessonPlayer from "../LessonPlayer";
@@ -41,9 +46,10 @@ export default function Adventure1_Module1_Lesson1({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
+  const panGestureRef = useRef(null);
   
 
   // Animation values for card expansion
@@ -128,41 +134,87 @@ export default function Adventure1_Module1_Lesson1({
     onContinue();
   };
 
-  // Handle swipe gestures to expand/collapse the card with smart priority
-  const handleSwipeGesture = (event: any) => {
-    const { translationY, velocityY, state } = event.nativeEvent;
 
-    // Detect gesture when it ends
-    if (state === State.END || state === State.CANCELLED) {
-      if (!isCardExpanded) {
-        // Card is collapsed - swipe up to expand
-        if (translationY < -30 || velocityY < -300) {
-          console.log("📖 Reading card swiped up - expanding card", {
-            translationY,
-            velocityY,
-          });
-          expandCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      } else {
-        // Card is expanded - intelligent swipe down detection
-        const shouldCloseCard = 
-          // Fast downward swipe (strong intent to close)
-          (velocityY > 800) ||
-          // Medium swipe with good distance
-          (translationY > 50 && velocityY > 400) ||
-          // Swipe down when at top of scroll content
-          (scrollY <= 10 && translationY > 30 && velocityY > 200);
-        
-        if (shouldCloseCard) {
-          console.log("📖 Reading card swiped down - collapsing card", {
-            translationY,
-            velocityY,
-            scrollY,
-          });
-          collapseCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+  // Custom touch handlers for reliable Android swipe detection
+  const handleTouchStart = (event: any) => {
+    setTouchStart({
+      y: event.nativeEvent.pageY,
+      time: Date.now()
+    });
+  };
+
+  const handleTouchEnd = (event: any) => {
+    if (!touchStart) return;
+    
+    const touchEnd = event.nativeEvent.pageY;
+    const distance = touchStart.y - touchEnd; // Positive = swipe up
+    const time = Date.now() - touchStart.time;
+    
+    // Optimized Android swipe detection for smoothness
+    const minDistance = 40; // Increased for better gesture recognition
+    const maxTime = 300; // Shorter time for more responsive gestures
+    const velocity = Math.abs(distance) / time; // Calculate velocity
+    const velocityThreshold = 0.5; // Minimum velocity threshold
+    
+    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe up detected - expanding card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      expandCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+      console.log("📖 Android touch swipe down detected - collapsing card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
+      collapseCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    // Reset touch start
+    setTouchStart(null);
+  };
+
+  // iOS PanGestureHandler for native iOS gesture experience
+  const handleSwipeGesture = (event: any) => {
+    if (Platform.OS !== 'ios') return;
+    
+    if (event.nativeEvent.state === State.END) {
+      const { translationY, velocityY } = event.nativeEvent;
+      console.log("📱 iOS PanGesture detected", {
+        translationY,
+        velocityY,
+        isCardExpanded,
+        platform: Platform.OS
+      });
+      
+      // iOS-optimized swipe detection
+      const minDistance = 30;
+      const minVelocity = 500;
+      
+      if (!isCardExpanded && 
+          (translationY < -minDistance || velocityY < -minVelocity)) {
+        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        expandCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (isCardExpanded && 
+                 (translationY > minDistance || velocityY > minVelocity)) {
+        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        collapseCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
   };
@@ -228,7 +280,9 @@ export default function Adventure1_Module1_Lesson1({
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="black" />
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
       <View style={styles.container}>
         {/* Full-screen video player */}
         <LessonPlayer
@@ -280,13 +334,17 @@ export default function Adventure1_Module1_Lesson1({
           </TouchableOpacity>
         </SafeAreaView>
 
-        {/* Reading Card at Bottom - Expandable */}
-        <PanGestureHandler 
-          ref={panGestureRef}
-          onHandlerStateChange={handleSwipeGesture}
-          simultaneousHandlers={scrollViewGestureRef}
-        >
-          <Animated.View style={[
+        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
+        {Platform.OS === 'ios' ? (
+          // iOS: Native PanGestureHandler
+          <PanGestureHandler
+            ref={panGestureRef}
+            onGestureEvent={handleSwipeGesture}
+            onHandlerStateChange={handleSwipeGesture}
+            activeOffsetY={[-20, 20]}
+            failOffsetX={[-30, 30]}
+          >
+            <Animated.View style={[
             styles.cardContainer,
             {
               transform: [{ translateY: cardTranslateY }]
@@ -325,11 +383,11 @@ export default function Adventure1_Module1_Lesson1({
 
                 <GestureHandlerScrollView 
                   ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
                   style={styles.expandedScroll} 
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
                   scrollEventThrottle={100}
+                  waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                 >
                   <View style={styles.expandedContentInner}>
                     {/* Title Section */}
@@ -376,7 +434,104 @@ export default function Adventure1_Module1_Lesson1({
             )}
             </Animated.View>
           </Animated.View>
-        </PanGestureHandler>
+          </PanGestureHandler>
+        ) : (
+          // Android: Custom Touch Handlers
+          <View 
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <Animated.View style={[
+            styles.cardContainer,
+            {
+              transform: [{ translateY: cardTranslateY }]
+            }
+          ]}>
+            <Animated.View style={[
+              styles.readingCard,
+              {
+                height: cardHeight,
+              }
+            ]}>
+            {/* Top handle indicator */}
+            <View style={styles.cardHandle} />
+
+            {/* Collapsed content */}
+            <Animated.View style={[
+              styles.collapsedContent,
+              { opacity: cardOpacity }
+            ]}>
+              <View style={styles.collapsedContentWrapper}>
+                <Text style={styles.collapsedTitle}>
+                  Muʿawiya&rsquo;s Ascension
+                </Text>
+                <Text style={styles.collapsedSubtitle}>
+                  Understanding the political maneuvering that established the Umayyad dynasty
+                </Text>
+              </View>
+            </Animated.View>
+
+            {/* Expanded content when card is swiped up */}
+            {isCardExpanded && (
+              <Animated.View style={[
+                styles.expandedContent,
+                { opacity: Animated.subtract(1, cardOpacity) }
+              ]}>
+
+                <GestureHandlerScrollView 
+                  ref={scrollViewGestureRef}
+                  style={styles.expandedScroll} 
+                  showsVerticalScrollIndicator={false}
+                  onScroll={handleReadingScroll}
+                  scrollEventThrottle={100}
+                >
+                  <View style={styles.expandedContentInner}>
+                    {/* Title Section */}
+                    <View style={styles.titleSection}>
+                      <Text style={styles.sheetTitle}>
+                        Muʿawiya&rsquo;s Ascension
+                      </Text>
+                      <Text style={styles.sheetSubtitle}>
+                        Understanding the political maneuvering that established the Umayyad dynasty
+                      </Text>
+                    </View>
+
+                    {/* Historical Context Section */}
+                    <View style={styles.historicalContextSection}>
+                      <Text style={styles.sectionTitle}>Historical Context</Text>
+                      <Text style={styles.historicalText}>{historicalText}</Text>
+                    </View>
+
+                    {/* Key Terms Section */}
+                    <View style={styles.keyTermsSection}>
+                      <Text style={styles.sectionTitle}>Key Terms</Text>
+                      <View style={styles.keyTermsContainer}>
+                        <KeyTermRow
+                          term="Bay'ah"
+                          definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
+                        />
+                        <KeyTermRow
+                          term="Damascus"
+                          definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
+                        />
+                        <KeyTermRow
+                          term="Legitimacy"
+                          definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
+                        />
+                      </View>
+                    </View>
+
+                    {/* Bottom spacer to ensure full scroll */}
+                    <View style={styles.sheetBottomSpacer} />
+                  </View>
+                </GestureHandlerScrollView>
+                
+              </Animated.View>
+            )}
+            </Animated.View>
+          </Animated.View>
+          </View>
+        )}
 
       </View>
     </>
@@ -643,5 +798,29 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
+  },
+
+  // Collapsed card text styles (for Android touch version)
+  collapsedContentWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 25,
+    marginTop: -15, // Move text content up slightly
+  },
+  collapsedTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 8,
+  },
+  collapsedSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    opacity: 0.8,
+    lineHeight: 20,
   },
 });

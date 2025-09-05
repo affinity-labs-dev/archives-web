@@ -14,6 +14,7 @@ import {
   Image,
   Platform,
   Animated,
+  StatusBar,
 } from 'react-native'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -166,9 +167,17 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
     // No additional logic needed - just having this dependency triggers re-renders
   }, [moduleProgress])
 
-  // Handle video playback based on screen focus - Simple approach
+  // Handle video playback and Android navigation bar restoration on screen focus
   useFocusEffect(
     React.useCallback(() => {
+      // Android navigation bar restoration - force visibility when returning from lessons
+      if (Platform.OS === 'android') {
+        // Ensure StatusBar and navigation bar are properly restored
+        StatusBar.setHidden(false);
+        StatusBar.setBackgroundColor(ArchivesTheme.colors.creamWhite, true);
+        StatusBar.setBarStyle('dark-content', true);
+      }
+      
       // Start playing when screen is focused
       try {
         if (player) {
@@ -548,9 +557,8 @@ const styles = StyleSheet.create({
     marginBottom: 8, // VStack spacing: 8
   },
   dynastyTitle: {
-    fontFamily: 'Cormorant', // EXACT SwiftUI: .font(.custom("Cormorant", size: 30))
+    fontFamily: 'Cormorant-Bold', // EXACT SwiftUI: .font(.custom("Cormorant", size: 30))
     fontSize: 30,
-    fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
     marginBottom: 4, // VStack spacing: 4
@@ -599,9 +607,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   adventureTitle: {
-    fontFamily: 'Cormorant', // EXACT SwiftUI: .font(.custom("Cormorant", size: 24))
+    fontFamily: 'Cormorant-Bold', // EXACT SwiftUI: .font(.custom("Cormorant", size: 24))
     fontSize: 24,
-    fontWeight: 'bold',
     color: ArchivesTheme.colors.mutedNavy, // EXACT SwiftUI: .foregroundColor(Color("MutedNavy"))
   },
   adventureHeaderIcon: {

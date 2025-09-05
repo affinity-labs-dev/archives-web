@@ -222,12 +222,6 @@ export default function ProfileTab() {
     modules: 14
   }
   
-  // Learning preferences - EXACT SwiftUI values
-  const preferences = {
-    dailyGoal: 13, // minutes
-    reminderTime: '7:00 PM',
-    difficulty: 3 // out of 4 levels
-  }
 
   const handleSignOut = async () => {
     try {
@@ -296,7 +290,7 @@ export default function ProfileTab() {
             style={styles.settingsButton} 
             onPress={() => setShowSettingsModal(true)}
           >
-            <Ionicons name="settings" size={24} color={ArchivesTheme.colors.mutedNavy} />
+            <MaterialIcons name="settings" size={24} color={ArchivesTheme.colors.mutedNavy} />
           </TouchableOpacity>
         </View>
         
@@ -307,6 +301,10 @@ export default function ProfileTab() {
             onPress={() => setShowAvatarModal(true)}
           >
             <Image source={selectedAvatar.image} style={styles.avatarImage} />
+            {/* Edit Icon Overlay */}
+            <View style={styles.editIconContainer}>
+              <MaterialIcons name="edit" size={20} color={ArchivesTheme.colors.creamWhite} />
+            </View>
           </TouchableOpacity>
           
           <Text style={styles.avatarName}>{selectedAvatar.name}</Text>
@@ -347,46 +345,21 @@ export default function ProfileTab() {
           </ScrollView>
         </View>
 
-        {/* Achievements - EXACT SwiftUI */}
+        {/* Modules Achievement Card */}
         <View style={styles.achievementsSection}>
-          <Text style={styles.sectionTitle}>Achievements</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.achievementsScroll}>
-            {XP_ACHIEVEMENTS.map((achievement) => (
-              <View key={achievement.id} style={styles.achievementContainer}>
-                <Image source={achievement.image} style={styles.achievementImage} />
-              </View>
-            ))}
-          </ScrollView>
+          <View style={styles.moduleAchievementCard}>
+            <View style={styles.achievementBadge}>
+              <Text style={styles.achievementNumber}>14</Text>
+            </View>
+            <Text style={styles.achievementText}>Modules finished!</Text>
+            <View style={styles.achievementIcons}>
+              <Image source={require('@/assets/images/badges/scroll.png')} style={styles.moduleIcon} />
+              <Image source={require('@/assets/images/badges/scroll.png')} style={[styles.moduleIcon, styles.cardIcon]} />
+              <Image source={require('@/assets/images/badges/scroll.png')} style={[styles.moduleIcon, styles.cardIcon]} />
+            </View>
+          </View>
         </View>
 
-        {/* Learning Preferences - Card Style */}
-        <View style={styles.preferencesSection}>
-          <Text style={styles.sectionTitle}>Learning Preferences</Text>
-          
-          <View style={styles.preferenceCard}>
-            <View style={styles.preferenceIcon}>
-              <MaterialIcons name="gps-fixed" size={24} color={ArchivesTheme.colors.persianOrange} />
-            </View>
-            <Text style={styles.preferenceLabel}>Daily goal</Text>
-            <Text style={styles.preferenceValue}>{preferences.dailyGoal} mins</Text>
-          </View>
-          
-          <View style={styles.preferenceCard}>
-            <View style={styles.preferenceIcon}>
-              <Ionicons name="notifications" size={24} color={ArchivesTheme.colors.persianOrange} />
-            </View>
-            <Text style={styles.preferenceLabel}>Reminders</Text>
-            <Text style={styles.preferenceValue}>{preferences.reminderTime}</Text>
-          </View>
-          
-          <View style={styles.preferenceCard}>
-            <View style={styles.preferenceIcon}>
-              <Ionicons name="bar-chart" size={24} color={ArchivesTheme.colors.persianOrange} />
-            </View>
-            <Text style={styles.preferenceLabel}>Difficulty</Text>
-            <Text style={styles.preferenceValue}>3rd level</Text>
-          </View>
-        </View>
 
         {/* Sign Out Button */}
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
@@ -676,18 +649,8 @@ const styles = StyleSheet.create({
   settingsButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: 'white',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: ArchivesTheme.colors.shoeBrown,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   
   // Avatar Section - EXACT SwiftUI
@@ -709,17 +672,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 4,
-    overflow: 'hidden',
   },
   avatarImage: {
     width: 190, // Increased size to 190
     height: 190,
-    resizeMode: 'contain',
+    borderRadius: 95,
+    resizeMode: 'cover',
+  },
+  editIconContainer: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   avatarName: {
-    fontFamily: 'Cormorant', // EXACT SwiftUI: .font(.custom("Cormorant", size: 24))
+    fontFamily: 'Cormorant-Bold', // EXACT SwiftUI: .font(.custom("Cormorant", size: 24))
     fontSize: 24,
-    fontWeight: 'bold',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
     marginBottom: 4,
@@ -755,9 +733,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   statNumber: {
-    fontFamily: 'Cormorant', // EXACT SwiftUI: .font(.custom("Cormorant", size: 28))
+    fontFamily: 'Cormorant-Bold', // EXACT SwiftUI: .font(.custom("Cormorant", size: 28))
     fontSize: 28,
-    fontWeight: 'bold',
     color: ArchivesTheme.colors.mutedNavy,
     marginBottom: 4,
   },
@@ -809,61 +786,55 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   
-  // Achievements - EXACT SwiftUI
-  achievementsScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  achievementContainer: {
-    marginRight: 16,
-  },
-  achievementImage: {
-    width: 140, // Set to 140
-    height: 140,
-    resizeMode: 'contain',
-  },
-  
-  // Learning Preferences - Card Style
-  preferencesSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  preferenceCard: {
+  // Modules Achievement Card
+  moduleAchievementCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
+    marginHorizontal: 20,
     shadowColor: 'rgba(0, 0, 0, 0.05)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 3,
   },
-  preferenceIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: ArchivesTheme.colors.persianOrange + '20',
+  achievementBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: ArchivesTheme.colors.mossGreen,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
   },
-  preferenceLabel: {
+  achievementNumber: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  achievementText: {
     fontFamily: 'DM Sans',
     fontSize: 16,
     fontWeight: '500',
     color: ArchivesTheme.colors.mutedNavy,
     flex: 1,
   },
-  preferenceValue: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '500',
-    color: ArchivesTheme.colors.mutedNavy,
-    opacity: 0.6,
+  achievementIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
+  cardIcon: {
+    marginRight: 4,
+  },
+  moduleIcon: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
+  },
+  
   
   // Sign Out Button
   signOutButton: {
@@ -921,9 +892,8 @@ const styles = StyleSheet.create({
     height: 32,
   },
   modalTitle: {
-    fontFamily: 'Cormorant',
+    fontFamily: 'Cormorant-Bold',
     fontSize: 24,
-    fontWeight: 'bold',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
   },
@@ -967,9 +937,8 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   avatarGridName: {
-    fontFamily: 'Cormorant',
+    fontFamily: 'Cormorant-Bold',
     fontSize: 16,
-    fontWeight: 'bold',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
     marginBottom: 4,

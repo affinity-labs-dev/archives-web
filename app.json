@@ -13,14 +13,25 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "L33CVM28SL",
-      "buildNumber": "6"
+      "buildNumber": "6",
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#F4EBDB"
       },
       "edgeToEdgeEnabled": true,
+      "statusBar": {
+        "hidden": false,
+        "backgroundColor": "#F4EBDB"
+      },
+      "navigationBar": {
+        "backgroundColor": "#F4EBDB",
+        "barStyle": "dark-content"
+      },
       "package": "ai.affinitylabs.archivesexpo",
       "permissions": [
         "android.permission.RECORD_AUDIO",

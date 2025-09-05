@@ -12,6 +12,7 @@ import {
   StatusBar,
   Animated,
   Dimensions,
+  Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -251,8 +252,10 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor={ArchivesTheme.colors.creamWhite} />
-      <SafeAreaView style={styles.container}>
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
+      <SafeAreaView style={Platform.OS === 'android' ? styles.containerAndroid : styles.container}>
         {/* Current question */}
         <QuizQuestion
           questionNumber={currentQuestionIndex + 1}
@@ -263,6 +266,7 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
           isAnswerSelected={isAnswerSelected()}
           questionType="mcq"
           onBack={onBack || onDismiss}
+          quizTitle="Module 1 Quiz"
         >
           {renderQuestionContent()}
         </QuizQuestion>
@@ -478,6 +482,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ArchivesTheme.colors.creamWhite, // EXACT SwiftUI: Color("CreamWhite")
+  },
+  containerAndroid: {
+    flex: 1,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
+    paddingTop: 20, // Added slight safe space at top for Android
   },
 
   // MCQ Container

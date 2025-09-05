@@ -410,7 +410,7 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
       }}
     >
       <SafeAreaProvider>
-        <StatusBar barStyle="light-content" backgroundColor="black" />
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" translucent={true} />
         <View style={styles.container}>
           {renderCurrentComponent()}
         </View>

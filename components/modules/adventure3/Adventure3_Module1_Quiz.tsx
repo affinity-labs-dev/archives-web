@@ -268,6 +268,7 @@ export default function Adventure3_Module1_Quiz({ onDismiss, onBack }: Adventure
           isAnswerSelected={isAnswerSelected()}
           questionType={currentQuestion.type}
           onBack={onBack || onDismiss}
+          quizTitle="Module 1 Quiz"
         >
           {renderQuestionContent()}
         </QuizQuestion>

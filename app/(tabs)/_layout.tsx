@@ -32,7 +32,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontFamily: 'DM Sans',
           fontSize: Platform.OS === 'web' ? 13 : 12,
-          fontWeight: '600',
+          fontWeight: '700',
           // Web-specific font styling for proper text rendering
           ...(Platform.OS === 'web' && {
             lineHeight: 16,
