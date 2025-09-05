@@ -44,6 +44,7 @@ export default function Adventure3_Module1_Lesson2({
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
+  const [isCardGestureActive, setIsCardGestureActive] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -140,18 +141,25 @@ export default function Adventure3_Module1_Lesson2({
       const { translationY, velocityY, state } = event.nativeEvent;
       console.log('🎯 iOS gesture event:', { translationY, velocityY, state });
       
+      // Track gesture state for coordination
+      if (state === State.BEGAN || state === State.ACTIVE) {
+        setIsCardGestureActive(true);
+      } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+        setIsCardGestureActive(false);
+      }
+      
       if (state === State.END || state === State.CANCELLED) {
         if (!isCardExpanded) {
-          if (translationY < -30 || velocityY < -300) {
+          if (translationY < -20 || velocityY < -200) {
             console.log('📖 iOS: Reading card swiped up - expanding card', { translationY, velocityY });
             expandCard();
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }
         } else {
           const shouldCloseCard = 
-            (velocityY > 800) ||
-            (translationY > 50 && velocityY > 400) ||
-            (scrollY <= 10 && translationY > 30 && velocityY > 200);
+            (velocityY > 600) ||
+            (translationY > 40 && velocityY > 300) ||
+            (scrollY <= 10 && translationY > 25 && velocityY > 150);
           
           if (shouldCloseCard) {
             console.log('📖 iOS: Reading card swiped down - collapsing card', { translationY, velocityY, scrollY });
@@ -165,12 +173,14 @@ export default function Adventure3_Module1_Lesson2({
   
   // Android touch handlers
   const handleAndroidTouchStart = (event: any) => {
+    setIsCardGestureActive(true);
     const { pageY } = event.nativeEvent;
     setTouchStart({ y: pageY, time: Date.now() });
     console.log('🤖 Android touch start:', { y: pageY });
   };
   
   const handleAndroidTouchEnd = (event: any) => {
+    setIsCardGestureActive(false);
     if (!touchStart) return;
     
     const { pageY } = event.nativeEvent;
@@ -180,17 +190,19 @@ export default function Adventure3_Module1_Lesson2({
     
     console.log('🤖 Android touch end:', { deltaY, velocity, isCardExpanded });
     
+    const minDistance = 20, maxTime = 400, velocityThreshold = 0.2;
+    
     if (!isCardExpanded) {
-      if (deltaY < -30 || velocity > 0.3) {
+      if (deltaY < -minDistance && deltaTime < maxTime && velocity > velocityThreshold) {
         console.log('📖 Android: Reading card swiped up - expanding card');
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } else {
       const shouldCloseCard = 
-        (velocity > 0.8) ||
-        (deltaY > 50 && velocity > 0.4) ||
-        (scrollY <= 10 && deltaY > 30 && velocity > 0.2);
+        (velocity > 0.6) ||
+        (deltaY > 40 && velocity > 0.3) ||
+        (scrollY <= 10 && deltaY > 25 && velocity > 0.15);
       
       if (shouldCloseCard) {
         console.log('📖 Android: Reading card swiped down - collapsing card');
@@ -323,6 +335,10 @@ export default function Adventure3_Module1_Lesson2({
             ref={panGestureRef}
             onHandlerStateChange={handleSwipeGesture}
             simultaneousHandlers={scrollViewGestureRef}
+            activeOffsetY={[-15, 15]}
+            failOffsetX={[-50, 50]}
+            minPointers={1}
+            maxPointers={1}
           >
             <Animated.View style={[
               styles.cardContainer,
@@ -369,6 +385,7 @@ export default function Adventure3_Module1_Lesson2({
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
                   scrollEventThrottle={100}
+                  scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
                     {/* Title Section */}
@@ -466,6 +483,7 @@ export default function Adventure3_Module1_Lesson2({
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
                   scrollEventThrottle={100}
+                  scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
                     {/* Title Section */}

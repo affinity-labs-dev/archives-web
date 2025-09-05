@@ -55,6 +55,7 @@ export default function Adventure2_Module2_Lesson1({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
+  const [isCardGestureActive, setIsCardGestureActive] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -195,45 +196,97 @@ export default function Adventure2_Module2_Lesson1({
     };
   }, []); // Close the useEffect
 
-  // Custom touch handlers for reliable Android swipe detection
+  // Enhanced Android touch handlers with improved sensitivity
   const handleTouchStart = (event: any) => {
     setTouchStart({
       y: event.nativeEvent.pageY,
       time: Date.now()
     });
+    setIsCardGestureActive(true);
+    console.log("📖 Android card gesture started - blocking carousel");
   };
 
   const handleTouchEnd = (event: any) => {
+    setIsCardGestureActive(false);
+    console.log("📖 Android card gesture ended - allowing carousel");
+    
     if (!touchStart) return;
+    
     const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd;
+    const distance = touchStart.y - touchEnd; // Positive = swipe up
     const time = Date.now() - touchStart.time;
-    const minDistance = 40, maxTime = 300, velocity = Math.abs(distance) / time, velocityThreshold = 0.5;
+    
+    // Improved Android swipe detection with better sensitivity
+    const minDistance = 25; // Reduced from 40 for better responsiveness
+    const maxTime = 300; // Shorter time for more responsive gestures
+    const velocity = Math.abs(distance) / time; // Calculate velocity
+    const velocityThreshold = 0.4; // Reduced threshold for better responsiveness
+    
     if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card", { distance, time, velocity: velocity.toFixed(2), platform: Platform.OS });
+      console.log("📖 Android touch swipe up detected - expanding card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
       expandCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card", { distance, time, velocity: velocity.toFixed(2), platform: Platform.OS });
+      console.log("📖 Android touch swipe down detected - collapsing card", {
+        distance,
+        time,
+        velocity: velocity.toFixed(2),
+        platform: Platform.OS
+      });
       collapseCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    
+    // Reset touch start
     setTouchStart(null);
   };
 
-  // iOS PanGestureHandler for native iOS gesture experience
+  // Enhanced iOS PanGestureHandler with gesture coordination
   const handleSwipeGesture = (event: any) => {
     if (Platform.OS !== 'ios') return;
-    if (event.nativeEvent.state === State.END) {
-      const { translationY, velocityY } = event.nativeEvent;
-      console.log("📱 iOS PanGesture detected", { translationY, velocityY, isCardExpanded, platform: Platform.OS });
-      const minDistance = 30, minVelocity = 500;
+    
+    const { state, translationY, velocityY } = event.nativeEvent;
+    
+    // Track gesture activity for carousel coordination
+    if (state === State.BEGAN || state === State.ACTIVE) {
+      setIsCardGestureActive(true);
+      console.log("📱 iOS card gesture started - blocking carousel");
+    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      setIsCardGestureActive(false);
+      console.log("📱 iOS card gesture ended - allowing carousel");
+    }
+    
+    if (state === State.END) {
+      console.log("📱 iOS PanGesture detected", {
+        translationY,
+        velocityY,
+        isCardExpanded,
+        platform: Platform.OS
+      });
+      
+      // iOS-optimized swipe detection with improved sensitivity
+      const minDistance = 25; // Reduced from 30 for better responsiveness
+      const minVelocity = 400; // Reduced from 500 for better responsiveness
+      
       if (!isCardExpanded && (translationY < -minDistance || velocityY < -minVelocity)) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card", { translationY, velocityY, platform: Platform.OS });
+        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else if (isCardExpanded && (translationY > minDistance || velocityY > minVelocity)) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card", { translationY, velocityY, platform: Platform.OS });
+        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
@@ -297,6 +350,7 @@ export default function Adventure2_Module2_Lesson1({
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScroll}
+          scrollEnabled={!isCardGestureActive}
           style={styles.carousel}
         >
           {coinStyles.map((coin, index) => (
@@ -402,8 +456,10 @@ export default function Adventure2_Module2_Lesson1({
             ref={panGestureRef}
             onGestureEvent={handleSwipeGesture}
             onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-20, 20]}
-            failOffsetX={[-30, 30]}
+            activeOffsetY={[-15, 15]}
+            failOffsetX={[-40, 40]}
+            minPointers={1}
+            maxPointers={1}
           >
           <Animated.View style={[
             styles.cardContainer,
@@ -585,7 +641,9 @@ export default function Adventure2_Module2_Lesson1({
                     {/* Historical Content */}
                     <View style={styles.historicalSection}>
                       <Text style={styles.sectionTitle}>Administrative Innovation</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
+                      <Text style={styles.historicalText}>
+                        Abd al-Malik&apos;s currency reform in 696 CE replaced Byzantine and Persian coins with purely Islamic designs. The new coins featured Arabic calligraphy instead of human faces, and verses from the Quran instead of fire altars. This standardized currency unified trade across the empire and reinforced Islamic identity through everyday transactions.
+                      </Text>
                     </View>
 
                     {/* Key Terms Section */}

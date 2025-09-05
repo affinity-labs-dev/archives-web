@@ -38,6 +38,7 @@ export default function Adventure2_Module3_Lesson2({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
+  const [isCardGestureActive, setIsCardGestureActive] = useState(false);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
   const directAudioSoundRef = useRef<Audio.Sound | null>(null);
@@ -54,10 +55,8 @@ export default function Adventure2_Module3_Lesson2({
   const backgroundMusic = useBackgroundMusic(
     { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M2_L1_Desert+Whispers.mp3" },
     {
-      volume: 0.15, // 15% volume - very low ambient background
+      volume: 0.5, // 50% volume for clear ambient sound
       shouldLoop: true,
-      fadeInDuration: 1000, // 1 second fade in for faster feedback
-      fadeOutDuration: 1500, // 1.5 second fade out
     }
   );
 
@@ -77,34 +76,10 @@ export default function Adventure2_Module3_Lesson2({
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
 
-  // Component mount logging + direct audio fallback
+  // Component mount logging
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log('🎵 Adventure2_Module3_Lesson2 component mounted at:', timestamp);
-    
-    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
-    const directAudioFallback = async () => {
-      try {
-        console.log('🎵 [DIRECT FALLBACK A2M3L2] Creating direct audio as backup');
-        
-        const { sound } = await Audio.Sound.createAsync(audioSource, {
-          shouldPlay: true,
-          volume: 0.15,
-          isLooping: true
-        });
-        
-        // Store sound reference for cleanup
-        directAudioSoundRef.current = sound;
-        
-        console.log('🎵 [DIRECT FALLBACK A2M3L2] Direct audio created and playing successfully!');
-        
-      } catch (error) {
-        console.error('🎵 [DIRECT FALLBACK A2M3L2] Direct audio fallback also failed:', error);
-      }
-    };
-    
-    // Start direct audio fallback immediately
-    directAudioFallback();
   }, []);
 
   // Background music lifecycle management
@@ -167,12 +142,14 @@ export default function Adventure2_Module3_Lesson2({
 
   // Custom touch handlers for reliable Android swipe detection
   const handleTouchStart = (event: any) => {
+    setIsCardGestureActive(true);
     setTouchStart({ y: event.nativeEvent.pageY, time: Date.now() });
   };
   const handleTouchEnd = (event: any) => {
+    setIsCardGestureActive(false);
     if (!touchStart) return;
     const touchEnd = event.nativeEvent.pageY, distance = touchStart.y - touchEnd, time = Date.now() - touchStart.time;
-    const minDistance = 40, maxTime = 300, velocity = Math.abs(distance) / time, velocityThreshold = 0.5;
+    const minDistance = 30, maxTime = 400, velocity = Math.abs(distance) / time, velocityThreshold = 0.3;
     if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
       console.log("📖 Android touch swipe up detected - expanding card", { distance, time, velocity: velocity.toFixed(2), platform: Platform.OS });
       expandCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -185,10 +162,19 @@ export default function Adventure2_Module3_Lesson2({
   // iOS PanGestureHandler for native iOS gesture experience
   const handleSwipeGesture = (event: any) => {
     if (Platform.OS !== 'ios') return;
+    
+    const { state } = event.nativeEvent;
+    
+    if (state === State.BEGAN || state === State.ACTIVE) {
+      setIsCardGestureActive(true);
+    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      setIsCardGestureActive(false);
+    }
+    
     if (event.nativeEvent.state === State.END) {
       const { translationY, velocityY } = event.nativeEvent;
       console.log("📱 iOS PanGesture detected", { translationY, velocityY, isCardExpanded, platform: Platform.OS });
-      const minDistance = 30, minVelocity = 500;
+      const minDistance = 20, minVelocity = 300;
       if (!isCardExpanded && (translationY < -minDistance || velocityY < -minVelocity)) {
         console.log("📱 iOS PanGesture swipe up detected - expanding card", { translationY, velocityY, platform: Platform.OS });
         expandCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -328,7 +314,15 @@ export default function Adventure2_Module3_Lesson2({
 
         {/* Reading Card at Bottom - Expandable */}
         {Platform.OS === 'ios' ? (
-          <PanGestureHandler ref={panGestureRef} onGestureEvent={handleSwipeGesture} onHandlerStateChange={handleSwipeGesture} activeOffsetY={[-20, 20]} failOffsetX={[-30, 30]}>
+          <PanGestureHandler 
+            ref={panGestureRef} 
+            onGestureEvent={handleSwipeGesture} 
+            onHandlerStateChange={handleSwipeGesture} 
+            activeOffsetY={[-15, 15]} 
+            failOffsetX={[-50, 50]}
+            minPointers={1}
+            maxPointers={1}
+          >
           <Animated.View style={[
             styles.cardContainer,
             {
@@ -384,6 +378,7 @@ export default function Adventure2_Module3_Lesson2({
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
                   scrollEventThrottle={100}
+                  scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
                     {/* Title Section */}
@@ -484,6 +479,7 @@ export default function Adventure2_Module3_Lesson2({
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
                   scrollEventThrottle={100}
+                  scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
                     {/* Title Section */}
@@ -499,7 +495,9 @@ export default function Adventure2_Module3_Lesson2({
                     {/* Historical Content */}
                     <View style={styles.historicalSection}>
                       <Text style={styles.sectionTitle}>Artistic Innovation</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
+                      <Text style={styles.historicalText}>
+                        The interior showcases Byzantine and Persian influences, with intricate mosaics, marble columns, and elaborate Islamic calligraphy. The blend of artistic traditions reflects the multicultural nature of the Umayyad Empire, incorporating elements from conquered Byzantine and Sassanian territories into a distinctly Islamic architectural style.
+                      </Text>
                     </View>
 
                     {/* Key Terms Section */}

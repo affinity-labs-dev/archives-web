@@ -3,12 +3,10 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
-import { Audio } from 'expo-av';
-import { useEvent } from 'expo';
 import { Ionicons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -27,7 +25,7 @@ import {
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(Platform.OS === 'android' ? "screen" : "window");
 
 interface Adventure1_Module3_Lesson2Props {
   onContinue: () => void;
@@ -81,15 +79,13 @@ export default function Adventure1_Module3_Lesson2({
   onBack,
 }: Adventure1_Module3_Lesson2Props) {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
   const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
+  const [isCardGestureActive, setIsCardGestureActive] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
-  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
 
   // Create video players for each media content with proper setup
   const videoPlayer1 = useVideoPlayer(mediaContents[0].videoUrl, player => {
@@ -131,100 +127,49 @@ export default function Adventure1_Module3_Lesson2({
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Audio source for direct audio testing
-  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M3_L2_Desert+Whispers.mp3" };
-
   // Background music hook - Desert Whispers ambience from AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
     { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M3_L2_Desert+Whispers.mp3" },
     {
-      volume: 0.15, // 15% volume - very low ambient background (matching M2L1)
+      volume: 0.5, // 50% volume - matching Module2_Lesson1
       shouldLoop: true,
-      fadeInDuration: 1000, // 1 second fade in for faster feedback
-      fadeOutDuration: 1500, // 1.5 second fade out
     }
   );
 
-  // Enhanced debug logging for background music
+  // Enhanced debug logging for background music - Platform-compatible
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(`🎵 [${timestamp}] Adventure1_Module3_Lesson2 - Background music state:`, {
       isLoaded: backgroundMusic.isLoaded,
       isPlaying: backgroundMusic.isPlaying,
-      isLoading: backgroundMusic.isLoading
+      isLoading: backgroundMusic.isLoading || false, // Android may not have isLoading
+      platform: Platform.OS
     });
-  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
+    
+    // Additional debugging for audio file loading (AWS CloudFront)
+    if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
+      console.log('🎵 Audio not loading - AWS CloudFront source should be available');
+      console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M3_L2_Desert+Whispers.mp3');
+    }
+  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
 
-  // Component mount logging + direct audio fallback
+  // Component mount logging - Direct audio fallback removed (no longer needed with platform-specific audio)
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log('🎵 Adventure1_Module3_Lesson2 component mounted at:', timestamp);
-    
-    // Force audio start attempt immediately (no setTimeout)
-    if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-      console.log('🎵 Attempting immediate audio start on mount');
-      backgroundMusic.play().catch(error => {
-        console.error('🎵 Immediate audio start failed:', error);
-      });
-    }
-    
-    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
-    const directAudioFallback = async () => {
-      try {
-        console.log('🎵 [DIRECT FALLBACK A1M3L2] Creating direct audio as backup');
-        
-        const { sound } = await Audio.Sound.createAsync(audioSource, {
-          shouldPlay: true,
-          volume: 0.15,
-          isLooping: true
-        });
-        
-        // Store sound reference for cleanup
-        directAudioSoundRef.current = sound;
-        
-        console.log('🎵 [DIRECT FALLBACK A1M3L2] Direct audio created and playing successfully!');
-        
-      } catch (error) {
-        console.error('🎵 [DIRECT FALLBACK A1M3L2] Direct audio fallback also failed:', error);
-      }
-    };
-    
-    // Start direct audio fallback immediately
-    directAudioFallback();
   }, []);
 
-  // Background music lifecycle management
+  // Simple status logging - no manual triggering needed (auto-play)
   useEffect(() => {
-    const startBackgroundMusic = async () => {
-      const timestamp = new Date().toLocaleTimeString();
-      if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
-        console.log(`🎵 [${timestamp}] Starting market ambience background music`);
-        console.log(`🎵 [${timestamp}] Audio state before play:`, {
-          isLoaded: backgroundMusic.isLoaded,
-          isPlaying: backgroundMusic.isPlaying,
-          isLoading: backgroundMusic.isLoading
-        });
-        
-        try {
-          await backgroundMusic.play();
-          console.log(`🎵 [${timestamp}] Background music started successfully`);
-        } catch (error) {
-          console.error(`🎵 [${timestamp}] Failed to start background music:`, error);
-        }
-      } else if (!backgroundMusic.isLoaded) {
-        console.log(`🎵 [${timestamp}] Music not loaded yet, waiting...`);
-      } else if (backgroundMusic.isPlaying) {
-        console.log(`🎵 [${timestamp}] Music already playing`);
-      }
-    };
-
-    if (backgroundMusic.isLoaded) {
-      console.log(`🎵 [${new Date().toLocaleTimeString()}] Audio is loaded, attempting to start playback`);
-      startBackgroundMusic();
+    const timestamp = new Date().toLocaleTimeString();
+    if (backgroundMusic.isLoaded && backgroundMusic.isPlaying) {
+      console.log(`🎵 [${timestamp}] Background music auto-playing successfully`);
+    } else if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
+      console.log(`🎵 [${timestamp}] Background music loaded but not playing`);
     } else {
-      console.log(`🎵 [${new Date().toLocaleTimeString()}] Background music not available - continuing without audio`);
+      console.log(`🎵 [${timestamp}] Background music not loaded yet`);
     }
-  }, [backgroundMusic.isLoaded]);
+  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
 
 
   // Handle video switching when index changes
@@ -244,30 +189,15 @@ export default function Adventure1_Module3_Lesson2({
     });
   }, [currentVideoIndex]);
 
+  // Cleanup background music when component unmounts
   useEffect(() => {
     return () => {
-      try {
-        console.log('🎵 Component unmounting - cleaning up all audio');
-        
-        // Stop background music hook
-        if (backgroundMusic.stop) {
-          console.log('🎵 Stopping background music on component unmount');
-          backgroundMusic.stop();
-        }
-        
-        // Stop direct audio if it exists
-        if (directAudioSoundRef.current) {
-          try {
-            console.log('🎵 Stopping direct audio on component unmount');
-            directAudioSoundRef.current.stopAsync();
-            directAudioSoundRef.current.unloadAsync();
-            directAudioSoundRef.current = null;
-          } catch (error) {
-            console.error('🎵 Error stopping direct audio on unmount:', error);
-          }
-        }
-      } catch (error) {
-        console.error('🎵 [UNMOUNT] Error cleaning up audio:', error);
+      console.log('🎵 Component unmounting - cleaning up all audio');
+      
+      // Stop background music hook
+      if (backgroundMusic.stop) {
+        console.log('🎵 Stopping background music on component unmount');
+        backgroundMusic.stop();
       }
     };
   }, []);
@@ -287,26 +217,31 @@ export default function Adventure1_Module3_Lesson2({
   };
 
 
-  // Custom touch handlers for reliable Android swipe detection
+  // Enhanced Android touch handlers with improved sensitivity
   const handleTouchStart = (event: any) => {
     setTouchStart({
       y: event.nativeEvent.pageY,
       time: Date.now()
     });
+    setIsCardGestureActive(true);
+    console.log("📖 Android card gesture started - blocking carousel");
   };
 
   const handleTouchEnd = (event: any) => {
+    setIsCardGestureActive(false);
+    console.log("📖 Android card gesture ended - allowing carousel");
+    
     if (!touchStart) return;
     
     const touchEnd = event.nativeEvent.pageY;
     const distance = touchStart.y - touchEnd; // Positive = swipe up
     const time = Date.now() - touchStart.time;
     
-    // Optimized Android swipe detection for smoothness
-    const minDistance = 40; // Increased for better gesture recognition
+    // Improved Android swipe detection with better sensitivity
+    const minDistance = 25; // Reduced from 40 for better responsiveness
     const maxTime = 300; // Shorter time for more responsive gestures
     const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.5; // Minimum velocity threshold
+    const velocityThreshold = 0.4; // Reduced threshold for better responsiveness
     
     if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
       console.log("📖 Android touch swipe up detected - expanding card", {
@@ -332,12 +267,22 @@ export default function Adventure1_Module3_Lesson2({
     setTouchStart(null);
   };
 
-  // iOS PanGestureHandler for native iOS gesture experience
+  // Enhanced iOS PanGestureHandler with gesture coordination
   const handleSwipeGesture = (event: any) => {
     if (Platform.OS !== 'ios') return;
     
-    if (event.nativeEvent.state === State.END) {
-      const { translationY, velocityY } = event.nativeEvent;
+    const { state, translationY, velocityY } = event.nativeEvent;
+    
+    // Track gesture activity for carousel coordination
+    if (state === State.BEGAN || state === State.ACTIVE) {
+      setIsCardGestureActive(true);
+      console.log("📱 iOS card gesture started - blocking carousel");
+    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      setIsCardGestureActive(false);
+      console.log("📱 iOS card gesture ended - allowing carousel");
+    }
+    
+    if (state === State.END) {
       console.log("📱 iOS PanGesture detected", {
         translationY,
         velocityY,
@@ -345,9 +290,9 @@ export default function Adventure1_Module3_Lesson2({
         platform: Platform.OS
       });
       
-      // iOS-optimized swipe detection
-      const minDistance = 30;
-      const minVelocity = 500;
+      // iOS-optimized swipe detection with improved sensitivity
+      const minDistance = 25; // Reduced from 30 for better responsiveness
+      const minVelocity = 400; // Reduced from 500 for better responsiveness
       
       if (!isCardExpanded && 
           (translationY < -minDistance || velocityY < -minVelocity)) {
@@ -374,7 +319,6 @@ export default function Adventure1_Module3_Lesson2({
   // Expand the card to full height - matching Module 2
   const expandCard = () => {
     setIsCardExpanded(true);
-    setShowReadContent(true);
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -394,7 +338,6 @@ export default function Adventure1_Module3_Lesson2({
   // Collapse the card back to original size - matching Module 2
   const collapseCard = () => {
     setIsCardExpanded(false);
-    setShowReadContent(false);
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -411,11 +354,6 @@ export default function Adventure1_Module3_Lesson2({
     ]).start();
   };
 
-  // Handle reading scroll - track scroll position for gesture priority
-  const handleReadingScroll = (event: any) => {
-    const { contentOffset } = event.nativeEvent;
-    setScrollY(contentOffset.y);
-  };
 
   return (
     <>
@@ -430,6 +368,7 @@ export default function Adventure1_Module3_Lesson2({
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScroll}
+          scrollEnabled={!isCardGestureActive}
           style={styles.carousel}
         >
           {mediaContents.map((content, index) => (
@@ -438,8 +377,10 @@ export default function Adventure1_Module3_Lesson2({
               <VideoView
                 player={videoPlayers[index]}
                 style={styles.video}
-                contentFit="cover"
+                contentFit={Platform.OS === 'android' ? "fill" : "cover"}
                 nativeControls={false}
+                useExoShutter={Platform.OS === 'android' ? false : undefined}
+                surfaceType={Platform.OS === 'android' ? "surfaceView" : undefined}
               />
               
               {/* Text overlay with descriptive caption */}
@@ -461,18 +402,6 @@ export default function Adventure1_Module3_Lesson2({
               if (backgroundMusic.isPlaying) {
                 console.log('🎵 Stopping background music on back button');
                 backgroundMusic.stop();
-              }
-              
-              // Stop direct audio if it exists
-              if (directAudioSoundRef.current) {
-                try {
-                  console.log('🎵 Stopping direct audio on back button');
-                  directAudioSoundRef.current.stopAsync();
-                  directAudioSoundRef.current.unloadAsync();
-                  directAudioSoundRef.current = null;
-                } catch (error) {
-                  console.error('🎵 Error stopping direct audio on back:', error);
-                }
               }
               
               (onBack || onDismiss)();
@@ -499,18 +428,6 @@ export default function Adventure1_Module3_Lesson2({
                         "🎵 Stopping background music before continue"
                       );
                       backgroundMusic.stop(); // Remove await for instant navigation
-                    }
-                    
-                    // Stop direct audio if it exists
-                    if (directAudioSoundRef.current) {
-                      try {
-                        console.log('🎵 Stopping direct audio before continue');
-                        directAudioSoundRef.current.stopAsync();
-                        directAudioSoundRef.current.unloadAsync();
-                        directAudioSoundRef.current = null;
-                      } catch (error) {
-                        console.error('🎵 Error stopping direct audio before continue:', error);
-                      }
                     }
                     
                     onContinue();
@@ -553,8 +470,10 @@ export default function Adventure1_Module3_Lesson2({
             ref={panGestureRef}
             onGestureEvent={handleSwipeGesture}
             onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-20, 20]}
-            failOffsetX={[-30, 30]}
+            activeOffsetY={[-15, 15]}
+            failOffsetX={[-40, 40]}
+            minPointers={1}
+            maxPointers={1}
           >
             <Animated.View
               style={[
@@ -601,7 +520,6 @@ export default function Adventure1_Module3_Lesson2({
                       ref={scrollViewGestureRef}
                       style={styles.expandedScroll}
                       showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
                       scrollEventThrottle={100}
                       waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                     >
@@ -705,7 +623,6 @@ export default function Adventure1_Module3_Lesson2({
                     ref={scrollViewGestureRef}
                     style={styles.expandedScroll}
                     showsVerticalScrollIndicator={false}
-                    onScroll={handleReadingScroll}
                     scrollEventThrottle={100}
                   >
                     <View style={styles.expandedContentInner}>
@@ -787,6 +704,10 @@ const styles = StyleSheet.create({
   // Main carousel - full screen
   carousel: {
     flex: 1,
+    ...(Platform.OS === 'android' && {
+      width: SCREEN_WIDTH,
+      height: SCREEN_HEIGHT,
+    }),
   },
   videoContainer: {
     width: SCREEN_WIDTH,
