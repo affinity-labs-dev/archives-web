@@ -127,11 +127,12 @@ context/
 └── BackgroundSyncProvider.tsx # Background sync context provider
 
 hooks/
-├── useAnalytics.ts        # PostHog analytics integration with educational events
-├── useBackgroundMusic.tsx # Audio system for immersive experience
-├── useColorScheme.ts      # Theme color scheme handling
-├── useThemeColor.ts       # Color theme utilities
-└── useSyncIntegration.ts  # Sync integration hooks with debouncing
+├── useAnalytics.ts                  # PostHog analytics integration with educational events
+├── useBackgroundMusic.tsx           # Audio system for immersive experience
+├── useColorScheme.ts                # Theme color scheme handling
+├── useThemeColor.ts                 # Color theme utilities
+├── useSyncIntegration.ts            # Sync integration hooks with debouncing
+└── useAppTrackingTransparency.ts    # iOS App Tracking Transparency hook for privacy compliance
 
 services/
 ├── ProgressService.ts         # Progress data management service
@@ -241,6 +242,8 @@ assets/
 - **State Updates**: Always persist to AsyncStorage through ProgressContext
 - **Styling**: Use ArchivesTheme constants, avoid inline styles
 - **Font Loading**: Pre-loaded in root layout (SpaceMono, DM Sans, Cormorant)
+- **Privacy Compliance**: App Tracking Transparency handled via `useAppTrackingTransparency` hook
+- **Analytics**: PostHog integration respects ATT permissions with conditional initialization
 
 #### Key Dependencies Understanding
 - **@clerk/clerk-expo**: Authentication with token persistence
@@ -254,6 +257,7 @@ assets/
 - **react-native-gesture-handler**: Touch interactions and swipe gestures
 - **react-native-reanimated**: Smooth animations matching SwiftUI feel
 - **@react-native-community/netinfo**: Network connectivity monitoring for sync system
+- **expo-tracking-transparency**: App Tracking Transparency for iOS compliance with educational analytics tracking
 
 ### Environment & Configuration
 
@@ -279,16 +283,16 @@ EXPO_NO_CAPABILITY_SYNC=1 # Disables automatic capability sync for iOS builds
 **Note**: Environment variables are automatically injected during EAS builds from the `eas.json` configuration. For local development, create a `.env` file in the project root with these values.
 
 #### Platform Configuration
-- **iOS**: Apple Sign-In enabled, New Architecture enabled
-- **Android**: Edge-to-edge enabled, adaptive icon configured
-- **Web**: Static output with Metro bundler
+- **iOS**: Apple Sign-In enabled, New Architecture enabled, App Tracking Transparency configured
+- **Android**: Edge-to-edge enabled, adaptive icon configured, audio permissions for immersive experience
+- **Web**: Static output with Metro bundler, session replay disabled for compatibility
 - **TypeScript**: Strict mode enabled with path aliases (`@/*` → project root)
 
 #### Build Configuration
 - **Expo SDK**: 53.0.20 (latest stable)
 - **React Native**: 0.79.5 with new architecture enabled
 - **React**: 19.0.0 (latest major version)
-- **Plugins**: expo-router, expo-splash-screen, expo-video, expo-audio, expo-localization
+- **Plugins**: expo-router, expo-splash-screen, expo-video, expo-audio, expo-localization, expo-tracking-transparency
 - **Asset Bundling**: All assets included (`"assetBundlePatterns": ["**/*"]`)
 - **Updates**: Expo Updates configured with runtime version 1.0.0
 - **EAS Project ID**: 4f1f4bc4-0ced-48f3-b712-178b54175088
