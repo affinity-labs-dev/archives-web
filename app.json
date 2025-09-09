@@ -16,7 +16,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "L33CVM28SL",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
@@ -63,7 +63,12 @@
       }
     },
     "plugins": [
-      ["expo-router", {"origin": "https://archives.expo.app"}],
+      [
+        "expo-router",
+        {
+          "origin": "https://archives.expo.app"
+        }
+      ],
       [
         "expo-splash-screen",
         {
