@@ -18,6 +18,7 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { useAppTrackingTransparency } from "@/hooks/useAppTrackingTransparency";
+import StripeProvider from "@/providers/StripeProvider";
 
 // ATT-aware PostHog wrapper that respects tracking permissions
 function ATTAwarePostHogProvider({ 
@@ -149,9 +150,10 @@ export default function RootLayout() {
     }}>
       <ATTAwarePostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-          <BackgroundSyncProvider>
-            <ProgressProvider>
-              <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+          <StripeProvider>
+            <BackgroundSyncProvider>
+              <ProgressProvider>
+                <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
               <Stack>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -160,9 +162,10 @@ export default function RootLayout() {
                 <Stack.Screen name="+not-found" />
               </Stack>
               <StatusBar style="auto" />
-              </ThemeProvider>
-            </ProgressProvider>
-          </BackgroundSyncProvider>
+                </ThemeProvider>
+              </ProgressProvider>
+            </BackgroundSyncProvider>
+          </StripeProvider>
         </ClerkProvider>
       </ATTAwarePostHogProvider>
     </GestureHandlerRootView>

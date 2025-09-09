@@ -2,13 +2,82 @@
 // Matches the exact structure: character illustration + EXPLORER PASS + pricing
 
 import React, { useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, Platform } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, Platform, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useStripe } from '@stripe/stripe-react-native'
+import * as Linking from 'expo-linking'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 export default function SubscribeTab() {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly')
+  const [loading, setLoading] = useState(false)
+  const { initPaymentSheet, presentPaymentSheet } = useStripe()
+
+  const fetchPaymentSheetParams = async (plan: 'monthly' | 'yearly') => {
+    const response = await fetch('/api/payment-sheet', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        selectedPlan: plan
+      }),
+    })
+    
+    const { paymentIntent, ephemeralKey, customer } = await response.json()
+    return { paymentIntent, ephemeralKey, customer }
+  }
+
+  const handleSubscribe = async () => {
+    try {
+      setLoading(true)
+      
+      // Fetch payment sheet parameters for one-time payment
+      const { paymentIntent, ephemeralKey, customer } = await fetchPaymentSheetParams(selectedPlan)
+
+      // Initialize payment sheet for one-time payment
+      const { error } = await initPaymentSheet({
+        merchantDisplayName: 'Archives App',
+        customerId: customer,
+        customerEphemeralKeySecret: ephemeralKey,
+        paymentIntentClientSecret: paymentIntent,
+        allowsDelayedPaymentMethods: true,
+        returnURL: Linking.createURL('stripe-redirect'),
+        applePay: {
+          merchantCountryCode: 'GB',
+        },
+        appearance: {
+          colors: {
+            primary: '#959C00',           // Moss green for pay button
+            background: '#F4EBDB',        // Your cream background
+            componentBackground: '#FFFFFF', // White for input fields
+            primaryText: '#41425E',       // Muted navy text
+            secondaryText: '#41425E',     // Consistent text color
+          },
+        },
+      })
+
+      if (error) {
+        Alert.alert('Error', error.message)
+        setLoading(false)
+        return
+      }
+
+      // Present payment sheet
+      const { error: paymentError } = await presentPaymentSheet()
+
+      if (paymentError) {
+        Alert.alert(`Error: ${paymentError.code}`, paymentError.message)
+      } else {
+        Alert.alert('Success', 'Your payment is confirmed! You now have access to Archives content.')
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Payment failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -34,30 +103,60 @@ export default function SubscribeTab() {
           </View>
         </View>
 
-        {/* Pricing Options - Outside the white box */}
+        {/* Pricing Options - Interactive Selection */}
         <View style={styles.pricingContainer}>
           {/* Monthly Plan */}
-          <View style={styles.pricingOption}>
+          <TouchableOpacity 
+            style={[
+              styles.pricingOption,
+              selectedPlan === 'monthly' && styles.pricingOptionSelected
+            ]}
+            onPress={() => setSelectedPlan('monthly')}
+          >
             <View style={styles.priceDisplayRow}>
               <Text style={styles.priceMain}>£4</Text>
               <Text style={styles.priceDecimal}>.99</Text>
             </View>
             <Text style={styles.originalPrice}>£9.99</Text>
             <Text style={styles.planDuration}>Monthly</Text>
-          </View>
+            {selectedPlan === 'monthly' && (
+              <View style={styles.selectedIndicator}>
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={20} 
+                  color={ArchivesTheme.colors.mossGreen} 
+                />
+              </View>
+            )}
+          </TouchableOpacity>
           
           {/* Vertical Separator */}
           <View style={styles.pricingSeparator} />
           
           {/* Yearly Plan */}
-          <View style={styles.pricingOption}>
+          <TouchableOpacity 
+            style={[
+              styles.pricingOption,
+              selectedPlan === 'yearly' && styles.pricingOptionSelected
+            ]}
+            onPress={() => setSelectedPlan('yearly')}
+          >
             <View style={styles.priceDisplayRow}>
               <Text style={styles.priceMain}>£49</Text>
               <Text style={styles.priceDecimal}>.99</Text>
             </View>
             <Text style={styles.originalPrice}>£89.99</Text>
             <Text style={styles.planDuration}>Yearly</Text>
-          </View>
+            {selectedPlan === 'yearly' && (
+              <View style={styles.selectedIndicator}>
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={20} 
+                  color={ArchivesTheme.colors.mossGreen} 
+                />
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Features Card - Only what's shown in the image */}
@@ -179,9 +278,15 @@ export default function SubscribeTab() {
           </ScrollView>
         </View>
 
-        {/* Subscribe Button - Disabled state */}
-        <TouchableOpacity style={styles.subscribeButtonDisabled} disabled={true}>
-          <Text style={styles.buttonTextDisabled}>Get Access</Text>
+        {/* Subscribe Button - Active with Stripe payments */}
+        <TouchableOpacity 
+          style={loading ? styles.subscribeButtonDisabled : styles.subscribeButton}
+          onPress={handleSubscribe}
+          disabled={loading}
+        >
+          <Text style={loading ? styles.buttonTextDisabled : styles.buttonText}>
+            {loading ? 'Processing...' : 'Get Access'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -293,6 +398,16 @@ const styles = StyleSheet.create({
   pricingOption: {
     alignItems: 'center', // Center align within each column
     flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    position: 'relative',
+  },
+  pricingOptionSelected: {
+    borderColor: ArchivesTheme.colors.mossGreen,
+    backgroundColor: 'rgba(149, 156, 0, 0.05)', // Very light moss green background
   },
   priceDisplayRow: {
     flexDirection: 'row',
@@ -493,5 +608,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#999999', // Darker gray text for disabled state
+  },
+  
+  // Checkout Container
+  checkoutContainer: {
+    marginHorizontal: 0, // No extra margin since CheckoutForm has its own styling
+  },
+  
+  // Selected Plan Indicator
+  selectedIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 2,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
 })

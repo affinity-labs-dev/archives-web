@@ -16,7 +16,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "L33CVM28SL",
-      "buildNumber": "7",
+      "buildNumber": "9",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
@@ -51,7 +51,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "server",
       "favicon": "./assets/images/favicon.png",
       "build": {
         "babel": {
@@ -63,7 +63,7 @@
       }
     },
     "plugins": [
-      "expo-router",
+      ["expo-router", {"origin": "https://archives.expo.app"}],
       [
         "expo-splash-screen",
         {
@@ -80,6 +80,13 @@
         "expo-tracking-transparency",
         {
           "userTrackingPermission": "We'll show you educational content recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures."
+        }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.ai.affinitylabs.archivesexpo",
+          "enableGooglePay": true
         }
       ]
     ],
