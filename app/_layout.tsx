@@ -17,9 +17,10 @@ import { useEffect, useState } from "react";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
+import { useAppTrackingTransparency } from "@/hooks/useAppTrackingTransparency";
 
-// Web-compatible PostHog wrapper to prevent SSR issues
-function WebCompatiblePostHogProvider({ 
+// ATT-aware PostHog wrapper that respects tracking permissions
+function ATTAwarePostHogProvider({ 
   children, 
   apiKey, 
   options 
@@ -29,19 +30,31 @@ function WebCompatiblePostHogProvider({
   options: any;
 }) {
   const [isClient, setIsClient] = useState(false);
+  const { canTrack, isLoading: attLoading } = useAppTrackingTransparency();
   
   useEffect(() => {
     // Only initialize PostHog on client-side to avoid SSR issues
     setIsClient(true);
   }, []);
 
-  // On web, only render PostHogProvider after client-side hydration
+  // Wait for ATT permissions to be determined on iOS
+  if (Platform.OS === 'ios' && attLoading) {
+    return <>{children}</>;
+  }
+
+  // On web, only render PostHog after client-side hydration
   if (Platform.OS === 'web' && !isClient) {
     return <>{children}</>;
   }
   
-  // On native platforms, always use PostHogProvider
-  // On web, only use after client-side hydration
+  // Only initialize PostHog if tracking is allowed or on non-iOS platforms
+  const shouldInitializePostHog = Platform.OS !== 'ios' || canTrack;
+  
+  if (!shouldInitializePostHog) {
+    console.log('ATT: Tracking not authorized, PostHog disabled');
+    return <>{children}</>;
+  }
+  
   return (
     <PostHogProvider apiKey={apiKey} options={options}>
       {children}
@@ -134,7 +147,7 @@ export default function RootLayout() {
       flex: 1, 
       backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined 
     }}>
-      <WebCompatiblePostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
+      <ATTAwarePostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
           <BackgroundSyncProvider>
             <ProgressProvider>
@@ -151,7 +164,7 @@ export default function RootLayout() {
             </ProgressProvider>
           </BackgroundSyncProvider>
         </ClerkProvider>
-      </WebCompatiblePostHogProvider>
+      </ATTAwarePostHogProvider>
     </GestureHandlerRootView>
   );
 }
