@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Platform } from 'react-native';
-import * as TrackingTransparency from 'expo-tracking-transparency';
+import * as ExpoTrackingTransparency from 'expo-tracking-transparency';
 
 export type TrackingStatus = 'not-determined' | 'denied' | 'authorized' | 'restricted';
 
@@ -20,17 +19,22 @@ export function useAppTrackingTransparency(): UseAppTrackingTransparencyReturn {
   }, []);
 
   const checkTrackingStatus = async () => {
-    if (Platform.OS !== 'ios') {
-      setTrackingStatus('authorized');
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const { status } = await TrackingTransparency.getTrackingPermissionsAsync();
+      // First check if tracking transparency is available on this platform
+      if (!ExpoTrackingTransparency.isAvailable()) {
+        // On platforms where tracking transparency is not available,
+        // the permission is always granted (as per documentation)
+        setTrackingStatus('authorized');
+        setIsLoading(false);
+        return;
+      }
+
+      // If available, check current permissions
+      const { status } = await ExpoTrackingTransparency.getTrackingPermissionsAsync();
       setTrackingStatus(status);
     } catch (error) {
       console.warn('Error checking tracking permissions:', error);
+      // If there's an error, assume permissions are not determined
       setTrackingStatus('not-determined');
     } finally {
       setIsLoading(false);
@@ -38,14 +42,19 @@ export function useAppTrackingTransparency(): UseAppTrackingTransparencyReturn {
   };
 
   const requestPermission = async (): Promise<TrackingStatus> => {
-    if (Platform.OS !== 'ios') {
-      return 'authorized';
-    }
-
     setIsLoading(true);
 
     try {
-      const { status } = await TrackingTransparency.requestTrackingPermissionsAsync();
+      // First check if tracking transparency is available on this platform
+      if (!ExpoTrackingTransparency.isAvailable()) {
+        // On platforms where tracking transparency is not available,
+        // the permission is always granted (as per documentation)
+        setTrackingStatus('authorized');
+        return 'authorized';
+      }
+
+      // If available, request permissions
+      const { status } = await ExpoTrackingTransparency.requestTrackingPermissionsAsync();
       setTrackingStatus(status);
       return status;
     } catch (error) {

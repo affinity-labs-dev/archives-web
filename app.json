@@ -10,17 +10,24 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "deviceFamily": [1],
+      "deviceFamily": [
+        1
+      ],
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "L33CVM28SL",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ],
+        "NSUserTrackingUsageDescription": "We'll show you educational content recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures."
       }
     },
     "android": {
-      "deviceFamily": ["phone"],
+      "deviceFamily": [
+        "phone"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/app-icon.png",
         "backgroundColor": "#F4EBDB"
@@ -68,7 +75,13 @@
       ],
       "expo-localization",
       "expo-video",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "We'll show you educational content recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
