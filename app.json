@@ -22,7 +22,7 @@
     "android": {
       "deviceFamily": ["phone"],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/app-icon.png",
         "backgroundColor": "#F4EBDB"
       },
       "edgeToEdgeEnabled": true,
