@@ -17,7 +17,8 @@
         "STRIPE_WEBHOOK_SECRET": "whsec_your_webhook_secret_here",
         "SUPABASE_SERVICE_ROLE_KEY": "your_supabase_service_role_key_here",
         "EXPO_NO_CAPABILITY_SYNC": "1"
-      }
+      },
+      "channel": "base"
     },
     "development": {
       "extends": "base",
@@ -29,7 +30,8 @@
       "ios": {
         "simulator": true,
         "resourceClass": "medium"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "extends": "base",
@@ -37,7 +39,8 @@
       "ios": {
         "simulator": true,
         "resourceClass": "medium"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "extends": "base",
