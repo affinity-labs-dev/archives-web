@@ -16,12 +16,12 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "L33CVM28SL",
-      "buildNumber": "17",
+      "buildNumber": "18",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
         ],
-        "NSUserTrackingUsageDescription": "We'll show you educational content recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures."
+        "NSUserTrackingUsageDescription": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform."
       }
     },
     "android": {
@@ -84,7 +84,7 @@
       [
         "expo-tracking-transparency",
         {
-          "userTrackingPermission": "We'll show you educational content recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures."
+          "userTrackingPermission": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform."
         }
       ],
       [
