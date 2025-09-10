@@ -12,10 +12,11 @@
         "EXPO_PUBLIC_POSTHOG_API_KEY": "phc_7tSzdXUrEZ1OEEsgeJcpvQHdgt3XT6AdXnmvmpUbCMI",
         "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com",
         "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_51RYXaRP4ORdFWUKehx2oAmyOUS2h8FbZZEIu8I8F3wzY74iya6MDkCQedtIGdNGdYHDdJ9UG3WUWylNOeMNVOusl00sEjEVr7G",
+        "STRIPE_SECRET_KEY": "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",
         "STRIPE_PRICE_MONTHLY": "price_1S55VAP4ORdFWUKeW2B6et0t",
         "STRIPE_PRICE_YEARLY": "price_1S55WJP4ORdFWUKeymlEKgDk",
-        "STRIPE_WEBHOOK_SECRET": "whsec_your_webhook_secret_here",
-        "SUPABASE_SERVICE_ROLE_KEY": "your_supabase_service_role_key_here",
+        "STRIPE_WEBHOOK_SECRET": "whsec_zIdDbZPeDJIjWcSosuiluMK5Ictr0m9f",
+        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ2loYWlubG5udHNodXBpenR1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDY4MzM3MywiZXhwIjoyMDcwMjU5MzczfQ.uKZEHB93aQPpb-uDtdYsWJ_0_DGPhECx1ZAUYOzCzhE",
         "EXPO_NO_CAPABILITY_SYNC": "1"
       },
       "channel": "base"
