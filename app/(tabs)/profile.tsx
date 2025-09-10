@@ -6,6 +6,7 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Ima
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 const { width: screenWidth } = Dimensions.get('window')
@@ -214,6 +215,8 @@ export default function ProfileTab() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
   const [showFAQModal, setShowFAQModal] = useState(false)
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null)
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
+  const [isLoadingPortal, setIsLoadingPortal] = useState(false)
   
 
   const handleSignOut = async () => {
@@ -230,10 +233,26 @@ export default function ProfileTab() {
     setShowAvatarModal(false)
   }
 
+  const clearUserData = async () => {
+    try {
+      // Clear all AsyncStorage data related to user progress and settings
+      await AsyncStorage.multiRemove([
+        'selected_era',
+        'adventure_progress',
+        'module_progress',
+        'user_preferences'
+      ])
+    } catch (error) {
+      console.error('Error clearing user data:', error)
+    }
+  }
+
   const handleDeleteAccount = () => {
+    if (isDeletingAccount) return // Prevent multiple deletion attempts
+    
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
+      'Are you sure you want to delete your account? This action cannot be undone and will permanently remove all your progress.',
       [
         {
           text: 'Cancel',
@@ -242,14 +261,135 @@ export default function ProfileTab() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            // TODO: Implement account deletion logic
-            console.log('Account deletion confirmed')
-            Alert.alert('Account Deleted', 'Your account has been scheduled for deletion.')
+          onPress: async () => {
+            if (!user) {
+              Alert.alert('Error', 'No user account found to delete.')
+              return
+            }
+
+            setIsDeletingAccount(true)
+            setShowSettingsModal(false) // Close settings modal
+
+            try {
+              // Clear local user data first
+              await clearUserData()
+              
+              // Delete the user account through Clerk
+              await user.delete()
+              
+              // Navigate to landing page
+              router.replace('/landing')
+              
+            } catch (error) {
+              setIsDeletingAccount(false)
+              console.error('Account deletion error:', error)
+              
+              // Show appropriate error message
+              const errorMessage = error instanceof Error 
+                ? error.message 
+                : 'An unexpected error occurred while deleting your account.'
+              
+              Alert.alert(
+                'Account Deletion Failed',
+                `${errorMessage}\n\nPlease try again or contact support if the problem persists.`,
+                [
+                  {
+                    text: 'OK',
+                    style: 'default'
+                  },
+                  {
+                    text: 'Contact Support',
+                    style: 'default',
+                    onPress: () => {
+                      const supportURL = 'https://archiveszone.app/support'
+                      Linking.openURL(supportURL).catch(() => {
+                        Alert.alert('Error', 'Could not open support page')
+                      })
+                    }
+                  }
+                ]
+              )
+            }
           }
         }
       ]
     )
+  }
+
+  const handleManageSubscription = async () => {
+    if (isLoadingPortal) return // Prevent multiple portal creation attempts
+    
+    // For now, show information about subscription management
+    Alert.alert(
+      'Manage Subscription',
+      'To cancel or modify your subscription:\n\n1. Go to your email receipt from Archives\n2. Click "Manage Subscription" in the email\n3. Or contact support for assistance',
+      [
+        {
+          text: 'Contact Support',
+          onPress: () => {
+            const supportURL = 'https://archiveszone.app/support'
+            Linking.openURL(supportURL).catch(() => {
+              Alert.alert('Error', 'Could not open support page')
+            })
+          }
+        },
+        {
+          text: 'OK',
+          style: 'cancel'
+        }
+      ]
+    )
+    
+    // TODO: Implement full customer portal integration
+    // This requires storing customer ID in user session during subscription creation
+    /*
+    try {
+      setIsLoadingPortal(true)
+      
+      // Get customer ID from user metadata or database
+      const customerId = user?.publicMetadata?.stripeCustomerId
+      
+      if (!customerId) {
+        Alert.alert(
+          'No Subscription Found',
+          'You don\'t have an active subscription to manage.',
+          [{ text: 'OK' }]
+        )
+        return
+      }
+
+      // Call customer portal API
+      const response = await fetch('/api/customer-portal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: customerId
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to create portal session')
+      }
+      
+      const { url } = await response.json()
+      
+      // Close settings modal and open portal
+      setShowSettingsModal(false)
+      await Linking.openURL(url)
+      
+    } catch (error) {
+      console.error('Portal creation error:', error)
+      Alert.alert(
+        'Error',
+        'Unable to open subscription management. Please try again or contact support.',
+        [{ text: 'OK' }]
+      )
+    } finally {
+      setIsLoadingPortal(false)
+    }
+    */
   }
 
   const handlePrivacyPolicy = () => {
@@ -306,7 +446,7 @@ export default function ProfileTab() {
         </View>
 
         {/* Modules Achievement Card */}
-        <View style={styles.achievementsSection}>
+        {/* <View style={styles.achievementsSection}>
           <View style={styles.moduleAchievementCard}>
             <View style={styles.achievementBadge}>
               <Text style={styles.achievementNumber}>14</Text>
@@ -316,10 +456,10 @@ export default function ProfileTab() {
               <Image source={require('@/assets/images/icons/modules icon.png')} style={styles.largeModuleIcon} />
             </View>
           </View>
-        </View>
+        </View> */}
 
         {/* Monthly Badges - EXACT SwiftUI */}
-        <View style={styles.badgesSection}>
+        {/* <View style={styles.badgesSection}>
           <Text style={styles.sectionTitle}>Monthly Badges</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesScroll}>
             {MONTHLY_BADGES.map((badge) => (
@@ -329,10 +469,10 @@ export default function ProfileTab() {
               </View>
             ))}
           </ScrollView>
-        </View>
+        </View> */}
 
         {/* XP Achievements - EXACT SwiftUI */}
-        <View style={styles.xpAchievementsSection}>
+        {/* <View style={styles.xpAchievementsSection}>
           <Text style={styles.sectionTitle}>Achievements</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.achievementsScroll}>
             {XP_ACHIEVEMENTS.map((achievement) => (
@@ -341,7 +481,7 @@ export default function ProfileTab() {
               </View>
             ))}
           </ScrollView>
-        </View>
+        </View> */}
 
 
         {/* Sign Out Button */}
@@ -468,19 +608,63 @@ export default function ProfileTab() {
                   <Ionicons name="chevron-forward" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.5} />
                 </TouchableOpacity>
 
-                {/* Delete Account */}
+                {/* Manage Subscription */}
                 <TouchableOpacity 
-                  style={[styles.settingsOption, styles.settingsOptionDanger]} 
-                  onPress={() => {
-                    setShowSettingsModal(false)
-                    handleDeleteAccount()
-                  }}
+                  style={styles.settingsOption} 
+                  onPress={handleManageSubscription}
                 >
                   <View style={styles.settingsOptionIcon}>
-                    <Ionicons name="trash" size={24} color="#D32F2F" />
+                    <MaterialIcons 
+                      name="payment" 
+                      size={24} 
+                      color={ArchivesTheme.colors.persianOrange} 
+                    />
                   </View>
-                  <Text style={[styles.settingsOptionText, styles.settingsOptionDangerText]}>Delete Account</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#D32F2F" opacity={0.5} />
+                  <Text style={styles.settingsOptionText}>
+                    Manage Subscription
+                  </Text>
+                  <Ionicons 
+                    name="chevron-forward" 
+                    size={20} 
+                    color={ArchivesTheme.colors.mutedNavy} 
+                    opacity={0.5} 
+                  />
+                </TouchableOpacity>
+
+                {/* Delete Account */}
+                <TouchableOpacity 
+                  style={[
+                    styles.settingsOption, 
+                    styles.settingsOptionDanger,
+                    isDeletingAccount && styles.settingsOptionDisabled
+                  ]} 
+                  onPress={() => {
+                    if (!isDeletingAccount) {
+                      handleDeleteAccount()
+                    }
+                  }}
+                  disabled={isDeletingAccount}
+                >
+                  <View style={styles.settingsOptionIcon}>
+                    <Ionicons 
+                      name={isDeletingAccount ? "hourglass" : "trash"} 
+                      size={24} 
+                      color={isDeletingAccount ? "#999" : "#D32F2F"} 
+                    />
+                  </View>
+                  <Text style={[
+                    styles.settingsOptionText, 
+                    styles.settingsOptionDangerText,
+                    isDeletingAccount && styles.settingsOptionDisabledText
+                  ]}>
+                    {isDeletingAccount ? "Deleting Account..." : "Delete Account"}
+                  </Text>
+                  <Ionicons 
+                    name="chevron-forward" 
+                    size={20} 
+                    color={isDeletingAccount ? "#999" : "#D32F2F"} 
+                    opacity={0.5} 
+                  />
                 </TouchableOpacity>
 
               </View>
@@ -947,6 +1131,10 @@ const styles = StyleSheet.create({
   settingsOptionDanger: {
     backgroundColor: '#FFF5F5', // Light red background
   },
+  settingsOptionDisabled: {
+    backgroundColor: '#F5F5F5', // Gray background for disabled state
+    opacity: 0.6,
+  },
   settingsOptionIcon: {
     width: 44,
     height: 44,
@@ -965,6 +1153,9 @@ const styles = StyleSheet.create({
   },
   settingsOptionDangerText: {
     color: '#D32F2F', // Red text for danger option
+  },
+  settingsOptionDisabledText: {
+    color: '#999', // Gray text for disabled state
   },
 
   // Privacy Policy Modal Styles
