@@ -12,7 +12,9 @@
       "Bash(find:*)",
       "Bash(grep:*)",
       "mcp__Ref__ref_search_documentation",
-      "WebSearch"
+      "WebSearch",
+      "mcp__Ref__ref_read_url",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

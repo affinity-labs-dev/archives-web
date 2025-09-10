@@ -18,7 +18,13 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { useAppTrackingTransparency } from "@/hooks/useAppTrackingTransparency";
-import StripeProvider from "@/providers/StripeProvider";
+
+// Platform-specific StripeProvider import
+const StripeProvider = Platform.select({
+  native: () => require('@/providers/StripeProvider.native').default,
+  web: () => require('@/providers/StripeProvider.web').default,
+  default: () => require('@/providers/StripeProvider.native').default,
+})();
 
 // ATT-aware PostHog wrapper that respects tracking permissions
 function ATTAwarePostHogProvider({ 

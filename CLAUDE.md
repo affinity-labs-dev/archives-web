@@ -242,8 +242,9 @@ assets/
 - **State Updates**: Always persist to AsyncStorage through ProgressContext
 - **Styling**: Use ArchivesTheme constants, avoid inline styles
 - **Font Loading**: Pre-loaded in root layout (SpaceMono, DM Sans, Cormorant)
-- **Privacy Compliance**: App Tracking Transparency handled via `useAppTrackingTransparency` hook
+- **Privacy Compliance**: App Tracking Transparency handled via `useAppTrackingTransparency` hook with platform-specific implementations (.native.ts, .web.ts)
 - **Analytics**: PostHog integration respects ATT permissions with conditional initialization
+- **Payment Processing**: Platform-specific Stripe integration (native vs web implementations)
 
 #### Key Dependencies Understanding
 - **@clerk/clerk-expo**: Authentication with token persistence
@@ -258,6 +259,8 @@ assets/
 - **react-native-reanimated**: Smooth animations matching SwiftUI feel
 - **@react-native-community/netinfo**: Network connectivity monitoring for sync system
 - **expo-tracking-transparency**: App Tracking Transparency for iOS compliance with educational analytics tracking
+- **@stripe/stripe-react-native**: Payment processing for subscription system (native platforms)
+- **@stripe/stripe-js**: Web-based payment processing (web platform)
 
 ### Environment & Configuration
 
@@ -275,6 +278,9 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 # PostHog Analytics (Required)
 EXPO_PUBLIC_POSTHOG_API_KEY=phc_7tSzdXUrEZ1OEEsgeJcpvQHdgt3XT6AdXnmvmpUbCMI
 EXPO_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
+
+# Stripe Payment Processing (Required for subscription features)
+EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51RYXaRP4ORdFWUKehx2oAmyOUS2h8FbZZEIu8I8F3wzY74iya6MDkCQedtIGdNGdYHDdJ9UG3WUWylNOeMNVOusl00sEjEVr7G
 
 # EAS Build Configuration
 EXPO_NO_CAPABILITY_SYNC=1 # Disables automatic capability sync for iOS builds
@@ -374,6 +380,10 @@ Background sync happens transparently
   - `user_data`: Single table with JSONB column containing all user data (selectedEra, adventures, modules)
   - Legacy three-table structure available in BackgroundSyncService for reference
 - **Background Music**: Audio system for immersive experience (partially implemented via `useBackgroundMusic` hook)
+- **Subscription System**: Platform-aware payment processing
+  - Native platforms: Stripe React Native with Apple Pay support
+  - Web platform: Stripe Checkout Sessions (implementation in progress)
+  - Platform-specific components: `SubscribeContent.web.tsx` for web-specific UI
 
 ### Future Enhancement Plans
 - **Push Notifications**: Course reminders and achievement notifications

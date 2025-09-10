@@ -12,6 +12,10 @@
         "EXPO_PUBLIC_POSTHOG_API_KEY": "phc_7tSzdXUrEZ1OEEsgeJcpvQHdgt3XT6AdXnmvmpUbCMI",
         "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com",
         "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_51RYXaRP4ORdFWUKehx2oAmyOUS2h8FbZZEIu8I8F3wzY74iya6MDkCQedtIGdNGdYHDdJ9UG3WUWylNOeMNVOusl00sEjEVr7G",
+        "STRIPE_PRICE_MONTHLY": "price_1S55VAP4ORdFWUKeW2B6et0t",
+        "STRIPE_PRICE_YEARLY": "price_1S55WJP4ORdFWUKeymlEKgDk",
+        "STRIPE_WEBHOOK_SECRET": "whsec_your_webhook_secret_here",
+        "SUPABASE_SERVICE_ROLE_KEY": "your_supabase_service_role_key_here",
         "EXPO_NO_CAPABILITY_SYNC": "1"
       }
     },

@@ -16,6 +16,7 @@ export default function StripeProvider({ children }: StripeProviderProps) {
   return (
     <StripeNativeProvider
       publishableKey={publishableKey}
+      merchantIdentifier="merchant.ai.affinitylabs.archivesexpo"
       urlScheme={Linking.createURL('').split('://')[0]}
     >
       {children}
