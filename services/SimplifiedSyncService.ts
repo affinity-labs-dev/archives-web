@@ -1,9 +1,9 @@
 // Simplified Background Sync Service - Single Table JSONB Storage
 // Replaces the three-table structure with one simple table per user
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '@/lib/supabase';
-import NetInfo from '@react-native-community/netinfo';
+import { supabase } from "@/hooks/lib/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 
 // Types matching local AsyncStorage structure
 interface ModuleProgress {
@@ -33,9 +33,9 @@ interface UserData {
 
 // Storage keys matching ProgressContext
 const STORAGE_KEYS = {
-  SELECTED_ERA: 'selected_era',
-  ADVENTURE_PROGRESS: 'adventure_progress',
-  MODULE_PROGRESS: 'module_progress',
+  SELECTED_ERA: "selected_era",
+  ADVENTURE_PROGRESS: "adventure_progress",
+  MODULE_PROGRESS: "module_progress",
 } as const;
 
 class SimplifiedSyncService {
@@ -43,18 +43,17 @@ class SimplifiedSyncService {
   private syncQueue: Array<() => Promise<void>> = [];
   private isSyncing: boolean = false;
   private currentUserId: string | null = null;
-  
+
   constructor() {
     this.initializeNetworkListener();
   }
 
   // Initialize network connectivity monitoring
   private initializeNetworkListener() {
-    NetInfo.addEventListener(state => {
+    NetInfo.addEventListener((state) => {
       const wasOffline = !this.isOnline;
       this.isOnline = state.isConnected ?? false;
-      
-      
+
       // If we just came online and have queued syncs, process them
       if (wasOffline && this.isOnline && this.syncQueue.length > 0) {
         this.processSyncQueue();
@@ -75,7 +74,7 @@ class SimplifiedSyncService {
   // Process queued sync operations
   private async processSyncQueue() {
     if (this.isSyncing || !this.isOnline) return;
-    
+
     this.isSyncing = true;
 
     while (this.syncQueue.length > 0 && this.isOnline) {
@@ -84,7 +83,7 @@ class SimplifiedSyncService {
         try {
           await syncOperation();
         } catch (error) {
-          console.warn('Sync operation failed:', error);
+          console.warn("Sync operation failed:", error);
           // Re-queue failed operation for retry
           this.syncQueue.unshift(syncOperation);
           break;
@@ -98,7 +97,7 @@ class SimplifiedSyncService {
   // Queue sync operation for when online
   private queueSync(operation: () => Promise<void>) {
     this.syncQueue.push(operation);
-    
+
     if (this.isOnline) {
       this.processSyncQueue();
     }
@@ -124,15 +123,27 @@ class SimplifiedSyncService {
     const promises = [];
 
     if (userData.selectedEra) {
-      promises.push(AsyncStorage.setItem(STORAGE_KEYS.SELECTED_ERA, userData.selectedEra));
+      promises.push(
+        AsyncStorage.setItem(STORAGE_KEYS.SELECTED_ERA, userData.selectedEra)
+      );
     }
 
     if (userData.adventures.length > 0) {
-      promises.push(AsyncStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, JSON.stringify(userData.adventures)));
+      promises.push(
+        AsyncStorage.setItem(
+          STORAGE_KEYS.ADVENTURE_PROGRESS,
+          JSON.stringify(userData.adventures)
+        )
+      );
     }
 
     if (userData.modules.length > 0) {
-      promises.push(AsyncStorage.setItem(STORAGE_KEYS.MODULE_PROGRESS, JSON.stringify(userData.modules)));
+      promises.push(
+        AsyncStorage.setItem(
+          STORAGE_KEYS.MODULE_PROGRESS,
+          JSON.stringify(userData.modules)
+        )
+      );
     }
 
     await Promise.all(promises);
@@ -144,20 +155,18 @@ class SimplifiedSyncService {
   async syncToCloud() {
     const operation = async () => {
       const userId = this.getCurrentUserId();
-      if (!userId) throw new Error('No authenticated user');
+      if (!userId) throw new Error("No authenticated user");
 
       const userData = await this.getAllLocalData();
-      
+
       // Single upsert operation with all user data in JSONB
-      const { error } = await supabase
-        .from('user_data')
-        .upsert({
-          user_id: userId,
-          data: userData,
-        });
+      const { error } = await supabase.from("user_data").upsert({
+        user_id: userId,
+        data: userData,
+      });
 
       if (error) {
-        console.warn('Sync to cloud warning:', error.message);
+        console.warn("Sync to cloud warning:", error.message);
         return;
       }
 
@@ -174,20 +183,19 @@ class SimplifiedSyncService {
   // Download data from Supabase (single operation)
   async syncFromCloud() {
     const userId = this.getCurrentUserId();
-    if (!userId) throw new Error('No authenticated user');
+    if (!userId) throw new Error("No authenticated user");
 
     if (!this.isOnline) {
       return;
     }
 
-
     const { data, error } = await supabase
-      .from('user_data')
-      .select('data')
-      .eq('user_id', userId)
+      .from("user_data")
+      .select("data")
+      .eq("user_id", userId)
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows found
+    if (error && error.code !== "PGRST116") throw error; // PGRST116 = no rows found
 
     if (data?.data) {
       const userData = data.data as UserData;
@@ -198,18 +206,21 @@ class SimplifiedSyncService {
   // Check if we have any local data
   async hasLocalData(): Promise<boolean> {
     const userData = await this.getAllLocalData();
-    return !!(userData.selectedEra || userData.adventures.length > 0 || userData.modules.length > 0);
+    return !!(
+      userData.selectedEra ||
+      userData.adventures.length > 0 ||
+      userData.modules.length > 0
+    );
   }
 
   // Initialize sync for new users or first app launch
   async initializeSync() {
-
     if (!this.isOnline) {
       return;
     }
 
     const hasLocal = await this.hasLocalData();
-    
+
     if (!hasLocal) {
       // New device or first launch - try to download existing data
       await this.syncFromCloud();
@@ -221,7 +232,6 @@ class SimplifiedSyncService {
 
   // Manual sync trigger (bidirectional)
   async manualSync() {
-    
     if (!this.isOnline) {
       return false;
     }
@@ -232,7 +242,7 @@ class SimplifiedSyncService {
       await this.syncFromCloud();
       return true;
     } catch (error) {
-      console.warn('Manual sync failed:', error);
+      console.warn("Manual sync failed:", error);
       return false;
     }
   }
