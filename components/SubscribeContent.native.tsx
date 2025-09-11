@@ -39,7 +39,23 @@ export default function SubscribeContent() {
       }
     );
 
-    const response = await fetch("/api/payment-sheet", {
+    // Use AWS API Gateway URL for production/TestFlight builds, local URL for development
+    const apiBaseUrl = process.env.EXPO_PUBLIC_AWS_API_BASE_URL;
+    const apiUrl = apiBaseUrl && apiBaseUrl !== 'https://your-api-gateway-id.execute-api.us-east-1.amazonaws.com/prod' 
+      ? `${apiBaseUrl}/api/payment-sheet`
+      : "/api/payment-sheet";
+
+    PaymentLogger.log(
+      "CLIENT_API_CONFIG",
+      `API URL configuration for client session ${clientSessionId}`,
+      {
+        apiBaseUrl,
+        apiUrl,
+        environment: process.env.NODE_ENV || 'production',
+      }
+    );
+
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
