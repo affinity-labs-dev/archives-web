@@ -170,14 +170,14 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
       switch (currentStep) {
         case 'lesson1':
           return (
-            <Adventure1_Module2_Lesson1 
+            <Adventure1_Module2_Lesson2 
               onContinue={() => handleLessonComplete('lesson1')}
               onDismiss={handleModalDismiss}
             />
           )
         case 'lesson2':
           return (
-            <Adventure1_Module2_Lesson2 
+            <Adventure1_Module2_Lesson1 
               onContinue={() => handleLessonComplete('lesson2')}
               onDismiss={handleModalDismiss}
               onBack={handleGoBack}
