@@ -173,7 +173,10 @@ export default function SubscribeContent() {
             primary: "#959C00", // Moss green
             background: "#F4EBDB", // Cream background
             componentBackground: "#FFFFFF", // White components
-            primaryText: "#41425E", // Muted navy text
+            primaryText: "#000000", // Force black text (iOS Dark Mode fix)
+            secondaryText: "#333333", // Dark gray for secondary text
+            placeholderText: "#666666", // Medium gray for placeholders
+            componentText: "#000000", // Force black for component text
           },
           shapes: {
             borderRadius: 16,
