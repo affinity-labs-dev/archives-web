@@ -27,6 +27,8 @@ import AdventureDetailModal from '@/components/adventures/AdventureDetailModal'
 import Adventure1Icon from '@/components/icons/Adventure1Icon'
 import Adventure2Icon from '@/components/icons/Adventure2Icon'
 import Adventure3Icon from '@/components/icons/Adventure3Icon'
+import Adventure4Icon from '@/components/icons/Adventure4Icon'
+import Adventure5Icon from '@/components/icons/Adventure5Icon'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -66,6 +68,30 @@ const UMAYYAD_ADVENTURES = [
       { id: "adv3_mod1", x: 0.6, y: 0.23 },
       { id: "adv3_mod2", x: 0.45, y: 0.5 },
       { id: "adv3_mod3", x: 0.33, y: 0.85 }
+    ]
+  },
+  {
+    id: 4,
+    title: "Great Mosque of Damascus",
+    headerIcon: "custom", // Custom SVG icon
+    iconLibrary: "CustomSVG" as const,
+    mapImage: require('@/assets/images/adventure-maps/AdventureMap4.png'),
+    iconPositions: [
+      { id: "adv4_mod1", x: 0.5, y: 0.3 },
+      { id: "adv4_mod2", x: 0.6, y: 0.6 },
+      { id: "adv4_mod3", x: 0.4, y: 0.8 }
+    ]
+  },
+  {
+    id: 5,
+    title: "Coming Soon",
+    headerIcon: "custom", // Custom SVG icon
+    iconLibrary: "CustomSVG" as const,
+    mapImage: require('@/assets/images/adventure-maps/AdventureMap5.png'),
+    iconPositions: [
+      { id: "adv5_mod1", x: 0.45, y: 0.25 },
+      { id: "adv5_mod2", x: 0.55, y: 0.55 },
+      { id: "adv5_mod3", x: 0.35, y: 0.75 }
     ]
   },
 ]
@@ -386,9 +412,19 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
                     color="white" 
                   />
                 ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 3 ? (
-                  <Adventure3Icon 
-                    size={24} 
-                    color="white" 
+                  <Adventure3Icon
+                    size={24}
+                    color="white"
+                  />
+                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 4 ? (
+                  <Adventure4Icon
+                    size={24}
+                    color="white"
+                  />
+                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 5 ? (
+                  <Adventure5Icon
+                    size={24}
+                    color="white"
                   />
                 ) : (
                   <Ionicons 

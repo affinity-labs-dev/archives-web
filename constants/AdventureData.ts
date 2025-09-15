@@ -116,6 +116,58 @@ export const AdventureData = {
       isFeature: false,
       sortOrder: 3,
       xpReward: 200
+    },
+    {
+      id: 4,
+      title: "Great Mosque of Damascus",
+      subtitle: "Byzantine Artistry in Islamic Architecture",
+      description: "Discover how Byzantine mosaic artists created sparkling paradise landscapes in the heart of the Islamic world.",
+      era: "Umayyad Dynasty",
+      difficulty: AdventureDifficulty.INTERMEDIATE,
+      estimatedTime: "30 min",
+      modules: [
+        { id: 1, title: "Mosaic Masterpieces", description: "Marvel at shimmering landscapes made of tiny Byzantine tiles" },
+        { id: 2, title: "Desert Palaces", description: "Discover how comfort and elegance bloomed in the desert" },
+        { id:3, title: "Sacred Spaces", description: "Explore how art transforms worship and community" }
+      ],
+      prerequisites: ["Westward Expansion"],
+      heroImageName: "Adventure-4-bg",
+      iconName: "star.fill",
+      thumbnailImageName: "mosque-mosaics-thumb",
+      backgroundColor: "PersianOrange",
+      tags: ["Art", "Architecture", "Collaboration"],
+      historicalPeriod: "705-715 CE",
+      geographicRegion: "Damascus, Syria",
+      keyFigures: ["Al-Walid I", "Byzantine Artists"],
+      isFeature: false,
+      sortOrder: 4,
+      xpReward: 250
+    },
+    {
+      id: 5,
+      title: "Coming Soon",
+      subtitle: "Future Adventures Await",
+      description: "More exciting adventures in Umayyad history are coming soon! Stay tuned for new stories and discoveries.",
+      era: "Umayyad Dynasty",
+      difficulty: AdventureDifficulty.INTERMEDIATE,
+      estimatedTime: "TBD",
+      modules: [
+        { id: 1, title: "Coming Soon", description: "Future content awaits" },
+        { id: 2, title: "Coming Soon", description: "Future content awaits" },
+        { id: 3, title: "Coming Soon", description: "Future content awaits" }
+      ],
+      prerequisites: ["Great Mosque of Damascus"],
+      heroImageName: "Adventure-5-bg",
+      iconName: "star.fill",
+      thumbnailImageName: "coming-soon-thumb",
+      backgroundColor: "MutedNavy",
+      tags: ["Future", "Coming Soon"],
+      historicalPeriod: "TBD",
+      geographicRegion: "TBD",
+      keyFigures: ["TBD"],
+      isFeature: false,
+      sortOrder: 5,
+      xpReward: 0
     }
   ] as Adventure[],
 
@@ -132,6 +184,10 @@ export const AdventureData = {
         return "Join Caliph Abd al-Malik as he transforms the Islamic empire! You'll discover how he created new coins with Arabic writing, built the magnificent Dome of the Rock in Jerusalem, and made Arabic the official language of government. These weren't just small changes - they were bold moves that helped unite a vast empire under one identity. Get ready to explore how smart leadership and clear communication can shape the future of entire civilizations!"
       case 3:
         return "Follow the Umayyad armies as they march across North Africa and into Spain! You'll witness epic battles, meet brave generals like Tariq ibn Ziyad, and see how Islamic civilization spread from the Atlantic Ocean to the heart of Europe. From the conquest of Morocco to the crossing into Al-Andalus (Spain), this adventure shows how courage, strategy, and determination can change the map of the world forever!"
+      case 4:
+        return "Step inside the Great Mosque of Damascus and discover its sparkling Byzantine mosaics! You'll learn how the Umayyads invited skilled artists from their former rival empire to create breathtaking paradise landscapes. These weren't just decorations - they were dreamlike scenes of gardens and flowing water that made worshippers feel peaceful and connected to the divine. See how art can bring together different cultures to create something truly beautiful!"
+      case 5:
+        return "More amazing adventures in Umayyad history are on their way! We're working hard to bring you new stories, characters, and discoveries that will take you even deeper into this fascinating time period. Stay tuned for updates and get ready to explore more of the Islamic world's golden age!"
       default:
         return "Embark on an exciting journey through Islamic history! Discover the stories, people, and places that shaped the Umayyad Dynasty in this interactive adventure."
     }

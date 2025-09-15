@@ -58,6 +58,21 @@ import Adventure3_Module3_Lesson1 from './adventure3/Adventure3_Module3_Lesson1'
 import Adventure3_Module3_Lesson2 from './adventure3/Adventure3_Module3_Lesson2'
 import Adventure3_Module3_Quiz from './adventure3/Adventure3_Module3_Quiz'
 
+// Adventure 4 - Great Mosque of Damascus - Module 1
+import Adventure4_Module1_Lesson1 from './adventure4/Adventure4_Module1_Lesson1'
+import Adventure4_Module1_Lesson2 from './adventure4/Adventure4_Module1_Lesson2'
+import Adventure4_Module1_Quiz from './adventure4/Adventure4_Module1_Quiz'
+
+// Adventure 4 - Great Mosque of Damascus - Module 2
+import Adventure4_Module2_Lesson1 from './adventure4/Adventure4_Module2_Lesson1'
+import Adventure4_Module2_Lesson2 from './adventure4/Adventure4_Module2_Lesson2'
+import Adventure4_Module2_Quiz from './adventure4/Adventure4_Module2_Quiz'
+
+// Adventure 4 - Great Mosque of Damascus - Module 3
+import Adventure4_Module3_Lesson1 from './adventure4/Adventure4_Module3_Lesson1'
+import Adventure4_Module3_Lesson2 from './adventure4/Adventure4_Module3_Lesson2'
+import Adventure4_Module3_Quiz from './adventure4/Adventure4_Module3_Quiz'
+
 interface ModuleModalProps {
   isVisible: boolean
   moduleId: string | null // e.g., "adv1_mod1"
@@ -382,6 +397,90 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
         case 'quiz':
           return (
             <Adventure3_Module3_Quiz 
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+      }
+    }
+
+    // Adventure 4, Module 1 - Great Mosque of Damascus - Byzantine Mosaics
+    if (adventure === 4 && module === 1) {
+      switch (currentStep) {
+        case 'lesson1':
+          return (
+            <Adventure4_Module1_Lesson1
+              onContinue={() => handleLessonComplete('lesson1')}
+              onDismiss={handleModalDismiss}
+            />
+          )
+        case 'lesson2':
+          return (
+            <Adventure4_Module1_Lesson2
+              onContinue={() => handleLessonComplete('lesson2')}
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+        case 'quiz':
+          return (
+            <Adventure4_Module1_Quiz
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+      }
+    }
+
+    // Adventure 4, Module 2 - Great Mosque of Damascus - Desert Palaces
+    if (adventure === 4 && module === 2) {
+      switch (currentStep) {
+        case 'lesson1':
+          return (
+            <Adventure4_Module2_Lesson1
+              onContinue={() => handleLessonComplete('lesson1')}
+              onDismiss={handleModalDismiss}
+            />
+          )
+        case 'lesson2':
+          return (
+            <Adventure4_Module2_Lesson2
+              onContinue={() => handleLessonComplete('lesson2')}
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+        case 'quiz':
+          return (
+            <Adventure4_Module2_Quiz
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+      }
+    }
+
+    // Adventure 4, Module 3 - Great Mosque of Damascus - Advanced Architecture
+    if (adventure === 4 && module === 3) {
+      switch (currentStep) {
+        case 'lesson1':
+          return (
+            <Adventure4_Module3_Lesson1
+              onContinue={() => handleLessonComplete('lesson1')}
+              onDismiss={handleModalDismiss}
+            />
+          )
+        case 'lesson2':
+          return (
+            <Adventure4_Module3_Lesson2
+              onContinue={() => handleLessonComplete('lesson2')}
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+        case 'quiz':
+          return (
+            <Adventure4_Module3_Quiz
               onDismiss={handleModalDismiss}
               onBack={handleGoBack}
             />

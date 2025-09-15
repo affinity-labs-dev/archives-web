@@ -107,15 +107,18 @@ app/
 └── era-selection.tsx # Era selection interface
 
 components/
-├── modules/          # Lesson/quiz content (adventure1/, adventure2/, adventure3/)
+├── modules/          # Lesson/quiz content (adventure1/, adventure2/, adventure3/, adventure4/)
 │   ├── QuizSystem.tsx       # Shared quiz component (MCQ, True/False)
 │   ├── LessonPlayer.tsx     # Video player component
 │   └── ModuleModal.tsx      # Modal wrapper for lessons
 ├── eras/            # Era-specific UI (UmmayadDynastyEra.tsx, ComingSoonView.tsx)
 ├── adventures/      # Adventure detail components (AdventureDetailModal.tsx)
-├── icons/           # Custom icon components for navigation (Adventure1Icon, HomeIcon, etc.)
+├── icons/           # Custom icon components for navigation (Adventure1-5Icons, HomeIcon, etc.)
 ├── ui/              # Reusable UI components (IconSymbol, TabBarBackground)
-└── SyncDebugPanel.tsx # Debug panel for sync status monitoring
+├── SyncDebugPanel.tsx             # Debug panel for sync status monitoring
+├── SubscribeContent.native.tsx    # Native subscription UI components
+├── SubscribeContent.web.tsx       # Web subscription UI components
+└── CheckoutForm.native.tsx        # Native Stripe payment form
 
 constants/
 ├── ArchivesTheme.ts    # Complete design system (colors, typography, spacing)
@@ -127,12 +130,13 @@ context/
 └── BackgroundSyncProvider.tsx # Background sync context provider
 
 hooks/
-├── useAnalytics.ts                  # PostHog analytics integration with educational events
-├── useBackgroundMusic.tsx           # Audio system for immersive experience
-├── useColorScheme.ts                # Theme color scheme handling
-├── useThemeColor.ts                 # Color theme utilities
-├── useSyncIntegration.ts            # Sync integration hooks with debouncing
-└── useAppTrackingTransparency.ts    # iOS App Tracking Transparency hook for privacy compliance
+├── useAnalytics.ts                        # PostHog analytics integration with educational events
+├── useColorScheme.ts                      # Theme color scheme handling
+├── useThemeColor.ts                       # Color theme utilities
+├── useSyncIntegration.ts                  # Sync integration hooks with debouncing
+├── useAppTrackingTransparency.ts          # iOS App Tracking Transparency hook for privacy compliance
+├── useAppTrackingTransparency.native.ts  # Native-specific ATT implementation
+└── useAppTrackingTransparency.web.ts     # Web-specific ATT implementation
 
 services/
 ├── ProgressService.ts         # Progress data management service
@@ -225,8 +229,10 @@ assets/
 #### Component Architecture Patterns
 - **LessonPlayer.tsx**: Full-screen video player with exact SwiftUI control replication
 - **QuizSystem.tsx**: Comprehensive quiz engine supporting MCQ, True/False, drag-and-drop
-- **Adventure Components**: Individual lesson/quiz components per adventure (adventure1/, adventure2/, adventure3/)
+- **ModuleModal.tsx**: Unified modal wrapper for all lesson and quiz content
+- **Adventure Components**: Individual lesson/quiz components per adventure (adventure1/, adventure2/, adventure3/, adventure4/)
 - **Progress Integration**: All components automatically update AsyncStorage via ProgressContext
+- **Platform-specific Components**: Separate implementations for native/web (SubscribeContent, CheckoutForm)
 
 ### Development Conventions
 
@@ -286,12 +292,12 @@ EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51RYXaRP4ORdFWUKehx2oAmyOUS2h8FbZZEIu
 EXPO_NO_CAPABILITY_SYNC=1 # Disables automatic capability sync for iOS builds
 ```
 
-**Note**: Environment variables are automatically injected during EAS builds from the `eas.json` configuration. For local development, create a `.env` file in the project root with these values.
+**Note**: Environment variables are automatically injected during EAS builds from the `eas.json` configuration. For local development, create a `.env` file in the project root with these values. Additional AWS API endpoint is configured: `EXPO_PUBLIC_AWS_API_BASE_URL` for backend services.
 
 #### Platform Configuration
 - **iOS**: Apple Sign-In enabled, New Architecture enabled, App Tracking Transparency configured
 - **Android**: Edge-to-edge enabled, adaptive icon configured, audio permissions for immersive experience
-- **Web**: Static output with Metro bundler, session replay disabled for compatibility
+- **Web**: Server output with Metro bundler, session replay disabled for compatibility
 - **TypeScript**: Strict mode enabled with path aliases (`@/*` → project root)
 
 #### Build Configuration
@@ -353,7 +359,8 @@ Background sync happens transparently
 - **Adventure 1**: Complete - 3 modules, 6 lessons, 3 quizzes (Umayyad Dynasty foundation and early expansion)
 - **Adventure 2**: Complete - 3 modules, 6 lessons, 3 quizzes (Damascus capital and administrative developments) 
 - **Adventure 3**: Complete - 3 modules, 6 lessons, 3 quizzes (North African expansion, Kairouan, Iberian conquest, Battle of Tours)
-- **Adventures 4-5**: Planned future content (content structure ready, implementation pending)
+- **Adventure 4**: In development - 3 modules, basic structure implemented with lessons and quizzes
+- **Adventure 5**: Planned future content (content structure ready, implementation pending)
 
 ### Critical Implementation Details
 - **Progress System**: Local-first with AsyncStorage as primary data store, automatic cloud sync via ProgressContext
@@ -379,7 +386,7 @@ Background sync happens transparently
 - **Supabase Database**: Simplified single-table structure for progress sync
   - `user_data`: Single table with JSONB column containing all user data (selectedEra, adventures, modules)
   - Legacy three-table structure available in BackgroundSyncService for reference
-- **Background Music**: Audio system for immersive experience (partially implemented via `useBackgroundMusic` hook)
+- **Audio System**: Platform-specific audio implementations using expo-av for background music
 - **Subscription System**: Platform-aware payment processing
   - Native platforms: Stripe React Native with Apple Pay support
   - Web platform: Stripe Checkout Sessions (implementation in progress)
