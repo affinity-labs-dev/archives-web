@@ -116,10 +116,10 @@ export default function EraSelection() {
   // }
 
   const handleContinue = async () => {
-    if (selectedEraIndex === 0) {
+    if (selectedEraIndex === 0 || selectedEraIndex === 1) {
       const selectedEra = eras[selectedEraIndex]
       console.log('Selected era:', selectedEra)
-      
+
       // Map era titles to era IDs for the progress context
       const eraIdMap: Record<string, string> = {
         'Umayyad Dynasty (661–750 CE)': 'umayyad',
@@ -131,12 +131,12 @@ export default function EraSelection() {
         'Prophets Series': 'prophets',
         'Mongol Invasions (1219–1312 CE)': 'mongol',
       }
-      
+
       const eraId = eraIdMap[selectedEra.title] || 'umayyad' // Default to umayyad
-      
+
       // Store selected era in context
       await setSelectedEra(eraId)
-      
+
       // Navigate to home tab
       router.push('/(tabs)/')
     }
@@ -248,10 +248,10 @@ export default function EraSelection() {
           <Pressable
             style={[
               styles.enterEraButton,
-              selectedEraIndex === 0 && styles.enterEraButtonActive
+              (selectedEraIndex === 0 || selectedEraIndex === 1) && styles.enterEraButtonActive
             ]}
             onPress={handleContinue}
-            disabled={selectedEraIndex !== 0}
+            disabled={selectedEraIndex < 0 || selectedEraIndex > 1}
           >
             <Text style={styles.enterEraButtonText}>ENTER ERA</Text>
           </Pressable>

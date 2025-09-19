@@ -19,6 +19,9 @@ import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
+// Development flag - set to false when ready for production subscription system
+const DEVELOPMENT_UNLOCK_ERA2 = true
+
 // const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
 // Era data structure (exact replica of SwiftUI)
@@ -116,7 +119,7 @@ export default function EraSelection() {
   // }
 
   const handleContinue = async () => {
-    if (selectedEraIndex === 0) {
+    if (selectedEraIndex === 0 || (selectedEraIndex === 1 && DEVELOPMENT_UNLOCK_ERA2)) {
       const selectedEra = eras[selectedEraIndex]
       console.log('Selected era:', selectedEra)
       
@@ -187,7 +190,7 @@ export default function EraSelection() {
                 era={eras[1]}
                 isSelected={1 === selectedEraIndex}
                 onSelect={() => handleEraSelect(1)}
-                showLock={true}
+                showLock={!DEVELOPMENT_UNLOCK_ERA2}
               />
               <GridEraCard
                 era={eras[2]}
@@ -248,10 +251,10 @@ export default function EraSelection() {
           <Pressable
             style={[
               styles.enterEraButton,
-              selectedEraIndex === 0 && styles.enterEraButtonActive
+              (selectedEraIndex === 0 || (selectedEraIndex === 1 && DEVELOPMENT_UNLOCK_ERA2)) && styles.enterEraButtonActive
             ]}
             onPress={handleContinue}
-            disabled={selectedEraIndex !== 0}
+            disabled={selectedEraIndex !== 0 && !(selectedEraIndex === 1 && DEVELOPMENT_UNLOCK_ERA2)}
           >
             <Text style={styles.enterEraButtonText}>ENTER ERA</Text>
           </Pressable>

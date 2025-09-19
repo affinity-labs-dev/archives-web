@@ -183,13 +183,55 @@ export function TrueFalseOptionButton({
       ]} />
 
       <View style={styles.trueFalseContent}>
+        {/* Icon circle */}
+        <View style={styles.trueFalseIconCircle}>
+          <Ionicons
+            name={isTrue ? "checkmark" : "close"}
+            size={24}
+            color="white"
+          />
+        </View>
+
+        {/* Text */}
         <Text style={styles.trueFalseText}>
-          {isTrue ? 'TRUE' : 'FALSE'}
+          {isTrue ? 'True' : 'False'}
         </Text>
       </View>
     </TouchableOpacity>
   );
 }
+```
+
+#### Correct True/False Implementation Pattern
+```typescript
+// ✅ CORRECT: Use explicit True/False buttons with isTrue prop
+const renderTrueFalseOptions = () => (
+  <View style={styles.trueFalseOptionsContainer}>
+    <TrueFalseOptionButton
+      isTrue={true}  // Shows "True" text
+      isSelected={selectedTrueFalse === 1}
+      onPress={() => setSelectedTrueFalse(1)}
+    />
+    <TrueFalseOptionButton
+      isTrue={false} // Shows "False" text
+      isSelected={selectedTrueFalse === 0}
+      onPress={() => setSelectedTrueFalse(0)}
+    />
+  </View>
+);
+
+// ❌ INCORRECT: Do not map over options array
+// This causes "False False" display bug
+const renderTrueFalseOptionsWrong = () => (
+  currentQuestion.options?.map((option, index) => (
+    <TrueFalseOptionButton
+      key={index}
+      text={option}  // ❌ text prop doesn't exist
+      isSelected={selectedTrueFalse === index}
+      onPress={() => setSelectedTrueFalse(index)}
+    />
+  ))
+);
 ```
 
 ### Fill-in-the-Blank Options

@@ -149,13 +149,22 @@ const STORAGE_KEYS = {
   MODULE_PROGRESS: 'module_progress',
 }
 
-// Initial data for Umayyad Dynasty (5 adventures, 3 modules each)
+// Initial data for all adventures across both eras
+// Note: Internal IDs (1-5, 6-10) vs Display Names (Umayyad 1-5, Rise of Islam 1-5)
+// IMPORTANT: Only Adventure 1 (Umayyad) unlocked by default - other adventures unlock through era selection
 const INITIAL_ADVENTURE_DATA: AdventureProgress[] = [
-  { adventureId: 1, isUnlocked: true, modulesCompleted: 0, totalModules: 3 }, // First adventure unlocked by default
-  { adventureId: 2, isUnlocked: false, modulesCompleted: 0, totalModules: 3 },
-  { adventureId: 3, isUnlocked: false, modulesCompleted: 0, totalModules: 3 },
-  { adventureId: 4, isUnlocked: false, modulesCompleted: 0, totalModules: 3 },
-  { adventureId: 5, isUnlocked: false, modulesCompleted: 0, totalModules: 3 },
+  // Umayyad Dynasty Era - Adventures 1-5 (Display: Umayyad Adventure 1-5)
+  { adventureId: 1, isUnlocked: true, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 1 (unlocked by default)
+  { adventureId: 2, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 2
+  { adventureId: 3, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 3
+  { adventureId: 4, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 4
+  { adventureId: 5, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 5
+  // Rise of Islam Era - Adventures 6-10 (Display: Rise of Islam Adventure 1-5)
+  { adventureId: 6, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Rise of Islam Adventure 1 (unlocked when era selected)
+  { adventureId: 7, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Rise of Islam Adventure 2
+  { adventureId: 8, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Rise of Islam Adventure 3
+  { adventureId: 9, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Rise of Islam Adventure 4
+  { adventureId: 10, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Rise of Islam Adventure 5
 ]
 
 export function ProgressProvider({ children }: { children: React.ReactNode }) {
@@ -201,7 +210,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const loadProgressData = async () => {
     try {
       setIsLoading(true)
-      
+
       // Load selected era
       const storedEra = await WebCompatibleStorage.getItem(STORAGE_KEYS.SELECTED_ERA)
       if (storedEra) {
@@ -213,6 +222,11 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       if (storedAdventures) {
         const adventures = JSON.parse(storedAdventures) as AdventureProgress[]
         setAdventureProgress(adventures)
+      } else {
+        // Initialize with default data if no adventures exist
+        console.log('🆕 Initializing default adventure progress')
+        setAdventureProgress(INITIAL_ADVENTURE_DATA)
+        await WebCompatibleStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, JSON.stringify(INITIAL_ADVENTURE_DATA))
       }
 
       // Load module progress with migration
@@ -221,8 +235,17 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         const modules = JSON.parse(storedModules)
         const migratedModules = migrateAndValidateData(modules)
         setModuleProgress(migratedModules)
-        
+
         console.log('✅ Progress data loaded and migrated successfully')
+      }
+
+      // Initialize era data if we have a selected era
+      if (storedEra) {
+        console.log(`🎯 Initializing era data for stored era: ${storedEra}`)
+        // Use setTimeout to ensure state is updated before initializing era data
+        setTimeout(async () => {
+          await initializeEraData(storedEra)
+        }, 100)
       }
 
     } catch (error) {
@@ -250,9 +273,104 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     try {
       await WebCompatibleStorage.setItem(STORAGE_KEYS.SELECTED_ERA, eraId)
       setSelectedEraState(eraId)
+
+      // Initialize era-specific adventure and module data if needed
+      await initializeEraData(eraId)
+
       syncEra()
     } catch (error) {
       console.error('Error saving selected era:', error)
+    }
+  }
+
+  // Initialize era-specific data when era is selected
+  const initializeEraData = async (eraId: string) => {
+    try {
+      console.log(`🎯 Initializing data for era: ${eraId}`)
+
+      if (eraId === 'riseOfIslam') {
+        // Unlock Rise of Islam Adventure 1 (Internal ID: 6) and create Module 1
+        const currentAdventures = [...adventureProgress]
+        const riseOfIslamAdv1 = currentAdventures.find(a => a.adventureId === 6)
+
+        if (riseOfIslamAdv1 && !riseOfIslamAdv1.isUnlocked) {
+          console.log('🔓 Unlocking Rise of Islam Adventure 1 (Internal ID: 6)')
+
+          // Unlock Adventure 6
+          const updatedAdventures = currentAdventures.map(a =>
+            a.adventureId === 6
+              ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
+              : a
+          )
+          setAdventureProgress(updatedAdventures)
+          await WebCompatibleStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, JSON.stringify(updatedAdventures))
+        }
+
+        // Check if Rise of Islam Adventure 1 Module 1 exists (Internal ID: 6)
+        const existingModule = getModuleProgress(6, 1)
+        if (!existingModule) {
+          console.log('🆕 Creating Rise of Islam Adventure 1 Module 1 (Internal ID: 6)')
+
+          // Create Rise of Islam Adventure 1 Module 1 as unlocked by default
+          const riseOfIslamAdv1Module1: ModuleProgress = {
+            adventureId: 6, // Internal ID for database consistency
+            moduleId: 1,
+            isCompleted: false,
+            lessonsCompleted: [],
+            quizCompleted: false,
+            unlockedAt: new Date().toISOString()
+          }
+
+          const updatedModules = [...moduleProgress, riseOfIslamAdv1Module1]
+          setModuleProgress(updatedModules)
+
+          // Save to storage
+          await WebCompatibleStorage.setItem(STORAGE_KEYS.MODULE_PROGRESS, JSON.stringify(updatedModules))
+          console.log('✅ Rise of Islam Adventure 1 Module 1 created and saved')
+        }
+      } else if (eraId === 'umayyad') {
+        // Ensure Umayyad Adventure 1 (Internal ID: 1) is unlocked (should already be from INITIAL_ADVENTURE_DATA)
+        const currentAdventures = [...adventureProgress]
+        const umayyadAdv1 = currentAdventures.find(a => a.adventureId === 1)
+
+        if (umayyadAdv1 && !umayyadAdv1.isUnlocked) {
+          console.log('🔓 Ensuring Umayyad Adventure 1 (Internal ID: 1) is unlocked')
+
+          // Unlock Adventure 1 (should already be unlocked, but ensuring consistency)
+          const updatedAdventures = currentAdventures.map(a =>
+            a.adventureId === 1
+              ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
+              : a
+          )
+          setAdventureProgress(updatedAdventures)
+          await WebCompatibleStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, JSON.stringify(updatedAdventures))
+        }
+
+        // Check if Umayyad Adventure 1 Module 1 exists (Internal ID: 1)
+        const existingModule = getModuleProgress(1, 1)
+        if (!existingModule) {
+          console.log('🆕 Creating Umayyad Adventure 1 Module 1 (Internal ID: 1)')
+
+          // Create Umayyad Adventure 1 Module 1 as unlocked by default
+          const umayyadAdv1Module1: ModuleProgress = {
+            adventureId: 1, // Internal ID for database consistency
+            moduleId: 1,
+            isCompleted: false,
+            lessonsCompleted: [],
+            quizCompleted: false,
+            unlockedAt: new Date().toISOString()
+          }
+
+          const updatedModules = [...moduleProgress, umayyadAdv1Module1]
+          setModuleProgress(updatedModules)
+
+          // Save to storage
+          await WebCompatibleStorage.setItem(STORAGE_KEYS.MODULE_PROGRESS, JSON.stringify(updatedModules))
+          console.log('✅ Umayyad Adventure 1 Module 1 created and saved')
+        }
+      }
+    } catch (error) {
+      console.error(`❌ Error initializing era data for ${eraId}:`, error)
     }
   }
 
@@ -418,8 +536,8 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
           
           // Unlock next adventure
           const nextAdventureId = adventureId + 1
-          if (nextAdventureId <= 5) { // Max 5 adventures
-            updatedAdventures = updatedAdventures.map(a => 
+          if (nextAdventureId <= 10) { // Max 10 adventures (Adventures 1-5 for Umayyad, 6-10 for Rise of Islam)
+            updatedAdventures = updatedAdventures.map(a =>
               a.adventureId === nextAdventureId
                 ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
                 : a

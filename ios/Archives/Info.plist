@@ -53,20 +53,22 @@
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Archives uses your camera to capture images for educational content, historical documentation, and interactive learning experiences.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Archives uses your microphone to record audio content for educational lessons, interactive learning experiences, and historical documentation.</string>
-    <key>NSUserActivityTypes</key>
-    <array>
-      <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
-    </array>
     <key>NSContactsUsageDescription</key>
     <string>Archives may access your contacts to help you connect with other learners and share educational content with friends and classmates.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Archives uses your location to provide region-specific historical content, educational experiences, and culturally relevant learning materials.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Archives uses your microphone to record audio content for educational lessons, interactive learning experiences, and historical documentation.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Archives may access your photo library to let you add personal images to educational content, create historical documentation, and enhance your learning experience.</string>
+    <key>NSUserActivityTypes</key>
+    <array>
+      <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
+    </array>
     <key>NSUserTrackingUsageDescription</key>
     <string>Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform.</string>
+    <key>RCTNewArchEnabled</key>
+    <true/>
     <key>UIBackgroundModes</key>
     <array>
       <string>audio</string>

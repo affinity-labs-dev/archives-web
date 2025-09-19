@@ -84,7 +84,7 @@ const UMAYYAD_ADVENTURES = [
   },
   {
     id: 5,
-    title: "Coming Soon",
+    title: "The Abbasid Revolution",
     headerIcon: "custom", // Custom SVG icon
     iconLibrary: "CustomSVG" as const,
     mapImage: require('@/assets/images/adventure-maps/AdventureMap5.png'),

@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-// import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const COLLAPSED_HEIGHT = 140;
@@ -52,26 +52,32 @@ export default function Adventure4_Module2_Lesson2({
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Background music - commented out for now to prevent errors
-  // const { playBackgroundMusic, stopBackgroundMusic } = useBackgroundMusic();
+  // Background music hook - AWS CloudFront
+  const backgroundMusic = useBackgroundMusic(
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M2_L2.mp3" },
+    {
+      volume: 0.5,
+      shouldLoop: true,
+    }
+  );
 
-  // Manuscript & Scribes carousel data - using placeholder assets for now
+  // Manuscript & Scribes carousel data - Using AWS CloudFront URLs
   const palaceInteriors = [
     {
       id: 1,
-      imageUrl: require('@/assets/images/lesson-content/Reader.png'),
+      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img04.png",
       title: "Scribes at Work",
       caption: "An Umayyad scribe at work in a quiet library. Copying texts by candlelight, surrounded by scrolls, ink, and gold pigment",
     },
     {
       id: 2,
-      imageUrl: require('@/assets/images/lesson-content/map.png'),
+      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img05.png",
       title: "Scribe's Tools",
       caption: "A scribe&apos;s desk in an Umayyad library - tools of the trade laid out in candlelight: reed pens, pigments, ink, and parchment",
     },
     {
       id: 3,
-      imageUrl: require('@/assets/images/quiz-images/Bilingual.png'),
+      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img06.png",
       title: "Manuscript Pages",
       caption: "Half-finished Qur'anic pages in Kufic script dry on wooden racks",
     },
@@ -80,13 +86,37 @@ export default function Adventure4_Module2_Lesson2({
   // Historical text content for Illuminated Manuscripts
   const historicalText = `Illuminated manuscripts weren't made quickly - they took time, patience, and deep respect. Scribes trained for years to master every curve of the letters. They mixed gold into paint, carefully applied borders, and copied each page by hand. These books weren't just for reading - they were made to last, to be passed on, and to reflect the beauty of the words inside.`;
 
+  // Enhanced debug logging for background music
   useEffect(() => {
-    console.log("🎵 Adventure4_Module2_Lesson2 mounted - starting background music");
-    // playBackgroundMusic("https://www.udio.com/songs/o1pEeKwpBrSxqhcorwdgof");
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`🎵 [${timestamp}] Adventure4_Module2_Lesson2 - Background music state:`, {
+      isLoaded: backgroundMusic.isLoaded,
+      isPlaying: backgroundMusic.isPlaying,
+      isLoading: backgroundMusic.isLoading || false,
+      platform: Platform.OS
+    });
 
+    if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
+      console.log('🎵 Audio not loading - AWS CloudFront source should be available');
+      console.log('🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M2_L2.mp3');
+    }
+  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
+
+  // Component mount logging
+  useEffect(() => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log('🎵 Adventure4_Module2_Lesson2 component mounted at:', timestamp);
+  }, []);
+
+  // Cleanup background music when component unmounts
+  useEffect(() => {
     return () => {
-      console.log("🎵 Adventure4_Module2_Lesson2 unmounting - stopping background music");
-      // stopBackgroundMusic();
+      console.log('🎵 Component unmounting - cleaning up all audio');
+
+      if (backgroundMusic.stop) {
+        console.log('🎵 Stopping background music on component unmount');
+        backgroundMusic.stop();
+      }
     };
   }, []);
 
@@ -309,7 +339,7 @@ export default function Adventure4_Module2_Lesson2({
             <View key={interior.id} style={styles.imageContainer}>
               {/* Full screen manuscript image */}
               <Image
-                source={interior.imageUrl}
+                source={{ uri: interior.imageUrl }}
                 style={styles.palaceImage}
                 resizeMode="cover"
               />
@@ -330,6 +360,11 @@ export default function Adventure4_Module2_Lesson2({
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
           <TouchableOpacity style={styles.backButton} onPress={() => {
+            if (backgroundMusic.isPlaying) {
+              console.log('🎵 Stopping background music on back button');
+              backgroundMusic.stop();
+            }
+
             (onBack || onDismiss)();
           }}>
             <Ionicons name="chevron-back" size={24} color="white" />

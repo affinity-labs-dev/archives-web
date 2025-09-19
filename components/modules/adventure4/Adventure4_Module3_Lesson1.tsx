@@ -1,7 +1,7 @@
 // Adventure4_Module3_Lesson1.tsx - EXACT replica of Adventure3_Module3_Lesson2 format
 // Scroll-based lesson about Advanced Islamic Architecture and Innovation
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -10,10 +10,12 @@ import {
   TouchableOpacity,
   StatusBar,
   Image,
+  Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import { useBackgroundMusic } from '@/hooks/useBackgroundMusic'
 
 interface Adventure4_Module3_Lesson1Props {
   onContinue: () => void;
@@ -28,6 +30,15 @@ export default function Adventure4_Module3_Lesson1({
 }: Adventure4_Module3_Lesson1Props) {
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false)
 
+  // Background music hook - AWS CloudFront
+  const backgroundMusic = useBackgroundMusic(
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M3_L2.mp3" },
+    {
+      volume: 0.5,
+      shouldLoop: true,
+    }
+  )
+
   // Content for Advanced Islamic Architecture and Innovation
   const text1 = `Under the Umayyads, Islamic architecture reached new heights of sophistication. Master builders combined Byzantine engineering with Arabian aesthetic principles, creating structures that were both functional and breathtakingly beautiful.`
 
@@ -36,6 +47,34 @@ export default function Adventure4_Module3_Lesson1({
   const text3 = `Advanced water management systems, including complex aqueducts and fountain networks, transformed arid landscapes into gardens of paradise. These innovations made urban life possible in previously uninhabitable regions.`
 
   const text4 = `The fusion of artistic traditions from conquered territories created a distinctive Umayyad style. Persian carpets, Byzantine mosaics, and Arabian geometric patterns merged into a unified aesthetic that defined an empire.`
+
+  // Enhanced debug logging for background music
+  useEffect(() => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`🎵 [${timestamp}] Adventure4_Module3_Lesson1 - Background music state:`, {
+      isLoaded: backgroundMusic.isLoaded,
+      isPlaying: backgroundMusic.isPlaying,
+      isLoading: backgroundMusic.isLoading || false,
+      platform: Platform.OS
+    });
+
+    if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
+      console.log('🎵 Audio not loading - AWS CloudFront source should be available');
+      console.log('🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M3_L2.mp3');
+    }
+  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
+
+  // Cleanup background music when component unmounts
+  useEffect(() => {
+    return () => {
+      console.log('🎵 Component unmounting - cleaning up all audio');
+
+      if (backgroundMusic.stop) {
+        console.log('🎵 Stopping background music on component unmount');
+        backgroundMusic.stop();
+      }
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -53,7 +92,7 @@ export default function Adventure4_Module3_Lesson1({
             {/* Image 1 - Architectural Innovation */}
             <View style={styles.imageContainer}>
               <Image
-                source={require('@/assets/images/quiz-images/mosque.png')}
+                source={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M3_Img01.png" }}
                 style={styles.image}
                 resizeMode="cover"
               />
@@ -77,7 +116,7 @@ export default function Adventure4_Module3_Lesson1({
             {/* Image 2 - Great Mosque */}
             <View style={styles.imageContainer}>
               <Image
-                source={require('@/assets/images/lesson-content/map.png')}
+                source={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M3_Img02.jpg" }}
                 style={styles.image}
                 resizeMode="cover"
               />
@@ -101,7 +140,7 @@ export default function Adventure4_Module3_Lesson1({
             {/* Image 3 - Engineering systems */}
             <View style={styles.imageContainer}>
               <Image
-                source={require('@/assets/images/quiz-images/engineers.png')}
+                source={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M3_Img03.jpg" }}
                 style={styles.image}
                 resizeMode="cover"
               />
@@ -125,7 +164,7 @@ export default function Adventure4_Module3_Lesson1({
             {/* Image 4 - Cultural fusion */}
             <View style={styles.imageContainer}>
               <Image
-                source={require('@/assets/images/lesson-content/Reader.png')}
+                source={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M3_Img04.png" }}
                 style={styles.image}
                 resizeMode="cover"
               />
@@ -163,7 +202,14 @@ export default function Adventure4_Module3_Lesson1({
 
       {/* Back Button - always visible */}
       <SafeAreaView style={styles.backButtonContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack || onDismiss}>
+        <TouchableOpacity style={styles.backButton} onPress={() => {
+          if (backgroundMusic.isPlaying) {
+            console.log('🎵 Stopping background music on back button');
+            backgroundMusic.stop();
+          }
+
+          (onBack || onDismiss)();
+        }}>
           <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
         </TouchableOpacity>
       </SafeAreaView>
@@ -199,7 +245,7 @@ const styles = StyleSheet.create({
 
   image: {
     width: '100%',
-    height: 250, // EXACT SwiftUI: .frame(height: 250)
+    height: 320, // Increased from 250 to 320 for longer image display
     borderRadius: 12, // EXACT SwiftUI: .cornerRadius(12)
   },
 

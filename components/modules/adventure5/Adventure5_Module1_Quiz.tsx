@@ -42,7 +42,7 @@ const quizQuestions = [
   },
   {
     question: "Yazīd II encouraged more music and poetry at court.",
-    correctAnswer: 1, // False
+    correctAnswer: 0, // False
     explanation: "This is false. Yazīd II actually imposed strict religious restrictions, banning music and poetry at court, which caused significant dissatisfaction among the cultural elite.",
     points: 10,
     type: 'trueFalse' as const,
@@ -60,7 +60,7 @@ const quizQuestions = [
   },
   {
     question: "His ban on music and poetry left people dissatisfied.",
-    correctAnswer: 0, // True
+    correctAnswer: 1, // True
     explanation: "This is true. Yazīd II's strict religious policies, including the ban on music and poetry, created widespread dissatisfaction, particularly among the cultural and intellectual elite of the empire.",
     points: 10,
     type: 'trueFalse' as const,
@@ -217,14 +217,16 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
     } else if (currentQuestion.type === 'trueFalse') {
       return (
         <View style={styles.trueFalseContainer}>
-          {currentQuestion.options?.map((option, index) => (
-            <TrueFalseOptionButton
-              key={index}
-              text={option}
-              isSelected={selectedTrueFalse === index}
-              onPress={() => setSelectedTrueFalse(index)}
-            />
-          ))}
+          <TrueFalseOptionButton
+            isTrue={true}
+            isSelected={selectedTrueFalse === 1}
+            onPress={() => setSelectedTrueFalse(1)}
+          />
+          <TrueFalseOptionButton
+            isTrue={false}
+            isSelected={selectedTrueFalse === 0}
+            onPress={() => setSelectedTrueFalse(0)}
+          />
         </View>
       )
     }

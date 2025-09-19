@@ -33,23 +33,23 @@ interface Adventure4_Module1_Lesson1Props {
   onBack?: () => void;
 }
 
-// Mosque mosaic data with external URLs from user content
+// Mosque mosaic data with AWS CloudFront URLs
 const mosqueMosaics = [
   {
     id: 1,
-    imageUrl: "https://i.redd.it/q2ejnqxg69f61.jpg",
+    imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M1_Img01.jpg",
     title: "The Umayyad Mosque Today",
     caption: "The Great Mosque of Damascus is one of the oldest and most beautiful in the world - and its walls sparkle with Byzantine-made mosaics."
   },
   {
     id: 2,
-    imageUrl: "https://farahmahbub.com/wp-content/uploads/2022/03/Umayyad-Mosque_01-scaled.jpg",
+    imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M1_Img02.jpg",
     title: "The Umayyad Mosque Today",
     caption: "These weren&apos;t pictures of people or battles. Instead, they showed peaceful imaginary landscapes filled with trees, palaces, and flowing water."
   },
   {
     id: 3,
-    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/The_Great_Umayyed_Mosque_of_Damascus%2C_Syria_western_portico%2C_mosaic_depicting_a_continuous_landscape.jpg/1200px-The_Great_Umayyed_Mosque_of_Damascus%2C_Syria_western_portico%2C_mosaic_depicting_a_continuous_landscape.jpg",
+    imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M1_Img03.jpg",
     title: "Mosaic on the Umayyad Mosque",
     caption: "These dreamlike scenes reminded worshippers of paradise, creating a calm and sacred feeling inside the mosque."
   }
@@ -75,9 +75,9 @@ export default function Adventure4_Module1_Lesson1({
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Background music hook - Using provided Udio link
+  // Background music hook - Using AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
-    { uri: "https://www.udio.com/songs/ecJUifKdtKqz5idU5DbkT3?utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing" },
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M1_L1_Echoes.mp3" },
     {
       volume: 0.5,
       shouldLoop: true,
@@ -95,8 +95,8 @@ export default function Adventure4_Module1_Lesson1({
     });
 
     if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
-      console.log('🎵 Audio not loading - Udio source should be available');
-      console.log('🎵 Udio Audio URL: https://www.udio.com/songs/ecJUifKdtKqz5idU5DbkT3');
+      console.log('🎵 Audio not loading - AWS CloudFront source should be available');
+      console.log('🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M1_L1_Echoes.mp3');
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
 

@@ -73,6 +73,24 @@ import Adventure4_Module3_Lesson1 from './adventure4/Adventure4_Module3_Lesson1'
 import Adventure4_Module3_Lesson2 from './adventure4/Adventure4_Module3_Lesson2'
 import Adventure4_Module3_Quiz from './adventure4/Adventure4_Module3_Quiz'
 
+// Adventure 5 - Yazīd II's Reign - Module 1
+import Adventure5_Module1_Lesson1 from './adventure5/Adventure5_Module1_Lesson1'
+import Adventure5_Module1_Lesson2 from './adventure5/Adventure5_Module1_Lesson2'
+import Adventure5_Module1_Quiz from './adventure5/Adventure5_Module1_Quiz'
+
+// Adventure 5 - The Abbasid Revolution - Module 2
+import Adventure5_Module2_Lesson1 from './adventure5/Adventure5_Module2_Lesson1'
+import Adventure5_Module2_Lesson2 from './adventure5/Adventure5_Module2_Lesson2'
+import Adventure5_Module2_Quiz from './adventure5/Adventure5_Module2_Quiz'
+
+// Adventure 5 - Revolution & New Order - Module 3
+import Adventure5_Module3_Lesson1 from './adventure5/Adventure5_Module3_Lesson1'
+import Adventure5_Module3_Lesson2 from './adventure5/Adventure5_Module3_Lesson2'
+import Adventure5_Module3_Quiz from './adventure5/Adventure5_Module3_Quiz'
+
+// Rise of Islam Adventure 1 - The Early Years - Module 1 (using Adventure1 components)
+// Note: Internal ID is 6, but this is Rise of Islam Adventure 1 for user display
+
 interface ModuleModalProps {
   isVisible: boolean
   moduleId: string | null // e.g., "adv1_mod1"
@@ -409,14 +427,14 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
       switch (currentStep) {
         case 'lesson1':
           return (
-            <Adventure4_Module1_Lesson1
+            <Adventure4_Module1_Lesson2
               onContinue={() => handleLessonComplete('lesson1')}
               onDismiss={handleModalDismiss}
             />
           )
         case 'lesson2':
           return (
-            <Adventure4_Module1_Lesson2
+            <Adventure4_Module1_Lesson1
               onContinue={() => handleLessonComplete('lesson2')}
               onDismiss={handleModalDismiss}
               onBack={handleGoBack}
@@ -488,6 +506,119 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
       }
     }
 
+    // Adventure 5, Module 1 - Yazīd II's Reign - Cultural Achievements
+    if (adventure === 5 && module === 1) {
+      switch (currentStep) {
+        case 'lesson1':
+          return (
+            <Adventure5_Module1_Lesson1
+              onContinue={() => handleLessonComplete('lesson1')}
+              onDismiss={handleModalDismiss}
+            />
+          )
+        case 'lesson2':
+          return (
+            <Adventure5_Module1_Lesson2
+              onContinue={() => handleLessonComplete('lesson2')}
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+        case 'quiz':
+          return (
+            <Adventure5_Module1_Quiz
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+      }
+    }
+
+    // Adventure 5, Module 2 - The Abbasid Revolution - Propaganda and Rebellion Tactics
+    if (adventure === 5 && module === 2) {
+      switch (currentStep) {
+        case 'lesson1':
+          return (
+            <Adventure5_Module2_Lesson1
+              onContinue={() => handleLessonComplete('lesson1')}
+              onDismiss={handleModalDismiss}
+            />
+          )
+        case 'lesson2':
+          return (
+            <Adventure5_Module2_Lesson2
+              onContinue={() => handleLessonComplete('lesson2')}
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+        case 'quiz':
+          return (
+            <Adventure5_Module2_Quiz
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+      }
+    }
+
+    // Adventure 5, Module 3 - Revolution & New Order - Abbasid Takeover and Baghdad Foundation
+    if (adventure === 5 && module === 3) {
+      switch (currentStep) {
+        case 'lesson1':
+          return (
+            <Adventure5_Module3_Lesson1
+              onContinue={() => handleLessonComplete('lesson1')}
+              onDismiss={handleModalDismiss}
+            />
+          )
+        case 'lesson2':
+          return (
+            <Adventure5_Module3_Lesson2
+              onContinue={() => handleLessonComplete('lesson2')}
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+        case 'quiz':
+          return (
+            <Adventure5_Module3_Quiz
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+      }
+    }
+
+    // Rise of Islam Adventure 1, Module 1 - The Early Years - Meccan Life & Tribal Culture
+    // (Internal ID: Adventure 6 for database consistency)
+    if (adventure === 6 && module === 1) {
+      switch (currentStep) {
+        case 'lesson1':
+          return (
+            <Adventure1_Module1_Lesson1
+              onContinue={() => handleLessonComplete('lesson1')}
+              onDismiss={handleModalDismiss}
+            />
+          )
+        case 'lesson2':
+          return (
+            <Adventure1_Module1_Lesson2
+              onContinue={() => handleLessonComplete('lesson2')}
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+        case 'quiz':
+          return (
+            <Adventure1_Module1_Quiz
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+      }
+    }
+
     // Fallback for unimplemented modules
     return (
       <View style={styles.fallbackContainer}>
@@ -534,6 +665,8 @@ function extractAdventureAndModule(moduleId: string): [number, number] {
     adventure = 4
   } else if (moduleId.includes('adv5')) {
     adventure = 5
+  } else if (moduleId.includes('adv6')) {
+    adventure = 6
   }
   
   // Handle module number

@@ -25,7 +25,7 @@ The Video + Reading lesson type combines full-screen video playback with expanda
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // Card Height Constants - EXACT SwiftUI measurements
-const COLLAPSED_HEIGHT = 140;           // Card collapsed state height
+const COLLAPSED_HEIGHT = 160;           // Card collapsed state height (use 160px for proper text spacing)
 const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.85;  // Card expanded to 85% of screen
 
 // Animation Constants
@@ -41,6 +41,37 @@ const BUTTON_RADIUS = 20;              // Button border radius
 const CARD_HANDLE_WIDTH = 70;          // Card drag handle width
 const CARD_HANDLE_HEIGHT = 5;          // Card drag handle height
 ```
+
+## 📝 Collapsed Card Text Guidelines
+
+### **CRITICAL: Keep Text to Two Lines Only**
+The collapsed reading card should display exactly **two lines of text** to prevent overlapping and maintain clean visual appearance:
+
+#### ✅ **Correct Format:**
+```typescript
+<View style={styles.readingCardHeader}>
+  <Text style={styles.cardTitle}>
+    Main Lesson Title                    // Line 1: Clear, descriptive title
+  </Text>
+  <Text style={styles.cardSubtitle}>
+    Short descriptive subtitle          // Line 2: Concise explanation (max 1 line)
+  </Text>
+</View>
+```
+
+#### ❌ **Avoid Long Text:**
+- **Don't use**: "Long before the Abbasids took the throne, they built a movement in whispers and promises..."
+- **Use instead**: "Building a movement through whispers and promises"
+
+#### 📏 **Text Length Guidelines:**
+- **Title**: Maximum 3-4 words (18px font)
+- **Subtitle**: Maximum 6-8 words (14px font)
+- **Total**: Should fit comfortably within 160px card height
+- **Line Height**: Use `lineHeight: 20` for subtitle readability
+
+#### 🎯 **Examples from Working Lessons:**
+- **Adventure1**: "Muʿawiya's Ascension" / "Understanding the political maneuvering that established the Umayyad dynasty"
+- **Adventure5**: "Abbasid Revolutionary Strategy" / "Building a movement through whispers and promises"
 
 ## 🛠️ Technical Implementation
 

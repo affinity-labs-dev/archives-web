@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import UmmayadDynastyEra from '@/components/eras/UmmayadDynastyEra'
+import RiseOfIslamEra from '@/components/eras/RiseOfIslamEra'
 import ComingSoonView from '@/components/eras/ComingSoonView'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
@@ -49,9 +50,9 @@ export default function HomeTab() {
   switch (selectedEra) {
     case 'umayyad':
       return <UmmayadDynastyEra onBackToEra={handleBackToEra} />
-      
+
     case 'riseOfIslam':
-      return <ComingSoonView era="riseOfIslam" onBack={handleBackToEra} />
+      return <RiseOfIslamEra onBackToEra={handleBackToEra} />
       
     case 'abbasid':
       return <ComingSoonView era="abbasid" onBack={handleBackToEra} />

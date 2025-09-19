@@ -10,9 +10,6 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "deviceFamily": [
-        1
-      ],
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "L33CVM28SL",
@@ -25,26 +22,13 @@
       }
     },
     "android": {
-      "deviceFamily": [
-        "phone"
-      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/app-icon.png",
         "backgroundColor": "#F4EBDB"
       },
       "edgeToEdgeEnabled": true,
-      "statusBar": {
-        "hidden": false,
-        "backgroundColor": "#F4EBDB"
-      },
-      "navigationBar": {
-        "backgroundColor": "#F4EBDB",
-        "barStyle": "dark-content"
-      },
       "package": "ai.affinitylabs.archivesexpo",
       "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
@@ -91,6 +75,15 @@
         "@stripe/stripe-react-native",
         {
           "enableGooglePay": true
+        }
+      ],
+      "react-native-bottom-tabs",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
       ]
     ],

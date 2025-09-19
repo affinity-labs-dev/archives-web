@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-// import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const COLLAPSED_HEIGHT = 140;
@@ -51,26 +51,32 @@ export default function Adventure4_Module2_Lesson1({
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Background music - commented out for now to prevent errors
-  // const { playBackgroundMusic, stopBackgroundMusic } = useBackgroundMusic();
+  // Background music hook - AWS CloudFront
+  const backgroundMusic = useBackgroundMusic(
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M2_L1.mp3" },
+    {
+      volume: 0.5,
+      shouldLoop: true,
+    }
+  );
 
-  // Desert Palaces carousel data - EXACT Adventure1 structure with title and caption
+  // Desert Palaces carousel data - Using AWS CloudFront URLs
   const carouselData = [
     {
       id: 1,
-      image: require("@/assets/images/lesson-content/map.png"), // Using existing asset
+      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img01.jpg",
       title: "Desert Palace Location", // Not displayed on image overlay
       caption: "In the middle of the Syrian desert, the Umayyads built desert palaces like Qasr al-Hayr - calm retreats far from the crowded cities.",
     },
     {
       id: 2,
-      image: require("@/assets/images/lesson-content/Reader.png"), // Using existing asset
+      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img02.jpg",
       title: "Palace Life", // Not displayed on image overlay
       caption: "These weren't just places to relax. They were hunting lodges, rest stops for caravans, and centers of rural life.",
     },
     {
       id: 3,
-      image: require("@/assets/images/quiz-images/writer.png"), // Using existing asset
+      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img03.jpg",
       title: "Garden Oasis", // Not displayed on image overlay
       caption: "The walls were decorated with stucco designs, and cool water flowed through pools and channels to beat the desert heat.",
     },
@@ -79,13 +85,37 @@ export default function Adventure4_Module2_Lesson1({
   // Historical text content for Desert Palaces
   const historicalText = `The Umayyad desert palaces, or "qusur," represented a unique fusion of luxury and frontier governance. Built in the Syrian desert between 660-750 CE, these magnificent complexes like Qasr al-Hayr al-Gharbi and Qasr al-Hayr al-Sharqi served multiple purposes: administrative centers, hunting lodges, agricultural experiments, and symbols of caliphal power. The palaces featured advanced water management systems, elaborate bathhouses, intricate mosaics, and enclosed hunting parks called "hima." They allowed the Umayyad rulers to maintain control over trade routes while enjoying the traditional Bedouin lifestyle that remained central to their identity.`;
 
+  // Enhanced debug logging for background music
   useEffect(() => {
-    console.log("🎵 Adventure4_Module2_Lesson1 mounted - starting background music");
-    // playBackgroundMusic("https://dzyjrzj2lngmg.cloudfront.net/Audio/Adv4_M2_BG1.mp3");
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`🎵 [${timestamp}] Adventure4_Module2_Lesson1 - Background music state:`, {
+      isLoaded: backgroundMusic.isLoaded,
+      isPlaying: backgroundMusic.isPlaying,
+      isLoading: backgroundMusic.isLoading || false,
+      platform: Platform.OS
+    });
 
+    if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
+      console.log('🎵 Audio not loading - AWS CloudFront source should be available');
+      console.log('🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M2_L1.mp3');
+    }
+  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
+
+  // Component mount logging
+  useEffect(() => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log('🎵 Adventure4_Module2_Lesson1 component mounted at:', timestamp);
+  }, []);
+
+  // Cleanup background music when component unmounts
+  useEffect(() => {
     return () => {
-      console.log("🎵 Adventure4_Module2_Lesson1 unmounting - stopping background music");
-      // stopBackgroundMusic();
+      console.log('🎵 Component unmounting - cleaning up all audio');
+
+      if (backgroundMusic.stop) {
+        console.log('🎵 Stopping background music on component unmount');
+        backgroundMusic.stop();
+      }
     };
   }, []);
 
@@ -280,7 +310,7 @@ export default function Adventure4_Module2_Lesson1({
         >
           {carouselData.map((item, index) => (
             <View key={item.id} style={styles.carouselPage}>
-              <Image source={item.image} style={styles.carouselImage} />
+              <Image source={{ uri: item.imageUrl }} style={styles.carouselImage} />
 
               {/* Text overlay with descriptive caption */}
               <View style={styles.textOverlay}>
@@ -298,6 +328,11 @@ export default function Adventure4_Module2_Lesson1({
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
           <TouchableOpacity style={styles.backButton} onPress={() => {
+            if (backgroundMusic.isPlaying) {
+              console.log('🎵 Stopping background music on back button');
+              backgroundMusic.stop();
+            }
+
             (onBack || onDismiss)();
           }}>
             <Ionicons name="chevron-back" size={24} color="white" />

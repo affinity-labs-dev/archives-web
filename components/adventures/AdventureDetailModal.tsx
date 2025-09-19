@@ -120,10 +120,13 @@ export default function AdventureDetailModal({
 
                 {/* Adventure Title and Era Info */}
                 <View style={styles.titleSection}>
-                  {/* Era Badge */}
+                  {/* Era Badge - Display era-specific adventure numbering */}
                   <View style={styles.eraBadge}>
                     <Text style={styles.eraBadgeText}>
-                      ERA 1, ADVENTURE {adventure.id}
+                      {adventure.id <= 5
+                        ? `UMAYYAD DYNASTY, ADVENTURE ${adventure.id}`
+                        : `RISE OF ISLAM, ADVENTURE ${adventure.id - 5}`
+                      }
                     </Text>
                   </View>
 
