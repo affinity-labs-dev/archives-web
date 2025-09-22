@@ -13,18 +13,13 @@ import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { PostHogProvider } from 'posthog-react-native';
 import { useEffect, useState } from "react";
+import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { useAppTrackingTransparency } from "@/hooks/useAppTrackingTransparency";
 
-// Platform-specific StripeProvider import
-const StripeProvider = Platform.select({
-  native: () => require('@/providers/StripeProvider.native').default,
-  web: () => require('@/providers/StripeProvider.web').default,
-  default: () => require('@/providers/StripeProvider.native').default,
-})();
 
 // ATT-aware PostHog wrapper that respects tracking permissions
 function ATTAwarePostHogProvider({ 
@@ -81,11 +76,43 @@ export default function RootLayout() {
     "Cormorant-Bold": require("../assets/fonts/Cormorant-Bold.ttf"),
   });
 
+  // RevenueCat API Key - iOS only configuration
+  const revenueCatIosApiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
+
+  // Function to get customer info
+  const getCustomerInfo = async () => {
+    try {
+      const customerInfo = await Purchases.getCustomerInfo();
+      // access latest customerInfo
+    } catch (e) {
+     // Error fetching customer info
+    }
+  }
+
+  async function getOfferings() {
+    const offerings = await Purchases.getOfferings();
+    if (
+      offerings.current !== null &&
+      offerings.current.availablePackages.length !== 0
+    ) {
+      console.log("🛒 offerings", JSON.stringify(offerings, null, 2));
+    }
+  }
+
+  // Initialize RevenueCat - Official React Native example
+  useEffect(() => {
+    Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+
+    if (Platform.OS === 'ios') {
+       Purchases.configure({apiKey: revenueCatIosApiKey});
+    }
+  }, []);
+
   console.log('RootLayout - Fonts loaded:', loaded);
   console.log('RootLayout - Platform:', Platform.OS);
   console.log('RootLayout - Available fonts:', {
     'SpaceMono': '✓',
-    'DM Sans': '✓', 
+    'DM Sans': '✓',
     'DM Sans-Bold': '✓',
     'Cormorant': '✓',
     'Cormorant-Bold': '✓'
@@ -121,9 +148,11 @@ export default function RootLayout() {
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
   const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY!;
   const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST!;
-  
+
   console.log('RootLayout - Clerk publishable key exists:', !!publishableKey);
   console.log('RootLayout - PostHog API key exists:', !!posthogApiKey);
+  console.log('RootLayout - RevenueCat iOS key exists:', !!revenueCatIosApiKey);
+  console.log('RootLayout - RevenueCat Android: disabled (iOS only)');
 
   // Create PostHog options with platform-specific configuration
   const posthogOptions = {
@@ -156,11 +185,18 @@ export default function RootLayout() {
     }}>
       <ATTAwarePostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-          <StripeProvider>
             <BackgroundSyncProvider>
               <ProgressProvider>
                 <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
               <Stack>
+                <Stack.Screen name="onboarding-video" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding-video-2" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding-welcome" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding-question-1" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding-question-2" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding-question-3" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding-question-4" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding-results" options={{ headerShown: false }} />
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                 <Stack.Screen name="landing" options={{ headerShown: false }} />
@@ -171,7 +207,6 @@ export default function RootLayout() {
                 </ThemeProvider>
               </ProgressProvider>
             </BackgroundSyncProvider>
-          </StripeProvider>
         </ClerkProvider>
       </ATTAwarePostHogProvider>
     </GestureHandlerRootView>

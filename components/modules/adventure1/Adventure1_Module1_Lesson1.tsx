@@ -1,4 +1,4 @@
-// Adventure1_Module1_Lesson1.tsx - Rise of Islam Era: Mecca Lesson
+// Adventure1_Module1_Lesson1.tsx - Umayyad Dynasty: Damascus Capital Lesson
 // Full-screen video lesson with progress bar, reading card, and repositioned controls
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
@@ -66,8 +66,8 @@ export default function Adventure1_Module1_Lesson1({
   // Track last progress to prevent unnecessary animations
   const lastProgress = useRef(0);
 
-  // Rise of Islam Era: Mecca historical content
-  const historicalText = `Mecca was a busy desert city, filled with caravans arriving from Yemen and Syria. Its markets were lively with trade and filled with songs and stories. The Kaaba was at the heart of the city, surrounded by idols, and served as an important gathering place for many tribes. People often shared stories of their ancestors, pride, and generosity. Belonging to a strong tribe provided safety and respect-but also led to rivalry and ongoing conflicts.`;
+  // Umayyad Dynasty: Damascus historical content
+  const historicalText = `In 661 CE, Muʿawiya became the first Umayyad caliph and moved the capital to Damascus. He gained power through the bayʿah ceremony, where leaders and citizens pledged loyalty by placing their hands in his. This public act wasn't just symbolic - it showed unity and made his rule legitimate. From Damascus, Muʿawiya built the foundations of a new dynasty and a powerful center of leadership.`;
 
   // Handle video playback status and track progress
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
@@ -291,7 +291,7 @@ export default function Adventure1_Module1_Lesson1({
       <View style={styles.container}>
         {/* Full-screen video player */}
         <LessonPlayer
-          videoSource={{ uri: "https://d3bi5e5vkj68.cloudfront.net/Reels/ROI_Adv1_M1_Reel1.mp4" }}
+          videoSource={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel+Videos/Adv1_M1_Reel1.mp4" }}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           autoPlay={true}
           shouldLoop={true}
@@ -371,10 +371,10 @@ export default function Adventure1_Module1_Lesson1({
             ]}>
               <View style={styles.readingCardHeader}>
                 <Text style={styles.cardTitle}>
-                  Mecca: Heart of Trade
+                  Bay&apos;ah Ceremony & Damascus
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  A bustling desert city filled with caravans and stories
+                  In 661 CE, Muʿawiya became the first Umayyad caliph...
                 </Text>
               </View>
             </Animated.View>
@@ -398,7 +398,7 @@ export default function Adventure1_Module1_Lesson1({
                     {/* Title Section */}
                     <View style={styles.titleSection}>
                       <Text style={styles.sheetTitle}>
-                        Mecca: Heart of Trade
+                        Bay&apos;ah Ceremony & Damascus
                       </Text>
                       <Text style={styles.sheetSubtitle}>
                         Module 1 • Lesson 1
@@ -416,16 +416,16 @@ export default function Adventure1_Module1_Lesson1({
                       <Text style={styles.sectionTitle}>Key Terms</Text>
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
-                          term="Kaaba"
-                          definition="The sacred cube-shaped building at the heart of Mecca, surrounded by tribal idols"
+                          term="Bay'ah"
+                          definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
                         />
                         <KeyTermRow
-                          term="Caravan Trade"
-                          definition="Commercial travel routes connecting Yemen and Syria through the Arabian Peninsula"
+                          term="Damascus"
+                          definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
                         />
                         <KeyTermRow
-                          term="Tribal Society"
-                          definition="Social organization based on family clans providing protection and identity"
+                          term="Legitimacy"
+                          definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
                         />
                       </View>
                     </View>
@@ -468,10 +468,10 @@ export default function Adventure1_Module1_Lesson1({
             ]}>
               <View style={styles.collapsedContentWrapper}>
                 <Text style={styles.collapsedTitle}>
-                  Mecca: Heart of Trade
+                  Bay&apos;ah Ceremony & Damascus
                 </Text>
                 <Text style={styles.collapsedSubtitle}>
-                  A bustling desert city filled with caravans and stories
+                  In 661 CE, Muʿawiya became the first Umayyad caliph...
                 </Text>
               </View>
             </Animated.View>
@@ -494,7 +494,7 @@ export default function Adventure1_Module1_Lesson1({
                     {/* Title Section */}
                     <View style={styles.titleSection}>
                       <Text style={styles.sheetTitle}>
-                        Mecca: Heart of Trade
+                        Bay&apos;ah Ceremony & Damascus
                       </Text>
                       <Text style={styles.sheetSubtitle}>
                         Module 1 • Lesson 1
@@ -512,16 +512,16 @@ export default function Adventure1_Module1_Lesson1({
                       <Text style={styles.sectionTitle}>Key Terms</Text>
                       <View style={styles.keyTermsContainer}>
                         <KeyTermRow
-                          term="Kaaba"
-                          definition="The sacred cube-shaped building at the heart of Mecca, surrounded by tribal idols"
+                          term="Bay'ah"
+                          definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
                         />
                         <KeyTermRow
-                          term="Caravan Trade"
-                          definition="Commercial travel routes connecting Yemen and Syria through the Arabian Peninsula"
+                          term="Damascus"
+                          definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
                         />
                         <KeyTermRow
-                          term="Tribal Society"
-                          definition="Social organization based on family clans providing protection and identity"
+                          term="Legitimacy"
+                          definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
                         />
                       </View>
                     </View>

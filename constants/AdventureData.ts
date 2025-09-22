@@ -171,7 +171,7 @@ export const AdventureData = {
     },
     {
       id: 6,
-      title: "The Early Years",
+      title: "ROIERA2Adv1",
       subtitle: "570-610 CE: Before the Call",
       description: "Explore the early life of Prophet Muhammad, from his birth in Mecca to his life as a merchant before receiving his prophetic mission.",
       era: "Rise of Islam",
@@ -197,7 +197,7 @@ export const AdventureData = {
     },
     {
       id: 7,
-      title: "First Revelations",
+      title: "ROIERA2Adv2",
       subtitle: "610-613 CE: The Call to Prophethood",
       description: "Experience the pivotal moment when Muhammad received his first revelation and began his prophetic mission in secret.",
       era: "Rise of Islam",
@@ -223,7 +223,7 @@ export const AdventureData = {
     },
     {
       id: 8,
-      title: "The Hijra",
+      title: "ROIERA2Adv3",
       subtitle: "622 CE: Migration to Medina",
       description: "Follow the historic migration from Mecca to Medina that marks the beginning of the Islamic calendar.",
       era: "Rise of Islam",
@@ -249,7 +249,7 @@ export const AdventureData = {
     },
     {
       id: 9,
-      title: "Building the Community",
+      title: "ROIERA2Adv4",
       subtitle: "622-630 CE: The Medinan Period",
       description: "Witness the establishment of the first Islamic state and community in Medina, including key battles and treaties.",
       era: "Rise of Islam",
@@ -275,7 +275,7 @@ export const AdventureData = {
     },
     {
       id: 10,
-      title: "The Final Years",
+      title: "ROIERA2Adv5",
       subtitle: "630-632 CE: Completion of the Mission",
       description: "Experience the final years of Prophet Muhammad's life, including the peaceful conquest of Mecca and the Farewell Pilgrimage.",
       era: "Rise of Islam",

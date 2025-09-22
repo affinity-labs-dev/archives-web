@@ -1,5 +1,5 @@
-// Adventure1_Module1_Quiz.tsx - EXACT replica of SwiftUI Adventure1_Module1_Quiz.swift
-// 3-question quiz with MCQ, True/False, Fill-in-blank + explanations and results
+// ROIERA2Adv1_Module1_Quiz.tsx - Rise of Islam Era Adventure 1 Module 1 Quiz
+// 5-question quiz covering pre-Islamic Arabia with MCQ, True/False, Fill-in-blank + explanations and results
 
 import React, { useState, useRef, useEffect } from 'react'
 import {
@@ -8,10 +8,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
   StatusBar,
   Animated,
-  Dimensions,
   Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -27,63 +25,60 @@ import {
   ExplanationPopup,
 } from '../QuizSystem'
 
-const { width } = Dimensions.get('window')
 
-interface Adventure1_Module1_QuizProps {
+interface ROIERA2Adv1_Module1_QuizProps {
   onDismiss: () => void
   onBack?: () => void
 }
 
-// Quiz Data - Updated with 5 questions as requested
+// Quiz Data - Rise of Islam Era Adventure 1 Module 1: Pre-Islamic Arabia
 const quizQuestions = [
   {
-    question: "Which city did Muʿawiya designate as the new capital of the Islamic empire in 661 CE?",
-    correctAnswer: 2, // C) Damascus
-    explanation: "Muʿawiya designated Damascus as the new capital in 661 CE, marking the beginning of the Umayyad Dynasty and establishing Damascus as the center of Islamic power.",
+    question: "What was the Kaaba used for before Islam?",
+    correctAnswer: 2, // C) A place of idol worship
+    explanation: "Before Islam, the Kaaba in Mecca was a sacred sanctuary housing numerous idols and statues representing different tribal deities. Arab tribes would make pilgrimages to worship these idols, making it a central place of pre-Islamic religious practice.",
     points: 10,
     type: 'mcq' as const,
-    options: ["Medina", "Baghdad", "Damascus", "Cairo"],
+    options: ["A library", "A tribal market", "A place of idol worship", "A royal palace"],
     image: require('@/assets/images/quiz-images/Reader.png')
   },
   {
-    question: "What key geographic advantage made Damascus attractive as an imperial capital?",
-    correctAnswer: 1, // B) Crossroads of trade & close to the Mediterranean
-    explanation: "Damascus was strategically located at the crossroads of major trade routes and close to the Mediterranean, making it ideal for governing a vast empire and facilitating commerce.",
+    question: "Poets were highly respected in pre-Islamic Arabia.",
+    correctAnswer: 1, // True
+    explanation: "Poets held tremendous prestige in pre-Islamic Arabian society. They were considered the voice of their tribes, preserving history, celebrating victories, and articulating tribal values through their eloquent verses. Their words could inspire warriors and influence tribal decisions.",
     points: 10,
-    type: 'mcq' as const,
-    options: ["Nile-delta access", "Trade crossroads", "Desert protection", "Royal palace"],
-    image: require('@/assets/images/quiz-images/Map.png')
-  },
-  {
-    question: "Muʿawiya's legitimacy as caliph was formally affirmed through which ceremony?",
-    correctAnswer: 1, // B) Bayʿah
-    explanation: "The Bayʿah ceremony was the formal pledge of allegiance that affirmed Muʿawiya's legitimacy as caliph, establishing his authority over the Islamic community.",
-    points: 10,
-    type: 'mcq' as const,
-    options: ["Hajj", "Bayʿah", "Hijra", "Majlis"],
-    image: require('@/assets/images/quiz-images/Reader.png')
-  },
-  {
-    question: "Which river nourished Damascus and spurred its rapid growth under Umayyad rule?",
-    correctAnswer: 2, // C) Barada
-    explanation: "The Barada River was essential for Damascus's prosperity, providing water for agriculture and enabling the city to flourish as the new imperial capital of the Umayyad Empire.",
-    points: 10,
-    type: 'mcq' as const,
-    options: ["Euphrates", "Jordan", "Barada", "Tigris"],
+    type: 'trueFalse' as const,
     image: require('@/assets/images/quiz-images/books.png')
   },
   {
-    question: "Which development best illustrates Damascus's emergence as the empire's political center?",
-    correctAnswer: 1, // B) Markets, mosques, and courtiers
-    explanation: "The bustling markets, construction of new mosques, and arrival of courtiers demonstrated Damascus's transformation into the vibrant political and administrative center of the Umayyad Empire.",
+    question: "Mecca was a hub for long-distance ___ routes.",
+    correctAnswer: 0, // "Trade"
+    explanation: "Mecca's strategic location made it a crucial stop along ancient trade routes connecting the Arabian Peninsula with Syria, Iraq, Yemen, and Ethiopia. Merchants traveling these routes brought wealth and cultural exchange to the city.",
+    points: 10,
+    type: 'fillInBlank' as const,
+    options: ["Trade", "Pilgrimage", "Military", "Nomadic"],
+    image: require('@/assets/images/quiz-images/Map.png')
+  },
+  {
+    question: "Why did tribes value poetry contests?",
+    correctAnswer: 2, // C) To share stories and strengthen reputation
+    explanation: "Poetry contests allowed tribes to showcase their cultural achievements, share heroic stories, and demonstrate their eloquence. Winning these contests enhanced a tribe's reputation and social standing among other Arabian tribes.",
     points: 10,
     type: 'mcq' as const,
-    options: ["Kaʿba rebuilding", "Markets and mosques", "Naval establishment", "Al-Andalus conquest"],
+    options: ["To learn foreign languages", "To display wealth", "To share stories and strengthen reputation", "To choose new leaders"],
+    image: require('@/assets/images/quiz-images/Reader.png')
+  },
+  {
+    question: "Tribal conflicts in Arabia were often caused by small insults or raids, and could last for generations.",
+    correctAnswer: 1, // True
+    explanation: "Pre-Islamic Arabian society operated on a system of tribal honor where even minor offenses could trigger lengthy feuds. These conflicts, known as 'ayyam al-Arab' (the days of the Arabs), could indeed span generations as tribes sought to avenge perceived wrongs and maintain their honor.",
+    points: 10,
+    type: 'trueFalse' as const,
     image: require('@/assets/images/quiz-images/Map.png')
   }
 ]
 
-export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure1_Module1_QuizProps) {
+export default function ROIERA2Adv1_Module1_Quiz({ onDismiss, onBack }: ROIERA2Adv1_Module1_QuizProps) {
   // EXACT SwiftUI state variables
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0) // @State private var currentQuestionIndex = 0
   const [showResults, setShowResults] = useState(false) // @State private var showResults = false
@@ -109,27 +104,44 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
+    const currentQuestion = quizQuestions[currentQuestionIndex]
+    let selectedAnswer: number | null = null
 
-    // Store the user's answer - All questions are MCQ now
+    // Get selected answer based on question type
+    switch (currentQuestion.type) {
+      case 'mcq':
+        selectedAnswer = selectedMCQOption
+        break
+      case 'trueFalse':
+        selectedAnswer = selectedTrueFalse
+        break
+      case 'fillInBlank':
+        if (selectedFillBlank && currentQuestion.options) {
+          selectedAnswer = currentQuestion.options.indexOf(selectedFillBlank)
+        }
+        break
+    }
+
+    // Store the user's answer
     const newUserAnswers = [...userAnswers]
-    newUserAnswers[currentQuestionIndex] = selectedMCQOption
+    newUserAnswers[currentQuestionIndex] = selectedAnswer
     setUserAnswers(newUserAnswers)
 
     // Check if answer is correct and update score
-    const isCorrect = checkAnswer(currentQuestionIndex, newUserAnswers[currentQuestionIndex])
+    const isCorrect = checkAnswer(currentQuestionIndex, selectedAnswer)
     if (isCorrect) {
       setCorrectAnswers(prev => prev + 1)
       setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
     }
 
     setShowExplanation(true)
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
   }
 
   // Check answer - EXACT SwiftUI: checkAnswer() -> Bool
   const checkAnswer = (questionIndex: number, userAnswer: number | null): boolean => {
     if (userAnswer === null) return false
 
-    // All questions are MCQ with correct answers from the quiz data
     return userAnswer === quizQuestions[questionIndex].correctAnswer
   }
 
@@ -141,8 +153,8 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
       setShowExplanation(false)
       resetCurrentQuestion()
     } else {
-      // Quiz completed - check minimum score requirement (need at least 1 out of 5)
-      if (correctAnswers >= 1) {
+      // Quiz completed - check minimum score requirement (need at least 2 out of 5 for 40%)
+      if (correctAnswers >= 2) {
         setShowResults(true)
         setShowExplanation(false)
       } else {
@@ -175,17 +187,17 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
   // Handle quiz completion - NEW ATOMIC SYSTEM
   const handleQuizCompletion = async () => {
     console.log('🚀 Quiz completion: Adventure 1 Module 1')
-
+    
     try {
       const isRetake = canRetakeModule(1, 1)
-
+      
       // Use atomic progress update
       await atomicProgressUpdate(1, 1, {
         type: isRetake ? 'QUIZ_RETAKEN' : 'QUIZ_COMPLETED',
         quizScore: correctAnswers,
         quizCorrectAnswers: correctAnswers
       })
-
+      
       console.log('✅ Quiz progress saved successfully')
       onDismiss()
     } catch (error) {
@@ -199,48 +211,104 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
   const handleFillBlankSelection = (selectedText: string) => {
     if (selectedFillBlank) {
       // Reset previous selection
-      setFillBlankOptions(prev => prev.map(opt =>
+      setFillBlankOptions(prev => prev.map(opt => 
         opt.text === selectedFillBlank ? { ...opt, isUsed: false } : opt
       ))
     }
 
     setSelectedFillBlank(selectedText)
-    setFillBlankOptions(prev => prev.map(opt =>
+    setFillBlankOptions(prev => prev.map(opt => 
       opt.text === selectedText ? { ...opt, isUsed: true } : opt
     ))
   }
 
   // Get current question
   const currentQuestion = quizQuestions[currentQuestionIndex]
-
+  
   // Check if current question has an answer selected
   const isAnswerSelected = () => {
-    // All questions are MCQ now
-    return selectedMCQOption !== null
+    switch (currentQuestion.type) {
+      case 'mcq':
+        return selectedMCQOption !== null
+      case 'trueFalse':
+        return selectedTrueFalse !== null
+      case 'fillInBlank':
+        return selectedFillBlank !== null
+      default:
+        return false
+    }
   }
 
   // Render question content based on type
   const renderQuestionContent = () => {
-    // All questions are MCQ now
-    return (
-      <View style={styles.mcqContainer}>
-        {currentQuestion.options?.map((option, index) => (
-          <MCQOptionButton
-            key={index}
-            letter={String.fromCharCode(65 + index)} // A, B, C, D
-            text={option}
-            isSelected={selectedMCQOption === index}
-            onPress={() => setSelectedMCQOption(index)}
-            forceCenter={currentQuestionIndex === 2 || currentQuestionIndex === 3} // Question 3 & 4 - center align
-          />
-        ))}
-      </View>
-    )
+    switch (currentQuestion.type) {
+      case 'mcq':
+        return (
+          <View style={styles.mcqContainer}>
+            {currentQuestion.options?.map((option, index) => (
+              <MCQOptionButton
+                key={index}
+                letter={String.fromCharCode(65 + index)} // A, B, C, D
+                text={option}
+                isSelected={selectedMCQOption === index}
+                onPress={() => setSelectedMCQOption(index)}
+                forceCenter={false}
+              />
+            ))}
+          </View>
+        )
+
+      case 'trueFalse':
+        return (
+          <View style={styles.trueFalseContainer}>
+            <TrueFalseOptionButton
+              isTrue={true}
+              isSelected={selectedTrueFalse === 1}
+              onPress={() => setSelectedTrueFalse(1)}
+            />
+            <TrueFalseOptionButton
+              isTrue={false}
+              isSelected={selectedTrueFalse === 0}
+              onPress={() => setSelectedTrueFalse(0)}
+            />
+          </View>
+        )
+
+      case 'fillInBlank':
+        // Split the question text around the blank
+        const questionParts = currentQuestion.question.split('___')
+        return (
+          <View style={styles.fillBlankContainer}>
+            <View style={styles.fillBlankQuestionContainer}>
+              <Text style={styles.fillBlankQuestionText}>
+                {questionParts[0]}
+                <Text style={styles.fillBlankAnswer}>
+                  {selectedFillBlank || '___'}
+                </Text>
+                {questionParts[1]}
+              </Text>
+            </View>
+            <View style={styles.fillBlankOptionsGrid}>
+              {currentQuestion.options?.map((option, index) => (
+                <FillBlankOption
+                  key={index}
+                  text={option}
+                  isUsed={fillBlankOptions.find(opt => opt.text === option)?.isUsed || false}
+                  onPress={() => handleFillBlankSelection(option)}
+                />
+              ))}
+            </View>
+          </View>
+        )
+
+      default:
+        return null
+    }
   }
 
   // Show results screen
   if (showResults) {
-    return <QuizResultsView
+    return <QuizResultsView 
       correctAnswers={correctAnswers}
       totalQuestions={5}
       totalPoints={totalPoints}
@@ -264,7 +332,7 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
           image={currentQuestion.image}
           onSubmit={handleSubmit}
           isAnswerSelected={isAnswerSelected()}
-          questionType="mcq"
+          questionType={currentQuestion.type}
           onBack={onBack || onDismiss}
           quizTitle="Module 1 Quiz"
         >
@@ -317,8 +385,8 @@ function QuizResultsView({
   onBack
 }: QuizResultsViewProps) {
   const percentage = Math.round((correctAnswers * 100) / totalQuestions) // EXACT SwiftUI calculation
-  const passed = percentage >= 70 // EXACT SwiftUI: private var passed: Bool
-  const canAccessAdventure = correctAnswers >= 1 // EXACT SwiftUI: private var canAccessAdventure: Bool - Updated for 5 questions
+  const passed = percentage >= 40 // 40% minimum passing score as required
+  const canAccessAdventure = correctAnswers >= 2 // Need at least 2/5 questions correct (40%)
 
   return (
     <View style={styles.resultsContainer}>
@@ -330,7 +398,7 @@ function QuizResultsView({
           </TouchableOpacity>
         </SafeAreaView>
       )}
-
+      
       <ScrollView style={styles.resultsScroll} showsVerticalScrollIndicator={false}>
         <View style={styles.resultsContent}>
           {/* Header - EXACT SwiftUI structure */}
@@ -339,17 +407,17 @@ function QuizResultsView({
               styles.resultsIconContainer,
               { backgroundColor: passed ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
             ]}>
-              <Ionicons
-                name={passed ? "trophy" : "refresh"}
-                size={50}
+              <Ionicons 
+                name={passed ? "trophy" : "refresh"} 
+                size={50} 
                 color="white"
               />
             </View>
-
+            
             <Text style={styles.resultsTitle}>
               {passed ? "Quiz Completed!" : "Keep Learning!"}
             </Text>
-
+            
             <Text style={styles.resultsSubtitle}>
               {passed ? "Excellent work on the Module 1 quiz!" : "Review the material and try again"}
             </Text>
@@ -380,10 +448,10 @@ function QuizResultsView({
             {/* Progress bar - EXACT SwiftUI GeometryReader equivalent */}
             <View style={styles.progressBarContainer}>
               <View style={styles.progressBarBackground} />
-              <Animated.View
+              <Animated.View 
                 style={[
                   styles.progressBarFill,
-                  {
+                  { 
                     width: `${percentage}%`,
                     backgroundColor: passed ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown
                   }
@@ -418,7 +486,7 @@ function QuizResultsView({
                   <Text style={styles.lockedTitle}>Adventure Locked</Text>
                 </View>
                 <Text style={styles.lockedMessage}>
-                  Answer at least one question correctly to unlock the adventure
+                  Answer at least 2 questions correctly (40% minimum) to unlock the adventure
                 </Text>
               </View>
             )}
@@ -460,7 +528,7 @@ function MinimumScoreAlert({ onRetry, onContinueAnyway }: MinimumScoreAlertProps
 
         {/* Message */}
         <Text style={styles.alertMessage}>
-          You need to answer at least one question correctly to complete the quiz and unlock the adventure.
+          You need to answer at least 2 questions correctly (40% minimum) to complete the quiz and unlock the adventure.
         </Text>
 
         {/* Buttons */}
@@ -468,7 +536,7 @@ function MinimumScoreAlert({ onRetry, onContinueAnyway }: MinimumScoreAlertProps
           <TouchableOpacity style={styles.alertRetryButton} onPress={onRetry}>
             <Text style={styles.alertRetryText}>TRY AGAIN</Text>
           </TouchableOpacity>
-
+          
           <TouchableOpacity onPress={onContinueAnyway}>
             <Text style={styles.alertContinueText}>Continue to Results</Text>
           </TouchableOpacity>
@@ -521,7 +589,11 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   fillBlankAnswer: {
-    // Styling handled inline based on selection state
+    fontFamily: 'DM Sans',
+    fontSize: 20,
+    fontWeight: '700',
+    color: ArchivesTheme.colors.persianOrange,
+    textDecorationLine: 'underline',
   },
   fillBlankOptionsGrid: {
     flexDirection: 'row',

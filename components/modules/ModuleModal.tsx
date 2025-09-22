@@ -88,8 +88,10 @@ import Adventure5_Module3_Lesson1 from './adventure5/Adventure5_Module3_Lesson1'
 import Adventure5_Module3_Lesson2 from './adventure5/Adventure5_Module3_Lesson2'
 import Adventure5_Module3_Quiz from './adventure5/Adventure5_Module3_Quiz'
 
-// Rise of Islam Adventure 1 - The Early Years - Module 1 (using Adventure1 components)
-// Note: Internal ID is 6, but this is Rise of Islam Adventure 1 for user display
+// Rise of Islam Era Adventure 1 - The Early Years - Module 1
+import ROIERA2Adv1_Module1_Lesson1 from './roiera2/ROIERA2Adv1_Module1_Lesson1'
+import ROIERA2Adv1_Module1_Lesson2 from './roiera2/ROIERA2Adv1_Module1_Lesson2'
+import ROIERA2Adv1_Module1_Quiz from './roiera2/ROIERA2Adv1_Module1_Quiz'
 
 interface ModuleModalProps {
   isVisible: boolean
@@ -596,14 +598,14 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
       switch (currentStep) {
         case 'lesson1':
           return (
-            <Adventure1_Module1_Lesson1
+            <ROIERA2Adv1_Module1_Lesson1
               onContinue={() => handleLessonComplete('lesson1')}
               onDismiss={handleModalDismiss}
             />
           )
         case 'lesson2':
           return (
-            <Adventure1_Module1_Lesson2
+            <ROIERA2Adv1_Module1_Lesson2
               onContinue={() => handleLessonComplete('lesson2')}
               onDismiss={handleModalDismiss}
               onBack={handleGoBack}
@@ -611,7 +613,7 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
           )
         case 'quiz':
           return (
-            <Adventure1_Module1_Quiz
+            <ROIERA2Adv1_Module1_Quiz
               onDismiss={handleModalDismiss}
               onBack={handleGoBack}
             />

@@ -1,15 +1,12 @@
-// Native Stripe implementation for iOS/Android - Rich UI with Apple Pay Integration
+// Native subscription implementation for iOS/Android - Rich UI with Original Design
 import ArchivesTheme from "@/constants/ArchivesTheme";
-import { PaymentLogger } from "@/hooks/lib/PaymentLogger";
+import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { Ionicons } from "@expo/vector-icons";
-import { PlatformPay, useStripe } from "@stripe/stripe-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Linking from "expo-linking";
 import React, { useState } from "react";
 import {
   Alert,
   Image,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -23,244 +20,172 @@ export default function SubscribeContent() {
     "monthly"
   );
   const [loading, setLoading] = useState(false);
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { isSubscribed, purchasePackage, getPackageForPlan, refreshCustomerInfo, offerings, error } = useRevenueCat();
 
-  const fetchSubscriptionParams = async (plan: "monthly" | "yearly") => {
-    const clientSessionId = Math.random().toString(36).substring(7);
+  // Debug log when component loads
+  console.log('💎 SubscribeContent rendered with RevenueCat state:', {
+    isSubscribed,
+    hasOfferings: !!offerings,
+    packagesCount: offerings?.availablePackages?.length || 0,
+    error,
+    selectedPlan
+  });
 
-    PaymentLogger.log(
-      "CLIENT_FETCH_START",
-      `Fetching subscription params for client session ${clientSessionId}`,
-      {
-        plan,
-        platform: Platform.OS,
-        version: Platform.Version,
-        timestamp: new Date().toISOString(),
-      }
+  // If user is already subscribed, show success state
+  if (isSubscribed) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <View style={styles.subscribedContainer}>
+            <Ionicons
+              name="checkmark-circle"
+              size={80}
+              color={ArchivesTheme.colors.mossGreen}
+              style={styles.subscribedIcon}
+            />
+            <Text style={styles.subscribedTitle}>Archives Explorer Pass Active!</Text>
+            <Text style={styles.subscribedMessage}>
+              You have unlimited access to all historical eras and adventures!
+            </Text>
+
+            <View style={styles.explorerPassSection}>
+              <Text style={styles.featuresHeader}>
+                Your Explorer Pass includes:
+              </Text>
+
+              <View style={styles.featuresList}>
+                <View style={styles.featureItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={ArchivesTheme.colors.persianOrange}
+                  />
+                  <Text style={styles.featureText}>
+                    All Historical Eras & Adventures
+                  </Text>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={ArchivesTheme.colors.persianOrange}
+                  />
+                  <Text style={styles.featureText}>New Learning Modules</Text>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={ArchivesTheme.colors.persianOrange}
+                  />
+                  <Text style={styles.featureText}>Exclusive Badges</Text>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={ArchivesTheme.colors.persianOrange}
+                  />
+                  <Text style={styles.featureText}>Early Access to New Eras</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
-
-    // Use AWS API Gateway URL for production/TestFlight builds, local URL for development
-    const apiBaseUrl = process.env.EXPO_PUBLIC_AWS_API_BASE_URL;
-    const apiUrl = apiBaseUrl && apiBaseUrl !== 'https://your-api-gateway-id.execute-api.us-east-1.amazonaws.com/prod' 
-      ? `${apiBaseUrl}/api/payment-sheet`
-      : "/api/payment-sheet";
-
-    PaymentLogger.log(
-      "CLIENT_API_CONFIG",
-      `API URL configuration for client session ${clientSessionId}`,
-      {
-        apiBaseUrl,
-        apiUrl,
-        environment: process.env.NODE_ENV || 'production',
-      }
-    );
-
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        selectedPlan: plan,
-      }),
-    });
-
-    PaymentLogger.log(
-      "CLIENT_RESPONSE_RECEIVED",
-      `API response received for client session ${clientSessionId}`,
-      {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      PaymentLogger.error(
-        "CLIENT_API_ERROR",
-        `API error for client session ${clientSessionId}`,
-        errorData
-      );
-      throw new Error(errorData.error || "Failed to fetch subscription params");
-    }
-
-    const responseData = await response.json();
-    PaymentLogger.logSafeData(
-      "CLIENT_FETCH_SUCCESS",
-      `Subscription params fetched for client session ${clientSessionId}`,
-      responseData
-    );
-
-    const { paymentIntent, ephemeralKey, customer, subscription } =
-      responseData;
-    return { paymentIntent, ephemeralKey, customer, subscription };
-  };
+  }
 
   const handleSubscribe = async () => {
-    const clientSessionId = Math.random().toString(36).substring(7);
-
     try {
       setLoading(true);
 
-      PaymentLogger.log(
-        "CLIENT_SUBSCRIBE_START",
-        `Subscribe process started for client session ${clientSessionId}`,
-        {
-          selectedPlan,
-          platform: Platform.OS,
-          deviceInfo: {
-            version: Platform.Version,
-            userAgent: navigator?.userAgent || "unknown",
-          },
-        }
-      );
-
-      // Fetch subscription parameters
-      const { paymentIntent, ephemeralKey, customer, subscription } =
-        await fetchSubscriptionParams(selectedPlan);
-
-      PaymentLogger.log(
-        "CLIENT_SUBSCRIPTION_DATA_RECEIVED",
-        `Subscription data received for client session ${clientSessionId}`,
-        {
-          customerId: customer,
-          subscriptionId: subscription,
-        }
-      );
-
-      // Initialize payment sheet with Apple Pay support
-      PaymentLogger.log(
-        "CLIENT_PAYMENT_SHEET_INIT",
-        `Initializing payment sheet for client session ${clientSessionId}`,
-        {
-          merchantDisplayName: "Archives App",
-          hasCustomer: !!customer,
-          hasEphemeralKey: !!ephemeralKey,
-          hasPaymentIntent: !!paymentIntent,
-          applePayEnabled: true,
-          merchantCountryCode: "GB",
-          subscriptionLabel:
-            selectedPlan === "monthly" ? "Monthly Subscription" : "Yearly Pass",
-          amount: selectedPlan === "monthly" ? "4.99" : "49.99",
-          paymentType: "Immediate",
-        }
-      );
-
-      const { error } = await initPaymentSheet({
-        merchantDisplayName: "Archives App",
-        customerId: customer,
-        customerEphemeralKeySecret: ephemeralKey,
-        paymentIntentClientSecret: paymentIntent,
-        allowsDelayedPaymentMethods: true,
-        returnURL: Linking.createURL("stripe-redirect"),
-        applePay: {
-          merchantCountryCode: "GB",
-          cartItems: [
-            {
-              label:
-                selectedPlan === "monthly"
-                  ? "Monthly Subscription"
-                  : "Yearly Pass",
-              amount: selectedPlan === "monthly" ? "4.99" : "49.99",
-              paymentType: PlatformPay.PaymentType.Immediate,
-            },
-          ],
-          requiredBillingContactFields: [PlatformPay.ContactField.Name],
-        },
-        appearance: {
-          colors: {
-            primary: "#959C00", // Moss green
-            background: "#F4EBDB", // Cream background
-            componentBackground: "#FFFFFF", // White components
-            primaryText: "#000000", // Force black text (iOS Dark Mode fix)
-            secondaryText: "#333333", // Dark gray for secondary text
-            placeholderText: "#666666", // Medium gray for placeholders
-            componentText: "#000000", // Force black for component text
-          },
-          shapes: {
-            borderRadius: 16,
-          },
-        },
+      console.log('🎯 Subscribe button pressed for plan:', selectedPlan);
+      console.log('📊 Current RevenueCat state:', {
+        isSubscribed,
+        offerings: !!offerings,
+        availablePackagesCount: offerings?.availablePackages?.length || 0
       });
 
-      if (error) {
-        PaymentLogger.error(
-          "CLIENT_PAYMENT_SHEET_INIT_ERROR",
-          `Payment sheet init failed for client session ${clientSessionId}`,
-          error
+      // Get the appropriate package for the selected plan
+      console.log('🔍 Calling getPackageForPlan with:', selectedPlan);
+      const targetPackage = getPackageForPlan(selectedPlan);
+      console.log('📦 getPackageForPlan returned:', targetPackage ? {
+        identifier: targetPackage.identifier,
+        productId: targetPackage.storeProduct.identifier,
+        price: targetPackage.storeProduct.priceString
+      } : null);
+
+      if (!targetPackage) {
+        console.log('❌ No package found, showing alert');
+        Alert.alert(
+          "Subscription Not Available",
+          "Unable to find the selected subscription plan. Please try again later.",
+          [{ text: "OK" }]
         );
-        throw error;
+        return;
       }
 
-      PaymentLogger.success(
-        "CLIENT_PAYMENT_SHEET_INIT_SUCCESS",
-        `Payment sheet initialized for client session ${clientSessionId}`
-      );
+      console.log('📦 Purchasing package:', {
+        plan: selectedPlan,
+        packageId: targetPackage.identifier,
+        productId: targetPackage.storeProduct.identifier,
+        price: targetPackage.storeProduct.priceString
+      });
 
-      // Present the payment sheet
-      PaymentLogger.log(
-        "CLIENT_PAYMENT_SHEET_PRESENT",
-        `Presenting payment sheet for client session ${clientSessionId}`
-      );
+      // Attempt the purchase
+      const success = await purchasePackage(targetPackage);
 
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === "Canceled") {
-          PaymentLogger.warn(
-            "CLIENT_PAYMENT_CANCELLED",
-            `Payment cancelled by user for client session ${clientSessionId}`,
-            {
-              code: presentError.code,
-            }
-          );
-        } else {
-          PaymentLogger.error(
-            "CLIENT_PAYMENT_ERROR",
-            `Payment error for client session ${clientSessionId}`,
-            presentError
-          );
-          throw presentError;
-        }
-      } else {
-        PaymentLogger.success(
-          "CLIENT_PAYMENT_SUCCESS",
-          `Payment successful for client session ${clientSessionId}`,
-          {
-            selectedPlan,
-            subscriptionId: subscription,
-          }
-        );
+      if (success) {
+        // Refresh customer info to ensure latest entitlements
+        await refreshCustomerInfo();
 
         Alert.alert(
-          "Payment Successful!",
-          `Welcome to Archives ${
-            selectedPlan === "monthly" ? "Monthly" : "Yearly"
-          } Plan!`,
-          [{ text: "Great!", onPress: () => {} }]
+          "Welcome to Archives Explorer Pass!",
+          `Your ${selectedPlan === "monthly" ? "monthly" : "yearly"} subscription is now active! Enjoy unlimited access to all historical eras and adventures.`,
+          [{ text: "Great!", style: "default" }]
+        );
+      } else {
+        Alert.alert(
+          "Purchase Not Completed",
+          "Your purchase was not completed. If you were charged, please contact support.",
+          [{ text: "OK" }]
         );
       }
     } catch (error: any) {
-      PaymentLogger.error(
-        "CLIENT_SUBSCRIBE_ERROR",
-        `Subscribe process failed for client session ${clientSessionId}`,
-        error
-      );
+      console.error('❌ Subscribe error:', error);
 
-      Alert.alert(
-        "Payment Error",
-        error.message || "Something went wrong. Please try again."
-      );
+      // Handle specific RevenueCat errors
+      if (error.code === '1') {
+        // User cancelled
+        console.log('ℹ️ User cancelled purchase');
+        return; // Don't show error for user cancellation
+      } else if (error.code === '2') {
+        // Store problem
+        Alert.alert(
+          "Store Error",
+          "There was a problem with the App Store. Please try again later.",
+          [{ text: "OK" }]
+        );
+      } else if (error.code === '3') {
+        // Purchase not allowed
+        Alert.alert(
+          "Purchase Not Allowed",
+          "Purchases are not allowed on this device. Please check your settings.",
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert(
+          "Purchase Error",
+          error.message || "Something went wrong with your purchase. Please try again.",
+          [{ text: "OK" }]
+        );
+      }
     } finally {
       setLoading(false);
-      PaymentLogger.log(
-        "CLIENT_SUBSCRIBE_END",
-        `Subscribe process completed for client session ${clientSessionId}`,
-        {
-          loading: false,
-        }
-      );
     }
   };
 
@@ -812,5 +737,33 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: "center",
     lineHeight: 18,
+  },
+
+  // Subscribed state styles
+  subscribedContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  subscribedIcon: {
+    marginBottom: 24,
+  },
+  subscribedTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 28,
+    fontWeight: "600",
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  subscribedMessage: {
+    fontFamily: "DM Sans",
+    fontSize: 16,
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: "center",
+    marginBottom: 40,
+    lineHeight: 24,
+    opacity: 0.8,
   },
 });

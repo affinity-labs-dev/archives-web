@@ -118,7 +118,8 @@ components/
 ├── SyncDebugPanel.tsx             # Debug panel for sync status monitoring
 ├── SubscribeContent.native.tsx    # Native subscription UI components
 ├── SubscribeContent.web.tsx       # Web subscription UI components
-└── CheckoutForm.native.tsx        # Native Stripe payment form
+├── CheckoutForm.native.tsx        # Native Stripe payment form
+└── RevenueCatPaywall.tsx          # RevenueCat subscription paywall component
 
 constants/
 ├── ArchivesTheme.ts    # Complete design system (colors, typography, spacing)
@@ -136,7 +137,8 @@ hooks/
 ├── useSyncIntegration.ts                  # Sync integration hooks with debouncing
 ├── useAppTrackingTransparency.ts          # iOS App Tracking Transparency hook for privacy compliance
 ├── useAppTrackingTransparency.native.ts  # Native-specific ATT implementation
-└── useAppTrackingTransparency.web.ts     # Web-specific ATT implementation
+├── useAppTrackingTransparency.web.ts     # Web-specific ATT implementation
+└── useRevenueCat.ts                       # RevenueCat subscription management hooks
 
 services/
 ├── ProgressService.ts         # Progress data management service
@@ -267,6 +269,8 @@ assets/
 - **expo-tracking-transparency**: App Tracking Transparency for iOS compliance with educational analytics tracking
 - **@stripe/stripe-react-native**: Payment processing for subscription system (native platforms)
 - **@stripe/stripe-js**: Web-based payment processing (web platform)
+- **react-native-purchases**: RevenueCat SDK for cross-platform subscription management
+- **react-native-purchases-ui**: RevenueCat UI components for subscription paywalls
 
 ### Environment & Configuration
 
@@ -330,9 +334,9 @@ All educational content follows a strict SwiftUI-to-React Native migration patte
 The app implements a dual sync system with local-first architecture:
 
 ```
-User Action (complete lesson) 
+User Action (complete lesson)
     ↓
-ProgressContext.completeLesson() 
+ProgressContext.completeLesson()
     ↓
 1. Update AsyncStorage (instant)
 2. Update React state (instant UI update)
@@ -360,7 +364,9 @@ Background sync happens transparently
 - **Adventure 2**: Complete - 3 modules, 6 lessons, 3 quizzes (Damascus capital and administrative developments)
 - **Adventure 3**: Complete - 3 modules, 6 lessons, 3 quizzes (North African expansion, Kairouan, Iberian conquest, Battle of Tours)
 - **Adventure 4**: Complete - 3 modules, 5 lessons, 3 quizzes (Cultural & artistic development with manuscript/scribes content)
-- **Adventure 5**: In development - Module 1 quiz implemented, lessons in progress (Yazīd II's reign 720-724 CE)
+- **Adventure 5**: Complete - 3 modules, 6 lessons, 3 quizzes (Yazīd II and Hishām's reigns, Peak of Umayyad power 720-743 CE)
+- **Rise of Islam Era**: Implemented alongside Umayyad Dynasty era with proper progression logic
+- **Rise of Islam Era Adventure 1**: In development - 3 modules with initial lessons and quiz implemented (Early Islamic period)
 
 ### Content Development Resources
 - **Lesson Types Documentation**: Comprehensive guides in `docs/lesson-types/` (6 files, 5,500+ lines total)
@@ -374,6 +380,7 @@ Background sync happens transparently
 - **Module Completion**: Requires both lessons completed AND quiz passed (minimum 40% score)
 - **Asset Organization**: Videos in `assets/videos/adventures/`, images categorized by type in `assets/images/`
 - **Component Architecture**: Adventure components follow `Adventure{N}_Module{N}_Lesson{N}.tsx` naming pattern
+- **Era System**: Multi-era support with Rise of Islam era alongside Umayyad Dynasty, proper era unlocking progression
 
 ### Analytics & Data Integration
 - **PostHog Analytics**: Complete user tracking and educational event analytics (implemented)
@@ -393,9 +400,10 @@ Background sync happens transparently
   - `user_data`: Single table with JSONB column containing all user data (selectedEra, adventures, modules)
   - Legacy three-table structure available in BackgroundSyncService for reference
 - **Audio System**: Platform-specific audio implementations using expo-av for background music
-- **Subscription System**: Platform-aware payment processing
+- **Subscription System**: Platform-aware payment processing with multiple implementations
   - Native platforms: Stripe React Native with Apple Pay support
   - Web platform: Stripe Checkout Sessions (implementation in progress)
+  - RevenueCat: Cross-platform subscription management with `RevenueCatPaywall.tsx` and `useRevenueCat.ts`
   - Platform-specific components: `SubscribeContent.web.tsx` for web-specific UI
 
 ### Future Enhancement Plans
@@ -668,6 +676,11 @@ The codebase supports specialized agent creation for educational content:
 - **Content Structure Report**: Complete overview in `docs/LESSON_TYPES_REPORT.md`
 - **Component Naming**: Follow `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
 
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
