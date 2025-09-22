@@ -20,7 +20,7 @@ import { useProgress } from '@/context/ProgressContext'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 // Development flag - set to false when ready for production subscription system
-const DEVELOPMENT_UNLOCK_ERA2 = true
+const DEVELOPMENT_UNLOCK_ERA2 = false
 
 // const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
@@ -107,10 +107,10 @@ export default function EraSelection() {
   const { isSignedIn } = useAuth()
   const { setSelectedEra } = useProgress()
 
-  // Redirect to landing if not signed in
+  // Redirect to authentication if not signed in
   React.useEffect(() => {
     if (isSignedIn === false) {
-      router.replace('/landing')
+      router.replace('/(auth)/archives-auth')
     }
   }, [isSignedIn, router])
 

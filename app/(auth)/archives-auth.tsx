@@ -247,6 +247,42 @@ export default function ArchivesAuthScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Social Sign In Buttons */}
+            <View style={styles.socialButtonsContainer}>
+              <AppleSignInButton
+                onSuccess={() => {
+                  setIsLoading(false)
+                  onContinue()
+                }}
+                onError={(error) => {
+                  setIsLoading(false)
+                  setErrorMessage('Apple Sign In failed. Please try again.')
+                  setShowError(true)
+                  console.error('Apple Sign In Error:', error)
+                }}
+              />
+
+              <GoogleSignInButton
+                onSuccess={() => {
+                  setIsLoading(false)
+                  onContinue()
+                }}
+                onError={(error) => {
+                  setIsLoading(false)
+                  setErrorMessage('Google Sign In failed. Please try again.')
+                  setShowError(true)
+                  console.error('Google Sign In Error:', error)
+                }}
+              />
+            </View>
+
+            {/* Enhanced OR divider (EXACT REPLICA) */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
             {/* Form fields (EXACT REPLICA) */}
             <View style={styles.formContainer}>
               {/* First Name and Last Name Fields (only for Sign Up) */}
@@ -377,41 +413,6 @@ export default function ArchivesAuthScreen() {
               <Text style={styles.errorText}>{errorMessage}</Text>
             )}
 
-            {/* Enhanced OR divider (EXACT REPLICA) */}
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Social Sign In Buttons */}
-            <View style={styles.socialButtonsContainer}>
-              <AppleSignInButton
-                onSuccess={() => {
-                  setIsLoading(false)
-                  onContinue()
-                }}
-                onError={(error) => {
-                  setIsLoading(false)
-                  setErrorMessage('Apple Sign In failed. Please try again.')
-                  setShowError(true)
-                  console.error('Apple Sign In Error:', error)
-                }}
-              />
-              
-              <GoogleSignInButton
-                onSuccess={() => {
-                  setIsLoading(false)
-                  onContinue()
-                }}
-                onError={(error) => {
-                  setIsLoading(false)
-                  setErrorMessage('Google Sign In failed. Please try again.')
-                  setShowError(true)
-                  console.error('Google Sign In Error:', error)
-                }}
-              />
-            </View>
 
             {/* Bottom spacing */}
             <View style={styles.bottomSpacer} />

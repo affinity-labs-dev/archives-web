@@ -1,11 +1,12 @@
 // Home Tab - Shows era-specific content based on user's selected era
 // Exact replica of SwiftUI MainTabView Home functionality
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import UmmayadDynastyEra from '@/components/eras/UmmayadDynastyEra'
 import RiseOfIslamEra from '@/components/eras/RiseOfIslamEra'
 import ComingSoonView from '@/components/eras/ComingSoonView'
@@ -15,28 +16,52 @@ export default function HomeTab() {
   const { isSignedIn } = useAuth()
   const { selectedEra, isLoading } = useProgress()
   const router = useRouter()
+  const [onboardingChecked, setOnboardingChecked] = useState(false)
 
-
-  // Navigation logic
+  // Check onboarding status and navigation logic
   useEffect(() => {
-    if (!isLoading) {
-      if (!isSignedIn) {
-        router.replace('/landing')
-        return
-      }
+    const checkOnboardingStatus = async () => {
+      if (isLoading) return
 
-      if (!selectedEra) {
-        router.replace('/era-selection')
+      try {
+        console.log('HomeTab - Authentication status:', { isSignedIn })
+
+        // If user is already signed in, skip onboarding entirely
+        if (isSignedIn) {
+          console.log('HomeTab - User is signed in, skipping onboarding')
+
+          // If signed in but no era selected, show era selection
+          if (!selectedEra) {
+            console.log('HomeTab - No era selected, redirecting to era selection')
+            router.replace('/era-selection')
+            return
+          }
+
+          // User is signed in and has era selected, stay on home
+          setOnboardingChecked(true)
+          return
+        }
+
+        // If not signed in, always show onboarding
+        console.log('HomeTab - Not signed in, starting onboarding flow')
+        router.replace('/onboarding-video')
+        return
+      } catch (error) {
+        console.error('HomeTab - Error checking onboarding status:', error)
+        // Continue with normal flow if there's an error
+        setOnboardingChecked(true)
       }
     }
+
+    checkOnboardingStatus()
   }, [isSignedIn, selectedEra, isLoading, router])
 
   const handleBackToEra = () => {
     router.push('/era-selection')
   }
 
-  // Show loading state while checking context
-  if (isLoading) {
+  // Show loading state while checking context and onboarding
+  if (isLoading || !onboardingChecked) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
