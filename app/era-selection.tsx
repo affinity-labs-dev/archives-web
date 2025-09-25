@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 // Development flag - set to false when ready for production subscription system
 const DEVELOPMENT_UNLOCK_ERA2 = false
@@ -139,7 +140,11 @@ export default function EraSelection() {
       
       // Store selected era in context
       await setSelectedEra(eraId)
-      
+
+      // Mark onboarding as completed for returning users
+      await AsyncStorage.setItem('onboarding_completed', 'true')
+      console.log('✅ Onboarding completed - user can now return directly to home')
+
       // Navigate to main tabs
       router.replace('/(tabs)')
     }

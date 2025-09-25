@@ -73,7 +73,7 @@ const quizQuestions = [
     explanation: "During Yazīd II's brief reign, cracks in Umayyad unity widened significantly. His restrictive policies and regional rebellions, especially in Khorasan, weakened the dynasty's cohesion and set the stage for future challenges.",
     points: 10,
     type: 'mcq' as const,
-    options: ["It became stronger", "Cracks widened as unrest grew", "Nothing changed", "Art thrived more than ever"],
+    options: ["It became stronger", "Divisions grew", "Nothing changed", "Art thrived more"],
     image: require('@/assets/images/quiz-images/books.png')
   }
 ]

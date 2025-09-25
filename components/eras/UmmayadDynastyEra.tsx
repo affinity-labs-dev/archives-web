@@ -78,8 +78,8 @@ const UMAYYAD_ADVENTURES = [
     mapImage: require('@/assets/images/adventure-maps/AdventureMap4.png'),
     iconPositions: [
       { id: "adv4_mod1", x: 0.5, y: 0.3 },
-      { id: "adv4_mod2", x: 0.6, y: 0.6 },
-      { id: "adv4_mod3", x: 0.4, y: 0.8 }
+      { id: "adv4_mod2", x: 0.6, y: 0.55 },
+      { id: "adv4_mod3", x: 0.75, y: 0.8 }
     ]
   },
   {
@@ -89,9 +89,9 @@ const UMAYYAD_ADVENTURES = [
     iconLibrary: "CustomSVG" as const,
     mapImage: require('@/assets/images/adventure-maps/AdventureMap5.png'),
     iconPositions: [
-      { id: "adv5_mod1", x: 0.45, y: 0.25 },
-      { id: "adv5_mod2", x: 0.55, y: 0.55 },
-      { id: "adv5_mod3", x: 0.35, y: 0.75 }
+      { id: "adv5_mod1", x: 0.53, y: 0.25 },
+      { id: "adv5_mod2", x: 0.55, y: 0.45 },
+      { id: "adv5_mod3", x: 0.56, y: 0.75 }
     ]
   },
 ]

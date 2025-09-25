@@ -70,7 +70,7 @@ const quizQuestions = [
     explanation: "Abbasid supporters used pamphlets and secret meetings to spread their revolutionary message safely before beginning open rebellion. This grassroots approach built widespread support across the empire.",
     points: 10,
     type: 'mcq' as const,
-    options: ["Handing out pamphlets and meeting in secret", "Building tall towers", "Changing banner colors each day", "Starting trade wars"],
+    options: ["Handing out pamphlets", "Building tall towers", "Changing banner colors", "Starting trade wars"],
     image: require('@/assets/images/quiz-images/books.png')
   }
 ]
