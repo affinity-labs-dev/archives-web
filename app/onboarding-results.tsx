@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
-  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -18,11 +17,13 @@ import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { useAppTrackingTransparency } from '@/hooks/useAppTrackingTransparency'
 
 export default function OnboardingResultsScreen() {
   const [recommendedEra, setRecommendedEra] = useState('Umayyad Dynasty')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
+  const { requestPermission } = useAppTrackingTransparency()
 
   console.log('🎯 [OnboardingResults] Component initializing...')
 
@@ -55,16 +56,22 @@ export default function OnboardingResultsScreen() {
     }
   }
 
-  // Navigate to account creation
+  // Navigate to account creation - with ATT permission request
   const handleCreateAccount = async () => {
     try {
       await Haptics.impactAsync()
-      console.log('🎯 [OnboardingResults] Navigating to authentication page')
+      console.log('🎯 [OnboardingResults] User tapped CREATE ACCOUNT - requesting ATT permission')
 
-      // Navigate directly to authentication page
+      // Request ATT permission - popup shows here
+      const attStatus = await requestPermission()
+      console.log('🎯 [OnboardingResults] ATT permission result:', attStatus)
+
+      // Navigate to authentication page after ATT response
+      console.log('🎯 [OnboardingResults] Navigating to authentication page')
       router.replace('/(auth)/archives-auth')
     } catch (error) {
-      console.error('🎯 [OnboardingResults] Error navigating to authentication page:', error)
+      console.error('🎯 [OnboardingResults] Error during ATT request or navigation:', error)
+      // Even if ATT fails, continue to authentication
       router.replace('/(auth)/archives-auth')
     }
   }

@@ -289,8 +289,9 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 EXPO_PUBLIC_POSTHOG_API_KEY=phc_7tSzdXUrEZ1OEEsgeJcpvQHdgt3XT6AdXnmvmpUbCMI
 EXPO_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
 
-# Stripe Payment Processing (Required for subscription features)
-EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51RYXaRP4ORdFWUKehx2oAmyOUS2h8FbZZEIu8I8F3wzY74iya6MDkCQedtIGdNGdYHDdJ9UG3WUWylNOeMNVOusl00sEjEVr7G
+# RevenueCat Subscription Management (Required)
+EXPO_PUBLIC_REVENUECAT_IOS_API_KEY=appl_oxMRgfHsashdXXOSrczqvnYYIxg
+EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY=your_android_api_key_here
 
 # EAS Build Configuration
 EXPO_NO_CAPABILITY_SYNC=1 # Disables automatic capability sync for iOS builds

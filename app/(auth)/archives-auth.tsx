@@ -2,12 +2,12 @@
 // Porting pixel-perfect design with Clerk authentication
 
 import React, { useState } from 'react'
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
   StyleSheet,
   SafeAreaView,
   Image,
@@ -48,7 +48,7 @@ export default function ArchivesAuthScreen() {
   }
 
   const onContinue = () => {
-    router.replace('/')
+    router.replace('/era-selection')
   }
 
   // Sign Up function (exact replica with Clerk)
