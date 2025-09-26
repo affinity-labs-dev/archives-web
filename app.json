@@ -86,7 +86,8 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true

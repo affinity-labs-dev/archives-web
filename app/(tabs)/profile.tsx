@@ -347,7 +347,7 @@ export default function ProfileTab() {
       setIsLoadingPortal(true)
       
       // Get customer ID from user metadata or database
-      const customerId = user?.publicMetadata?.stripeCustomerId
+      const customerId = user?.publicMetadata?.revenueCatCustomerId
       
       if (!customerId) {
         Alert.alert(

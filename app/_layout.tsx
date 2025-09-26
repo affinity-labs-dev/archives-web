@@ -12,8 +12,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { PostHogProvider } from 'posthog-react-native';
-import { useEffect, useState } from "react";
-import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
@@ -58,37 +56,6 @@ export default function RootLayout() {
     "Cormorant-Bold": require("../assets/fonts/Cormorant-Bold.ttf"),
   });
 
-  // RevenueCat API Key - iOS only configuration
-  const revenueCatIosApiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
-
-  // Function to get customer info
-  const getCustomerInfo = async () => {
-    try {
-      const customerInfo = await Purchases.getCustomerInfo();
-      // access latest customerInfo
-    } catch (e) {
-     // Error fetching customer info
-    }
-  }
-
-  async function getOfferings() {
-    const offerings = await Purchases.getOfferings();
-    if (
-      offerings.current !== null &&
-      offerings.current.availablePackages.length !== 0
-    ) {
-      console.log("🛒 offerings", JSON.stringify(offerings, null, 2));
-    }
-  }
-
-  // Initialize RevenueCat - Official React Native example
-  useEffect(() => {
-    Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
-
-    if (Platform.OS === 'ios') {
-       Purchases.configure({apiKey: revenueCatIosApiKey});
-    }
-  }, []);
 
   console.log('RootLayout - Fonts loaded:', loaded);
   console.log('RootLayout - Platform:', Platform.OS);
@@ -133,8 +100,6 @@ export default function RootLayout() {
 
   console.log('RootLayout - Clerk publishable key exists:', !!publishableKey);
   console.log('RootLayout - PostHog API key exists:', !!posthogApiKey);
-  console.log('RootLayout - RevenueCat iOS key exists:', !!revenueCatIosApiKey);
-  console.log('RootLayout - RevenueCat Android: disabled (iOS only)');
 
   // Create PostHog options with platform-specific configuration
   const posthogOptions = {

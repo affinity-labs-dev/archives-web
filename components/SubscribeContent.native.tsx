@@ -1,6 +1,5 @@
 // Native subscription implementation for iOS/Android - Rich UI with Original Design
 import ArchivesTheme from "@/constants/ArchivesTheme";
-import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
@@ -20,15 +19,14 @@ export default function SubscribeContent() {
     "monthly"
   );
   const [loading, setLoading] = useState(false);
-  const { isSubscribed, purchasePackage, getPackageForPlan, refreshCustomerInfo, offerings, error } = useRevenueCat();
 
-  // Debug log when component loads
-  console.log('💎 SubscribeContent rendered with RevenueCat state:', {
+  // Simple subscription state - can be controlled manually for testing
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  console.log('💎 SubscribeContent rendered with state:', {
     isSubscribed,
-    hasOfferings: !!offerings,
-    packagesCount: offerings?.availablePackages?.length || 0,
-    error,
-    selectedPlan
+    selectedPlan,
+    loading
   });
 
   // If user is already subscribed, show success state
@@ -104,86 +102,34 @@ export default function SubscribeContent() {
       setLoading(true);
 
       console.log('🎯 Subscribe button pressed for plan:', selectedPlan);
-      console.log('📊 Current RevenueCat state:', {
-        isSubscribed,
-        offerings: !!offerings,
-        availablePackagesCount: offerings?.availablePackages?.length || 0
-      });
 
-      // Get the appropriate package for the selected plan
-      console.log('🔍 Calling getPackageForPlan with:', selectedPlan);
-      const targetPackage = getPackageForPlan(selectedPlan);
-      console.log('📦 getPackageForPlan returned:', targetPackage ? {
-        identifier: targetPackage.identifier,
-        productId: targetPackage.storeProduct.identifier,
-        price: targetPackage.storeProduct.priceString
-      } : null);
+      // Show "Coming Soon" alert instead of processing payment
+      Alert.alert(
+        "Subscription Coming Soon!",
+        `Thank you for your interest in the ${selectedPlan} Archives Explorer Pass! \n\nSubscription features will be available in the next update. Stay tuned for premium content and exclusive features!`,
+        [
+          {
+            text: "Got it!",
+            style: "default"
+          },
+          {
+            text: "Preview Premium (Demo)",
+            style: "default",
+            onPress: () => {
+              // For demo purposes, temporarily set subscribed state
+              setIsSubscribed(true);
+            }
+          }
+        ]
+      );
 
-      if (!targetPackage) {
-        console.log('❌ No package found, showing alert');
-        Alert.alert(
-          "Subscription Not Available",
-          "Unable to find the selected subscription plan. Please try again later.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-
-      console.log('📦 Purchasing package:', {
-        plan: selectedPlan,
-        packageId: targetPackage.identifier,
-        productId: targetPackage.storeProduct.identifier,
-        price: targetPackage.storeProduct.priceString
-      });
-
-      // Attempt the purchase
-      const success = await purchasePackage(targetPackage);
-
-      if (success) {
-        // Refresh customer info to ensure latest entitlements
-        await refreshCustomerInfo();
-
-        Alert.alert(
-          "Welcome to Archives Explorer Pass!",
-          `Your ${selectedPlan === "monthly" ? "monthly" : "yearly"} subscription is now active! Enjoy unlimited access to all historical eras and adventures.`,
-          [{ text: "Great!", style: "default" }]
-        );
-      } else {
-        Alert.alert(
-          "Purchase Not Completed",
-          "Your purchase was not completed. If you were charged, please contact support.",
-          [{ text: "OK" }]
-        );
-      }
     } catch (error: any) {
       console.error('❌ Subscribe error:', error);
-
-      // Handle specific RevenueCat errors
-      if (error.code === '1') {
-        // User cancelled
-        console.log('ℹ️ User cancelled purchase');
-        return; // Don't show error for user cancellation
-      } else if (error.code === '2') {
-        // Store problem
-        Alert.alert(
-          "Store Error",
-          "There was a problem with the App Store. Please try again later.",
-          [{ text: "OK" }]
-        );
-      } else if (error.code === '3') {
-        // Purchase not allowed
-        Alert.alert(
-          "Purchase Not Allowed",
-          "Purchases are not allowed on this device. Please check your settings.",
-          [{ text: "OK" }]
-        );
-      } else {
-        Alert.alert(
-          "Purchase Error",
-          error.message || "Something went wrong with your purchase. Please try again.",
-          [{ text: "OK" }]
-        );
-      }
+      Alert.alert(
+        "Error",
+        "Something went wrong. Please try again later.",
+        [{ text: "OK" }]
+      );
     } finally {
       setLoading(false);
     }

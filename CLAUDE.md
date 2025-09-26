@@ -107,7 +107,7 @@ app/
 └── era-selection.tsx # Era selection interface
 
 components/
-├── modules/          # Lesson/quiz content (adventure1/, adventure2/, adventure3/, adventure4/)
+├── modules/          # Lesson/quiz content (adventure1/, adventure2/, adventure3/, adventure4/, adventure5/, roiera2/)
 │   ├── QuizSystem.tsx       # Shared quiz component (MCQ, True/False)
 │   ├── LessonPlayer.tsx     # Video player component
 │   └── ModuleModal.tsx      # Modal wrapper for lessons
@@ -232,7 +232,7 @@ assets/
 - **LessonPlayer.tsx**: Full-screen video player with exact SwiftUI control replication
 - **QuizSystem.tsx**: Comprehensive quiz engine supporting MCQ, True/False, drag-and-drop
 - **ModuleModal.tsx**: Unified modal wrapper for all lesson and quiz content
-- **Adventure Components**: Individual lesson/quiz components per adventure (adventure1/, adventure2/, adventure3/, adventure4/)
+- **Adventure Components**: Individual lesson/quiz components per adventure (adventure1/, adventure2/, adventure3/, adventure4/, adventure5/, roiera2/)
 - **Progress Integration**: All components automatically update AsyncStorage via ProgressContext
 - **Platform-specific Components**: Separate implementations for native/web (SubscribeContent, CheckoutForm)
 
@@ -368,6 +368,7 @@ Background sync happens transparently
 - **Adventure 5**: Complete - 3 modules, 6 lessons, 3 quizzes (Yazīd II and Hishām's reigns, Peak of Umayyad power 720-743 CE)
 - **Rise of Islam Era**: Implemented alongside Umayyad Dynasty era with proper progression logic
 - **Rise of Islam Era Adventure 1**: In development - 3 modules with initial lessons and quiz implemented (Early Islamic period)
+- **Rise of Islam Era 2**: New content development in progress - located in `components/modules/roiera2/` directory
 
 ### Content Development Resources
 - **Lesson Types Documentation**: Comprehensive guides in `docs/lesson-types/` (6 files, 5,500+ lines total)
