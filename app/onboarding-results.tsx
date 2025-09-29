@@ -67,6 +67,7 @@ export default function OnboardingResultsScreen() {
       console.log('🎯 [OnboardingResults] ATT permission result:', attStatus)
 
       // Navigate to authentication page after ATT response
+      // Note: The authentication screen will handle routing to appropriate tab after successful auth
       console.log('🎯 [OnboardingResults] Navigating to authentication page')
       router.replace('/(auth)/archives-auth')
     } catch (error) {

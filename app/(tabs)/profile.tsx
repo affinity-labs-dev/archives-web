@@ -222,7 +222,7 @@ export default function ProfileTab() {
   const handleSignOut = async () => {
     try {
       await signOut()
-      router.replace('/landing')
+      router.replace('/onboarding-video')
     } catch (error) {
       console.error('Sign out error:', error)
     }
@@ -277,8 +277,8 @@ export default function ProfileTab() {
               // Delete the user account through Clerk
               await user.delete()
               
-              // Navigate to landing page
-              router.replace('/landing')
+              // Navigate to onboarding for fresh start
+              router.replace('/onboarding-video')
               
             } catch (error) {
               setIsDeletingAccount(false)

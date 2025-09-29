@@ -6,7 +6,6 @@ import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import UmmayadDynastyEra from '@/components/eras/UmmayadDynastyEra'
 import RiseOfIslamEra from '@/components/eras/RiseOfIslamEra'
 import ComingSoonView from '@/components/eras/ComingSoonView'
@@ -30,10 +29,10 @@ export default function HomeTab() {
         if (isSignedIn) {
           console.log('HomeTab - User is signed in, skipping onboarding')
 
-          // If signed in but no era selected, show era selection
+          // If signed in but no era selected, redirect to Eras tab
           if (!selectedEra) {
-            console.log('HomeTab - No era selected, redirecting to era selection')
-            router.replace('/era-selection')
+            console.log('HomeTab - No era selected, redirecting to Eras tab')
+            router.replace('/(tabs)/eras')
             return
           }
 
@@ -57,7 +56,7 @@ export default function HomeTab() {
   }, [isSignedIn, selectedEra, isLoading, router])
 
   const handleBackToEra = () => {
-    router.push('/era-selection')
+    router.push('/(tabs)/eras')
   }
 
   // Show loading state while checking context and onboarding

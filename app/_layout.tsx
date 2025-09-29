@@ -7,6 +7,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, Text, Platform } from "react-native";
+import React from "react";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ClerkProvider } from "@clerk/clerk-expo";
@@ -17,6 +18,7 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { useAppTrackingTransparency } from "@/hooks/useAppTrackingTransparency";
+import Purchases from 'react-native-purchases';
 
 // Conditional PostHog provider that respects ATT permissions
 function ConditionalPostHogProvider({
@@ -55,6 +57,19 @@ export default function RootLayout() {
     "Cormorant": require("../assets/fonts/Cormorant.ttf"),
     "Cormorant-Bold": require("../assets/fonts/Cormorant-Bold.ttf"),
   });
+
+  // Initialize RevenueCat early - matching sample app configuration
+  React.useEffect(() => {
+    console.log('🚀 Configuring RevenueCat in RootLayout...');
+    const REVENUECAT_API_KEY = 'appl_oxMRgfHsashdXXOSrczqvnYYIxg';
+
+    try {
+      Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+      console.log('✅ RevenueCat configured successfully');
+    } catch (error) {
+      console.error('❌ Failed to configure RevenueCat:', error);
+    }
+  }, []);
 
 
   console.log('RootLayout - Fonts loaded:', loaded);
@@ -146,8 +161,6 @@ export default function RootLayout() {
                 <Stack.Screen name="onboarding-results" options={{ headerShown: false }} />
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen name="landing" options={{ headerShown: false }} />
-                <Stack.Screen name="era-selection" options={{ headerShown: false }} />
                 <Stack.Screen name="+not-found" />
               </Stack>
               <StatusBar style="auto" />

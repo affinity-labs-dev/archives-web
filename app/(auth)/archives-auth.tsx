@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { useSignIn, useSignUp } from '@clerk/clerk-expo'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { AppleSignInButton } from '@/components/AppleSignInButton'
 import { GoogleSignInButton } from '@/components/GoogleSignInButton'
@@ -47,8 +48,28 @@ export default function ArchivesAuthScreen() {
     router.back()
   }
 
-  const onContinue = () => {
-    router.replace('/era-selection')
+  const onContinue = async () => {
+    try {
+      // Check if user has completed onboarding
+      const onboardingComplete = await AsyncStorage.getItem('onboarding_completed')
+      const hasSelectedEra = await AsyncStorage.getItem('selected_era')
+
+      const isReturningUser = !!(onboardingComplete || hasSelectedEra)
+
+      if (isReturningUser) {
+        // Returning user: go directly to home tab
+        console.log('🏠 [Auth] Returning user - routing to Home tab')
+        router.replace('/(tabs)/')
+      } else {
+        // New user: go to Eras tab for era selection
+        console.log('🎯 [Auth] New user - routing to Eras tab for era selection')
+        router.replace('/(tabs)/eras')
+      }
+    } catch (error) {
+      console.error('🚨 [Auth] Error checking user status:', error)
+      // Default to Eras tab on error
+      router.replace('/(tabs)/eras')
+    }
   }
 
   // Sign Up function (exact replica with Clerk)
@@ -71,10 +92,10 @@ export default function ArchivesAuthScreen() {
 
       if (signUpAttempt.status === 'complete') {
         await setActiveSignUp({ session: signUpAttempt.createdSessionId })
-        onContinue()
+        await onContinue()
       } else {
         // Handle email verification or other steps
-        onContinue() // For now, proceed anyway
+        await onContinue() // For now, proceed anyway
       }
     } catch (err: any) {
       setIsLoading(false)
@@ -109,7 +130,7 @@ export default function ArchivesAuthScreen() {
 
       if (signInAttempt.status === 'complete') {
         await setActiveSignIn({ session: signInAttempt.createdSessionId })
-        onContinue()
+        await onContinue()
       } else {
         setIsLoading(false)
         setErrorMessage('Sign in incomplete. Please try again.')
@@ -250,9 +271,9 @@ export default function ArchivesAuthScreen() {
             {/* Social Sign In Buttons */}
             <View style={styles.socialButtonsContainer}>
               <AppleSignInButton
-                onSuccess={() => {
+                onSuccess={async () => {
                   setIsLoading(false)
-                  onContinue()
+                  await onContinue()
                 }}
                 onError={(error) => {
                   setIsLoading(false)
@@ -263,9 +284,9 @@ export default function ArchivesAuthScreen() {
               />
 
               <GoogleSignInButton
-                onSuccess={() => {
+                onSuccess={async () => {
                   setIsLoading(false)
-                  onContinue()
+                  await onContinue()
                 }}
                 onError={(error) => {
                   setIsLoading(false)

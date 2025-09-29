@@ -270,6 +270,9 @@ PODS:
   - ExpoHead (6.0.6):
     - ExpoModulesCore
     - RNScreens
+  - ExpoIap (3.1.4):
+    - ExpoModulesCore
+    - openiap (= 1.2.3)
   - ExpoImage (3.0.8):
     - ExpoModulesCore
     - libavif/libdav1d
@@ -389,11 +392,9 @@ PODS:
   - libwebp/sharpyuv (1.5.0)
   - libwebp/webp (1.5.0):
     - libwebp/sharpyuv
-  - PurchasesHybridCommon (17.7.0):
-    - RevenueCat (= 5.39.0)
-  - PurchasesHybridCommonUI (17.7.0):
-    - PurchasesHybridCommon (= 17.7.0)
-    - RevenueCatUI (= 5.39.0)
+  - openiap (1.2.3)
+  - PurchasesHybridCommon (17.8.0):
+    - RevenueCat (= 5.40.0)
   - RCT-Folly (2024.11.18.00):
     - boost
     - DoubleConversion
@@ -2816,9 +2817,7 @@ PODS:
     - React-perflogger (= 0.81.4)
     - React-utils (= 0.81.4)
     - SocketRocket
-  - RevenueCat (5.39.0)
-  - RevenueCatUI (5.39.0):
-    - RevenueCat (= 5.39.0)
+  - RevenueCat (5.40.0)
   - RNCAsyncStorage (2.2.0):
     - boost
     - DoubleConversion
@@ -2875,11 +2874,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNPaywalls (9.5.0):
-    - PurchasesHybridCommonUI (= 17.7.0)
-    - React-Core
-  - RNPurchases (9.5.0):
-    - PurchasesHybridCommon (= 17.7.0)
+  - RNPurchases (9.5.1):
+    - PurchasesHybridCommon (= 17.8.0)
     - React-Core
   - RNReanimated (4.1.0):
     - boost
@@ -3181,7 +3177,7 @@ PODS:
   - SDWebImage (5.21.2):
     - SDWebImage/Core (= 5.21.2)
   - SDWebImage/Core (5.21.2)
-  - SDWebImageAVIFCoder (0.11.0):
+  - SDWebImageAVIFCoder (0.11.1):
     - libavif/core (>= 0.11.0)
     - SDWebImage (~> 5.10)
   - SDWebImageSVGCoder (1.7.0):
@@ -3216,6 +3212,7 @@ DEPENDENCIES:
   - ExpoFont (from `../node_modules/expo-font/ios`)
   - ExpoHaptics (from `../node_modules/expo-haptics/ios`)
   - ExpoHead (from `../node_modules/expo-router/ios`)
+  - ExpoIap (from `../node_modules/expo-iap/ios`)
   - ExpoImage (from `../node_modules/expo-image/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
   - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
@@ -3308,7 +3305,6 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
-  - RNPaywalls (from `../node_modules/react-native-purchases-ui`)
   - RNPurchases (from `../node_modules/react-native-purchases`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
@@ -3322,11 +3318,10 @@ SPEC REPOS:
     - libavif
     - libdav1d
     - libwebp
+    - openiap
     - PurchasesHybridCommon
-    - PurchasesHybridCommonUI
     - ReachabilitySwift
     - RevenueCat
-    - RevenueCatUI
     - SDWebImage
     - SDWebImageAVIFCoder
     - SDWebImageSVGCoder
@@ -3379,6 +3374,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-haptics/ios"
   ExpoHead:
     :path: "../node_modules/expo-router/ios"
+  ExpoIap:
+    :path: "../node_modules/expo-iap/ios"
   ExpoImage:
     :path: "../node_modules/expo-image/ios"
   ExpoKeepAwake:
@@ -3562,8 +3559,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
-  RNPaywalls:
-    :path: "../node_modules/react-native-purchases-ui"
   RNPurchases:
     :path: "../node_modules/react-native-purchases"
   RNReanimated:
@@ -3600,6 +3595,7 @@ SPEC CHECKSUMS:
   ExpoFont: 86ceec09ffed1c99cfee36ceb79ba149074901b5
   ExpoHaptics: 807476b0c39e9d82b7270349d6487928ce32df84
   ExpoHead: 78f14a8573ae5b882123b272c0af20a80bfa58f6
+  ExpoIap: 3f9211d4668cb58b99364661b46e74f7dcc34215
   ExpoImage: e88f500585913969b930e13a4be47277eb7c6de8
   ExpoKeepAwake: 1a2e820692e933c94a565ec3fbbe38ac31658ffe
   ExpoLinearGradient: a464898cb95153125e3b81894fd479bcb1c7dd27
@@ -3624,8 +3620,8 @@ SPEC CHECKSUMS:
   libavif: 84bbb62fb232c3018d6f1bab79beea87e35de7b7
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
-  PurchasesHybridCommon: 6bc96162fb0c061e1980f474be618c088cfd1428
-  PurchasesHybridCommonUI: 6026c0e1583deb09e9eac4250592562fbf966ec3
+  openiap: 92c66923a5aa128777da7dc6283a06b331eeab37
+  PurchasesHybridCommon: fad1084d9781388e181c8b855caf7a5853cebcb3
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: c0ed3249a97243002615517dff789bf4666cf585
   RCTRequired: 58719f5124f9267b5f9649c08bf23d9aea845b23
@@ -3695,18 +3691,16 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 433ddfb4536948630aadd5bd925aff8a632d2fe3
   ReactCodegen: 1d05923ad119796be9db37830d5e5dc76586aa00
   ReactCommon: 394c6b92765cf6d211c2c3f7f6bc601dffb316a6
-  RevenueCat: 4743a5eee0004e1c03eabeb3498818f902a5d622
-  RevenueCatUI: d7ead994884d8eaa23efaf9a0e13a7757af2c3f7
+  RevenueCat: 02c8d0082d3373bcbc831faa600943d6ba6cad6e
   RNCAsyncStorage: 29f0230e1a25f36c20b05f65e2eb8958d6526e82
   RNGestureHandler: 3a73f098d74712952870e948b3d9cf7b6cae9961
-  RNPaywalls: f40f5405d31a6abf6e4ac865849689a29cc48651
-  RNPurchases: aae97652e241947abd3ef4b97b8855d413a6b205
+  RNPurchases: 5bab570861f5710127f73e69ef79e3e46b7fcd39
   RNReanimated: 9de34f0313c4177a34c079ca9fce6f1f278bff24
   RNScreens: 0bbf16c074ae6bb1058a7bf2d1ae017f4306797c
   RNSVG: 6f39605a4c4d200b11435c35bd077553c6b5963a
   RNWorklets: ad0606bee2a8103c14adb412149789c60b72bfb2
   SDWebImage: 9f177d83116802728e122410fb25ad88f5c7608a
-  SDWebImageAVIFCoder: 00310d246aab3232ce77f1d8f0076f8c4b021d90
+  SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748

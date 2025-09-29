@@ -100,11 +100,18 @@ eas build --platform ios --profile development  # Create development build
 ### Application Structure
 ```
 app/
-├── (auth)/           # Authentication route group (sign-in, sign-up, archives-auth)
-├── (tabs)/           # Main tab navigation (index, eras, subscribe, profile)
-├── _layout.tsx       # Root layout with providers (Clerk, Progress, Theme)
-├── landing.tsx       # Onboarding/welcome screen
-└── era-selection.tsx # Era selection interface
+├── (auth)/                    # Authentication route group (sign-in, sign-up, archives-auth)
+├── (tabs)/                    # Main tab navigation (index, eras, subscribe, profile)
+├── onboarding-video.tsx       # Introduction video (first onboarding step)
+├── onboarding-video-2.tsx     # Second educational video
+├── onboarding-welcome.tsx     # Welcome screen with app introduction
+├── onboarding-question-1.tsx  # Personalization questions (learning goals)
+├── onboarding-question-2.tsx  # Interest areas selection
+├── onboarding-question-3.tsx  # Learning style preferences
+├── onboarding-question-4.tsx  # Time commitment preferences
+├── onboarding-results.tsx     # Personalized results and era recommendations
+├── _layout.tsx                # Root layout with providers (Clerk, Progress, Theme)
+└── index.tsx                  # App entry point with smart routing (new users → onboarding, returning users → tabs)
 
 components/
 ├── modules/          # Lesson/quiz content (adventure1/, adventure2/, adventure3/, adventure4/, adventure5/, roiera2/)
@@ -116,10 +123,9 @@ components/
 ├── icons/           # Custom icon components for navigation (Adventure1-5Icons, HomeIcon, etc.)
 ├── ui/              # Reusable UI components (IconSymbol, TabBarBackground)
 ├── SyncDebugPanel.tsx             # Debug panel for sync status monitoring
-├── SubscribeContent.native.tsx    # Native subscription UI components
+├── SubscribeContent.native.tsx    # Native RevenueCat subscription UI
 ├── SubscribeContent.web.tsx       # Web subscription UI components
-├── CheckoutForm.native.tsx        # Native Stripe payment form
-└── RevenueCatPaywall.tsx          # RevenueCat subscription paywall component
+└── CheckoutForm.native.tsx        # Native Stripe payment form (legacy)
 
 constants/
 ├── ArchivesTheme.ts    # Complete design system (colors, typography, spacing)
@@ -131,6 +137,8 @@ context/
 └── BackgroundSyncProvider.tsx # Background sync context provider
 
 hooks/
+├── lib/                  # Service utilities
+│   └── supabase.ts      # Supabase client configuration (corrected path)
 ├── useAnalytics.ts                        # PostHog analytics integration with educational events
 ├── useColorScheme.ts                      # Theme color scheme handling
 ├── useThemeColor.ts                       # Color theme utilities
@@ -138,15 +146,24 @@ hooks/
 ├── useAppTrackingTransparency.ts          # iOS App Tracking Transparency hook for privacy compliance
 ├── useAppTrackingTransparency.native.ts  # Native-specific ATT implementation
 ├── useAppTrackingTransparency.web.ts     # Web-specific ATT implementation
-└── useRevenueCat.ts                       # RevenueCat subscription management hooks
+└── useRevenueCat.ts                       # RevenueCat subscription management hooks (active implementation)
 
 services/
 ├── ProgressService.ts         # Progress data management service
 ├── BackgroundSyncService.ts   # Original multi-table sync service
 └── SimplifiedSyncService.ts   # New single-table JSONB sync service
 
-lib/
-└── supabase.ts           # Supabase client configuration
+hooks/
+├── lib/                  # Service utilities
+│   └── supabase.ts      # Supabase client configuration (corrected path)
+├── useAnalytics.ts                        # PostHog analytics integration with educational events
+├── useColorScheme.ts                      # Theme color scheme handling
+├── useThemeColor.ts                       # Color theme utilities
+├── useSyncIntegration.ts                  # Sync integration hooks with debouncing
+├── useAppTrackingTransparency.ts          # iOS App Tracking Transparency hook for privacy compliance
+├── useAppTrackingTransparency.native.ts  # Native-specific ATT implementation
+├── useAppTrackingTransparency.web.ts     # Web-specific ATT implementation
+└── useRevenueCat.ts                       # RevenueCat subscription management hooks (active implementation)
 ```
 
 ### Core Architecture Patterns
@@ -157,6 +174,33 @@ lib/
 - Token caching enabled via `@clerk/clerk-expo/token-cache`
 - Authentication screens in `(auth)` route group with stack navigation
 - Environment variable required: `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`
+
+#### Onboarding System Architecture
+The app includes a comprehensive 8-screen onboarding flow with educational content and personalization:
+
+**Onboarding Flow Sequence**:
+1. **onboarding-video.tsx** - Introduction video explaining the app's purpose
+2. **onboarding-video-2.tsx** - Second educational video with deeper context
+3. **onboarding-welcome.tsx** - Welcome screen with app introduction and feature highlights
+4. **onboarding-question-1.tsx** - Learning goals assessment (historical periods of interest)
+5. **onboarding-question-2.tsx** - Interest areas selection (culture, politics, religion, etc.)
+6. **onboarding-question-3.tsx** - Learning style preferences (visual, reading, interactive)
+7. **onboarding-question-4.tsx** - Time commitment preferences (daily study time)
+8. **onboarding-results.tsx** - Personalized results with era recommendations and direct authentication flow
+
+**Onboarding Features**:
+- **Personalization Engine**: 4-question assessment for tailored content recommendations
+- **Educational Videos**: Two introductory videos explaining Islamic historical scholarship
+- **Progress Tracking**: Visual progress indicators throughout the flow
+- **Era Recommendations**: Algorithm-based suggestions based on user preferences
+- **Seamless Transition**: Direct flow from onboarding to authentication to main app (Eras tab for new users)
+
+#### Smart Entry Point Routing (app/index.tsx)
+The app uses intelligent routing based on user state:
+- **New Users**: Automatically routed to `/onboarding-video` to begin comprehensive 8-screen journey
+- **Returning Users**: Signed in + completed onboarding → Direct to `/(tabs)` main app
+- **State Persistence**: Uses AsyncStorage keys `onboarding_completed` and `selected_era` for state tracking
+- **User Experience**: Ensures every new user experiences the full personalized onboarding flow
 
 #### Navigation & Routing
 - **File-based routing** with Expo Router (typed routes enabled)
@@ -250,9 +294,14 @@ assets/
 - **State Updates**: Always persist to AsyncStorage through ProgressContext
 - **Styling**: Use ArchivesTheme constants, avoid inline styles
 - **Font Loading**: Pre-loaded in root layout (SpaceMono, DM Sans, Cormorant)
-- **Privacy Compliance**: App Tracking Transparency handled via `useAppTrackingTransparency` hook with platform-specific implementations (.native.ts, .web.ts)
-- **Analytics**: PostHog integration respects ATT permissions with conditional initialization
-- **Payment Processing**: Platform-specific Stripe integration (native vs web implementations)
+- **Privacy Compliance**: Advanced App Tracking Transparency implementation with platform-specific optimizations
+  - **useAppTrackingTransparency**: Unified hook handling both iOS and non-iOS platforms
+  - **Platform-Specific Logic**: iOS requires permission request, other platforms default to granted
+  - **ConditionalPostHogProvider**: Wrapper component that respects ATT permissions before initialization
+  - **Analytics Integration**: PostHog initialization is conditional based on ATT status
+  - **Privacy-First Approach**: All tracking disabled until explicit user consent on iOS
+- **Analytics**: PostHog integration with sophisticated privacy controls and platform optimizations
+- **Payment Processing**: Platform-specific implementations for optimal user experience
 
 #### Key Dependencies Understanding
 - **@clerk/clerk-expo**: Authentication with token persistence
@@ -267,10 +316,12 @@ assets/
 - **react-native-reanimated**: Smooth animations matching SwiftUI feel
 - **@react-native-community/netinfo**: Network connectivity monitoring for sync system
 - **expo-tracking-transparency**: App Tracking Transparency for iOS compliance with educational analytics tracking
-- **@stripe/stripe-react-native**: Payment processing for subscription system (native platforms)
-- **@stripe/stripe-js**: Web-based payment processing (web platform)
-- **react-native-purchases**: RevenueCat SDK for cross-platform subscription management
-- **react-native-purchases-ui**: RevenueCat UI components for subscription paywalls
+- **react-native-purchases**: RevenueCat subscription management (primary implementation)
+- **expo-iap**: Alternative in-app purchase system (installed but not used)
+- **@bottom-tabs/react-navigation**: React Navigation integration for native bottom tabs
+- **react-native-bottom-tabs**: High-performance native bottom tab component
+- **expo-symbols**: iOS SF Symbols integration for native icon consistency
+- **react-native-worklets**: Performance optimization for smooth animations
 
 ### Environment & Configuration
 
@@ -284,6 +335,7 @@ EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_d2VsY29tZWQtZmxlYS05OS5jbGVyay5hY2NvdW
 # Supabase Database (Required for sync functionality)
 EXPO_PUBLIC_SUPABASE_URL=https://kcgihainlnntshupiztu.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... # Backend operations
 
 # PostHog Analytics (Required)
 EXPO_PUBLIC_POSTHOG_API_KEY=phc_7tSzdXUrEZ1OEEsgeJcpvQHdgt3XT6AdXnmvmpUbCMI
@@ -293,11 +345,16 @@ EXPO_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
 EXPO_PUBLIC_REVENUECAT_IOS_API_KEY=appl_oxMRgfHsashdXXOSrczqvnYYIxg
 EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY=your_android_api_key_here
 
+# AWS Backend Services
+EXPO_PUBLIC_AWS_API_BASE_URL=your_aws_api_base_url # Backend API endpoint
+
 # EAS Build Configuration
 EXPO_NO_CAPABILITY_SYNC=1 # Disables automatic capability sync for iOS builds
 ```
 
 **Note**: Environment variables are automatically injected during EAS builds from the `eas.json` configuration. For local development, create a `.env` file in the project root with these values. Additional AWS API endpoint is configured: `EXPO_PUBLIC_AWS_API_BASE_URL` for backend services.
+
+**Subscription System Note**: The project uses RevenueCat (react-native-purchases) as the chosen subscription system with full implementation. expo-iap is available as a backup option but RevenueCat is the definitive solution for subscription management.
 
 #### Platform Configuration
 - **iOS**: Apple Sign-In enabled, New Architecture enabled, App Tracking Transparency configured, background audio modes enabled
@@ -306,10 +363,14 @@ EXPO_NO_CAPABILITY_SYNC=1 # Disables automatic capability sync for iOS builds
 - **TypeScript**: Strict mode enabled with path aliases (`@/*` → project root)
 
 #### Build Configuration
+- **App Version**: 2.1.0 (current production version)
+- **iOS Build Number**: 30 (auto-increment enabled for production builds)
+- **Android Version Code**: 3 (auto-increment enabled for production builds)
 - **Expo SDK**: 54.0.0 (latest stable)
 - **React Native**: 0.81.4 with new architecture enabled
 - **React**: 19.1.0 (latest major version)
-- **Plugins**: expo-router, expo-splash-screen, expo-video, expo-audio, expo-localization, expo-tracking-transparency
+- **Node Version**: 18.18.0 (locked for EAS builds)
+- **Plugins**: expo-router, expo-splash-screen, expo-video, expo-audio, expo-localization, expo-tracking-transparency, expo-iap, expo-symbols
 - **Asset Bundling**: All assets included (`"assetBundlePatterns": ["**/*"]`)
 - **Updates**: Expo Updates configured with runtime version 1.0.0
 - **EAS Project ID**: 4f1f4bc4-0ced-48f3-b712-178b54175088
@@ -369,6 +430,15 @@ Background sync happens transparently
 - **Rise of Islam Era**: Implemented alongside Umayyad Dynasty era with proper progression logic
 - **Rise of Islam Era Adventure 1**: In development - 3 modules with initial lessons and quiz implemented (Early Islamic period)
 - **Rise of Islam Era 2**: New content development in progress - located in `components/modules/roiera2/` directory
+  - Adventure 1 Module 1: Initial lessons and quiz implemented (ROIERA2Adv1_Module1_Lesson1.tsx, ROIERA2Adv1_Module1_Lesson2.tsx, ROIERA2Adv1_Module1_Quiz.tsx)
+
+### Current Subscription System Status
+- **Primary Implementation**: RevenueCat (react-native-purchases ^9.5.1) is the chosen subscription system
+- **Active System**: RevenueCat is fully implemented in SubscribeContent.native.tsx with complete functionality
+- **Hook**: useRevenueCat.ts provides comprehensive subscription management (untracked file)
+- **Configuration**: RevenueCat API key `appl_oxMRgfHsashdXXOSrczqvnYYIxg` configured in both eas.json and app layout
+- **Alternative Available**: expo-iap (^3.1.4) installed but not used - RevenueCat is the definitive choice
+- **Decision**: RevenueCat chosen for its comprehensive features, analytics, and robust subscription management
 
 ### Content Development Resources
 - **Lesson Types Documentation**: Comprehensive guides in `docs/lesson-types/` (6 files, 5,500+ lines total)
@@ -385,13 +455,18 @@ Background sync happens transparently
 - **Era System**: Multi-era support with Rise of Islam era alongside Umayyad Dynasty, proper era unlocking progression
 
 ### Analytics & Data Integration
-- **PostHog Analytics**: Complete user tracking and educational event analytics (implemented)
-  - User identification via Clerk integration
-  - Educational progress tracking (lessons, quizzes, modules)
-  - Video/audio engagement metrics
-  - Screen navigation and app lifecycle events
-  - Error tracking and debugging
-  - Session replay for user experience insights
+- **PostHog Analytics**: Complete user tracking and educational event analytics with privacy compliance (implemented)
+  - **Privacy-First Integration**: Conditional initialization based on App Tracking Transparency permissions
+  - **Platform-Specific Configuration**:
+    - iOS: Session replay enabled, network telemetry enabled, 1000ms debounce delays
+    - Android: Log capture enabled, 1000ms debounce delays for performance
+    - Web: Session replay disabled for compatibility, basic analytics only
+  - **User Identification**: Seamless integration with Clerk authentication system
+  - **Educational Progress Tracking**: Lessons, quizzes, modules completion with detailed analytics
+  - **Engagement Metrics**: Video/audio interaction tracking, time spent per lesson
+  - **Navigation Analytics**: Screen transitions, app lifecycle events, user flow analysis
+  - **Privacy Masking**: Text inputs masked in session replays, images preserved for educational analysis
+  - **Error Tracking**: Comprehensive debugging with privacy-respecting data collection
 - **Background Sync System**: Local-first architecture with cloud backup (implemented)
   - AsyncStorage remains primary data source for instant performance
   - Automatic background sync to Supabase when online
@@ -402,11 +477,12 @@ Background sync happens transparently
   - `user_data`: Single table with JSONB column containing all user data (selectedEra, adventures, modules)
   - Legacy three-table structure available in BackgroundSyncService for reference
 - **Audio System**: Platform-specific audio implementations using expo-av for background music
-- **Subscription System**: Platform-aware payment processing with multiple implementations
-  - Native platforms: Stripe React Native with Apple Pay support
-  - Web platform: Stripe Checkout Sessions (implementation in progress)
-  - RevenueCat: Cross-platform subscription management with `RevenueCatPaywall.tsx` and `useRevenueCat.ts`
-  - Platform-specific components: `SubscribeContent.web.tsx` for web-specific UI
+- **Subscription System**: RevenueCat-based subscription implementation (primary choice)
+  - RevenueCat: Cross-platform subscription management (react-native-purchases)
+  - Dynamic pricing from App Store/Google Play via RevenueCat
+  - Full purchase flow with restore purchases functionality
+  - Platform-specific components: `SubscribeContent.native.tsx` and `SubscribeContent.web.tsx`
+  - expo-iap: Available as backup (installed but RevenueCat is the chosen solution)
 
 ### Future Enhancement Plans
 - **Push Notifications**: Course reminders and achievement notifications

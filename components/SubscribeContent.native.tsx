@@ -13,21 +13,57 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useRevenueCat } from "@/hooks/useRevenueCat";
 
 export default function SubscribeContent() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">(
     "monthly"
   );
-  const [loading, setLoading] = useState(false);
 
-  // Simple subscription state - can be controlled manually for testing
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  // Connect to real RevenueCat subscription system
+  const {
+    isSubscribed,
+    monthlyPackage,
+    yearlyPackage,
+    offerings,
+    isPurchasing,
+    isLoading,
+    error,
+    purchasePackage,
+    restorePurchases
+  } = useRevenueCat();
 
-  console.log('💎 SubscribeContent rendered with state:', {
+  console.log('💎 SubscribeContent rendered with RevenueCat state:', {
     isSubscribed,
     selectedPlan,
-    loading
+    isPurchasing,
+    isLoading,
+    hasOfferings: !!offerings,
+    monthlyPackageId: monthlyPackage?.identifier,
+    yearlyPackageId: yearlyPackage?.identifier,
+    monthlyPrice: monthlyPackage?.storeProduct?.priceString,
+    yearlyPrice: yearlyPackage?.storeProduct?.priceString,
+    error
   });
+
+  // Helper function to format pricing for display
+  const formatPrice = (priceString: string | undefined, fallback: string) => {
+    if (!priceString) return { main: fallback.split('.')[0], decimal: `.${fallback.split('.')[1]}` };
+
+    // Extract the numeric part and currency from App Store pricing
+    const match = priceString.match(/([£$€])(\d+)\.(\d+)/);
+    if (match) {
+      const [, currency, mainPrice, decimalPrice] = match;
+      return { main: `${currency}${mainPrice}`, decimal: `.${decimalPrice}` };
+    }
+
+    // Fallback to simple split if format is different
+    const parts = priceString.split('.');
+    return { main: parts[0] || fallback.split('.')[0], decimal: parts[1] ? `.${parts[1]}` : `.${fallback.split('.')[1]}` };
+  };
+
+  const monthlyPricing = formatPrice(monthlyPackage?.storeProduct?.priceString, '£4.99');
+  const yearlyPricing = formatPrice(yearlyPackage?.storeProduct?.priceString, '£49.99');
 
   // If user is already subscribed, show success state
   if (isSubscribed) {
@@ -99,39 +135,45 @@ export default function SubscribeContent() {
 
   const handleSubscribe = async () => {
     try {
-      setLoading(true);
-
       console.log('🎯 Subscribe button pressed for plan:', selectedPlan);
 
-      // Show "Coming Soon" alert instead of processing payment
-      Alert.alert(
-        "Subscription Coming Soon!",
-        `Thank you for your interest in the ${selectedPlan} Archives Explorer Pass! \n\nSubscription features will be available in the next update. Stay tuned for premium content and exclusive features!`,
-        [
-          {
-            text: "Got it!",
-            style: "default"
-          },
-          {
-            text: "Preview Premium (Demo)",
-            style: "default",
-            onPress: () => {
-              // For demo purposes, temporarily set subscribed state
-              setIsSubscribed(true);
-            }
-          }
-        ]
-      );
+      // Check if we have the required packages
+      const packageToUse = selectedPlan === 'monthly' ? monthlyPackage : yearlyPackage;
+
+      if (!packageToUse) {
+        console.error('❌ Package not found:', {
+          selectedPlan,
+          monthlyPackage: !!monthlyPackage,
+          yearlyPackage: !!yearlyPackage,
+          hasOfferings: !!offerings,
+          offeringsKeys: offerings ? Object.keys(offerings.all || {}) : []
+        });
+
+        Alert.alert(
+          "Product Not Available",
+          `The ${selectedPlan} subscription is currently not available. Please check console logs for details.`,
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      // Use the RevenueCat purchase flow
+      await purchasePackage(selectedPlan);
+
+      // Success is handled automatically by the useRevenueCat hook
+      // The UI will update automatically when subscription becomes active
 
     } catch (error: any) {
       console.error('❌ Subscribe error:', error);
-      Alert.alert(
-        "Error",
-        "Something went wrong. Please try again later.",
-        [{ text: "OK" }]
-      );
-    } finally {
-      setLoading(false);
+
+      // Error handling is done in the hook, but we can show additional UI feedback if needed
+      if (error && !error.userCancelled) {
+        Alert.alert(
+          "Purchase Failed",
+          error.message || "Something went wrong. Please try again later.",
+          [{ text: "OK" }]
+        );
+      }
     }
   };
 
@@ -172,8 +214,8 @@ export default function SubscribeContent() {
             onPress={() => setSelectedPlan("monthly")}
           >
             <View style={styles.priceDisplayRow}>
-              <Text style={styles.priceMain}>£4</Text>
-              <Text style={styles.priceDecimal}>.99</Text>
+              <Text style={styles.priceMain}>{monthlyPricing.main}</Text>
+              <Text style={styles.priceDecimal}>{monthlyPricing.decimal}</Text>
             </View>
             <Text style={styles.originalPrice}>£9.99</Text>
             <Text style={styles.planDuration}>Monthly</Text>
@@ -200,8 +242,8 @@ export default function SubscribeContent() {
             onPress={() => setSelectedPlan("yearly")}
           >
             <View style={styles.priceDisplayRow}>
-              <Text style={styles.priceMain}>£49</Text>
-              <Text style={styles.priceDecimal}>.99</Text>
+              <Text style={styles.priceMain}>{yearlyPricing.main}</Text>
+              <Text style={styles.priceDecimal}>{yearlyPricing.decimal}</Text>
             </View>
             <Text style={styles.originalPrice}>£89.99</Text>
             <Text style={styles.planDuration}>Yearly</Text>
@@ -344,13 +386,31 @@ export default function SubscribeContent() {
         {/* Subscribe Button - Original Design with Enhanced Styling */}
         <TouchableOpacity
           style={
-            loading ? styles.subscribeButtonDisabled : styles.subscribeButton
+            isPurchasing || isLoading ? styles.subscribeButtonDisabled : styles.subscribeButton
           }
           onPress={handleSubscribe}
-          disabled={loading}
+          disabled={isPurchasing || isLoading}
         >
-          <Text style={loading ? styles.buttonTextDisabled : styles.buttonText}>
-            {loading ? "Processing..." : "Get Access"}
+          <Text style={isPurchasing || isLoading ? styles.buttonTextDisabled : styles.buttonText}>
+            {isPurchasing ? "Processing Purchase..." : isLoading ? "Loading..." : "Get Access"}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Error Display */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Restore Purchases Link */}
+        <TouchableOpacity
+          onPress={restorePurchases}
+          disabled={isLoading || isPurchasing}
+          style={styles.restoreButton}
+        >
+          <Text style={styles.restoreButtonText}>
+            Already subscribed? Restore Purchases
           </Text>
         </TouchableOpacity>
 
@@ -683,6 +743,35 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: "center",
     lineHeight: 18,
+    marginTop: 16,
+  },
+
+  // Error and restore purchase styles
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+    marginHorizontal: 4,
+  },
+  errorText: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: '#c62828',
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  restoreButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  restoreButtonText: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: ArchivesTheme.colors.persianOrange,
+    textAlign: "center",
+    textDecorationLine: "underline",
   },
 
   // Subscribed state styles
