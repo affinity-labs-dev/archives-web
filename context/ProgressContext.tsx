@@ -387,8 +387,6 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   // Initialize era-specific data when era is selected
   const initializeEraData = async (eraId: string) => {
     try {
-      console.log(`🎯 Initializing data for era: ${eraId}`)
-
       if (eraId === 'riseOfIslam') {
         // NEW ROI SYSTEM: Initialize ROI-specific progress tracking
         const currentRoiAdventures = [...roiAdventureProgress]
@@ -410,8 +408,6 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         // Check if ROI Adventure 1 Module 1 exists
         const existingRoiModule = getRoiModuleProgress('ROI_Adv1_M1')
         if (!existingRoiModule) {
-          console.log('🆕 Creating ROI Adventure 1 Module 1 (New ROI System)')
-
           // Create ROI Adventure 1 Module 1 as unlocked by default
           const roiAdv1Module1: ModuleProgress = {
             adventureId: 1, // ROI Adventure 1
@@ -425,7 +421,6 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
           const updatedRoiModules = [...roiModuleProgress, roiAdv1Module1]
           setRoiModuleProgress(updatedRoiModules)
-          console.log('✅ ROI Adventure 1 Module 1 created and unlocked')
         }
 
         // LEGACY SYSTEM: Also initialize legacy data for backwards compatibility

@@ -141,16 +141,9 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
     const firstRoiModuleProgress = getRoiModuleProgress('ROI_Adv1_M1')
     const isFirstRoiModuleCompleted = firstRoiModuleProgress?.isCompleted || false
 
-    console.log('🎯 First module bounce check for Rise of Islam (ROI System):', {
-      firstRoiModuleProgress,
-      isCompleted: isFirstRoiModuleCompleted,
-      shouldShowBounce: !isFirstRoiModuleCompleted
-    })
-
     setShouldShowBounce(!isFirstRoiModuleCompleted)
 
     if (isFirstRoiModuleCompleted && shouldShowBounce) {
-      console.log('🎯 First ROI module completed - stopping bounce animation')
       setShouldShowBounce(false)
     }
   }, [getRoiModuleProgress, shouldShowBounce])
@@ -158,8 +151,6 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
   // Start bouncing animation when shouldShowBounce is true
   useEffect(() => {
     if (shouldShowBounce) {
-      console.log('🎯 Starting bounce animation for Rise of Islam first module')
-
       const bounceSequence = Animated.sequence([
         Animated.timing(bounceY, {
           toValue: -15,
