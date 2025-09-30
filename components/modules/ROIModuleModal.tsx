@@ -17,6 +17,9 @@ import { useProgress } from '@/context/ProgressContext'
 import ROIERA2Adv1_Module1_Lesson1 from './roiera2/ROIERA2Adv1_Module1_Lesson1'
 import ROIERA2Adv1_Module1_Lesson2 from './roiera2/ROIERA2Adv1_Module1_Lesson2'
 import ROIERA2Adv1_Module1_Quiz from './roiera2/ROIERA2Adv1_Module1_Quiz'
+import ROIERA2Adv1_Module2_Lesson1 from './roiera2/ROIERA2Adv1_Module2_Lesson1'
+import ROIERA2Adv1_Module2_Lesson2 from './roiera2/ROIERA2Adv1_Module2_Lesson2'
+import ROIERA2Adv1_Module2_Quiz from './roiera2/ROIERA2Adv1_Module2_Quiz'
 
 interface ROIModuleModalProps {
   isVisible: boolean
@@ -115,6 +118,34 @@ export default function ROIModuleModal({ isVisible, moduleId, onDismiss }: ROIMo
         case 'quiz':
           return (
             <ROIERA2Adv1_Module1_Quiz
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+      }
+    }
+
+    // ROI Adventure 1, Module 2 - The Problem of Injustice
+    if (adventure === 1 && module === 2) {
+      switch (currentStep) {
+        case 'lesson1':
+          return (
+            <ROIERA2Adv1_Module2_Lesson1
+              onContinue={() => handleLessonComplete('lesson1')}
+              onDismiss={handleModalDismiss}
+            />
+          )
+        case 'lesson2':
+          return (
+            <ROIERA2Adv1_Module2_Lesson2
+              onContinue={() => handleLessonComplete('lesson2')}
+              onDismiss={handleModalDismiss}
+              onBack={handleGoBack}
+            />
+          )
+        case 'quiz':
+          return (
+            <ROIERA2Adv1_Module2_Quiz
               onDismiss={handleModalDismiss}
               onBack={handleGoBack}
             />

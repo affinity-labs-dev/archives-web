@@ -2,15 +2,15 @@
 // Combines full-screen video playback with expandable reading content about the 750 CE Abbasid takeover
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useProgress } from "@/context/ProgressContext";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
   Platform,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -20,11 +20,10 @@ import {
 import {
   ScrollView as GestureHandlerScrollView,
   PanGestureHandler,
-  State
+  State,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import LessonPlayer from "../LessonPlayer";
-import { useProgress } from "@/context/ProgressContext";
 
 interface Adventure5_Module3_Lesson1Props {
   onContinue: () => void;
@@ -56,7 +55,11 @@ const ANDROID_GESTURE_CONSTANTS = {
 // Historical content about the Abbasid Revolution and Baghdad foundation
 const historicalText = `In 750 CE, after years of unrest, the Abbasids overthrew the Umayyads and took control of the Islamic world. They promised fairness, knowledge, and leadership connected to the Prophet's family. To mark this new beginning, they founded a brand-new capital: Baghdad - a city built from scratch to reflect their power, order, and love of learning. It became the shining heart of a new age.`;
 
-export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBack }: Adventure5_Module3_Lesson1Props) {
+export default function Adventure5_Module3_Lesson1({
+  onContinue,
+  onDismiss,
+  onBack,
+}: Adventure5_Module3_Lesson1Props) {
   // Video-related states
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
@@ -67,7 +70,10 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
+  const [touchStart, setTouchStart] = useState<{
+    y: number;
+    time: number;
+  } | null>(null);
 
   // Critical gesture coordination state
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
@@ -96,13 +102,17 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
 
   // Enhanced iOS PanGestureHandler with perfect gesture coordination
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== "ios") return;
 
     const { state, translationY, velocityY } = event.nativeEvent;
 
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+    } else if (
+      state === State.END ||
+      state === State.CANCELLED ||
+      state === State.FAILED
+    ) {
       setIsCardGestureActive(false);
     }
 
@@ -111,14 +121,18 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
       const minVelocity = IOS_GESTURE_CONSTANTS.minVelocity;
 
       // Swipe up to expand
-      if (!isCardExpanded &&
-          (translationY < -minDistance || velocityY < -minVelocity)) {
+      if (
+        !isCardExpanded &&
+        (translationY < -minDistance || velocityY < -minVelocity)
+      ) {
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       // Swipe down to collapse
-      else if (isCardExpanded &&
-               (translationY > minDistance || velocityY > minVelocity)) {
+      else if (
+        isCardExpanded &&
+        (translationY > minDistance || velocityY > minVelocity)
+      ) {
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
@@ -129,7 +143,7 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
   const handleTouchStart = (event: any) => {
     setTouchStart({
       y: event.nativeEvent.pageY,
-      time: Date.now()
+      time: Date.now(),
     });
     setIsCardGestureActive(true);
   };
@@ -149,12 +163,22 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
     const velocityThreshold = ANDROID_GESTURE_CONSTANTS.velocityThreshold;
 
     // Swipe up to expand
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+    if (
+      !isCardExpanded &&
+      distance > minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       expandCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     // Swipe down to collapse
-    else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+    else if (
+      isCardExpanded &&
+      distance < -minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       collapseCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -243,18 +267,21 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
   }
 
   // Progress calculation for display
-  const progressPercentage = videoDuration > 0 ? (videoProgress / videoDuration) * 100 : 0;
+  const progressPercentage =
+    videoDuration > 0 ? (videoProgress / videoDuration) * 100 : 0;
 
   return (
     <>
-      {Platform.OS === 'android' && (
+      {Platform.OS === "android" && (
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
 
       <View style={styles.container}>
         {/* FULL-SCREEN VIDEO PLAYER */}
         <LessonPlayer
-          videoSource={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Videos/Adv5_M3_L1.mp4" }}
+          videoSource={{
+            uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel%20Videos/Adv5_M3_Reel1.mp4",
+          }}
           onPlaybackStatusUpdate={handleVideoStatusUpdate}
           style={styles.videoPlayer}
         />
@@ -271,7 +298,10 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
         {/* Continue Button */}
         <SafeAreaView style={styles.nextButtonContainer}>
           <TouchableOpacity
-            style={[styles.nextButton, !hasFinishedReading && styles.nextButtonDisabled]}
+            style={[
+              styles.nextButton,
+              !hasFinishedReading && styles.nextButtonDisabled,
+            ]}
             onPress={hasFinishedReading ? handleContinuePress : undefined}
             disabled={!hasFinishedReading}
           >
@@ -290,7 +320,7 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
               <View
                 style={[
                   styles.progressBarFill,
-                  { width: `${progressPercentage}%` }
+                  { width: `${progressPercentage}%` },
                 ]}
               />
             </View>
@@ -298,24 +328,36 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
         )}
 
         {/* EXPANDABLE READING CARD */}
-        {Platform.OS === 'ios' ? (
+        {Platform.OS === "ios" ? (
           <PanGestureHandler
             ref={panGestureRef}
             onGestureEvent={handleSwipeGesture}
             onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-IOS_GESTURE_CONSTANTS.activeOffsetY, IOS_GESTURE_CONSTANTS.activeOffsetY]}
-            failOffsetX={[-IOS_GESTURE_CONSTANTS.failOffsetX, IOS_GESTURE_CONSTANTS.failOffsetX]}
+            activeOffsetY={[
+              -IOS_GESTURE_CONSTANTS.activeOffsetY,
+              IOS_GESTURE_CONSTANTS.activeOffsetY,
+            ]}
+            failOffsetX={[
+              -IOS_GESTURE_CONSTANTS.failOffsetX,
+              IOS_GESTURE_CONSTANTS.failOffsetX,
+            ]}
             minPointers={1}
             maxPointers={1}
           >
-            <Animated.View style={[styles.cardContainer, { transform: [{ translateY: cardTranslateY }] }]}>
-              <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
+            <Animated.View
+              style={[
+                styles.cardContainer,
+                { transform: [{ translateY: cardTranslateY }] },
+              ]}
+            >
+              <Animated.View
+                style={[styles.readingCard, { height: cardHeight }]}
+              >
                 <View style={styles.cardHandle} />
 
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.readingCardHeader}>
                     <Text style={styles.cardTitle}>
                       Abbasid Revolution and New Order
@@ -327,7 +369,12 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
                 </Animated.View>
 
                 {isCardExpanded && (
-                  <Animated.View style={[styles.expandedContent, { opacity: Animated.subtract(1, cardOpacity) }]}>
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
                     <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
                       style={styles.expandedScroll}
@@ -348,8 +395,12 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
                         </View>
 
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>The Great Revolution</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
+                          <Text style={styles.sectionTitle}>
+                            The Great Revolution
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            {historicalText}
+                          </Text>
                         </View>
 
                         <View style={styles.keyTermsSection}>
@@ -383,15 +434,21 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
             </Animated.View>
           </PanGestureHandler>
         ) : (
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[styles.cardContainer, { transform: [{ translateY: cardTranslateY }] }]}>
-              <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
+          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <Animated.View
+              style={[
+                styles.cardContainer,
+                { transform: [{ translateY: cardTranslateY }] },
+              ]}
+            >
+              <Animated.View
+                style={[styles.readingCard, { height: cardHeight }]}
+              >
                 <View style={styles.cardHandle} />
 
-                <Animated.View style={[styles.collapsedContent, { opacity: cardOpacity }]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.collapsedContentWrapper}>
                     <Text style={styles.collapsedTitle}>
                       Abbasid Revolution and New Order
@@ -403,7 +460,12 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
                 </Animated.View>
 
                 {isCardExpanded && (
-                  <Animated.View style={[styles.expandedContent, { opacity: Animated.subtract(1, cardOpacity) }]}>
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
                     <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
                       style={styles.expandedScroll}
@@ -424,8 +486,12 @@ export default function Adventure5_Module3_Lesson1({ onContinue, onDismiss, onBa
                         </View>
 
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>The Great Revolution</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
+                          <Text style={styles.sectionTitle}>
+                            The Great Revolution
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            {historicalText}
+                          </Text>
                         </View>
 
                         <View style={styles.keyTermsSection}>
@@ -468,7 +534,7 @@ const styles = StyleSheet.create({
   // MAIN CONTAINER
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: "black",
   },
 
   // VIDEO PLAYER
@@ -662,7 +728,7 @@ const styles = StyleSheet.create({
   // Android-specific optimizations
   collapsedContentWrapper: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 25,

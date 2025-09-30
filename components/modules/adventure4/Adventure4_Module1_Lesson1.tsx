@@ -2,9 +2,10 @@
 // Full-screen TabView carousel showing Byzantine mosaic images
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -20,10 +21,9 @@ import {
 import {
   ScrollView as GestureHandlerScrollView,
   PanGestureHandler,
-  State
+  State,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -39,20 +39,23 @@ const mosqueMosaics = [
     id: 1,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M1_Img01.jpg",
     title: "The Umayyad Mosque Today",
-    caption: "The Great Mosque of Damascus is one of the oldest and most beautiful in the world - and its walls sparkle with Byzantine-made mosaics."
+    caption:
+      "The Great Mosque of Damascus is one of the oldest and most beautiful in the world - and its walls sparkle with Byzantine-made mosaics.",
   },
   {
     id: 2,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M1_Img02.jpg",
     title: "The Umayyad Mosque Today",
-    caption: "These weren&apos;t pictures of people or battles. Instead, they showed peaceful imaginary landscapes filled with trees, palaces, and flowing water."
+    caption:
+      "These weren&apos;t pictures of people or battles. Instead, they showed peaceful imaginary landscapes filled with trees, palaces, and flowing water.",
   },
   {
     id: 3,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M1_Img03.jpg",
     title: "Mosaic on the Umayyad Mosque",
-    caption: "These dreamlike scenes reminded worshippers of paradise, creating a calm and sacred feeling inside the mosque."
-  }
+    caption:
+      "These dreamlike scenes reminded worshippers of paradise, creating a calm and sacred feeling inside the mosque.",
+  },
 ];
 
 export default function Adventure4_Module1_Lesson1({
@@ -64,7 +67,10 @@ export default function Adventure4_Module1_Lesson1({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
+  const [touchStart, setTouchStart] = useState<{
+    y: number;
+    time: number;
+  } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
@@ -77,7 +83,9 @@ export default function Adventure4_Module1_Lesson1({
 
   // Background music hook - Using AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
-    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M1_L1_Echoes.mp3" },
+    {
+      uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M1_L1_Echoes.mp3",
+    },
     {
       volume: 0.5,
       shouldLoop: true,
@@ -87,23 +95,33 @@ export default function Adventure4_Module1_Lesson1({
   // Enhanced debug logging for background music
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log(`🎵 [${timestamp}] Adventure4_Module1_Lesson1 - Background music state:`, {
-      isLoaded: backgroundMusic.isLoaded,
-      isPlaying: backgroundMusic.isPlaying,
-      isLoading: backgroundMusic.isLoading || false,
-      platform: Platform.OS
-    });
+    console.log(
+      `🎵 [${timestamp}] Adventure4_Module1_Lesson1 - Background music state:`,
+      {
+        isLoaded: backgroundMusic.isLoaded,
+        isPlaying: backgroundMusic.isPlaying,
+        isLoading: backgroundMusic.isLoading || false,
+        platform: Platform.OS,
+      }
+    );
 
-    if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
-      console.log('🎵 Audio not loading - AWS CloudFront source should be available');
-      console.log('🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M1_L1_Echoes.mp3');
+    if (!backgroundMusic.isLoaded && !backgroundMusic.isLoading) {
+      console.log(
+        "🎵 Audio not loading - AWS CloudFront source should be available"
+      );
+      console.log(
+        "🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv4_M1_L1_Echoes.mp3"
+      );
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
 
   // Component mount logging
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log('🎵 Adventure4_Module1_Lesson1 component mounted at:', timestamp);
+    console.log(
+      "🎵 Adventure4_Module1_Lesson1 component mounted at:",
+      timestamp
+    );
   }, []);
 
   // Handle carousel scroll - matching iOS TabView behavior
@@ -121,7 +139,9 @@ export default function Adventure4_Module1_Lesson1({
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     if (backgroundMusic.isLoaded && backgroundMusic.isPlaying) {
-      console.log(`🎵 [${timestamp}] Background music auto-playing successfully`);
+      console.log(
+        `🎵 [${timestamp}] Background music auto-playing successfully`
+      );
     } else if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
       console.log(`🎵 [${timestamp}] Background music loaded but not playing`);
     } else {
@@ -132,10 +152,10 @@ export default function Adventure4_Module1_Lesson1({
   // Cleanup background music when component unmounts
   useEffect(() => {
     return () => {
-      console.log('🎵 Component unmounting - cleaning up all audio');
+      console.log("🎵 Component unmounting - cleaning up all audio");
 
       if (backgroundMusic.stop) {
-        console.log('🎵 Stopping background music on component unmount');
+        console.log("🎵 Stopping background music on component unmount");
         backgroundMusic.stop();
       }
     };
@@ -145,7 +165,10 @@ export default function Adventure4_Module1_Lesson1({
   const handleSwipeNext = () => {
     if (currentImageIndex < mosqueMosaics.length - 1) {
       const nextIndex = currentImageIndex + 1;
-      scrollViewRef.current?.scrollTo({ x: nextIndex * SCREEN_WIDTH, animated: true });
+      scrollViewRef.current?.scrollTo({
+        x: nextIndex * SCREEN_WIDTH,
+        animated: true,
+      });
       setCurrentImageIndex(nextIndex);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -153,14 +176,18 @@ export default function Adventure4_Module1_Lesson1({
 
   // Enhanced iOS PanGestureHandler with gesture coordination
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== "ios") return;
 
     const { state, translationY, velocityY } = event.nativeEvent;
 
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
       console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+    } else if (
+      state === State.END ||
+      state === State.CANCELLED ||
+      state === State.FAILED
+    ) {
       setIsCardGestureActive(false);
       console.log("📱 iOS card gesture ended - allowing carousel");
     }
@@ -170,27 +197,31 @@ export default function Adventure4_Module1_Lesson1({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS
+        platform: Platform.OS,
       });
 
       const minDistance = 20;
       const minVelocity = 300;
 
-      if (!isCardExpanded &&
-          (translationY < -minDistance || velocityY < -minVelocity)) {
+      if (
+        !isCardExpanded &&
+        (translationY < -minDistance || velocityY < -minVelocity)
+      ) {
         console.log("📱 iOS PanGesture swipe up detected - expanding card", {
           translationY,
           velocityY,
-          platform: Platform.OS
+          platform: Platform.OS,
         });
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (isCardExpanded &&
-                 (translationY > minDistance || velocityY > minVelocity)) {
+      } else if (
+        isCardExpanded &&
+        (translationY > minDistance || velocityY > minVelocity)
+      ) {
         console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
           translationY,
           velocityY,
-          platform: Platform.OS
+          platform: Platform.OS,
         });
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -202,7 +233,7 @@ export default function Adventure4_Module1_Lesson1({
   const handleTouchStart = (event: any) => {
     setTouchStart({
       y: event.nativeEvent.pageY,
-      time: Date.now()
+      time: Date.now(),
     });
     setIsCardGestureActive(true);
     console.log("📖 Android card gesture started - blocking carousel");
@@ -232,24 +263,34 @@ export default function Adventure4_Module1_Lesson1({
       velocityThreshold,
       meetsDistanceRequirement: Math.abs(distance) > minDistance,
       meetsTimeRequirement: time < maxTime,
-      meetsVelocityRequirement: velocity > velocityThreshold
+      meetsVelocityRequirement: velocity > velocityThreshold,
     });
 
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+    if (
+      !isCardExpanded &&
+      distance > minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       console.log("📖 Android touch swipe up detected - expanding card", {
         distance,
         time,
         velocity: velocity.toFixed(2),
-        platform: Platform.OS
+        platform: Platform.OS,
       });
       expandCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+    } else if (
+      isCardExpanded &&
+      distance < -minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       console.log("📖 Android touch swipe down detected - collapsing card", {
         distance,
         time,
         velocity: velocity.toFixed(2),
-        platform: Platform.OS
+        platform: Platform.OS,
       });
       collapseCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -308,7 +349,7 @@ export default function Adventure4_Module1_Lesson1({
 
   return (
     <>
-      {Platform.OS === 'android' && (
+      {Platform.OS === "android" && (
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
       <View style={styles.container}>
@@ -333,9 +374,7 @@ export default function Adventure4_Module1_Lesson1({
 
               {/* Text overlay with descriptive caption */}
               <View style={styles.textOverlay}>
-                <Text style={styles.captionText}>
-                  {mosaic.caption}
-                </Text>
+                <Text style={styles.captionText}>{mosaic.caption}</Text>
               </View>
             </View>
           ))}
@@ -343,14 +382,17 @@ export default function Adventure4_Module1_Lesson1({
 
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={() => {
-            if (backgroundMusic.isPlaying) {
-              console.log('🎵 Stopping background music on back button');
-              backgroundMusic.stop();
-            }
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              if (backgroundMusic.isPlaying) {
+                console.log("🎵 Stopping background music on back button");
+                backgroundMusic.stop();
+              }
 
-            (onBack || onDismiss)();
-          }}>
+              (onBack || onDismiss)();
+            }}
+          >
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </SafeAreaView>
@@ -360,22 +402,33 @@ export default function Adventure4_Module1_Lesson1({
           <TouchableOpacity
             style={[
               styles.topContinueButton,
-              currentImageIndex !== mosqueMosaics.length - 1 && styles.topContinueButtonDisabled
+              currentImageIndex !== mosqueMosaics.length - 1 &&
+                styles.topContinueButtonDisabled,
             ]}
-            onPress={currentImageIndex === mosqueMosaics.length - 1 ? () => {
-              if (backgroundMusic.isPlaying) {
-                console.log('🎵 Stopping background music before continue');
-                backgroundMusic.stop();
-              }
+            onPress={
+              currentImageIndex === mosqueMosaics.length - 1
+                ? () => {
+                    if (backgroundMusic.isPlaying) {
+                      console.log(
+                        "🎵 Stopping background music before continue"
+                      );
+                      backgroundMusic.stop();
+                    }
 
-              onContinue();
-            } : undefined}
+                    onContinue();
+                  }
+                : undefined
+            }
             disabled={currentImageIndex !== mosqueMosaics.length - 1}
           >
             <Ionicons
               name="chevron-forward"
               size={24}
-              color={currentImageIndex === mosqueMosaics.length - 1 ? "white" : "#666"}
+              color={
+                currentImageIndex === mosqueMosaics.length - 1
+                  ? "white"
+                  : "#666"
+              }
             />
           </TouchableOpacity>
         </SafeAreaView>
@@ -388,7 +441,7 @@ export default function Adventure4_Module1_Lesson1({
                 key={index}
                 style={[
                   styles.pageIndicator,
-                  currentImageIndex === index && styles.pageIndicatorActive
+                  currentImageIndex === index && styles.pageIndicatorActive,
                 ]}
               />
             ))}
@@ -396,7 +449,7 @@ export default function Adventure4_Module1_Lesson1({
         )}
 
         {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
-        {Platform.OS === 'ios' ? (
+        {Platform.OS === "ios" ? (
           // iOS: Native PanGestureHandler
           <PanGestureHandler
             ref={panGestureRef}
@@ -407,26 +460,29 @@ export default function Adventure4_Module1_Lesson1({
             minPointers={1}
             maxPointers={1}
           >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-              <Animated.View style={[
-                styles.readingCard,
+            <Animated.View
+              style={[
+                styles.cardContainer,
                 {
-                  height: cardHeight,
-                }
-              ]}>
+                  transform: [{ translateY: cardTranslateY }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={[
+                  styles.readingCard,
+                  {
+                    height: cardHeight,
+                  },
+                ]}
+              >
                 {/* Top handle indicator */}
                 <View style={styles.cardHandle} />
 
                 {/* iOS Collapsed content */}
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.readingCardHeader}>
                     <Text style={styles.cardTitle}>
                       Great Mosque of Damascus Mosaics
@@ -439,18 +495,24 @@ export default function Adventure4_Module1_Lesson1({
 
                 {/* Expanded content when card is swiped up */}
                 {isCardExpanded && (
-                  <Animated.View style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) }
-                  ]}>
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
                     <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
                       style={styles.expandedScroll}
                       showsVerticalScrollIndicator={false}
                       onScroll={handleReadingScroll}
                       scrollEventThrottle={100}
-                      waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
-                      simultaneousHandlers={Platform.OS === 'ios' ? panGestureRef : undefined}
+                      waitFor={
+                        Platform.OS === "ios" ? panGestureRef : undefined
+                      }
+                      simultaneousHandlers={
+                        Platform.OS === "ios" ? panGestureRef : undefined
+                      }
                     >
                       <View style={styles.expandedContentInner}>
                         {/* Title Section */}
@@ -465,12 +527,19 @@ export default function Adventure4_Module1_Lesson1({
 
                         {/* Historical Content */}
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>
-                            The Great Mosque of Damascus is one of the oldest and most beautiful in the world - and its walls sparkle with Byzantine-made mosaics. These weren&apos;t pictures of people or battles. Instead, they showed peaceful imaginary landscapes filled with trees, palaces, and flowing water. These dreamlike scenes reminded worshippers of paradise, creating a calm and sacred feeling inside the mosque.
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
                           </Text>
-                          <Text style={[styles.historicalText, { marginTop: 16 }]}>
-                            To build something this beautiful, the Umayyads invited expert Byzantine mosaic artists - even though they came from a former rival empire. This shows how the Umayyads valued skill, no matter where it came from. They didn&apos;t just decorate for beauty - they used art to create peace, wonder, and connection. Their mosaics didn&apos;t tell one story - they told many, in color and light.
+                          <Text style={styles.historicalText}>
+                            The Great Mosque of Damascus is one of the oldest
+                            and most beautiful in the world - and its walls
+                            sparkle with Byzantine-made mosaics. These
+                            weren&apos;t pictures of people or battles. Instead,
+                            they showed peaceful imaginary landscapes filled
+                            with trees, palaces, and flowing water. These
+                            dreamlike scenes reminded worshippers of paradise,
+                            creating a calm and sacred feeling inside the
+                            mosque.
                           </Text>
                         </View>
 
@@ -504,30 +573,30 @@ export default function Adventure4_Module1_Lesson1({
           </PanGestureHandler>
         ) : (
           // Android: Custom Touch Handlers
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-              <Animated.View style={[
-                styles.readingCard,
+          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <Animated.View
+              style={[
+                styles.cardContainer,
                 {
-                  height: cardHeight,
-                }
-              ]}>
+                  transform: [{ translateY: cardTranslateY }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={[
+                  styles.readingCard,
+                  {
+                    height: cardHeight,
+                  },
+                ]}
+              >
                 {/* Top handle indicator */}
                 <View style={styles.cardHandle} />
 
                 {/* Android Collapsed content */}
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.collapsedContentWrapper}>
                     <Text style={styles.collapsedTitle}>
                       Great Mosque of Damascus Mosaics
@@ -540,10 +609,12 @@ export default function Adventure4_Module1_Lesson1({
 
                 {/* Expanded content when card is swiped up */}
                 {isCardExpanded && (
-                  <Animated.View style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) }
-                  ]}>
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
                     <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
                       style={styles.expandedScroll}
@@ -551,11 +622,15 @@ export default function Adventure4_Module1_Lesson1({
                       onScroll={handleReadingScroll}
                       scrollEventThrottle={100}
                       onScrollBeginDrag={() => {
-                        console.log("📖 Android: Internal scrolling started - maintaining gesture block");
+                        console.log(
+                          "📖 Android: Internal scrolling started - maintaining gesture block"
+                        );
                         setIsCardGestureActive(true);
                       }}
                       onScrollEndDrag={() => {
-                        console.log("📖 Android: Internal scrolling ended - allowing carousel");
+                        console.log(
+                          "📖 Android: Internal scrolling ended - allowing carousel"
+                        );
                         setIsCardGestureActive(false);
                       }}
                     >
@@ -572,12 +647,31 @@ export default function Adventure4_Module1_Lesson1({
 
                         {/* Historical Content */}
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>
-                            The Great Mosque of Damascus is one of the oldest and most beautiful in the world - and its walls sparkle with Byzantine-made mosaics. These weren&apos;t pictures of people or battles. Instead, they showed peaceful imaginary landscapes filled with trees, palaces, and flowing water. These dreamlike scenes reminded worshippers of paradise, creating a calm and sacred feeling inside the mosque.
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
                           </Text>
-                          <Text style={[styles.historicalText, { marginTop: 16 }]}>
-                            To build something this beautiful, the Umayyads invited expert Byzantine mosaic artists - even though they came from a former rival empire. This shows how the Umayyads valued skill, no matter where it came from. They didn&apos;t just decorate for beauty - they used art to create peace, wonder, and connection. Their mosaics didn&apos;t tell one story - they told many, in color and light.
+                          <Text style={styles.historicalText}>
+                            The Great Mosque of Damascus is one of the oldest
+                            and most beautiful in the world - and its walls
+                            sparkle with Byzantine-made mosaics. These
+                            weren&apos;t pictures of people or battles. Instead,
+                            they showed peaceful imaginary landscapes filled
+                            with trees, palaces, and flowing water. These
+                            dreamlike scenes reminded worshippers of paradise,
+                            creating a calm and sacred feeling inside the
+                            mosque.
+                          </Text>
+                          <Text
+                            style={[styles.historicalText, { marginTop: 16 }]}
+                          >
+                            To build something this beautiful, the Umayyads
+                            invited expert Byzantine mosaic artists - even
+                            though they came from a former rival empire. This
+                            shows how the Umayyads valued skill, no matter where
+                            it came from. They didn&apos;t just decorate for
+                            beauty - they used art to create peace, wonder, and
+                            connection. Their mosaics didn&apos;t tell one story
+                            - they told many, in color and light.
                           </Text>
                         </View>
 
@@ -610,7 +704,6 @@ export default function Adventure4_Module1_Lesson1({
             </Animated.View>
           </View>
         )}
-
       </View>
     </>
   );
@@ -634,7 +727,7 @@ function KeyTermRow({ term, definition }: KeyTermRowProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: "black",
   },
 
   // Main carousel - full screen
@@ -644,16 +737,16 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'black',
-    overflow: 'hidden',
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "black",
+    overflow: "hidden",
   },
   mosaicImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -662,45 +755,45 @@ const styles = StyleSheet.create({
 
   // Text overlay at top
   textOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 120,
     left: 0,
     right: 0,
     paddingHorizontal: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   captionText: {
-    fontFamily: 'DM Sans',
+    fontFamily: "DM Sans",
     fontSize: 20,
-    fontWeight: '700',
-    color: 'white',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "white",
+    textAlign: "center",
     lineHeight: 26,
-    textShadowColor: 'black',
+    textShadowColor: "black",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
 
   // Page indicators only - centered without buttons
   pageIndicatorsOnly: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 180,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 10,
   },
   pageIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
     marginHorizontal: 4,
   },
   pageIndicatorActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     transform: [{ scale: 1.2 }],
   },
 
@@ -895,7 +988,7 @@ const styles = StyleSheet.create({
   // Android-Specific Styles for proper text positioning
   collapsedContentWrapper: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 25,

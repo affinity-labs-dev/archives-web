@@ -116,7 +116,7 @@ export default function EraSelection() {
   // }
 
   const handleContinue = async () => {
-    if (selectedEraIndex === 0 || selectedEraIndex === 1) {
+    if (selectedEraIndex === 0) {
       const selectedEra = eras[selectedEraIndex]
       console.log('Selected era:', selectedEra)
 
@@ -187,7 +187,7 @@ export default function EraSelection() {
                 era={eras[1]}
                 isSelected={1 === selectedEraIndex}
                 onSelect={() => handleEraSelect(1)}
-                showLock={false}
+                showLock={true}
               />
               <GridEraCard
                 era={eras[2]}
@@ -248,10 +248,10 @@ export default function EraSelection() {
           <Pressable
             style={[
               styles.enterEraButton,
-              (selectedEraIndex === 0 || selectedEraIndex === 1) && styles.enterEraButtonActive
+              selectedEraIndex === 0 && styles.enterEraButtonActive
             ]}
             onPress={handleContinue}
-            disabled={selectedEraIndex < 0 || selectedEraIndex > 1}
+            disabled={selectedEraIndex !== 0}
           >
             <Text style={styles.enterEraButtonText}>ENTER ERA</Text>
           </Pressable>

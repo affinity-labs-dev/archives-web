@@ -142,11 +142,7 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
     const isFirstRoiModuleCompleted = firstRoiModuleProgress?.isCompleted || false
 
     setShouldShowBounce(!isFirstRoiModuleCompleted)
-
-    if (isFirstRoiModuleCompleted && shouldShowBounce) {
-      setShouldShowBounce(false)
-    }
-  }, [getRoiModuleProgress, shouldShowBounce])
+  }, [roiModuleProgress, getRoiModuleProgress])
 
   // Start bouncing animation when shouldShowBounce is true
   useEffect(() => {

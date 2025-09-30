@@ -2,9 +2,10 @@
 // Following EXACT implementation pattern from Adventure1_Module2_Lesson1.tsx
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -20,10 +21,9 @@ import {
 import {
   ScrollView as GestureHandlerScrollView,
   PanGestureHandler,
-  State
+  State,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 
 interface Adventure5_Module1_Lesson1Props {
   onContinue: () => void;
@@ -35,28 +35,28 @@ interface Adventure5_Module1_Lesson1Props {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // Card animation constants - matching SwiftUI spring animations
-const COLLAPSED_HEIGHT = 160;  // Exact collapsed card height
-const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.85;  // 85% screen coverage when expanded
+const COLLAPSED_HEIGHT = 160; // Exact collapsed card height
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.85; // 85% screen coverage when expanded
 
 // Gesture sensitivity constants for cross-platform optimization
 const IOS_GESTURE_CONSTANTS = {
-  minDistance: 20,        // Reduced for better iOS responsiveness
-  minVelocity: 300,       // Optimized for natural swipe detection
-  activeOffsetY: 15,      // PanGestureHandler sensitivity
-  failOffsetX: 40,        // Prevent horizontal scroll conflicts
+  minDistance: 20, // Reduced for better iOS responsiveness
+  minVelocity: 300, // Optimized for natural swipe detection
+  activeOffsetY: 15, // PanGestureHandler sensitivity
+  failOffsetX: 40, // Prevent horizontal scroll conflicts
 };
 
 const ANDROID_GESTURE_CONSTANTS = {
-  minDistance: 25,           // Slightly higher for Android touch precision
-  maxTime: 400,              // Gesture time window in milliseconds
-  velocityThreshold: 0.3,    // Touch velocity threshold
+  minDistance: 25, // Slightly higher for Android touch precision
+  maxTime: 400, // Gesture time window in milliseconds
+  velocityThreshold: 0.3, // Touch velocity threshold
 };
 
 // UI positioning constants
 const UI_CONSTANTS = {
-  textOverlayTop: 120,         // Caption overlay position from top
-  pageIndicatorBottom: 180,    // Page indicators position from bottom
-  cardContainerBottom: -40,    // Card container offset for proper positioning
+  textOverlayTop: 120, // Caption overlay position from top
+  pageIndicatorBottom: 180, // Page indicators position from bottom
+  cardContainerBottom: -40, // Card container offset for proper positioning
   backButtonPadding: { top: 8, left: 16 },
   continueButtonPadding: { top: 8, right: 16 },
 };
@@ -67,33 +67,36 @@ export default function Adventure5_Module1_Lesson1({
   onBack,
 }: Adventure5_Module1_Lesson1Props) {
   // Image carousel states - Core functionality
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);  // Track current image (0 to length-1)
-  const [showReadContent, setShowReadContent] = useState(false);   // Toggle reading content visibility
+  const [currentImageIndex, setCurrentImageIndex] = useState(0); // Track current image (0 to length-1)
+  const [showReadContent, setShowReadContent] = useState(false); // Toggle reading content visibility
 
   // Reading card states - Advanced card management
-  const [isCardExpanded, setIsCardExpanded] = useState(false);     // Track card expansion state
-  const [scrollY, setScrollY] = useState(0);                       // Track scroll position for gesture priority
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null); // Android gesture tracking
+  const [isCardExpanded, setIsCardExpanded] = useState(false); // Track card expansion state
+  const [scrollY, setScrollY] = useState(0); // Track scroll position for gesture priority
+  const [touchStart, setTouchStart] = useState<{
+    y: number;
+    time: number;
+  } | null>(null); // Android gesture tracking
 
   // Critical gesture coordination state - Prevents carousel conflicts
   const [isCardGestureActive, setIsCardGestureActive] = useState(false); // Block carousel during card gestures
 
   // Animation values for smooth card expansion - EXACT SwiftUI spring timing
-  const cardHeight = useRef(new Animated.Value(160)).current;          // Collapsed: 160, Expanded: SCREEN_HEIGHT * 0.85
-  const cardOpacity = useRef(new Animated.Value(1)).current;           // Fade collapsed content: 1 → 0
-  const cardTranslateY = useRef(new Animated.Value(0)).current;        // Future use for advanced animations
+  const cardHeight = useRef(new Animated.Value(160)).current; // Collapsed: 160, Expanded: SCREEN_HEIGHT * 0.85
+  const cardOpacity = useRef(new Animated.Value(1)).current; // Fade collapsed content: 1 → 0
+  const cardTranslateY = useRef(new Animated.Value(0)).current; // Future use for advanced animations
 
   // Component refs for programmatic control
-  const scrollViewRef = useRef<ScrollView>(null);                      // Carousel scroll control
-  const scrollViewGestureRef = useRef(null);                           // Gesture handler for reading scroll
-  const panGestureRef = useRef(null);                                  // iOS PanGestureHandler ref
+  const scrollViewRef = useRef<ScrollView>(null); // Carousel scroll control
+  const scrollViewGestureRef = useRef(null); // Gesture handler for reading scroll
+  const panGestureRef = useRef(null); // iOS PanGestureHandler ref
 
   // Background music integration
   const backgroundMusic = useBackgroundMusic(
     { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M1_L1.mp3" },
     {
-      volume: 0.5,        // 50% volume for ambient atmosphere
-      shouldLoop: true,   // Continuous loop for immersive experience
+      volume: 0.5, // 50% volume for ambient atmosphere
+      shouldLoop: true, // Continuous loop for immersive experience
     }
   );
 
@@ -103,43 +106,57 @@ export default function Adventure5_Module1_Lesson1({
       id: 1,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv5_M1_Img01.png",
       title: "The Golden Age of Arts",
-      caption: "Under Yazīd II's patronage, the Umayyad court became a center of artistic excellence, blending Islamic, Byzantine, and Persian influences."
+      caption:
+        "Under Yazīd II's patronage, the Umayyad court became a center of artistic excellence, blending Islamic, Byzantine, and Persian influences.",
     },
     {
       id: 2,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv5_M1_Img02.png",
       title: "Architectural Innovations",
-      caption: "The Caliph commissioned magnificent palaces and mosques, establishing architectural standards that would influence Islamic design for centuries."
-    }
+      caption:
+        "The Caliph commissioned magnificent palaces and mosques, establishing architectural standards that would influence Islamic design for centuries.",
+    },
   ];
 
   // Enhanced debug logging for background music - Production-ready
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log(`🎵 [${timestamp}] Adventure5_Module1_Lesson1 - Background music state:`, {
-      isLoaded: backgroundMusic.isLoaded,
-      isPlaying: backgroundMusic.isPlaying,
-      isLoading: backgroundMusic.isLoading || false,
-      platform: Platform.OS
-    });
+    console.log(
+      `🎵 [${timestamp}] Adventure5_Module1_Lesson1 - Background music state:`,
+      {
+        isLoaded: backgroundMusic.isLoaded,
+        isPlaying: backgroundMusic.isPlaying,
+        isLoading: backgroundMusic.isLoading || false,
+        platform: Platform.OS,
+      }
+    );
 
-    if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
-      console.log('🎵 Audio not loading - AWS CloudFront source should be available');
-      console.log('🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M1_L1.mp3');
+    if (!backgroundMusic.isLoaded && !backgroundMusic.isLoading) {
+      console.log(
+        "🎵 Audio not loading - AWS CloudFront source should be available"
+      );
+      console.log(
+        "🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M1_L1.mp3"
+      );
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
 
   // Component mount logging for audio troubleshooting
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log('🎵 Adventure5_Module1_Lesson1 component mounted at:', timestamp);
+    console.log(
+      "🎵 Adventure5_Module1_Lesson1 component mounted at:",
+      timestamp
+    );
   }, []);
 
   // Success/failure state logging for production debugging
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     if (backgroundMusic.isLoaded && backgroundMusic.isPlaying) {
-      console.log(`🎵 [${timestamp}] Background music auto-playing successfully`);
+      console.log(
+        `🎵 [${timestamp}] Background music auto-playing successfully`
+      );
     } else if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
       console.log(`🎵 [${timestamp}] Background music loaded but not playing`);
     } else {
@@ -150,10 +167,10 @@ export default function Adventure5_Module1_Lesson1({
   // CRITICAL: Proper cleanup for component unmounting
   useEffect(() => {
     return () => {
-      console.log('🎵 Component unmounting - cleaning up all audio');
+      console.log("🎵 Component unmounting - cleaning up all audio");
 
       if (backgroundMusic.stop) {
-        console.log('🎵 Stopping background music on component unmount');
+        console.log("🎵 Stopping background music on component unmount");
         backgroundMusic.stop();
       }
     };
@@ -162,12 +179,12 @@ export default function Adventure5_Module1_Lesson1({
   // Handle carousel scroll - matching iOS TabView behavior with haptic feedback
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const imageIndex = Math.round(contentOffsetX / SCREEN_WIDTH);  // Calculate current page
+    const imageIndex = Math.round(contentOffsetX / SCREEN_WIDTH); // Calculate current page
 
     // Only update if index actually changed (prevents excessive updates)
     if (imageIndex !== currentImageIndex) {
       setCurrentImageIndex(imageIndex);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);  // Light haptic for page change
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Light haptic for page change
     }
   };
 
@@ -179,7 +196,7 @@ export default function Adventure5_Module1_Lesson1({
       // Smooth animated scroll to next page
       scrollViewRef.current?.scrollTo({
         x: nextIndex * SCREEN_WIDTH,
-        animated: true
+        animated: true,
       });
 
       setCurrentImageIndex(nextIndex);
@@ -195,14 +212,14 @@ export default function Adventure5_Module1_Lesson1({
     // Parallel spring animation matching SwiftUI behavior
     Animated.parallel([
       Animated.spring(cardHeight, {
-        toValue: SCREEN_HEIGHT * 0.85,  // 85% screen coverage
+        toValue: SCREEN_HEIGHT * 0.85, // 85% screen coverage
         useNativeDriver: false,
-        tension: 100,                   // Perfect spring tension
-        friction: 8,                    // Smooth damping
+        tension: 100, // Perfect spring tension
+        friction: 8, // Smooth damping
       }),
       Animated.timing(cardOpacity, {
-        toValue: 0,                     // Fade out collapsed content
-        duration: 300,                  // 300ms fade timing
+        toValue: 0, // Fade out collapsed content
+        duration: 300, // 300ms fade timing
         useNativeDriver: false,
       }),
     ]).start();
@@ -216,14 +233,14 @@ export default function Adventure5_Module1_Lesson1({
     // Reverse animation with identical timing
     Animated.parallel([
       Animated.spring(cardHeight, {
-        toValue: 160,                   // Return to collapsed height
+        toValue: 160, // Return to collapsed height
         useNativeDriver: false,
-        tension: 100,                   // Consistent spring feel
-        friction: 8,                    // Smooth return animation
+        tension: 100, // Consistent spring feel
+        friction: 8, // Smooth return animation
       }),
       Animated.timing(cardOpacity, {
-        toValue: 1,                     // Fade in collapsed content
-        duration: 300,                  // Consistent timing
+        toValue: 1, // Fade in collapsed content
+        duration: 300, // Consistent timing
         useNativeDriver: false,
       }),
     ]).start();
@@ -232,12 +249,12 @@ export default function Adventure5_Module1_Lesson1({
   // Reading scroll handler for gesture priority management
   const handleReadingScroll = (event: any) => {
     const { contentOffset } = event.nativeEvent;
-    setScrollY(contentOffset.y);  // Track scroll position for advanced gesture handling
+    setScrollY(contentOffset.y); // Track scroll position for advanced gesture handling
   };
 
   // Enhanced iOS PanGestureHandler with perfect gesture coordination
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== "ios") return;
 
     const { state, translationY, velocityY } = event.nativeEvent;
 
@@ -245,7 +262,11 @@ export default function Adventure5_Module1_Lesson1({
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
       console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+    } else if (
+      state === State.END ||
+      state === State.CANCELLED ||
+      state === State.FAILED
+    ) {
       setIsCardGestureActive(false);
       console.log("📱 iOS card gesture ended - allowing carousel");
     }
@@ -255,7 +276,7 @@ export default function Adventure5_Module1_Lesson1({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS
+        platform: Platform.OS,
       });
 
       // Improved iOS swipe detection with optimized sensitivity
@@ -263,23 +284,27 @@ export default function Adventure5_Module1_Lesson1({
       const minVelocity = IOS_GESTURE_CONSTANTS.minVelocity;
 
       // Swipe up to expand
-      if (!isCardExpanded &&
-          (translationY < -minDistance || velocityY < -minVelocity)) {
+      if (
+        !isCardExpanded &&
+        (translationY < -minDistance || velocityY < -minVelocity)
+      ) {
         console.log("📱 iOS PanGesture swipe up detected - expanding card", {
           translationY,
           velocityY,
-          platform: Platform.OS
+          platform: Platform.OS,
         });
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       // Swipe down to collapse
-      else if (isCardExpanded &&
-               (translationY > minDistance || velocityY > minVelocity)) {
+      else if (
+        isCardExpanded &&
+        (translationY > minDistance || velocityY > minVelocity)
+      ) {
         console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
           translationY,
           velocityY,
-          platform: Platform.OS
+          platform: Platform.OS,
         });
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -291,20 +316,20 @@ export default function Adventure5_Module1_Lesson1({
   const handleTouchStart = (event: any) => {
     setTouchStart({
       y: event.nativeEvent.pageY,
-      time: Date.now()
+      time: Date.now(),
     });
-    setIsCardGestureActive(true);  // Block carousel during gesture
+    setIsCardGestureActive(true); // Block carousel during gesture
     console.log("📖 Android card gesture started - blocking carousel");
   };
 
   const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);  // Re-enable carousel
+    setIsCardGestureActive(false); // Re-enable carousel
     console.log("📖 Android card gesture ended - allowing carousel");
 
     if (!touchStart) return;
 
     const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd;  // Positive = swipe up
+    const distance = touchStart.y - touchEnd; // Positive = swipe up
     const time = Date.now() - touchStart.time;
 
     // Improved Android swipe detection with precise calculations
@@ -322,27 +347,37 @@ export default function Adventure5_Module1_Lesson1({
       velocityThreshold,
       meetsDistanceRequirement: Math.abs(distance) > minDistance,
       meetsTimeRequirement: time < maxTime,
-      meetsVelocityRequirement: velocity > velocityThreshold
+      meetsVelocityRequirement: velocity > velocityThreshold,
     });
 
     // Swipe up to expand
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+    if (
+      !isCardExpanded &&
+      distance > minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       console.log("📖 Android touch swipe up detected - expanding card", {
         distance,
         time,
         velocity: velocity.toFixed(2),
-        platform: Platform.OS
+        platform: Platform.OS,
       });
       expandCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     // Swipe down to collapse
-    else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+    else if (
+      isCardExpanded &&
+      distance < -minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       console.log("📖 Android touch swipe down detected - collapsing card", {
         distance,
         time,
         velocity: velocity.toFixed(2),
-        platform: Platform.OS
+        platform: Platform.OS,
       });
       collapseCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -357,7 +392,7 @@ export default function Adventure5_Module1_Lesson1({
   // Navigation cleanup - Stop audio before transitions
   const handleBackPress = () => {
     if (backgroundMusic.isPlaying) {
-      console.log('🎵 Stopping background music on back button');
+      console.log("🎵 Stopping background music on back button");
       backgroundMusic.stop();
     }
     (onBack || onDismiss)();
@@ -365,7 +400,7 @@ export default function Adventure5_Module1_Lesson1({
 
   const handleContinuePress = () => {
     if (backgroundMusic.isPlaying) {
-      console.log('🎵 Stopping background music before continue');
+      console.log("🎵 Stopping background music before continue");
       backgroundMusic.stop();
     }
     onContinue();
@@ -374,7 +409,7 @@ export default function Adventure5_Module1_Lesson1({
   return (
     <>
       {/* Platform-specific StatusBar handling */}
-      {Platform.OS === 'android' && (
+      {Platform.OS === "android" && (
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
 
@@ -382,12 +417,12 @@ export default function Adventure5_Module1_Lesson1({
         {/* FULL-SCREEN IMAGE CAROUSEL - Main Content */}
         <ScrollView
           ref={scrollViewRef}
-          horizontal                                    // Enable horizontal paging
-          pagingEnabled                                // Snap to pages
-          showsHorizontalScrollIndicator={false}       // Clean UI without scroll bar
-          onMomentumScrollEnd={handleScroll}          // Page change detection
-          scrollEnabled={!isCardGestureActive}        // Disable during card gestures
-          style={styles.carousel}                     // Full-screen styling
+          horizontal // Enable horizontal paging
+          pagingEnabled // Snap to pages
+          showsHorizontalScrollIndicator={false} // Clean UI without scroll bar
+          onMomentumScrollEnd={handleScroll} // Page change detection
+          scrollEnabled={!isCardGestureActive} // Disable during card gestures
+          style={styles.carousel} // Full-screen styling
         >
           {yazidReignImages.map((image, index) => (
             <View key={image.id} style={styles.imageContainer}>
@@ -395,14 +430,12 @@ export default function Adventure5_Module1_Lesson1({
               <Image
                 source={{ uri: image.imageUrl }}
                 style={styles.reignImage}
-                resizeMode="cover"                      // Perfect full-screen coverage
+                resizeMode="cover" // Perfect full-screen coverage
               />
 
               {/* Text overlay with descriptive caption */}
               <View style={styles.textOverlay}>
-                <Text style={styles.captionText}>
-                  {image.caption}
-                </Text>
+                <Text style={styles.captionText}>{image.caption}</Text>
               </View>
             </View>
           ))}
@@ -422,15 +455,24 @@ export default function Adventure5_Module1_Lesson1({
           <TouchableOpacity
             style={[
               styles.topContinueButton,
-              currentImageIndex !== yazidReignImages.length - 1 && styles.topContinueButtonDisabled
+              currentImageIndex !== yazidReignImages.length - 1 &&
+                styles.topContinueButtonDisabled,
             ]}
-            onPress={currentImageIndex === yazidReignImages.length - 1 ? handleContinuePress : undefined}
+            onPress={
+              currentImageIndex === yazidReignImages.length - 1
+                ? handleContinuePress
+                : undefined
+            }
             disabled={currentImageIndex !== yazidReignImages.length - 1}
           >
             <Ionicons
               name="chevron-forward"
               size={24}
-              color={currentImageIndex === yazidReignImages.length - 1 ? "white" : "#666"}
+              color={
+                currentImageIndex === yazidReignImages.length - 1
+                  ? "white"
+                  : "#666"
+              }
             />
           </TouchableOpacity>
         </SafeAreaView>
@@ -443,7 +485,7 @@ export default function Adventure5_Module1_Lesson1({
                 key={index}
                 style={[
                   styles.pageIndicator,
-                  currentImageIndex === index && styles.pageIndicatorActive
+                  currentImageIndex === index && styles.pageIndicatorActive,
                 ]}
               />
             ))}
@@ -451,35 +493,52 @@ export default function Adventure5_Module1_Lesson1({
         )}
 
         {/* EXPANDABLE READING CARD - Platform-Specific Implementation */}
-        {Platform.OS === 'ios' ? (
+        {Platform.OS === "ios" ? (
           // iOS: Native PanGestureHandler for optimal performance
           <PanGestureHandler
             ref={panGestureRef}
             onGestureEvent={handleSwipeGesture}
             onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-15, 15]}                 // Optimized sensitivity
-            failOffsetX={[-40, 40]}                   // Prevent horizontal conflicts
+            activeOffsetY={[-15, 15]} // Optimized sensitivity
+            failOffsetX={[-40, 40]} // Prevent horizontal conflicts
             minPointers={1}
             maxPointers={1}
           >
-            <Animated.View style={[styles.cardContainer, { transform: [{ translateY: cardTranslateY }] }]}>
-              <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
+            <Animated.View
+              style={[
+                styles.cardContainer,
+                { transform: [{ translateY: cardTranslateY }] },
+              ]}
+            >
+              <Animated.View
+                style={[styles.readingCard, { height: cardHeight }]}
+              >
                 {/* Card handle indicator */}
                 <View style={styles.cardHandle} />
 
                 {/* Collapsed content with fade animation */}
-                <Animated.View style={[styles.collapsedContent, { opacity: cardOpacity }]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>The Reign of Yazīd II (720-724 CE)</Text>
+                    <Text style={styles.cardTitle}>
+                      The Reign of Yazīd II (720-724 CE)
+                    </Text>
                     <Text style={styles.cardSubtitle}>
-                      Yazīd II's brief but influential reign marked the zenith of Umayyad cultural achievement...
+                      Yazīd II's brief but influential reign marked the zenith
+                      of Umayyad cultural achievement...
                     </Text>
                   </View>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
                 {isCardExpanded && (
-                  <Animated.View style={[styles.expandedContent, { opacity: Animated.subtract(1, cardOpacity) }]}>
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
                     <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
                       style={styles.expandedScroll}
@@ -492,29 +551,35 @@ export default function Adventure5_Module1_Lesson1({
                       <View style={styles.expandedContentInner}>
                         {/* Title Section */}
                         <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>The Reign of Yazīd II</Text>
-                          <Text style={styles.sheetSubtitle}>Caliph of the Umayyad Dynasty • 720-724 CE</Text>
+                          <Text style={styles.sheetTitle}>
+                            The Reign of Yazīd II
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Caliph of the Umayyad Dynasty • 720-724 CE
+                          </Text>
                         </View>
 
                         {/* Historical Context Section */}
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
                           <Text style={styles.historicalText}>
-                            Yazīd II assumed the caliphate during a period of relative stability within the Umayyad Dynasty. His four-year reign, though brief, was marked by significant cultural and artistic developments that would define the golden age of Islamic civilization.
+                            Yazīd II assumed the caliphate during a period of
+                            relative stability within the Umayyad Dynasty. His
+                            four-year reign, though brief, was marked by
+                            significant cultural and artistic developments that
+                            would define the golden age of Islamic civilization.
                           </Text>
                         </View>
 
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Cultural Achievements</Text>
-                          <Text style={styles.historicalText}>
-                            The Caliph was a renowned patron of the arts, commissioning magnificent architectural projects and supporting poets, scholars, and artisans. Under his rule, the synthesis of Islamic, Byzantine, and Persian cultural elements reached its peak, creating a distinctive aesthetic that would influence Islamic art for centuries.
+                          <Text style={styles.sectionTitle}>
+                            Architectural Legacy
                           </Text>
-                        </View>
-
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Architectural Legacy</Text>
                           <Text style={styles.historicalText}>
-                            Yazīd II's architectural patronage established new standards for Islamic design. His palaces and mosques featured innovative decorative programs that blended geometric patterns with naturalistic motifs, creating spaces that were both spiritually significant and aesthetically magnificent.
+                            Yazīd II's architectural patronage established new
+                            standards for Islamic design.
                           </Text>
                         </View>
 
@@ -523,16 +588,31 @@ export default function Adventure5_Module1_Lesson1({
                           <Text style={styles.sectionTitle}>Key Terms</Text>
                           <View style={styles.keyTermsContainer}>
                             <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>Cultural Synthesis</Text>
-                              <Text style={styles.keyTermDefinition}>The blending of Islamic, Byzantine, and Persian artistic traditions</Text>
+                              <Text style={styles.keyTermTitle}>
+                                Cultural Synthesis
+                              </Text>
+                              <Text style={styles.keyTermDefinition}>
+                                The blending of Islamic, Byzantine, and Persian
+                                artistic traditions
+                              </Text>
                             </View>
                             <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>Artistic Patronage</Text>
-                              <Text style={styles.keyTermDefinition}>Royal support and funding for artists, architects, and scholars</Text>
+                              <Text style={styles.keyTermTitle}>
+                                Artistic Patronage
+                              </Text>
+                              <Text style={styles.keyTermDefinition}>
+                                Royal support and funding for artists,
+                                architects, and scholars
+                              </Text>
                             </View>
                             <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>Golden Age</Text>
-                              <Text style={styles.keyTermDefinition}>Period of peak cultural achievement and artistic excellence</Text>
+                              <Text style={styles.keyTermTitle}>
+                                Golden Age
+                              </Text>
+                              <Text style={styles.keyTermDefinition}>
+                                Period of peak cultural achievement and artistic
+                                excellence
+                              </Text>
                             </View>
                           </View>
                         </View>
@@ -547,27 +627,43 @@ export default function Adventure5_Module1_Lesson1({
           </PanGestureHandler>
         ) : (
           // Android: Custom touch handlers for consistent experience
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[styles.cardContainer, { transform: [{ translateY: cardTranslateY }] }]}>
-              <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
+          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <Animated.View
+              style={[
+                styles.cardContainer,
+                { transform: [{ translateY: cardTranslateY }] },
+              ]}
+            >
+              <Animated.View
+                style={[styles.readingCard, { height: cardHeight }]}
+              >
                 {/* Card handle indicator */}
                 <View style={styles.cardHandle} />
 
-                <Animated.View style={[styles.collapsedContent, { opacity: cardOpacity }]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>The Reign of Yazīd II (720-724 CE)</Text>
+                    <Text style={styles.collapsedTitle}>
+                      The Reign of Yazīd II (720-724 CE)
+                    </Text>
                     <Text style={styles.collapsedSubtitle}>
-                      Yazīd II's brief but influential reign marked the zenith of Umayyad cultural achievement, establishing artistic standards that would influence Islamic civilization for centuries.
+                      Yazīd II's brief but influential reign marked the zenith
+                      of Umayyad cultural achievement, establishing artistic
+                      standards that would influence Islamic civilization for
+                      centuries.
                     </Text>
                   </View>
                 </Animated.View>
 
                 {/* Android expanded content with scroll management */}
                 {isCardExpanded && (
-                  <Animated.View style={[styles.expandedContent, { opacity: Animated.subtract(1, cardOpacity) }]}>
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
                     <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
                       style={styles.expandedScroll}
@@ -580,29 +676,54 @@ export default function Adventure5_Module1_Lesson1({
                       <View style={styles.expandedContentInner}>
                         {/* Title Section */}
                         <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>The Reign of Yazīd II</Text>
-                          <Text style={styles.sheetSubtitle}>Caliph of the Umayyad Dynasty • 720-724 CE</Text>
+                          <Text style={styles.sheetTitle}>
+                            The Reign of Yazīd II
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Caliph of the Umayyad Dynasty • 720-724 CE
+                          </Text>
                         </View>
 
                         {/* Historical Context Section */}
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
                           <Text style={styles.historicalText}>
-                            Yazīd II assumed the caliphate during a period of relative stability within the Umayyad Dynasty. His four-year reign, though brief, was marked by significant cultural and artistic developments that would define the golden age of Islamic civilization.
+                            Yazīd II assumed the caliphate during a period of
+                            relative stability within the Umayyad Dynasty. His
+                            four-year reign, though brief, was marked by
+                            significant cultural and artistic developments that
+                            would define the golden age of Islamic civilization.
                           </Text>
                         </View>
 
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Cultural Achievements</Text>
+                          <Text style={styles.sectionTitle}>
+                            Cultural Achievements
+                          </Text>
                           <Text style={styles.historicalText}>
-                            The Caliph was a renowned patron of the arts, commissioning magnificent architectural projects and supporting poets, scholars, and artisans. Under his rule, the synthesis of Islamic, Byzantine, and Persian cultural elements reached its peak, creating a distinctive aesthetic that would influence Islamic art for centuries.
+                            The Caliph was a renowned patron of the arts,
+                            commissioning magnificent architectural projects and
+                            supporting poets, scholars, and artisans. Under his
+                            rule, the synthesis of Islamic, Byzantine, and
+                            Persian cultural elements reached its peak, creating
+                            a distinctive aesthetic that would influence Islamic
+                            art for centuries.
                           </Text>
                         </View>
 
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Architectural Legacy</Text>
+                          <Text style={styles.sectionTitle}>
+                            Architectural Legacy
+                          </Text>
                           <Text style={styles.historicalText}>
-                            Yazīd II's architectural patronage established new standards for Islamic design. His palaces and mosques featured innovative decorative programs that blended geometric patterns with naturalistic motifs, creating spaces that were both spiritually significant and aesthetically magnificent.
+                            Yazīd II's architectural patronage established new
+                            standards for Islamic design. His palaces and
+                            mosques featured innovative decorative programs that
+                            blended geometric patterns with naturalistic motifs,
+                            creating spaces that were both spiritually
+                            significant and aesthetically magnificent.
                           </Text>
                         </View>
 
@@ -611,16 +732,31 @@ export default function Adventure5_Module1_Lesson1({
                           <Text style={styles.sectionTitle}>Key Terms</Text>
                           <View style={styles.keyTermsContainer}>
                             <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>Cultural Synthesis</Text>
-                              <Text style={styles.keyTermDefinition}>The blending of Islamic, Byzantine, and Persian artistic traditions</Text>
+                              <Text style={styles.keyTermTitle}>
+                                Cultural Synthesis
+                              </Text>
+                              <Text style={styles.keyTermDefinition}>
+                                The blending of Islamic, Byzantine, and Persian
+                                artistic traditions
+                              </Text>
                             </View>
                             <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>Artistic Patronage</Text>
-                              <Text style={styles.keyTermDefinition}>Royal support and funding for artists, architects, and scholars</Text>
+                              <Text style={styles.keyTermTitle}>
+                                Artistic Patronage
+                              </Text>
+                              <Text style={styles.keyTermDefinition}>
+                                Royal support and funding for artists,
+                                architects, and scholars
+                              </Text>
                             </View>
                             <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>Golden Age</Text>
-                              <Text style={styles.keyTermDefinition}>Period of peak cultural achievement and artistic excellence</Text>
+                              <Text style={styles.keyTermTitle}>
+                                Golden Age
+                              </Text>
+                              <Text style={styles.keyTermDefinition}>
+                                Period of peak cultural achievement and artistic
+                                excellence
+                              </Text>
                             </View>
                           </View>
                         </View>
@@ -643,26 +779,26 @@ const styles = StyleSheet.create({
   // MAIN CONTAINER - Full-screen black background
   container: {
     flex: 1,
-    backgroundColor: 'black',  // Black for immersive full-screen experience
+    backgroundColor: "black", // Black for immersive full-screen experience
   },
 
   // CAROUSEL STYLES - Full-screen image display
   carousel: {
-    flex: 1,  // Take full available space
+    flex: 1, // Take full available space
   },
   imageContainer: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    position: 'relative',
-    justifyContent: 'center',    // Center vertically
-    alignItems: 'center',        // Center horizontally
-    backgroundColor: 'black',    // Ensure no white gaps
-    overflow: 'hidden',          // Prevent content spillover
+    position: "relative",
+    justifyContent: "center", // Center vertically
+    alignItems: "center", // Center horizontally
+    backgroundColor: "black", // Ensure no white gaps
+    overflow: "hidden", // Prevent content spillover
   },
   reignImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    position: 'absolute',        // Absolute positioning for perfect centering
+    position: "absolute", // Absolute positioning for perfect centering
     top: 0,
     left: 0,
     right: 0,
@@ -671,45 +807,45 @@ const styles = StyleSheet.create({
 
   // TEXT OVERLAY - Top caption positioning
   textOverlay: {
-    position: 'absolute',
-    top: UI_CONSTANTS.textOverlayTop,    // 120px from top for SafeArea accommodation
+    position: "absolute",
+    top: UI_CONSTANTS.textOverlayTop, // 120px from top for SafeArea accommodation
     left: 0,
     right: 0,
-    paddingHorizontal: 40,       // 40px horizontal padding
-    alignItems: 'center',
+    paddingHorizontal: 40, // 40px horizontal padding
+    alignItems: "center",
   },
   captionText: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,                // Large readable font
-    fontWeight: '700',           // Bold for readability over images
-    color: 'white',
-    textAlign: 'center',
-    lineHeight: 26,              // 1.3 line height ratio
-    textShadowColor: 'black',    // Text shadow for image overlay readability
+    fontFamily: "DM Sans",
+    fontSize: 20, // Large readable font
+    fontWeight: "700", // Bold for readability over images
+    color: "white",
+    textAlign: "center",
+    lineHeight: 26, // 1.3 line height ratio
+    textShadowColor: "black", // Text shadow for image overlay readability
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
 
   // PAGE INDICATORS - Elegant dots above reading card
   pageIndicatorsOnly: {
-    position: 'absolute',
+    position: "absolute",
     bottom: UI_CONSTANTS.pageIndicatorBottom, // 180px from bottom (above reading card)
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,                  // Ensure visibility over other elements
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10, // Ensure visibility over other elements
   },
   pageIndicator: {
-    width: 8,                    // 8px inactive dots
+    width: 8, // 8px inactive dots
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)', // 60% opacity for inactive
-    marginHorizontal: 4,         // 8px spacing between dots
+    backgroundColor: "rgba(255, 255, 255, 0.6)", // 60% opacity for inactive
+    marginHorizontal: 4, // 8px spacing between dots
   },
   pageIndicatorActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // 90% opacity for active
+    backgroundColor: "rgba(255, 255, 255, 0.9)", // 90% opacity for active
     transform: [{ scale: 1.2 }], // 20% scale increase for active state
   },
 
@@ -718,14 +854,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 0,
-    zIndex: 20,                  // Highest z-index for accessibility
-    paddingTop: UI_CONSTANTS.backButtonPadding.top,   // 8px
+    zIndex: 20, // Highest z-index for accessibility
+    paddingTop: UI_CONSTANTS.backButtonPadding.top, // 8px
     paddingLeft: UI_CONSTANTS.backButtonPadding.left, // 16px
   },
   backButton: {
-    width: 40,                   // 40x40 touch target
+    width: 40, // 40x40 touch target
     height: 40,
-    borderRadius: 20,            // Perfect circle
+    borderRadius: 20, // Perfect circle
     backgroundColor: "rgba(0,0,0,0.6)", // Semi-transparent black
     justifyContent: "center",
     alignItems: "center",
@@ -735,7 +871,7 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     zIndex: 20,
-    paddingTop: UI_CONSTANTS.continueButtonPadding.top,   // 8px
+    paddingTop: UI_CONSTANTS.continueButtonPadding.top, // 8px
     paddingRight: UI_CONSTANTS.continueButtonPadding.right, // 16px
   },
   topContinueButton: {
@@ -758,29 +894,29 @@ const styles = StyleSheet.create({
     right: 0,
   },
   readingCard: {
-    height: 160,                 // Collapsed height (animated)
+    height: 160, // Collapsed height (animated)
     backgroundColor: "rgba(0,0,0,0.9)", // 90% black transparency
-    borderTopLeftRadius: 20,     // Rounded top corners only
+    borderTopLeftRadius: 20, // Rounded top corners only
     borderTopRightRadius: 20,
-    shadowColor: "#000",         // Professional shadow system
+    shadowColor: "#000", // Professional shadow system
     shadowOpacity: 0.2,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: -4 },
-    elevation: 12,               // Android shadow
+    elevation: 12, // Android shadow
   },
   cardHandle: {
-    width: 70,                   // 70px handle width
-    height: 5,                   // 5px handle height
+    width: 70, // 70px handle width
+    height: 5, // 5px handle height
     backgroundColor: "rgba(255,255,255,0.4)", // 40% white opacity
     borderRadius: 2,
     alignSelf: "center",
-    marginTop: 12,               // 12px from top
+    marginTop: 12, // 12px from top
   },
 
   // COLLAPSED CONTENT STYLES
   readingCardHeader: {
     padding: 20,
-    paddingTop: 16,              // Reduced top padding after handle
+    paddingTop: 16, // Reduced top padding after handle
     paddingBottom: 30,
   },
   cardTitle: {
@@ -794,7 +930,7 @@ const styles = StyleSheet.create({
     fontFamily: "DM Sans",
     fontSize: 14,
     color: "white",
-    opacity: 0.7,                // 70% opacity for subtitle
+    opacity: 0.7, // 70% opacity for subtitle
   },
 
   // EXPANDED CONTENT SYSTEM
@@ -807,7 +943,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingTop: 20,              // Top padding for handle space
+    paddingTop: 20, // Top padding for handle space
   },
   expandedScroll: {
     flex: 1,
@@ -818,11 +954,11 @@ const styles = StyleSheet.create({
 
   // EDUCATIONAL CONTENT STYLES
   titleSection: {
-    marginBottom: 24,            // 24px spacing after title
+    marginBottom: 24, // 24px spacing after title
   },
   sheetTitle: {
     fontFamily: "DM Sans",
-    fontSize: 24,                // Large title for expanded view
+    fontSize: 24, // Large title for expanded view
     fontWeight: "700",
     color: "white",
     marginBottom: 8,
@@ -847,7 +983,7 @@ const styles = StyleSheet.create({
     fontFamily: "DM Sans",
     fontSize: 14,
     color: "white",
-    lineHeight: 20,              // 1.43 line height for readability
+    lineHeight: 20, // 1.43 line height for readability
     textAlign: "left",
   },
 
@@ -880,11 +1016,11 @@ const styles = StyleSheet.create({
   // ANDROID-SPECIFIC OPTIMIZATIONS
   collapsedContentWrapper: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 25,
-    marginTop: -15,              // Move text content up slightly on Android
+    marginTop: -15, // Move text content up slightly on Android
   },
   collapsedTitle: {
     fontFamily: "DM Sans",
@@ -903,6 +1039,6 @@ const styles = StyleSheet.create({
 
   // UTILITY STYLES
   sheetBottomSpacer: {
-    height: 60,                  // 60px bottom spacing for scroll completion
+    height: 60, // 60px bottom spacing for scroll completion
   },
 });

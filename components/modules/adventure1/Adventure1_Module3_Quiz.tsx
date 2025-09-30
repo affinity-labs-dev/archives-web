@@ -1,35 +1,33 @@
 // Adventure1_Module3_Quiz.tsx - EXACT replica of SwiftUI Adventure1_Module3_Quiz.swift
 // 3-question quiz with 2 MCQs + 1 True/False about Damascus trade routes and cultural exchange
 
-import React, { useState, useRef, useEffect } from 'react'
+import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useProgress } from "@/context/ProgressContext";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  StatusBar,
   Animated,
   Dimensions,
-} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
-import * as Haptics from 'expo-haptics'
-import ArchivesTheme from '@/constants/ArchivesTheme'
-import { useProgress } from '@/context/ProgressContext'
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  QuizQuestion,
-  MCQOptionButton,
-  TrueFalseOptionButton,
   ExplanationPopup,
-} from '../QuizSystem'
+  MCQOptionButton,
+  QuizQuestion,
+  TrueFalseOptionButton,
+} from "../QuizSystem";
 
-const { width } = Dimensions.get('window')
+const { width } = Dimensions.get("window");
 
 interface Adventure1_Module3_QuizProps {
-  onDismiss: () => void
-  onBack?: () => void
+  onDismiss: () => void;
+  onBack?: () => void;
 }
 
 // Quiz Data - Module 3 questions about Damascus trade routes and cultural exchange
@@ -37,173 +35,202 @@ const quizQuestions = [
   {
     question: "Damascus linked trade from Arabia, Persia, and Byzantium.",
     correctAnswer: 1, // B) Yes
-    explanation: "Yes. Damascus was strategically positioned at the crossroads of major trade routes, connecting Arabia, Persia, and the Byzantine Empire. This made it a vital hub for commerce and cultural exchange in the Umayyad period.",
+    explanation:
+      "Yes. Damascus was strategically positioned at the crossroads of major trade routes, connecting Arabia, Persia, and the Byzantine Empire. This made it a vital hub for commerce and cultural exchange in the Umayyad period.",
     points: 10,
-    type: 'mcq' as const,
+    type: "mcq" as const,
     options: ["No", "Yes"],
-    image: require('@/assets/images/quiz-images/Map.png')
+    image: require("@/assets/images/quiz-images/Map.png"),
   },
   {
     question: "Which key material did Sasanian workers bring to Damascus?",
     correctAnswer: 2, // C) Glass
-    explanation: "Sasanian workers were renowned for their glassmaking skills and brought beautiful glass work to Damascus. Their sophisticated craftsmanship influenced Islamic art and architecture throughout the early Islamic period.",
+    explanation:
+      "Sasanian workers were renowned for their glassmaking skills and brought beautiful glass work to Damascus. Their sophisticated craftsmanship influenced Islamic art and architecture throughout the early Islamic period.",
     points: 10,
-    type: 'mcq' as const,
+    type: "mcq" as const,
     options: ["Silk", "Cotton", "Glass", "Ivory"],
-    image: require('@/assets/images/quiz-images/Reader.png')
+    image: require("@/assets/images/quiz-images/Reader.png"),
   },
   {
-    question: "Arabic became the main language for buying and selling in Damascus.",
+    question:
+      "Arabic became the main language for buying and selling in Damascus.",
     correctAnswer: 0, // A) True
-    explanation: "True. Arabic became the common language of trade in Damascus and across the Islamic empire, facilitating commerce and communication between diverse peoples from different regions. This linguistic unity helped strengthen economic ties.",
+    explanation:
+      "True. Arabic became the common language of trade in Damascus and across the Islamic empire, facilitating commerce and communication between diverse peoples from different regions. This linguistic unity helped strengthen economic ties.",
     points: 10,
-    type: 'trueFalse' as const,
-    image: require('@/assets/images/quiz-images/books.png')
+    type: "trueFalse" as const,
+    image: require("@/assets/images/quiz-images/books.png"),
   },
   {
     question: "Spices that reached Damascus usually came from which direction?",
     correctAnswer: 3, // D) South
-    explanation: "Spices typically came from the south, from regions like Arabia, Yemen, and India. These valuable goods traveled along trade routes that converged in Damascus, making the city a major hub for the spice trade.",
+    explanation:
+      "Spices typically came from the south, from regions like Arabia, Yemen, and India. These valuable goods traveled along trade routes that converged in Damascus, making the city a major hub for the spice trade.",
     points: 10,
-    type: 'mcq' as const,
+    type: "mcq" as const,
     options: ["North", "East", "West", "South"],
-    image: require('@/assets/images/quiz-images/Map.png')
+    image: require("@/assets/images/quiz-images/Map.png"),
   },
   {
-    question: "Inside a Damascus tea house, scholars were most likely to be…",
+    question: "Inside a Damascus tea house, scholars were most likely to be __",
     correctAnswer: 0, // A) Debating new ideas
-    explanation: "Damascus tea houses were intellectual centers where scholars would gather to debate new ideas, discuss philosophy, and exchange knowledge. These spaces fostered the rich intellectual culture of the Umayyad period.",
+    explanation:
+      "Damascus tea houses were intellectual centers where scholars would gather to debate new ideas, discuss philosophy, and exchange knowledge. These spaces fostered the rich intellectual culture of the Umayyad period.",
     points: 10,
-    type: 'mcq' as const,
-    options: ["Debating new ideas", "Weaving carpets", "Training horses", "Building boats"],
-    image: require('@/assets/images/quiz-images/Reader.png')
-  }
-]
+    type: "mcq" as const,
+    options: [
+      "Debating new ideas",
+      "Weaving carpets",
+      "Training horses",
+      "Building boats",
+    ],
+    image: require("@/assets/images/quiz-images/Reader.png"),
+  },
+];
 
-export default function Adventure1_Module3_Quiz({ onDismiss, onBack }: Adventure1_Module3_QuizProps) {
+export default function Adventure1_Module3_Quiz({
+  onDismiss,
+  onBack,
+}: Adventure1_Module3_QuizProps) {
   // EXACT SwiftUI state variables
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0) // @State private var currentQuestionIndex = 0
-  const [showResults, setShowResults] = useState(false) // @State private var showResults = false
-  const [showExplanation, setShowExplanation] = useState(false) // @State private var showExplanation = false
-  const [correctAnswers, setCorrectAnswers] = useState(0) // @State private var correctAnswers = 0
-  const [totalPoints, setTotalPoints] = useState(0) // @State private var totalPoints = 0
-  const [userAnswers, setUserAnswers] = useState<(number | null)[]>([null, null, null, null, null]) // @State private var userAnswers: [Int?] = [nil, nil, nil, nil, nil]
-  const [showMinimumScoreAlert, setShowMinimumScoreAlert] = useState(false) // @State private var showMinimumScoreAlert = false
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // @State private var currentQuestionIndex = 0
+  const [showResults, setShowResults] = useState(false); // @State private var showResults = false
+  const [showExplanation, setShowExplanation] = useState(false); // @State private var showExplanation = false
+  const [correctAnswers, setCorrectAnswers] = useState(0); // @State private var correctAnswers = 0
+  const [totalPoints, setTotalPoints] = useState(0); // @State private var totalPoints = 0
+  const [userAnswers, setUserAnswers] = useState<(number | null)[]>([
+    null,
+    null,
+    null,
+    null,
+    null,
+  ]); // @State private var userAnswers: [Int?] = [nil, nil, nil, nil, nil]
+  const [showMinimumScoreAlert, setShowMinimumScoreAlert] = useState(false); // @State private var showMinimumScoreAlert = false
 
   // Additional state for individual questions
-  const [selectedMCQOption, setSelectedMCQOption] = useState<number | null>(null)
-  const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(null)
+  const [selectedMCQOption, setSelectedMCQOption] = useState<number | null>(
+    null
+  );
+  const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(
+    null
+  );
 
-  const { updateModuleProgress, completeLesson } = useProgress()
-
+  const { updateModuleProgress, completeLesson } = useProgress();
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
-    
     // Store the user's answer based on question type
-    const newUserAnswers = [...userAnswers]
-    const currentQuestion = quizQuestions[currentQuestionIndex]
-    
-    if (currentQuestion.type === 'mcq') {
-      newUserAnswers[currentQuestionIndex] = selectedMCQOption
-    } else if (currentQuestion.type === 'trueFalse') {
-      newUserAnswers[currentQuestionIndex] = selectedTrueFalse
+    const newUserAnswers = [...userAnswers];
+    const currentQuestion = quizQuestions[currentQuestionIndex];
+
+    if (currentQuestion.type === "mcq") {
+      newUserAnswers[currentQuestionIndex] = selectedMCQOption;
+    } else if (currentQuestion.type === "trueFalse") {
+      newUserAnswers[currentQuestionIndex] = selectedTrueFalse;
     }
-    
-    setUserAnswers(newUserAnswers)
+
+    setUserAnswers(newUserAnswers);
 
     // Check if answer is correct and update score
-    const isCorrect = checkAnswer(currentQuestionIndex, newUserAnswers[currentQuestionIndex])
+    const isCorrect = checkAnswer(
+      currentQuestionIndex,
+      newUserAnswers[currentQuestionIndex]
+    );
     if (isCorrect) {
-      setCorrectAnswers(prev => prev + 1)
-      setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
+      setCorrectAnswers((prev) => prev + 1);
+      setTotalPoints(
+        (prev) => prev + quizQuestions[currentQuestionIndex].points
+      );
     }
 
-    setShowExplanation(true)
-  }
+    setShowExplanation(true);
+  };
 
   // Check answer - EXACT SwiftUI: checkAnswer() -> Bool
-  const checkAnswer = (questionIndex: number, userAnswer: number | null): boolean => {
-    if (userAnswer === null) return false
-    
-    return userAnswer === quizQuestions[questionIndex].correctAnswer
-  }
+  const checkAnswer = (
+    questionIndex: number,
+    userAnswer: number | null
+  ): boolean => {
+    if (userAnswer === null) return false;
+
+    return userAnswer === quizQuestions[questionIndex].correctAnswer;
+  };
 
   // Handle explanation continue - EXACT SwiftUI: onContinue in ExplanationView
   const handleExplanationContinue = () => {
     if (currentQuestionIndex < 4) {
       // Move to next question (0-4 for 5 questions)
-      setCurrentQuestionIndex(prev => prev + 1)
-      setShowExplanation(false)
-      resetCurrentQuestion()
+      setCurrentQuestionIndex((prev) => prev + 1);
+      setShowExplanation(false);
+      resetCurrentQuestion();
     } else {
       // Quiz completed - check minimum score requirement (need at least 1 out of 5)
       if (correctAnswers >= 1) {
-        setShowResults(true)
-        setShowExplanation(false)
+        setShowResults(true);
+        setShowExplanation(false);
       } else {
         // Show minimum score alert - EXACT SwiftUI behavior
-        setShowMinimumScoreAlert(true)
-        setShowExplanation(false)
+        setShowMinimumScoreAlert(true);
+        setShowExplanation(false);
       }
     }
-  }
+  };
 
   // Reset current question state
   const resetCurrentQuestion = () => {
-    setSelectedMCQOption(null)
-    setSelectedTrueFalse(null)
-  }
+    setSelectedMCQOption(null);
+    setSelectedTrueFalse(null);
+  };
 
   // Reset entire quiz - EXACT SwiftUI: resetQuiz()
   const resetQuiz = () => {
-    setCurrentQuestionIndex(0)
-    setShowResults(false)
-    setShowExplanation(false)
-    setCorrectAnswers(0)
-    setTotalPoints(0)
-    setUserAnswers([null, null, null, null, null])
-    resetCurrentQuestion()
-  }
+    setCurrentQuestionIndex(0);
+    setShowResults(false);
+    setShowExplanation(false);
+    setCorrectAnswers(0);
+    setTotalPoints(0);
+    setUserAnswers([null, null, null, null, null]);
+    resetCurrentQuestion();
+  };
 
   // Handle quiz completion and return to adventure - EXACT SwiftUI: onGoToAdventure
   // FIXED: Use atomic operation like Module 1 to prevent race condition
   const handleGoToAdventure = async () => {
     try {
-      console.log(`🚨 Saving quizScore as:`, correctAnswers)
-      
+      console.log(`🚨 Saving quizScore as:`, correctAnswers);
+
       // CRITICAL FIX: Use single atomic operation like Module 1 instead of two separate calls
       // This prevents race condition where completeModule overwrites the quiz score
       await updateModuleProgress(1, 3, {
-        lessonsCompleted: ['lesson1', 'lesson2'],
+        lessonsCompleted: ["lesson1", "lesson2"],
         isCompleted: true, // ✅ Set completion directly like Module 1
         quizCompleted: true,
-        quizScore: correctAnswers // Store the number of correct answers for star rating
-      })
-      
+        quizScore: correctAnswers, // Store the number of correct answers for star rating
+      });
     } catch (error) {
-      console.error('🚨 Error completing module:', error)
+      console.error("🚨 Error completing module:", error);
     }
-    
-    onDismiss()
-  }
+
+    onDismiss();
+  };
 
   // Get current question
-  const currentQuestion = quizQuestions[currentQuestionIndex]
-  
+  const currentQuestion = quizQuestions[currentQuestionIndex];
+
   // Check if current question has an answer selected
   const isAnswerSelected = () => {
-    if (currentQuestion.type === 'mcq') {
-      return selectedMCQOption !== null
-    } else if (currentQuestion.type === 'trueFalse') {
-      return selectedTrueFalse !== null
+    if (currentQuestion.type === "mcq") {
+      return selectedMCQOption !== null;
+    } else if (currentQuestion.type === "trueFalse") {
+      return selectedTrueFalse !== null;
     }
-    return false
-  }
+    return false;
+  };
 
   // Render question content based on type
   const renderQuestionContent = () => {
-    if (currentQuestion.type === 'mcq') {
+    if (currentQuestion.type === "mcq") {
       return (
         <View style={styles.mcqContainer}>
           {currentQuestion.options?.map((option, index) => (
@@ -217,8 +244,8 @@ export default function Adventure1_Module3_Quiz({ onDismiss, onBack }: Adventure
             />
           ))}
         </View>
-      )
-    } else if (currentQuestion.type === 'trueFalse') {
+      );
+    } else if (currentQuestion.type === "trueFalse") {
       return (
         <View style={styles.trueFalseContainer}>
           {/* True option */}
@@ -227,7 +254,7 @@ export default function Adventure1_Module3_Quiz({ onDismiss, onBack }: Adventure
             isSelected={selectedTrueFalse === 0}
             onPress={() => setSelectedTrueFalse(0)}
           />
-          
+
           {/* False option */}
           <TrueFalseOptionButton
             isTrue={false}
@@ -235,26 +262,31 @@ export default function Adventure1_Module3_Quiz({ onDismiss, onBack }: Adventure
             onPress={() => setSelectedTrueFalse(1)}
           />
         </View>
-      )
+      );
     }
-    return null
-  }
+    return null;
+  };
 
   // Show results screen
   if (showResults) {
-    return <QuizResultsView 
-      correctAnswers={correctAnswers}
-      totalQuestions={5}
-      totalPoints={totalPoints}
-      onRetake={resetQuiz}
-      onGoToAdventure={handleGoToAdventure}
-      onBack={onDismiss}
-    />
+    return (
+      <QuizResultsView
+        correctAnswers={correctAnswers}
+        totalQuestions={5}
+        totalPoints={totalPoints}
+        onRetake={resetQuiz}
+        onGoToAdventure={handleGoToAdventure}
+        onBack={onDismiss}
+      />
+    );
   }
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor={ArchivesTheme.colors.creamWhite} />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={ArchivesTheme.colors.creamWhite}
+      />
       <SafeAreaView style={styles.container}>
         {/* Current question */}
         <QuizQuestion
@@ -274,7 +306,10 @@ export default function Adventure1_Module3_Quiz({ onDismiss, onBack }: Adventure
         {/* Explanation popup */}
         <ExplanationPopup
           isVisible={showExplanation}
-          isCorrect={checkAnswer(currentQuestionIndex, userAnswers[currentQuestionIndex])}
+          isCorrect={checkAnswer(
+            currentQuestionIndex,
+            userAnswers[currentQuestionIndex]
+          )}
           points={currentQuestion.points}
           explanation={currentQuestion.explanation}
           onContinue={handleExplanationContinue}
@@ -284,28 +319,28 @@ export default function Adventure1_Module3_Quiz({ onDismiss, onBack }: Adventure
         {showMinimumScoreAlert && (
           <MinimumScoreAlert
             onRetry={() => {
-              setShowMinimumScoreAlert(false)
-              resetQuiz()
+              setShowMinimumScoreAlert(false);
+              resetQuiz();
             }}
             onContinueAnyway={() => {
-              setShowMinimumScoreAlert(false)
-              setShowResults(true)
+              setShowMinimumScoreAlert(false);
+              setShowResults(true);
             }}
           />
         )}
       </SafeAreaView>
     </>
-  )
+  );
 }
 
 // Quiz Results View - EXACT SwiftUI Module3QuizResultsView
 interface QuizResultsViewProps {
-  correctAnswers: number
-  totalQuestions: number
-  totalPoints: number
-  onRetake: () => void
-  onGoToAdventure: () => void
-  onBack?: () => void
+  correctAnswers: number;
+  totalQuestions: number;
+  totalPoints: number;
+  onRetake: () => void;
+  onGoToAdventure: () => void;
+  onBack?: () => void;
 }
 
 function QuizResultsView({
@@ -314,11 +349,11 @@ function QuizResultsView({
   totalPoints,
   onRetake,
   onGoToAdventure,
-  onBack
+  onBack,
 }: QuizResultsViewProps) {
-  const percentage = Math.round((correctAnswers * 100) / totalQuestions) // EXACT SwiftUI calculation
-  const passed = percentage >= 70 // EXACT SwiftUI: private var passed: Bool
-  const canAccessAdventure = correctAnswers >= 1 // EXACT SwiftUI: private var canAccessAdventure: Bool - Need at least 1/5
+  const percentage = Math.round((correctAnswers * 100) / totalQuestions); // EXACT SwiftUI calculation
+  const passed = percentage >= 70; // EXACT SwiftUI: private var passed: Bool
+  const canAccessAdventure = correctAnswers >= 1; // EXACT SwiftUI: private var canAccessAdventure: Bool - Need at least 1/5
 
   return (
     <View style={styles.resultsContainer}>
@@ -326,32 +361,47 @@ function QuizResultsView({
       {onBack && (
         <SafeAreaView style={styles.resultsBackButtonContainer}>
           <TouchableOpacity style={styles.resultsBackButton} onPress={onBack}>
-            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color={ArchivesTheme.colors.shoeBrown}
+            />
           </TouchableOpacity>
         </SafeAreaView>
       )}
-      
-      <ScrollView style={styles.resultsScroll} showsVerticalScrollIndicator={false}>
+
+      <ScrollView
+        style={styles.resultsScroll}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.resultsContent}>
           {/* Header - EXACT SwiftUI structure */}
           <View style={styles.resultsHeader}>
-            <View style={[
-              styles.resultsIconContainer,
-              { backgroundColor: passed ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
-            ]}>
-              <Ionicons 
-                name={passed ? "trophy" : "refresh"} 
-                size={50} 
+            <View
+              style={[
+                styles.resultsIconContainer,
+                {
+                  backgroundColor: passed
+                    ? ArchivesTheme.colors.mossGreen
+                    : ArchivesTheme.colors.shoeBrown,
+                },
+              ]}
+            >
+              <Ionicons
+                name={passed ? "trophy" : "refresh"}
+                size={50}
                 color="white"
               />
             </View>
-            
+
             <Text style={styles.resultsTitle}>
               {passed ? "Quiz Completed!" : "Keep Learning!"}
             </Text>
-            
+
             <Text style={styles.resultsSubtitle}>
-              {passed ? "Excellent work on the Module 3 quiz!" : "Review the material and try again"}
+              {passed
+                ? "Excellent work on the Module 3 quiz!"
+                : "Review the material and try again"}
             </Text>
           </View>
 
@@ -359,10 +409,16 @@ function QuizResultsView({
           <View style={styles.statsCard}>
             <View style={styles.statsRow}>
               <View style={styles.statsLeft}>
-                <Text style={[
-                  styles.percentageText,
-                  { color: passed ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
-                ]}>
+                <Text
+                  style={[
+                    styles.percentageText,
+                    {
+                      color: passed
+                        ? ArchivesTheme.colors.mossGreen
+                        : ArchivesTheme.colors.shoeBrown,
+                    },
+                  ]}
+                >
                   {percentage}%
                 </Text>
                 <Text style={styles.finalScoreText}>Final Score</Text>
@@ -370,23 +426,31 @@ function QuizResultsView({
 
               <View style={styles.statsRight}>
                 <View style={styles.xpRow}>
-                  <Ionicons name="star" size={18} color={ArchivesTheme.colors.shoeBrown} />
+                  <Ionicons
+                    name="star"
+                    size={18}
+                    color={ArchivesTheme.colors.shoeBrown}
+                  />
                   <Text style={styles.xpText}>{totalPoints} XP</Text>
                 </View>
-                <Text style={styles.correctText}>Correct: {correctAnswers}/{totalQuestions}</Text>
+                <Text style={styles.correctText}>
+                  Correct: {correctAnswers}/{totalQuestions}
+                </Text>
               </View>
             </View>
 
             {/* Progress bar - EXACT SwiftUI GeometryReader equivalent */}
             <View style={styles.progressBarContainer}>
               <View style={styles.progressBarBackground} />
-              <Animated.View 
+              <Animated.View
                 style={[
                   styles.progressBarFill,
-                  { 
+                  {
                     width: `${percentage}%`,
-                    backgroundColor: passed ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown
-                  }
+                    backgroundColor: passed
+                      ? ArchivesTheme.colors.mossGreen
+                      : ArchivesTheme.colors.shoeBrown,
+                  },
                 ]}
               />
             </View>
@@ -397,24 +461,37 @@ function QuizResultsView({
             {/* Retake Quiz button */}
             <TouchableOpacity style={styles.retakeButton} onPress={onRetake}>
               <View style={styles.retakeButtonContent}>
-                <Ionicons name="refresh-circle" size={24} color={ArchivesTheme.colors.mossGreen} />
+                <Ionicons
+                  name="refresh-circle"
+                  size={24}
+                  color={ArchivesTheme.colors.mossGreen}
+                />
                 <Text style={styles.retakeButtonText}>Retake Quiz</Text>
               </View>
             </TouchableOpacity>
 
             {/* Go to Adventure button or locked message */}
             {canAccessAdventure ? (
-              <TouchableOpacity style={styles.adventureButton} onPress={onGoToAdventure}>
+              <TouchableOpacity
+                style={styles.adventureButton}
+                onPress={onGoToAdventure}
+              >
                 <View style={styles.adventureButtonContent}>
                   <Ionicons name="map" size={24} color="white" />
-                  <Text style={styles.adventureButtonText}>Go to Adventure</Text>
+                  <Text style={styles.adventureButtonText}>
+                    Go to Adventure
+                  </Text>
                   <Ionicons name="arrow-forward" size={20} color="white" />
                 </View>
               </TouchableOpacity>
             ) : (
               <View style={styles.lockedContainer}>
                 <View style={styles.lockedHeader}>
-                  <Ionicons name="lock-closed" size={24} color={ArchivesTheme.colors.shoeBrown} />
+                  <Ionicons
+                    name="lock-closed"
+                    size={24}
+                    color={ArchivesTheme.colors.shoeBrown}
+                  />
                   <Text style={styles.lockedTitle}>Adventure Locked</Text>
                 </View>
                 <Text style={styles.lockedMessage}>
@@ -426,17 +503,20 @@ function QuizResultsView({
         </View>
       </ScrollView>
     </View>
-  )
+  );
 }
 
 // Minimum Score Alert - EXACT SwiftUI Adventure1Module3MinimumScoreAlertView
 interface MinimumScoreAlertProps {
-  onRetry: () => void
-  onContinueAnyway: () => void
+  onRetry: () => void;
+  onContinueAnyway: () => void;
 }
 
-function MinimumScoreAlert({ onRetry, onContinueAnyway }: MinimumScoreAlertProps) {
-  const scaleAnim = useRef(new Animated.Value(0.8)).current
+function MinimumScoreAlert({
+  onRetry,
+  onContinueAnyway,
+}: MinimumScoreAlertProps) {
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -444,12 +524,14 @@ function MinimumScoreAlert({ onRetry, onContinueAnyway }: MinimumScoreAlertProps
       tension: 100,
       friction: 8,
       useNativeDriver: true,
-    }).start()
-  }, [scaleAnim])
+    }).start();
+  }, [scaleAnim]);
 
   return (
     <View style={styles.alertOverlay}>
-      <Animated.View style={[styles.alertCard, { transform: [{ scale: scaleAnim }] }]}>
+      <Animated.View
+        style={[styles.alertCard, { transform: [{ scale: scaleAnim }] }]}
+      >
         {/* Icon and title */}
         <View style={styles.alertHeader}>
           <View style={styles.alertIcon}>
@@ -460,7 +542,8 @@ function MinimumScoreAlert({ onRetry, onContinueAnyway }: MinimumScoreAlertProps
 
         {/* Message */}
         <Text style={styles.alertMessage}>
-          You need to answer at least one question correctly to complete the quiz and unlock the adventure.
+          You need to answer at least one question correctly to complete the
+          quiz and unlock the adventure.
         </Text>
 
         {/* Buttons */}
@@ -468,14 +551,14 @@ function MinimumScoreAlert({ onRetry, onContinueAnyway }: MinimumScoreAlertProps
           <TouchableOpacity style={styles.alertRetryButton} onPress={onRetry}>
             <Text style={styles.alertRetryText}>TRY AGAIN</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity onPress={onContinueAnyway}>
             <Text style={styles.alertContinueText}>Continue to Results</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -491,9 +574,9 @@ const styles = StyleSheet.create({
 
   // True/False Container - EXACT SwiftUI: HStack(spacing: 30)
   trueFalseContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20, // EXACT iOS: .padding(.horizontal, 20)
     paddingTop: 40, // EXACT iOS: .padding(.top, 40)
     gap: 30, // EXACT iOS: HStack(spacing: 30)
@@ -512,89 +595,89 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   resultsHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 30, // EXACT SwiftUI: VStack spacing: 30
   },
   resultsIconContainer: {
     width: 120, // EXACT SwiftUI: .frame(width: 120, height: 120)
     height: 120,
     borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20, // EXACT SwiftUI: VStack spacing: 20
     // EXACT SwiftUI shadow: .shadow(radius: 8)
-    shadowColor: 'black',
+    shadowColor: "black",
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
   resultsTitle: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 28))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 28))
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: ArchivesTheme.colors.mutedNavy, // EXACT SwiftUI: Color("MutedNavy")
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
   },
   resultsSubtitle: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
     fontSize: 16,
     color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
-    textAlign: 'center', // EXACT SwiftUI: .multilineTextAlignment(.center)
+    textAlign: "center", // EXACT SwiftUI: .multilineTextAlignment(.center)
   },
 
   // Statistics Card - EXACT SwiftUI structure
   statsCard: {
     padding: 24, // EXACT SwiftUI: .padding(24)
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 16, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 16)
     marginBottom: 30,
     // EXACT SwiftUI shadow: .shadow(radius: 4)
-    shadowColor: 'black',
+    shadowColor: "black",
     shadowOpacity: 0.1,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
   statsRow: {
-    flexDirection: 'row', // EXACT SwiftUI: HStack(spacing: 40)
-    alignItems: 'center',
+    flexDirection: "row", // EXACT SwiftUI: HStack(spacing: 40)
+    alignItems: "center",
     marginBottom: 20, // EXACT SwiftUI: VStack spacing: 20
   },
   statsLeft: {
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 40,
   },
   percentageText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 42))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 42))
     fontSize: 42,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8, // EXACT SwiftUI: VStack spacing: 8
   },
   finalScoreText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
     fontSize: 14,
     color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
   },
   statsRight: {
     flex: 1,
-    alignItems: 'flex-end', // EXACT SwiftUI: VStack(alignment: .trailing)
+    alignItems: "flex-end", // EXACT SwiftUI: VStack(alignment: .trailing)
   },
   xpRow: {
-    flexDirection: 'row', // EXACT SwiftUI: HStack(spacing: 8)
-    alignItems: 'center',
+    flexDirection: "row", // EXACT SwiftUI: HStack(spacing: 8)
+    alignItems: "center",
     marginBottom: 12, // EXACT SwiftUI: VStack spacing: 12
   },
   xpText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
     marginLeft: 8,
   },
   correctText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
     fontSize: 14,
     color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
   },
@@ -602,19 +685,19 @@ const styles = StyleSheet.create({
   // Progress Bar - EXACT SwiftUI GeometryReader structure
   progressBarContainer: {
     height: 16, // EXACT SwiftUI: .frame(height: 16)
-    position: 'relative',
+    position: "relative",
   },
   progressBarBackground: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 16,
-    backgroundColor: 'rgba(0,0,0,0.2)', // EXACT SwiftUI: Color.gray.opacity(0.2)
+    backgroundColor: "rgba(0,0,0,0.2)", // EXACT SwiftUI: Color.gray.opacity(0.2)
     borderRadius: 8, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 8)
   },
   progressBarFill: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     height: 16,
@@ -629,26 +712,26 @@ const styles = StyleSheet.create({
   retakeButton: {
     paddingVertical: 16, // EXACT SwiftUI: .padding(.vertical, 16)
     paddingHorizontal: 24, // EXACT SwiftUI: .padding(.horizontal, 24)
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 16, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 16)
     borderWidth: 2,
     borderColor: ArchivesTheme.colors.mossGreen, // EXACT SwiftUI: .stroke(Color("MossGreen"), lineWidth: 2)
     marginBottom: 16,
     // EXACT SwiftUI shadow: .shadow(radius: 4)
-    shadowColor: 'black',
+    shadowColor: "black",
     shadowOpacity: 0.1,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
   retakeButtonContent: {
-    flexDirection: 'row', // EXACT SwiftUI: HStack(spacing: 12)
-    alignItems: 'center',
+    flexDirection: "row", // EXACT SwiftUI: HStack(spacing: 12)
+    alignItems: "center",
   },
   retakeButtonText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
     fontSize: 18,
-    fontWeight: '600', // .fontWeight(.semibold)
+    fontWeight: "600", // .fontWeight(.semibold)
     color: ArchivesTheme.colors.mossGreen, // EXACT SwiftUI: Color("MossGreen")
     marginLeft: 12,
     flex: 1,
@@ -660,21 +743,21 @@ const styles = StyleSheet.create({
     backgroundColor: ArchivesTheme.colors.persianOrange, // EXACT SwiftUI: Color("PersianOrange")
     borderRadius: 16, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 16)
     // EXACT SwiftUI shadow: .shadow(radius: 4)
-    shadowColor: 'black',
+    shadowColor: "black",
     shadowOpacity: 0.2,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
   adventureButtonContent: {
-    flexDirection: 'row', // EXACT SwiftUI: HStack(spacing: 12)
-    alignItems: 'center',
+    flexDirection: "row", // EXACT SwiftUI: HStack(spacing: 12)
+    alignItems: "center",
   },
   adventureButtonText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
     fontSize: 18,
-    fontWeight: '600', // .fontWeight(.semibold)
-    color: 'white',
+    fontWeight: "600", // .fontWeight(.semibold)
+    color: "white",
     marginLeft: 12,
     flex: 1,
   },
@@ -683,54 +766,54 @@ const styles = StyleSheet.create({
   lockedContainer: {
     paddingVertical: 16, // EXACT SwiftUI: .padding(.vertical, 16)
     paddingHorizontal: 20, // EXACT SwiftUI: .padding(.horizontal, 20)
-    alignItems: 'center',
+    alignItems: "center",
   },
   lockedHeader: {
-    flexDirection: 'row', // EXACT SwiftUI: HStack(spacing: 8)
-    alignItems: 'center',
+    flexDirection: "row", // EXACT SwiftUI: HStack(spacing: 8)
+    alignItems: "center",
     marginBottom: 8,
   },
   lockedTitle: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
     fontSize: 16,
-    fontWeight: '600', // .fontWeight(.semibold)
+    fontWeight: "600", // .fontWeight(.semibold)
     color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
     marginLeft: 8,
   },
   lockedMessage: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
     fontSize: 14,
-    color: 'rgba(139,96,64,0.7)', // EXACT SwiftUI: Color("ShoeBrown").opacity(0.7)
-    textAlign: 'center', // EXACT SwiftUI: .multilineTextAlignment(.center)
+    color: "rgba(139,96,64,0.7)", // EXACT SwiftUI: Color("ShoeBrown").opacity(0.7)
+    textAlign: "center", // EXACT SwiftUI: .multilineTextAlignment(.center)
     paddingHorizontal: 24, // EXACT SwiftUI: .padding(.horizontal, 24)
   },
 
   // Minimum Score Alert - EXACT SwiftUI Adventure1Module3MinimumScoreAlertView
   alertOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)', // EXACT SwiftUI: Color.black.opacity(0.4)
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(0,0,0,0.4)", // EXACT SwiftUI: Color.black.opacity(0.4)
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 30,
   },
   alertCard: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 16, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 16)
     padding: 24, // EXACT SwiftUI: .padding(24)
     maxWidth: 340, // EXACT SwiftUI: .frame(maxWidth: 340)
     // EXACT SwiftUI shadow: .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-    shadowColor: 'black',
+    shadowColor: "black",
     shadowOpacity: 0.1,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
   alertHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20, // EXACT SwiftUI: VStack spacing: 20
   },
   alertIcon: {
@@ -738,22 +821,22 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 12, // EXACT SwiftUI: VStack spacing: 12
   },
   alertTitle: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: ArchivesTheme.colors.mutedNavy, // EXACT SwiftUI: Color("MutedNavy")
-    textAlign: 'center',
+    textAlign: "center",
   },
   alertMessage: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
     fontSize: 14,
     color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
-    textAlign: 'center', // EXACT SwiftUI: .multilineTextAlignment(.center)
+    textAlign: "center", // EXACT SwiftUI: .multilineTextAlignment(.center)
     lineHeight: 16, // EXACT SwiftUI: .lineSpacing(2)
     paddingHorizontal: 16,
     marginBottom: 20,
@@ -765,27 +848,27 @@ const styles = StyleSheet.create({
     backgroundColor: ArchivesTheme.colors.mossGreen, // EXACT SwiftUI: Color("MossGreen")
     borderRadius: 10, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 10)
     paddingVertical: 12, // EXACT SwiftUI: minHeight: 44 adjusted for padding
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 12,
   },
   alertRetryText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
     fontSize: 16,
-    fontWeight: '600', // .fontWeight(.semibold)
-    color: 'white',
+    fontWeight: "600", // .fontWeight(.semibold)
+    color: "white",
   },
   alertContinueText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
+    fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
     fontSize: 14,
-    fontWeight: '500', // .fontWeight(.medium)
-    color: 'rgba(139,96,64,0.7)', // EXACT SwiftUI: Color("ShoeBrown").opacity(0.7)
-    textAlign: 'center',
+    fontWeight: "500", // .fontWeight(.medium)
+    color: "rgba(139,96,64,0.7)", // EXACT SwiftUI: Color("ShoeBrown").opacity(0.7)
+    textAlign: "center",
     paddingVertical: 8,
   },
 
   // Results back button styles
   resultsBackButtonContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     zIndex: 20,
@@ -796,8 +879,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(139,96,64,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(139,96,64,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-})
+});

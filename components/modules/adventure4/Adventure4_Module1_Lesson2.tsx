@@ -5,7 +5,7 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -17,7 +17,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
+import {
+  ScrollView as GestureHandlerScrollView,
+  PanGestureHandler,
+  State,
+} from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import LessonPlayer from "../LessonPlayer";
 
@@ -42,7 +46,10 @@ export default function Adventure4_Module1_Lesson2({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
+  const [touchStart, setTouchStart] = useState<{
+    y: number;
+    time: number;
+  } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -133,7 +140,7 @@ export default function Adventure4_Module1_Lesson2({
 
   // iOS PanGestureHandler for native iOS gesture experience
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== "ios") return;
 
     if (event.nativeEvent.state === State.END) {
       const { translationY, velocityY } = event.nativeEvent;
@@ -141,27 +148,31 @@ export default function Adventure4_Module1_Lesson2({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS
+        platform: Platform.OS,
       });
 
       const minDistance = 30;
       const minVelocity = 500;
 
-      if (!isCardExpanded &&
-          (translationY < -minDistance || velocityY < -minVelocity)) {
+      if (
+        !isCardExpanded &&
+        (translationY < -minDistance || velocityY < -minVelocity)
+      ) {
         console.log("📱 iOS PanGesture swipe up detected - expanding card", {
           translationY,
           velocityY,
-          platform: Platform.OS
+          platform: Platform.OS,
         });
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (isCardExpanded &&
-                 (translationY > minDistance || velocityY > minVelocity)) {
+      } else if (
+        isCardExpanded &&
+        (translationY > minDistance || velocityY > minVelocity)
+      ) {
         console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
           translationY,
           velocityY,
-          platform: Platform.OS
+          platform: Platform.OS,
         });
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -173,7 +184,7 @@ export default function Adventure4_Module1_Lesson2({
   const handleTouchStart = (event: any) => {
     setTouchStart({
       y: event.nativeEvent.pageY,
-      time: Date.now()
+      time: Date.now(),
     });
   };
 
@@ -189,21 +200,31 @@ export default function Adventure4_Module1_Lesson2({
     const velocity = Math.abs(distance) / time;
     const velocityThreshold = 0.5;
 
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+    if (
+      !isCardExpanded &&
+      distance > minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       console.log("📖 Android touch swipe up detected - expanding card", {
         distance,
         time,
         velocity: velocity.toFixed(2),
-        platform: Platform.OS
+        platform: Platform.OS,
       });
       expandCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+    } else if (
+      isCardExpanded &&
+      distance < -minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       console.log("📖 Android touch swipe down detected - collapsing card", {
         distance,
         time,
         velocity: velocity.toFixed(2),
-        platform: Platform.OS
+        platform: Platform.OS,
       });
       collapseCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -265,13 +286,15 @@ export default function Adventure4_Module1_Lesson2({
 
   return (
     <>
-      {Platform.OS === 'android' && (
+      {Platform.OS === "android" && (
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
       <View style={styles.container}>
         {/* Full-screen video player */}
         <LessonPlayer
-          videoSource={{ uri: "https://netorg18817991.sharepoint.com/:v:/s/AffinityLabs/EeU2zF0njg5Fs2kb7pTh_WYBR1hhnBuGtbhpgwMKwxLawA?e=65GwJv" }}
+          videoSource={{
+            uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel%20Videos/Adv4_M1_Reel1.mp4",
+          }}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           autoPlay={true}
           shouldLoop={true}
@@ -286,8 +309,8 @@ export default function Adventure4_Module1_Lesson2({
                 {
                   width: progressBarWidth.interpolate({
                     inputRange: [0, 1],
-                    outputRange: ['0%', '100%'],
-                  })
+                    outputRange: ["0%", "100%"],
+                  }),
                 },
               ]}
             />
@@ -296,9 +319,12 @@ export default function Adventure4_Module1_Lesson2({
 
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={() => {
-            (onBack || onDismiss)();
-          }}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              (onBack || onDismiss)();
+            }}
+          >
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </SafeAreaView>
@@ -308,7 +334,7 @@ export default function Adventure4_Module1_Lesson2({
           <TouchableOpacity
             style={[
               styles.nextButton,
-              !hasFinishedReading && styles.nextButtonDisabled
+              !hasFinishedReading && styles.nextButtonDisabled,
             ]}
             onPress={hasFinishedReading ? handleContinue : undefined}
             disabled={!hasFinishedReading}
@@ -322,7 +348,7 @@ export default function Adventure4_Module1_Lesson2({
         </SafeAreaView>
 
         {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
-        {Platform.OS === 'ios' ? (
+        {Platform.OS === "ios" ? (
           // iOS: Native PanGestureHandler
           <PanGestureHandler
             ref={panGestureRef}
@@ -331,26 +357,29 @@ export default function Adventure4_Module1_Lesson2({
             activeOffsetY={[-20, 20]}
             failOffsetX={[-30, 30]}
           >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-              <Animated.View style={[
-                styles.readingCard,
+            <Animated.View
+              style={[
+                styles.cardContainer,
                 {
-                  height: cardHeight,
-                }
-              ]}>
+                  transform: [{ translateY: cardTranslateY }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={[
+                  styles.readingCard,
+                  {
+                    height: cardHeight,
+                  },
+                ]}
+              >
                 {/* Top handle indicator */}
                 <View style={styles.cardHandle} />
 
                 {/* iOS Collapsed content */}
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.readingCardHeader}>
                     <Text style={styles.cardTitle}>
                       Byzantine Artists in Damascus
@@ -363,17 +392,21 @@ export default function Adventure4_Module1_Lesson2({
 
                 {/* Expanded content when card is swiped up */}
                 {isCardExpanded && (
-                  <Animated.View style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) }
-                  ]}>
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
                     <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
                       style={styles.expandedScroll}
                       showsVerticalScrollIndicator={false}
                       onScroll={handleReadingScroll}
                       scrollEventThrottle={100}
-                      waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
+                      waitFor={
+                        Platform.OS === "ios" ? panGestureRef : undefined
+                      }
                     >
                       <View style={styles.expandedContentInner}>
                         {/* Title Section */}
@@ -388,8 +421,12 @@ export default function Adventure4_Module1_Lesson2({
 
                         {/* Historical Content */}
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            {historicalText}
+                          </Text>
                         </View>
 
                         {/* Key Terms Section */}
@@ -422,30 +459,30 @@ export default function Adventure4_Module1_Lesson2({
           </PanGestureHandler>
         ) : (
           // Android: Custom Touch Handlers
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-              <Animated.View style={[
-                styles.readingCard,
+          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <Animated.View
+              style={[
+                styles.cardContainer,
                 {
-                  height: cardHeight,
-                }
-              ]}>
+                  transform: [{ translateY: cardTranslateY }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={[
+                  styles.readingCard,
+                  {
+                    height: cardHeight,
+                  },
+                ]}
+              >
                 {/* Top handle indicator */}
                 <View style={styles.cardHandle} />
 
                 {/* Android Collapsed content */}
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.collapsedContentWrapper}>
                     <Text style={styles.collapsedTitle}>
                       Byzantine Artists in Damascus
@@ -458,10 +495,12 @@ export default function Adventure4_Module1_Lesson2({
 
                 {/* Expanded content when card is swiped up */}
                 {isCardExpanded && (
-                  <Animated.View style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) }
-                  ]}>
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
                     <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
                       style={styles.expandedScroll}
@@ -482,8 +521,12 @@ export default function Adventure4_Module1_Lesson2({
 
                         {/* Historical Content */}
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            {historicalText}
+                          </Text>
                         </View>
 
                         {/* Key Terms Section */}
@@ -515,7 +558,6 @@ export default function Adventure4_Module1_Lesson2({
             </Animated.View>
           </View>
         )}
-
       </View>
     </>
   );
@@ -736,7 +778,7 @@ const styles = StyleSheet.create({
   // Android-Specific Styles for proper text positioning
   collapsedContentWrapper: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 25,

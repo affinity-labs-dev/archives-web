@@ -59,7 +59,7 @@ const quizQuestions = [
     correctAnswer: 0, // A) True
     explanation: "Yes, Baghdad was designed as the 'Round City' - a perfect circle that symbolized unity, perfection, and the cosmic order of the new Abbasid empire.",
     points: 10,
-    type: 'mcq' as const,
+    type: 'trueFalse' as const,
     options: ["True", "False"],
     image: require('@/assets/images/lesson-content/map.png')
   },
@@ -68,7 +68,7 @@ const quizQuestions = [
     correctAnswer: 1, // B) False
     explanation: "No, while the Umayyads fell in the East, some family members escaped west and later established rule in Cordoba, Spain, continuing their dynasty there.",
     points: 10,
-    type: 'mcq' as const,
+    type: 'trueFalse' as const,
     options: ["True", "False"],
     image: require('@/assets/images/quiz-images/writer.png')
   },
@@ -101,55 +101,116 @@ function QuizResultsView({
   onGoToAdventure,
   onBack
 }: QuizResultsViewProps) {
-  const percentage = Math.round((correctAnswers * 100) / totalQuestions) // EXACT SwiftUI calculation
-  const passed = percentage >= 40 // EXACT SwiftUI: private var passed: Bool (40% passing score)
-  const canAccessAdventure = correctAnswers >= 2 // EXACT SwiftUI: private var canAccessAdventure: Bool (need 2/5 correct)
+  const percentage = Math.round((correctAnswers * 100) / totalQuestions)
+  const passed = percentage >= 40
+  const canAccessAdventure = correctAnswers >= 2
 
   return (
-    <>
-      {Platform.OS === 'android' && (
-        <StatusBar barStyle="dark-content" backgroundColor={ArchivesTheme.colors.creamWhite} />
+    <View style={styles.resultsContainer}>
+      {/* Back button for results */}
+      {onBack && (
+        <SafeAreaView style={styles.resultsBackButtonContainer}>
+          <TouchableOpacity style={styles.resultsBackButton} onPress={onBack}>
+            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
+          </TouchableOpacity>
+        </SafeAreaView>
       )}
-      <SafeAreaView style={Platform.OS === 'android' ? styles.containerAndroid : styles.container}>
-        <View style={styles.resultsContainer}>
-          <ScrollView contentContainerStyle={styles.resultsScrollContent} showsVerticalScrollIndicator={false}>
-            {/* Results Header */}
-            <View style={styles.resultsHeader}>
-              <Text style={styles.resultsTitle}>
-                {passed ? 'Excellent Work!' : 'Keep Learning!'}
-              </Text>
-              <Text style={styles.resultsScore}>
-                {correctAnswers}/{totalQuestions} ({percentage}%)
-              </Text>
-              <Text style={styles.resultsMessage}>
-                {passed
-                  ? "You've mastered the Abbasid Revolution and Baghdad's founding. Ready for the next adventure!"
-                  : "Review the lessons about the 750 CE revolution and Baghdad's Round City design, then try again."
-                }
-              </Text>
+
+      <ScrollView style={styles.resultsScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.resultsContent}>
+          {/* Header - EXACT SwiftUI structure */}
+          <View style={styles.resultsHeader}>
+            <View style={[
+              styles.resultsIconContainer,
+              { backgroundColor: passed ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
+            ]}>
+              <Ionicons
+                name={passed ? "trophy" : "refresh"}
+                size={50}
+                color="white"
+              />
             </View>
 
-            {/* Results Buttons */}
-            <View style={styles.resultsButtonContainer}>
-              {canAccessAdventure ? (
-                <TouchableOpacity style={styles.resultsButton} onPress={onGoToAdventure}>
-                  <Text style={styles.resultsButtonText}>Continue Adventure</Text>
-                </TouchableOpacity>
-              ) : (
-                <>
-                  <TouchableOpacity style={styles.resultsButton} onPress={onRetake}>
-                    <Text style={styles.resultsButtonText}>Try Again</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.resultsButtonSecondary} onPress={onBack}>
-                    <Text style={styles.resultsButtonSecondaryText}>Back to Lessons</Text>
-                  </TouchableOpacity>
-                </>
-              )}
+            <Text style={styles.resultsTitle}>
+              {passed ? "Quiz Completed!" : "Keep Learning!"}
+            </Text>
+
+            <Text style={styles.resultsSubtitle}>
+              {passed ? "Excellent work on the Module 3 quiz!" : "Review the material and try again"}
+            </Text>
+          </View>
+
+          {/* Statistics card - EXACT SwiftUI structure */}
+          <View style={styles.statsCard}>
+            <View style={styles.statsRow}>
+              <View style={styles.statsLeft}>
+                <Text style={[
+                  styles.percentageText,
+                  { color: passed ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
+                ]}>
+                  {percentage}%
+                </Text>
+                <Text style={styles.finalScoreText}>Final Score</Text>
+              </View>
+
+              <View style={styles.statsRight}>
+                <View style={styles.xpRow}>
+                  <Ionicons name="star" size={18} color={ArchivesTheme.colors.shoeBrown} />
+                  <Text style={styles.xpText}>{totalPoints} XP</Text>
+                </View>
+                <Text style={styles.correctText}>Correct: {correctAnswers}/{totalQuestions}</Text>
+              </View>
             </View>
-          </ScrollView>
+
+            {/* Progress bar - EXACT SwiftUI GeometryReader equivalent */}
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarBackground} />
+              <Animated.View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${percentage}%`,
+                    backgroundColor: passed ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown
+                  }
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Action buttons - EXACT SwiftUI structure */}
+          <View style={styles.actionButtons}>
+            {/* Retake Quiz button */}
+            <TouchableOpacity style={styles.retakeButton} onPress={onRetake}>
+              <View style={styles.retakeButtonContent}>
+                <Ionicons name="refresh-circle" size={24} color={ArchivesTheme.colors.mossGreen} />
+                <Text style={styles.retakeButtonText}>Retake Quiz</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Go to Adventure button or locked message */}
+            {canAccessAdventure ? (
+              <TouchableOpacity style={styles.adventureButton} onPress={onGoToAdventure}>
+                <View style={styles.adventureButtonContent}>
+                  <Ionicons name="map" size={24} color="white" />
+                  <Text style={styles.adventureButtonText}>Go to Adventure</Text>
+                  <Ionicons name="arrow-forward" size={20} color="white" />
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.lockedContainer}>
+                <View style={styles.lockedHeader}>
+                  <Ionicons name="lock-closed" size={24} color={ArchivesTheme.colors.shoeBrown} />
+                  <Text style={styles.lockedTitle}>Adventure Locked</Text>
+                </View>
+                <Text style={styles.lockedMessage}>
+                  Answer at least 2 questions correctly to unlock the adventure
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
-      </SafeAreaView>
-    </>
+      </ScrollView>
+    </View>
   )
 }
 
@@ -463,101 +524,222 @@ const styles = StyleSheet.create({
     gap: 30,
   },
 
-  // Results View - EXACT SwiftUI styling
+  // Results View - EXACT SwiftUI Adventure5Module3QuizResultsView
   resultsContainer: {
     flex: 1,
     backgroundColor: ArchivesTheme.colors.creamWhite,
   },
-
-  resultsScrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 30,
-    paddingVertical: 40,
+  resultsScroll: {
+    flex: 1,
   },
-
+  resultsContent: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
   resultsHeader: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
   },
-
-  resultsImage: {
-    width: 150,
-    height: 150,
+  resultsIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 20,
+    shadowColor: 'black',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-
   resultsTitle: {
+    fontFamily: 'DM Sans',
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: ArchivesTheme.colors.mutedNavy,
-    fontFamily: 'DM Sans',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-
-  resultsScore: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.persianOrange,
+  resultsSubtitle: {
     fontFamily: 'DM Sans',
+    fontSize: 16,
+    color: ArchivesTheme.colors.shoeBrown,
     textAlign: 'center',
-    marginBottom: 20,
   },
 
-  resultsMessage: {
-    fontSize: 18,
-    color: ArchivesTheme.colors.mutedNavy,
-    fontFamily: 'DM Sans',
-    textAlign: 'center',
-    lineHeight: 26,
-    marginBottom: 25,
-  },
-
-  resultsButtonContainer: {
-    width: '100%',
-    alignItems: 'center',
-    paddingTop: 25,
-  },
-
-  resultsButton: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 25,
-    marginBottom: 15,
-    minWidth: 200,
-    alignItems: 'center',
-    shadowColor: ArchivesTheme.colors.shoeBrown,
-    shadowOffset: { width: 0, height: 2 },
+  // Statistics Card - EXACT SwiftUI structure
+  statsCard: {
+    padding: 24,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    marginBottom: 30,
+    shadowColor: 'black',
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-
-  resultsButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.creamWhite,
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  statsLeft: {
+    alignItems: 'center',
+    marginRight: 40,
+  },
+  percentageText: {
     fontFamily: 'DM Sans',
+    fontSize: 42,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  finalScoreText: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    color: ArchivesTheme.colors.shoeBrown,
+  },
+  statsRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  xpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  xpText: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: ArchivesTheme.colors.shoeBrown,
+    marginLeft: 8,
+  },
+  correctText: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    color: ArchivesTheme.colors.shoeBrown,
   },
 
-  resultsButtonSecondary: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 25,
+  // Progress Bar - EXACT SwiftUI GeometryReader structure
+  progressBarContainer: {
+    height: 16,
+    position: 'relative',
+  },
+  progressBarBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 16,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 8,
+  },
+  progressBarFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: 16,
+    borderRadius: 8,
+  },
+
+  // Action Buttons - EXACT SwiftUI structure
+  actionButtons: {
+    marginBottom: 30,
+  },
+  retakeButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    backgroundColor: 'white',
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: ArchivesTheme.colors.mutedNavy,
-    minWidth: 200,
+    borderColor: ArchivesTheme.colors.mossGreen,
+    marginBottom: 16,
+    shadowColor: 'black',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  retakeButtonContent: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
+  retakeButtonText: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.mossGreen,
+    marginLeft: 12,
+    flex: 1,
+  },
 
-  resultsButtonSecondaryText: {
+  adventureButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    borderRadius: 16,
+    shadowColor: 'black',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  adventureButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  adventureButtonText: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+    marginLeft: 12,
+    flex: 1,
+  },
+
+  // Locked Adventure - EXACT SwiftUI structure
+  lockedContainer: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  lockedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  lockedTitle: {
+    fontFamily: 'DM Sans',
     fontSize: 16,
     fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy,
+    color: ArchivesTheme.colors.shoeBrown,
+    marginLeft: 8,
+  },
+  lockedMessage: {
     fontFamily: 'DM Sans',
+    fontSize: 14,
+    color: 'rgba(139,96,64,0.7)',
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+
+  resultsBackButtonContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 20,
+    paddingTop: 8,
+    paddingLeft: 16,
+  },
+  resultsBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(139,96,64,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Minimum Score Alert - EXACT SwiftUI styling

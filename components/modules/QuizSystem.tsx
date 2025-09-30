@@ -294,16 +294,18 @@ export function QuizQuestion({
             <View style={styles.imageContainer}>
               <View style={styles.imageBackground} />
               {image && (
-                <Image 
-                  source={image} 
+                <Image
+                  source={image}
                   style={styles.questionImage}
                   resizeMode="contain"
                 />
               )}
             </View>
 
-            {/* Question text */}
-            <Text style={styles.questionText}>{question}</Text>
+            {/* Question text - Skip for fillInBlank as it renders its own interactive question */}
+            {questionType !== 'fillInBlank' && (
+              <Text style={styles.questionText}>{question}</Text>
+            )}
           </View>
 
           {/* Grouped Question-Options Container */}
@@ -721,6 +723,8 @@ const styles = StyleSheet.create({
   // Fill-in-Blank Option - EXACT SwiftUI structure
   fillBlankContainer: {
     position: 'relative',
+    marginHorizontal: 8,
+    marginVertical: 6,
   },
   fillBlankShadow: {
     position: 'absolute',
@@ -760,6 +764,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(0,0,0,0.5)', // EXACT SwiftUI: Color.gray.opacity(0.5)
     borderStyle: 'dashed', // EXACT SwiftUI: StrokeStyle(lineWidth: 2, dash: [5, 5])
+    marginHorizontal: 8,
+    marginVertical: 6,
   },
 
   // Explanation Popup - EXACT SwiftUI Adventure1Module1ExplanationView

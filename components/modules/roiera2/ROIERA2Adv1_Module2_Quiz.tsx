@@ -1,5 +1,5 @@
-// ROIERA2Adv1_Module1_Quiz.tsx - Rise of Islam Era Adventure 1 Module 1 Quiz
-// 5-question quiz covering pre-Islamic Arabia with MCQ, True/False, Fill-in-blank + explanations and results
+// ROIERA2Adv1_Module2_Quiz.tsx - Rise of Islam Era Adventure 1 Module 2 Quiz
+// 5-question quiz covering social injustices in pre-Islamic Arabia with MCQ, True/False, Fill-in-blank + explanations and results
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useProgress } from "@/context/ProgressContext";
@@ -25,78 +25,68 @@ import {
   TrueFalseOptionButton,
 } from "../QuizSystem";
 
-interface ROIERA2Adv1_Module1_QuizProps {
+interface ROIERA2Adv1_Module2_QuizProps {
   onDismiss: () => void;
   onBack?: () => void;
 }
 
-// Quiz Data - Rise of Islam Era Adventure 1 Module 1: Meccan Life & Tribal Culture
+// Quiz Data - Rise of Islam Era Adventure 1 Module 2: The Problem of Injustice
 const quizQuestions = [
   {
-    question: "What was the Kaaba used for before Islam?",
-    correctAnswer: 2, // C) A place of idol worship
+    question: "What injustice was common before Islam?",
+    correctAnswer: 1, // B) Slavery
     explanation:
-      "Before Islam, the Kaaba served as a sacred sanctuary housing numerous idols representing various tribal deities from across the Arabian Peninsula. It was the central focus of pre-Islamic Arabian polytheistic worship, attracting pilgrims from many tribes who came to venerate their gods.",
+      "Slavery was widespread in pre-Islamic Arabia, with enslaved people having no rights or protections. Islam later introduced reforms that encouraged freeing slaves and treated them with dignity.",
     points: 10,
     type: "mcq" as const,
-    options: [
-      "A library",
-      "A tribal market",
-      "A place of idol worship",
-      "A royal palace",
-    ],
+    options: ["Child schooling", "Slavery", "Free healthcare", "Public voting"],
     image: require("@/assets/images/quiz-images/books.png"),
   },
   {
-    question: "Poets were highly respected in pre-Islamic Arabia",
-    correctAnswer: 1, // True
+    question: "Weak tribes were protected equally in Mecca",
+    correctAnswer: 0, // False
     explanation:
-      "Poets held an extremely high status in pre-Islamic Arabian society. They were considered the voice of their tribes, preserving history, genealogies, and cultural values through oral tradition. A skilled poet could enhance a tribe's reputation and honor through their eloquent verses.",
+      "False. Weaker tribes had little protection in pre-Islamic society. Justice and safety depended on tribal strength and alliances, leaving vulnerable groups exposed to mistreatment.",
     points: 10,
     type: "trueFalse" as const,
     image: require("@/assets/images/quiz-images/Reader.png"),
   },
   {
-    question: "Mecca was a hub for long-distance ___ routes.",
-    correctAnswer: 0, // "Trade"
+    question: "The Qur'an criticized those who ignored the ___.",
+    correctAnswer: 0, // "Orphan"
     explanation:
-      "Mecca's strategic location made it a crucial hub for long-distance trade routes connecting the Indian Ocean trade with the Mediterranean world. Merchants traveled through Mecca carrying goods like spices, incense, silk, and precious metals between Yemen, Syria, and beyond.",
+      "The Qur'an strongly condemned neglecting orphans, commanding believers to treat them with kindness and protect their rights. This was a direct response to the injustices orphans faced in pre-Islamic society.",
     points: 10,
     type: "fillInBlank" as const,
-    options: ["Trade", "Pilgrimage", "Migration", "Communication"],
+    options: ["Orphan", "Merchant", "Warrior", "Elder"],
     image: require("@/assets/images/quiz-images/Map.png"),
   },
   {
-    question: "Why did tribes value poetry contests?",
-    correctAnswer: 2, // C) To share stories and strengthen reputation
+    question: "Some tribes buried baby girls because they feared ___.",
+    correctAnswer: 1, // B) Shame or poverty
     explanation:
-      "Poetry contests were vital for sharing tribal histories, heroic deeds, and genealogies while enhancing a tribe's reputation and honor. These competitions allowed tribes to display their cultural achievements and eloquence, which were highly valued in Arabian society.",
+      "The horrific practice of female infanticide occurred because some tribes feared the shame of having daughters or worried about providing for them. Islam strictly prohibited this practice.",
     points: 10,
     type: "mcq" as const,
-    options: [
-      "To learn foreign languages",
-      "To display wealth",
-      "To share stories and strengthen reputation",
-      "To choose new leaders",
-    ],
+    options: ["War", "Shame or poverty", "Disease", "Foreign influence"],
     image: require("@/assets/images/quiz-images/Reader.png"),
   },
   {
     question:
-      "Tribal conflicts in Arabia were often caused by small insults or raids, and could last for generations.",
+      "Justice in pre-Islamic Arabia often depended on revenge rather than fairness.",
     correctAnswer: 1, // True
     explanation:
-      "Tribal honor was paramount in pre-Islamic Arabia, and even minor insults or cattle raids could trigger conflicts that lasted for generations. These feuds, known as 'ayyam al-Arab' (Days of the Arabs), often escalated due to the tribal code of honor requiring retaliation for any perceived wrong.",
+      "True. Pre-Islamic justice was based on tribal revenge cycles, where honor required retaliation for any wrong. This often led to endless feuds rather than true justice.",
     points: 10,
     type: "trueFalse" as const,
     image: require("@/assets/images/quiz-images/Map.png"),
   },
 ];
 
-export default function ROIERA2Adv1_Module1_Quiz({
+export default function ROIERA2Adv1_Module2_Quiz({
   onDismiss,
   onBack,
-}: ROIERA2Adv1_Module1_QuizProps) {
+}: ROIERA2Adv1_Module2_QuizProps) {
   // EXACT SwiftUI state variables
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // @State private var currentQuestionIndex = 0
   const [showResults, setShowResults] = useState(false); // @State private var showResults = false
@@ -123,10 +113,10 @@ export default function ROIERA2Adv1_Module1_Quiz({
     null
   );
   const [fillBlankOptions, setFillBlankOptions] = useState([
-    { text: "Trade", isUsed: false },
-    { text: "Pilgrimage", isUsed: false },
-    { text: "Migration", isUsed: false },
-    { text: "Communication", isUsed: false },
+    { text: "Orphan", isUsed: false },
+    { text: "Merchant", isUsed: false },
+    { text: "Warrior", isUsed: false },
+    { text: "Elder", isUsed: false },
   ]);
 
   const { roiAtomicProgressUpdate, canRetakeRoiModule } = useProgress();
@@ -222,13 +212,13 @@ export default function ROIERA2Adv1_Module1_Quiz({
 
   // Handle quiz completion - NEW ATOMIC SYSTEM
   const handleQuizCompletion = async () => {
-    console.log("🚀 Quiz completion: Adventure 1 Module 1");
+    console.log("🚀 Quiz completion: Adventure 1 Module 2");
 
     try {
-      const isRetake = canRetakeRoiModule("ROI_Adv1_M1");
+      const isRetake = canRetakeRoiModule("ROI_Adv1_M2");
 
       // Use ROI atomic progress update
-      await roiAtomicProgressUpdate("ROI_Adv1_M1", {
+      await roiAtomicProgressUpdate("ROI_Adv1_M2", {
         type: isRetake ? "QUIZ_RETAKEN" : "QUIZ_COMPLETED",
         quizScore: correctAnswers,
         quizCorrectAnswers: correctAnswers,
@@ -383,7 +373,7 @@ export default function ROIERA2Adv1_Module1_Quiz({
           isAnswerSelected={isAnswerSelected()}
           questionType={currentQuestion.type}
           onBack={onBack || onDismiss}
-          quizTitle="Module 1 Quiz"
+          quizTitle="Module 2 Quiz"
         >
           {renderQuestionContent()}
         </QuizQuestion>
@@ -485,7 +475,7 @@ function QuizResultsView({
 
             <Text style={styles.resultsSubtitle}>
               {passed
-                ? "Excellent work on the Module 1 quiz!"
+                ? "Excellent work on the Module 2 quiz!"
                 : "Review the material and try again"}
             </Text>
           </View>
