@@ -49,27 +49,8 @@ export default function ArchivesAuthScreen() {
   }
 
   const onContinue = async () => {
-    try {
-      // Check if user has completed onboarding
-      const onboardingComplete = await AsyncStorage.getItem('onboarding_completed')
-      const hasSelectedEra = await AsyncStorage.getItem('selected_era')
-
-      const isReturningUser = !!(onboardingComplete || hasSelectedEra)
-
-      if (isReturningUser) {
-        // Returning user: go directly to home tab
-        console.log('🏠 [Auth] Returning user - routing to Home tab')
-        router.replace('/(tabs)/')
-      } else {
-        // New user: go to Eras tab for era selection
-        console.log('🎯 [Auth] New user - routing to Eras tab for era selection')
-        router.replace('/(tabs)/eras')
-      }
-    } catch (error) {
-      console.error('🚨 [Auth] Error checking user status:', error)
-      // Default to Eras tab on error
-      router.replace('/(tabs)/eras')
-    }
+    // After authentication, go to era selection page
+    router.replace('/era-selection')
   }
 
   // Sign Up function (exact replica with Clerk)

@@ -44,7 +44,7 @@ export default function Index() {
     return <Redirect href="/(tabs)" />
   }
 
-  // New user or incomplete onboarding: go through full onboarding flow
-  console.log('👋 New user - routing to onboarding videos')
-  return <Redirect href="/onboarding-video" />
+  // New user or incomplete onboarding: go to landing page
+  console.log('👋 New user - routing to landing page')
+  return <Redirect href="/landing" />
 }
