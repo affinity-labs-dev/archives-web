@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "L33CVM28SL",
-      "buildNumber": "35",
+      "buildNumber": "37",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
