@@ -88,10 +88,7 @@ import Adventure5_Module3_Lesson1 from './adventure5/Adventure5_Module3_Lesson1'
 import Adventure5_Module3_Lesson2 from './adventure5/Adventure5_Module3_Lesson2'
 import Adventure5_Module3_Quiz from './adventure5/Adventure5_Module3_Quiz'
 
-// Rise of Islam Era Adventure 1 - The Early Years - Module 1
-import ROIERA2Adv1_Module1_Lesson1 from './roiera2/ROIERA2Adv1_Module1_Lesson1'
-import ROIERA2Adv1_Module1_Lesson2 from './roiera2/ROIERA2Adv1_Module1_Lesson2'
-import ROIERA2Adv1_Module1_Quiz from './roiera2/ROIERA2Adv1_Module1_Quiz'
+// ROI components moved to ROIModuleModal.tsx for clean era separation
 
 interface ModuleModalProps {
   isVisible: boolean
@@ -127,18 +124,25 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
     }
   }, [isVisible, currentStep, onDismiss])
 
-  // Navigation handlers - EXACT SwiftUI flow
+  // Navigation handlers - EXACT SwiftUI flow + ROI support
   const handleLessonComplete = (lessonId: string) => {
-    
+
     if (moduleId) {
-      const adventureId = parseInt(moduleId.split('_')[0].replace('adv', ''))
-      const modId = parseInt(moduleId.split('_')[1].replace('mod', ''))
-      
-      // Update progress for completed lesson
-      updateModuleProgress(adventureId, modId, {
-        lessonsCompleted: [lessonId],
-        isCompleted: false // Only complete when quiz is passed
-      })
+      // Handle ROI module ID format (ROI_Adv1_M1) - NEW
+      if (moduleId.startsWith('ROI_')) {
+        // ROI modules use atomic progress system - no legacy progress update needed
+        console.log(`🔄 ROI lesson ${lessonId} completed for ${moduleId} - handled by component's atomic system`)
+      } else {
+        // Handle legacy module ID format (adv1_mod1)
+        const adventureId = parseInt(moduleId.split('_')[0].replace('adv', ''))
+        const modId = parseInt(moduleId.split('_')[1].replace('mod', ''))
+
+        // Update progress for completed lesson
+        updateModuleProgress(adventureId, modId, {
+          lessonsCompleted: [lessonId],
+          isCompleted: false // Only complete when quiz is passed
+        })
+      }
     }
 
     // Navigate to next step - EXACT SwiftUI navigation pattern
@@ -592,34 +596,7 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
       }
     }
 
-    // Rise of Islam Adventure 1, Module 1 - The Early Years - Meccan Life & Tribal Culture
-    // (Internal ID: Adventure 6 for database consistency)
-    if (adventure === 6 && module === 1) {
-      switch (currentStep) {
-        case 'lesson1':
-          return (
-            <ROIERA2Adv1_Module1_Lesson1
-              onContinue={() => handleLessonComplete('lesson1')}
-              onDismiss={handleModalDismiss}
-            />
-          )
-        case 'lesson2':
-          return (
-            <ROIERA2Adv1_Module1_Lesson2
-              onContinue={() => handleLessonComplete('lesson2')}
-              onDismiss={handleModalDismiss}
-              onBack={handleGoBack}
-            />
-          )
-        case 'quiz':
-          return (
-            <ROIERA2Adv1_Module1_Quiz
-              onDismiss={handleModalDismiss}
-              onBack={handleGoBack}
-            />
-          )
-      }
-    }
+    // ROI content now handled by ROIModuleModal.tsx - no Adventure 6 routing needed
 
     // Fallback for unimplemented modules
     return (
@@ -651,12 +628,13 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
   )
 }
 
-// Utility function to extract adventure and module numbers - EXACT SwiftUI logic
+// Utility function to extract adventure and module numbers - EXACT SwiftUI logic + ROI support
 function extractAdventureAndModule(moduleId: string): [number, number] {
   let adventure = 1
   let module = 1
-  
-  // Handle adventure number
+
+  // ROI modules now handled by ROIModuleModal.tsx - no parsing needed here
+  // Handle Umayyad Dynasty adventure number format (adv1_mod1, etc.)
   if (moduleId.includes('adv1')) {
     adventure = 1
   } else if (moduleId.includes('adv2')) {
@@ -670,7 +648,7 @@ function extractAdventureAndModule(moduleId: string): [number, number] {
   } else if (moduleId.includes('adv6')) {
     adventure = 6
   }
-  
+
   // Handle module number
   if (moduleId.includes('mod1')) {
     module = 1
@@ -679,7 +657,7 @@ function extractAdventureAndModule(moduleId: string): [number, number] {
   } else if (moduleId.includes('mod3')) {
     module = 3
   }
-  
+
   return [adventure, module]
 }
 

@@ -1,16 +1,15 @@
 // ROIERA2Adv1_Module1_Lesson1.tsx - Rise of Islam Era 2: Adventure 1 Module 1 Lesson 1
-// "The Early Years" - Meccan Life & Tribal Culture
-// Full-screen video lesson with progress bar, reading card, and repositioned controls
+// "Meccan Life & Tribal Culture" - Video + Reading lesson with exact VideoReadingLesson.md compliance
+// Full-screen video lesson with ultra-smooth progress tracking, pixel-perfect animations, and comprehensive progress integration
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -28,102 +27,165 @@ import { useProgress } from "@/context/ProgressContext";
 import LessonPlayer from "../LessonPlayer";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const COLLAPSED_HEIGHT = 160;
-const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.85;
+
+// Card Height Constants - EXACT SwiftUI measurements
+const COLLAPSED_HEIGHT = 160;           // Card collapsed state height
+
+// Animation Constants - Performance Optimized
+const PROGRESS_ANIMATION_DURATION = 50; // Ultra-smooth 50ms intervals
+const CARD_ANIMATION_TENSION = 100;     // Spring animation tension
+const CARD_ANIMATION_FRICTION = 8;      // Spring animation friction
+const VIDEO_COMPLETION_THRESHOLD = 0.95; // 95% video completion trigger
+const PROGRESS_SENSITIVITY = 0.0005;   // Progress bar update sensitivity
+
+// Button Dimensions - EXACT SwiftUI specifications
+const BUTTON_SIZE = 40;                 // Back/Next button size
+const BUTTON_RADIUS = 20;              // Button border radius
+const CARD_HANDLE_WIDTH = 70;          // Card drag handle width
+const CARD_HANDLE_HEIGHT = 5;          // Card drag handle height
 
 interface ROIERA2Adv1_Module1_Lesson1Props {
-  onContinue: () => void;
-  onDismiss: () => void;
+  onContinue: () => void;    // Required: Navigation to next lesson
+  onDismiss: () => void;     // Required: Close lesson modal
 }
 
 export default function ROIERA2Adv1_Module1_Lesson1({
   onContinue,
   onDismiss,
 }: ROIERA2Adv1_Module1_Lesson1Props) {
-  // Progress context for lesson completion tracking
-  const { completeLesson } = useProgress();
+  // Progress context for lesson completion tracking (ROI system)
+  const { roiAtomicProgressUpdate } = useProgress();
 
-  // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
+  // Video-related states
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
-  const [videoProgress, setVideoProgress] = useState(0);
+  const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
+
+  // Reading card states
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
-  const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
+
+  // Gesture handling states
   const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Component refs for gesture coordination
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
 
-  // Animation values
+  // Animation refs - All required for smooth animations
   const cardHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
+  const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
   const progressBarWidth = useRef(new Animated.Value(0)).current;
 
-  // Handle video playback status updates
+  // Progress tracking ref
+  const lastProgress = useRef(0);
+
+  // Historical content for Rise of Islam Era - Meccan Life & Tribal Culture
+  const historicalText = `Mecca was a busy desert city, filled with caravans arriving from Yemen and Syria. Its markets were lively with trade and filled with songs and stories. The Kaaba was at the heart of the city, surrounded by idols, and served as an important gathering place for many tribes. People often shared stories of their ancestors, pride, and generosity. Belonging to a strong tribe provided safety and respect-but also led to rivalry and ongoing conflicts.`;
+
+  // Ultra-Smooth Video Progress System - Pixel Perfect Animation
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
-      setIsVideoLoaded(true);
+      // Initialize video loaded state
+      if (!isVideoLoaded) {
+        setIsVideoLoaded(true);
+      }
 
-      // Calculate progress percentage
-      const progress = (status.positionMillis || 0) / (status.durationMillis || 1);
-      setVideoProgress(progress);
+      // Calculate and animate progress
+      if (status.durationMillis && status.positionMillis) {
+        const progress = status.positionMillis / status.durationMillis;
 
-      // Ultra-smooth progress bar animation
-      Animated.timing(progressBarWidth, {
-        toValue: progress,
-        duration: 50, // Very short animation for silky smooth transitions
-        useNativeDriver: false,
-      }).start();
+        // Ultra-smooth progress bar animation - prevents micro-animations
+        const progressDiff = Math.abs(progress - lastProgress.current);
+        if (progressDiff > PROGRESS_SENSITIVITY) { // Highly sensitive threshold
+          lastProgress.current = progress;
 
-      // Video completion detection
-      if (progress >= 0.95 && !hasVideoCompleted) {
-        setHasVideoCompleted(true);
-        console.log('🎬 ROIERA2Adv1_Module1_Lesson1: Video completed, triggering card pop animation');
+          // 50ms animation for silky smooth transitions
+          Animated.timing(progressBarWidth, {
+            toValue: progress,
+            duration: PROGRESS_ANIMATION_DURATION,
+            useNativeDriver: false, // Width animations require native driver false
+          }).start();
+        }
 
-        // Trigger card bounce when video finishes
-        if (!isCardExpanded) {
+        // Video completion detection with 95% threshold
+        if (progress >= VIDEO_COMPLETION_THRESHOLD && !hasVideoCompleted) {
+          setHasVideoCompleted(true);
           triggerCardPopAnimation();
         }
       }
     }
   };
 
-  // Trigger card bounce up animation when video completes
+  // Card Pop Animation - Exact SwiftUI Replication
   const triggerCardPopAnimation = () => {
+    // Two-stage spring animation sequence
     Animated.sequence([
+      // Bounce up 20px
       Animated.spring(cardTranslateY, {
         toValue: -20,
         useNativeDriver: true,
-        tension: 120,
-        friction: 7,
+        tension: 120,  // Higher tension for snappy initial bounce
+        friction: 7,   // Lower friction for bounce effect
       }),
+      // Settle back to original position
       Animated.spring(cardTranslateY, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 100,
-        friction: 8,
+        tension: CARD_ANIMATION_TENSION,  // Standard tension for settle
+        friction: CARD_ANIMATION_FRICTION,   // Higher friction for smooth settle
       }),
     ]).start();
 
+    // Light haptic feedback for video completion
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Continue button handler - only works if reading is finished
-  const handleContinue = () => {
+  // Lesson Completion Logic
+  const handleContinue = async () => {
+    // Prevent continuation if reading not finished
     if (!hasFinishedReading) {
       console.log("🔄 Continue button pressed but reading not finished");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
 
-    // Mark lesson as completed in progress context (Rise of Islam Adventure 6 = ROIERA2Adv1, Module 1, Lesson 1)
-    completeLesson(6, 1, "lesson1");
-    console.log("🔄 Continue button pressed - ROIERA2Adv1_Module1_Lesson1 completed, proceeding to lesson 2");
+    // Mark lesson as completed in progress context (ROI system: ROI_Adv1_M1, Lesson 1)
+    await roiAtomicProgressUpdate("ROI_Adv1_M1", {
+      type: "LESSON_COMPLETED",
+      lessonId: "lesson1"
+    });
+    console.log("🔄 Continue button pressed - ROI_Adv1_M1 Lesson 1 completed, proceeding to lesson 2");
     onContinue();
   };
 
-  // Custom touch handlers for reliable Android swipe detection
+  // iOS PanGestureHandler - Native iOS Experience
+  const handleSwipeGesture = (event: any) => {
+    if (Platform.OS !== 'ios') return;
+
+    if (event.nativeEvent.state === State.END) {
+      const { translationY, velocityY } = event.nativeEvent;
+
+      // iOS-optimized gesture thresholds
+      const minDistance = 30;   // Minimum swipe distance
+      const minVelocity = 500;  // Minimum swipe velocity
+
+      // Swipe up detection (card expansion)
+      if (!isCardExpanded &&
+          (translationY < -minDistance || velocityY < -minVelocity)) {
+        expandCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      // Swipe down detection (card collapse)
+      else if (isCardExpanded &&
+               (translationY > minDistance || velocityY > minVelocity)) {
+        collapseCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+  };
+
+  // Android Touch Events - Custom Implementation
   const handleTouchStart = (event: any) => {
     setTouchStart({
       y: event.nativeEvent.pageY,
@@ -134,81 +196,189 @@ export default function ROIERA2Adv1_Module1_Lesson1({
   const handleTouchEnd = (event: any) => {
     if (!touchStart) return;
 
-    const touchEnd = {
-      y: event.nativeEvent.pageY,
-      time: Date.now()
-    };
+    const touchEnd = event.nativeEvent.pageY;
+    const distance = touchStart.y - touchEnd; // Positive = swipe up
+    const time = Date.now() - touchStart.time;
 
-    const deltaY = touchStart.y - touchEnd.y;
-    const deltaTime = touchEnd.time - touchStart.time;
-    const velocity = Math.abs(deltaY) / deltaTime;
+    // Android-optimized gesture detection
+    const minDistance = 40;        // Increased for better recognition
+    const maxTime = 300;          // Max gesture duration
+    const velocity = Math.abs(distance) / time;
+    const velocityThreshold = 0.5; // Minimum velocity
 
-    // Detect upward swipe (deltaY > 0 means swiping up)
-    if (deltaY > 50 && velocity > 0.3 && !isCardExpanded) {
-      console.log("📱 Android upward swipe detected, expanding card");
+    // Swipe up detection
+    if (!isCardExpanded &&
+        distance > minDistance &&
+        time < maxTime &&
+        velocity > velocityThreshold) {
       expandCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    // Swipe down detection
+    else if (isCardExpanded &&
+             distance < -minDistance &&
+             time < maxTime &&
+             velocity > velocityThreshold) {
+      collapseCard();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
     setTouchStart(null);
   };
 
-  // Pan gesture handler for iOS swipe detection
-  const handlePanGestureStateChange = (event: any) => {
-    if (event.nativeEvent.state === State.END) {
-      const { translationY, velocityY } = event.nativeEvent;
-
-      // Detect upward swipe (negative translationY)
-      if (translationY < -50 && velocityY < -500 && !isCardExpanded) {
-        console.log("📱 iOS upward swipe detected, expanding card");
-        expandCard();
-      }
-    }
-  };
-
-  // Expand card with smooth animation
+  // Card Expansion Logic
   const expandCard = () => {
     setIsCardExpanded(true);
-    Animated.spring(cardHeight, {
-      toValue: EXPANDED_HEIGHT,
-      useNativeDriver: false,
-      tension: 100,
-      friction: 8,
-    }).start();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
 
-  // Collapse card
-  const collapseCard = () => {
-    setIsCardExpanded(false);
-    Animated.spring(cardHeight, {
-      toValue: COLLAPSED_HEIGHT,
-      useNativeDriver: false,
-      tension: 100,
-      friction: 8,
-    }).start();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  // Handle scroll to detect when user has read content
-  const handleScroll = (event: any) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    setScrollY(contentOffset.y);
-
-    // Check if user has scrolled near the bottom
-    const scrollPercent = (contentOffset.y + layoutMeasurement.height) / contentSize.height;
-    if (scrollPercent > 0.85 && !hasFinishedReading) {
+    // Mark reading as finished when card is expanded (shows engagement)
+    if (!hasFinishedReading) {
       setHasFinishedReading(true);
-      console.log("📚 ROIERA2Adv1_Module1_Lesson1: User has finished reading content");
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+
+    // Parallel animations for smooth expansion
+    Animated.parallel([
+      // Height expansion to 85% of screen
+      Animated.spring(cardHeight, {
+        toValue: SCREEN_HEIGHT * 0.85,
+        useNativeDriver: false, // Height animations require native driver false
+        tension: CARD_ANIMATION_TENSION,
+        friction: CARD_ANIMATION_FRICTION,
+      }),
+      // Fade out collapsed content
+      Animated.timing(cardOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+    ]).start();
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+  // Card Collapse Logic
+  const collapseCard = () => {
+    setIsCardExpanded(false);
 
-      {/* Video Player Container */}
-      <View style={styles.videoContainer}>
+    // Parallel animations for smooth collapse
+    Animated.parallel([
+      // Height collapse back to 160px
+      Animated.spring(cardHeight, {
+        toValue: COLLAPSED_HEIGHT,
+        useNativeDriver: false,
+        tension: CARD_ANIMATION_TENSION,
+        friction: CARD_ANIMATION_FRICTION,
+      }),
+      // Fade in collapsed content
+      Animated.timing(cardOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  };
+
+  // Handle reading scroll - track scroll position for gesture priority
+  const handleReadingScroll = () => {
+    // Optional: Could track reading progress here if needed for analytics
+    // But completion is now triggered by card expansion for better UX
+  };
+
+  // Reading Card Structure - Detailed Implementation
+  const renderReadingCard = () => (
+    <Animated.View style={[
+      styles.cardContainer,
+      { transform: [{ translateY: cardTranslateY }] }
+    ]}>
+      <Animated.View style={[
+        styles.readingCard,
+        { height: cardHeight }
+      ]}>
+        {/* Card Handle - Drag Indicator */}
+        <View style={styles.cardHandle} />
+
+        {/* Collapsed Content */}
+        <Animated.View style={[
+          styles.collapsedContent,
+          { opacity: cardOpacity }
+        ]}>
+          <View style={styles.readingCardHeader}>
+            <Text style={styles.cardTitle}>
+              Meccan Life & Tribal Culture
+            </Text>
+            <Text style={styles.cardSubtitle}>
+              Understanding desert city culture and tribal traditions
+            </Text>
+          </View>
+        </Animated.View>
+
+        {/* Expanded Content - Only visible when card is expanded */}
+        {isCardExpanded && (
+          <Animated.View style={[
+            styles.expandedContent,
+            { opacity: Animated.subtract(1, cardOpacity) }
+          ]}>
+            <GestureHandlerScrollView
+              ref={scrollViewGestureRef}
+              style={styles.expandedScroll}
+              showsVerticalScrollIndicator={false}
+              onScroll={handleReadingScroll}
+              scrollEventThrottle={100}
+              waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
+            >
+              <View style={styles.expandedContentInner}>
+                {/* Title Section */}
+                <View style={styles.titleSection}>
+                  <Text style={styles.sheetTitle}>
+                    Meccan Life & Tribal Culture
+                  </Text>
+                  <Text style={styles.sheetSubtitle}>
+                    Module 1 • Lesson 1
+                  </Text>
+                </View>
+
+                {/* Historical Content */}
+                <View style={styles.historicalSection}>
+                  <Text style={styles.sectionTitle}>Historical Context</Text>
+                  <Text style={styles.historicalText}>{historicalText}</Text>
+                </View>
+
+                {/* Key Terms Section */}
+                <View style={styles.keyTermsSection}>
+                  <Text style={styles.sectionTitle}>Key Terms</Text>
+                  <View style={styles.keyTermsContainer}>
+                    <KeyTermRow
+                      term="Kaaba"
+                      definition="The sacred black cube structure at the center of Mecca, surrounded by tribal idols before Islam"
+                    />
+                    <KeyTermRow
+                      term="Tribal Culture"
+                      definition="The social organization based on family clans that provided protection and identity in Arabian society"
+                    />
+                    <KeyTermRow
+                      term="Caravan Trade"
+                      definition="The commercial network that brought goods and cultures from Yemen and Syria through Mecca"
+                    />
+                  </View>
+                </View>
+
+                {/* Bottom Spacer */}
+                <View style={styles.sheetBottomSpacer} />
+              </View>
+            </GestureHandlerScrollView>
+          </Animated.View>
+        )}
+      </Animated.View>
+    </Animated.View>
+  );
+
+  return (
+    <>
+      {/* Android Status Bar Configuration */}
+      {Platform.OS === 'android' && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
+
+      <View style={styles.container}>
+        {/* Full-screen Video Player */}
         <LessonPlayer
           videoSource={{ uri: "https://d3bi5e5vkj68.cloudfront.net/Reels/ROI_Adv1_M1_Reel1.mp4" }}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
@@ -216,7 +386,7 @@ export default function ROIERA2Adv1_Module1_Lesson1({
           shouldLoop={true}
         />
 
-        {/* Video Progress Bar at bottom */}
+        {/* Video Progress Bar - Bottom Overlay */}
         <View style={styles.progressBarContainer}>
           <View style={styles.progressBarBackground}>
             <Animated.View
@@ -226,294 +396,278 @@ export default function ROIERA2Adv1_Module1_Lesson1({
                   width: progressBarWidth.interpolate({
                     inputRange: [0, 1],
                     outputRange: ['0%', '100%'],
-                  }),
-                },
+                  })
+                }
               ]}
             />
           </View>
         </View>
 
-        {/* Top Controls */}
-        <View style={styles.topControls}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onDismiss}
-          >
-            <Ionicons name="chevron-back" size={28} color="white" />
+        {/* Back Button - Top Left */}
+        <SafeAreaView style={styles.backButtonContainer}>
+          <TouchableOpacity style={styles.backButton} onPress={onDismiss}>
+            <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
-        </View>
-      </View>
+        </SafeAreaView>
 
-      {/* Reading Card with Android and iOS gesture support */}
-      <PanGestureHandler
-        ref={panGestureRef}
-        onHandlerStateChange={handlePanGestureStateChange}
-        simultaneousHandlers={[scrollViewGestureRef]}
-      >
-        <Animated.View
-          style={[
-            styles.readingCard,
-            {
-              height: cardHeight,
-              transform: [{ translateY: cardTranslateY }],
-            },
-          ]}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Card Handle */}
-          <View style={styles.cardHandle} />
-
-          {/* Card Header */}
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Meccan Life & Tribal Culture</Text>
-            <TouchableOpacity
-              style={styles.expandButton}
-              onPress={isCardExpanded ? collapseCard : expandCard}
-            >
-              <Ionicons
-                name={isCardExpanded ? "chevron-down" : "chevron-up"}
-                size={20}
-                color={ArchivesTheme.colors.mutedNavy}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Card Content */}
-          <GestureHandlerScrollView
-            ref={scrollViewGestureRef}
-            style={styles.cardContent}
-            showsVerticalScrollIndicator={true}
-            scrollEventThrottle={16}
-            onScroll={handleScroll}
-            simultaneousHandlers={[panGestureRef]}
+        {/* Continue Button - Top Right */}
+        <SafeAreaView style={styles.nextButtonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.nextButton,
+              !hasFinishedReading && styles.nextButtonDisabled
+            ]}
+            onPress={hasFinishedReading ? handleContinue : undefined}
+            disabled={!hasFinishedReading}
           >
-            <Text style={styles.contentText}>
-              Welcome to the Arabian Peninsula in the 6th century CE, a land of desert tribes, bustling trade routes, and ancient traditions. This is the world into which Muhammad ibn Abdullah was born around 570 CE in the sacred city of Mecca.
-              {'\n\n'}
-              <Text style={styles.sectionHeader}>The City of Mecca</Text>
-              {'\n\n'}
-              Mecca was no ordinary city. Located in the Hijaz region of the Arabian Peninsula, it served as a crucial crossroads for trade caravans traveling between the Byzantine Empire to the north and the Indian Ocean trade networks to the south. The city&apos;s prosperity came from its strategic position along the frankincense and spice routes that connected Asia, Africa, and Europe.
-              {'\n\n'}
-              At the heart of Mecca stood the Kaaba, a sacred cube-shaped sanctuary that housed hundreds of idols representing the deities of various Arabian tribes. This made Mecca not just a commercial hub, but also a religious center that attracted pilgrims from across the peninsula during the sacred months when warfare was forbidden.
-              {'\n\n'}
-              <Text style={styles.sectionHeader}>Tribal Society & Honor</Text>
-              {'\n\n'}
-              Arabian society was organized around tribes (qaba&apos;il), extended family networks that provided protection, identity, and survival in the harsh desert environment. Each tribe had its own customs, dialects, and allegiances, but they shared common values centered around honor (karama), hospitality (karam), and loyalty.
-              {'\n\n'}
-              Poetry held a special place in this culture, serving as both entertainment and historical record. Skilled poets were treasured for their ability to preserve tribal genealogies, celebrate victories, and articulate the values that defined Arabian identity.
-              {'\n\n'}
-              <Text style={styles.sectionHeader}>Trade & Commerce</Text>
-              {'\n\n'}
-              The Quraysh tribe, to which Muhammad belonged, had gained control over Mecca&apos;s lucrative trade networks. They organized massive caravans that could include hundreds of camels carrying precious goods: silks from China, spices from India, incense from southern Arabia, and ivory from Africa.
-              {'\n\n'}
-              This trade brought wealth to Mecca but also created significant social inequality. While merchant families like the Banu Hashim (Muhammad&apos;s clan) enjoyed prosperity, many inhabitants struggled with poverty, debt, and social marginalization.
-              {'\n\n'}
-              <Text style={styles.sectionHeader}>Religious Landscape</Text>
-              {'\n\n'}
-              The Arabian Peninsula was religiously diverse. While many Arabs practiced polytheism, worshipping tribal deities and natural forces, there were also Christian communities, Jewish tribes, and individuals known as hanifs who rejected idol worship and sought a pure monotheistic faith.
-              {'\n\n'}
-              This rich tapestry of beliefs, customs, and social structures would profoundly shape the early life of Muhammad and provide the context for the revolutionary message he would later bring to the world.
-            </Text>
-          </GestureHandlerScrollView>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={hasFinishedReading ? "white" : "#666"}
+            />
+          </TouchableOpacity>
+        </SafeAreaView>
 
-          {/* Continue Button */}
-          <View style={styles.cardFooter}>
-            <TouchableOpacity
-              style={[
-                styles.continueButton,
-                hasFinishedReading
-                  ? styles.continueButtonEnabled
-                  : styles.continueButtonDisabled,
-              ]}
-              onPress={handleContinue}
-              disabled={!hasFinishedReading}
-            >
-              <Text
-                style={[
-                  styles.continueButtonText,
-                  hasFinishedReading
-                    ? styles.continueButtonTextEnabled
-                    : styles.continueButtonTextDisabled,
-                ]}
-              >
-                {hasFinishedReading ? "Continue to Lesson 2" : "Finish Reading to Continue"}
-              </Text>
-              {hasFinishedReading && (
-                <Ionicons
-                  name="arrow-forward"
-                  size={18}
-                  color="white"
-                  style={styles.continueButtonIcon}
-                />
-              )}
-            </TouchableOpacity>
+        {/* Platform-Specific Reading Card */}
+        {Platform.OS === 'ios' ? (
+          <PanGestureHandler
+            ref={panGestureRef}
+            onGestureEvent={handleSwipeGesture}
+            onHandlerStateChange={handleSwipeGesture}
+            activeOffsetY={[-20, 20]}
+            failOffsetX={[-30, 30]}
+          >
+            {/* iOS Card Implementation */}
+            {renderReadingCard()}
+          </PanGestureHandler>
+        ) : (
+          <View
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            {/* Android Card Implementation */}
+            {renderReadingCard()}
           </View>
-        </Animated.View>
-      </PanGestureHandler>
-    </SafeAreaView>
+        )}
+      </View>
+    </>
+  );
+}
+
+// Key Term Row Component - EXACT SwiftUI: keyTermRow(term:definition:)
+interface KeyTermRowProps {
+  term: string;
+  definition: string;
+}
+
+function KeyTermRow({ term, definition }: KeyTermRowProps) {
+  return (
+    <View style={styles.keyTermRow}>
+      <Text style={styles.keyTermTitle}>{term}</Text>
+      <Text style={styles.keyTermDefinition}>{definition}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Main container - Full screen black background for video
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "black",
   },
-  videoContainer: {
-    flex: 1,
-    position: "relative",
-  },
-  topControls: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 60 : StatusBar.currentHeight ? StatusBar.currentHeight + 20 : 40,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    zIndex: 10,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 4,
-  },
+
+  // Video Progress Bar - Bottom overlay
   progressBarContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: 4,
-    backgroundColor: "transparent",
+    height: 4,              // 4px height
+    zIndex: 10,             // Above video, below buttons
   },
   progressBarBackground: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "rgba(255,255,255,0.3)", // 30% white overlay
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: ArchivesTheme.colors.persianOrange,
+    backgroundColor: ArchivesTheme.colors.persianOrange, // Brand orange
   },
-  readingCard: {
+
+  // Navigation Buttons - EXACT positioning
+  backButtonContainer: {
     position: "absolute",
-    bottom: 0,
+    top: 0,
+    left: 0,
+    zIndex: 20,           // Above progress bar
+    paddingTop: 8,        // 8px from SafeArea
+    paddingLeft: 16,      // 16px from left edge
+  },
+  backButton: {
+    width: BUTTON_SIZE,   // EXACT 40px diameter
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_RADIUS,     // Perfect circle
+    backgroundColor: "rgba(0,0,0,0.6)", // 60% black background
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  nextButtonContainer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 20,
+    paddingTop: 8,
+    paddingRight: 16,     // 16px from right edge
+  },
+  nextButton: {
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_RADIUS,
+    backgroundColor: ArchivesTheme.colors.mossGreen, // Brand green
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  nextButtonDisabled: {
+    backgroundColor: "rgba(0,0,0,0.3)", // 30% black when disabled
+  },
+
+  // Card positioning and animation container
+  cardContainer: {
+    position: "absolute",
+    bottom: -40,            // -40px offset for partial visibility
     left: 0,
     right: 0,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+  },
+
+  // Main reading card
+  readingCard: {
+    height: COLLAPSED_HEIGHT,            // EXACT collapsed height
+    backgroundColor: "rgba(0,0,0,0.9)", // 90% black background
+    borderTopLeftRadius: 20,  // 20px top corner radius
+    borderTopRightRadius: 20,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.2,     // 20% shadow opacity
+    shadowRadius: 12,       // 12px blur radius
+    shadowOffset: { width: 0, height: -4 }, // 4px upward shadow
+    elevation: 12,          // Android shadow
   },
+
+  // Card drag handle
   cardHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: ArchivesTheme.colors.mutedNavy,
-    alignSelf: "center",
-    marginTop: 12,
-    marginBottom: 16,
-    borderRadius: 2,
-    opacity: 0.3,
+    width: CARD_HANDLE_WIDTH,              // EXACT 70px width
+    height: CARD_HANDLE_HEIGHT,              // EXACT 5px height
+    backgroundColor: "rgba(255,255,255,0.4)", // 40% white
+    borderRadius: 2,        // 2px radius for rounded ends
+    alignSelf: "center",    // Centered horizontally
+    marginTop: 12,          // 12px from top
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    marginBottom: 16,
+
+  // Content layout containers
+  collapsedContent: {
+    flex: 1,
+  },
+  expandedContent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 20,         // 20px from top
+  },
+  expandedScroll: {
+    flex: 1,
+  },
+  expandedContentInner: {
+    padding: 20,            // 20px padding all around
+  },
+
+  // Typography and spacing
+  readingCardHeader: {
+    padding: 20,            // 20px padding
+    paddingTop: 16,         // Reduced top padding
+    paddingBottom: 30,      // Extra bottom padding
   },
   cardTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: ArchivesTheme.colors.mutedNavy,
     fontFamily: "DM Sans",
-    flex: 1,
-  },
-  expandButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 12,
-    shadowColor: ArchivesTheme.colors.shoeBrown,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardContent: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  contentText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: ArchivesTheme.colors.mutedNavy,
-    fontFamily: "DM Sans",
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    fontWeight: "600",
-    color: ArchivesTheme.colors.shoeBrown,
-    fontFamily: "DM Sans",
-  },
-  cardFooter: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 24,
-  },
-  continueButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    borderRadius: 12,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  continueButtonEnabled: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    shadowColor: ArchivesTheme.colors.persianOrange,
-  },
-  continueButtonDisabled: {
-    backgroundColor: ArchivesTheme.colors.mutedNavy,
-    opacity: 0.6,
-    shadowColor: ArchivesTheme.colors.mutedNavy,
-  },
-  continueButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "DM Sans",
-  },
-  continueButtonTextEnabled: {
+    fontSize: 18,           // 18px font size
+    fontWeight: "600",      // Semi-bold
     color: "white",
+    marginBottom: 4,        // 4px spacing
   },
-  continueButtonTextDisabled: {
-    color: "rgba(255, 255, 255, 0.7)",
+  cardSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,           // 14px font size
+    color: "white",
+    opacity: 0.7,           // 70% opacity
+    lineHeight: 20,         // 20px line height for readability
   },
-  continueButtonIcon: {
-    marginLeft: 8,
+
+  // Historical content section
+  historicalSection: {
+    marginBottom: 20,       // 20px section spacing
+  },
+  sectionTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 16,           // 16px section titles
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 8,        // 8px title spacing
+  },
+  historicalText: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    lineHeight: 20,         // 20px line height for readability
+    textAlign: "left",
+  },
+
+  // Key terms section
+  keyTermsSection: {
+    marginBottom: 20,
+  },
+  keyTermsContainer: {
+    padding: 12,            // 12px inner padding
+    backgroundColor: "rgba(255,255,255,0.1)", // 10% white background
+    borderRadius: 8,        // 8px corner radius
+  },
+  keyTermRow: {
+    marginBottom: 8,        // 8px between terms
+  },
+  keyTermTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 2,        // 2px tight spacing
+  },
+  keyTermDefinition: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    lineHeight: 16,         // Compact line height for definitions
+  },
+
+  // Expanded view title section
+  titleSection: {
+    marginBottom: 24,       // 24px large section spacing
+  },
+  sheetTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 24,           // Large 24px title
+    fontWeight: "700",      // Bold weight
+    color: "white",
+    marginBottom: 8,
+  },
+  sheetSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    opacity: 0.7,
+  },
+
+  // Bottom spacer for full scroll
+  sheetBottomSpacer: {
+    height: 80,             // 80px bottom spacing
   },
 });

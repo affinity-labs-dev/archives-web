@@ -31,38 +31,38 @@ interface ROIERA2Adv1_Module1_QuizProps {
   onBack?: () => void
 }
 
-// Quiz Data - Rise of Islam Era Adventure 1 Module 1: Pre-Islamic Arabia
+// Quiz Data - Rise of Islam Era Adventure 1 Module 1: Meccan Life & Tribal Culture
 const quizQuestions = [
   {
     question: "What was the Kaaba used for before Islam?",
     correctAnswer: 2, // C) A place of idol worship
-    explanation: "Before Islam, the Kaaba in Mecca was a sacred sanctuary housing numerous idols and statues representing different tribal deities. Arab tribes would make pilgrimages to worship these idols, making it a central place of pre-Islamic religious practice.",
+    explanation: "Before Islam, the Kaaba served as a sacred sanctuary housing numerous idols representing various tribal deities from across the Arabian Peninsula. It was the central focus of pre-Islamic Arabian polytheistic worship, attracting pilgrims from many tribes who came to venerate their gods.",
     points: 10,
     type: 'mcq' as const,
     options: ["A library", "A tribal market", "A place of idol worship", "A royal palace"],
-    image: require('@/assets/images/quiz-images/Reader.png')
+    image: require('@/assets/images/quiz-images/books.png')
   },
   {
-    question: "Poets were highly respected in pre-Islamic Arabia.",
+    question: "Poets were highly respected in pre-Islamic Arabia",
     correctAnswer: 1, // True
-    explanation: "Poets held tremendous prestige in pre-Islamic Arabian society. They were considered the voice of their tribes, preserving history, celebrating victories, and articulating tribal values through their eloquent verses. Their words could inspire warriors and influence tribal decisions.",
+    explanation: "Poets held an extremely high status in pre-Islamic Arabian society. They were considered the voice of their tribes, preserving history, genealogies, and cultural values through oral tradition. A skilled poet could enhance a tribe's reputation and honor through their eloquent verses.",
     points: 10,
     type: 'trueFalse' as const,
-    image: require('@/assets/images/quiz-images/books.png')
+    image: require('@/assets/images/quiz-images/Reader.png')
   },
   {
     question: "Mecca was a hub for long-distance ___ routes.",
     correctAnswer: 0, // "Trade"
-    explanation: "Mecca's strategic location made it a crucial stop along ancient trade routes connecting the Arabian Peninsula with Syria, Iraq, Yemen, and Ethiopia. Merchants traveling these routes brought wealth and cultural exchange to the city.",
+    explanation: "Mecca's strategic location made it a crucial hub for long-distance trade routes connecting the Indian Ocean trade with the Mediterranean world. Merchants traveled through Mecca carrying goods like spices, incense, silk, and precious metals between Yemen, Syria, and beyond.",
     points: 10,
     type: 'fillInBlank' as const,
-    options: ["Trade", "Pilgrimage", "Military", "Nomadic"],
+    options: ["Trade", "Pilgrimage", "Migration", "Communication"],
     image: require('@/assets/images/quiz-images/Map.png')
   },
   {
     question: "Why did tribes value poetry contests?",
     correctAnswer: 2, // C) To share stories and strengthen reputation
-    explanation: "Poetry contests allowed tribes to showcase their cultural achievements, share heroic stories, and demonstrate their eloquence. Winning these contests enhanced a tribe's reputation and social standing among other Arabian tribes.",
+    explanation: "Poetry contests were vital for sharing tribal histories, heroic deeds, and genealogies while enhancing a tribe's reputation and honor. These competitions allowed tribes to display their cultural achievements and eloquence, which were highly valued in Arabian society.",
     points: 10,
     type: 'mcq' as const,
     options: ["To learn foreign languages", "To display wealth", "To share stories and strengthen reputation", "To choose new leaders"],
@@ -71,7 +71,7 @@ const quizQuestions = [
   {
     question: "Tribal conflicts in Arabia were often caused by small insults or raids, and could last for generations.",
     correctAnswer: 1, // True
-    explanation: "Pre-Islamic Arabian society operated on a system of tribal honor where even minor offenses could trigger lengthy feuds. These conflicts, known as 'ayyam al-Arab' (the days of the Arabs), could indeed span generations as tribes sought to avenge perceived wrongs and maintain their honor.",
+    explanation: "Tribal honor was paramount in pre-Islamic Arabia, and even minor insults or cattle raids could trigger conflicts that lasted for generations. These feuds, known as 'ayyam al-Arab' (Days of the Arabs), often escalated due to the tribal code of honor requiring retaliation for any perceived wrong.",
     points: 10,
     type: 'trueFalse' as const,
     image: require('@/assets/images/quiz-images/Map.png')
@@ -93,13 +93,13 @@ export default function ROIERA2Adv1_Module1_Quiz({ onDismiss, onBack }: ROIERA2A
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(null)
   const [selectedFillBlank, setSelectedFillBlank] = useState<string | null>(null)
   const [fillBlankOptions, setFillBlankOptions] = useState([
-    { text: "Barada", isUsed: false },
-    { text: "Euphrates", isUsed: false },
-    { text: "Tigris", isUsed: false },
-    { text: "Jordan", isUsed: false }
+    { text: "Trade", isUsed: false },
+    { text: "Pilgrimage", isUsed: false },
+    { text: "Migration", isUsed: false },
+    { text: "Communication", isUsed: false }
   ])
 
-  const { atomicProgressUpdate, canRetakeModule } = useProgress()
+  const { roiAtomicProgressUpdate, canRetakeRoiModule } = useProgress()
 
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
@@ -189,10 +189,10 @@ export default function ROIERA2Adv1_Module1_Quiz({ onDismiss, onBack }: ROIERA2A
     console.log('🚀 Quiz completion: Adventure 1 Module 1')
     
     try {
-      const isRetake = canRetakeModule(1, 1)
-      
-      // Use atomic progress update
-      await atomicProgressUpdate(1, 1, {
+      const isRetake = canRetakeRoiModule("ROI_Adv1_M1")
+
+      // Use ROI atomic progress update
+      await roiAtomicProgressUpdate("ROI_Adv1_M1", {
         type: isRetake ? 'QUIZ_RETAKEN' : 'QUIZ_COMPLETED',
         quizScore: correctAnswers,
         quizCorrectAnswers: correctAnswers
@@ -308,7 +308,7 @@ export default function ROIERA2Adv1_Module1_Quiz({ onDismiss, onBack }: ROIERA2A
 
   // Show results screen
   if (showResults) {
-    return <QuizResultsView 
+    return <QuizResultsView
       correctAnswers={correctAnswers}
       totalQuestions={5}
       totalPoints={totalPoints}

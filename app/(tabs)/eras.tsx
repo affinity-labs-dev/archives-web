@@ -187,7 +187,7 @@ export default function EraSelection() {
                 era={eras[1]}
                 isSelected={1 === selectedEraIndex}
                 onSelect={() => handleEraSelect(1)}
-                showLock={true}
+                showLock={false}
               />
               <GridEraCard
                 era={eras[2]}
@@ -314,7 +314,10 @@ function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: Hori
             styles.horizontalEraTitle,
             showLock && styles.horizontalEraTitleNoEffects
           ]} numberOfLines={2}>
-            {era.title}
+            {era.title.includes(' (') ? era.title.split(' (')[0] : era.title}
+            {era.title.includes(' (') && (
+              <Text style={styles.horizontalEraDateRange}> ({era.title.split(' (')[1]}</Text>
+            )}
           </Text>
         </View>
 
@@ -384,7 +387,10 @@ function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCar
             styles.gridEraTitle,
             showLock && styles.gridEraTitleNoEffects
           ]} numberOfLines={2}>
-            {era.title}
+            {era.title.includes(' (') ? era.title.split(' (')[0] : era.title}
+            {era.title.includes(' (') && (
+              <Text style={styles.gridEraDateRange}> ({era.title.split(' (')[1]}</Text>
+            )}
           </Text>
         </View>
 
@@ -426,7 +432,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...ArchivesTheme.typography.h2,
-    fontSize: 28,
+    fontSize: 24,
+    fontWeight: '600',
+    fontFamily: 'DM Sans',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'left',
     paddingLeft: 25,
@@ -538,6 +546,10 @@ const styles = StyleSheet.create({
     textShadowOffset: {width: 0, height: 0},
     textShadowRadius: 0,
   },
+
+  horizontalEraDateRange: {
+    fontWeight: 'normal', // Regular weight for date ranges in horizontal cards
+  },
   
 
   // Grid Era Card (2x2 layout)
@@ -614,6 +626,10 @@ const styles = StyleSheet.create({
     textShadowColor: 'transparent',
     textShadowOffset: {width: 0, height: 0},
     textShadowRadius: 0,
+  },
+
+  gridEraDateRange: {
+    fontWeight: 'normal', // Regular weight for date ranges in grid cards
   },
   
 

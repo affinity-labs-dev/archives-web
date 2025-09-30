@@ -22,7 +22,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import { useProgress } from '@/context/ProgressContext'
 import ArchivesTheme from '@/constants/ArchivesTheme'
-import ModuleModal from '@/components/modules/ModuleModal'
+import ROIModuleModal from '@/components/modules/ROIModuleModal'
 import AdventureDetailModal from '@/components/adventures/AdventureDetailModal'
 import Adventure6Icon from '@/components/icons/Adventure6Icon'
 import Adventure7Icon from '@/components/icons/Adventure7Icon'
@@ -32,66 +32,66 @@ import Adventure10Icon from '@/components/icons/Adventure10Icon'
 
 const { width: screenWidth } = Dimensions.get('window')
 
-// Adventure data for Rise of Islam era
+// Adventure data for Rise of Islam era (NEW ROI_Adv1_M1 ID system)
 const RISE_OF_ISLAM_ADVENTURES = [
   {
-    id: 6,
+    id: 1, // NEW: Adventure 1 (was 6)
     title: "The Early Years",
     headerIcon: "custom", // Custom SVG icon
     iconLibrary: "CustomSVG" as const,
     mapImage: require('@/assets/images/adventure-maps/ROIADVMAP1.jpg'),
     iconPositions: [
-      { id: "adv6_mod1", x: 0.4, y: 0.22 },
-      { id: "adv6_mod2", x: 0.5, y: 0.5 },
-      { id: "adv6_mod3", x: 0.40, y: 0.8 }
+      { id: "ROI_Adv1_M1", x: 0.4, y: 0.22 }, // NEW ID format
+      { id: "ROI_Adv1_M2", x: 0.5, y: 0.5 },
+      { id: "ROI_Adv1_M3", x: 0.40, y: 0.8 }
     ]
   },
   {
-    id: 7,
+    id: 2, // NEW: Adventure 2 (was 7)
     title: "First Revelations",
     headerIcon: "custom", // Custom SVG icon
     iconLibrary: "CustomSVG" as const,
     mapImage: require('@/assets/images/adventure-maps/ROIADVMAP2.jpg'),
     iconPositions: [
-      { id: "adv7_mod1", x: 0.83, y: 0.3 },
-      { id: "adv7_mod2", x: 0.6, y: 0.5 },
-      { id: "adv7_mod3", x: 0.30, y: 0.89 }
+      { id: "ROI_Adv2_M1", x: 0.83, y: 0.3 }, // NEW ID format
+      { id: "ROI_Adv2_M2", x: 0.6, y: 0.5 },
+      { id: "ROI_Adv2_M3", x: 0.30, y: 0.89 }
     ]
   },
   {
-    id: 8,
+    id: 3, // NEW: Adventure 3 (was 8)
     title: "The Hijra",
     headerIcon: "custom", // Custom SVG icon
     iconLibrary: "CustomSVG" as const,
     mapImage: require('@/assets/images/adventure-maps/ROIADVMAP3.jpg'),
     iconPositions: [
-      { id: "adv8_mod1", x: 0.6, y: 0.23 },
-      { id: "adv8_mod2", x: 0.45, y: 0.5 },
-      { id: "adv8_mod3", x: 0.33, y: 0.85 }
+      { id: "ROI_Adv3_M1", x: 0.6, y: 0.23 }, // NEW ID format
+      { id: "ROI_Adv3_M2", x: 0.45, y: 0.5 },
+      { id: "ROI_Adv3_M3", x: 0.33, y: 0.85 }
     ]
   },
   {
-    id: 9,
+    id: 4, // NEW: Adventure 4 (was 9)
     title: "Building the Community",
     headerIcon: "custom", // Custom SVG icon
     iconLibrary: "CustomSVG" as const,
     mapImage: require('@/assets/images/adventure-maps/ROIADVMAP4.jpg'),
     iconPositions: [
-      { id: "adv9_mod1", x: 0.5, y: 0.3 },
-      { id: "adv9_mod2", x: 0.6, y: 0.6 },
-      { id: "adv9_mod3", x: 0.4, y: 0.8 }
+      { id: "ROI_Adv4_M1", x: 0.5, y: 0.3 }, // NEW ID format
+      { id: "ROI_Adv4_M2", x: 0.6, y: 0.6 },
+      { id: "ROI_Adv4_M3", x: 0.4, y: 0.8 }
     ]
   },
   {
-    id: 10,
+    id: 5, // NEW: Adventure 5 (was 10)
     title: "The Final Years",
     headerIcon: "custom", // Custom SVG icon
     iconLibrary: "CustomSVG" as const,
     mapImage: require('@/assets/images/adventure-maps/ROIADVMAP5.jpg'),
     iconPositions: [
-      { id: "adv10_mod1", x: 0.45, y: 0.25 },
-      { id: "adv10_mod2", x: 0.55, y: 0.55 },
-      { id: "adv10_mod3", x: 0.35, y: 0.75 }
+      { id: "ROI_Adv5_M1", x: 0.45, y: 0.25 }, // NEW ID format
+      { id: "ROI_Adv5_M2", x: 0.55, y: 0.55 },
+      { id: "ROI_Adv5_M3", x: 0.35, y: 0.75 }
     ]
   },
 ]
@@ -119,32 +119,41 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
   });
 
   const {
+    // ROI-specific functions (NEW system)
+    getRoiAdventureProgress,
+    isRoiModuleUnlocked,
+    getRoiModuleProgress,
+    getRoiModuleStarCount,
+    setSelectedEra,
+    roiModuleProgress,
+
+    // Legacy functions for backwards compatibility
     getAdventureProgress,
     isModuleUnlocked,
     getModuleProgress,
-    setSelectedEra,
     moduleProgress,
     getModuleStarCount
   } = useProgress()
 
   // Check if we should show the bouncing animation (first module not completed)
   useEffect(() => {
-    const firstModuleProgress = getModuleProgress(6, 1) // Adventure 6, Module 1
-    const isFirstModuleCompleted = firstModuleProgress?.isCompleted || false
+    // NEW ROI SYSTEM: Check ROI_Adv1_M1 completion
+    const firstRoiModuleProgress = getRoiModuleProgress('ROI_Adv1_M1')
+    const isFirstRoiModuleCompleted = firstRoiModuleProgress?.isCompleted || false
 
-    console.log('🎯 First module bounce check for Rise of Islam:', {
-      firstModuleProgress,
-      isCompleted: isFirstModuleCompleted,
-      shouldShowBounce: !isFirstModuleCompleted
+    console.log('🎯 First module bounce check for Rise of Islam (ROI System):', {
+      firstRoiModuleProgress,
+      isCompleted: isFirstRoiModuleCompleted,
+      shouldShowBounce: !isFirstRoiModuleCompleted
     })
 
-    setShouldShowBounce(!isFirstModuleCompleted)
+    setShouldShowBounce(!isFirstRoiModuleCompleted)
 
-    if (isFirstModuleCompleted && shouldShowBounce) {
-      console.log('🎯 First module completed - stopping bounce animation')
+    if (isFirstRoiModuleCompleted && shouldShowBounce) {
+      console.log('🎯 First ROI module completed - stopping bounce animation')
       setShouldShowBounce(false)
     }
-  }, [getModuleProgress, shouldShowBounce])
+  }, [getRoiModuleProgress, shouldShowBounce])
 
   // Start bouncing animation when shouldShowBounce is true
   useEffect(() => {
@@ -183,10 +192,10 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
     setSelectedEra('riseOfIslam')
   }, [setSelectedEra])
 
-  // Force component re-render when moduleProgress changes
+  // Force component re-render when ROI moduleProgress changes
   useEffect(() => {
-    // This effect runs whenever moduleProgress changes, forcing icon re-renders
-  }, [moduleProgress])
+    // This effect runs whenever roiModuleProgress changes, forcing icon re-renders
+  }, [roiModuleProgress])
 
   // Handle video playback and Android navigation bar restoration on screen focus
   useFocusEffect(
@@ -242,18 +251,18 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
   }
 
   const handleModulePress = (moduleId: string) => {
-    const adventureId = parseInt(moduleId.split('_')[0].replace('adv', ''))
-    const modId = parseInt(moduleId.split('_')[1].replace('mod', ''))
+    // NEW ROI SYSTEM: Handle ROI_Adv1_M1 format
+    console.log('🎯 ROI Module pressed:', moduleId)
 
     // Stop bounce animation when first module is tapped
-    if (moduleId === 'adv6_mod1' && shouldShowBounce) {
-      console.log('🎯 First Rise of Islam module tapped - stopping bounce animation')
+    if (moduleId === 'ROI_Adv1_M1' && shouldShowBounce) {
+      console.log('🎯 First ROI module tapped - stopping bounce animation')
       setShouldShowBounce(false)
     }
 
-    // Check if module is unlocked
-    if (!isModuleUnlocked(adventureId, modId)) {
-      console.log('🔒 Module is locked')
+    // Check if ROI module is unlocked
+    if (!isRoiModuleUnlocked(moduleId)) {
+      console.log('🔒 ROI Module is locked:', moduleId)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
       return
     }
@@ -264,13 +273,13 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
   }
 
   const renderModuleIcon = (iconPosition: any) => {
-    const adventureId = parseInt(iconPosition.id.split('_')[0].replace('adv', ''))
-    const moduleId = parseInt(iconPosition.id.split('_')[1].replace('mod', ''))
-    const isUnlocked = isModuleUnlocked(adventureId, moduleId)
-    const moduleProgress = getModuleProgress(adventureId, moduleId)
+    // NEW ROI SYSTEM: Parse ROI_Adv1_M1 format
+    const roiModuleId = iconPosition.id // e.g., "ROI_Adv1_M1"
+    const isUnlocked = isRoiModuleUnlocked(roiModuleId)
+    const moduleProgress = getRoiModuleProgress(roiModuleId)
     const isCompleted = moduleProgress?.isCompleted || false
 
-    const isFirstModule = iconPosition.id === 'adv6_mod1'
+    const isFirstModule = roiModuleId === 'ROI_Adv1_M1'
     const showBounceForThisIcon = isFirstModule && shouldShowBounce && isUnlocked
 
     const mapWidth = screenWidth - 40
@@ -307,7 +316,7 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
 
           {/* Star rating for quiz performance */}
           {isCompleted && (() => {
-            const starCount = getModuleStarCount(adventureId, moduleId)
+            const starCount = getRoiModuleStarCount(roiModuleId)
 
             if (starCount > 0) {
               return (
@@ -350,7 +359,7 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
           <View style={styles.adventureHeaderContent}>
             <View style={styles.adventureHeaderLeft}>
               <Text style={styles.eraAdventureLabel}>
-                RISE OF ISLAM, ADVENTURE {adventure.id - 5}
+                RISE OF ISLAM, ADVENTURE {adventure.id}
               </Text>
               <Text style={styles.adventureTitle}>
                 {adventure.title}
@@ -359,27 +368,27 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
 
             <View style={styles.adventureHeaderIcon}>
               <View style={styles.iconCircle}>
-                {adventure.iconLibrary === "CustomSVG" && adventure.id === 6 ? (
+                {adventure.iconLibrary === "CustomSVG" && adventure.id === 1 ? (
                   <Adventure6Icon
                     size={24}
                     color="white"
                   />
-                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 7 ? (
+                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 2 ? (
                   <Adventure7Icon
                     size={24}
                     color="white"
                   />
-                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 8 ? (
+                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 3 ? (
                   <Adventure8Icon
                     size={24}
                     color="white"
                   />
-                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 9 ? (
+                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 4 ? (
                   <Adventure9Icon
                     size={24}
                     color="white"
                   />
-                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 10 ? (
+                ) : adventure.iconLibrary === "CustomSVG" && adventure.id === 5 ? (
                   <Adventure10Icon
                     size={24}
                     color="white"
@@ -468,8 +477,8 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
         </View>
       </ScrollView>
 
-      {/* ModuleModal */}
-      <ModuleModal
+      {/* ROI ModuleModal - Dedicated for Rise of Islam Era */}
+      <ROIModuleModal
         isVisible={showModuleModal}
         moduleId={selectedModuleId}
         onDismiss={() => {
