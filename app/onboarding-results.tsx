@@ -69,11 +69,11 @@ export default function OnboardingResultsScreen() {
       // Navigate to authentication page after ATT response
       // Note: The authentication screen will handle routing to appropriate tab after successful auth
       console.log('🎯 [OnboardingResults] Navigating to authentication page')
-      router.replace('/(auth)/archives-auth')
+      router.push('/(auth)/archives-auth')
     } catch (error) {
       console.error('🎯 [OnboardingResults] Error during ATT request or navigation:', error)
       // Even if ATT fails, continue to authentication
-      router.replace('/(auth)/archives-auth')
+      router.push('/(auth)/archives-auth')
     }
   }
 

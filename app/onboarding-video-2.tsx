@@ -98,7 +98,7 @@ export default function OnboardingVideo2Screen() {
   // Navigate to sign in
   const handleSignIn = () => {
     console.log('🎬 [OnboardingVideo2] Navigating to sign in')
-    router.replace('/(auth)/archives-auth?mode=signin')
+    router.push('/(auth)/archives-auth?mode=signin')
   }
 
   // Navigate to get started (continue onboarding)
