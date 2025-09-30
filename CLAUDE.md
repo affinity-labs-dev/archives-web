@@ -357,8 +357,8 @@ EXPO_NO_CAPABILITY_SYNC=1 # Disables automatic capability sync for iOS builds
 **Subscription System Note**: The project uses RevenueCat (react-native-purchases) as the chosen subscription system with full implementation. expo-iap is available as a backup option but RevenueCat is the definitive solution for subscription management.
 
 #### Platform Configuration
-- **iOS**: Apple Sign-In enabled, New Architecture enabled, App Tracking Transparency configured, background audio modes enabled
-- **Android**: Edge-to-edge enabled, adaptive icon configured, audio permissions for immersive experience
+- **iOS**: Apple Sign-In enabled, New Architecture enabled, App Tracking Transparency configured, background audio modes enabled, iPad support enabled (portrait orientation only with Slide Over/Split View support)
+- **Android**: Edge-to-edge enabled, adaptive icon configured, audio permissions for immersive experience, tablet support enabled by default
 - **Web**: Server output with Metro bundler, session replay disabled for compatibility
 - **TypeScript**: Strict mode enabled with path aliases (`@/*` → project root)
 
