@@ -96,14 +96,16 @@ export default function OnboardingQuestion3Screen() {
         translucent={true}
       />
       <SafeAreaView style={styles.container}>
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-        </TouchableOpacity>
+        {/* Header with Back Button */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
+          </TouchableOpacity>
+        </View>
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
@@ -186,10 +188,27 @@ const styles = StyleSheet.create({
     backgroundColor: ArchivesTheme.colors.creamWhite,
   },
 
+  // Header
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+    paddingBottom: 10,
+    paddingHorizontal: 20,
+  },
+
+  // Back Button
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(139,96,64,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   // Progress Bar
   progressContainer: {
     paddingHorizontal: 0,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 20,
   },
   progressSegments: {
@@ -206,20 +225,6 @@ const styles = StyleSheet.create({
   },
   progressSegmentActive: {
     backgroundColor: ArchivesTheme.colors.persianOrange,
-  },
-
-  // Back Button
-  backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
-    left: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(139,96,64,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
   },
 
   content: {
