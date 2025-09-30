@@ -108,13 +108,6 @@ export default function EraSelection() {
   const { isSignedIn } = useAuth()
   const { setSelectedEra } = useProgress()
 
-  // Redirect to authentication if not signed in
-  React.useEffect(() => {
-    if (isSignedIn === false) {
-      router.replace('/(auth)/archives-auth')
-    }
-  }, [isSignedIn, router])
-
   // const handleBack = () => {
   //   router.back()
   // }

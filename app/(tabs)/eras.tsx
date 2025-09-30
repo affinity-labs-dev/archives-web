@@ -104,13 +104,6 @@ export default function EraSelection() {
   const { isSignedIn } = useAuth()
   const { setSelectedEra } = useProgress()
 
-  // Redirect to onboarding if not signed in
-  React.useEffect(() => {
-    if (isSignedIn === false) {
-      router.replace('/onboarding-video')
-    }
-  }, [isSignedIn, router])
-
   // const handleBack = () => {
   //   router.back()
   // }

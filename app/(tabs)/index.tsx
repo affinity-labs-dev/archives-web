@@ -23,28 +23,10 @@ export default function HomeTab() {
       if (isLoading) return
 
       try {
-        console.log('HomeTab - Authentication status:', { isSignedIn })
-
-        // If user is already signed in, skip onboarding entirely
-        if (isSignedIn) {
-          console.log('HomeTab - User is signed in, skipping onboarding')
-
-          // If signed in but no era selected, redirect to Eras tab
-          if (!selectedEra) {
-            console.log('HomeTab - No era selected, redirecting to Eras tab')
-            router.replace('/(tabs)/eras')
-            return
-          }
-
-          // User is signed in and has era selected, stay on home
-          setOnboardingChecked(true)
-          return
-        }
-
-        // If not signed in, always show onboarding
-        console.log('HomeTab - Not signed in, starting onboarding flow')
-        router.replace('/onboarding-video')
-        return
+        // Just mark as checked, don't redirect anywhere
+        // Let buttons and navigation handle the routing flow
+        console.log('HomeTab - Marking onboarding as checked, allowing natural navigation')
+        setOnboardingChecked(true)
       } catch (error) {
         console.error('HomeTab - Error checking onboarding status:', error)
         // Continue with normal flow if there's an error
@@ -53,7 +35,7 @@ export default function HomeTab() {
     }
 
     checkOnboardingStatus()
-  }, [isSignedIn, selectedEra, isLoading, router])
+  }, [isLoading])
 
   const handleBackToEra = () => {
     router.push('/(tabs)/eras')
