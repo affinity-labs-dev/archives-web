@@ -80,7 +80,6 @@ export default function Adventure1_Module3_Lesson2({
 }: Adventure1_Module3_Lesson2Props) {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -193,7 +192,7 @@ export default function Adventure1_Module3_Lesson2({
   useEffect(() => {
     return () => {
       console.log('🎵 Component unmounting - cleaning up all audio');
-      
+
       // Stop background music hook
       if (backgroundMusic.stop) {
         console.log('🎵 Stopping background music on component unmount');
@@ -201,6 +200,28 @@ export default function Adventure1_Module3_Lesson2({
       }
     };
   }, []);
+
+  // Debug logging: Carousel scroll state monitoring
+  useEffect(() => {
+    console.log(
+      `🎠 Carousel scroll state: ${
+        isCardGestureActive
+          ? "🔒 BLOCKED (card gesture active)"
+          : "✅ ENABLED (can swipe videos)"
+      }`
+    );
+  }, [isCardGestureActive]);
+
+  // Safety mechanism: Auto-reset gesture state if stuck
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
 
   // Handle carousel scroll - matching Module 2 TabView behavior
   const handleScroll = (event: any) => {
@@ -217,108 +238,58 @@ export default function Adventure1_Module3_Lesson2({
   };
 
 
-  // Enhanced Android touch handlers with improved sensitivity
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now()
-    });
-    setIsCardGestureActive(true);
-    console.log("📖 Android card gesture started - blocking carousel");
-  };
-
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);
-    console.log("📖 Android card gesture ended - allowing carousel");
-    
-    if (!touchStart) return;
-    
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-    
-    // Improved Android swipe detection with better sensitivity
-    const minDistance = 25; // Reduced from 40 for better responsiveness
-    const maxTime = 300; // Shorter time for more responsive gestures
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.4; // Reduced threshold for better responsiveness
-    
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
-    // Reset touch start
-    setTouchStart(null);
-  };
-
-  // Enhanced iOS PanGestureHandler with gesture coordination
+  // Universal gesture handler for both iOS and Android
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
-    
     const { state, translationY, velocityY } = event.nativeEvent;
-    
+
     // Track gesture activity for carousel coordination
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      setIsCardGestureActive(false);
-      console.log("📱 iOS card gesture ended - allowing carousel");
+      console.log("📱 Card gesture started - blocking carousel");
     }
-    
-    if (state === State.END) {
-      console.log("📱 iOS PanGesture detected", {
+
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      console.log("📱 Gesture state:", state, {
         translationY,
         velocityY,
         isCardExpanded,
         platform: Platform.OS
       });
-      
-      // iOS-optimized swipe detection with improved sensitivity
-      const minDistance = 25; // Reduced from 30 for better responsiveness
-      const minVelocity = 400; // Reduced from 500 for better responsiveness
-      
-      if (!isCardExpanded && 
-          (translationY < -minDistance || velocityY < -minVelocity)) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS
-        });
-        expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (isCardExpanded && 
+
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
+
+        // Swipe up to expand
+        if (!isCardExpanded &&
+            (translationY < -minDistance || velocityY < -minVelocity)) {
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
+        // Swipe down to collapse
+        else if (isCardExpanded &&
                  (translationY > minDistance || velocityY > minVelocity)) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS
-        });
-        collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
       }
+
+      // Re-enable carousel after gesture completes
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
     }
   };
 
   // Expand the card to full height - matching Module 2
   const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
+
+    // ✅ IMMEDIATE FIX: Re-enable carousel BEFORE animation starts
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -332,12 +303,19 @@ export default function Adventure1_Module3_Lesson2({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card expansion animation finished");
+    });
   };
 
   // Collapse the card back to original size - matching Module 2
   const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
+
+    // ✅ IMMEDIATE FIX: Re-enable carousel BEFORE animation starts
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -351,7 +329,9 @@ export default function Adventure1_Module3_Lesson2({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card collapse animation finished");
+    });
   };
 
 
@@ -463,18 +443,16 @@ export default function Adventure1_Module3_Lesson2({
           </View>
         )}
 
-        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
-        {Platform.OS === 'ios' ? (
-          // iOS: Native PanGestureHandler
-          <PanGestureHandler
-            ref={panGestureRef}
-            onGestureEvent={handleSwipeGesture}
-            onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-15, 15]}
-            failOffsetX={[-40, 40]}
-            minPointers={1}
-            maxPointers={1}
-          >
+        {/* Reading Card at Bottom - Universal Gesture Handling */}
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={handleSwipeGesture}
+          onHandlerStateChange={handleSwipeGesture}
+          activeOffsetY={[-15, 15]}
+          failOffsetX={[-40, 40]}
+          minPointers={1}
+          maxPointers={1}
+        >
             <Animated.View
               style={[
                 styles.cardContainer,
@@ -572,109 +550,6 @@ export default function Adventure1_Module3_Lesson2({
             </Animated.View>
           </Animated.View>
         </PanGestureHandler>
-      ) : (
-        // Android: Custom Touch Handlers
-        <View 
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <Animated.View
-            style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }],
-              },
-            ]}
-          >
-            <Animated.View
-              style={[
-                styles.readingCard,
-                {
-                  height: cardHeight,
-                },
-              ]}
-            >
-              {/* Top handle indicator */}
-              <View style={styles.cardHandle} />
-
-              {/* Android Collapsed content with improved styling */}
-              <Animated.View
-                style={[styles.collapsedContent, { opacity: cardOpacity }]}
-              >
-                <View style={styles.collapsedContentWrapper}>
-                  <Text style={styles.collapsedTitle}>
-                    Damascus: A Living Exchange
-                  </Text>
-                  <Text style={styles.collapsedSubtitle}>
-                    Walk down a street in Umayyad Damascus and you would hear many languages...
-                  </Text>
-                </View>
-              </Animated.View>
-
-              {/* Expanded content when card is swiped up */}
-              {isCardExpanded && (
-                <Animated.View
-                  style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) },
-                  ]}
-                >
-                  <GestureHandlerScrollView
-                    ref={scrollViewGestureRef}
-                    style={styles.expandedScroll}
-                    showsVerticalScrollIndicator={false}
-                    scrollEventThrottle={100}
-                  >
-                    <View style={styles.expandedContentInner}>
-                      {/* Title Section */}
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          Damascus: A Living Exchange
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 3 • Lesson 2
-                        </Text>
-                      </View>
-
-                      {/* Historical Content */}
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>
-                          Historical Context
-                        </Text>
-                        <Text style={styles.historicalText}>
-                          Walk down a street in Umayyad Damascus and you would hear many languages, with traders mostly using Arabic. The main road, Straight Street, crossed the old city from Bab Sharqi to the western gate. The Bible mentions that Paul the Apostle once lived in a house on the street. Persian glassmakers sold bright lamps and tiles for mosques, while scholars debated in tea houses. Goods, beliefs, and knowledge shared the same streets, and the city felt alive.
-                        </Text>
-                      </View>
-
-                      {/* Key Terms Section */}
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Straight Street"
-                            definition="The main road crossing Damascus from Bab Sharqi to the western gate"
-                          />
-                          <KeyTermRow
-                            term="Bab Sharqi"
-                            definition="The eastern gate of Damascus where Straight Street began"
-                          />
-                          <KeyTermRow
-                            term="Persian Glassmakers"
-                            definition="Craftsmen who sold bright lamps and mosque tiles on Damascus streets"
-                          />
-                        </View>
-                      </View>
-
-                      {/* Bottom spacer to ensure full scroll */}
-                      <View style={styles.sheetBottomSpacer} />
-                    </View>
-                  </GestureHandlerScrollView>
-                </Animated.View>
-              )}
-            </Animated.View>
-          </Animated.View>
-        </View>
-      )}
       </View>
     </>
   );
@@ -994,27 +869,4 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  // Collapsed card text styles (for Android touch version)
-  collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    opacity: 0.8,
-    lineHeight: 20,
-  },
 });

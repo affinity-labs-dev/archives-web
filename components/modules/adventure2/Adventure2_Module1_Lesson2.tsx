@@ -22,7 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import LessonPlayer from "../LessonPlayer";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const COLLAPSED_HEIGHT = 140;
+const COLLAPSED_HEIGHT = 160;
 const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.85;
 
 interface Adventure2_Module1_Lesson2Props {
@@ -708,6 +708,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "white",
     opacity: 0.7,
+    lineHeight: 20,
   },
 
   // Historical Content

@@ -73,10 +73,6 @@ export default function Adventure5_Module1_Lesson1({
   // Reading card states - Advanced card management
   const [isCardExpanded, setIsCardExpanded] = useState(false); // Track card expansion state
   const [scrollY, setScrollY] = useState(0); // Track scroll position for gesture priority
-  const [touchStart, setTouchStart] = useState<{
-    y: number;
-    time: number;
-  } | null>(null); // Android gesture tracking
 
   // Critical gesture coordination state - Prevents carousel conflicts
   const [isCardGestureActive, setIsCardGestureActive] = useState(false); // Block carousel during card gestures
@@ -176,6 +172,29 @@ export default function Adventure5_Module1_Lesson1({
     };
   }, []);
 
+  // Debug logging for carousel scroll state
+  useEffect(() => {
+    console.log(
+      `🎠 Carousel scroll state: ${
+        isCardGestureActive
+          ? "🔒 BLOCKED (card gesture active)"
+          : "✅ ENABLED (can swipe images)"
+      }`
+    );
+  }, [isCardGestureActive]);
+
+  // Safety mechanism: Reset gesture state if stuck
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
+
   // Handle carousel scroll - matching iOS TabView behavior with haptic feedback
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
@@ -206,8 +225,13 @@ export default function Adventure5_Module1_Lesson1({
 
   // Expand the card to full height with EXACT SwiftUI spring timing
   const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
     setShowReadContent(true);
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     // Parallel spring animation matching SwiftUI behavior
     Animated.parallel([
@@ -222,13 +246,20 @@ export default function Adventure5_Module1_Lesson1({
         duration: 300, // 300ms fade timing
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card expansion animation finished");
+    });
   };
 
   // Collapse the card back to original size
   const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
     setShowReadContent(false);
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     // Reverse animation with identical timing
     Animated.parallel([
@@ -243,7 +274,9 @@ export default function Adventure5_Module1_Lesson1({
         duration: 300, // Consistent timing
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card collapse animation finished");
+    });
   };
 
   // Reading scroll handler for gesture priority management
@@ -252,141 +285,59 @@ export default function Adventure5_Module1_Lesson1({
     setScrollY(contentOffset.y); // Track scroll position for advanced gesture handling
   };
 
-  // Enhanced iOS PanGestureHandler with perfect gesture coordination
+  // Universal gesture handler using PanGestureHandler (works on all platforms)
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== "ios") return;
-
     const { state, translationY, velocityY } = event.nativeEvent;
 
-    // CRITICAL: Track gesture activity for carousel coordination
+    // Track gesture activity for carousel coordination
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (
-      state === State.END ||
-      state === State.CANCELLED ||
-      state === State.FAILED
-    ) {
-      setIsCardGestureActive(false);
-      console.log("📱 iOS card gesture ended - allowing carousel");
+      console.log("📱 Card gesture started - blocking carousel");
     }
 
-    if (state === State.END) {
-      console.log("📱 iOS PanGesture detected", {
+    // Handle ALL end states (END, CANCELLED, FAILED)
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      console.log("📱 Gesture state:", state, {
         translationY,
         velocityY,
         isCardExpanded,
         platform: Platform.OS,
       });
 
-      // Improved iOS swipe detection with optimized sensitivity
-      const minDistance = IOS_GESTURE_CONSTANTS.minDistance;
-      const minVelocity = IOS_GESTURE_CONSTANTS.minVelocity;
+      // Only process swipe if gesture completed successfully
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
 
-      // Swipe up to expand
-      if (
-        !isCardExpanded &&
-        (translationY < -minDistance || velocityY < -minVelocity)
-      ) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS,
-        });
-        expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (
+          !isCardExpanded &&
+          (translationY < -minDistance || velocityY < -minVelocity)
+        ) {
+          console.log("📱 Swipe up detected - expanding card", {
+            translationY,
+            velocityY,
+          });
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        } else if (
+          isCardExpanded &&
+          (translationY > minDistance || velocityY > minVelocity)
+        ) {
+          console.log("📱 Swipe down detected - collapsing card", {
+            translationY,
+            velocityY,
+          });
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
       }
-      // Swipe down to collapse
-      else if (
-        isCardExpanded &&
-        (translationY > minDistance || velocityY > minVelocity)
-      ) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS,
-        });
-        collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+
+      // Always reset if we reach here (gesture ended without action)
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
     }
-  };
-
-  // Enhanced Android touch handlers with improved sensitivity
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now(),
-    });
-    setIsCardGestureActive(true); // Block carousel during gesture
-    console.log("📖 Android card gesture started - blocking carousel");
-  };
-
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false); // Re-enable carousel
-    console.log("📖 Android card gesture ended - allowing carousel");
-
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-
-    // Improved Android swipe detection with precise calculations
-    const minDistance = ANDROID_GESTURE_CONSTANTS.minDistance;
-    const maxTime = ANDROID_GESTURE_CONSTANTS.maxTime;
-    const velocity = Math.abs(distance) / time;
-    const velocityThreshold = ANDROID_GESTURE_CONSTANTS.velocityThreshold;
-
-    console.log("📖 Android gesture analysis:", {
-      distance,
-      time,
-      velocity: velocity.toFixed(2),
-      minDistance,
-      maxTime,
-      velocityThreshold,
-      meetsDistanceRequirement: Math.abs(distance) > minDistance,
-      meetsTimeRequirement: time < maxTime,
-      meetsVelocityRequirement: velocity > velocityThreshold,
-    });
-
-    // Swipe up to expand
-    if (
-      !isCardExpanded &&
-      distance > minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    // Swipe down to collapse
-    else if (
-      isCardExpanded &&
-      distance < -minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else {
-      console.log("📖 Android gesture rejected - requirements not met");
-    }
-
-    // Reset touch tracking
-    setTouchStart(null);
   };
 
   // Navigation cleanup - Stop audio before transitions
@@ -493,9 +444,7 @@ export default function Adventure5_Module1_Lesson1({
         )}
 
         {/* EXPANDABLE READING CARD - Platform-Specific Implementation */}
-        {Platform.OS === "ios" ? (
-          // iOS: Native PanGestureHandler for optimal performance
-          <PanGestureHandler
+        <PanGestureHandler
             ref={panGestureRef}
             onGestureEvent={handleSwipeGesture}
             onHandlerStateChange={handleSwipeGesture}
@@ -624,152 +573,7 @@ export default function Adventure5_Module1_Lesson1({
                 )}
               </Animated.View>
             </Animated.View>
-          </PanGestureHandler>
-        ) : (
-          // Android: Custom touch handlers for consistent experience
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            <Animated.View
-              style={[
-                styles.cardContainer,
-                { transform: [{ translateY: cardTranslateY }] },
-              ]}
-            >
-              <Animated.View
-                style={[styles.readingCard, { height: cardHeight }]}
-              >
-                {/* Card handle indicator */}
-                <View style={styles.cardHandle} />
-
-                <Animated.View
-                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
-                >
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      The Reign of Yazīd II (720-724 CE)
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Yazīd II's brief but influential reign marked the zenith
-                      of Umayyad cultural achievement, establishing artistic
-                      standards that would influence Islamic civilization for
-                      centuries.
-                    </Text>
-                  </View>
-                </Animated.View>
-
-                {/* Android expanded content with scroll management */}
-                {isCardExpanded && (
-                  <Animated.View
-                    style={[
-                      styles.expandedContent,
-                      { opacity: Animated.subtract(1, cardOpacity) },
-                    ]}
-                  >
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      onScrollBeginDrag={() => setIsCardGestureActive(true)}
-                      onScrollEndDrag={() => setIsCardGestureActive(false)}
-                    >
-                      <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            The Reign of Yazīd II
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Caliph of the Umayyad Dynasty • 720-724 CE
-                          </Text>
-                        </View>
-
-                        {/* Historical Context Section */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            Yazīd II assumed the caliphate during a period of
-                            relative stability within the Umayyad Dynasty. His
-                            four-year reign, though brief, was marked by
-                            significant cultural and artistic developments that
-                            would define the golden age of Islamic civilization.
-                          </Text>
-                        </View>
-
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Cultural Achievements
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            The Caliph was a renowned patron of the arts,
-                            commissioning magnificent architectural projects and
-                            supporting poets, scholars, and artisans. Under his
-                            rule, the synthesis of Islamic, Byzantine, and
-                            Persian cultural elements reached its peak, creating
-                            a distinctive aesthetic that would influence Islamic
-                            art for centuries.
-                          </Text>
-                        </View>
-
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Architectural Legacy
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            Yazīd II's architectural patronage established new
-                            standards for Islamic design. His palaces and
-                            mosques featured innovative decorative programs that
-                            blended geometric patterns with naturalistic motifs,
-                            creating spaces that were both spiritually
-                            significant and aesthetically magnificent.
-                          </Text>
-                        </View>
-
-                        {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>
-                                Cultural Synthesis
-                              </Text>
-                              <Text style={styles.keyTermDefinition}>
-                                The blending of Islamic, Byzantine, and Persian
-                                artistic traditions
-                              </Text>
-                            </View>
-                            <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>
-                                Artistic Patronage
-                              </Text>
-                              <Text style={styles.keyTermDefinition}>
-                                Royal support and funding for artists,
-                                architects, and scholars
-                              </Text>
-                            </View>
-                            <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>
-                                Golden Age
-                              </Text>
-                              <Text style={styles.keyTermDefinition}>
-                                Period of peak cultural achievement and artistic
-                                excellence
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        <View style={styles.sheetBottomSpacer} />
-                      </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
-              </Animated.View>
-            </Animated.View>
-          </View>
-        )}
+        </PanGestureHandler>
       </View>
     </>
   );
@@ -1011,30 +815,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "white",
     lineHeight: 16,
-  },
-
-  // ANDROID-SPECIFIC OPTIMIZATIONS
-  collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly on Android
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    opacity: 0.8,
-    lineHeight: 20,
   },
 
   // UTILITY STYLES

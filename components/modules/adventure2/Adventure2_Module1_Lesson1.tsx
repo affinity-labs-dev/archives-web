@@ -20,7 +20,6 @@ import {
 import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
-import { Audio } from 'expo-av';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -60,7 +59,6 @@ export default function Adventure2_Module1_Lesson1({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
@@ -70,10 +68,6 @@ export default function Adventure2_Module1_Lesson1({
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
-  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
-
-  // Audio source for direct audio testing
-  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" };
 
   // Background music hook - Desert Whispers ambience from AWS CloudFront (same as working Adv1)
   const backgroundMusic = useBackgroundMusic(
@@ -106,30 +100,6 @@ export default function Adventure2_Module1_Lesson1({
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     console.log('🎵 Adventure2_Module1_Lesson1 component mounted at:', timestamp);
-    
-    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
-    const directAudioFallback = async () => {
-      try {
-        console.log('🎵 [DIRECT FALLBACK A2M1L1] Creating direct audio as backup');
-        
-        const { sound } = await Audio.Sound.createAsync(audioSource, {
-          shouldPlay: true,
-          volume: 0.15,
-          isLooping: true
-        });
-        
-        // Store sound reference for cleanup
-        directAudioSoundRef.current = sound;
-        
-        console.log('🎵 [DIRECT FALLBACK A2M1L1] Direct audio created and playing successfully!');
-        
-      } catch (error) {
-        console.error('🎵 [DIRECT FALLBACK A2M1L1] Direct audio fallback also failed:', error);
-      }
-    };
-    
-    // Start direct audio fallback immediately
-    directAudioFallback();
   }, []);
 
   // Handle carousel scroll
@@ -183,131 +153,90 @@ export default function Adventure2_Module1_Lesson1({
   useEffect(() => {
     return () => {
       console.log('🎵 Component unmounting - cleaning up all audio');
-      
+
       // Stop background music hook
       if (backgroundMusic.stop) {
         console.log('🎵 Stopping background music on component unmount');
         backgroundMusic.stop();
       }
-      
-      // Stop direct audio if it exists
-      if (directAudioSoundRef.current) {
-        try {
-          console.log('🎵 Stopping direct audio on component unmount');
-          directAudioSoundRef.current.stopAsync();
-          directAudioSoundRef.current.unloadAsync();
-          directAudioSoundRef.current = null;
-        } catch (error) {
-          console.error('🎵 Error stopping direct audio on unmount:', error);
-        }
-      }
     };
   }, []);
 
+  // Debug logging: Carousel scroll state monitoring
+  useEffect(() => {
+    console.log(
+      `🎠 Carousel scroll state: ${
+        isCardGestureActive
+          ? "🔒 BLOCKED (card gesture active)"
+          : "✅ ENABLED (can swipe images)"
+      }`
+    );
+  }, [isCardGestureActive]);
 
-  // Enhanced Android touch handlers with improved sensitivity
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now()
-    });
-    setIsCardGestureActive(true);
-    console.log("📖 Android card gesture started - blocking carousel");
-  };
+  // Safety mechanism: Auto-reset gesture state if stuck
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
 
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);
-    console.log("📖 Android card gesture ended - allowing carousel");
-    
-    if (!touchStart) return;
-    
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-    
-    // Improved Android swipe detection with better sensitivity
-    const minDistance = 25; // Reduced from 40 for better responsiveness
-    const maxTime = 300; // Shorter time for more responsive gestures
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.4; // Reduced threshold for better responsiveness
-    
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
-    // Reset touch start
-    setTouchStart(null);
-  };
-
-  // Enhanced iOS PanGestureHandler with gesture coordination
+  // Universal gesture handler for both iOS and Android
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
-    
     const { state, translationY, velocityY } = event.nativeEvent;
-    
+
     // Track gesture activity for carousel coordination
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      setIsCardGestureActive(false);
-      console.log("📱 iOS card gesture ended - allowing carousel");
+      console.log("📱 Card gesture started - blocking carousel");
     }
-    
-    if (state === State.END) {
-      console.log("📱 iOS PanGesture detected", {
+
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      console.log("📱 Gesture state:", state, {
         translationY,
         velocityY,
         isCardExpanded,
         platform: Platform.OS
       });
-      
-      // iOS-optimized swipe detection with improved sensitivity
-      const minDistance = 25; // Reduced from 30 for better responsiveness
-      const minVelocity = 400; // Reduced from 500 for better responsiveness
-      
-      if (!isCardExpanded && 
-          (translationY < -minDistance || velocityY < -minVelocity)) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS
-        });
-        expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (isCardExpanded && 
+
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
+
+        // Swipe up to expand
+        if (!isCardExpanded &&
+            (translationY < -minDistance || velocityY < -minVelocity)) {
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
+        // Swipe down to collapse
+        else if (isCardExpanded &&
                  (translationY > minDistance || velocityY > minVelocity)) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS
-        });
-        collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
       }
+
+      // Re-enable carousel after gesture completes
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
     }
   };
 
   // Expand the card to full height
   const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
-    
+
+    // ✅ IMMEDIATE FIX: Re-enable carousel BEFORE animation starts
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: SCREEN_HEIGHT * 0.85,
@@ -320,13 +249,20 @@ export default function Adventure2_Module1_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card expansion animation finished");
+    });
   };
 
   // Collapse the card back to original size
   const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
-    
+
+    // ✅ IMMEDIATE FIX: Re-enable carousel BEFORE animation starts
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: 160,
@@ -339,7 +275,9 @@ export default function Adventure2_Module1_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card collapse animation finished");
+    });
   };
 
   // Handle reading scroll
@@ -389,19 +327,7 @@ export default function Adventure2_Module1_Lesson1({
               console.log('🎵 Stopping background music on back button');
               backgroundMusic.stop();
             }
-            
-            // Stop direct audio if it exists
-            if (directAudioSoundRef.current) {
-              try {
-                console.log('🎵 Stopping direct audio on back button');
-                directAudioSoundRef.current.stopAsync();
-                directAudioSoundRef.current.unloadAsync();
-                directAudioSoundRef.current = null;
-              } catch (error) {
-                console.error('🎵 Error stopping direct audio on back:', error);
-              }
-            }
-            
+
             (onBack || onDismiss)();
           }}>
             <Ionicons name="chevron-back" size={24} color="white" />
@@ -421,19 +347,7 @@ export default function Adventure2_Module1_Lesson1({
                 console.log('🎵 Stopping background music before continue');
                 backgroundMusic.stop(); // Remove await for instant navigation
               }
-              
-              // Stop direct audio if it exists
-              if (directAudioSoundRef.current) {
-                try {
-                  console.log('🎵 Stopping direct audio before continue');
-                  directAudioSoundRef.current.stopAsync();
-                  directAudioSoundRef.current.unloadAsync();
-                  directAudioSoundRef.current = null;
-                } catch (error) {
-                  console.error('🎵 Error stopping direct audio before continue:', error);
-                }
-              }
-              
+
               onContinue();
             } : undefined}
             disabled={currentImageIndex !== languageScenes.length - 1}
@@ -461,18 +375,16 @@ export default function Adventure2_Module1_Lesson1({
           </View>
         )}
 
-        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
-        {Platform.OS === 'ios' ? (
-          // iOS: Native PanGestureHandler
-          <PanGestureHandler
-            ref={panGestureRef}
-            onGestureEvent={handleSwipeGesture}
-            onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-15, 15]}
-            failOffsetX={[-40, 40]}
-            minPointers={1}
-            maxPointers={1}
-          >
+        {/* Reading Card at Bottom - Universal Gesture Handling */}
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={handleSwipeGesture}
+          onHandlerStateChange={handleSwipeGesture}
+          activeOffsetY={[-15, 15]}
+          failOffsetX={[-40, 40]}
+          minPointers={1}
+          maxPointers={1}
+        >
             <Animated.View style={[
               styles.cardContainer,
               {
@@ -564,103 +476,6 @@ export default function Adventure2_Module1_Lesson1({
               </Animated.View>
             </Animated.View>
           </PanGestureHandler>
-        ) : (
-          // Android: Custom Touch Handlers
-          <View 
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-              <Animated.View style={[
-                styles.readingCard,
-                {
-                  height: cardHeight,
-                }
-              ]}>
-                {/* Top handle indicator */}
-                <View style={styles.cardHandle} />
-
-                {/* Android Collapsed content with improved styling */}
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      Switching the language of an empire
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      In the late 600s, Caliph Abd al-Malik made Arabic the official language...
-                    </Text>
-                  </View>
-                </Animated.View>
-
-                {/* Expanded content when card is swiped up */}
-                {isCardExpanded && (
-                  <Animated.View style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) }
-                  ]}>
-                    <GestureHandlerScrollView 
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll} 
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                    >
-                      <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Switching the language of an empire
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 1 • Lesson 1
-                          </Text>
-                        </View>
-
-                        {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>
-                            In the late 600s, Caliph Abd al-Malik made Arabic the official language of government. Before then, taxes and records were written in Greek, Persian, or Syriac, depending on the region. His governor al-Hajjaj ibn Yusuf helped push the change, making scribes switch to Arabic in their offices. This shift gave the empire one clear voice and turned Arabic into the main language of power and history.
-                          </Text>
-                        </View>
-
-                        {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Abd al-Malik"
-                              definition="Umayyad caliph who made Arabic the official government language in the late 600s"
-                            />
-                            <KeyTermRow
-                              term="Al-Hajjaj ibn Yusuf"
-                              definition="Governor who helped push the Arabic language change in government offices"
-                            />
-                            <KeyTermRow
-                              term="Regional Languages"
-                              definition="Greek, Persian, and Syriac used for records before Arabic became official"
-                            />
-                          </View>
-                        </View>
-
-                        {/* Bottom spacer to ensure full scroll */}
-                        <View style={styles.sheetBottomSpacer} />
-                      </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
-              </Animated.View>
-            </Animated.View>
-          </View>
-        )}
 
       </View>
     </>
@@ -943,27 +758,4 @@ const styles = StyleSheet.create({
     height: 60,
   },
 
-  // Collapsed card text styles (for Android touch version)
-  collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    opacity: 0.8,
-    lineHeight: 20,
-  },
 });

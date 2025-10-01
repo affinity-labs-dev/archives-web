@@ -283,7 +283,6 @@ export default function Adventure5_Module3_Lesson1({
             uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel%20Videos/Adv5_M3_Reel1.mp4",
           }}
           onPlaybackStatusUpdate={handleVideoStatusUpdate}
-          style={styles.videoPlayer}
         />
 
         {/* NAVIGATION CONTROLS */}
@@ -407,14 +406,6 @@ export default function Adventure5_Module3_Lesson1({
                           <Text style={styles.sectionTitle}>Key Terms</Text>
                           <View style={styles.keyTermsContainer}>
                             <KeyTermRow
-                              term="750 CE"
-                              definition="The year the Abbasids overthrew the Umayyads and seized power"
-                            />
-                            <KeyTermRow
-                              term="Baghdad"
-                              definition="The new Abbasid capital city built from scratch near the Tigris River"
-                            />
-                            <KeyTermRow
                               term="New Order"
                               definition="Abbasid promise of fairness, knowledge, and proper Islamic leadership"
                             />
@@ -505,14 +496,6 @@ export default function Adventure5_Module3_Lesson1({
                               term="Baghdad"
                               definition="The new Abbasid capital city built from scratch near the Tigris River"
                             />
-                            <KeyTermRow
-                              term="New Order"
-                              definition="Abbasid promise of fairness, knowledge, and proper Islamic leadership"
-                            />
-                            <KeyTermRow
-                              term="Round City"
-                              definition="Baghdad's unique circular design symbolizing unity and perfection"
-                            />
                           </View>
                         </View>
 
@@ -546,9 +529,9 @@ const styles = StyleSheet.create({
   // PROGRESS BAR
   progressBarContainer: {
     position: "absolute",
-    bottom: 200,
-    left: 20,
-    right: 20,
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: 4,
     zIndex: 10,
   },

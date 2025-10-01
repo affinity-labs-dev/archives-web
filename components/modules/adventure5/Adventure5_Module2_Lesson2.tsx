@@ -2,9 +2,11 @@
 // Full-screen swipeable image gallery with atmospheric background music and expandable reading content
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useProgress } from "@/context/ProgressContext";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -20,11 +22,9 @@ import {
 import {
   ScrollView as GestureHandlerScrollView,
   PanGestureHandler,
-  State
+  State,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
-import { useProgress } from "@/context/ProgressContext";
 
 interface Adventure5_Module2_Lesson2Props {
   onContinue: () => void;
@@ -59,32 +59,40 @@ const abbasidSymbols = [
     id: 1,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv5_M2_Img01.png",
     title: "Revolutionary Entrance",
-    caption: "An Abbasid rider enters a desert town square, black banner raised. Onlookers watch as a revolution begins"
+    caption:
+      "An Abbasid rider enters a desert town square, black banner raised. Onlookers watch as a revolution begins",
   },
   {
     id: 2,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv5_M2_Img02.png",
     title: "Secret Planning",
-    caption: "By candlelight, Abbasid supporters plan in secret - scrolls, slogans, and quiet resolve in a hidden room"
+    caption:
+      "By candlelight, Abbasid supporters plan in secret - scrolls, slogans, and quiet resolve in a hidden room",
   },
   {
     id: 3,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv5_M2_Img03.png",
     title: "Public Rally",
-    caption: "In a village square, an Abbasid speaker rallies the crowd beneath a black banner. The message is clear - and the momentum is building"
+    caption:
+      "In a village square, an Abbasid speaker rallies the crowd beneath a black banner. The message is clear - and the momentum is building",
   },
   {
     id: 4,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv5_M2_Img04.png",
     title: "Underground Movement",
-    caption: "At twilight, Abbasid slogans circulate quietly through village alleys. Whispers grow as curiosity meets caution"
-  }
+    caption:
+      "At twilight, Abbasid slogans circulate quietly through village alleys. Whispers grow as curiosity meets caution",
+  },
 ];
 
 // Historical content about Abbasid symbols and propaganda
 const historicalText = `The Abbasids didn't take power by force alone - they used powerful words and symbols. Their black banners stood in contrast to the Umayyads' white ones, and their slogans promised revenge for Husayn and justice for the Prophet's family (Ahl al-Bayt). By claiming descent from the Hashimite clan, they built a story that resonated with many who felt left out or mistreated by Umayyad rule.`;
 
-export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBack }: Adventure5_Module2_Lesson2Props) {
+export default function Adventure5_Module2_Lesson2({
+  onContinue,
+  onDismiss,
+  onBack,
+}: Adventure5_Module2_Lesson2Props) {
   // Image carousel states
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showReadContent, setShowReadContent] = useState(false);
@@ -92,7 +100,6 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
   // Reading card states
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
 
   // Critical gesture coordination state - Prevents carousel conflicts
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
@@ -122,49 +129,72 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
   // Enhanced debug logging for background music
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log(`🎵 [${timestamp}] Adventure5_Module2_Lesson2 - Background music state:`, {
-      isLoaded: backgroundMusic.isLoaded,
-      isPlaying: backgroundMusic.isPlaying,
-      isLoading: backgroundMusic.isLoading || false,
-      platform: Platform.OS,
-      error: backgroundMusic.error || 'No error'
-    });
+    console.log(
+      `🎵 [${timestamp}] Adventure5_Module2_Lesson2 - Background music state:`,
+      {
+        isLoaded: backgroundMusic.isLoaded,
+        isPlaying: backgroundMusic.isPlaying,
+        isLoading: backgroundMusic.isLoading || false,
+        platform: Platform.OS,
+        error: backgroundMusic.error || "No error",
+      }
+    );
 
-    if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
-      console.log('🎵 Audio not loading - checking AWS CloudFront source');
-      console.log('🎵 Exact AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M2_L2.mp3');
-      console.log('🎵 Background music hook object:', backgroundMusic);
+    if (!backgroundMusic.isLoaded && !backgroundMusic.isLoading) {
+      console.log("🎵 Audio not loading - checking AWS CloudFront source");
+      console.log(
+        "🎵 Exact AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M2_L2.mp3"
+      );
+      console.log("🎵 Background music hook object:", backgroundMusic);
     }
 
     if (backgroundMusic.error) {
-      console.error('🎵 Background music error:', backgroundMusic.error);
+      console.error("🎵 Background music error:", backgroundMusic.error);
     }
-  }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.error]);
+  }, [
+    backgroundMusic.isLoaded,
+    backgroundMusic.isPlaying,
+    backgroundMusic.error,
+  ]);
 
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log('🎵 Adventure5_Module2_Lesson2 component mounted at:', timestamp);
-    console.log('🎵 Testing audio URL accessibility...');
+    console.log(
+      "🎵 Adventure5_Module2_Lesson2 component mounted at:",
+      timestamp
+    );
+    console.log("🎵 Testing audio URL accessibility...");
 
     // Test URL accessibility
-    fetch('https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M2_L2.mp3', { method: 'HEAD' })
-      .then(response => {
-        console.log('🎵 Audio URL test response:', response.status, response.statusText);
+    fetch("https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M2_L2.mp3", {
+      method: "HEAD",
+    })
+      .then((response) => {
+        console.log(
+          "🎵 Audio URL test response:",
+          response.status,
+          response.statusText
+        );
         if (response.ok) {
-          console.log('🎵 ✅ Audio URL is accessible via CloudFront');
+          console.log("🎵 ✅ Audio URL is accessible via CloudFront");
         } else {
-          console.log('🎵 ❌ Audio URL not accessible, status:', response.status);
+          console.log(
+            "🎵 ❌ Audio URL not accessible, status:",
+            response.status
+          );
         }
       })
-      .catch(error => {
-        console.log('🎵 ❌ Audio URL fetch error:', error.message);
+      .catch((error) => {
+        console.log("🎵 ❌ Audio URL fetch error:", error.message);
       });
   }, []);
 
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     if (backgroundMusic.isLoaded && backgroundMusic.isPlaying) {
-      console.log(`🎵 [${timestamp}] Background music auto-playing successfully`);
+      console.log(
+        `🎵 [${timestamp}] Background music auto-playing successfully`
+      );
     } else if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
       console.log(`🎵 [${timestamp}] Background music loaded but not playing`);
     } else {
@@ -175,13 +205,35 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
   // Cleanup audio on component unmount
   useEffect(() => {
     return () => {
-      console.log('🎵 Component unmounting - cleaning up all audio');
+      console.log("🎵 Component unmounting - cleaning up all audio");
       if (backgroundMusic.stop) {
-        console.log('🎵 Stopping background music on component unmount');
+        console.log("🎵 Stopping background music on component unmount");
         backgroundMusic.stop();
       }
     };
   }, []);
+
+  // Debug logging: Carousel scroll state monitoring
+  useEffect(() => {
+    console.log(
+      `🎠 Carousel scroll state: ${
+        isCardGestureActive
+          ? "🔒 BLOCKED (card gesture active)"
+          : "✅ ENABLED (can swipe images)"
+      }`
+    );
+  }, [isCardGestureActive]);
+
+  // Safety mechanism: Auto-reset gesture state if stuck
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
 
   // Handle carousel scroll - matching iOS TabView behavior with haptic feedback
   const handleScroll = (event: any) => {
@@ -194,108 +246,67 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
     }
   };
 
-  // Enhanced iOS PanGestureHandler with perfect gesture coordination
+  // Universal gesture handler for both iOS and Android
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
-
     const { state, translationY, velocityY } = event.nativeEvent;
 
     // Track gesture activity for carousel coordination
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      setIsCardGestureActive(false);
-      console.log("📱 iOS card gesture ended - allowing carousel");
+      console.log("📱 Card gesture started - blocking carousel");
     }
 
-    if (state === State.END) {
-      console.log("📱 iOS PanGesture detected", {
+    if (
+      state === State.END ||
+      state === State.CANCELLED ||
+      state === State.FAILED
+    ) {
+      console.log("📱 Gesture state:", state, {
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS
+        platform: Platform.OS,
       });
 
-      const minDistance = IOS_GESTURE_CONSTANTS.minDistance;
-      const minVelocity = IOS_GESTURE_CONSTANTS.minVelocity;
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
 
-      // Swipe up to expand
-      if (!isCardExpanded &&
-          (translationY < -minDistance || velocityY < -minVelocity)) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card");
-        expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Swipe up to expand
+        if (
+          !isCardExpanded &&
+          (translationY < -minDistance || velocityY < -minVelocity)
+        ) {
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
+        // Swipe down to collapse
+        else if (
+          isCardExpanded &&
+          (translationY > minDistance || velocityY > minVelocity)
+        ) {
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
       }
-      // Swipe down to collapse
-      else if (isCardExpanded &&
-               (translationY > minDistance || velocityY > minVelocity)) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card");
-        collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+
+      // Re-enable carousel after gesture completes
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
     }
-  };
-
-  // Enhanced Android touch handlers with improved sensitivity
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now()
-    });
-    setIsCardGestureActive(true);
-    console.log("📖 Android card gesture started - blocking carousel");
-  };
-
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);
-    console.log("📖 Android card gesture ended - allowing carousel");
-
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd;
-    const time = Date.now() - touchStart.time;
-
-    const minDistance = ANDROID_GESTURE_CONSTANTS.minDistance;
-    const maxTime = ANDROID_GESTURE_CONSTANTS.maxTime;
-    const velocity = Math.abs(distance) / time;
-    const velocityThreshold = ANDROID_GESTURE_CONSTANTS.velocityThreshold;
-
-    console.log("📖 Android gesture analysis:", {
-      distance,
-      time,
-      velocity: velocity.toFixed(2),
-      minDistance,
-      maxTime,
-      velocityThreshold,
-      meetsDistanceRequirement: Math.abs(distance) > minDistance,
-      meetsTimeRequirement: time < maxTime,
-      meetsVelocityRequirement: velocity > velocityThreshold
-    });
-
-    // Swipe up to expand
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card");
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    // Swipe down to collapse
-    else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card");
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else {
-      console.log("📖 Android gesture rejected - requirements not met");
-    }
-
-    setTouchStart(null);
   };
 
   // Expand the card to full height with EXACT SwiftUI spring timing
   const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
     setShowReadContent(true);
+
+    // ✅ IMMEDIATE FIX: Re-enable carousel BEFORE animation starts
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -309,13 +320,20 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card expansion animation finished");
+    });
   };
 
   // Collapse the card back to original size
   const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
     setShowReadContent(false);
+
+    // ✅ IMMEDIATE FIX: Re-enable carousel BEFORE animation starts
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -329,7 +347,9 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card collapse animation finished");
+    });
   };
 
   // Reading scroll handler for gesture priority management
@@ -341,7 +361,7 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
   // Navigation cleanup - Stop audio before transitions
   const handleBackPress = () => {
     if (backgroundMusic.isPlaying) {
-      console.log('🎵 Stopping background music on back button');
+      console.log("🎵 Stopping background music on back button");
       backgroundMusic.stop();
     }
     (onBack || onDismiss)();
@@ -352,7 +372,7 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
     completeLesson(5, 2, "lesson2");
 
     if (backgroundMusic.isPlaying) {
-      console.log('🎵 Stopping background music before continue');
+      console.log("🎵 Stopping background music before continue");
       backgroundMusic.stop();
     }
     onContinue();
@@ -375,7 +395,7 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
 
   return (
     <>
-      {Platform.OS === 'android' && (
+      {Platform.OS === "android" && (
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
 
@@ -399,9 +419,7 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
               />
 
               <View style={styles.textOverlay}>
-                <Text style={styles.captionText}>
-                  {symbol.caption}
-                </Text>
+                <Text style={styles.captionText}>{symbol.caption}</Text>
               </View>
             </View>
           ))}
@@ -421,15 +439,24 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
           <TouchableOpacity
             style={[
               styles.topContinueButton,
-              currentImageIndex !== abbasidSymbols.length - 1 && styles.topContinueButtonDisabled
+              currentImageIndex !== abbasidSymbols.length - 1 &&
+                styles.topContinueButtonDisabled,
             ]}
-            onPress={currentImageIndex === abbasidSymbols.length - 1 ? handleContinuePress : undefined}
+            onPress={
+              currentImageIndex === abbasidSymbols.length - 1
+                ? handleContinuePress
+                : undefined
+            }
             disabled={currentImageIndex !== abbasidSymbols.length - 1}
           >
             <Ionicons
               name="chevron-forward"
               size={24}
-              color={currentImageIndex === abbasidSymbols.length - 1 ? "white" : "#666"}
+              color={
+                currentImageIndex === abbasidSymbols.length - 1
+                  ? "white"
+                  : "#666"
+              }
             />
           </TouchableOpacity>
         </SafeAreaView>
@@ -442,172 +469,102 @@ export default function Adventure5_Module2_Lesson2({ onContinue, onDismiss, onBa
                 key={index}
                 style={[
                   styles.pageIndicator,
-                  currentImageIndex === index && styles.pageIndicatorActive
+                  currentImageIndex === index && styles.pageIndicatorActive,
                 ]}
               />
             ))}
           </View>
         )}
 
-        {/* EXPANDABLE READING CARD */}
-        {Platform.OS === 'ios' ? (
-          <PanGestureHandler
-            ref={panGestureRef}
-            onGestureEvent={handleSwipeGesture}
-            onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-IOS_GESTURE_CONSTANTS.activeOffsetY, IOS_GESTURE_CONSTANTS.activeOffsetY]}
-            failOffsetX={[-IOS_GESTURE_CONSTANTS.failOffsetX, IOS_GESTURE_CONSTANTS.failOffsetX]}
-            minPointers={1}
-            maxPointers={1}
+        {/* EXPANDABLE READING CARD - Universal Gesture Handling */}
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={handleSwipeGesture}
+          onHandlerStateChange={handleSwipeGesture}
+          activeOffsetY={[-15, 15]}
+          failOffsetX={[-40, 40]}
+          minPointers={1}
+          maxPointers={1}
+        >
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              { transform: [{ translateY: cardTranslateY }] },
+            ]}
           >
-            <Animated.View style={[styles.cardContainer, { transform: [{ translateY: cardTranslateY }] }]}>
-              <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
-                <View style={styles.cardHandle} />
+            <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
+              <View style={styles.cardHandle} />
 
-                <Animated.View style={[styles.collapsedContent, { opacity: cardOpacity }]}>
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Abbasid Revolutionary Symbols
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Black banners and powerful slogans spread the message
-                    </Text>
-                  </View>
-                </Animated.View>
-
-                {isCardExpanded && (
-                  <Animated.View style={[styles.expandedContent, { opacity: Animated.subtract(1, cardOpacity) }]}>
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      waitFor={panGestureRef}
-                      simultaneousHandlers={panGestureRef}
-                    >
-                      <View style={styles.expandedContentInner}>
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Abbasid Revolutionary Symbols
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 2 • Lesson 2
-                          </Text>
-                        </View>
-
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Revolutionary Symbols</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
-                        </View>
-
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Black Banner"
-                              definition="Symbol of Abbasid revolution, contrasting with Umayyad white banners"
-                            />
-                            <KeyTermRow
-                              term="Revolutionary Slogans"
-                              definition="Powerful messages promising justice and revenge for the Prophet's family"
-                            />
-                            <KeyTermRow
-                              term="Ahl al-Bayt"
-                              definition="The Prophet's family - central to Abbasid claims of religious legitimacy"
-                            />
-                            <KeyTermRow
-                              term="Hashimite Clan"
-                              definition="The Prophet Muhammad's clan, which Abbasids claimed descent from"
-                            />
-                          </View>
-                        </View>
-
-                        <View style={styles.sheetBottomSpacer} />
-                      </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
+              <Animated.View
+                style={[styles.collapsedContent, { opacity: cardOpacity }]}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Abbasid Revolutionary Symbols
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    Black banners and powerful slogans spread the message
+                  </Text>
+                </View>
               </Animated.View>
-            </Animated.View>
-          </PanGestureHandler>
-        ) : (
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[styles.cardContainer, { transform: [{ translateY: cardTranslateY }] }]}>
-              <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
-                <View style={styles.cardHandle} />
 
-                <Animated.View style={[styles.collapsedContent, { opacity: cardOpacity }]}>
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      Abbasid Revolutionary Symbols
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Black banners and powerful slogans spread the message
-                    </Text>
-                  </View>
-                </Animated.View>
-
-                {isCardExpanded && (
-                  <Animated.View style={[styles.expandedContent, { opacity: Animated.subtract(1, cardOpacity) }]}>
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      onScrollBeginDrag={() => setIsCardGestureActive(true)}
-                      onScrollEndDrag={() => setIsCardGestureActive(false)}
-                    >
-                      <View style={styles.expandedContentInner}>
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Abbasid Revolutionary Symbols
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 2 • Lesson 2
-                          </Text>
-                        </View>
-
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Revolutionary Symbols</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
-                        </View>
-
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Black Banner"
-                              definition="Symbol of Abbasid revolution, contrasting with Umayyad white banners"
-                            />
-                            <KeyTermRow
-                              term="Revolutionary Slogans"
-                              definition="Powerful messages promising justice and revenge for the Prophet's family"
-                            />
-                            <KeyTermRow
-                              term="Ahl al-Bayt"
-                              definition="The Prophet's family - central to Abbasid claims of religious legitimacy"
-                            />
-                            <KeyTermRow
-                              term="Hashimite Clan"
-                              definition="The Prophet Muhammad's clan, which Abbasids claimed descent from"
-                            />
-                          </View>
-                        </View>
-
-                        <View style={styles.sheetBottomSpacer} />
+              {isCardExpanded && (
+                <Animated.View
+                  style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) },
+                  ]}
+                >
+                  <GestureHandlerScrollView
+                    ref={scrollViewGestureRef}
+                    style={styles.expandedScroll}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={handleReadingScroll}
+                    scrollEventThrottle={100}
+                    waitFor={panGestureRef}
+                    simultaneousHandlers={panGestureRef}
+                  >
+                    <View style={styles.expandedContentInner}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Abbasid Revolutionary Symbols
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 2 • Lesson 2
+                        </Text>
                       </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
-              </Animated.View>
+
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>
+                          Revolutionary Symbols
+                        </Text>
+                        <Text style={styles.historicalText}>
+                          {historicalText}
+                        </Text>
+                      </View>
+
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Black Banner"
+                            definition="Symbol of Abbasid revolution, contrasting with Umayyad white banners"
+                          />
+                          <KeyTermRow
+                            term="Revolutionary Slogans"
+                            definition="Powerful messages promising justice and revenge for the Prophet's family"
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.sheetBottomSpacer} />
+                    </View>
+                  </GestureHandlerScrollView>
+                </Animated.View>
+              )}
             </Animated.View>
-          </View>
-        )}
+          </Animated.View>
+        </PanGestureHandler>
       </View>
     </>
   );
@@ -617,7 +574,7 @@ const styles = StyleSheet.create({
   // MAIN CONTAINER
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: "black",
   },
 
   // CAROUSEL STYLES
@@ -627,16 +584,16 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'black',
-    overflow: 'hidden',
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "black",
+    overflow: "hidden",
   },
   symbolImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -645,45 +602,45 @@ const styles = StyleSheet.create({
 
   // TEXT OVERLAY
   textOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 120,
     left: 0,
     right: 0,
     paddingHorizontal: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   captionText: {
-    fontFamily: 'DM Sans',
+    fontFamily: "DM Sans",
     fontSize: 20,
-    fontWeight: '700',
-    color: 'white',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "white",
+    textAlign: "center",
     lineHeight: 26,
-    textShadowColor: 'black',
+    textShadowColor: "black",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
 
   // PAGE INDICATORS
   pageIndicatorsOnly: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 180,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 10,
   },
   pageIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
     marginHorizontal: 4,
   },
   pageIndicatorActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     transform: [{ scale: 1.2 }],
   },
 
@@ -849,30 +806,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "white",
     lineHeight: 16,
-  },
-
-  // ANDROID-SPECIFIC OPTIMIZATIONS
-  collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15,
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    opacity: 0.8,
-    lineHeight: 20,
   },
 
   // UTILITY STYLES

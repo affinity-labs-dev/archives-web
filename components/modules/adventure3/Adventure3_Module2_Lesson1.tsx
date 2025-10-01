@@ -62,10 +62,10 @@ export default function Adventure3_Module2_Lesson1({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
+  const [isCardGestureActive, setIsCardGestureActive] = useState(false);
   const directAudioSoundRef = useRef<Audio.Sound | null>(null);
 
   // Animation values for card expansion
@@ -191,6 +191,29 @@ export default function Adventure3_Module2_Lesson1({
     };
   }, []);
 
+  // Debug logging for carousel scroll state
+  useEffect(() => {
+    console.log(
+      `🎠 Carousel scroll state: ${
+        isCardGestureActive
+          ? "🔒 BLOCKED (card gesture active)"
+          : "✅ ENABLED (can swipe images)"
+      }`
+    );
+  }, [isCardGestureActive]);
+
+  // Safety mechanism: Reset gesture state if stuck
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
+
   // Handle carousel scroll - matching iOS TabView behavior
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
@@ -213,79 +236,71 @@ export default function Adventure3_Module2_Lesson1({
     }
   };
 
-  // Handle platform-specific swipe gestures to expand/collapse the card
+  // Universal gesture handler using PanGestureHandler (works on all platforms)
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS === 'ios') {
-      const { translationY, velocityY, state } = event.nativeEvent;
-      console.log('🎯 iOS gesture event:', { translationY, velocityY, state });
-      
-      if (state === State.END || state === State.CANCELLED) {
-        if (!isCardExpanded) {
-          if (translationY < -30 || velocityY < -300) {
-            console.log('📖 iOS: Reading card swiped up - expanding card', { translationY, velocityY });
-            expandCard();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }
-        } else {
-          const shouldCloseCard = 
-            (velocityY > 800) ||
-            (translationY > 50 && velocityY > 400) ||
-            (scrollY <= 10 && translationY > 30 && velocityY > 200);
-          
-          if (shouldCloseCard) {
-            console.log('📖 iOS: Reading card swiped down - collapsing card', { translationY, velocityY, scrollY });
-            collapseCard();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }
+    const { state, translationY, velocityY } = event.nativeEvent;
+
+    // Track gesture activity for carousel coordination
+    if (state === State.BEGAN || state === State.ACTIVE) {
+      setIsCardGestureActive(true);
+      console.log("📱 Card gesture started - blocking carousel");
+    }
+
+    // Handle ALL end states (END, CANCELLED, FAILED)
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      console.log("📱 Gesture state:", state, {
+        translationY,
+        velocityY,
+        isCardExpanded,
+        platform: Platform.OS,
+      });
+
+      // Only process swipe if gesture completed successfully
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
+
+        if (
+          !isCardExpanded &&
+          (translationY < -minDistance || velocityY < -minVelocity)
+        ) {
+          console.log("📱 Swipe up detected - expanding card", {
+            translationY,
+            velocityY,
+          });
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        } else if (
+          isCardExpanded &&
+          (translationY > minDistance || velocityY > minVelocity)
+        ) {
+          console.log("📱 Swipe down detected - collapsing card", {
+            translationY,
+            velocityY,
+          });
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
         }
       }
+
+      // Always reset if we reach here (gesture ended without action)
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
     }
-  };
-  
-  // Android touch handlers
-  const handleAndroidTouchStart = (event: any) => {
-    const { pageY } = event.nativeEvent;
-    setTouchStart({ y: pageY, time: Date.now() });
-    console.log('🤖 Android touch start:', { y: pageY });
-  };
-  
-  const handleAndroidTouchEnd = (event: any) => {
-    if (!touchStart) return;
-    
-    const { pageY } = event.nativeEvent;
-    const deltaY = pageY - touchStart.y;
-    const deltaTime = Date.now() - touchStart.time;
-    const velocity = Math.abs(deltaY) / deltaTime;
-    
-    console.log('🤖 Android touch end:', { deltaY, velocity, isCardExpanded });
-    
-    if (!isCardExpanded) {
-      if (deltaY < -30 || velocity > 0.3) {
-        console.log('📖 Android: Reading card swiped up - expanding card');
-        expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    } else {
-      const shouldCloseCard = 
-        (velocity > 0.8) ||
-        (deltaY > 50 && velocity > 0.4) ||
-        (scrollY <= 10 && deltaY > 30 && velocity > 0.2);
-      
-      if (shouldCloseCard) {
-        console.log('📖 Android: Reading card swiped down - collapsing card');
-        collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    }
-    
-    setTouchStart(null);
   };
 
   // Expand the card to full height
   const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
     setShowReadContent(true);
-    
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: SCREEN_HEIGHT * 0.85,
@@ -298,14 +313,21 @@ export default function Adventure3_Module2_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card expansion animation finished");
+    });
   };
 
   // Collapse the card back to original size
   const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
     setShowReadContent(false);
-    
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: 160,
@@ -318,7 +340,9 @@ export default function Adventure3_Module2_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card collapse animation finished");
+    });
   };
 
   // Handle reading scroll - track scroll position for gesture priority
@@ -341,6 +365,7 @@ export default function Adventure3_Module2_Lesson1({
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScroll}
+          scrollEnabled={!isCardGestureActive}
           style={styles.carousel}
         >
           {conquestImages.map((conquest, index) => (
@@ -440,215 +465,113 @@ export default function Adventure3_Module2_Lesson1({
           </View>
         )}
 
-        {/* Reading Card at Bottom - Expandable */}
-        {Platform.OS === 'ios' ? (
-          <PanGestureHandler 
-            ref={panGestureRef}
-            onHandlerStateChange={handleSwipeGesture}
-            simultaneousHandlers={scrollViewGestureRef}
-          >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-            <Animated.View style={[
-              styles.readingCard,
-              {
-                height: cardHeight,
-              }
-            ]}>
-            {/* Top handle indicator */}
-            <View style={styles.cardHandle} />
-
-            {/* Collapsed content */}
-            <Animated.View style={[
-              styles.collapsedContent,
-              Platform.OS === 'android' && styles.collapsedContentWrapper,
-              { opacity: cardOpacity }
-            ]}>
-              <TouchableOpacity 
-                style={styles.readingCardHeader}
-                onPress={expandCard}
-              >
-                <Text style={styles.cardTitle}>
-                  Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  In 711 CE, Ṭarīq ibn Ziyād crossed into Iberia...
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Expanded content */}
-            {isCardExpanded && (
-              <Animated.View style={[
-                styles.expandedContent,
-                { opacity: Animated.subtract(1, cardOpacity) }
-              ]}>
-
-                <GestureHandlerScrollView 
-                  ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
-                  style={styles.expandedScroll} 
-                  showsVerticalScrollIndicator={false}
-                  onScroll={handleReadingScroll}
-                  scrollEventThrottle={100}
-                >
-                  <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 2 • Lesson 1
-                      </Text>
-                    </View>
-
-                    {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>
-                        In 711 CE, General Tariq ibn Ziyad crossed from North Africa to the Iberian Peninsula with a small force. He landed at a steep cliff that later took his name, Jabal Tariq, or Gibraltar. According to tradition, he ordered his men to burn their ships, forcing them to push forward with no retreat. That moment marked the beginning of Islam&apos;s long history in Spain.
-                      </Text>
-                    </View>
-
-                    {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Gibraltar"
-                          definition="From &apos;Jabal Ṭarīq&apos; meaning &apos;Ṭarīq&apos;s Mountain&apos;, the landing point of the conquest"
-                        />
-                        <KeyTermRow
-                          term="Al-Andalus"
-                          definition="The Arabic name for the Iberian Peninsula under Muslim rule"
-                        />
-                        <KeyTermRow
-                          term="Ṭarīq ibn Ziyād"
-                          definition="Berber general who led the Muslim conquest of Iberia in 711 CE"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Bottom spacer to ensure full scroll */}
-                    <View style={styles.sheetBottomSpacer} />
-                  </View>
-                </GestureHandlerScrollView>
-                
-              </Animated.View>
-            )}
-            </Animated.View>
-            </Animated.View>
-          </PanGestureHandler>
-        ) : (
-          <Animated.View 
+        {/* Reading Card at Bottom - Universal Gesture Handling */}
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={handleSwipeGesture}
+          onHandlerStateChange={handleSwipeGesture}
+          activeOffsetY={[-15, 15]}
+          failOffsetX={[-40, 40]}
+          minPointers={1}
+          maxPointers={1}
+        >
+          <Animated.View
             style={[
               styles.cardContainer,
               {
-                transform: [{ translateY: cardTranslateY }]
-              }
+                transform: [{ translateY: cardTranslateY }],
+              },
             ]}
-            onTouchStart={handleAndroidTouchStart}
-            onTouchEnd={handleAndroidTouchEnd}
           >
-            <Animated.View style={[
-              styles.readingCard,
-              {
-                height: cardHeight,
-              }
-            ]}>
-            {/* Top handle indicator */}
-            <View style={styles.cardHandle} />
+            <Animated.View
+              style={[
+                styles.readingCard,
+                {
+                  height: cardHeight,
+                },
+              ]}
+            >
+              {/* Top handle indicator */}
+              <View style={styles.cardHandle} />
 
-            {/* Collapsed content */}
-            <Animated.View style={[
-              styles.collapsedContent,
-              Platform.OS === 'android' && styles.collapsedContentWrapper,
-              { opacity: cardOpacity }
-            ]}>
-              <TouchableOpacity 
-                onPress={expandCard} 
-                activeOpacity={0.8}
+              {/* Collapsed content */}
+              <Animated.View
+                style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
                 <View style={styles.readingCardHeader}>
                   <Text style={styles.cardTitle}>
-                    Ṭarīq ibn Ziyād's Conquest of Iberia
+                    Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
                   </Text>
                   <Text style={styles.cardSubtitle}>
-                    Landing at Gibraltar • Burning the Ships • Advancing into Al-Andalus
+                    In 711 CE, Ṭarīq ibn Ziyād crossed into Iberia...
                   </Text>
                 </View>
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Expanded content */}
-            {isCardExpanded && (
-              <Animated.View style={[
-                styles.expandedContent,
-                { opacity: Animated.subtract(1, cardOpacity) }
-              ]}>
-                <GestureHandlerScrollView 
-                  ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
-                  style={styles.expandedScroll} 
-                  showsVerticalScrollIndicator={false}
-                  onScroll={handleReadingScroll}
-                  scrollEventThrottle={100}
-                >
-                  <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Ṭarīq ibn Ziyād's Conquest of Iberia
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 2 • Lesson 1
-                      </Text>
-                    </View>
-
-                    {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>The Conquest Begins</Text>
-                      <Text style={styles.historicalText}>
-                        In 711 CE, Ṭarīq ibn Ziyād landed in Iberia with an army of Berber and Arab forces, 
-                        beginning a conquest that would transform the Iberian Peninsula into Al-Andalus. 
-                        The strategic burning of ships symbolized total commitment to victory.
-                      </Text>
-                    </View>
-
-                    {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Gibraltar (Jabal Ṭāriq)"
-                          definition="Landing point named &lsquo;Mountain of Ṭāriq&rsquo; after the conquest leader"
-                        />
-                        <KeyTermRow
-                          term="Burning the Ships"
-                          definition="Strategic decision showing total commitment to conquest with no retreat"
-                        />
-                        <KeyTermRow
-                          term="Al-Andalus"
-                          definition="Name for Muslim-ruled Iberian Peninsula, established after conquest"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Bottom spacer to ensure full scroll */}
-                    <View style={styles.sheetBottomSpacer} />
-                  </View>
-                </GestureHandlerScrollView>
-                
               </Animated.View>
-            )}
+
+              {/* Expanded content */}
+              {isCardExpanded && (
+                <Animated.View
+                  style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) },
+                  ]}
+                >
+                  <GestureHandlerScrollView
+                    ref={scrollViewGestureRef}
+                    style={styles.expandedScroll}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={handleReadingScroll}
+                    scrollEventThrottle={100}
+                    waitFor={panGestureRef}
+                    simultaneousHandlers={panGestureRef}
+                  >
+                    <View style={styles.expandedContentInner}>
+                      {/* Title Section */}
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 2 • Lesson 1
+                        </Text>
+                      </View>
+
+                      {/* Historical Content */}
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>
+                          In 711 CE, General Tariq ibn Ziyad crossed from North Africa to the Iberian Peninsula with a small force. He landed at a steep cliff that later took his name, Jabal Tariq, or Gibraltar. According to tradition, he ordered his men to burn their ships, forcing them to push forward with no retreat. That moment marked the beginning of Islam&apos;s long history in Spain.
+                        </Text>
+                      </View>
+
+                      {/* Key Terms Section */}
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Gibraltar"
+                            definition="From &apos;Jabal Ṭarīq&apos; meaning &apos;Ṭarīq&apos;s Mountain&apos;, the landing point of the conquest"
+                          />
+                          <KeyTermRow
+                            term="Al-Andalus"
+                            definition="The Arabic name for the Iberian Peninsula under Muslim rule"
+                          />
+                          <KeyTermRow
+                            term="Ṭarīq ibn Ziyād"
+                            definition="Berber general who led the Muslim conquest of Iberia in 711 CE"
+                          />
+                        </View>
+                      </View>
+
+                      {/* Bottom spacer to ensure full scroll */}
+                      <View style={styles.sheetBottomSpacer} />
+                    </View>
+                  </GestureHandlerScrollView>
+                </Animated.View>
+              )}
             </Animated.View>
           </Animated.View>
-        )}
+        </PanGestureHandler>
 
       </View>
     </>
@@ -823,10 +746,6 @@ const styles = StyleSheet.create({
   collapsedContent: {
     flex: 1,
   },
-  collapsedContentWrapper: {
-    marginTop: -15,
-  },
-  
   expandedContent: {
     position: "absolute",
     top: 0,

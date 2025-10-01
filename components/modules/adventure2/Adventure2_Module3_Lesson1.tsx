@@ -20,7 +20,6 @@ import {
 import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
-import { Audio } from 'expo-av';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -60,20 +59,15 @@ export default function Adventure2_Module3_Lesson1({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
-  const directAudioSoundRef = useRef<Audio.Sound | null>(null);
 
   // Animation values for card expansion
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
-
-  // Audio source for direct audio testing
-  const audioSource = { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M2_L1_Desert+Whispers.mp3" };
 
   // Background music hook - Desert Whispers ambience from AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
@@ -101,6 +95,22 @@ export default function Adventure2_Module3_Lesson1({
       console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M2_L1_Desert+Whispers.mp3');
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
+
+  // Debug logging for carousel scroll state
+  useEffect(() => {
+    console.log("🎠 Carousel scroll state:", { isCardGestureActive, scrollEnabled: !isCardGestureActive });
+  }, [isCardGestureActive]);
+
+  // Safety mechanism: Auto-reset stuck gesture state after 100ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
 
   // Handle carousel scroll
   const handleScroll = (event: any) => {
@@ -146,157 +156,59 @@ export default function Adventure2_Module3_Lesson1({
     }
   }, [backgroundMusic.isLoaded]);
 
-  // Component mount logging + direct audio fallback
-  useEffect(() => {
-    const timestamp = new Date().toLocaleTimeString();
-    console.log('🎵 Adventure2_Module3_Lesson1 component mounted at:', timestamp);
-    
-    // Direct audio fallback (immediate, no timeout) in case useBackgroundMusic fails
-    const directAudioFallback = async () => {
-      try {
-        console.log('🎵 [DIRECT FALLBACK A2M3L1] Creating direct audio as backup');
-        
-        const { sound } = await Audio.Sound.createAsync(audioSource, {
-          shouldPlay: true,
-          volume: 0.15,
-          isLooping: true
-        });
-        
-        // Store sound reference for cleanup
-        directAudioSoundRef.current = sound;
-        
-        console.log('🎵 [DIRECT FALLBACK A2M3L1] Direct audio created and playing successfully!');
-        
-      } catch (error) {
-        console.error('🎵 [DIRECT FALLBACK A2M3L1] Direct audio fallback also failed:', error);
-      }
-    };
-    
-    // Start direct audio fallback immediately
-    directAudioFallback();
-  }, []);
-
   // Cleanup background music when component unmounts
   useEffect(() => {
     return () => {
-      console.log('🎵 Component unmounting - cleaning up all audio');
-      
-      // Stop background music hook
+      console.log('🎵 Component unmounting - cleaning up audio');
+
       if (backgroundMusic.stop) {
         console.log('🎵 Stopping background music on component unmount');
         backgroundMusic.stop();
       }
-      
-      // Stop direct audio if it exists
-      if (directAudioSoundRef.current) {
-        try {
-          console.log('🎵 Stopping direct audio on component unmount');
-          directAudioSoundRef.current.stopAsync();
-          directAudioSoundRef.current.unloadAsync();
-          directAudioSoundRef.current = null;
-        } catch (error) {
-          console.error('🎵 Error stopping direct audio on unmount:', error);
-        }
-      }
     };
   }, []);
 
-  // Enhanced Android touch handlers with improved sensitivity
-  const handleTouchStart = (event: any) => {
-    setTouchStart({ y: event.nativeEvent.pageY, time: Date.now() });
-    setIsCardGestureActive(true);
-    console.log("📖 Android card gesture started - blocking carousel");
-  };
-
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);
-    console.log("📖 Android card gesture ended - allowing carousel");
-    
-    if (!touchStart) return;
-    
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-    
-    // Improved Android swipe detection with better sensitivity
-    const minDistance = 25; // Reduced from 40 for better responsiveness
-    const maxTime = 300; // Shorter time for more responsive gestures
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.4; // Reduced threshold for better responsiveness
-    
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
-    setTouchStart(null);
-  };
-  // Enhanced iOS PanGestureHandler with gesture coordination
+  // Universal gesture handler for both iOS and Android
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
-    
     const { state, translationY, velocityY } = event.nativeEvent;
-    
+
     // Track gesture activity for carousel coordination
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      setIsCardGestureActive(false);
-      console.log("📱 iOS card gesture ended - allowing carousel");
+      console.log("📱 Card gesture started - blocking carousel");
     }
-    
-    if (state === State.END) {
-      console.log("📱 iOS PanGesture detected", {
-        translationY,
-        velocityY,
-        isCardExpanded,
-        platform: Platform.OS
-      });
-      
-      // iOS-optimized swipe detection with improved sensitivity
-      const minDistance = 25; // Reduced from 30 for better responsiveness
-      const minVelocity = 400; // Reduced from 500 for better responsiveness
-      
-      if (!isCardExpanded && (translationY < -minDistance || velocityY < -minVelocity)) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS
-        });
-        expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (isCardExpanded && (translationY > minDistance || velocityY > minVelocity)) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS
-        });
-        collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      console.log("📱 Gesture state:", state, {translationY, velocityY, isCardExpanded, platform: Platform.OS});
+
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
+
+        if (!isCardExpanded && (translationY < -minDistance || velocityY < -minVelocity)) {
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        } else if (isCardExpanded && (translationY > minDistance || velocityY > minVelocity)) {
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
       }
+
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
     }
   };
 
   // Expand the card to full height
   const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
-    
+
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: SCREEN_HEIGHT * 0.85,
@@ -309,13 +221,19 @@ export default function Adventure2_Module3_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card expansion animation finished");
+    });
   };
 
   // Collapse the card back to original size
   const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
-    
+
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: 160,
@@ -328,7 +246,9 @@ export default function Adventure2_Module3_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card collapse animation finished");
+    });
   };
 
   // Handle reading scroll
@@ -373,24 +293,11 @@ export default function Adventure2_Module3_Lesson1({
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
           <TouchableOpacity style={styles.backButton} onPress={() => {
-            // Stop all audio when going back
             if (backgroundMusic.isPlaying) {
               console.log('🎵 Stopping background music on back button');
               backgroundMusic.stop();
             }
-            
-            // Stop direct audio if it exists
-            if (directAudioSoundRef.current) {
-              try {
-                console.log('🎵 Stopping direct audio on back button');
-                directAudioSoundRef.current.stopAsync();
-                directAudioSoundRef.current.unloadAsync();
-                directAudioSoundRef.current = null;
-              } catch (error) {
-                console.error('🎵 Error stopping direct audio on back:', error);
-              }
-            }
-            
+
             (onBack || onDismiss)();
           }}>
             <Ionicons name="chevron-back" size={24} color="white" />
@@ -405,24 +312,11 @@ export default function Adventure2_Module3_Lesson1({
               currentImageIndex !== domeOfRockImages.length - 1 && styles.topContinueButtonDisabled
             ]}
             onPress={currentImageIndex === domeOfRockImages.length - 1 ? () => {
-              // Stop all audio before continuing (no await for instant navigation)
               if (backgroundMusic.isPlaying) {
                 console.log('🎵 Stopping background music before continue');
-                backgroundMusic.stop(); // Remove await for instant navigation
+                backgroundMusic.stop();
               }
-              
-              // Stop direct audio if it exists
-              if (directAudioSoundRef.current) {
-                try {
-                  console.log('🎵 Stopping direct audio before continue');
-                  directAudioSoundRef.current.stopAsync();
-                  directAudioSoundRef.current.unloadAsync();
-                  directAudioSoundRef.current = null;
-                } catch (error) {
-                  console.error('🎵 Error stopping direct audio before continue:', error);
-                }
-              }
-              
+
               onContinue();
             } : undefined}
             disabled={currentImageIndex !== domeOfRockImages.length - 1}
@@ -451,221 +345,108 @@ export default function Adventure2_Module3_Lesson1({
         )}
 
         {/* Reading Card at Bottom - Expandable */}
-        {Platform.OS === 'ios' ? (
-          <PanGestureHandler
-            ref={panGestureRef}
-            onGestureEvent={handleSwipeGesture}
-            onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-15, 15]}
-            failOffsetX={[-40, 40]}
-            minPointers={1}
-            maxPointers={1}
-          >
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={handleSwipeGesture}
+          onHandlerStateChange={handleSwipeGesture}
+          activeOffsetY={[-15, 15]}
+          failOffsetX={[-40, 40]}
+          minPointers={1}
+          maxPointers={1}
+        >
+        <Animated.View style={[
+          styles.cardContainer,
+          {
+            transform: [{ translateY: cardTranslateY }]
+          }
+        ]}>
           <Animated.View style={[
-            styles.cardContainer,
+            styles.readingCard,
             {
-              transform: [{ translateY: cardTranslateY }]
+              height: cardHeight,
             }
           ]}>
-            <Animated.View style={[
-              styles.readingCard,
-              {
-                height: cardHeight,
-              }
-            ]}>
-            {/* Top handle indicator */}
-            <View style={styles.cardHandle} />
+          {/* Top handle indicator */}
+          <View style={styles.cardHandle} />
 
-            {/* Collapsed content */}
-            <Animated.View style={[
-              styles.collapsedContent,
-              { opacity: cardOpacity }
-            ]}>
-              {Platform.OS === 'ios' ? (
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    Building the Dome of the Rock
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    The Dome of the Rock is one of the oldest and most remarkable buildings...
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.collapsedContentWrapper}>
-                  <Text style={styles.collapsedTitle}>
-                    Building the Dome of the Rock
-                  </Text>
-                  <Text style={styles.collapsedSubtitle}>
-                    The Dome of the Rock is one of the oldest and most remarkable buildings...
-                  </Text>
-                </View>
-              )}
-            </Animated.View>
-
-            {/* Expanded content */}
-            {isCardExpanded && (
-              <Animated.View style={[
-                styles.expandedContent,
-                { opacity: Animated.subtract(1, cardOpacity) }
-              ]}>
-
-                <GestureHandlerScrollView 
-                  ref={scrollViewGestureRef}
-                  waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
-                  style={styles.expandedScroll} 
-                  showsVerticalScrollIndicator={false}
-                  onScroll={handleReadingScroll}
-                  scrollEventThrottle={100}
-                >
-                  <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Building the Dome of the Rock
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 3 • Lesson 1
-                      </Text>
-                    </View>
-
-                    {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>
-                        The Dome of the Rock is one of the oldest and most remarkable buildings in Islamic history. Caliph Abd al-Malik began its construction in Jerusalem, and it was completed in 691 CE. Unlike earlier Roman or Byzantine churches, its design was a perfect circle with a golden dome that could be seen from all across the city. Built to honor the Prophet Muhammad&apos;s Night Journey and Ascension, it also served as a bold symbol of Islamic identity and the empire&apos;s growing power.
-                      </Text>
-                    </View>
-
-                    {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Perfect Circle Design"
-                          definition="Unique circular architecture with golden dome, unlike Roman or Byzantine churches"
-                        />
-                        <KeyTermRow
-                          term="Night Journey and Ascension"
-                          definition="Prophet Muhammad's miraculous journey honored by the Dome of the Rock"
-                        />
-                        <KeyTermRow
-                          term="691 CE Completion"
-                          definition="Year Abd al-Malik's remarkable building project was finished in Jerusalem"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Bottom spacer to ensure full scroll */}
-                    <View style={styles.sheetBottomSpacer} />
-                  </View>
-                </GestureHandlerScrollView>
-                
-              </Animated.View>
-            )}
-            </Animated.View>
+          {/* Collapsed content */}
+          <Animated.View style={[
+            styles.collapsedContent,
+            { opacity: cardOpacity }
+          ]}>
+            <View style={styles.readingCardHeader}>
+              <Text style={styles.cardTitle}>
+                Building the Dome of the Rock
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                The Dome of the Rock is one of the oldest and most remarkable buildings...
+              </Text>
+            </View>
           </Animated.View>
-          </PanGestureHandler>
-        ) : (
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-          <Animated.View style={[
-            styles.cardContainer,
-            {
-              transform: [{ translateY: cardTranslateY }]
-            }
-          ]}>
-            <Animated.View style={[
-              styles.readingCard,
-              {
-                height: cardHeight,
-              }
-            ]}>
-            {/* Top handle indicator */}
-            <View style={styles.cardHandle} />
 
-            {/* Collapsed content */}
+          {/* Expanded content */}
+          {isCardExpanded && (
             <Animated.View style={[
-              styles.collapsedContent,
-              { opacity: cardOpacity }
+              styles.expandedContent,
+              { opacity: Animated.subtract(1, cardOpacity) }
             ]}>
-              <TouchableOpacity 
-                onPress={expandCard} 
-                activeOpacity={0.8}
+
+              <GestureHandlerScrollView
+                ref={scrollViewGestureRef}
+                waitFor={panGestureRef}
+                style={styles.expandedScroll}
+                showsVerticalScrollIndicator={false}
+                onScroll={handleReadingScroll}
+                scrollEventThrottle={100}
               >
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    Building the Dome of the Rock
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    In 691-692 CE, Abd al-Malik built this architectural marvel...
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Expanded content */}
-            {isCardExpanded && (
-              <Animated.View style={[
-                styles.expandedContent,
-                { opacity: Animated.subtract(1, cardOpacity) }
-              ]}>
-
-                <GestureHandlerScrollView 
-                  ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
-                  style={styles.expandedScroll} 
-                  showsVerticalScrollIndicator={false}
-                  onScroll={handleReadingScroll}
-                  scrollEventThrottle={100}
-                >
-                  <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Building the Dome of the Rock
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 3 • Lesson 1
-                      </Text>
-                    </View>
-
-                    {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Architectural Achievement</Text>
-                      <Text style={styles.historicalText}>
-                        The Dome of the Rock stands as one of the earliest and most magnificent examples of Islamic architecture. Completed in 691 CE under Caliph Abd al-Malik, it showcases innovative construction techniques including a perfect circular design topped by a golden dome visible throughout Jerusalem. The building demonstrates the Umayyad Empire's architectural ambitions and serves as a powerful symbol of Islamic presence in the holy city, marking the site of the Prophet Muhammad's Night Journey to the heavens.
-                      </Text>
-                    </View>
-
-                    {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Dome of the Rock (691-692 CE)"
-                          definition="First major architectural project of Islamic civilization in Jerusalem"
-                        />
-                        <KeyTermRow
-                          term="Abd al-Malik"
-                          definition="Umayyad caliph who commissioned this architectural masterpiece"
-                        />
-                        <KeyTermRow
-                          term="Jerusalem (Al-Quds)"
-                          definition="Holy city where this monument established Islamic architectural presence"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Bottom spacer to ensure full scroll */}
-                    <View style={styles.sheetBottomSpacer} />
+                <View style={styles.expandedContentInner}>
+                  {/* Title Section */}
+                  <View style={styles.titleSection}>
+                    <Text style={styles.sheetTitle}>
+                      Building the Dome of the Rock
+                    </Text>
+                    <Text style={styles.sheetSubtitle}>
+                      Module 3 • Lesson 1
+                    </Text>
                   </View>
-                </GestureHandlerScrollView>
-                
-              </Animated.View>
-            )}
+
+                  {/* Historical Content */}
+                  <View style={styles.historicalSection}>
+                    <Text style={styles.sectionTitle}>Historical Context</Text>
+                    <Text style={styles.historicalText}>
+                      The Dome of the Rock is one of the oldest and most remarkable buildings in Islamic history. Caliph Abd al-Malik began its construction in Jerusalem, and it was completed in 691 CE. Unlike earlier Roman or Byzantine churches, its design was a perfect circle with a golden dome that could be seen from all across the city. Built to honor the Prophet Muhammad&apos;s Night Journey and Ascension, it also served as a bold symbol of Islamic identity and the empire&apos;s growing power.
+                    </Text>
+                  </View>
+
+                  {/* Key Terms Section */}
+                  <View style={styles.keyTermsSection}>
+                    <Text style={styles.sectionTitle}>Key Terms</Text>
+                    <View style={styles.keyTermsContainer}>
+                      <KeyTermRow
+                        term="Perfect Circle Design"
+                        definition="Unique circular architecture with golden dome, unlike Roman or Byzantine churches"
+                      />
+                      <KeyTermRow
+                        term="Night Journey and Ascension"
+                        definition="Prophet Muhammad's miraculous journey honored by the Dome of the Rock"
+                      />
+                      <KeyTermRow
+                        term="691 CE Completion"
+                        definition="Year Abd al-Malik's remarkable building project was finished in Jerusalem"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Bottom spacer to ensure full scroll */}
+                  <View style={styles.sheetBottomSpacer} />
+                </View>
+              </GestureHandlerScrollView>
+
             </Animated.View>
+          )}
           </Animated.View>
-          </View>
-        )}
+        </Animated.View>
+        </PanGestureHandler>
 
       </View>
     </>
@@ -946,14 +727,5 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
-  },
-  collapsedContentWrapper: {
-    flex: 1, justifyContent: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 25, marginTop: -15,
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans", fontSize: 18, fontWeight: "600", color: "white", marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans", fontSize: 14, color: "white", opacity: 0.8, lineHeight: 20,
   },
 });

@@ -67,10 +67,6 @@ export default function Adventure4_Module1_Lesson1({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{
-    y: number;
-    time: number;
-  } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
@@ -161,6 +157,29 @@ export default function Adventure4_Module1_Lesson1({
     };
   }, []);
 
+  // Debug logging for carousel scroll state
+  useEffect(() => {
+    console.log(
+      `🎠 Carousel scroll state: ${
+        isCardGestureActive
+          ? "🔒 BLOCKED (card gesture active)"
+          : "✅ ENABLED (can swipe images)"
+      }`
+    );
+  }, [isCardGestureActive]);
+
+  // Safety mechanism: Reset gesture state if stuck
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
+
   // Navigate to next image (Swipe button functionality)
   const handleSwipeNext = () => {
     if (currentImageIndex < mosqueMosaics.length - 1) {
@@ -174,137 +193,70 @@ export default function Adventure4_Module1_Lesson1({
     }
   };
 
-  // Enhanced iOS PanGestureHandler with gesture coordination
+  // Universal gesture handler using PanGestureHandler (works on all platforms)
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== "ios") return;
-
     const { state, translationY, velocityY } = event.nativeEvent;
 
+    // Track gesture activity for carousel coordination
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (
-      state === State.END ||
-      state === State.CANCELLED ||
-      state === State.FAILED
-    ) {
-      setIsCardGestureActive(false);
-      console.log("📱 iOS card gesture ended - allowing carousel");
+      console.log("📱 Card gesture started - blocking carousel");
     }
 
-    if (state === State.END) {
-      console.log("📱 iOS PanGesture detected", {
+    // Handle ALL end states (END, CANCELLED, FAILED)
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      console.log("📱 Gesture state:", state, {
         translationY,
         velocityY,
         isCardExpanded,
         platform: Platform.OS,
       });
 
-      const minDistance = 20;
-      const minVelocity = 300;
+      // Only process swipe if gesture completed successfully
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
 
-      if (
-        !isCardExpanded &&
-        (translationY < -minDistance || velocityY < -minVelocity)
-      ) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS,
-        });
-        expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (
-        isCardExpanded &&
-        (translationY > minDistance || velocityY > minVelocity)
-      ) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS,
-        });
-        collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (
+          !isCardExpanded &&
+          (translationY < -minDistance || velocityY < -minVelocity)
+        ) {
+          console.log("📱 Swipe up detected - expanding card", {
+            translationY,
+            velocityY,
+          });
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        } else if (
+          isCardExpanded &&
+          (translationY > minDistance || velocityY > minVelocity)
+        ) {
+          console.log("📱 Swipe down detected - collapsing card", {
+            translationY,
+            velocityY,
+          });
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
       }
+
+      // Always reset if we reach here (gesture ended without action)
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
     }
-  };
-
-  // Enhanced Android touch handlers
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now(),
-    });
-    setIsCardGestureActive(true);
-    console.log("📖 Android card gesture started - blocking carousel");
-  };
-
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);
-    console.log("📖 Android card gesture ended - allowing carousel");
-
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd;
-    const time = Date.now() - touchStart.time;
-
-    const minDistance = 25;
-    const maxTime = 400;
-    const velocity = Math.abs(distance) / time;
-    const velocityThreshold = 0.3;
-
-    console.log("📖 Android gesture analysis:", {
-      distance,
-      time,
-      velocity: velocity.toFixed(2),
-      minDistance,
-      maxTime,
-      velocityThreshold,
-      meetsDistanceRequirement: Math.abs(distance) > minDistance,
-      meetsTimeRequirement: time < maxTime,
-      meetsVelocityRequirement: velocity > velocityThreshold,
-    });
-
-    if (
-      !isCardExpanded &&
-      distance > minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (
-      isCardExpanded &&
-      distance < -minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else {
-      console.log("📖 Android gesture rejected - requirements not met");
-    }
-
-    setTouchStart(null);
   };
 
   // Expand the card to full height
   const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
     setShowReadContent(true);
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -318,13 +270,20 @@ export default function Adventure4_Module1_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card expansion animation finished");
+    });
   };
 
   // Collapse the card back to original size
   const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
     setShowReadContent(false);
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -338,7 +297,9 @@ export default function Adventure4_Module1_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card collapse animation finished");
+    });
   };
 
   // Handle reading scroll
@@ -448,262 +409,123 @@ export default function Adventure4_Module1_Lesson1({
           </View>
         )}
 
-        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
-        {Platform.OS === "ios" ? (
-          // iOS: Native PanGestureHandler
-          <PanGestureHandler
-            ref={panGestureRef}
-            onGestureEvent={handleSwipeGesture}
-            onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-15, 15]}
-            failOffsetX={[-40, 40]}
-            minPointers={1}
-            maxPointers={1}
+        {/* Reading Card at Bottom - Universal Gesture Handling */}
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={handleSwipeGesture}
+          onHandlerStateChange={handleSwipeGesture}
+          activeOffsetY={[-15, 15]}
+          failOffsetX={[-40, 40]}
+          minPointers={1}
+          maxPointers={1}
+        >
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }],
+              },
+            ]}
           >
             <Animated.View
               style={[
-                styles.cardContainer,
+                styles.readingCard,
                 {
-                  transform: [{ translateY: cardTranslateY }],
+                  height: cardHeight,
                 },
               ]}
             >
+              {/* Top handle indicator */}
+              <View style={styles.cardHandle} />
+
+              {/* Collapsed content */}
               <Animated.View
-                style={[
-                  styles.readingCard,
-                  {
-                    height: cardHeight,
-                  },
-                ]}
+                style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                {/* Top handle indicator */}
-                <View style={styles.cardHandle} />
-
-                {/* iOS Collapsed content */}
-                <Animated.View
-                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
-                >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Great Mosque of Damascus Mosaics
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Marvel at shimmering landscapes made of tiny tiles...
-                    </Text>
-                  </View>
-                </Animated.View>
-
-                {/* Expanded content when card is swiped up */}
-                {isCardExpanded && (
-                  <Animated.View
-                    style={[
-                      styles.expandedContent,
-                      { opacity: Animated.subtract(1, cardOpacity) },
-                    ]}
-                  >
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      waitFor={
-                        Platform.OS === "ios" ? panGestureRef : undefined
-                      }
-                      simultaneousHandlers={
-                        Platform.OS === "ios" ? panGestureRef : undefined
-                      }
-                    >
-                      <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Great Mosque of Damascus Mosaics
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Adventure 4 • Module 1 • Lesson 1
-                          </Text>
-                        </View>
-
-                        {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            The Great Mosque of Damascus is one of the oldest
-                            and most beautiful in the world - and its walls
-                            sparkle with Byzantine-made mosaics. These
-                            weren&apos;t pictures of people or battles. Instead,
-                            they showed peaceful imaginary landscapes filled
-                            with trees, palaces, and flowing water. These
-                            dreamlike scenes reminded worshippers of paradise,
-                            creating a calm and sacred feeling inside the
-                            mosque.
-                          </Text>
-                        </View>
-
-                        {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Byzantine Mosaics"
-                              definition="Decorative art made of tiny colored tiles created by artists from the Byzantine Empire"
-                            />
-                            <KeyTermRow
-                              term="Paradise Landscapes"
-                              definition="Peaceful imaginary scenes of trees, palaces, and water representing heavenly gardens"
-                            />
-                            <KeyTermRow
-                              term="Artistic Collaboration"
-                              definition="The Umayyads' practice of hiring skilled artists regardless of their empire of origin"
-                            />
-                          </View>
-                        </View>
-
-                        {/* Bottom spacer to ensure full scroll */}
-                        <View style={styles.sheetBottomSpacer} />
-                      </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Great Mosque of Damascus Mosaics
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    Marvel at shimmering landscapes made of tiny tiles...
+                  </Text>
+                </View>
               </Animated.View>
-            </Animated.View>
-          </PanGestureHandler>
-        ) : (
-          // Android: Custom Touch Handlers
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            <Animated.View
-              style={[
-                styles.cardContainer,
-                {
-                  transform: [{ translateY: cardTranslateY }],
-                },
-              ]}
-            >
-              <Animated.View
-                style={[
-                  styles.readingCard,
-                  {
-                    height: cardHeight,
-                  },
-                ]}
-              >
-                {/* Top handle indicator */}
-                <View style={styles.cardHandle} />
 
-                {/* Android Collapsed content */}
+              {/* Expanded content */}
+              {isCardExpanded && (
                 <Animated.View
-                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                  style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) },
+                  ]}
                 >
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      Great Mosque of Damascus Mosaics
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Marvel at shimmering landscapes made of tiny tiles...
-                    </Text>
-                  </View>
-                </Animated.View>
-
-                {/* Expanded content when card is swiped up */}
-                {isCardExpanded && (
-                  <Animated.View
-                    style={[
-                      styles.expandedContent,
-                      { opacity: Animated.subtract(1, cardOpacity) },
-                    ]}
+                  <GestureHandlerScrollView
+                    ref={scrollViewGestureRef}
+                    style={styles.expandedScroll}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={handleReadingScroll}
+                    scrollEventThrottle={100}
+                    waitFor={panGestureRef}
+                    simultaneousHandlers={panGestureRef}
                   >
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      onScrollBeginDrag={() => {
-                        console.log(
-                          "📖 Android: Internal scrolling started - maintaining gesture block"
-                        );
-                        setIsCardGestureActive(true);
-                      }}
-                      onScrollEndDrag={() => {
-                        console.log(
-                          "📖 Android: Internal scrolling ended - allowing carousel"
-                        );
-                        setIsCardGestureActive(false);
-                      }}
-                    >
-                      <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Great Mosque of Damascus Mosaics
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Adventure 4 • Module 1 • Lesson 1
-                          </Text>
-                        </View>
-
-                        {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            The Great Mosque of Damascus is one of the oldest
-                            and most beautiful in the world - and its walls
-                            sparkle with Byzantine-made mosaics. These
-                            weren&apos;t pictures of people or battles. Instead,
-                            they showed peaceful imaginary landscapes filled
-                            with trees, palaces, and flowing water. These
-                            dreamlike scenes reminded worshippers of paradise,
-                            creating a calm and sacred feeling inside the
-                            mosque.
-                          </Text>
-                          <Text
-                            style={[styles.historicalText, { marginTop: 16 }]}
-                          >
-                            To build something this beautiful, the Umayyads
-                            invited expert Byzantine mosaic artists - even
-                            though they came from a former rival empire. This
-                            shows how the Umayyads valued skill, no matter where
-                            it came from. They didn&apos;t just decorate for
-                            beauty - they used art to create peace, wonder, and
-                            connection. Their mosaics didn&apos;t tell one story
-                            - they told many, in color and light.
-                          </Text>
-                        </View>
-
-                        {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Byzantine Mosaics"
-                              definition="Decorative art made of tiny colored tiles created by artists from the Byzantine Empire"
-                            />
-                            <KeyTermRow
-                              term="Paradise Landscapes"
-                              definition="Peaceful imaginary scenes of trees, palaces, and water representing heavenly gardens"
-                            />
-                            <KeyTermRow
-                              term="Artistic Collaboration"
-                              definition="The Umayyads' practice of hiring skilled artists regardless of their empire of origin"
-                            />
-                          </View>
-                        </View>
-
-                        {/* Bottom spacer to ensure full scroll */}
-                        <View style={styles.sheetBottomSpacer} />
+                    <View style={styles.expandedContentInner}>
+                      {/* Title Section */}
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Great Mosque of Damascus Mosaics
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Adventure 4 • Module 1 • Lesson 1
+                        </Text>
                       </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
-              </Animated.View>
+
+                      {/* Historical Content */}
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>
+                          Historical Context
+                        </Text>
+                        <Text style={styles.historicalText}>
+                          The Great Mosque of Damascus is one of the oldest
+                          and most beautiful in the world - and its walls
+                          sparkle with Byzantine-made mosaics. These
+                          weren&apos;t pictures of people or battles. Instead,
+                          they showed peaceful imaginary landscapes filled
+                          with trees, palaces, and flowing water. These
+                          dreamlike scenes reminded worshippers of paradise,
+                          creating a calm and sacred feeling inside the
+                          mosque.
+                        </Text>
+                      </View>
+
+                      {/* Key Terms Section */}
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Byzantine Mosaics"
+                            definition="Decorative art made of tiny colored tiles created by artists from the Byzantine Empire"
+                          />
+                          <KeyTermRow
+                            term="Paradise Landscapes"
+                            definition="Peaceful imaginary scenes of trees, palaces, and water representing heavenly gardens"
+                          />
+                          <KeyTermRow
+                            term="Artistic Collaboration"
+                            definition="The Umayyads' practice of hiring skilled artists regardless of their empire of origin"
+                          />
+                        </View>
+                      </View>
+
+                      {/* Bottom spacer to ensure full scroll */}
+                      <View style={styles.sheetBottomSpacer} />
+                    </View>
+                  </GestureHandlerScrollView>
+                </Animated.View>
+              )}
             </Animated.View>
-          </View>
-        )}
+          </Animated.View>
+        </PanGestureHandler>
       </View>
     </>
   );
@@ -983,29 +805,5 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
-  },
-
-  // Android-Specific Styles for proper text positioning
-  collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15,
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    opacity: 0.8,
-    lineHeight: 20,
   },
 });

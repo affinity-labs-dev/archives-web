@@ -37,7 +37,6 @@ export default function Adventure4_Module3_Lesson2({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [showReadContent, setShowReadContent] = useState(false);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -117,6 +116,29 @@ export default function Adventure4_Module3_Lesson2({
     };
   }, []);
 
+  // Debug logging for carousel scroll state
+  useEffect(() => {
+    console.log(
+      `🎠 Carousel scroll state: ${
+        isCardGestureActive
+          ? "🔒 BLOCKED (card gesture active)"
+          : "✅ ENABLED (can swipe images)"
+      }`
+    );
+  }, [isCardGestureActive]);
+
+  // Safety mechanism: Reset gesture state if stuck
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
+
   // Handle horizontal scroll for image tracking
   const handleScroll = (event: any) => {
     const { contentOffset } = event.nativeEvent;
@@ -138,123 +160,70 @@ export default function Adventure4_Module3_Lesson2({
     }
   };
 
-  // Enhanced iOS PanGestureHandler with gesture coordination
+  // Universal gesture handler using PanGestureHandler (works on all platforms)
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
-
     const { state, translationY, velocityY } = event.nativeEvent;
 
     // Track gesture activity for carousel coordination
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      setIsCardGestureActive(false);
-      console.log("📱 iOS card gesture ended - allowing carousel");
+      console.log("📱 Card gesture started - blocking carousel");
     }
 
-    if (state === State.END) {
-      console.log("📱 iOS PanGesture detected", {
+    // Handle ALL end states (END, CANCELLED, FAILED)
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      console.log("📱 Gesture state:", state, {
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS
+        platform: Platform.OS,
       });
 
-      // Improved iOS swipe detection with better sensitivity
-      const minDistance = 20; // Reduced from 30 for better responsiveness
-      const minVelocity = 300; // Reduced from 500 for easier activation
+      // Only process swipe if gesture completed successfully
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
 
-      if (!isCardExpanded &&
-          (translationY < -minDistance || velocityY < -minVelocity)) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS
-        });
-        expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (isCardExpanded &&
-                 (translationY > minDistance || velocityY > minVelocity)) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS
-        });
-        collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (
+          !isCardExpanded &&
+          (translationY < -minDistance || velocityY < -minVelocity)
+        ) {
+          console.log("📱 Swipe up detected - expanding card", {
+            translationY,
+            velocityY,
+          });
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        } else if (
+          isCardExpanded &&
+          (translationY > minDistance || velocityY > minVelocity)
+        ) {
+          console.log("📱 Swipe down detected - collapsing card", {
+            translationY,
+            velocityY,
+          });
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
       }
+
+      // Always reset if we reach here (gesture ended without action)
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
     }
-  };
-
-  // Enhanced Android touch handlers with improved sensitivity
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now()
-    });
-    setIsCardGestureActive(true);
-    console.log("📖 Android card gesture started - blocking carousel");
-  };
-
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);
-    console.log("📖 Android card gesture ended - allowing carousel");
-
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-
-    // Improved Android swipe detection with better sensitivity
-    const minDistance = 25; // Reduced from 40 for better responsiveness
-    const maxTime = 400; // Increased from 300 for easier activation
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.3; // Reduced from 0.5 for easier activation
-
-    console.log("📖 Android gesture analysis:", {
-      distance,
-      time,
-      velocity: velocity.toFixed(2),
-      minDistance,
-      maxTime,
-      velocityThreshold,
-      meetsDistanceRequirement: Math.abs(distance) > minDistance,
-      meetsTimeRequirement: time < maxTime,
-      meetsVelocityRequirement: velocity > velocityThreshold
-    });
-
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else {
-      console.log("📖 Android gesture rejected - requirements not met");
-    }
-
-    // Reset touch start
-    setTouchStart(null);
   };
 
   // Expand the card to full height
   const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
     setShowReadContent(true);
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -268,13 +237,20 @@ export default function Adventure4_Module3_Lesson2({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card expansion animation finished");
+    });
   };
 
   // Collapse the card back to original size
   const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
     setShowReadContent(false);
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -288,7 +264,9 @@ export default function Adventure4_Module3_Lesson2({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card collapse animation finished");
+    });
   };
 
   // Handle reading scroll - track scroll position for gesture priority
@@ -388,39 +366,38 @@ export default function Adventure4_Module3_Lesson2({
           </TouchableOpacity>
         </SafeAreaView>
 
-        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
-        {Platform.OS === 'ios' ? (
-          // iOS: Native PanGestureHandler
-          <PanGestureHandler
-            ref={panGestureRef}
-            onGestureEvent={handleSwipeGesture}
-            onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-15, 15]} // Reduced for better sensitivity
-            failOffsetX={[-40, 40]} // Increased to prevent conflict with horizontal scroll
-            minPointers={1}
-            maxPointers={1}
-          >
-            <Animated.View style={[
+        {/* Reading Card at Bottom - Universal Gesture Handling */}
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={handleSwipeGesture}
+          onHandlerStateChange={handleSwipeGesture}
+          activeOffsetY={[-15, 15]}
+          failOffsetX={[-40, 40]}
+          minPointers={1}
+          maxPointers={1}
+        >
+          <Animated.View
+            style={[
               styles.cardContainer,
               {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-              {/* iOS Card Content - Use existing structure */}
-              <Animated.View style={[
+                transform: [{ translateY: cardTranslateY }],
+              },
+            ]}
+          >
+            <Animated.View
+              style={[
                 styles.readingCard,
                 {
                   height: cardHeight,
                 }
               ]}>
-                {/* Top handle indicator */}
-                <View style={styles.cardHandle} />
+              {/* Top handle indicator */}
+              <View style={styles.cardHandle} />
 
-                {/* iOS Collapsed content - existing structure */}
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
+              {/* Collapsed content */}
+              <Animated.View
+                style={[styles.collapsedContent, { opacity: cardOpacity }]}
+              >
                   <View style={styles.readingCardHeader}>
                     <Text style={styles.cardTitle}>
                       Illuminated Manuscripts & Scribes
@@ -431,21 +408,23 @@ export default function Adventure4_Module3_Lesson2({
                   </View>
                 </Animated.View>
 
-                {/* Expanded content when card is swiped up */}
-                {isCardExpanded && (
-                  <Animated.View style={[
+              {/* Expanded content */}
+              {isCardExpanded && (
+                <Animated.View
+                  style={[
                     styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) }
-                  ]}>
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
-                      simultaneousHandlers={Platform.OS === 'ios' ? panGestureRef : undefined}
-                    >
+                    { opacity: Animated.subtract(1, cardOpacity) },
+                  ]}
+                >
+                  <GestureHandlerScrollView
+                    ref={scrollViewGestureRef}
+                    style={styles.expandedScroll}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={handleReadingScroll}
+                    scrollEventThrottle={100}
+                    waitFor={panGestureRef}
+                    simultaneousHandlers={panGestureRef}
+                  >
                       <View style={styles.expandedContentInner}>
                         {/* Title Section */}
                         <View style={styles.titleSection}>
@@ -492,112 +471,7 @@ export default function Adventure4_Module3_Lesson2({
                 )}
               </Animated.View>
             </Animated.View>
-          </PanGestureHandler>
-        ) : (
-          // Android: Custom Touch Handlers
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-              <Animated.View style={[
-                styles.readingCard,
-                {
-                  height: cardHeight,
-                }
-              ]}>
-                {/* Top handle indicator */}
-                <View style={styles.cardHandle} />
-
-                {/* Android Collapsed content with improved styling */}
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      Illuminated Manuscripts & Scribes
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Illuminated manuscripts weren&apos;t made quickly - they took time, patience...
-                    </Text>
-                  </View>
-                </Animated.View>
-
-                {/* Expanded content when card is swiped up */}
-                {isCardExpanded && (
-                  <Animated.View style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) }
-                  ]}>
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      onScrollBeginDrag={() => {
-                        console.log("📖 Android: Internal scrolling started - maintaining gesture block");
-                        setIsCardGestureActive(true);
-                      }}
-                      onScrollEndDrag={() => {
-                        console.log("📖 Android: Internal scrolling ended - allowing carousel");
-                        setIsCardGestureActive(false);
-                      }}
-                    >
-                      <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Illuminated Manuscripts & Scribes
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 3 • Lesson 2
-                          </Text>
-                        </View>
-
-                        {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>
-                            {historicalText}
-                          </Text>
-                        </View>
-
-                        {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Kufic Script"
-                              definition="Early angular Arabic script used for copying Qur'anic manuscripts with geometric precision"
-                            />
-                            <KeyTermRow
-                              term="Illuminated Manuscripts"
-                              definition="Hand-copied books decorated with gold paint, intricate borders, and ornate calligraphy"
-                            />
-                            <KeyTermRow
-                              term="Scribes (Kuttāb)"
-                              definition="Skilled copyists who trained for years to master Arabic calligraphy and manuscript production"
-                            />
-                          </View>
-                        </View>
-
-                        {/* Bottom spacer to ensure full scroll */}
-                        <View style={styles.sheetBottomSpacer} />
-                      </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
-              </Animated.View>
-            </Animated.View>
-          </View>
-        )}
+        </PanGestureHandler>
 
       </View>
     </>
@@ -878,29 +752,5 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
-  },
-
-  // Android-Specific Styles for proper text positioning
-  collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    opacity: 0.8,
-    lineHeight: 20,
   },
 });
