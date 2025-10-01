@@ -78,6 +78,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
+          headerShown: false,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <HomeIcon
               size={24}
@@ -90,6 +91,7 @@ export default function TabLayout() {
         name="eras"
         options={{
           title: 'Eras',
+          headerShown: false,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <ErasIcon
               size={24}
@@ -102,6 +104,7 @@ export default function TabLayout() {
         name="subscribe"
         options={{
           title: 'Subscribe',
+          headerShown: false,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <SubscribeIcon
               size={24}
@@ -114,6 +117,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          headerShown: false,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <ProfileIcon
               size={24}

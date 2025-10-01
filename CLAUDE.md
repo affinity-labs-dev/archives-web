@@ -152,18 +152,6 @@ services/
 ├── ProgressService.ts         # Progress data management service
 ├── BackgroundSyncService.ts   # Original multi-table sync service
 └── SimplifiedSyncService.ts   # New single-table JSONB sync service
-
-hooks/
-├── lib/                  # Service utilities
-│   └── supabase.ts      # Supabase client configuration (corrected path)
-├── useAnalytics.ts                        # PostHog analytics integration with educational events
-├── useColorScheme.ts                      # Theme color scheme handling
-├── useThemeColor.ts                       # Color theme utilities
-├── useSyncIntegration.ts                  # Sync integration hooks with debouncing
-├── useAppTrackingTransparency.ts          # iOS App Tracking Transparency hook for privacy compliance
-├── useAppTrackingTransparency.native.ts  # Native-specific ATT implementation
-├── useAppTrackingTransparency.web.ts     # Web-specific ATT implementation
-└── useRevenueCat.ts                       # RevenueCat subscription management hooks (active implementation)
 ```
 
 ### Core Architecture Patterns
@@ -363,8 +351,8 @@ EXPO_NO_CAPABILITY_SYNC=1 # Disables automatic capability sync for iOS builds
 - **TypeScript**: Strict mode enabled with path aliases (`@/*` → project root)
 
 #### Build Configuration
-- **App Version**: 2.1.0 (current production version)
-- **iOS Build Number**: 30 (auto-increment enabled for production builds)
+- **App Version**: 2.2.0 (current production version)
+- **iOS Build Number**: 40 (auto-increment enabled for production builds)
 - **Android Version Code**: 3 (auto-increment enabled for production builds)
 - **Expo SDK**: 54.0.0 (latest stable)
 - **React Native**: 0.81.4 with new architecture enabled
