@@ -81,10 +81,6 @@ export default function Adventure1_Module2_Lesson1({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{
-    y: number;
-    time: number;
-  } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
@@ -188,6 +184,18 @@ export default function Adventure1_Module2_Lesson1({
     );
   }, [isCardGestureActive]);
 
+  // Safety mechanism: Reset gesture state if stuck
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
+
   // Navigate to next image (Swipe button functionality)
   const handleSwipeNext = () => {
     if (currentImageIndex < palaceInteriors.length - 1) {
@@ -201,135 +209,59 @@ export default function Adventure1_Module2_Lesson1({
     }
   };
 
-  // Enhanced iOS PanGestureHandler with gesture coordination
+  // Universal gesture handler using PanGestureHandler (works on all platforms)
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== "ios") return;
-
     const { state, translationY, velocityY } = event.nativeEvent;
 
     // Track gesture activity for carousel coordination
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (
-      state === State.END ||
-      state === State.CANCELLED ||
-      state === State.FAILED
-    ) {
-      setIsCardGestureActive(false);
-      console.log("📱 iOS card gesture ended - allowing carousel");
+      console.log("📱 Card gesture started - blocking carousel");
     }
 
-    if (state === State.END) {
-      console.log("📱 iOS PanGesture detected", {
+    // Handle ALL end states (END, CANCELLED, FAILED)
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      console.log("📱 Gesture state:", state, {
         translationY,
         velocityY,
         isCardExpanded,
         platform: Platform.OS,
       });
 
-      // Improved iOS swipe detection with better sensitivity
-      const minDistance = 20; // Reduced from 30 for better responsiveness
-      const minVelocity = 300; // Reduced from 500 for easier activation
+      // Only process swipe if gesture completed successfully
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
 
-      if (
-        !isCardExpanded &&
-        (translationY < -minDistance || velocityY < -minVelocity)
-      ) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS,
-        });
-        expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (
-        isCardExpanded &&
-        (translationY > minDistance || velocityY > minVelocity)
-      ) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
-          translationY,
-          velocityY,
-          platform: Platform.OS,
-        });
-        collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (
+          !isCardExpanded &&
+          (translationY < -minDistance || velocityY < -minVelocity)
+        ) {
+          console.log("📱 Swipe up detected - expanding card", {
+            translationY,
+            velocityY,
+          });
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        } else if (
+          isCardExpanded &&
+          (translationY > minDistance || velocityY > minVelocity)
+        ) {
+          console.log("📱 Swipe down detected - collapsing card", {
+            translationY,
+            velocityY,
+          });
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
       }
+
+      // Always reset if we reach here (gesture ended without action)
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
     }
-  };
-
-  // Enhanced Android touch handlers with improved sensitivity
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now(),
-    });
-    setIsCardGestureActive(true);
-    console.log("📖 Android card gesture started - blocking carousel");
-  };
-
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);
-    console.log("📖 Android card gesture ended - allowing carousel");
-
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-
-    // Improved Android swipe detection with better sensitivity
-    const minDistance = 25; // Reduced from 40 for better responsiveness
-    const maxTime = 400; // Increased from 300 for easier activation
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.3; // Reduced from 0.5 for easier activation
-
-    console.log("📖 Android gesture analysis:", {
-      distance,
-      time,
-      velocity: velocity.toFixed(2),
-      minDistance,
-      maxTime,
-      velocityThreshold,
-      meetsDistanceRequirement: Math.abs(distance) > minDistance,
-      meetsTimeRequirement: time < maxTime,
-      meetsVelocityRequirement: velocity > velocityThreshold,
-    });
-
-    if (
-      !isCardExpanded &&
-      distance > minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (
-      isCardExpanded &&
-      distance < -minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else {
-      console.log("📖 Android gesture rejected - requirements not met");
-    }
-
-    // Reset touch start
-    setTouchStart(null);
   };
 
   // Expand the card to full height
@@ -497,249 +429,119 @@ export default function Adventure1_Module2_Lesson1({
           </View>
         )}
 
-        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
-        {Platform.OS === "ios" ? (
-          // iOS: Native PanGestureHandler
-          <PanGestureHandler
-            ref={panGestureRef}
-            onGestureEvent={handleSwipeGesture}
-            onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-15, 15]} // Reduced for better sensitivity
-            failOffsetX={[-40, 40]} // Increased to prevent conflict with horizontal scroll
-            minPointers={1}
-            maxPointers={1}
+        {/* Reading Card at Bottom - Universal Gesture Handling */}
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={handleSwipeGesture}
+          onHandlerStateChange={handleSwipeGesture}
+          activeOffsetY={[-15, 15]}
+          failOffsetX={[-40, 40]}
+          minPointers={1}
+          maxPointers={1}
+        >
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }],
+              },
+            ]}
           >
             <Animated.View
               style={[
-                styles.cardContainer,
+                styles.readingCard,
                 {
-                  transform: [{ translateY: cardTranslateY }],
+                  height: cardHeight,
                 },
               ]}
             >
-              {/* iOS Card Content - Use existing structure */}
+              {/* Top handle indicator */}
+              <View style={styles.cardHandle} />
+
+              {/* Collapsed content */}
               <Animated.View
-                style={[
-                  styles.readingCard,
-                  {
-                    height: cardHeight,
-                  },
-                ]}
+                style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                {/* Top handle indicator */}
-                <View style={styles.cardHandle} />
-
-                {/* iOS Collapsed content - existing structure */}
-                <Animated.View
-                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
-                >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Interiors of the Umayyad Palace
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      The Umayyad palace in Damascus was called the Green
-                      Dome...
-                    </Text>
-                  </View>
-                </Animated.View>
-
-                {/* Expanded content when card is swiped up */}
-                {isCardExpanded && (
-                  <Animated.View
-                    style={[
-                      styles.expandedContent,
-                      { opacity: Animated.subtract(1, cardOpacity) },
-                    ]}
-                  >
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      waitFor={
-                        Platform.OS === "ios" ? panGestureRef : undefined
-                      }
-                      simultaneousHandlers={
-                        Platform.OS === "ios" ? panGestureRef : undefined
-                      }
-                    >
-                      <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Interiors of the Umayyad Palace
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 2 • Lesson 1
-                          </Text>
-                        </View>
-
-                        {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            The Umayyad palace in Damascus was called the Green
-                            Dome, or al-Khadra. Muʿawiya built it beside the
-                            Umayyad Mosque as a working seat of power, with a
-                            coin mint, stables, and a prison. Sources describe a
-                            domed audience hall, marble floors, and gardens with
-                            fountains, myrtles, and vines. Later rulers still
-                            used the complex, but by the 1000s it had vanished,
-                            and travelers wrote that markets stood where the
-                            palace once was.
-                          </Text>
-                        </View>
-
-                        {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Green Dome (al-Khadra)"
-                              definition="The name of the Umayyad palace complex built by Muʿawiya in Damascus"
-                            />
-                            <KeyTermRow
-                              term="Audience Hall"
-                              definition="The domed reception room with marble floors where the caliph met visitors"
-                            />
-                          </View>
-                        </View>
-
-                        {/* Bottom spacer to ensure full scroll */}
-                        <View style={styles.sheetBottomSpacer} />
-                      </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Interiors of the Umayyad Palace
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    The Umayyad palace in Damascus was called the Green Dome...
+                  </Text>
+                </View>
               </Animated.View>
-            </Animated.View>
-          </PanGestureHandler>
-        ) : (
-          // Android: Custom Touch Handlers
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            <Animated.View
-              style={[
-                styles.cardContainer,
-                {
-                  transform: [{ translateY: cardTranslateY }],
-                },
-              ]}
-            >
-              <Animated.View
-                style={[
-                  styles.readingCard,
-                  {
-                    height: cardHeight,
-                  },
-                ]}
-              >
-                {/* Top handle indicator */}
-                <View style={styles.cardHandle} />
 
-                {/* Android Collapsed content with improved styling */}
+              {/* Expanded content when card is swiped up */}
+              {isCardExpanded && (
                 <Animated.View
-                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                  style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) },
+                  ]}
                 >
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      Interiors of the Umayyad Palace
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      The Umayyad palace in Damascus was called the Green
-                      Dome...
-                    </Text>
-                  </View>
-                </Animated.View>
-
-                {/* Expanded content when card is swiped up */}
-                {isCardExpanded && (
-                  <Animated.View
-                    style={[
-                      styles.expandedContent,
-                      { opacity: Animated.subtract(1, cardOpacity) },
-                    ]}
+                  <GestureHandlerScrollView
+                    ref={scrollViewGestureRef}
+                    style={styles.expandedScroll}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={handleReadingScroll}
+                    scrollEventThrottle={100}
+                    waitFor={panGestureRef}
+                    simultaneousHandlers={panGestureRef}
                   >
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      onScrollBeginDrag={() => {
-                        console.log(
-                          "📖 Android: Internal scrolling started - maintaining gesture block"
-                        );
-                        setIsCardGestureActive(true);
-                      }}
-                      onScrollEndDrag={() => {
-                        console.log(
-                          "📖 Android: Internal scrolling ended - allowing carousel"
-                        );
-                        setIsCardGestureActive(false);
-                      }}
-                    >
-                      <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Interiors of the Umayyad Palace
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 2 • Lesson 1
-                          </Text>
-                        </View>
-
-                        {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            The Umayyad palace in Damascus was called the Green
-                            Dome, or al-Khadra. Muʿawiya built it beside the
-                            Umayyad Mosque as a working seat of power, with a
-                            coin mint, stables, and a prison. Sources describe a
-                            domed audience hall, marble floors, and gardens with
-                            fountains, myrtles, and vines. Later rulers still
-                            used the complex, but by the 1000s it had vanished,
-                            and travelers wrote that markets stood where the
-                            palace once was.
-                          </Text>
-                        </View>
-
-                        {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Green Dome (al-Khadra)"
-                              definition="The name of the Umayyad palace complex built by Muʿawiya in Damascus"
-                            />
-                            <KeyTermRow
-                              term="Audience Hall"
-                              definition="The domed reception room with marble floors where the caliph met visitors"
-                            />
-                            <KeyTermRow
-                              term="Working Palace"
-                              definition="A palace complex with coin mint, stables, and prison for government operations"
-                            />
-                          </View>
-                        </View>
-
-                        {/* Bottom spacer to ensure full scroll */}
-                        <View style={styles.sheetBottomSpacer} />
+                    <View style={styles.expandedContentInner}>
+                      {/* Title Section */}
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Interiors of the Umayyad Palace
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 2 • Lesson 1
+                        </Text>
                       </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
-              </Animated.View>
+
+                      {/* Historical Content */}
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>
+                          Historical Context
+                        </Text>
+                        <Text style={styles.historicalText}>
+                          The Umayyad palace in Damascus was called the Green
+                          Dome, or al-Khadra. Muʿawiya built it beside the
+                          Umayyad Mosque as a working seat of power, with a
+                          coin mint, stables, and a prison. Sources describe a
+                          domed audience hall, marble floors, and gardens with
+                          fountains, myrtles, and vines. Later rulers still
+                          used the complex, but by the 1000s it had vanished,
+                          and travelers wrote that markets stood where the
+                          palace once was.
+                        </Text>
+                      </View>
+
+                      {/* Key Terms Section */}
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Green Dome (al-Khadra)"
+                            definition="The name of the Umayyad palace complex built by Muʿawiya in Damascus"
+                          />
+                          <KeyTermRow
+                            term="Audience Hall"
+                            definition="The domed reception room with marble floors where the caliph met visitors"
+                          />
+                        </View>
+                      </View>
+
+                      {/* Bottom spacer to ensure full scroll */}
+                      <View style={styles.sheetBottomSpacer} />
+                    </View>
+                  </GestureHandlerScrollView>
+                </Animated.View>
+              )}
             </Animated.View>
-          </View>
-        )}
+          </Animated.View>
+        </PanGestureHandler>
       </View>
     </>
   );
@@ -1019,29 +821,5 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
-  },
-
-  // Android-Specific Styles for proper text positioning
-  collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    opacity: 0.8,
-    lineHeight: 20,
   },
 });
