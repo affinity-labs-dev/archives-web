@@ -315,11 +315,6 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       if (storedAdventures) {
         const adventures = JSON.parse(storedAdventures) as AdventureProgress[]
         setAdventureProgress(adventures)
-      } else {
-        // Initialize with default data if no adventures exist
-        console.log('🆕 Initializing default adventure progress')
-        setAdventureProgress(INITIAL_ADVENTURE_DATA)
-        await WebCompatibleStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, JSON.stringify(INITIAL_ADVENTURE_DATA))
       }
 
       // Load module progress with migration
@@ -329,24 +324,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         const migratedModules = migrateAndValidateData(modules)
         setModuleProgress(migratedModules)
 
-        // NEW: ROI Migration - Convert legacy ROI progress to new system
-        const currentAdventures = JSON.parse(storedAdventures || '[]') as AdventureProgress[]
-        const { migratedRoiModules, migratedRoiAdventures } = migrateRoiProgressData(migratedModules, currentAdventures)
-
-        // Set ROI-specific progress data
-        setRoiModuleProgress(migratedRoiModules)
-        setRoiAdventureProgress(migratedRoiAdventures)
-
-        console.log('✅ Progress data loaded and migrated successfully (including ROI migration)')
-      }
-
-      // Initialize era data if we have a selected era
-      if (storedEra) {
-        console.log(`🎯 Initializing era data for stored era: ${storedEra}`)
-        // Use setTimeout to ensure state is updated before initializing era data
-        setTimeout(async () => {
-          await initializeEraData(storedEra)
-        }, 100)
+        console.log('✅ Progress data loaded and migrated successfully')
       }
 
     } catch (error) {
