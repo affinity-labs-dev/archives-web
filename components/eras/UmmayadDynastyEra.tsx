@@ -116,11 +116,10 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
     player.muted = true;
     player.play();
   });
-  const { 
-    getAdventureProgress, 
+  const {
+    getAdventureProgress,
     isModuleUnlocked,
     getModuleProgress,
-    setSelectedEra,
     moduleProgress, // Add direct access to moduleProgress state for re-render triggers
     getModuleStarCount // NEW: Clean star count function
   } = useProgress()
@@ -181,11 +180,6 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
       bounceY.setValue(0)
     }
   }, [shouldShowBounce, bounceY])
-
-  // Set selected era on mount
-  useEffect(() => {
-    setSelectedEra('umayyad')
-  }, [setSelectedEra])
 
   // Force component re-render when moduleProgress changes (critical for star updates)
   useEffect(() => {

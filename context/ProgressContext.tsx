@@ -365,6 +365,22 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   // Initialize era-specific data when era is selected
   const initializeEraData = async (eraId: string) => {
     try {
+      // CRITICAL: Wait for AsyncStorage to finish loading before initializing
+      if (isLoading) {
+        console.log('⏳ Skipping era initialization - AsyncStorage still loading')
+        return
+      }
+
+      // CRITICAL: Only initialize if this is a FIRST-TIME era selection
+      // This prevents overwriting existing progress when component remounts
+      const storedEra = await WebCompatibleStorage.getItem(STORAGE_KEYS.SELECTED_ERA)
+      if (storedEra === eraId) {
+        console.log(`✅ Era "${eraId}" already initialized, skipping to preserve progress`)
+        return
+      }
+
+      console.log(`🆕 First-time initialization for era: ${eraId}`)
+
       if (eraId === 'riseOfIslam') {
         // NEW ROI SYSTEM: Initialize ROI-specific progress tracking
         const currentRoiAdventures = [...roiAdventureProgress]

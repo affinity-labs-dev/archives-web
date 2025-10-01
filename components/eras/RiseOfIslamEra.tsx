@@ -124,7 +124,6 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
     isRoiModuleUnlocked,
     getRoiModuleProgress,
     getRoiModuleStarCount,
-    setSelectedEra,
     roiModuleProgress,
 
     // Legacy functions for backwards compatibility
@@ -173,11 +172,6 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
       bounceY.setValue(0)
     }
   }, [shouldShowBounce, bounceY])
-
-  // Set selected era on mount
-  useEffect(() => {
-    setSelectedEra('riseOfIslam')
-  }, [setSelectedEra])
 
   // Force component re-render when ROI moduleProgress changes
   useEffect(() => {

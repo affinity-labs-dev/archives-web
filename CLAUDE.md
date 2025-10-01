@@ -351,8 +351,8 @@ EXPO_NO_CAPABILITY_SYNC=1 # Disables automatic capability sync for iOS builds
 - **TypeScript**: Strict mode enabled with path aliases (`@/*` → project root)
 
 #### Build Configuration
-- **App Version**: 2.2.0 (current production version)
-- **iOS Build Number**: 40 (auto-increment enabled for production builds)
+- **App Version**: 2.2.1 (current production version)
+- **iOS Build Number**: 42 (auto-increment enabled for production builds)
 - **Android Version Code**: 3 (auto-increment enabled for production builds)
 - **Expo SDK**: 54.0.0 (latest stable)
 - **React Native**: 0.81.4 with new architecture enabled
