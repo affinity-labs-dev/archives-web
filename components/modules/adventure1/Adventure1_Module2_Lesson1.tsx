@@ -2,9 +2,10 @@
 // Full-screen TabView carousel showing palace interior images
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -16,15 +17,13 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Modal,
 } from "react-native";
-import { 
+import {
   ScrollView as GestureHandlerScrollView,
   PanGestureHandler,
-  State
+  State,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -40,32 +39,37 @@ const palaceInteriors = [
     id: 1,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img01.jpg",
     title: "Throne Room",
-    caption: "The throne room glittered with gold mosaics crafted by Byzantine artists, once rivals but now working for the Umayyads."
+    caption:
+      "The throne room glittered with gold mosaics crafted by Byzantine artists, once rivals but now working for the Umayyads.",
   },
   {
     id: 2,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img02.jpg",
-    title: "Reception Hall", 
-    caption: "Striped arches and lamps light the reception hall, a design that influenced buildings like Cordoba's mosque in Spain."
+    title: "Reception Hall",
+    caption:
+      "Striped arches and lamps light the reception hall, a design that influenced buildings like Cordoba's mosque in Spain.",
   },
   {
     id: 3,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img03.jpg",
     title: "Private Courtyard Garden",
-    caption: "The courtyard's fountains and trees stayed cool thanks to water channels, turning the palace into an oasis."
+    caption:
+      "The courtyard's fountains and trees stayed cool thanks to water channels, turning the palace into an oasis.",
   },
   {
     id: 4,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img04.jpg",
     title: "Audience Chamber",
-    caption: "In the audience chamber, laws and taxes were debated in Arabic, Greek, and Syriac."
+    caption:
+      "In the audience chamber, laws and taxes were debated in Arabic, Greek, and Syriac.",
   },
   {
     id: 5,
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv1_M2_Img05.jpg",
-    title: "Scriptorium", 
-    caption: "Scribes in the scriptorium copied records, switching between Arabic, Greek, and Syriac."
-  }
+    title: "Scriptorium",
+    caption:
+      "Scribes in the scriptorium copied records, switching between Arabic, Greek, and Syriac.",
+  },
 ];
 
 export default function Adventure1_Module2_Lesson1({
@@ -77,7 +81,10 @@ export default function Adventure1_Module2_Lesson1({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
+  const [touchStart, setTouchStart] = useState<{
+    y: number;
+    time: number;
+  } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
@@ -90,42 +97,53 @@ export default function Adventure1_Module2_Lesson1({
 
   // Background music hook - Auto-play immediately
   const backgroundMusic = useBackgroundMusic(
-    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" },
+    {
+      uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3",
+    },
     {
       volume: 0.5, // 50% volume
       shouldLoop: true,
     }
   );
 
-
   // Enhanced debug logging for background music - Platform-compatible
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log(`🎵 [${timestamp}] Adventure1_Module2_Lesson1 - Background music state:`, {
-      isLoaded: backgroundMusic.isLoaded,
-      isPlaying: backgroundMusic.isPlaying,
-      isLoading: backgroundMusic.isLoading || false, // Android may not have isLoading
-      platform: Platform.OS
-    });
-    
+    console.log(
+      `🎵 [${timestamp}] Adventure1_Module2_Lesson1 - Background music state:`,
+      {
+        isLoaded: backgroundMusic.isLoaded,
+        isPlaying: backgroundMusic.isPlaying,
+        isLoading: backgroundMusic.isLoading || false, // Android may not have isLoading
+        platform: Platform.OS,
+      }
+    );
+
     // Additional debugging for audio file loading (AWS CloudFront)
-    if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
-      console.log('🎵 Audio not loading - AWS CloudFront source should be available');
-      console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3');
+    if (!backgroundMusic.isLoaded && !backgroundMusic.isLoading) {
+      console.log(
+        "🎵 Audio not loading - AWS CloudFront source should be available"
+      );
+      console.log(
+        "🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3"
+      );
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
 
   // Component mount logging - Direct audio fallback removed (no longer needed with platform-specific audio)
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log('🎵 Adventure1_Module2_Lesson1 component mounted at:', timestamp);
+    console.log(
+      "🎵 Adventure1_Module2_Lesson1 component mounted at:",
+      timestamp
+    );
   }, []);
 
   // Handle carousel scroll - matching iOS TabView behavior
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const imageIndex = Math.round(contentOffsetX / SCREEN_WIDTH);
-    
+
     if (imageIndex !== currentImageIndex) {
       setCurrentImageIndex(imageIndex);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -136,7 +154,9 @@ export default function Adventure1_Module2_Lesson1({
   useEffect(() => {
     const timestamp = new Date().toLocaleTimeString();
     if (backgroundMusic.isLoaded && backgroundMusic.isPlaying) {
-      console.log(`🎵 [${timestamp}] Background music auto-playing successfully`);
+      console.log(
+        `🎵 [${timestamp}] Background music auto-playing successfully`
+      );
     } else if (backgroundMusic.isLoaded && !backgroundMusic.isPlaying) {
       console.log(`🎵 [${timestamp}] Background music loaded but not playing`);
     } else {
@@ -144,27 +164,38 @@ export default function Adventure1_Module2_Lesson1({
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);
 
-
-
   // Cleanup background music when component unmounts
   useEffect(() => {
     return () => {
-      console.log('🎵 Component unmounting - cleaning up all audio');
-      
+      console.log("🎵 Component unmounting - cleaning up all audio");
+
       // Stop background music hook
       if (backgroundMusic.stop) {
-        console.log('🎵 Stopping background music on component unmount');
+        console.log("🎵 Stopping background music on component unmount");
         backgroundMusic.stop();
       }
-      
     };
   }, []);
+
+  // Debug logging for carousel scroll state
+  useEffect(() => {
+    console.log(
+      `🎠 Carousel scroll state: ${
+        isCardGestureActive
+          ? "🔒 BLOCKED (card gesture active)"
+          : "✅ ENABLED (can swipe images)"
+      }`
+    );
+  }, [isCardGestureActive]);
 
   // Navigate to next image (Swipe button functionality)
   const handleSwipeNext = () => {
     if (currentImageIndex < palaceInteriors.length - 1) {
       const nextIndex = currentImageIndex + 1;
-      scrollViewRef.current?.scrollTo({ x: nextIndex * SCREEN_WIDTH, animated: true });
+      scrollViewRef.current?.scrollTo({
+        x: nextIndex * SCREEN_WIDTH,
+        animated: true,
+      });
       setCurrentImageIndex(nextIndex);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -172,46 +203,54 @@ export default function Adventure1_Module2_Lesson1({
 
   // Enhanced iOS PanGestureHandler with gesture coordination
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
-    
+    if (Platform.OS !== "ios") return;
+
     const { state, translationY, velocityY } = event.nativeEvent;
-    
+
     // Track gesture activity for carousel coordination
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
       console.log("📱 iOS card gesture started - blocking carousel");
-    } else if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+    } else if (
+      state === State.END ||
+      state === State.CANCELLED ||
+      state === State.FAILED
+    ) {
       setIsCardGestureActive(false);
       console.log("📱 iOS card gesture ended - allowing carousel");
     }
-    
+
     if (state === State.END) {
       console.log("📱 iOS PanGesture detected", {
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS
+        platform: Platform.OS,
       });
-      
+
       // Improved iOS swipe detection with better sensitivity
       const minDistance = 20; // Reduced from 30 for better responsiveness
       const minVelocity = 300; // Reduced from 500 for easier activation
-      
-      if (!isCardExpanded && 
-          (translationY < -minDistance || velocityY < -minVelocity)) {
+
+      if (
+        !isCardExpanded &&
+        (translationY < -minDistance || velocityY < -minVelocity)
+      ) {
         console.log("📱 iOS PanGesture swipe up detected - expanding card", {
           translationY,
           velocityY,
-          platform: Platform.OS
+          platform: Platform.OS,
         });
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (isCardExpanded && 
-                 (translationY > minDistance || velocityY > minVelocity)) {
+      } else if (
+        isCardExpanded &&
+        (translationY > minDistance || velocityY > minVelocity)
+      ) {
         console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
           translationY,
           velocityY,
-          platform: Platform.OS
+          platform: Platform.OS,
         });
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -223,7 +262,7 @@ export default function Adventure1_Module2_Lesson1({
   const handleTouchStart = (event: any) => {
     setTouchStart({
       y: event.nativeEvent.pageY,
-      time: Date.now()
+      time: Date.now(),
     });
     setIsCardGestureActive(true);
     console.log("📖 Android card gesture started - blocking carousel");
@@ -232,19 +271,19 @@ export default function Adventure1_Module2_Lesson1({
   const handleTouchEnd = (event: any) => {
     setIsCardGestureActive(false);
     console.log("📖 Android card gesture ended - allowing carousel");
-    
+
     if (!touchStart) return;
-    
+
     const touchEnd = event.nativeEvent.pageY;
     const distance = touchStart.y - touchEnd; // Positive = swipe up
     const time = Date.now() - touchStart.time;
-    
+
     // Improved Android swipe detection with better sensitivity
     const minDistance = 25; // Reduced from 40 for better responsiveness
     const maxTime = 400; // Increased from 300 for easier activation
     const velocity = Math.abs(distance) / time; // Calculate velocity
     const velocityThreshold = 0.3; // Reduced from 0.5 for easier activation
-    
+
     console.log("📖 Android gesture analysis:", {
       distance,
       time,
@@ -254,40 +293,56 @@ export default function Adventure1_Module2_Lesson1({
       velocityThreshold,
       meetsDistanceRequirement: Math.abs(distance) > minDistance,
       meetsTimeRequirement: time < maxTime,
-      meetsVelocityRequirement: velocity > velocityThreshold
+      meetsVelocityRequirement: velocity > velocityThreshold,
     });
-    
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
+
+    if (
+      !isCardExpanded &&
+      distance > minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       console.log("📖 Android touch swipe up detected - expanding card", {
         distance,
         time,
         velocity: velocity.toFixed(2),
-        platform: Platform.OS
+        platform: Platform.OS,
       });
       expandCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
+    } else if (
+      isCardExpanded &&
+      distance < -minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       console.log("📖 Android touch swipe down detected - collapsing card", {
         distance,
         time,
         velocity: velocity.toFixed(2),
-        platform: Platform.OS
+        platform: Platform.OS,
       });
       collapseCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } else {
       console.log("📖 Android gesture rejected - requirements not met");
     }
-    
+
     // Reset touch start
     setTouchStart(null);
   };
 
   // Expand the card to full height
   const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
     setShowReadContent(true);
-    
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    // Animation plays in background (400-600ms) but carousel works right away
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: SCREEN_HEIGHT * 0.85,
@@ -300,14 +355,22 @@ export default function Adventure1_Module2_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card expansion animation finished");
+    });
   };
 
   // Collapse the card back to original size
   const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
     setShowReadContent(false);
-    
+
+    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
+    // Animation plays in background (400-600ms) but carousel works right away
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: 160,
@@ -320,7 +383,9 @@ export default function Adventure1_Module2_Lesson1({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      console.log("🎬 Card collapse animation finished");
+    });
   };
 
   // Handle reading scroll - track scroll position for gesture priority
@@ -329,10 +394,9 @@ export default function Adventure1_Module2_Lesson1({
     setScrollY(contentOffset.y);
   };
 
-
   return (
     <>
-      {Platform.OS === 'android' && (
+      {Platform.OS === "android" && (
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
       <View style={styles.container}>
@@ -349,17 +413,15 @@ export default function Adventure1_Module2_Lesson1({
           {palaceInteriors.map((interior, index) => (
             <View key={interior.id} style={styles.imageContainer}>
               {/* Full screen palace interior image */}
-              <Image 
+              <Image
                 source={{ uri: interior.imageUrl }}
                 style={styles.palaceImage}
                 resizeMode="cover"
               />
-              
+
               {/* Text overlay with descriptive caption */}
               <View style={styles.textOverlay}>
-                <Text style={styles.captionText}>
-                  {interior.caption}
-                </Text>
+                <Text style={styles.captionText}>{interior.caption}</Text>
               </View>
             </View>
           ))}
@@ -367,43 +429,55 @@ export default function Adventure1_Module2_Lesson1({
 
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={() => {
-            // Stop all audio when going back
-            if (backgroundMusic.isPlaying) {
-              console.log('🎵 Stopping background music on back button');
-              backgroundMusic.stop();
-            }
-            
-            
-            (onBack || onDismiss)();
-          }}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              // Stop all audio when going back
+              if (backgroundMusic.isPlaying) {
+                console.log("🎵 Stopping background music on back button");
+                backgroundMusic.stop();
+              }
+
+              (onBack || onDismiss)();
+            }}
+          >
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </SafeAreaView>
 
         {/* Continue Button - Top Right (only active on final image) */}
         <SafeAreaView style={styles.continueButtonContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.topContinueButton,
-              currentImageIndex !== palaceInteriors.length - 1 && styles.topContinueButtonDisabled
+              currentImageIndex !== palaceInteriors.length - 1 &&
+                styles.topContinueButtonDisabled,
             ]}
-            onPress={currentImageIndex === palaceInteriors.length - 1 ? () => {
-              // Stop all audio before continuing (no await for instant navigation)
-              if (backgroundMusic.isPlaying) {
-                console.log('🎵 Stopping background music before continue');
-                backgroundMusic.stop(); // Remove await for instant navigation
-              }
-              
-              
-              onContinue();
-            } : undefined}
+            onPress={
+              currentImageIndex === palaceInteriors.length - 1
+                ? () => {
+                    // Stop all audio before continuing (no await for instant navigation)
+                    if (backgroundMusic.isPlaying) {
+                      console.log(
+                        "🎵 Stopping background music before continue"
+                      );
+                      backgroundMusic.stop(); // Remove await for instant navigation
+                    }
+
+                    onContinue();
+                  }
+                : undefined
+            }
             disabled={currentImageIndex !== palaceInteriors.length - 1}
           >
-            <Ionicons 
-              name="chevron-forward" 
-              size={24} 
-              color={currentImageIndex === palaceInteriors.length - 1 ? "white" : "#666"} 
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={
+                currentImageIndex === palaceInteriors.length - 1
+                  ? "white"
+                  : "#666"
+              }
             />
           </TouchableOpacity>
         </SafeAreaView>
@@ -416,7 +490,7 @@ export default function Adventure1_Module2_Lesson1({
                 key={index}
                 style={[
                   styles.pageIndicator,
-                  currentImageIndex === index && styles.pageIndicatorActive
+                  currentImageIndex === index && styles.pageIndicatorActive,
                 ]}
               />
             ))}
@@ -424,7 +498,7 @@ export default function Adventure1_Module2_Lesson1({
         )}
 
         {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
-        {Platform.OS === 'ios' ? (
+        {Platform.OS === "ios" ? (
           // iOS: Native PanGestureHandler
           <PanGestureHandler
             ref={panGestureRef}
@@ -435,51 +509,61 @@ export default function Adventure1_Module2_Lesson1({
             minPointers={1}
             maxPointers={1}
           >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-              {/* iOS Card Content - Use existing structure */}
-              <Animated.View style={[
-                styles.readingCard,
+            <Animated.View
+              style={[
+                styles.cardContainer,
                 {
-                  height: cardHeight,
-                }
-              ]}>
+                  transform: [{ translateY: cardTranslateY }],
+                },
+              ]}
+            >
+              {/* iOS Card Content - Use existing structure */}
+              <Animated.View
+                style={[
+                  styles.readingCard,
+                  {
+                    height: cardHeight,
+                  },
+                ]}
+              >
                 {/* Top handle indicator */}
                 <View style={styles.cardHandle} />
 
                 {/* iOS Collapsed content - existing structure */}
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.readingCardHeader}>
                     <Text style={styles.cardTitle}>
                       Interiors of the Umayyad Palace
                     </Text>
                     <Text style={styles.cardSubtitle}>
-                      The Umayyad palace in Damascus was called the Green Dome...
+                      The Umayyad palace in Damascus was called the Green
+                      Dome...
                     </Text>
                   </View>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
                 {isCardExpanded && (
-                  <Animated.View style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) }
-                  ]}>
-                    <GestureHandlerScrollView 
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
+                    <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
-                      style={styles.expandedScroll} 
+                      style={styles.expandedScroll}
                       showsVerticalScrollIndicator={false}
                       onScroll={handleReadingScroll}
                       scrollEventThrottle={100}
-                      waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
-                      simultaneousHandlers={Platform.OS === 'ios' ? panGestureRef : undefined}
+                      waitFor={
+                        Platform.OS === "ios" ? panGestureRef : undefined
+                      }
+                      simultaneousHandlers={
+                        Platform.OS === "ios" ? panGestureRef : undefined
+                      }
                     >
                       <View style={styles.expandedContentInner}>
                         {/* Title Section */}
@@ -494,9 +578,19 @@ export default function Adventure1_Module2_Lesson1({
 
                         {/* Historical Content */}
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
                           <Text style={styles.historicalText}>
-                            The Umayyad palace in Damascus was called the Green Dome, or al-Khadra. Muʿawiya built it beside the Umayyad Mosque as a working seat of power, with a coin mint, stables, and a prison. Sources describe a domed audience hall, marble floors, and gardens with fountains, myrtles, and vines. Later rulers still used the complex, but by the 1000s it had vanished, and travelers wrote that markets stood where the palace once was.
+                            The Umayyad palace in Damascus was called the Green
+                            Dome, or al-Khadra. Muʿawiya built it beside the
+                            Umayyad Mosque as a working seat of power, with a
+                            coin mint, stables, and a prison. Sources describe a
+                            domed audience hall, marble floors, and gardens with
+                            fountains, myrtles, and vines. Later rulers still
+                            used the complex, but by the 1000s it had vanished,
+                            and travelers wrote that markets stood where the
+                            palace once was.
                           </Text>
                         </View>
 
@@ -512,10 +606,6 @@ export default function Adventure1_Module2_Lesson1({
                               term="Audience Hall"
                               definition="The domed reception room with marble floors where the caliph met visitors"
                             />
-                            <KeyTermRow
-                              term="Working Palace"
-                              definition="A palace complex with coin mint, stables, and prison for government operations"
-                            />
                           </View>
                         </View>
 
@@ -530,58 +620,65 @@ export default function Adventure1_Module2_Lesson1({
           </PanGestureHandler>
         ) : (
           // Android: Custom Touch Handlers
-          <View 
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
-              <Animated.View style={[
-                styles.readingCard,
+          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <Animated.View
+              style={[
+                styles.cardContainer,
                 {
-                  height: cardHeight,
-                }
-              ]}>
+                  transform: [{ translateY: cardTranslateY }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={[
+                  styles.readingCard,
+                  {
+                    height: cardHeight,
+                  },
+                ]}
+              >
                 {/* Top handle indicator */}
                 <View style={styles.cardHandle} />
 
                 {/* Android Collapsed content with improved styling */}
-                <Animated.View style={[
-                  styles.collapsedContent,
-                  { opacity: cardOpacity }
-                ]}>
+                <Animated.View
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                >
                   <View style={styles.collapsedContentWrapper}>
                     <Text style={styles.collapsedTitle}>
                       Interiors of the Umayyad Palace
                     </Text>
                     <Text style={styles.collapsedSubtitle}>
-                      The Umayyad palace in Damascus was called the Green Dome...
+                      The Umayyad palace in Damascus was called the Green
+                      Dome...
                     </Text>
                   </View>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
                 {isCardExpanded && (
-                  <Animated.View style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) }
-                  ]}>
-                    <GestureHandlerScrollView 
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
+                    <GestureHandlerScrollView
                       ref={scrollViewGestureRef}
-                      style={styles.expandedScroll} 
+                      style={styles.expandedScroll}
                       showsVerticalScrollIndicator={false}
                       onScroll={handleReadingScroll}
                       scrollEventThrottle={100}
                       onScrollBeginDrag={() => {
-                        console.log("📖 Android: Internal scrolling started - maintaining gesture block");
+                        console.log(
+                          "📖 Android: Internal scrolling started - maintaining gesture block"
+                        );
                         setIsCardGestureActive(true);
                       }}
                       onScrollEndDrag={() => {
-                        console.log("📖 Android: Internal scrolling ended - allowing carousel");
+                        console.log(
+                          "📖 Android: Internal scrolling ended - allowing carousel"
+                        );
                         setIsCardGestureActive(false);
                       }}
                     >
@@ -598,9 +695,19 @@ export default function Adventure1_Module2_Lesson1({
 
                         {/* Historical Content */}
                         <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
                           <Text style={styles.historicalText}>
-                            The Umayyad palace in Damascus was called the Green Dome, or al-Khadra. Muʿawiya built it beside the Umayyad Mosque as a working seat of power, with a coin mint, stables, and a prison. Sources describe a domed audience hall, marble floors, and gardens with fountains, myrtles, and vines. Later rulers still used the complex, but by the 1000s it had vanished, and travelers wrote that markets stood where the palace once was.
+                            The Umayyad palace in Damascus was called the Green
+                            Dome, or al-Khadra. Muʿawiya built it beside the
+                            Umayyad Mosque as a working seat of power, with a
+                            coin mint, stables, and a prison. Sources describe a
+                            domed audience hall, marble floors, and gardens with
+                            fountains, myrtles, and vines. Later rulers still
+                            used the complex, but by the 1000s it had vanished,
+                            and travelers wrote that markets stood where the
+                            palace once was.
                           </Text>
                         </View>
 
@@ -633,7 +740,6 @@ export default function Adventure1_Module2_Lesson1({
             </Animated.View>
           </View>
         )}
-
       </View>
     </>
   );
@@ -657,7 +763,7 @@ function KeyTermRow({ term, definition }: KeyTermRowProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: "black",
   },
 
   // Main carousel - full screen
@@ -667,63 +773,63 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    position: 'relative',
-    justifyContent: 'center',    // Center vertically
-    alignItems: 'center',        // Center horizontally
-    backgroundColor: 'black',    // Ensure no white gaps
-    overflow: 'hidden',          // Prevent any content from spilling out
+    position: "relative",
+    justifyContent: "center", // Center vertically
+    alignItems: "center", // Center horizontally
+    backgroundColor: "black", // Ensure no white gaps
+    overflow: "hidden", // Prevent any content from spilling out
   },
   palaceImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    position: 'absolute',        // Absolute positioning for perfect centering
+    position: "absolute", // Absolute positioning for perfect centering
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
-  
+
   // Text overlay at top - matching iOS design
   textOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 120,
     left: 0,
     right: 0,
     paddingHorizontal: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   captionText: {
-    fontFamily: 'DM Sans',
+    fontFamily: "DM Sans",
     fontSize: 20,
-    fontWeight: '700',
-    color: 'white',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "white",
+    textAlign: "center",
     lineHeight: 26,
-    textShadowColor: 'black',
+    textShadowColor: "black",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
 
   // Page indicators only - centered without buttons
   pageIndicatorsOnly: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 180, // Position above the reading card
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 10,
   },
   pageIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)', // 60% opacity for inactive dots
+    backgroundColor: "rgba(255, 255, 255, 0.6)", // 60% opacity for inactive dots
     marginHorizontal: 4,
   },
   pageIndicatorActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // 90% opacity for active dot
+    backgroundColor: "rgba(255, 255, 255, 0.9)", // 90% opacity for active dot
     transform: [{ scale: 1.2 }],
   },
 
@@ -734,7 +840,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  
+
   // Reading Card - Swipeable
   readingCard: {
     height: 160,
@@ -747,7 +853,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     elevation: 12,
   },
-  
+
   cardHandle: {
     width: 70,
     height: 5,
@@ -756,7 +862,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginTop: 12,
   },
-  
+
   readingCardHeader: {
     padding: 20,
     paddingTop: 16,
@@ -798,7 +904,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  
+
   topContinueButtonDisabled: {
     backgroundColor: "rgba(0,0,0,0.3)", // Gray when disabled
   },
@@ -807,7 +913,7 @@ const styles = StyleSheet.create({
   collapsedContent: {
     flex: 1,
   },
-  
+
   expandedContent: {
     position: "absolute",
     top: 0,
@@ -816,11 +922,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingTop: 20,
   },
-  
+
   expandedScroll: {
     flex: 1,
   },
-  
+
   expandedContentInner: {
     padding: 20,
   },
@@ -832,7 +938,7 @@ const styles = StyleSheet.create({
     color: "white",
     marginBottom: 4,
   },
-  
+
   cardSubtitle: {
     fontFamily: "DM Sans",
     fontSize: 14,
@@ -844,7 +950,7 @@ const styles = StyleSheet.create({
   historicalSection: {
     marginBottom: 20,
   },
-  
+
   sectionTitle: {
     fontFamily: "DM Sans",
     fontSize: 16,
@@ -852,7 +958,7 @@ const styles = StyleSheet.create({
     color: "white",
     marginBottom: 8,
   },
-  
+
   historicalText: {
     fontFamily: "DM Sans",
     fontSize: 14,
@@ -865,17 +971,17 @@ const styles = StyleSheet.create({
   keyTermsSection: {
     marginBottom: 20,
   },
-  
+
   keyTermsContainer: {
     padding: 12,
     backgroundColor: "rgba(255,255,255,0.1)",
     borderRadius: 8,
   },
-  
+
   keyTermRow: {
     marginBottom: 8,
   },
-  
+
   keyTermTitle: {
     fontFamily: "DM Sans",
     fontSize: 14,
@@ -883,7 +989,7 @@ const styles = StyleSheet.create({
     color: "white",
     marginBottom: 2,
   },
-  
+
   keyTermDefinition: {
     fontFamily: "DM Sans",
     fontSize: 14,
@@ -894,7 +1000,7 @@ const styles = StyleSheet.create({
   titleSection: {
     marginBottom: 24,
   },
-  
+
   sheetTitle: {
     fontFamily: "DM Sans",
     fontSize: 24,
@@ -902,7 +1008,7 @@ const styles = StyleSheet.create({
     color: "white",
     marginBottom: 8,
   },
-  
+
   sheetSubtitle: {
     fontFamily: "DM Sans",
     fontSize: 14,
@@ -918,7 +1024,7 @@ const styles = StyleSheet.create({
   // Android-Specific Styles for proper text positioning
   collapsedContentWrapper: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 25,
