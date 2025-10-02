@@ -2,28 +2,28 @@
 // Combines full-screen video playback with expandable reading content about Abbasid rebellion tactics
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useProgress } from "@/context/ProgressContext";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Platform,
 } from "react-native";
 import {
   ScrollView as GestureHandlerScrollView,
   PanGestureHandler,
-  State
+  State,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useProgress } from "@/context/ProgressContext";
 import LessonPlayer from "../LessonPlayer";
 
 interface Adventure5_Module2_Lesson1Props {
@@ -49,7 +49,11 @@ const PROGRESS_SENSITIVITY = 0.0005;
 // Historical content about Abbasid revolutionary strategy
 const historicalText = `Long before the Abbasids took the throne, they built a movement in whispers and promises. Pamphlets, secret meetings, and emotional appeals were their tools. They offered a new vision - an empire with fair leadership, grounded in loyalty to the Prophet's family. Their message was simple, bold, and powerful - and it lit a fire that would soon change the Islamic world forever.`;
 
-export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBack }: Adventure5_Module2_Lesson1Props) {
+export default function Adventure5_Module2_Lesson1({
+  onContinue,
+  onDismiss,
+  onBack,
+}: Adventure5_Module2_Lesson1Props) {
   // Video-related states
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
@@ -61,7 +65,10 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
 
   // Gesture handling states
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
+  const [touchStart, setTouchStart] = useState<{
+    y: number;
+    time: number;
+  } | null>(null);
 
   // Component refs for gesture coordination
   const scrollViewRef = useRef<ScrollView>(null);
@@ -134,7 +141,7 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
 
   // iOS PanGestureHandler
   const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== "ios") return;
 
     if (event.nativeEvent.state === State.END) {
       const { translationY, velocityY } = event.nativeEvent;
@@ -142,12 +149,16 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
       const minDistance = 30;
       const minVelocity = 500;
 
-      if (!isCardExpanded &&
-          (translationY < -minDistance || velocityY < -minVelocity)) {
+      if (
+        !isCardExpanded &&
+        (translationY < -minDistance || velocityY < -minVelocity)
+      ) {
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (isCardExpanded &&
-                 (translationY > minDistance || velocityY > minVelocity)) {
+      } else if (
+        isCardExpanded &&
+        (translationY > minDistance || velocityY > minVelocity)
+      ) {
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
@@ -158,7 +169,7 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
   const handleTouchStart = (event: any) => {
     setTouchStart({
       y: event.nativeEvent.pageY,
-      time: Date.now()
+      time: Date.now(),
     });
   };
 
@@ -174,16 +185,20 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
     const velocity = Math.abs(distance) / time;
     const velocityThreshold = 0.5;
 
-    if (!isCardExpanded &&
-        distance > minDistance &&
-        time < maxTime &&
-        velocity > velocityThreshold) {
+    if (
+      !isCardExpanded &&
+      distance > minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       expandCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded &&
-               distance < -minDistance &&
-               time < maxTime &&
-               velocity > velocityThreshold) {
+    } else if (
+      isCardExpanded &&
+      distance < -minDistance &&
+      time < maxTime &&
+      velocity > velocityThreshold
+    ) {
       collapseCard();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -270,24 +285,20 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
 
   // Reading card content
   const renderReadingCard = () => (
-    <Animated.View style={[
-      styles.cardContainer,
-      { transform: [{ translateY: cardTranslateY }] }
-    ]}>
-      <Animated.View style={[
-        styles.readingCard,
-        { height: cardHeight }
-      ]}>
+    <Animated.View
+      style={[
+        styles.cardContainer,
+        { transform: [{ translateY: cardTranslateY }] },
+      ]}
+    >
+      <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
         <View style={styles.cardHandle} />
 
-        <Animated.View style={[
-          styles.collapsedContent,
-          { opacity: cardOpacity }
-        ]}>
+        <Animated.View
+          style={[styles.collapsedContent, { opacity: cardOpacity }]}
+        >
           <View style={styles.readingCardHeader}>
-            <Text style={styles.cardTitle}>
-              Abbasid Revolutionary Strategy
-            </Text>
+            <Text style={styles.cardTitle}>Abbasid Revolutionary Strategy</Text>
             <Text style={styles.cardSubtitle}>
               Building a movement through whispers and promises
             </Text>
@@ -295,26 +306,26 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
         </Animated.View>
 
         {isCardExpanded && (
-          <Animated.View style={[
-            styles.expandedContent,
-            { opacity: Animated.subtract(1, cardOpacity) }
-          ]}>
+          <Animated.View
+            style={[
+              styles.expandedContent,
+              { opacity: Animated.subtract(1, cardOpacity) },
+            ]}
+          >
             <GestureHandlerScrollView
               ref={scrollViewGestureRef}
               style={styles.expandedScroll}
               showsVerticalScrollIndicator={false}
               onScroll={handleReadingScroll}
               scrollEventThrottle={100}
-              waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
+              waitFor={Platform.OS === "ios" ? panGestureRef : undefined}
             >
               <View style={styles.expandedContentInner}>
                 <View style={styles.titleSection}>
                   <Text style={styles.sheetTitle}>
                     Abbasid Revolutionary Strategy
                   </Text>
-                  <Text style={styles.sheetSubtitle}>
-                    Module 2 • Lesson 1
-                  </Text>
+                  <Text style={styles.sheetSubtitle}>Module 2 • Lesson 1</Text>
                 </View>
 
                 <View style={styles.historicalSection}>
@@ -333,14 +344,6 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
                       term="Ahl al-Bayt"
                       definition="The Prophet's family - central to Abbasid claims of religious legitimacy"
                     />
-                    <KeyTermRow
-                      term="Black Banner"
-                      definition="Symbol of Abbasid revolution, contrasting with Umayyad white banners"
-                    />
-                    <KeyTermRow
-                      term="Hashimite Clan"
-                      definition="The Prophet Muhammad's clan, which Abbasids claimed descent from for legitimacy"
-                    />
                   </View>
                 </View>
 
@@ -355,14 +358,16 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
 
   return (
     <>
-      {Platform.OS === 'android' && (
+      {Platform.OS === "android" && (
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
 
       <View style={styles.container}>
         {/* Full-screen Video Player */}
         <LessonPlayer
-          videoSource={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel+Videos/Adv5_M2_Reel1.mp4" }}
+          videoSource={{
+            uri: "https://dzyjrzj2lngmg.cloudfront.net/Reel+Videos/Adv5_M2_Reel1.mp4",
+          }}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           autoPlay={true}
           shouldLoop={true}
@@ -377,9 +382,9 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
                 {
                   width: progressBarWidth.interpolate({
                     inputRange: [0, 1],
-                    outputRange: ['0%', '100%'],
-                  })
-                }
+                    outputRange: ["0%", "100%"],
+                  }),
+                },
               ]}
             />
           </View>
@@ -397,7 +402,7 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
           <TouchableOpacity
             style={[
               styles.nextButton,
-              !hasFinishedReading && styles.nextButtonDisabled
+              !hasFinishedReading && styles.nextButtonDisabled,
             ]}
             onPress={hasFinishedReading ? handleContinue : undefined}
             disabled={!hasFinishedReading}
@@ -411,7 +416,7 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
         </SafeAreaView>
 
         {/* Platform-Specific Reading Card */}
-        {Platform.OS === 'ios' ? (
+        {Platform.OS === "ios" ? (
           <PanGestureHandler
             ref={panGestureRef}
             onGestureEvent={handleSwipeGesture}
@@ -422,10 +427,7 @@ export default function Adventure5_Module2_Lesson1({ onContinue, onDismiss, onBa
             {renderReadingCard()}
           </PanGestureHandler>
         ) : (
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
+          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             {renderReadingCard()}
           </View>
         )}

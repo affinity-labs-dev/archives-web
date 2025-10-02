@@ -136,16 +136,6 @@ export default function Adventure5_Module1_Lesson2({
         definition:
           "Royal support and funding for artists, architects, and scholars that enabled cultural flourishing",
       },
-      {
-        term: "Golden Age",
-        definition:
-          "Period of peak cultural achievement and artistic excellence under Umayyad rule",
-      },
-      {
-        term: "Court Culture",
-        definition:
-          "The sophisticated cultural environment fostered by the Caliph's palace and administration",
-      },
     ],
   };
 
