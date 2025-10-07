@@ -344,23 +344,35 @@ export default function Adventure2_Module3_Lesson2({
               { opacity: cardOpacity }
             ]}>
               {Platform.OS === 'ios' ? (
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    The Sacred Stone
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      The Sacred Stone
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               ) : (
-                <View style={styles.collapsedContentWrapper}>
-                  <Text style={styles.collapsedTitle}>
-                    The Sacred Stone
-                  </Text>
-                  <Text style={styles.collapsedSubtitle}>
-                    At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.collapsedContentWrapper}>
+                    <Text style={styles.collapsedTitle}>
+                      The Sacred Stone
+                    </Text>
+                    <Text style={styles.collapsedSubtitle}>
+                      At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               )}
             </Animated.View>
 
@@ -381,42 +393,48 @@ export default function Adventure2_Module3_Lesson2({
                   scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        The Sacred Stone
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 3 • Lesson 2
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          The Sacred Stone
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 3 • Lesson 2
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>
-                        At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey to the heavens. The large stone in the Dome of the Rock is sacred to Jews, Christians, and Muslims. Jews believe it's the Foundation Stone where the Temple once stood and where Abraham prepared to sacrifice Isaac. Christians revere it as part of the Temple Mount, central to Jesus' life.
-                      </Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>
+                          At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey to the heavens. The large stone in the Dome of the Rock is sacred to Jews, Christians, and Muslims. Jews believe it's the Foundation Stone where the Temple once stood and where Abraham prepared to sacrifice Isaac. Christians revere it as part of the Temple Mount, central to Jesus' life.
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Foundation Stone"
-                          definition="The sacred stone believed to be where the Temple once stood and Abraham prepared to sacrifice Isaac"
-                        />
-                        <KeyTermRow
-                          term="Night Journey"
-                          definition="The Prophet Muhammad's miraculous journey from Mecca to Jerusalem and to the heavens"
-                        />
-                        <KeyTermRow
-                          term="Temple Mount"
-                          definition="Sacred site central to Judaism, Christianity, and Islam in Jerusalem"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Foundation Stone"
+                            definition="The sacred stone believed to be where the Temple once stood and Abraham prepared to sacrifice Isaac"
+                          />
+                          <KeyTermRow
+                            term="Night Journey"
+                            definition="The Prophet Muhammad's miraculous journey from Mecca to Jerusalem and to the heavens"
+                          />
+                          <KeyTermRow
+                            term="Temple Mount"
+                            definition="Sacred site central to Judaism, Christianity, and Islam in Jerusalem"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />
@@ -450,9 +468,10 @@ export default function Adventure2_Module3_Lesson2({
               styles.collapsedContent,
               { opacity: cardOpacity }
             ]}>
-              <TouchableOpacity 
-                onPress={expandCard} 
+              <TouchableOpacity
+                onPress={expandCard}
                 activeOpacity={0.8}
+                disabled={isCardExpanded}
               >
                 <View style={styles.readingCardHeader}>
                   <Text style={styles.cardTitle}>
@@ -482,42 +501,48 @@ export default function Adventure2_Module3_Lesson2({
                   scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Inside the Dome: Islamic Art and Architecture
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 3 • Lesson 2
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Inside the Dome: Islamic Art and Architecture
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 3 • Lesson 2
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Artistic Innovation</Text>
-                      <Text style={styles.historicalText}>
-                        The interior showcases Byzantine and Persian influences, with intricate mosaics, marble columns, and elaborate Islamic calligraphy. The blend of artistic traditions reflects the multicultural nature of the Umayyad Empire, incorporating elements from conquered Byzantine and Sassanian territories into a distinctly Islamic architectural style.
-                      </Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Artistic Innovation</Text>
+                        <Text style={styles.historicalText}>
+                          The interior showcases Byzantine and Persian influences, with intricate mosaics, marble columns, and elaborate Islamic calligraphy. The blend of artistic traditions reflects the multicultural nature of the Umayyad Empire, incorporating elements from conquered Byzantine and Sassanian territories into a distinctly Islamic architectural style.
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Islamic Calligraphy"
-                          definition="Arabic script decorating the interior walls with Quranic verses"
-                        />
-                        <KeyTermRow
-                          term="Byzantine Mosaics"
-                          definition="Golden mosaic techniques adapted for Islamic architectural decoration"
-                        />
-                        <KeyTermRow
-                          term="Cultural Synthesis"
-                          definition="Blending of Islamic, Byzantine, and Persian artistic traditions"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Islamic Calligraphy"
+                            definition="Arabic script decorating the interior walls with Quranic verses"
+                          />
+                          <KeyTermRow
+                            term="Byzantine Mosaics"
+                            definition="Golden mosaic techniques adapted for Islamic architectural decoration"
+                          />
+                          <KeyTermRow
+                            term="Cultural Synthesis"
+                            definition="Blending of Islamic, Byzantine, and Persian artistic traditions"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />

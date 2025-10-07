@@ -387,14 +387,20 @@ export default function Adventure4_Module2_Lesson1({
                   styles.collapsedContent,
                   { opacity: cardOpacity }
                 ]}>
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Desert Palaces of the Umayyads
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      The Umayyad desert palaces represented a unique fusion of luxury and frontier governance...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        Desert Palaces of the Umayyads
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        The Umayyad desert palaces represented a unique fusion of luxury and frontier governance...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -412,40 +418,46 @@ export default function Adventure4_Module2_Lesson1({
                       waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Desert Palaces of the Umayyads
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 2 • Lesson 1
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Desert Palaces of the Umayyads
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 2 • Lesson 1
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>Historical Context</Text>
+                            <Text style={styles.historicalText}>{historicalText}</Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Qusur (Desert Palaces)"
-                              definition="Magnificent palace complexes built in the Syrian desert as centers of power and luxury"
-                            />
-                            <KeyTermRow
-                              term="Qasr al-Hayr al-Gharbi"
-                              definition="The western desert palace built around 727 CE with intricate mosaics and bathhouses"
-                            />
-                            <KeyTermRow
-                              term="Hima (Hunting Parks)"
-                              definition="Enclosed hunting grounds within the palace complexes for royal recreation"
-                            />
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Qusur (Desert Palaces)"
+                                definition="Magnificent palace complexes built in the Syrian desert as centers of power and luxury"
+                              />
+                              <KeyTermRow
+                                term="Qasr al-Hayr al-Gharbi"
+                                definition="The western desert palace built around 727 CE with intricate mosaics and bathhouses"
+                              />
+                              <KeyTermRow
+                                term="Hima (Hunting Parks)"
+                                definition="Enclosed hunting grounds within the palace complexes for royal recreation"
+                              />
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />
@@ -482,14 +494,20 @@ export default function Adventure4_Module2_Lesson1({
                   styles.collapsedContent,
                   { opacity: cardOpacity }
                 ]}>
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      Desert Palaces of the Umayyads
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      The Umayyad desert palaces represented a unique fusion of luxury and frontier governance...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.collapsedContentWrapper}>
+                      <Text style={styles.collapsedTitle}>
+                        Desert Palaces of the Umayyads
+                      </Text>
+                      <Text style={styles.collapsedSubtitle}>
+                        The Umayyad desert palaces represented a unique fusion of luxury and frontier governance...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -506,40 +524,46 @@ export default function Adventure4_Module2_Lesson1({
                       scrollEventThrottle={100}
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Desert Palaces of the Umayyads
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 2 • Lesson 1
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Desert Palaces of the Umayyads
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 2 • Lesson 1
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>Historical Context</Text>
+                            <Text style={styles.historicalText}>{historicalText}</Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Qusur (Desert Palaces)"
-                              definition="Magnificent palace complexes built in the Syrian desert as centers of power and luxury"
-                            />
-                            <KeyTermRow
-                              term="Qasr al-Hayr al-Gharbi"
-                              definition="The western desert palace built around 727 CE with intricate mosaics and bathhouses"
-                            />
-                            <KeyTermRow
-                              term="Hima (Hunting Parks)"
-                              definition="Enclosed hunting grounds within the palace complexes for royal recreation"
-                            />
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Qusur (Desert Palaces)"
+                                definition="Magnificent palace complexes built in the Syrian desert as centers of power and luxury"
+                              />
+                              <KeyTermRow
+                                term="Qasr al-Hayr al-Gharbi"
+                                definition="The western desert palace built around 727 CE with intricate mosaics and bathhouses"
+                              />
+                              <KeyTermRow
+                                term="Hima (Hunting Parks)"
+                                definition="Enclosed hunting grounds within the palace complexes for royal recreation"
+                              />
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />

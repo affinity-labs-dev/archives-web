@@ -398,6 +398,11 @@ export default function Adventure4_Module3_Lesson2({
               <Animated.View
                 style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
                   <View style={styles.readingCardHeader}>
                     <Text style={styles.cardTitle}>
                       Illuminated Manuscripts & Scribes
@@ -406,6 +411,7 @@ export default function Adventure4_Module3_Lesson2({
                       Illuminated manuscripts weren&apos;t made quickly - they took time, patience...
                     </Text>
                   </View>
+                </TouchableOpacity>
                 </Animated.View>
 
               {/* Expanded content */}
@@ -426,42 +432,48 @@ export default function Adventure4_Module3_Lesson2({
                     simultaneousHandlers={panGestureRef}
                   >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Illuminated Manuscripts & Scribes
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 3 • Lesson 2
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Illuminated Manuscripts & Scribes
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 3 • Lesson 2
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>
-                            {historicalText}
-                          </Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>Historical Context</Text>
+                            <Text style={styles.historicalText}>
+                              {historicalText}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Kufic Script"
-                              definition="Early angular Arabic script used for copying Qur'anic manuscripts with geometric precision"
-                            />
-                            <KeyTermRow
-                              term="Illuminated Manuscripts"
-                              definition="Hand-copied books decorated with gold paint, intricate borders, and ornate calligraphy"
-                            />
-                            <KeyTermRow
-                              term="Scribes (Kuttāb)"
-                              definition="Skilled copyists who trained for years to master Arabic calligraphy and manuscript production"
-                            />
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Kufic Script"
+                                definition="Early angular Arabic script used for copying Qur'anic manuscripts with geometric precision"
+                              />
+                              <KeyTermRow
+                                term="Illuminated Manuscripts"
+                                definition="Hand-copied books decorated with gold paint, intricate borders, and ornate calligraphy"
+                              />
+                              <KeyTermRow
+                                term="Scribes (Kuttāb)"
+                                definition="Skilled copyists who trained for years to master Arabic calligraphy and manuscript production"
+                              />
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />

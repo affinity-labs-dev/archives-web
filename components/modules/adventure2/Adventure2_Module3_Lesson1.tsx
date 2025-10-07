@@ -374,14 +374,20 @@ export default function Adventure2_Module3_Lesson1({
             styles.collapsedContent,
             { opacity: cardOpacity }
           ]}>
-            <View style={styles.readingCardHeader}>
-              <Text style={styles.cardTitle}>
-                Building the Dome of the Rock
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                The Dome of the Rock is one of the oldest and most remarkable buildings...
-              </Text>
-            </View>
+            <TouchableOpacity
+              onPress={expandCard}
+              activeOpacity={0.8}
+              disabled={isCardExpanded}
+            >
+              <View style={styles.readingCardHeader}>
+                <Text style={styles.cardTitle}>
+                  Building the Dome of the Rock
+                </Text>
+                <Text style={styles.cardSubtitle}>
+                  The Dome of the Rock is one of the oldest and most remarkable buildings...
+                </Text>
+              </View>
+            </TouchableOpacity>
           </Animated.View>
 
           {/* Expanded content */}
@@ -400,42 +406,48 @@ export default function Adventure2_Module3_Lesson1({
                 scrollEventThrottle={100}
               >
                 <View style={styles.expandedContentInner}>
-                  {/* Title Section */}
-                  <View style={styles.titleSection}>
-                    <Text style={styles.sheetTitle}>
-                      Building the Dome of the Rock
-                    </Text>
-                    <Text style={styles.sheetSubtitle}>
-                      Module 3 • Lesson 1
-                    </Text>
-                  </View>
+                  {/* Title Section - Tappable to collapse */}
+                  <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                    <View style={styles.titleSection}>
+                      <Text style={styles.sheetTitle}>
+                        Building the Dome of the Rock
+                      </Text>
+                      <Text style={styles.sheetSubtitle}>
+                        Module 3 • Lesson 1
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
 
                   {/* Historical Content */}
-                  <View style={styles.historicalSection}>
-                    <Text style={styles.sectionTitle}>Historical Context</Text>
-                    <Text style={styles.historicalText}>
-                      The Dome of the Rock is one of the oldest and most remarkable buildings in Islamic history. Caliph Abd al-Malik began its construction in Jerusalem, and it was completed in 691 CE. Unlike earlier Roman or Byzantine churches, its design was a perfect circle with a golden dome that could be seen from all across the city. Built to honor the Prophet Muhammad&apos;s Night Journey and Ascension, it also served as a bold symbol of Islamic identity and the empire&apos;s growing power.
-                    </Text>
-                  </View>
+                  <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                    <View style={styles.historicalSection}>
+                      <Text style={styles.sectionTitle}>Historical Context</Text>
+                      <Text style={styles.historicalText}>
+                        The Dome of the Rock is one of the oldest and most remarkable buildings in Islamic history. Caliph Abd al-Malik began its construction in Jerusalem, and it was completed in 691 CE. Unlike earlier Roman or Byzantine churches, its design was a perfect circle with a golden dome that could be seen from all across the city. Built to honor the Prophet Muhammad&apos;s Night Journey and Ascension, it also served as a bold symbol of Islamic identity and the empire&apos;s growing power.
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
 
                   {/* Key Terms Section */}
-                  <View style={styles.keyTermsSection}>
-                    <Text style={styles.sectionTitle}>Key Terms</Text>
-                    <View style={styles.keyTermsContainer}>
-                      <KeyTermRow
-                        term="Perfect Circle Design"
-                        definition="Unique circular architecture with golden dome, unlike Roman or Byzantine churches"
-                      />
-                      <KeyTermRow
-                        term="Night Journey and Ascension"
-                        definition="Prophet Muhammad's miraculous journey honored by the Dome of the Rock"
-                      />
-                      <KeyTermRow
-                        term="691 CE Completion"
-                        definition="Year Abd al-Malik's remarkable building project was finished in Jerusalem"
-                      />
+                  <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                    <View style={styles.keyTermsSection}>
+                      <Text style={styles.sectionTitle}>Key Terms</Text>
+                      <View style={styles.keyTermsContainer}>
+                        <KeyTermRow
+                          term="Perfect Circle Design"
+                          definition="Unique circular architecture with golden dome, unlike Roman or Byzantine churches"
+                        />
+                        <KeyTermRow
+                          term="Night Journey and Ascension"
+                          definition="Prophet Muhammad's miraculous journey honored by the Dome of the Rock"
+                        />
+                        <KeyTermRow
+                          term="691 CE Completion"
+                          definition="Year Abd al-Malik's remarkable building project was finished in Jerusalem"
+                        />
+                      </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
 
                   {/* Bottom spacer to ensure full scroll */}
                   <View style={styles.sheetBottomSpacer} />

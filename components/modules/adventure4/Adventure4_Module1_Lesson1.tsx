@@ -438,18 +438,24 @@ export default function Adventure4_Module1_Lesson1({
               {/* Top handle indicator */}
               <View style={styles.cardHandle} />
 
-              {/* Collapsed content */}
+              {/* Collapsed content - Tappable to expand */}
               <Animated.View
                 style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    Great Mosque of Damascus Mosaics
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    Marvel at shimmering landscapes made of tiny tiles...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      Great Mosque of Damascus Mosaics
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      Marvel at shimmering landscapes made of tiny tiles...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
 
               {/* Expanded content */}
@@ -470,52 +476,58 @@ export default function Adventure4_Module1_Lesson1({
                     simultaneousHandlers={panGestureRef}
                   >
                     <View style={styles.expandedContentInner}>
-                      {/* Title Section */}
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          Great Mosque of Damascus Mosaics
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Adventure 4 • Module 1 • Lesson 1
-                        </Text>
-                      </View>
-
-                      {/* Historical Content */}
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>
-                          Historical Context
-                        </Text>
-                        <Text style={styles.historicalText}>
-                          The Great Mosque of Damascus is one of the oldest
-                          and most beautiful in the world - and its walls
-                          sparkle with Byzantine-made mosaics. These
-                          weren&apos;t pictures of people or battles. Instead,
-                          they showed peaceful imaginary landscapes filled
-                          with trees, palaces, and flowing water. These
-                          dreamlike scenes reminded worshippers of paradise,
-                          creating a calm and sacred feeling inside the
-                          mosque.
-                        </Text>
-                      </View>
-
-                      {/* Key Terms Section */}
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Byzantine Mosaics"
-                            definition="Decorative art made of tiny colored tiles created by artists from the Byzantine Empire"
-                          />
-                          <KeyTermRow
-                            term="Paradise Landscapes"
-                            definition="Peaceful imaginary scenes of trees, palaces, and water representing heavenly gardens"
-                          />
-                          <KeyTermRow
-                            term="Artistic Collaboration"
-                            definition="The Umayyads' practice of hiring skilled artists regardless of their empire of origin"
-                          />
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Great Mosque of Damascus Mosaics
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Adventure 4 • Module 1 • Lesson 1
+                          </Text>
                         </View>
-                      </View>
+                      </TouchableOpacity>
+
+                      {/* Historical Content - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            The Great Mosque of Damascus is one of the oldest
+                            and most beautiful in the world - and its walls
+                            sparkle with Byzantine-made mosaics. These
+                            weren&apos;t pictures of people or battles. Instead,
+                            they showed peaceful imaginary landscapes filled
+                            with trees, palaces, and flowing water. These
+                            dreamlike scenes reminded worshippers of paradise,
+                            creating a calm and sacred feeling inside the
+                            mosque.
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Key Terms Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Byzantine Mosaics"
+                              definition="Decorative art made of tiny colored tiles created by artists from the Byzantine Empire"
+                            />
+                            <KeyTermRow
+                              term="Paradise Landscapes"
+                              definition="Peaceful imaginary scenes of trees, palaces, and water representing heavenly gardens"
+                            />
+                            <KeyTermRow
+                              term="Artistic Collaboration"
+                              definition="The Umayyads' practice of hiring skilled artists regardless of their empire of origin"
+                            />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Bottom spacer to ensure full scroll */}
                       <View style={styles.sheetBottomSpacer} />

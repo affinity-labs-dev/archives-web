@@ -498,14 +498,20 @@ export default function Adventure3_Module2_Lesson1({
               <Animated.View
                 style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    In 711 CE, Ṭarīq ibn Ziyād crossed into Iberia...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      In 711 CE, Ṭarīq ibn Ziyād crossed into Iberia...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
 
               {/* Expanded content */}
@@ -526,42 +532,48 @@ export default function Adventure3_Module2_Lesson1({
                     simultaneousHandlers={panGestureRef}
                   >
                     <View style={styles.expandedContentInner}>
-                      {/* Title Section */}
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 2 • Lesson 1
-                        </Text>
-                      </View>
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Ṭarīq ibn Ziyād&apos;s Conquest of Iberia
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 2 • Lesson 1
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Historical Content */}
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>Historical Context</Text>
-                        <Text style={styles.historicalText}>
-                          In 711 CE, General Tariq ibn Ziyad crossed from North Africa to the Iberian Peninsula with a small force. He landed at a steep cliff that later took his name, Jabal Tariq, or Gibraltar. According to tradition, he ordered his men to burn their ships, forcing them to push forward with no retreat. That moment marked the beginning of Islam&apos;s long history in Spain.
-                        </Text>
-                      </View>
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.historicalText}>
+                            In 711 CE, General Tariq ibn Ziyad crossed from North Africa to the Iberian Peninsula with a small force. He landed at a steep cliff that later took his name, Jabal Tariq, or Gibraltar. According to tradition, he ordered his men to burn their ships, forcing them to push forward with no retreat. That moment marked the beginning of Islam&apos;s long history in Spain.
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Key Terms Section */}
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Gibraltar"
-                            definition="From &apos;Jabal Ṭarīq&apos; meaning &apos;Ṭarīq&apos;s Mountain&apos;, the landing point of the conquest"
-                          />
-                          <KeyTermRow
-                            term="Al-Andalus"
-                            definition="The Arabic name for the Iberian Peninsula under Muslim rule"
-                          />
-                          <KeyTermRow
-                            term="Ṭarīq ibn Ziyād"
-                            definition="Berber general who led the Muslim conquest of Iberia in 711 CE"
-                          />
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Gibraltar"
+                              definition="From &apos;Jabal Ṭarīq&apos; meaning &apos;Ṭarīq&apos;s Mountain&apos;, the landing point of the conquest"
+                            />
+                            <KeyTermRow
+                              term="Al-Andalus"
+                              definition="The Arabic name for the Iberian Peninsula under Muslim rule"
+                            />
+                            <KeyTermRow
+                              term="Ṭarīq ibn Ziyād"
+                              definition="Berber general who led the Muslim conquest of Iberia in 711 CE"
+                            />
+                          </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
 
                       {/* Bottom spacer to ensure full scroll */}
                       <View style={styles.sheetBottomSpacer} />

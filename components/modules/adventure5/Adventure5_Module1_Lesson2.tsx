@@ -430,46 +430,58 @@ export default function Adventure5_Module1_Lesson2({
               <Animated.View
                 style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                <View style={styles.collapsedContentWrapper}>
-                  <Text style={styles.collapsedTitle}>{imageTitle}</Text>
-                  <Text style={styles.collapsedSubtitle}>
-                    {educationalContent.historicalContext.substring(0, 100)}...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.collapsedContentWrapper}>
+                    <Text style={styles.collapsedTitle}>{imageTitle}</Text>
+                    <Text style={styles.collapsedSubtitle}>
+                      {educationalContent.historicalContext.substring(0, 100)}...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
             )}
 
             {/* Expanded content when card is swiped up */}
             {isCardExpanded && (
               <View style={styles.androidExpandedContent}>
-                <Text style={styles.androidExpandedTitle}>{imageTitle}</Text>
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <Text style={styles.androidExpandedTitle}>{imageTitle}</Text>
 
-                <Text style={styles.androidExpandedSubtitle}>
-                  {educationalContent.moduleInfo}
-                </Text>
+                  <Text style={styles.androidExpandedSubtitle}>
+                    {educationalContent.moduleInfo}
+                  </Text>
+                </TouchableOpacity>
 
-                <Text style={styles.androidSectionTitle}>
-                  Historical Context
-                </Text>
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <Text style={styles.androidSectionTitle}>
+                    Historical Context
+                  </Text>
 
-                <Text style={styles.androidHistoricalText}>
-                  {educationalContent.historicalContext}
-                </Text>
+                  <Text style={styles.androidHistoricalText}>
+                    {educationalContent.historicalContext}
+                  </Text>
+                </TouchableOpacity>
 
-                <Text style={styles.androidSectionTitle}>Key Terms</Text>
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <Text style={styles.androidSectionTitle}>Key Terms</Text>
 
-                <View style={styles.androidKeyTermsContainer}>
-                  {educationalContent.keyTerms.map((keyTerm, index) => (
-                    <View key={index} style={styles.androidKeyTermRow}>
-                      <Text style={styles.androidKeyTermTitle}>
-                        {keyTerm.term}
-                      </Text>
-                      <Text style={styles.androidKeyTermDefinition}>
-                        {keyTerm.definition}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
+                  <View style={styles.androidKeyTermsContainer}>
+                    {educationalContent.keyTerms.map((keyTerm, index) => (
+                      <View key={index} style={styles.androidKeyTermRow}>
+                        <Text style={styles.androidKeyTermTitle}>
+                          {keyTerm.term}
+                        </Text>
+                        <Text style={styles.androidKeyTermDefinition}>
+                          {keyTerm.definition}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </TouchableOpacity>
               </View>
             )}
           </Animated.View>
@@ -500,13 +512,19 @@ export default function Adventure5_Module1_Lesson2({
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>{imageTitle}</Text>
-                    <Text style={styles.cardSubtitle}>
-                      {educationalContent.historicalContext.substring(0, 100)}
-                      ...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>{imageTitle}</Text>
+                      <Text style={styles.cardSubtitle}>
+                        {educationalContent.historicalContext.substring(0, 100)}
+                        ...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -527,39 +545,45 @@ export default function Adventure5_Module1_Lesson2({
                       simultaneousHandlers={panGestureRef}
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>{imageTitle}</Text>
-                          <Text style={styles.sheetSubtitle}>
-                            {educationalContent.moduleInfo}
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>{imageTitle}</Text>
+                            <Text style={styles.sheetSubtitle}>
+                              {educationalContent.moduleInfo}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            {educationalContent.historicalContext}
-                          </Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>
+                              Historical Context
+                            </Text>
+                            <Text style={styles.historicalText}>
+                              {educationalContent.historicalContext}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            {educationalContent.keyTerms.map(
-                              (keyTerm, index) => (
-                                <KeyTermRow
-                                  key={index}
-                                  term={keyTerm.term}
-                                  definition={keyTerm.definition}
-                                />
-                              )
-                            )}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              {educationalContent.keyTerms.map(
+                                (keyTerm, index) => (
+                                  <KeyTermRow
+                                    key={index}
+                                    term={keyTerm.term}
+                                    definition={keyTerm.definition}
+                                  />
+                                )
+                              )}
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />

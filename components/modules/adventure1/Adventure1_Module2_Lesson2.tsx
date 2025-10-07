@@ -369,14 +369,20 @@ export default function Adventure1_Module2_Lesson2({
                   styles.collapsedContent,
                   { opacity: cardOpacity }
                 ]}>
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      The Heart of Government
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Inside the Umayyad court, every job had a clear task...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        The Heart of Government
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        Inside the Umayyad court, every job had a clear task...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -394,40 +400,46 @@ export default function Adventure1_Module2_Lesson2({
                       waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            The Heart of Government
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 2 • Lesson 2
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              The Heart of Government
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 2 • Lesson 2
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>Historical Context</Text>
+                            <Text style={styles.historicalText}>{historicalText}</Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Wazir (Chief Minister)"
-                              definition="The minister who helped the caliph run daily affairs of government"
-                            />
-                            <KeyTermRow
-                              term="Qadi"
-                              definition="A judge who decided cases using Islamic law in the court system"
-                            />
-                            <KeyTermRow
-                              term="Arabic Records (696 CE)"
-                              definition="Abd al-Malik's order to shift government records into Arabic for unity"
-                            />
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Wazir (Chief Minister)"
+                                definition="The minister who helped the caliph run daily affairs of government"
+                              />
+                              <KeyTermRow
+                                term="Qadi"
+                                definition="A judge who decided cases using Islamic law in the court system"
+                              />
+                              <KeyTermRow
+                                term="Arabic Records (696 CE)"
+                                definition="Abd al-Malik's order to shift government records into Arabic for unity"
+                              />
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />
@@ -464,14 +476,20 @@ export default function Adventure1_Module2_Lesson2({
                   styles.collapsedContent,
                   { opacity: cardOpacity }
                 ]}>
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      The Heart of Government
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Inside the Umayyad court, every job had a clear task...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.collapsedContentWrapper}>
+                      <Text style={styles.collapsedTitle}>
+                        The Heart of Government
+                      </Text>
+                      <Text style={styles.collapsedSubtitle}>
+                        Inside the Umayyad court, every job had a clear task...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -488,40 +506,46 @@ export default function Adventure1_Module2_Lesson2({
                       scrollEventThrottle={100}
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            The Heart of Government
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 2 • Lesson 2
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              The Heart of Government
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 2 • Lesson 2
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>Historical Context</Text>
+                            <Text style={styles.historicalText}>{historicalText}</Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Wazir (Chief Minister)"
-                              definition="The minister who helped the caliph run daily affairs of government"
-                            />
-                            <KeyTermRow
-                              term="Qadi"
-                              definition="A judge who decided cases using Islamic law in the court system"
-                            />
-                            <KeyTermRow
-                              term="Arabic Records (696 CE)"
-                              definition="Abd al-Malik's order to shift government records into Arabic for unity"
-                            />
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Wazir (Chief Minister)"
+                                definition="The minister who helped the caliph run daily affairs of government"
+                              />
+                              <KeyTermRow
+                                term="Qadi"
+                                definition="A judge who decided cases using Islamic law in the court system"
+                              />
+                              <KeyTermRow
+                                term="Arabic Records (696 CE)"
+                                definition="Abd al-Malik's order to shift government records into Arabic for unity"
+                              />
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />

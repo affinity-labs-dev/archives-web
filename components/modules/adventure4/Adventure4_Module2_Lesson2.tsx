@@ -408,14 +408,20 @@ export default function Adventure4_Module2_Lesson2({
               <Animated.View
                 style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    Illuminated Manuscripts & Scribes
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    Illuminated manuscripts weren&apos;t made quickly - they took time, patience...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      Illuminated Manuscripts & Scribes
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      Illuminated manuscripts weren&apos;t made quickly - they took time, patience...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
 
               {/* Expanded content */}
@@ -436,40 +442,46 @@ export default function Adventure4_Module2_Lesson2({
                     simultaneousHandlers={panGestureRef}
                   >
                     <View style={styles.expandedContentInner}>
-                      {/* Title Section */}
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          Palace Life & Architecture
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 2 • Lesson 2
-                        </Text>
-                      </View>
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Palace Life & Architecture
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 2 • Lesson 2
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Historical Content */}
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>Historical Context</Text>
-                        <Text style={styles.historicalText}>{historicalText}</Text>
-                      </View>
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.historicalText}>{historicalText}</Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Key Terms Section */}
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Courtyard Gardens"
-                            definition="Central palace spaces with fountains, palm trees, and shaded walkways for relaxation"
-                          />
-                          <KeyTermRow
-                            term="Water Channels"
-                            definition="Clever underground systems that carried fresh water to fountains and gardens"
-                          />
-                          <KeyTermRow
-                            term="Hunting Grounds"
-                            definition="Desert areas around palaces where caliphs and nobles practiced falconry and hunting"
-                          />
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Courtyard Gardens"
+                              definition="Central palace spaces with fountains, palm trees, and shaded walkways for relaxation"
+                            />
+                            <KeyTermRow
+                              term="Water Channels"
+                              definition="Clever underground systems that carried fresh water to fountains and gardens"
+                            />
+                            <KeyTermRow
+                              term="Hunting Grounds"
+                              definition="Desert areas around palaces where caliphs and nobles practiced falconry and hunting"
+                            />
+                          </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
 
                       {/* Bottom spacer to ensure full scroll */}
                       <View style={styles.sheetBottomSpacer} />

@@ -405,14 +405,20 @@ export default function Adventure2_Module1_Lesson1({
                   styles.collapsedContent,
                   { opacity: cardOpacity }
                 ]}>
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Switching the language of an empire
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      In the late 600s, Caliph Abd al-Malik made Arabic the official language...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        Switching the language of an empire
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        In the late 600s, Caliph Abd al-Malik made Arabic the official language...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -430,42 +436,48 @@ export default function Adventure2_Module1_Lesson1({
                       waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Switching the language of an empire
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 1 • Lesson 1
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Switching the language of an empire
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 1 • Lesson 1
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>
-                            In the late 600s, Caliph Abd al-Malik made Arabic the official language of government. Before then, taxes and records were written in Greek, Persian, or Syriac, depending on the region. His governor al-Hajjaj ibn Yusuf helped push the change, making scribes switch to Arabic in their offices. This shift gave the empire one clear voice and turned Arabic into the main language of power and history.
-                          </Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>Historical Context</Text>
+                            <Text style={styles.historicalText}>
+                              In the late 600s, Caliph Abd al-Malik made Arabic the official language of government. Before then, taxes and records were written in Greek, Persian, or Syriac, depending on the region. His governor al-Hajjaj ibn Yusuf helped push the change, making scribes switch to Arabic in their offices. This shift gave the empire one clear voice and turned Arabic into the main language of power and history.
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Abd al-Malik"
-                              definition="Umayyad caliph who made Arabic the official government language in the late 600s"
-                            />
-                            <KeyTermRow
-                              term="Al-Hajjaj ibn Yusuf"
-                              definition="Governor who helped push the Arabic language change in government offices"
-                            />
-                            <KeyTermRow
-                              term="Regional Languages"
-                              definition="Greek, Persian, and Syriac used for records before Arabic became official"
-                            />
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Abd al-Malik"
+                                definition="Umayyad caliph who made Arabic the official government language in the late 600s"
+                              />
+                              <KeyTermRow
+                                term="Al-Hajjaj ibn Yusuf"
+                                definition="Governor who helped push the Arabic language change in government offices"
+                              />
+                              <KeyTermRow
+                                term="Regional Languages"
+                                definition="Greek, Persian, and Syriac used for records before Arabic became official"
+                              />
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />

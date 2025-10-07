@@ -469,15 +469,21 @@ export default function Adventure5_Module1_Lesson1({
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      The Reign of Yazīd II (720-724 CE)
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Yazīd II's brief but influential reign marked the zenith
-                      of Umayyad cultural achievement...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        The Reign of Yazīd II (720-724 CE)
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        Yazīd II's brief but influential reign marked the zenith
+                        of Umayyad cultural achievement...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -498,73 +504,81 @@ export default function Adventure5_Module1_Lesson1({
                       simultaneousHandlers={panGestureRef}
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            The Reign of Yazīd II
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Caliph of the Umayyad Dynasty • 720-724 CE
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              The Reign of Yazīd II
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Caliph of the Umayyad Dynasty • 720-724 CE
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Context Section */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            Yazīd II assumed the caliphate during a period of
-                            relative stability within the Umayyad Dynasty. His
-                            four-year reign, though brief, was marked by
-                            significant cultural and artistic developments that
-                            would define the golden age of Islamic civilization.
-                          </Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>
+                              Historical Context
+                            </Text>
+                            <Text style={styles.historicalText}>
+                              Yazīd II assumed the caliphate during a period of
+                              relative stability within the Umayyad Dynasty. His
+                              four-year reign, though brief, was marked by
+                              significant cultural and artistic developments that
+                              would define the golden age of Islamic civilization.
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Architectural Legacy
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            Yazīd II's architectural patronage established new
-                            standards for Islamic design.
-                          </Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>
+                              Architectural Legacy
+                            </Text>
+                            <Text style={styles.historicalText}>
+                              Yazīd II's architectural patronage established new
+                              standards for Islamic design.
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>
-                                Cultural Synthesis
-                              </Text>
-                              <Text style={styles.keyTermDefinition}>
-                                The blending of Islamic, Byzantine, and Persian
-                                artistic traditions
-                              </Text>
-                            </View>
-                            <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>
-                                Artistic Patronage
-                              </Text>
-                              <Text style={styles.keyTermDefinition}>
-                                Royal support and funding for artists,
-                                architects, and scholars
-                              </Text>
-                            </View>
-                            <View style={styles.keyTermRow}>
-                              <Text style={styles.keyTermTitle}>
-                                Golden Age
-                              </Text>
-                              <Text style={styles.keyTermDefinition}>
-                                Period of peak cultural achievement and artistic
-                                excellence
-                              </Text>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <View style={styles.keyTermRow}>
+                                <Text style={styles.keyTermTitle}>
+                                  Cultural Synthesis
+                                </Text>
+                                <Text style={styles.keyTermDefinition}>
+                                  The blending of Islamic, Byzantine, and Persian
+                                  artistic traditions
+                                </Text>
+                              </View>
+                              <View style={styles.keyTermRow}>
+                                <Text style={styles.keyTermTitle}>
+                                  Artistic Patronage
+                                </Text>
+                                <Text style={styles.keyTermDefinition}>
+                                  Royal support and funding for artists,
+                                  architects, and scholars
+                                </Text>
+                              </View>
+                              <View style={styles.keyTermRow}>
+                                <Text style={styles.keyTermTitle}>
+                                  Golden Age
+                                </Text>
+                                <Text style={styles.keyTermDefinition}>
+                                  Period of peak cultural achievement and artistic
+                                  excellence
+                                </Text>
+                              </View>
                             </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         <View style={styles.sheetBottomSpacer} />
                       </View>

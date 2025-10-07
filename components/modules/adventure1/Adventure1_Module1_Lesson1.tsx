@@ -369,14 +369,20 @@ export default function Adventure1_Module1_Lesson1({
               styles.collapsedContent,
               { opacity: cardOpacity }
             ]}>
-              <View style={styles.readingCardHeader}>
-                <Text style={styles.cardTitle}>
-                  Bay&apos;ah Ceremony & Damascus
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  In 661 CE, Muʿawiya became the first Umayyad caliph...
-                </Text>
-              </View>
+              <TouchableOpacity
+                onPress={expandCard}
+                activeOpacity={0.8}
+                disabled={isCardExpanded}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Bay&apos;ah Ceremony & Damascus
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    In 661 CE, Muʿawiya became the first Umayyad caliph...
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </Animated.View>
 
             {/* Expanded content */}
@@ -395,40 +401,46 @@ export default function Adventure1_Module1_Lesson1({
                   waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Bay&apos;ah Ceremony & Damascus
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 1 • Lesson 1
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Bay&apos;ah Ceremony & Damascus
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 1 • Lesson 1
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>{historicalText}</Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Bay'ah"
-                          definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
-                        />
-                        <KeyTermRow
-                          term="Damascus"
-                          definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
-                        />
-                        <KeyTermRow
-                          term="Legitimacy"
-                          definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Bay'ah"
+                            definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
+                          />
+                          <KeyTermRow
+                            term="Damascus"
+                            definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
+                          />
+                          <KeyTermRow
+                            term="Legitimacy"
+                            definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />
@@ -466,14 +478,20 @@ export default function Adventure1_Module1_Lesson1({
               styles.collapsedContent,
               { opacity: cardOpacity }
             ]}>
-              <View style={styles.collapsedContentWrapper}>
-                <Text style={styles.collapsedTitle}>
-                  Bay&apos;ah Ceremony & Damascus
-                </Text>
-                <Text style={styles.collapsedSubtitle}>
-                  In 661 CE, Muʿawiya became the first Umayyad caliph...
-                </Text>
-              </View>
+              <TouchableOpacity
+                onPress={expandCard}
+                activeOpacity={0.8}
+                disabled={isCardExpanded}
+              >
+                <View style={styles.collapsedContentWrapper}>
+                  <Text style={styles.collapsedTitle}>
+                    Bay&apos;ah Ceremony & Damascus
+                  </Text>
+                  <Text style={styles.collapsedSubtitle}>
+                    In 661 CE, Muʿawiya became the first Umayyad caliph...
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </Animated.View>
 
             {/* Expanded content when card is swiped up */}
@@ -491,40 +509,46 @@ export default function Adventure1_Module1_Lesson1({
                   scrollEventThrottle={100}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Bay&apos;ah Ceremony & Damascus
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 1 • Lesson 1
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Bay&apos;ah Ceremony & Damascus
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 1 • Lesson 1
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Context Section */}
-                    <View style={styles.historicalContextSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>{historicalText}</Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Bay'ah"
-                          definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
-                        />
-                        <KeyTermRow
-                          term="Damascus"
-                          definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
-                        />
-                        <KeyTermRow
-                          term="Legitimacy"
-                          definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Bay'ah"
+                            definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
+                          />
+                          <KeyTermRow
+                            term="Damascus"
+                            definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
+                          />
+                          <KeyTermRow
+                            term="Legitimacy"
+                            definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />

@@ -357,14 +357,20 @@ export default function Adventure5_Module3_Lesson1({
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Abbasid Revolution and New Order
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Building a new capital to reflect their power and vision
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        Abbasid Revolution and New Order
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        Building a new capital to reflect their power and vision
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {isCardExpanded && (
@@ -384,37 +390,46 @@ export default function Adventure5_Module3_Lesson1({
                       simultaneousHandlers={panGestureRef}
                     >
                       <View style={styles.expandedContentInner}>
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Abbasid Revolution and New Order
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 3 • Lesson 1
-                          </Text>
-                        </View>
-
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            The Great Revolution
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            {historicalText}
-                          </Text>
-                        </View>
-
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="New Order"
-                              definition="Abbasid promise of fairness, knowledge, and proper Islamic leadership"
-                            />
-                            <KeyTermRow
-                              term="Round City"
-                              definition="Baghdad's unique circular design symbolizing unity and perfection"
-                            />
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Abbasid Revolution and New Order
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 3 • Lesson 1
+                            </Text>
                           </View>
-                        </View>
+                        </TouchableOpacity>
+
+                        {/* Historical Content */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>
+                              The Great Revolution
+                            </Text>
+                            <Text style={styles.historicalText}>
+                              {historicalText}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Key Terms Section */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="New Order"
+                                definition="Abbasid promise of fairness, knowledge, and proper Islamic leadership"
+                              />
+                              <KeyTermRow
+                                term="Round City"
+                                definition="Baghdad's unique circular design symbolizing unity and perfection"
+                              />
+                            </View>
+                          </View>
+                        </TouchableOpacity>
 
                         <View style={styles.sheetBottomSpacer} />
                       </View>
@@ -440,14 +455,20 @@ export default function Adventure5_Module3_Lesson1({
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      Abbasid Revolution and New Order
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Building a new capital to reflect their power and vision
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.collapsedContentWrapper}>
+                      <Text style={styles.collapsedTitle}>
+                        Abbasid Revolution and New Order
+                      </Text>
+                      <Text style={styles.collapsedSubtitle}>
+                        Building a new capital to reflect their power and vision
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {isCardExpanded && (
@@ -467,37 +488,46 @@ export default function Adventure5_Module3_Lesson1({
                       onScrollEndDrag={() => setIsCardGestureActive(false)}
                     >
                       <View style={styles.expandedContentInner}>
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Abbasid Revolution and New Order
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 3 • Lesson 1
-                          </Text>
-                        </View>
-
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            The Great Revolution
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            {historicalText}
-                          </Text>
-                        </View>
-
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="750 CE"
-                              definition="The year the Abbasids overthrew the Umayyads and seized power"
-                            />
-                            <KeyTermRow
-                              term="Baghdad"
-                              definition="The new Abbasid capital city built from scratch near the Tigris River"
-                            />
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Abbasid Revolution and New Order
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 3 • Lesson 1
+                            </Text>
                           </View>
-                        </View>
+                        </TouchableOpacity>
+
+                        {/* Historical Content */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>
+                              The Great Revolution
+                            </Text>
+                            <Text style={styles.historicalText}>
+                              {historicalText}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Key Terms Section */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="750 CE"
+                                definition="The year the Abbasids overthrew the Umayyads and seized power"
+                              />
+                              <KeyTermRow
+                                term="Baghdad"
+                                definition="The new Abbasid capital city built from scratch near the Tigris River"
+                              />
+                            </View>
+                          </View>
+                        </TouchableOpacity>
 
                         <View style={styles.sheetBottomSpacer} />
                       </View>

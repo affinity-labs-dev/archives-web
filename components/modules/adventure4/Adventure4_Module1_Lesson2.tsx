@@ -376,18 +376,24 @@ export default function Adventure4_Module1_Lesson2({
                 {/* Top handle indicator */}
                 <View style={styles.cardHandle} />
 
-                {/* iOS Collapsed content */}
+                {/* iOS Collapsed content - Tappable to expand */}
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Byzantine Artists in Damascus
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Expert mosaic artists from a rival empire...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        Byzantine Artists in Damascus
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        Expert mosaic artists from a rival empire...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -409,44 +415,50 @@ export default function Adventure4_Module1_Lesson2({
                       }
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Byzantine Artists in Damascus
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Adventure 4 • Module 1 • Lesson 2
-                          </Text>
-                        </View>
-
-                        {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            {historicalText}
-                          </Text>
-                        </View>
-
-                        {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Byzantine Empire"
-                              definition="Former rival empire known for skilled mosaic artists and craftsmen"
-                            />
-                            <KeyTermRow
-                              term="Artistic Skill"
-                              definition="The Umayyads valued talent and expertise regardless of origin"
-                            />
-                            <KeyTermRow
-                              term="Cultural Synthesis"
-                              definition="Blending different artistic traditions to create something new and beautiful"
-                            />
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Byzantine Artists in Damascus
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Adventure 4 • Module 1 • Lesson 2
+                            </Text>
                           </View>
-                        </View>
+                        </TouchableOpacity>
+
+                        {/* Historical Content - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>
+                              Historical Context
+                            </Text>
+                            <Text style={styles.historicalText}>
+                              {historicalText}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Key Terms Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Byzantine Empire"
+                                definition="Former rival empire known for skilled mosaic artists and craftsmen"
+                              />
+                              <KeyTermRow
+                                term="Artistic Skill"
+                                definition="The Umayyads valued talent and expertise regardless of origin"
+                              />
+                              <KeyTermRow
+                                term="Cultural Synthesis"
+                                definition="Blending different artistic traditions to create something new and beautiful"
+                              />
+                            </View>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />
@@ -479,18 +491,24 @@ export default function Adventure4_Module1_Lesson2({
                 {/* Top handle indicator */}
                 <View style={styles.cardHandle} />
 
-                {/* Android Collapsed content */}
+                {/* Android Collapsed content - Tappable to expand */}
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      Byzantine Artists in Damascus
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Expert mosaic artists from a rival empire...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.collapsedContentWrapper}>
+                      <Text style={styles.collapsedTitle}>
+                        Byzantine Artists in Damascus
+                      </Text>
+                      <Text style={styles.collapsedSubtitle}>
+                        Expert mosaic artists from a rival empire...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -509,44 +527,50 @@ export default function Adventure4_Module1_Lesson2({
                       scrollEventThrottle={100}
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Byzantine Artists in Damascus
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Adventure 4 • Module 1 • Lesson 2
-                          </Text>
-                        </View>
-
-                        {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            {historicalText}
-                          </Text>
-                        </View>
-
-                        {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Byzantine Empire"
-                              definition="Former rival empire known for skilled mosaic artists and craftsmen"
-                            />
-                            <KeyTermRow
-                              term="Artistic Skill"
-                              definition="The Umayyads valued talent and expertise regardless of origin"
-                            />
-                            <KeyTermRow
-                              term="Cultural Synthesis"
-                              definition="Blending different artistic traditions to create something new and beautiful"
-                            />
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Byzantine Artists in Damascus
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Adventure 4 • Module 1 • Lesson 2
+                            </Text>
                           </View>
-                        </View>
+                        </TouchableOpacity>
+
+                        {/* Historical Content - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>
+                              Historical Context
+                            </Text>
+                            <Text style={styles.historicalText}>
+                              {historicalText}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Key Terms Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Byzantine Empire"
+                                definition="Former rival empire known for skilled mosaic artists and craftsmen"
+                              />
+                              <KeyTermRow
+                                term="Artistic Skill"
+                                definition="The Umayyads valued talent and expertise regardless of origin"
+                              />
+                              <KeyTermRow
+                                term="Cultural Synthesis"
+                                definition="Blending different artistic traditions to create something new and beautiful"
+                              />
+                            </View>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />

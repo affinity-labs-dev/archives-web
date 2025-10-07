@@ -462,14 +462,20 @@ export default function Adventure1_Module2_Lesson1({
               <Animated.View
                 style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    Interiors of the Umayyad Palace
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    The Umayyad palace in Damascus was called the Green Dome...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      Interiors of the Umayyad Palace
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      The Umayyad palace in Damascus was called the Green Dome...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
 
               {/* Expanded content when card is swiped up */}
@@ -490,48 +496,54 @@ export default function Adventure1_Module2_Lesson1({
                     simultaneousHandlers={panGestureRef}
                   >
                     <View style={styles.expandedContentInner}>
-                      {/* Title Section */}
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          Interiors of the Umayyad Palace
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 2 • Lesson 1
-                        </Text>
-                      </View>
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Interiors of the Umayyad Palace
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 2 • Lesson 1
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Historical Content */}
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>
-                          Historical Context
-                        </Text>
-                        <Text style={styles.historicalText}>
-                          The Umayyad palace in Damascus was called the Green
-                          Dome, or al-Khadra. Muʿawiya built it beside the
-                          Umayyad Mosque as a working seat of power, with a
-                          coin mint, stables, and a prison. Sources describe a
-                          domed audience hall, marble floors, and gardens with
-                          fountains, myrtles, and vines. Later rulers still
-                          used the complex, but by the 1000s it had vanished,
-                          and travelers wrote that markets stood where the
-                          palace once was.
-                        </Text>
-                      </View>
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            The Umayyad palace in Damascus was called the Green
+                            Dome, or al-Khadra. Muʿawiya built it beside the
+                            Umayyad Mosque as a working seat of power, with a
+                            coin mint, stables, and a prison. Sources describe a
+                            domed audience hall, marble floors, and gardens with
+                            fountains, myrtles, and vines. Later rulers still
+                            used the complex, but by the 1000s it had vanished,
+                            and travelers wrote that markets stood where the
+                            palace once was.
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Key Terms Section */}
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Green Dome (al-Khadra)"
-                            definition="The name of the Umayyad palace complex built by Muʿawiya in Damascus"
-                          />
-                          <KeyTermRow
-                            term="Audience Hall"
-                            definition="The domed reception room with marble floors where the caliph met visitors"
-                          />
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Green Dome (al-Khadra)"
+                              definition="The name of the Umayyad palace complex built by Muʿawiya in Damascus"
+                            />
+                            <KeyTermRow
+                              term="Audience Hall"
+                              definition="The domed reception room with marble floors where the caliph met visitors"
+                            />
+                          </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
 
                       {/* Bottom spacer to ensure full scroll */}
                       <View style={styles.sheetBottomSpacer} />

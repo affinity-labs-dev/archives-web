@@ -297,12 +297,18 @@ export default function Adventure5_Module2_Lesson1({
         <Animated.View
           style={[styles.collapsedContent, { opacity: cardOpacity }]}
         >
-          <View style={styles.readingCardHeader}>
-            <Text style={styles.cardTitle}>Abbasid Revolutionary Strategy</Text>
-            <Text style={styles.cardSubtitle}>
-              Building a movement through whispers and promises
-            </Text>
-          </View>
+          <TouchableOpacity
+            onPress={expandCard}
+            activeOpacity={0.8}
+            disabled={isCardExpanded}
+          >
+            <View style={styles.readingCardHeader}>
+              <Text style={styles.cardTitle}>Abbasid Revolutionary Strategy</Text>
+              <Text style={styles.cardSubtitle}>
+                Building a movement through whispers and promises
+              </Text>
+            </View>
+          </TouchableOpacity>
         </Animated.View>
 
         {isCardExpanded && (
@@ -321,31 +327,40 @@ export default function Adventure5_Module2_Lesson1({
               waitFor={Platform.OS === "ios" ? panGestureRef : undefined}
             >
               <View style={styles.expandedContentInner}>
-                <View style={styles.titleSection}>
-                  <Text style={styles.sheetTitle}>
-                    Abbasid Revolutionary Strategy
-                  </Text>
-                  <Text style={styles.sheetSubtitle}>Module 2 • Lesson 1</Text>
-                </View>
-
-                <View style={styles.historicalSection}>
-                  <Text style={styles.sectionTitle}>Revolutionary Tactics</Text>
-                  <Text style={styles.historicalText}>{historicalText}</Text>
-                </View>
-
-                <View style={styles.keyTermsSection}>
-                  <Text style={styles.sectionTitle}>Key Terms</Text>
-                  <View style={styles.keyTermsContainer}>
-                    <KeyTermRow
-                      term="Propaganda"
-                      definition="Strategic communication designed to influence public opinion and build revolutionary support"
-                    />
-                    <KeyTermRow
-                      term="Ahl al-Bayt"
-                      definition="The Prophet's family - central to Abbasid claims of religious legitimacy"
-                    />
+                {/* Title Section - Tappable to collapse */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.titleSection}>
+                    <Text style={styles.sheetTitle}>
+                      Abbasid Revolutionary Strategy
+                    </Text>
+                    <Text style={styles.sheetSubtitle}>Module 2 • Lesson 1</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
+
+                {/* Historical Content */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.historicalSection}>
+                    <Text style={styles.sectionTitle}>Revolutionary Tactics</Text>
+                    <Text style={styles.historicalText}>{historicalText}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Key Terms Section */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.keyTermsSection}>
+                    <Text style={styles.sectionTitle}>Key Terms</Text>
+                    <View style={styles.keyTermsContainer}>
+                      <KeyTermRow
+                        term="Propaganda"
+                        definition="Strategic communication designed to influence public opinion and build revolutionary support"
+                      />
+                      <KeyTermRow
+                        term="Ahl al-Bayt"
+                        definition="The Prophet's family - central to Abbasid claims of religious legitimacy"
+                      />
+                    </View>
+                  </View>
+                </TouchableOpacity>
 
                 <View style={styles.sheetBottomSpacer} />
               </View>

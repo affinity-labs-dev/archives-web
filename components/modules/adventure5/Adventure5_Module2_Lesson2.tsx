@@ -498,14 +498,20 @@ export default function Adventure5_Module2_Lesson2({
               <Animated.View
                 style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    Abbasid Revolutionary Symbols
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    Black banners and powerful slogans spread the message
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      Abbasid Revolutionary Symbols
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      Black banners and powerful slogans spread the message
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
 
               {isCardExpanded && (
@@ -525,37 +531,46 @@ export default function Adventure5_Module2_Lesson2({
                     simultaneousHandlers={panGestureRef}
                   >
                     <View style={styles.expandedContentInner}>
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          Abbasid Revolutionary Symbols
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 2 • Lesson 2
-                        </Text>
-                      </View>
-
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>
-                          Revolutionary Symbols
-                        </Text>
-                        <Text style={styles.historicalText}>
-                          {historicalText}
-                        </Text>
-                      </View>
-
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Black Banner"
-                            definition="Symbol of Abbasid revolution, contrasting with Umayyad white banners"
-                          />
-                          <KeyTermRow
-                            term="Revolutionary Slogans"
-                            definition="Powerful messages promising justice and revenge for the Prophet's family"
-                          />
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Abbasid Revolutionary Symbols
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 2 • Lesson 2
+                          </Text>
                         </View>
-                      </View>
+                      </TouchableOpacity>
+
+                      {/* Historical Content */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>
+                            Revolutionary Symbols
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            {historicalText}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Key Terms Section */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Black Banner"
+                              definition="Symbol of Abbasid revolution, contrasting with Umayyad white banners"
+                            />
+                            <KeyTermRow
+                              term="Revolutionary Slogans"
+                              definition="Powerful messages promising justice and revenge for the Prophet's family"
+                            />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
 
                       <View style={styles.sheetBottomSpacer} />
                     </View>

@@ -369,14 +369,20 @@ export default function Adventure2_Module2_Lesson1({
             styles.collapsedContent,
             { opacity: cardOpacity }
           ]}>
-            <View style={styles.readingCardHeader}>
-              <Text style={styles.cardTitle}>
-                Currency Reform Under the Umayyads
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                Before Abd al-Malik&apos;s reform, coins copied older empires...
-              </Text>
-            </View>
+            <TouchableOpacity
+              onPress={expandCard}
+              activeOpacity={0.8}
+              disabled={isCardExpanded}
+            >
+              <View style={styles.readingCardHeader}>
+                <Text style={styles.cardTitle}>
+                  Currency Reform Under the Umayyads
+                </Text>
+                <Text style={styles.cardSubtitle}>
+                  Before Abd al-Malik&apos;s reform, coins copied older empires...
+                </Text>
+              </View>
+            </TouchableOpacity>
           </Animated.View>
 
           {/* Expanded content */}
@@ -395,42 +401,48 @@ export default function Adventure2_Module2_Lesson1({
                 scrollEventThrottle={100}
               >
                 <View style={styles.expandedContentInner}>
-                  {/* Title Section */}
-                  <View style={styles.titleSection}>
-                    <Text style={styles.sheetTitle}>
-                      Currency Reform Under the Umayyads
-                    </Text>
-                    <Text style={styles.sheetSubtitle}>
-                      Module 2 • Lesson 1
-                    </Text>
-                  </View>
+                  {/* Title Section - Tappable to collapse */}
+                  <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                    <View style={styles.titleSection}>
+                      <Text style={styles.sheetTitle}>
+                        Currency Reform Under the Umayyads
+                      </Text>
+                      <Text style={styles.sheetSubtitle}>
+                        Module 2 • Lesson 1
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
 
                   {/* Historical Content */}
-                  <View style={styles.historicalSection}>
-                    <Text style={styles.sectionTitle}>Historical Context</Text>
-                    <Text style={styles.historicalText}>
-                      Before Abd al-Malik&apos;s reform, coins copied older empires and showed emperors&apos; faces, fire altars, or crosses, and few people objected to these non-Islamic symbols. In 696 CE, he introduced new coins that dropped images completely and used only Arabic writing. The gold dinar and silver dirham carried Qur&apos;an verses and mint names, creating a single style of money that linked markets across the empire.
-                    </Text>
-                  </View>
+                  <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                    <View style={styles.historicalSection}>
+                      <Text style={styles.sectionTitle}>Historical Context</Text>
+                      <Text style={styles.historicalText}>
+                        Before Abd al-Malik&apos;s reform, coins copied older empires and showed emperors&apos; faces, fire altars, or crosses, and few people objected to these non-Islamic symbols. In 696 CE, he introduced new coins that dropped images completely and used only Arabic writing. The gold dinar and silver dirham carried Qur&apos;an verses and mint names, creating a single style of money that linked markets across the empire.
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
 
                   {/* Key Terms Section */}
-                  <View style={styles.keyTermsSection}>
-                    <Text style={styles.sectionTitle}>Key Terms</Text>
-                    <View style={styles.keyTermsContainer}>
-                      <KeyTermRow
-                        term="696 CE Reform"
-                        definition="Abd al-Malik introduced new coins with only Arabic writing, no images"
-                      />
-                      <KeyTermRow
-                        term="Dinar and Dirham"
-                        definition="Gold and silver coins carrying Qur'an verses and mint names"
-                      />
-                      <KeyTermRow
-                        term="Non-Islamic Symbols"
-                        definition="Emperors' faces, fire altars, and crosses on pre-reform coins"
-                      />
+                  <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                    <View style={styles.keyTermsSection}>
+                      <Text style={styles.sectionTitle}>Key Terms</Text>
+                      <View style={styles.keyTermsContainer}>
+                        <KeyTermRow
+                          term="696 CE Reform"
+                          definition="Abd al-Malik introduced new coins with only Arabic writing, no images"
+                        />
+                        <KeyTermRow
+                          term="Dinar and Dirham"
+                          definition="Gold and silver coins carrying Qur'an verses and mint names"
+                        />
+                        <KeyTermRow
+                          term="Non-Islamic Symbols"
+                          definition="Emperors' faces, fire altars, and crosses on pre-reform coins"
+                        />
+                      </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
 
                   {/* Bottom spacer to ensure full scroll */}
                   <View style={styles.sheetBottomSpacer} />

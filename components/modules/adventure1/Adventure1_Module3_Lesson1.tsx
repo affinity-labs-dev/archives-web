@@ -274,15 +274,21 @@ export default function Adventure1_Module3_Lesson1({
               <Animated.View
                 style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                <View style={styles.collapsedContentWrapper}>
-                  <Text style={styles.collapsedTitle}>
-                    Trade Routes Through Damascus
-                  </Text>
-                  <Text style={styles.collapsedSubtitle}>
-                    Damascus was more than a capital; it sat at the intersection
-                    of ancient roads...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.collapsedContentWrapper}>
+                    <Text style={styles.collapsedTitle}>
+                      Trade Routes Through Damascus
+                    </Text>
+                    <Text style={styles.collapsedSubtitle}>
+                      Damascus was more than a capital; it sat at the intersection
+                      of ancient roads...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
             )}
 
@@ -295,78 +301,91 @@ export default function Adventure1_Module3_Lesson1({
                   paddingTop: 40,
                 }}
               >
-                <Text
-                  style={{
-                    fontFamily: "DM Sans",
-                    fontSize: 22,
-                    fontWeight: "700",
-                    color: "white",
-                    marginBottom: 8,
-                  }}
-                >
-                  Trade Routes Through Damascus
-                </Text>
+                {/* Title Section - Tappable to collapse */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View>
+                    <Text
+                      style={{
+                        fontFamily: "DM Sans",
+                        fontSize: 22,
+                        fontWeight: "700",
+                        color: "white",
+                        marginBottom: 8,
+                      }}
+                    >
+                      Trade Routes Through Damascus
+                    </Text>
 
-                <Text
-                  style={{
-                    fontFamily: "DM Sans",
-                    fontSize: 14,
-                    color: "rgba(255,255,255,0.7)",
-                    marginBottom: 20,
-                  }}
-                >
-                  Module 3 • Lesson 1
-                </Text>
+                    <Text
+                      style={{
+                        fontFamily: "DM Sans",
+                        fontSize: 14,
+                        color: "rgba(255,255,255,0.7)",
+                        marginBottom: 20,
+                      }}
+                    >
+                      Module 3 • Lesson 1
+                    </Text>
+                  </View>
+                </TouchableOpacity>
 
-                <Text
-                  style={{
-                    fontFamily: "DM Sans",
-                    fontSize: 18,
-                    fontWeight: "600",
-                    color: "white",
-                    marginBottom: 8,
-                  }}
-                >
-                  Historical Context
-                </Text>
+                {/* Historical Content */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View>
+                    <Text
+                      style={{
+                        fontFamily: "DM Sans",
+                        fontSize: 18,
+                        fontWeight: "600",
+                        color: "white",
+                        marginBottom: 8,
+                      }}
+                    >
+                      Historical Context
+                    </Text>
 
-                <Text
-                  style={{
-                    fontFamily: "DM Sans",
-                    fontSize: 14,
-                    color: "white",
-                    lineHeight: 20,
-                    marginBottom: 20,
-                  }}
-                >
-                  Damascus was more than a capital; it sat at the intersection
-                  of ancient roads. The King's Highway ran up through the
-                  deserts and highlands to the city, bringing caravans from
-                  Arabia and the Red Sea. Traders slept in khans, courtyard inns
-                  with stables, storage rooms, and a well. There they rested
-                  animals, stored goods, and swapped news before entering the
-                  busy markets.
-                </Text>
+                    <Text
+                      style={{
+                        fontFamily: "DM Sans",
+                        fontSize: 14,
+                        color: "white",
+                        lineHeight: 20,
+                        marginBottom: 20,
+                      }}
+                    >
+                      Damascus was more than a capital; it sat at the intersection
+                      of ancient roads. The King's Highway ran up through the
+                      deserts and highlands to the city, bringing caravans from
+                      Arabia and the Red Sea. Traders slept in khans, courtyard inns
+                      with stables, storage rooms, and a well. There they rested
+                      animals, stored goods, and swapped news before entering the
+                      busy markets.
+                    </Text>
+                  </View>
+                </TouchableOpacity>
 
-                <Text
-                  style={{
-                    fontFamily: "DM Sans",
-                    fontSize: 18,
-                    fontWeight: "600",
-                    color: "white",
-                    marginBottom: 12,
-                  }}
-                >
-                  Key Terms
-                </Text>
+                {/* Key Terms Section */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View>
+                    <Text
+                      style={{
+                        fontFamily: "DM Sans",
+                        fontSize: 18,
+                        fontWeight: "600",
+                        color: "white",
+                        marginBottom: 12,
+                      }}
+                    >
+                      Key Terms
+                    </Text>
 
-                <View
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.1)",
-                    borderRadius: 8,
-                    padding: 12,
-                  }}
-                >
+                    <View
+                      style={{
+                        backgroundColor: "rgba(255,255,255,0.1)",
+                        borderRadius: 8,
+                        padding: 12,
+                      }}
+                    >
                   <View style={{ marginBottom: 8 }}>
                     <Text
                       style={{
@@ -442,6 +461,8 @@ export default function Adventure1_Module3_Lesson1({
                     </Text>
                   </View>
                 </View>
+                  </View>
+                </TouchableOpacity>
               </View>
             )}
           </Animated.View>
@@ -480,15 +501,21 @@ export default function Adventure1_Module3_Lesson1({
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Trade Routes Through Damascus
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Damascus was more than a capital; it sat at the
-                      intersection of ancient roads...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        Trade Routes Through Damascus
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        Damascus was more than a capital; it sat at the
+                        intersection of ancient roads...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -510,51 +537,57 @@ export default function Adventure1_Module3_Lesson1({
                       }
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Trade Routes Through Damascus
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 3 • Lesson 1
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Trade Routes Through Damascus
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 3 • Lesson 1
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            Damascus was more than a capital; it sat at the
-                            intersection of ancient roads. The King&apos;s
-                            Highway ran up through the deserts and highlands to
-                            the city, bringing caravans from Arabia and the Red
-                            Sea. Traders slept in khans, courtyard inns with
-                            stables, storage rooms, and a well. There they
-                            rested animals, stored goods, and swapped news
-                            before entering the busy markets.
-                          </Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>
+                              Historical Context
+                            </Text>
+                            <Text style={styles.historicalText}>
+                              Damascus was more than a capital; it sat at the
+                              intersection of ancient roads. The King&apos;s
+                              Highway ran up through the deserts and highlands to
+                              the city, bringing caravans from Arabia and the Red
+                              Sea. Traders slept in khans, courtyard inns with
+                              stables, storage rooms, and a well. There they
+                              rested animals, stored goods, and swapped news
+                              before entering the busy markets.
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="King's Highway"
-                              definition="The ancient road through deserts and highlands that brought caravans to Damascus"
-                            />
-                            <KeyTermRow
-                              term="Khans"
-                              definition="Courtyard inns with stables, storage rooms, and wells where traders rested"
-                            />
-                            <KeyTermRow
-                              term="Caravans from Red Sea"
-                              definition="Trading groups that traveled from Arabia and the Red Sea to Damascus"
-                            />
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="King's Highway"
+                                definition="The ancient road through deserts and highlands that brought caravans to Damascus"
+                              />
+                              <KeyTermRow
+                                term="Khans"
+                                definition="Courtyard inns with stables, storage rooms, and wells where traders rested"
+                              />
+                              <KeyTermRow
+                                term="Caravans from Red Sea"
+                                definition="Trading groups that traveled from Arabia and the Red Sea to Damascus"
+                              />
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />
@@ -591,15 +624,21 @@ export default function Adventure1_Module3_Lesson1({
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      Trade Routes Through Damascus
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Damascus was more than a capital; it sat at the
-                      intersection of ancient roads...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.collapsedContentWrapper}>
+                      <Text style={styles.collapsedTitle}>
+                        Trade Routes Through Damascus
+                      </Text>
+                      <Text style={styles.collapsedSubtitle}>
+                        Damascus was more than a capital; it sat at the
+                        intersection of ancient roads...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -618,51 +657,57 @@ export default function Adventure1_Module3_Lesson1({
                       scrollEventThrottle={100}
                     >
                       <View style={styles.expandedContentInner}>
-                        {/* Title Section */}
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Trade Routes Through Damascus
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 3 • Lesson 1
-                          </Text>
-                        </View>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Trade Routes Through Damascus
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 3 • Lesson 1
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Historical Content */}
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>
-                            Historical Context
-                          </Text>
-                          <Text style={styles.historicalText}>
-                            Damascus was more than a capital; it sat at the
-                            intersection of ancient roads. The King&apos;s
-                            Highway ran up through the deserts and highlands to
-                            the city, bringing caravans from Arabia and the Red
-                            Sea. Traders slept in khans, courtyard inns with
-                            stables, storage rooms, and a well. There they
-                            rested animals, stored goods, and swapped news
-                            before entering the busy markets.
-                          </Text>
-                        </View>
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>
+                              Historical Context
+                            </Text>
+                            <Text style={styles.historicalText}>
+                              Damascus was more than a capital; it sat at the
+                              intersection of ancient roads. The King&apos;s
+                              Highway ran up through the deserts and highlands to
+                              the city, bringing caravans from Arabia and the Red
+                              Sea. Traders slept in khans, courtyard inns with
+                              stables, storage rooms, and a well. There they
+                              rested animals, stored goods, and swapped news
+                              before entering the busy markets.
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
 
                         {/* Key Terms Section */}
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="King's Highway"
-                              definition="The ancient road through deserts and highlands that brought caravans to Damascus"
-                            />
-                            <KeyTermRow
-                              term="Khans"
-                              definition="Courtyard inns with stables, storage rooms, and wells where traders rested"
-                            />
-                            <KeyTermRow
-                              term="Caravans from Red Sea"
-                              definition="Trading groups that traveled from Arabia and the Red Sea to Damascus"
-                            />
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="King's Highway"
+                                definition="The ancient road through deserts and highlands that brought caravans to Damascus"
+                              />
+                              <KeyTermRow
+                                term="Khans"
+                                definition="Courtyard inns with stables, storage rooms, and wells where traders rested"
+                              />
+                              <KeyTermRow
+                                term="Caravans from Red Sea"
+                                definition="Trading groups that traveled from Arabia and the Red Sea to Damascus"
+                              />
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* Bottom spacer to ensure full scroll */}
                         <View style={styles.sheetBottomSpacer} />

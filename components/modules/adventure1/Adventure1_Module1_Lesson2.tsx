@@ -373,14 +373,20 @@ export default function Adventure1_Module1_Lesson2({
               styles.collapsedContent,
               { opacity: cardOpacity }
             ]}>
-              <View style={styles.readingCardHeader}>
-                <Text style={styles.cardTitle}>
-                  The Barada River&apos;s Gift
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  Damascus grew quickly under Umayyad rule because of the Barada River...
-                </Text>
-              </View>
+              <TouchableOpacity
+                onPress={expandCard}
+                activeOpacity={0.8}
+                disabled={isCardExpanded}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    The Barada River&apos;s Gift
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    Damascus grew quickly under Umayyad rule because of the Barada River...
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </Animated.View>
 
               {/* Expanded content */}
@@ -400,40 +406,46 @@ export default function Adventure1_Module1_Lesson2({
                     scrollEventThrottle={100}
                   >
                     <View style={styles.expandedContentInner}>
-                      {/* Title Section */}
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          The Barada River&apos;s Gift
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 1 • Lesson 2
-                        </Text>
-                      </View>
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            The Barada River&apos;s Gift
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 1 • Lesson 2
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Historical Content */}
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>Historical Context</Text>
-                        <Text style={styles.historicalText}>{historicalText}</Text>
-                      </View>
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.historicalText}>{historicalText}</Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Key Terms Section */}
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Barada River"
-                            definition="The river from the mountains that people split into canals, also called 'Abana' in the Bible"
-                          />
-                          <KeyTermRow
-                            term="Ghouta Oasis"
-                            definition="The green fertile land around Damascus created by the Barada River's canals"
-                          />
-                          <KeyTermRow
-                            term="Canal System"
-                            definition="Network of waterways that brought river water to dry land for farming and city life"
-                          />
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Barada River"
+                              definition="The river from the mountains that people split into canals, also called 'Abana' in the Bible"
+                            />
+                            <KeyTermRow
+                              term="Ghouta Oasis"
+                              definition="The green fertile land around Damascus created by the Barada River's canals"
+                            />
+                            <KeyTermRow
+                              term="Canal System"
+                              definition="Network of waterways that brought river water to dry land for farming and city life"
+                            />
+                          </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
 
                       {/* Bottom spacer to ensure full scroll */}
                       <View style={styles.sheetBottomSpacer} />
@@ -471,14 +483,20 @@ export default function Adventure1_Module1_Lesson2({
               styles.collapsedContent,
               { opacity: cardOpacity }
             ]}>
-              <View style={styles.collapsedContentWrapper}>
-                <Text style={styles.collapsedTitle}>
-                  The Barada River&apos;s Gift
-                </Text>
-                <Text style={styles.collapsedSubtitle}>
-                  Damascus grew quickly under Umayyad rule because of the Barada River...
-                </Text>
-              </View>
+              <TouchableOpacity
+                onPress={expandCard}
+                activeOpacity={0.8}
+                disabled={isCardExpanded}
+              >
+                <View style={styles.collapsedContentWrapper}>
+                  <Text style={styles.collapsedTitle}>
+                    The Barada River&apos;s Gift
+                  </Text>
+                  <Text style={styles.collapsedSubtitle}>
+                    Damascus grew quickly under Umayyad rule because of the Barada River...
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </Animated.View>
 
               {/* Expanded content */}
@@ -496,40 +514,46 @@ export default function Adventure1_Module1_Lesson2({
                     scrollEventThrottle={100}
                   >
                     <View style={styles.expandedContentInner}>
-                      {/* Title Section */}
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          The Barada River&apos;s Gift
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 1 • Lesson 2
-                        </Text>
-                      </View>
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            The Barada River&apos;s Gift
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 1 • Lesson 2
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Historical Content */}
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>Historical Context</Text>
-                        <Text style={styles.historicalText}>{historicalText}</Text>
-                      </View>
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>Historical Context</Text>
+                          <Text style={styles.historicalText}>{historicalText}</Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Key Terms Section */}
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Barada River"
-                            definition="The river from the mountains that people split into canals, also called 'Abana' in the Bible"
-                          />
-                          <KeyTermRow
-                            term="Ghouta Oasis"
-                            definition="The green fertile land around Damascus created by the Barada River's canals"
-                          />
-                          <KeyTermRow
-                            term="Canal System"
-                            definition="Network of waterways that brought river water to dry land for farming and city life"
-                          />
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Barada River"
+                              definition="The river from the mountains that people split into canals, also called 'Abana' in the Bible"
+                            />
+                            <KeyTermRow
+                              term="Ghouta Oasis"
+                              definition="The green fertile land around Damascus created by the Barada River's canals"
+                            />
+                            <KeyTermRow
+                              term="Canal System"
+                              definition="Network of waterways that brought river water to dry land for farming and city life"
+                            />
+                          </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
 
                       {/* Bottom spacer to ensure full scroll */}
                       <View style={styles.sheetBottomSpacer} />

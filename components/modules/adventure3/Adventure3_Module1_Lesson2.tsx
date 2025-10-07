@@ -331,7 +331,7 @@ export default function Adventure3_Module1_Lesson2({
 
         {/* Reading Card at Bottom - Expandable */}
         {Platform.OS === 'ios' ? (
-          <PanGestureHandler 
+          <PanGestureHandler
             ref={panGestureRef}
             onHandlerStateChange={handleSwipeGesture}
             simultaneousHandlers={scrollViewGestureRef}
@@ -361,14 +361,20 @@ export default function Adventure3_Module1_Lesson2({
               Platform.OS === 'android' && styles.collapsedContentWrapper,
               { opacity: cardOpacity }
             ]}>
-              <View style={styles.readingCardHeader}>
-                <Text style={styles.cardTitle}>
-                  Kairouan: From Military Camp to Cultural Center
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  Kairouan was founded in 670 CE as a military camp...
-                </Text>
-              </View>
+              <TouchableOpacity
+                onPress={expandCard}
+                activeOpacity={0.8}
+                disabled={isCardExpanded}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Kairouan: From Military Camp to Cultural Center
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    Kairouan was founded in 670 CE as a military camp...
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </Animated.View>
 
             {/* Expanded content */}
@@ -378,63 +384,69 @@ export default function Adventure3_Module1_Lesson2({
                 { opacity: Animated.subtract(1, cardOpacity) }
               ]}>
 
-                <GestureHandlerScrollView 
+                <GestureHandlerScrollView
                   ref={scrollViewGestureRef}
                   waitFor={panGestureRef}
-                  style={styles.expandedScroll} 
+                  style={styles.expandedScroll}
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
                   scrollEventThrottle={100}
                   scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Kairouan: From Military Camp to Cultural Center
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 1 • Lesson 2
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Kairouan: From Military Camp to Cultural Center
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 1 • Lesson 2
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>{historicalText}</Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Kairouan (670 CE)"
-                          definition="Founded as military camp, grew into key Islamic city in North Africa"
-                        />
-                        <KeyTermRow
-                          term="Great Mosque of Kairouan"
-                          definition="One of the oldest mosques in the region, center of scholarship for centuries"
-                        />
-                        <KeyTermRow
-                          term="Berber Resistance and Negotiation"
-                          definition="Indigenous tribes often resisted or negotiated before joining Islam"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Kairouan (670 CE)"
+                            definition="Founded as military camp, grew into key Islamic city in North Africa"
+                          />
+                          <KeyTermRow
+                            term="Great Mosque of Kairouan"
+                            definition="One of the oldest mosques in the region, center of scholarship for centuries"
+                          />
+                          <KeyTermRow
+                            term="Berber Resistance and Negotiation"
+                            definition="Indigenous tribes often resisted or negotiated before joining Islam"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />
                   </View>
                 </GestureHandlerScrollView>
-                
+
               </Animated.View>
             )}
             </Animated.View>
             </Animated.View>
           </PanGestureHandler>
         ) : (
-          <Animated.View 
+          <Animated.View
             style={[
               styles.cardContainer,
               {
@@ -459,14 +471,20 @@ export default function Adventure3_Module1_Lesson2({
               Platform.OS === 'android' && styles.collapsedContentWrapper,
               { opacity: cardOpacity }
             ]}>
-              <View style={styles.readingCardHeader}>
-                <Text style={styles.cardTitle}>
-                  Kairouan: From Military Camp to Cultural Center
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  Kairouan was founded in 670 CE as a military camp...
-                </Text>
-              </View>
+              <TouchableOpacity
+                onPress={expandCard}
+                activeOpacity={0.8}
+                disabled={isCardExpanded}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Kairouan: From Military Camp to Cultural Center
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    Kairouan was founded in 670 CE as a military camp...
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </Animated.View>
 
             {/* Expanded content */}
@@ -476,56 +494,62 @@ export default function Adventure3_Module1_Lesson2({
                 { opacity: Animated.subtract(1, cardOpacity) }
               ]}>
 
-                <GestureHandlerScrollView 
+                <GestureHandlerScrollView
                   ref={scrollViewGestureRef}
                   waitFor={panGestureRef}
-                  style={styles.expandedScroll} 
+                  style={styles.expandedScroll}
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
                   scrollEventThrottle={100}
                   scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Kairouan: From Military Camp to Cultural Center
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 1 • Lesson 2
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Kairouan: From Military Camp to Cultural Center
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 1 • Lesson 2
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>{historicalText}</Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Kairouan (670 CE)"
-                          definition="Founded as military camp, grew into key Islamic city in North Africa"
-                        />
-                        <KeyTermRow
-                          term="Great Mosque of Kairouan"
-                          definition="One of the oldest mosques in the region, center of scholarship for centuries"
-                        />
-                        <KeyTermRow
-                          term="Berber Resistance and Negotiation"
-                          definition="Indigenous tribes often resisted or negotiated before joining Islam"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Kairouan (670 CE)"
+                            definition="Founded as military camp, grew into key Islamic city in North Africa"
+                          />
+                          <KeyTermRow
+                            term="Great Mosque of Kairouan"
+                            definition="One of the oldest mosques in the region, center of scholarship for centuries"
+                          />
+                          <KeyTermRow
+                            term="Berber Resistance and Negotiation"
+                            definition="Indigenous tribes often resisted or negotiated before joining Islam"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />
                   </View>
                 </GestureHandlerScrollView>
-                
+
               </Animated.View>
             )}
             </Animated.View>

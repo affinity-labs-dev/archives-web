@@ -467,12 +467,18 @@ export default function Adventure5_Module3_Lesson2({
               <Animated.View
                 style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>Baghdad: The Round City</Text>
-                  <Text style={styles.cardSubtitle}>
-                    A perfect circle symbolizing unity and imperial vision
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>Baghdad: The Round City</Text>
+                    <Text style={styles.cardSubtitle}>
+                      A perfect circle symbolizing unity and imperial vision
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
 
               {isCardExpanded && (
@@ -492,37 +498,46 @@ export default function Adventure5_Module3_Lesson2({
                     simultaneousHandlers={panGestureRef}
                   >
                     <View style={styles.expandedContentInner}>
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          Baghdad: The Round City
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 3 • Lesson 2
-                        </Text>
-                      </View>
-
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>
-                          City of Unity and Vision
-                        </Text>
-                        <Text style={styles.historicalText}>
-                          {historicalText}
-                        </Text>
-                      </View>
-
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Round City"
-                            definition="Baghdad's unique circular design symbolizing perfection and unity"
-                          />
-                          <KeyTermRow
-                            term="Tigris River"
-                            definition="Strategic river location chosen for Baghdad's water access and trade"
-                          />
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Baghdad: The Round City
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 3 • Lesson 2
+                          </Text>
                         </View>
-                      </View>
+                      </TouchableOpacity>
+
+                      {/* Historical Content */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>
+                            City of Unity and Vision
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            {historicalText}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Key Terms Section */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Round City"
+                              definition="Baghdad's unique circular design symbolizing perfection and unity"
+                            />
+                            <KeyTermRow
+                              term="Tigris River"
+                              definition="Strategic river location chosen for Baghdad's water access and trade"
+                            />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
 
                       <View style={styles.sheetBottomSpacer} />
                     </View>

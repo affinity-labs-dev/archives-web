@@ -370,14 +370,20 @@ export default function Adventure3_Module3_Lesson1({
               Platform.OS === 'android' && styles.collapsedContentWrapper,
               { opacity: cardOpacity }
             ]}>
-              <View style={styles.readingCardHeader}>
-                <Text style={styles.cardTitle}>
-                  Battle of Tours (732 CE)
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  In 732 CE, the Umayyad army met the Frankish forces...
-                </Text>
-              </View>
+              <TouchableOpacity
+                onPress={expandCard}
+                activeOpacity={0.8}
+                disabled={isCardExpanded}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    Battle of Tours (732 CE)
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    In 732 CE, the Umayyad army met the Frankish forces...
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </Animated.View>
 
             {/* Expanded content */}
@@ -397,40 +403,46 @@ export default function Adventure3_Module3_Lesson1({
                   scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        Battle of Tours (732 CE)
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 3 • Lesson 1
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          Battle of Tours (732 CE)
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 3 • Lesson 1
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>{historicalText}</Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Charles Martel"
-                          definition="Frankish leader at Tours, nicknamed 'The Hammer'"
-                        />
-                        <KeyTermRow
-                          term="Battle of Tours (732 CE)"
-                          definition="Decisive battle marking the limit of Umayyad expansion into Europe"
-                        />
-                        <KeyTermRow
-                          term="Abdul Rahman Al-Ghafiqi"
-                          definition="Umayyad commander who led forces at Tours"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Charles Martel"
+                            definition="Frankish leader at Tours, nicknamed 'The Hammer'"
+                          />
+                          <KeyTermRow
+                            term="Battle of Tours (732 CE)"
+                            definition="Decisive battle marking the limit of Umayyad expansion into Europe"
+                          />
+                          <KeyTermRow
+                            term="Abdul Rahman Al-Ghafiqi"
+                            definition="Umayyad commander who led forces at Tours"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />
@@ -468,14 +480,20 @@ export default function Adventure3_Module3_Lesson1({
               Platform.OS === 'android' && styles.collapsedContentWrapper,
               { opacity: cardOpacity }
             ]}>
-              <View style={styles.readingCardHeader}>
-                <Text style={styles.cardTitle}>
-                  The Battle of Tours: Europe's Crossroads
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  In 732 CE, the Umayyad army met the Frankish forces...
-                </Text>
-              </View>
+              <TouchableOpacity
+                onPress={expandCard}
+                activeOpacity={0.8}
+                disabled={isCardExpanded}
+              >
+                <View style={styles.readingCardHeader}>
+                  <Text style={styles.cardTitle}>
+                    The Battle of Tours: Europe's Crossroads
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    In 732 CE, the Umayyad army met the Frankish forces...
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </Animated.View>
 
             {/* Expanded content */}
@@ -495,40 +513,46 @@ export default function Adventure3_Module3_Lesson1({
                   scrollEnabled={!isCardGestureActive}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        The Battle of Tours: Europe's Crossroads
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 3 • Lesson 1
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          The Battle of Tours: Europe's Crossroads
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 3 • Lesson 1
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>{historicalText}</Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Battle of Tours (732 CE)"
-                          definition="Decisive battle where Charles Martel's Franks defeated the Umayyad army"
-                        />
-                        <KeyTermRow
-                          term="Charles Martel"
-                          definition="Frankish leader whose victory earned him the nickname &lsquo;The Hammer&rsquo;"
-                        />
-                        <KeyTermRow
-                          term="European Turning Point"
-                          definition="Battle that halted Muslim expansion into northern Europe"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Battle of Tours (732 CE)"
+                            definition="Decisive battle where Charles Martel's Franks defeated the Umayyad army"
+                          />
+                          <KeyTermRow
+                            term="Charles Martel"
+                            definition="Frankish leader whose victory earned him the nickname &lsquo;The Hammer&rsquo;"
+                          />
+                          <KeyTermRow
+                            term="European Turning Point"
+                            definition="Battle that halted Muslim expansion into northern Europe"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />

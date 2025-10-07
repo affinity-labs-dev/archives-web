@@ -476,14 +476,20 @@ export default function Adventure1_Module3_Lesson2({
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Damascus: A Living Exchange
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Walk down a street in Umayyad Damascus and you would hear many languages...
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        Damascus: A Living Exchange
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        Walk down a street in Umayyad Damascus and you would hear many languages...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -502,44 +508,50 @@ export default function Adventure1_Module3_Lesson2({
                       waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                     >
                     <View style={styles.expandedContentInner}>
-                      {/* Title Section */}
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          Damascus: A Living Exchange
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 3 • Lesson 2
-                        </Text>
-                      </View>
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Damascus: A Living Exchange
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 3 • Lesson 2
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Historical Content */}
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>
-                          Historical Context
-                        </Text>
-                        <Text style={styles.historicalText}>
-                          Walk down a street in Umayyad Damascus and you would hear many languages, with traders mostly using Arabic. The main road, Straight Street, crossed the old city from Bab Sharqi to the western gate. The Bible mentions that Paul the Apostle once lived in a house on the street. Persian glassmakers sold bright lamps and tiles for mosques, while scholars debated in tea houses. Goods, beliefs, and knowledge shared the same streets, and the city felt alive.
-                        </Text>
-                      </View>
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            Walk down a street in Umayyad Damascus and you would hear many languages, with traders mostly using Arabic. The main road, Straight Street, crossed the old city from Bab Sharqi to the western gate. The Bible mentions that Paul the Apostle once lived in a house on the street. Persian glassmakers sold bright lamps and tiles for mosques, while scholars debated in tea houses. Goods, beliefs, and knowledge shared the same streets, and the city felt alive.
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
 
                       {/* Key Terms Section */}
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Straight Street"
-                            definition="The main road crossing Damascus from Bab Sharqi to the western gate"
-                          />
-                          <KeyTermRow
-                            term="Bab Sharqi"
-                            definition="The eastern gate of Damascus where Straight Street began"
-                          />
-                          <KeyTermRow
-                            term="Persian Glassmakers"
-                            definition="Craftsmen who sold bright lamps and mosque tiles on Damascus streets"
-                          />
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Straight Street"
+                              definition="The main road crossing Damascus from Bab Sharqi to the western gate"
+                            />
+                            <KeyTermRow
+                              term="Bab Sharqi"
+                              definition="The eastern gate of Damascus where Straight Street began"
+                            />
+                            <KeyTermRow
+                              term="Persian Glassmakers"
+                              definition="Craftsmen who sold bright lamps and mosque tiles on Damascus streets"
+                            />
+                          </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
 
                       {/* Bottom spacer to ensure full scroll */}
                       <View style={styles.sheetBottomSpacer} />

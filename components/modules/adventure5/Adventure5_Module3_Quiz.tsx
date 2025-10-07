@@ -278,8 +278,8 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(null)
   const [selectedFillBlank, setSelectedFillBlank] = useState<string | null>(null)
 
-  // Progress context integration
-  const { completeQuiz } = useProgress()
+  // Progress context integration - NEW ATOMIC SYSTEM
+  const { atomicProgressUpdate, canRetakeModule } = useProgress()
 
   // Get current question
   const currentQuestion = quizQuestions[currentQuestionIndex]
@@ -398,26 +398,26 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
     }
   }
 
-  // Calculate results
-  const calculateResults = () => {
-    const totalQuestions = quizQuestions.length
-    const percentage = Math.round((correctAnswers / totalQuestions) * 100)
-    const passed = percentage >= 40 // 40% minimum passing score
+  // Handle quiz completion - NEW ATOMIC SYSTEM
+  const handleQuizCompletion = async () => {
+    console.log('🚀 Quiz completion: Adventure 5 Module 3')
 
-    return { totalQuestions, percentage, passed }
-  }
+    try {
+      const isRetake = canRetakeModule(5, 3)
 
-  // Handle quiz completion
-  const handleQuizCompletion = () => {
-    const { percentage, passed } = calculateResults()
+      // Use atomic progress update
+      await atomicProgressUpdate(5, 3, {
+        type: isRetake ? 'QUIZ_RETAKEN' : 'QUIZ_COMPLETED',
+        quizScore: correctAnswers,
+        quizCorrectAnswers: correctAnswers
+      })
 
-    if (passed) {
-      // Mark quiz as completed in progress context
-      completeQuiz(5, 3, correctAnswers, quizQuestions.length)
-      onDismiss() // Close quiz
-    } else {
-      // Show minimum score alert
-      setShowMinimumScoreAlert(true)
+      console.log('✅ Quiz progress saved successfully')
+      onDismiss()
+    } catch (error) {
+      console.error('❌ Failed to save quiz progress:', error)
+      // Still dismiss to prevent user being stuck
+      onDismiss()
     }
   }
 

@@ -366,23 +366,35 @@ export default function Adventure2_Module1_Lesson2({
               { opacity: cardOpacity }
             ]}>
               {Platform.OS === 'ios' ? (
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    The Umayyad Administrative Revolution
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    Switching to Arabic was not simple. Some governors resisted...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      The Umayyad Administrative Revolution
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      Switching to Arabic was not simple. Some governors resisted...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               ) : (
-                <View style={styles.collapsedContentWrapper}>
-                  <Text style={styles.collapsedTitle}>
-                    The Umayyad Administrative Revolution
-                  </Text>
-                  <Text style={styles.collapsedSubtitle}>
-                    Switching to Arabic was not simple. Some governors resisted...
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.collapsedContentWrapper}>
+                    <Text style={styles.collapsedTitle}>
+                      The Umayyad Administrative Revolution
+                    </Text>
+                    <Text style={styles.collapsedSubtitle}>
+                      Switching to Arabic was not simple. Some governors resisted...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               )}
             </Animated.View>
 
@@ -393,49 +405,55 @@ export default function Adventure2_Module1_Lesson2({
                 { opacity: Animated.subtract(1, cardOpacity) }
               ]}>
 
-                <GestureHandlerScrollView 
+                <GestureHandlerScrollView
                   ref={scrollViewGestureRef}
                   waitFor={panGestureRef}
-                  style={styles.expandedScroll} 
+                  style={styles.expandedScroll}
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
                   scrollEventThrottle={100}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        The Umayyad Administrative Revolution
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 1 • Lesson 2
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          The Umayyad Administrative Revolution
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 1 • Lesson 2
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>{historicalText}</Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Diw\u0101n"
-                          definition="Government office that fully adopted Arabic as its working language"
-                        />
-                        <KeyTermRow
-                          term="Governor Resistance"
-                          definition="Some governors opposed the Arabic switch, fearing loss of control"
-                        />
-                        <KeyTermRow
-                          term="Scribe Training"
-                          definition="New scribes were trained in Arabic to staff the changing government offices"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Diw\u0101n"
+                            definition="Government office that fully adopted Arabic as its working language"
+                          />
+                          <KeyTermRow
+                            term="Governor Resistance"
+                            definition="Some governors opposed the Arabic switch, fearing loss of control"
+                          />
+                          <KeyTermRow
+                            term="Scribe Training"
+                            definition="New scribes were trained in Arabic to staff the changing government offices"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />
@@ -473,18 +491,25 @@ export default function Adventure2_Module1_Lesson2({
               { opacity: cardOpacity }
             ]}>
               {Platform.OS === 'ios' ? (
-                <View style={styles.readingCardHeader}>
-                  <Text style={styles.cardTitle}>
-                    The Umayyad Administrative Revolution
-                  </Text>
-                  <Text style={styles.cardSubtitle}>
-                    Building an empire required more than conquest...
-                  </Text>
-                </View>
-              ) : (
-                <TouchableOpacity 
-                  onPress={expandCard} 
+                <TouchableOpacity
+                  onPress={expandCard}
                   activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      The Umayyad Administrative Revolution
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      Building an empire required more than conquest...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
                 >
                   <View style={styles.readingCardHeader}>
                     <Text style={styles.cardTitle}>
@@ -504,49 +529,55 @@ export default function Adventure2_Module1_Lesson2({
                 styles.expandedContent,
                 { opacity: Animated.subtract(1, cardOpacity) }
               ]}>
-                <GestureHandlerScrollView 
+                <GestureHandlerScrollView
                   ref={scrollViewGestureRef}
                   waitFor={panGestureRef}
-                  style={styles.expandedScroll} 
+                  style={styles.expandedScroll}
                   showsVerticalScrollIndicator={false}
                   onScroll={handleReadingScroll}
                   scrollEventThrottle={100}
                 >
                   <View style={styles.expandedContentInner}>
-                    {/* Title Section */}
-                    <View style={styles.titleSection}>
-                      <Text style={styles.sheetTitle}>
-                        The Umayyad Administrative Revolution
-                      </Text>
-                      <Text style={styles.sheetSubtitle}>
-                        Module 1 • Lesson 2
-                      </Text>
-                    </View>
+                    {/* Title Section - Tappable to collapse */}
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.titleSection}>
+                        <Text style={styles.sheetTitle}>
+                          The Umayyad Administrative Revolution
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          Module 1 • Lesson 2
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Historical Content */}
-                    <View style={styles.historicalSection}>
-                      <Text style={styles.sectionTitle}>Historical Context</Text>
-                      <Text style={styles.historicalText}>{historicalText}</Text>
-                    </View>
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.historicalSection}>
+                        <Text style={styles.sectionTitle}>Historical Context</Text>
+                        <Text style={styles.historicalText}>{historicalText}</Text>
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Key Terms Section */}
-                    <View style={styles.keyTermsSection}>
-                      <Text style={styles.sectionTitle}>Key Terms</Text>
-                      <View style={styles.keyTermsContainer}>
-                        <KeyTermRow
-                          term="Diwan al-Kharaj"
-                          definition="The tax administration system that revolutionized Umayyad governance"
-                        />
-                        <KeyTermRow
-                          term="Abd al-Malik"
-                          definition="Caliph who standardized currency and Arabic as administrative language"
-                        />
-                        <KeyTermRow
-                          term="Administrative Arabization"
-                          definition="Process of making Arabic the official language of government"
-                        />
+                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                      <View style={styles.keyTermsSection}>
+                        <Text style={styles.sectionTitle}>Key Terms</Text>
+                        <View style={styles.keyTermsContainer}>
+                          <KeyTermRow
+                            term="Diwan al-Kharaj"
+                            definition="The tax administration system that revolutionized Umayyad governance"
+                          />
+                          <KeyTermRow
+                            term="Abd al-Malik"
+                            definition="Caliph who standardized currency and Arabic as administrative language"
+                          />
+                          <KeyTermRow
+                            term="Administrative Arabization"
+                            definition="Process of making Arabic the official language of government"
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Bottom spacer to ensure full scroll */}
                     <View style={styles.sheetBottomSpacer} />
