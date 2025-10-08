@@ -203,6 +203,53 @@ export default function SubscribeContent() {
           </View>
         </View>
 
+        {/* Explorer Pass Features Card - Original Design */}
+        <View style={styles.explorerPassSection}>
+          <Text style={styles.featuresHeader}>
+            With the EXPLORER PASS, you get:
+          </Text>
+
+          <View style={styles.featuresList}>
+            <View style={styles.featureItem}>
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={ArchivesTheme.colors.persianOrange}
+              />
+              <Text style={styles.featureText}>
+                All Historical Eras & Adventures
+              </Text>
+            </View>
+
+            <View style={styles.featureItem}>
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={ArchivesTheme.colors.persianOrange}
+              />
+              <Text style={styles.featureText}>New Learning Modules</Text>
+            </View>
+
+            <View style={styles.featureItem}>
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={ArchivesTheme.colors.persianOrange}
+              />
+              <Text style={styles.featureText}>Exclusive Badges</Text>
+            </View>
+
+            <View style={styles.featureItem}>
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={ArchivesTheme.colors.persianOrange}
+              />
+              <Text style={styles.featureText}>Early Access to New Eras</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Pricing Options - Interactive Selection */}
         <View style={styles.pricingContainer}>
           {/* Monthly Plan */}
@@ -257,53 +304,6 @@ export default function SubscribeContent() {
               </View>
             )}
           </TouchableOpacity>
-        </View>
-
-        {/* Explorer Pass Features Card - Original Design */}
-        <View style={styles.explorerPassSection}>
-          <Text style={styles.featuresHeader}>
-            With the EXPLORER PASS, you get:
-          </Text>
-
-          <View style={styles.featuresList}>
-            <View style={styles.featureItem}>
-              <Ionicons
-                name="checkmark-circle"
-                size={20}
-                color={ArchivesTheme.colors.persianOrange}
-              />
-              <Text style={styles.featureText}>
-                All Historical Eras & Adventures
-              </Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <Ionicons
-                name="checkmark-circle"
-                size={20}
-                color={ArchivesTheme.colors.persianOrange}
-              />
-              <Text style={styles.featureText}>New Learning Modules</Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <Ionicons
-                name="checkmark-circle"
-                size={20}
-                color={ArchivesTheme.colors.persianOrange}
-              />
-              <Text style={styles.featureText}>Exclusive Badges</Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <Ionicons
-                name="checkmark-circle"
-                size={20}
-                color={ArchivesTheme.colors.persianOrange}
-              />
-              <Text style={styles.featureText}>Early Access to New Eras</Text>
-            </View>
-          </View>
         </View>
 
         {/* More Eras Section - Original Design */}
@@ -575,6 +575,7 @@ const styles = StyleSheet.create({
     borderRadius: 16, // Slightly less rounded
     padding: 20, // Adjusted padding
     marginHorizontal: 16, // Add horizontal margin
+    marginBottom: 30, // Add bottom margin since it now comes before pricing
     // Updated shadow to match the image
     shadowColor: "rgba(0, 0, 0, 0.1)",
     shadowOffset: { width: 0, height: 2 },

@@ -17,7 +17,7 @@ eas build --platform ios --profile development  # Create development build
 - `app/_layout.tsx` - Root layout with provider hierarchy (PostHog → Clerk → BackgroundSync → Progress)
 - `context/ProgressContext.tsx` - Atomic progress tracking with dual-era support
 - `constants/ArchivesTheme.ts` - Design system with color palette and component styles
-- `components/modules/` - Educational content organized by adventure
+- `components/modules/` - Educational content organized by adventure (55 module components)
 
 ## Critical Implementation Rules
 
@@ -28,6 +28,7 @@ eas build --platform ios --profile development  # Create development build
 - **Follow component naming** - `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
 - **Respect design system** - Use ArchivesTheme constants, never hardcode colors/spacing
 - **Platform-specific implementations** - Some components have `.native.tsx` and `.web.tsx` variants
+- **Remove build artifacts** - Check for and delete `.ipa` files before commits
 
 ## Commands
 
@@ -51,7 +52,7 @@ eas build --platform ios --profile development  # Create development build
 1. Build development client: `eas build --profile development --platform ios/android`
 2. Install development client on physical device or simulator
 3. Start dev server: `npx expo start --dev-client`
-4. Test device-specific features: Apple Sign-In, background audio, haptics, video playback
+4. Test device-specific features: Apple Sign-In, background audio, haptics, video playback, push notifications
 
 ## Project Architecture
 
@@ -84,6 +85,12 @@ eas build --platform ios --profile development  # Create development build
 - **RevenueCat (react-native-purchases)** - Primary subscription implementation
 - **expo-iap** - Installed but not used (RevenueCat is the chosen solution)
 - RevenueCat chosen for comprehensive features, analytics, and robust subscription management
+
+#### Notifications System
+- **expo-notifications** - Push notifications with foreground handling
+- **useNotifications** hook - Centralized notification management
+- Push token stored in user context and synced with backend
+- Foreground notification presentation configured with alerts, sound, and badge
 
 ### Authentication Architecture
 - **Clerk Provider** wraps entire app in root layout
@@ -196,7 +203,7 @@ Always use `ArchivesTheme` constants instead of hardcoded colors/spacing.
 ### Content Architecture
 
 #### Educational Content Structure
-- **Focus**: Islamic history (Umayyad Dynasty era)
+- **Focus**: Islamic history (Umayyad Dynasty + Rise of Islam eras)
 - **Structure**: 5 adventures per era, 3 modules per adventure
 - **Module Format**: 2 lessons + 1 quiz per module
 - **Migration**: Direct SwiftUI-to-React Native port with identical UX patterns
@@ -248,6 +255,7 @@ if (Platform.OS === 'ios' && !canTrack) {
 - **@react-native-async-storage/async-storage**: Progress data persistence
 - **react-native-purchases**: RevenueCat subscription management (primary implementation)
 - **expo-tracking-transparency**: App Tracking Transparency for iOS compliance
+- **expo-notifications**: Push notifications with foreground handling
 
 ### Environment & Configuration
 
@@ -287,7 +295,7 @@ EXPO_NO_CAPABILITY_SYNC=1  # Prevent EAS capability sync issues
 - Service role key is for server-side operations only
 
 #### Platform Configuration
-- **iOS**: Apple Sign-In enabled, New Architecture enabled, App Tracking Transparency configured, background audio modes
+- **iOS**: Apple Sign-In enabled, New Architecture enabled, App Tracking Transparency configured, background audio modes, push notifications
 - **Android**: Edge-to-edge enabled, adaptive icon configured, audio permissions
 - **TypeScript**: Strict mode enabled with path aliases (`@/*` → project root)
 
@@ -312,6 +320,7 @@ All educational content follows a strict SwiftUI-to-React Native migration patte
 - **Background Sync**: Automatic sync triggers built into ProgressContext - no manual intervention needed
 - **Styling Consistency**: Use ArchivesTheme constants for colors, typography, spacing
 - **Component Reusability**: Leverage shared components (QuizSystem, LessonPlayer)
+- **Gesture Handling**: Re-enable carousel swipes immediately after card gestures complete
 
 #### Critical Implementation Details
 - **Progress System**: Local-first with AsyncStorage as primary data store, automatic cloud sync via ProgressContext
@@ -374,8 +383,9 @@ The codebase has built-in support for specialized educational content agents:
 - **Component Naming**: Follow `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
 
 ### Current Content Status
-- **Umayyad Dynasty Era**: Complete (5 adventures, 15 modules, 29+ lessons, 15+ quizzes)
+- **Umayyad Dynasty Era**: Complete (5 adventures, 15 modules, 30+ lessons, 15 quizzes)
 - **Rise of Islam Era**: In development (Adventure 1 Module 1 implemented)
+- **Component Count**: 55 module components total
 - All content follows SwiftUI-to-React Native migration pattern
 - Components organized in `components/modules/adventure{N}/` directories
 - Era-specific screens in `components/eras/` directory
@@ -386,12 +396,17 @@ The codebase has built-in support for specialized educational content agents:
 - **Progress not syncing**: Check network connectivity and Supabase configuration
 - **Quiz/lesson completion not persisting**: Verify ProgressContext is properly wrapped in root layout
 - **AsyncStorage errors**: Clear app data or use `npx expo start --clear` for fresh start
+- **Progress reset bug**: Fixed - data now persists correctly across app restarts
 
 #### Build Issues
 - **EAS build failures**: Check environment variables in `eas.json` and ensure all API keys are valid
 - **iOS build issues**: Verify Apple Sign-In configuration and team ID (L33CVM28SL)
 - **Android build issues**: Check package name matches `ai.affinitylabs.archivesexpo`
 - **Leftover build artifacts**: Remove any `.ipa` or `.apk` files from project root before committing
+
+#### Gesture Handling Issues
+- **Carousel swipe conflicts**: Fixed with universal PanGestureHandler that re-enables immediately
+- **Card expansion problems**: Ensure proper z-index management in gesture handlers
 
 ### Development Best Practices
 
@@ -447,6 +462,7 @@ The app includes several custom hooks for common functionality:
 - **useSyncIntegration** (`hooks/useSyncIntegration.ts`) - Background sync management with Supabase
 - **useAppTrackingTransparency** (`hooks/useAppTrackingTransparency.ts`) - ATT permission handling
 - **useRevenueCat** (`hooks/useRevenueCat.ts`) - Subscription state and purchase management
+- **useNotifications** (`hooks/useNotifications.ts`) - Push notification management and token handling
 
 #### Media & Analytics Hooks
 - **useBackgroundMusic** (`hooks/useBackgroundMusic.tsx`) - Background audio playback control
@@ -490,6 +506,7 @@ Codebase uses emoji-prefixed logging for easy filtering:
 | 🔓 | Unlocking | `console.log('🔓 Adventure unlocked')` |
 | 🎉 | Completions | `console.log('🎉 Module completed')` |
 | ⚠️ | Warnings | `console.warn('⚠️ Deprecated method')` |
+| 🔔 | Notifications | `console.log('🔔 Push token:', token)` |
 
 #### Common Issues & Solutions
 
@@ -500,3 +517,19 @@ Codebase uses emoji-prefixed logging for easy filtering:
 | Auth broken | Clerk config issue | Check dashboard + verify publishable key |
 | Subscription issues | RevenueCat config | Verify API key + check sandbox mode |
 | Build artifacts in git | Leftover .ipa files | Remove `build-*.ipa` before commit |
+| Gesture conflicts | Carousel/card issues | Ensure immediate re-enable of swipe gestures |
+| Push notifications | Token not generated | Check notification permissions + Expo config |
+
+### Recent Changes & Known Issues
+
+#### Latest Updates
+- **Notifications System**: Push notifications with expo-notifications (latest commit)
+- **Async Sync Fix**: Resolved race conditions in background sync
+- **OAuth Integration**: Critical data persistence with authentication
+- **Touch Enhancements**: Improved reading card interactions
+- **Gesture Handling**: Fixed carousel swipe conflicts with card expansion
+
+#### Current Git Status
+- Modified iOS project files for notification capabilities
+- Podfile.lock updated with notification dependencies
+- Remember to test push notifications on physical device (simulator limitations)

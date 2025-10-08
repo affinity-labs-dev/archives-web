@@ -1,24 +1,24 @@
 // Email Details Screen - Sign Up or Sign In with email/password
 // Shows different fields based on mode (signup vs signin)
 
+import { AuthToggle } from '@/components/AuthToggle'
+import ArchivesTheme from '@/constants/ArchivesTheme'
+import { useSignIn, useSignUp } from '@clerk/clerk-expo'
+import { Ionicons } from '@expo/vector-icons'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import {
-  View,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  KeyboardAvoidingView,
-  Platform,
+  View,
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { useRouter, useLocalSearchParams } from 'expo-router'
-import { useSignIn, useSignUp } from '@clerk/clerk-expo'
-import ArchivesTheme from '@/constants/ArchivesTheme'
-import { AuthToggle } from '@/components/AuthToggle'
 
 export default function EmailDetailsScreen() {
   // Get route parameters
@@ -232,7 +232,7 @@ export default function EmailDetailsScreen() {
                         <Ionicons name="person" size={20} color={ArchivesTheme.colors.mutedNavy + '99'} style={styles.inputIcon} />
                         <TextInput
                           style={styles.textInput}
-                          placeholder="John"
+                          placeholder="Basel"
                           value={firstName}
                           onChangeText={setFirstName}
                           autoCapitalize="words"
@@ -247,7 +247,7 @@ export default function EmailDetailsScreen() {
                         <Ionicons name="person" size={20} color={ArchivesTheme.colors.mutedNavy + '99'} style={styles.inputIcon} />
                         <TextInput
                           style={styles.textInput}
-                          placeholder="Doe"
+                          placeholder="Ghazi"
                           value={lastName}
                           onChangeText={setLastName}
                           autoCapitalize="words"
@@ -265,7 +265,7 @@ export default function EmailDetailsScreen() {
                     <Ionicons name="mail" size={20} color={ArchivesTheme.colors.mutedNavy + '99'} style={styles.inputIcon} />
                     <TextInput
                       style={styles.textInput}
-                      placeholder="explorer@archives.com"
+                      placeholder="basel@archiveszone.app"
                       value={email}
                       onChangeText={setEmail}
                       keyboardType="email-address"
