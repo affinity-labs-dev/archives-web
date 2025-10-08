@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 import { useProgressSync } from '@/hooks/useSyncIntegration'
 import { useUser } from '@clerk/clerk-expo'
+import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
 
 // Web-compatible storage wrapper to prevent SSR issues
 class WebCompatibleStorage {
@@ -211,6 +212,9 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   // Sync integration for background cloud sync
   const { syncEra, syncAdventure, syncModule } = useProgressSync()
 
+  // CRITICAL: Wait for background sync to complete before loading data on login
+  const { isInitialized: syncInitialized } = useBackgroundSync()
+
   // Helper function to parse ROI module IDs (ROI_Adv1_M1 format)
   const parseRoiModuleId = (moduleId: string): { adventureId: number; moduleId: number } | null => {
     const match = moduleId.match(/^ROI_Adv(\d+)_M(\d+)$/)
@@ -224,7 +228,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Load progress from AsyncStorage - reload when user signs in
-  // CRITICAL: Reload data after sign-in to restore cloud progress
+  // CRITICAL: Wait for Supabase sync to complete BEFORE loading data on login
   useEffect(() => {
     const loadData = async () => {
       // Initial load when app starts (no user signed in)
@@ -235,21 +239,25 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Reload when user signs in or changes
+      // When user signs in, WAIT for background sync to complete first
       if (isSignedIn && user && user.id !== hasLoadedForUser) {
         console.log('🔄 User signed in/changed:', user.id);
         console.log('🔄 Previous loaded user:', hasLoadedForUser);
-        setHasLoadedForUser(user.id);
 
-        // Load immediately - don't wait
-        // AppState and NetInfo listeners will trigger reload when sync completes
-        console.log('📖 Loading initial user progress data...');
+        // CRITICAL FIX: Wait for sync to complete before loading data
+        if (!syncInitialized) {
+          console.log('⏳ Waiting for background sync to complete...');
+          return; // Don't load yet, wait for syncInitialized to become true
+        }
+
+        console.log('✅ Background sync complete, loading data from AsyncStorage...');
+        setHasLoadedForUser(user.id);
         loadProgressData();
       }
     };
 
     loadData();
-  }, [isSignedIn, user?.id])
+  }, [isSignedIn, user?.id, syncInitialized])
 
   // Data migration and validation logic
   const migrateAndValidateData = (loadedModules: any[]): ModuleProgress[] => {

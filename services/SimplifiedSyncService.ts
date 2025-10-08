@@ -254,14 +254,14 @@ class SimplifiedSyncService {
   }
 
   // Initialize sync for new users or first app launch
-  async initializeSync() {
+  async initializeSync(): Promise<boolean> {
     console.log('🔄 [SYNC] Starting initializeSync...');
     console.log('🔄 [SYNC] User ID:', this.getCurrentUserId());
     console.log('🔄 [SYNC] Online:', this.isOnline);
 
     if (!this.isOnline) {
       console.log('⚠️ [SYNC] Offline - skipping sync');
-      return;
+      return false;
     }
 
     // ALWAYS check cloud first when user signs in
@@ -279,6 +279,8 @@ class SimplifiedSyncService {
       // Cloud data exists - always restore it (might have more progress than local)
       console.log('📥 [SYNC] Cloud data found, restoring from cloud...');
       await this.syncFromCloud();
+      console.log('✅ [SYNC] initializeSync completed - data restored from cloud');
+      return true;
     } else {
       // No cloud data - check if we have local progress to backup
       const hasLocal = await this.hasLocalData();
@@ -290,9 +292,9 @@ class SimplifiedSyncService {
       } else {
         console.log('📝 [SYNC] No data in cloud or local - fresh start');
       }
+      console.log('✅ [SYNC] initializeSync completed - no cloud restore needed');
+      return false;
     }
-
-    console.log('✅ [SYNC] initializeSync completed');
   }
 
   // Manual sync trigger (bidirectional)

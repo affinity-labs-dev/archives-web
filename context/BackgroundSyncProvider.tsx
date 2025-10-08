@@ -104,25 +104,26 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
   const initializeSync = async () => {
     try {
       setSyncStatus(prev => ({ ...prev, isSyncing: true, syncError: undefined }));
-      
-      await simplifiedSyncService.initializeSync();
-      
-      setSyncStatus(prev => ({ 
-        ...prev, 
-        isSyncing: false, 
+
+      const dataRestored = await simplifiedSyncService.initializeSync();
+
+      setSyncStatus(prev => ({
+        ...prev,
+        isSyncing: false,
         lastSyncTime: new Date(),
-        syncError: undefined 
+        syncError: undefined
       }));
-      
+
       setIsInitialized(true);
-      console.log('✅ Background sync initialized successfully');
+      console.log('✅ Background sync initialized successfully. Data restored from cloud:', dataRestored);
     } catch (error) {
       console.warn('Background sync initialization skipped:', error instanceof Error ? error.message : 'Unknown error');
-      setSyncStatus(prev => ({ 
-        ...prev, 
-        isSyncing: false, 
+      setSyncStatus(prev => ({
+        ...prev,
+        isSyncing: false,
         syncError: undefined // Don't show error to user
       }));
+      setIsInitialized(true); // Mark as initialized even on error so app doesn't hang
     }
   };
 
