@@ -5,6 +5,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 import { useProgressSync } from '@/hooks/useSyncIntegration'
+import { useUser } from '@clerk/clerk-expo'
 
 // Web-compatible storage wrapper to prevent SSR issues
 class WebCompatibleStorage {
@@ -142,7 +143,10 @@ interface ProgressContextType {
   
   // Loading state
   isLoading: boolean
-  
+
+  // Reload function for external triggers (AppState, NetInfo, pull-to-refresh)
+  reloadProgressData: () => Promise<void>
+
   // Legacy compatibility functions (deprecated but maintained for gradual migration)
   updateModuleProgress: (adventureId: number, moduleId: number, updates: Partial<ModuleProgress>) => Promise<void>
   completeModule: (adventureId: number, moduleId: number) => Promise<void>
@@ -199,7 +203,11 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const [roiModuleProgress, setRoiModuleProgress] = useState<ModuleProgress[]>([])
 
   const [isLoading, setIsLoading] = useState(true)
-  
+
+  // User sign-in detection for data reload
+  const { user, isSignedIn } = useUser()
+  const [hasLoadedForUser, setHasLoadedForUser] = useState<string | null>(null)
+
   // Sync integration for background cloud sync
   const { syncEra, syncAdventure, syncModule } = useProgressSync()
 
@@ -215,10 +223,33 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     return null
   }
 
-  // Load progress from AsyncStorage on mount
+  // Load progress from AsyncStorage - reload when user signs in
+  // CRITICAL: Reload data after sign-in to restore cloud progress
   useEffect(() => {
-    loadProgressData()
-  }, [])
+    const loadData = async () => {
+      // Initial load when app starts (no user signed in)
+      if (!isSignedIn) {
+        console.log('📖 No user signed in, loading local data only');
+        loadProgressData();
+        setHasLoadedForUser(null);
+        return;
+      }
+
+      // Reload when user signs in or changes
+      if (isSignedIn && user && user.id !== hasLoadedForUser) {
+        console.log('🔄 User signed in/changed:', user.id);
+        console.log('🔄 Previous loaded user:', hasLoadedForUser);
+        setHasLoadedForUser(user.id);
+
+        // Load immediately - don't wait
+        // AppState and NetInfo listeners will trigger reload when sync completes
+        console.log('📖 Loading initial user progress data...');
+        loadProgressData();
+      }
+    };
+
+    loadData();
+  }, [isSignedIn, user?.id])
 
   // Data migration and validation logic
   const migrateAndValidateData = (loadedModules: any[]): ModuleProgress[] => {
@@ -331,6 +362,17 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       console.error('Error loading progress data:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Public reload function for external triggers (AppState, NetInfo, pull-to-refresh)
+  const reloadProgressData = async () => {
+    try {
+      console.log('🔄 Manual reload triggered - loading progress data...');
+      await loadProgressData();
+      console.log('✅ Manual reload complete');
+    } catch (error) {
+      console.error('❌ Error during manual reload:', error);
     }
   }
 
@@ -1004,6 +1046,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     getOverallProgress,
     getModuleStarCount,
     isLoading,
+    reloadProgressData,
 
     // Legacy compatibility (deprecated)
     updateModuleProgress,

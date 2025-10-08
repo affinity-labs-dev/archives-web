@@ -15,12 +15,15 @@ import {
   Platform,
   Animated,
   StatusBar,
+  RefreshControl,
+  AppState,
 } from 'react-native'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import { useProgress } from '@/context/ProgressContext'
+import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import ModuleModal from '@/components/modules/ModuleModal'
 import AdventureDetailModal from '@/components/adventures/AdventureDetailModal'
@@ -121,9 +124,60 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
     isModuleUnlocked,
     getModuleProgress,
     moduleProgress, // Add direct access to moduleProgress state for re-render triggers
-    getModuleStarCount // NEW: Clean star count function
+    getModuleStarCount, // NEW: Clean star count function
+    reloadProgressData
   } = useProgress()
 
+  const { manualSync, syncStatus } = useBackgroundSync()
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true)
+    console.log('🔄 Pull-to-refresh triggered')
+
+    try {
+      // First sync with cloud
+      await manualSync()
+      // Then reload progress data
+      await reloadProgressData()
+      console.log('✅ Refresh complete')
+    } catch (error) {
+      console.error('❌ Refresh error:', error)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // AppState listener for automatic refresh when app comes to foreground
+  useEffect(() => {
+    let appStateSubscription: any
+
+    const handleAppStateChange = async (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        console.log('📱 App became active, refreshing data...')
+        // Sync and reload in the background (no loading indicator)
+        try {
+          await manualSync()
+          await reloadProgressData()
+          console.log('✅ Background refresh complete')
+        } catch (error) {
+          console.error('❌ Background refresh error:', error)
+        }
+      }
+    }
+
+    // Only add AppState listener on native platforms
+    if (Platform.OS !== 'web') {
+      appStateSubscription = AppState.addEventListener('change', handleAppStateChange)
+    }
+
+    return () => {
+      if (appStateSubscription) {
+        appStateSubscription.remove()
+      }
+    }
+  }, [])
 
   // Check if we should show the bouncing animation (first module not completed)
   useEffect(() => {
@@ -458,7 +512,18 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
       {/* Background - EXACT SwiftUI: CreamWhite */}
       <View style={styles.background} />
       
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={ArchivesTheme.colors.shoeBrown}
+            colors={[ArchivesTheme.colors.shoeBrown]} // Android
+          />
+        }
+      >
         <View style={styles.mainContainer}>
           {/* Video Player Section - Always playing, no controls */}
           <View style={styles.videoSection}>

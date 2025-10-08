@@ -42,9 +42,12 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
       setIsLoading(true)
       
       console.log('Starting Apple OAuth flow...')
-      
+
+      const redirectUrl = Linking.createURL('sso-callback');
+      console.log('🔍 DEBUG: Redirect URL being sent:', redirectUrl);
+
       const { createdSessionId, signIn, signUp } = await startOAuthFlow({
-        redirectUrl: Linking.createURL('/'),
+        redirectUrl: redirectUrl,
       })
 
       console.log('Apple OAuth result:', { createdSessionId, signIn, signUp })
@@ -228,10 +231,12 @@ const styles = StyleSheet.create({
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingLeft: 8,
   },
   buttonIcon: {
-    marginRight: 12,
+    marginRight: 16,
+    width: 20,
   },
   buttonText: {
     fontSize: 16,

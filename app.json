@@ -79,6 +79,7 @@
         }
       ],
       "react-native-bottom-tabs",
+      "expo-notifications",
       [
         "expo-build-properties",
         {

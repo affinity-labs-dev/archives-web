@@ -51,10 +51,15 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
 
     if (isSignedIn && user && !isInitialized) {
       console.log('🔑 User signed in, initializing simplified sync...');
+      console.log('🔑 User ID:', user.id);
+      console.log('🔑 Email:', user.emailAddresses?.[0]?.emailAddress);
+      console.log('🔑 Primary Email:', user.primaryEmailAddress?.emailAddress);
+
       // Set the user ID in the simplified sync service
       simplifiedSyncService.setCurrentUserId(user.id);
       initializeSync();
     } else if (!isSignedIn) {
+      console.log('👋 User signed out, clearing sync data...');
       // Clear user ID when user signs out
       simplifiedSyncService.setCurrentUserId(null);
       setIsInitialized(false);

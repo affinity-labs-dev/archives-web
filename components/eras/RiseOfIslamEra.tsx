@@ -15,12 +15,15 @@ import {
   Platform,
   Animated,
   StatusBar,
+  RefreshControl,
+  AppState,
 } from 'react-native'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import { useProgress } from '@/context/ProgressContext'
+import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import ROIModuleModal from '@/components/modules/ROIModuleModal'
 import AdventureDetailModal from '@/components/adventures/AdventureDetailModal'
@@ -131,8 +134,60 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
     isModuleUnlocked,
     getModuleProgress,
     moduleProgress,
-    getModuleStarCount
+    getModuleStarCount,
+    reloadProgressData
   } = useProgress()
+
+  const { manualSync, syncStatus } = useBackgroundSync()
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true)
+    console.log('🔄 Pull-to-refresh triggered (Rise of Islam)')
+
+    try {
+      // First sync with cloud
+      await manualSync()
+      // Then reload progress data
+      await reloadProgressData()
+      console.log('✅ Refresh complete (Rise of Islam)')
+    } catch (error) {
+      console.error('❌ Refresh error:', error)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // AppState listener for automatic refresh when app comes to foreground
+  useEffect(() => {
+    let appStateSubscription: any
+
+    const handleAppStateChange = async (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        console.log('📱 App became active, refreshing data (Rise of Islam)...')
+        // Sync and reload in the background (no loading indicator)
+        try {
+          await manualSync()
+          await reloadProgressData()
+          console.log('✅ Background refresh complete (Rise of Islam)')
+        } catch (error) {
+          console.error('❌ Background refresh error:', error)
+        }
+      }
+    }
+
+    // Only add AppState listener on native platforms
+    if (Platform.OS !== 'web') {
+      appStateSubscription = AppState.addEventListener('change', handleAppStateChange)
+    }
+
+    return () => {
+      if (appStateSubscription) {
+        appStateSubscription.remove()
+      }
+    }
+  }, [])
 
   // Check if we should show the bouncing animation (first module not completed)
   useEffect(() => {
@@ -407,7 +462,18 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.background} />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={ArchivesTheme.colors.shoeBrown}
+            colors={[ArchivesTheme.colors.shoeBrown]} // Android
+          />
+        }
+      >
         <View style={styles.mainContainer}>
           {/* Video Player Section */}
           <View style={styles.videoSection}>
