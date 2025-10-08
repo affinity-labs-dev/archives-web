@@ -16,7 +16,8 @@
       "buildNumber": "49",
       "infoPlist": {
         "UIBackgroundModes": [
-          "audio"
+          "audio",
+          "remote-notification"
         ],
         "NSUserTrackingUsageDescription": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform."
       }
@@ -30,7 +31,8 @@
       "package": "ai.affinitylabs.archivesexpo",
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "versionCode": 3
     },
@@ -79,7 +81,14 @@
         }
       ],
       "react-native-bottom-tabs",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/app-icon.png",
+          "color": "#C99151",
+          "sounds": []
+        }
+      ],
       [
         "expo-build-properties",
         {

@@ -18,7 +18,18 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { useAppTrackingTransparency } from "@/hooks/useAppTrackingTransparency";
+import { useNotifications } from "@/hooks/useNotifications";
 import Purchases from 'react-native-purchases';
+import * as Notifications from 'expo-notifications';
+
+// Configure how notifications are handled when app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 // Conditional PostHog provider that respects ATT permissions
 function ConditionalPostHogProvider({
@@ -69,6 +80,18 @@ export default function RootLayout() {
     } catch (error) {
       console.error('❌ Failed to configure RevenueCat:', error);
     }
+  }, []);
+
+  // Get push notification permission and token (asks only on first launch)
+  const { expoPushToken } = useNotifications();
+
+  // Listen for notification taps to handle in-app navigation
+  React.useEffect(() => {
+    Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('👆 Notification tapped:', response);
+      // Handle navigation based on notification data
+      // Example: router.push(response.notification.request.content.data.screen)
+    });
   }, []);
 
 
