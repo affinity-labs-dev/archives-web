@@ -68,8 +68,8 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
       return;
     }
 
-    let syncTimeout: NodeJS.Timeout;
-    
+    let syncTimeout: ReturnType<typeof setTimeout>;
+
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active' && isSignedIn && isInitialized) {
         // Debounce sync - only run after 5 seconds of app being active

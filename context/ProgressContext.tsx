@@ -225,8 +225,8 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     return loadedModules.map(module => {
       // Ensure all required fields exist with proper defaults
       const migratedModule: ModuleProgress = {
-        adventureId: module.adventureId,
-        moduleId: module.moduleId,
+        adventureId: typeof module.adventureId === 'number' ? module.adventureId : parseInt(module.adventureId, 10),
+        moduleId: typeof module.moduleId === 'number' ? module.moduleId : parseInt(module.moduleId, 10),
         isCompleted: module.isCompleted || false,
         lessonsCompleted: Array.isArray(module.lessonsCompleted) ? module.lessonsCompleted : [],
         quizCompleted: module.quizCompleted || false,
@@ -516,7 +516,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   }
 
   const getRoiModuleProgress = (moduleId: string): ModuleProgress | null => {
-    return roiModuleProgress.find(m => m.moduleId === moduleId) || null
+    return roiModuleProgress.find(m => (m as any).roiModuleId === moduleId) || null
   }
 
   // ROI-specific utility functions
