@@ -96,6 +96,7 @@ export default function NotificationPermissionModal({
   const handleSkip = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await AsyncStorage.setItem('notifications_permission_granted', 'false');
+    await AsyncStorage.setItem('notification_permission_asked', 'true'); // Mark as asked
     onComplete();
   };
 

@@ -91,8 +91,19 @@ export default function OnboardingQuestion4Screen() {
       await AsyncStorage.setItem('onboarding_q4_answer', JSON.stringify(answerData))
       console.log('🔥 [OnboardingQ4] Answer saved:', answerData)
 
-      // Show notification permission modal
-      setShowNotificationModal(true)
+      // Check if we've already asked for notification permission
+      const alreadyAsked = await AsyncStorage.getItem('notification_permission_asked')
+
+      if (alreadyAsked === 'true') {
+        console.log('🔥 [OnboardingQ4] Already asked for notifications, skipping modal')
+        // Mark onboarding as completed and navigate
+        await AsyncStorage.setItem('onboarding_completed', 'true')
+        router.push('/onboarding-results')
+      } else {
+        // Show notification permission modal
+        console.log('🔥 [OnboardingQ4] Showing notification permission modal')
+        setShowNotificationModal(true)
+      }
     } catch (error) {
       console.error('🔥 [OnboardingQ4] Error saving answer:', error)
       // Continue anyway

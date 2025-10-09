@@ -99,8 +99,12 @@ export default function RootLayout() {
 
     // Cleanup listeners on unmount
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      if (notificationListener) {
+        Notifications.removeNotificationSubscription(notificationListener);
+      }
+      if (responseListener) {
+        Notifications.removeNotificationSubscription(responseListener);
+      }
     };
   }, []);
 
