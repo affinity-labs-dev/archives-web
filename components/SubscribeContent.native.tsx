@@ -62,8 +62,18 @@ export default function SubscribeContent() {
     return { main: parts[0] || fallback.split('.')[0], decimal: parts[1] ? `.${parts[1]}` : `.${fallback.split('.')[1]}` };
   };
 
+  // Helper function to extract currency symbol from price string
+  const getCurrencySymbol = (priceString: string | undefined) => {
+    if (!priceString) return '$'; // Default to USD
+    const match = priceString.match(/([£$€¥₹])/);
+    return match ? match[1] : '$';
+  };
+
   const monthlyPricing = formatPrice(monthlyPackage?.storeProduct?.priceString, '£4.99');
   const yearlyPricing = formatPrice(yearlyPackage?.storeProduct?.priceString, '£49.99');
+
+  // Get currency symbol for crossed-out prices
+  const currencySymbol = getCurrencySymbol(monthlyPackage?.storeProduct?.priceString);
 
   // If user is already subscribed, show success state
   if (isSubscribed) {
@@ -264,7 +274,7 @@ export default function SubscribeContent() {
               <Text style={styles.priceMain}>{monthlyPricing.main}</Text>
               <Text style={styles.priceDecimal}>{monthlyPricing.decimal}</Text>
             </View>
-            <Text style={styles.originalPrice}>$9.99</Text>
+            <Text style={styles.originalPrice}>{currencySymbol}9.99</Text>
             <Text style={styles.planDuration}>Monthly</Text>
             {selectedPlan === "monthly" && (
               <View style={styles.selectedIndicator}>
@@ -292,7 +302,7 @@ export default function SubscribeContent() {
               <Text style={styles.priceMain}>{yearlyPricing.main}</Text>
               <Text style={styles.priceDecimal}>{yearlyPricing.decimal}</Text>
             </View>
-            <Text style={styles.originalPrice}>$89.99</Text>
+            <Text style={styles.originalPrice}>{currencySymbol}89.99</Text>
             <Text style={styles.planDuration}>Yearly</Text>
             {selectedPlan === "yearly" && (
               <View style={styles.selectedIndicator}>
