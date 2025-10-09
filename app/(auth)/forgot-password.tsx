@@ -1,22 +1,22 @@
 // Forgot Password Screen - Request password reset code
 // User enters email to receive reset code
 
+import ArchivesTheme from '@/constants/ArchivesTheme'
+import { useSignIn } from '@clerk/clerk-expo'
+import { Ionicons } from '@expo/vector-icons'
+import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import {
-  View,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  KeyboardAvoidingView,
-  Platform,
+  View,
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
-import { useSignIn } from '@clerk/clerk-expo'
-import ArchivesTheme from '@/constants/ArchivesTheme'
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('')
@@ -100,7 +100,7 @@ export default function ForgotPasswordScreen() {
                   <Ionicons name="mail" size={20} color={ArchivesTheme.colors.mutedNavy + '99'} style={styles.inputIcon} />
                   <TextInput
                     style={styles.textInput}
-                    placeholder="explorer@archives.com"
+                    placeholder="basel@archiveszone.app"
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"

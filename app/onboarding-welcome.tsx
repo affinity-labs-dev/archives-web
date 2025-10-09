@@ -1,21 +1,21 @@
 // OnboardingWelcomeScreen - Third screen in onboarding flow
 // Shows welcome message with camel image and continues to questionnaire
 
-import React, { useEffect } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  StatusBar,
-  Platform,
-} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
-import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import * as Haptics from 'expo-haptics'
+import { useRouter } from 'expo-router'
+import React, { useEffect } from 'react'
+import {
+  Image,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 export default function OnboardingWelcomeScreen() {
   const router = useRouter()
@@ -55,7 +55,7 @@ export default function OnboardingWelcomeScreen() {
           {/* Speech Bubble */}
           <View style={styles.speechBubble}>
             <Text style={styles.welcomeText} selectable={false}>
-              <Text style={styles.boldText}>Just 4 quick</Text> questions before your Middle Eastern journey begins...
+              <Text style={styles.boldText}>Just 4 quick</Text> questions to personalize your experience
             </Text>
             {/* Speech bubble pointer with border */}
             <View style={styles.speechPointer} />

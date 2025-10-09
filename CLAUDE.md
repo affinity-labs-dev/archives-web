@@ -28,7 +28,7 @@ eas build --platform ios --profile development  # Create development build
 - **Follow component naming** - `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
 - **Respect design system** - Use ArchivesTheme constants, never hardcode colors/spacing
 - **Platform-specific implementations** - Some components have `.native.tsx` and `.web.tsx` variants
-- **Remove build artifacts** - Check for and delete `.ipa` files before commits
+- **Remove build artifacts** - Delete `.ipa`, `.apk`, and `build-*.ipa` files before commits
 
 ## Commands
 
@@ -41,12 +41,28 @@ eas build --platform ios --profile development  # Create development build
 - `npx expo-doctor` - Validate project configuration and dependencies
 - `npx react-native log-ios` - View iOS device logs for debugging
 
+### Testing Commands
+- `npm test` - Run test suite (if configured)
+- `npx jest --watch` - Run tests in watch mode
+- `npx jest --coverage` - Generate test coverage report
+
 ### Build Commands
 - `eas build --platform ios --profile development` - Create development client build
 - `eas build --platform ios --profile preview` - Create preview build for internal testing
 - `eas build --platform ios --profile production` - Create production build for App Store
+- `eas build --platform android --profile development` - Android development build
+- `eas build --platform android --profile production` - Android production build
 - `eas submit --platform ios` - Submit iOS build to App Store
+- `eas submit --platform android` - Submit Android build to Play Store
 - `eas update --branch production` - Publish over-the-air update
+
+### Troubleshooting Commands
+- `npx expo start --clear` - Clear Metro cache (first line of defense)
+- `rm -rf node_modules && npm install` - Clean reinstall dependencies
+- `rm -rf node_modules/.cache` - Clear Metro bundler cache
+- `npx expo start --max-workers 1` - Single worker for debugging
+- `watchman watch-del-all` - Clear Watchman cache (if installed)
+- `cd ios && pod install` - Reinstall iOS pods (for bare workflow issues)
 
 ### EAS Development Client Workflow
 1. Build development client: `eas build --profile development --platform ios/android`
@@ -91,6 +107,7 @@ eas build --platform ios --profile development  # Create development build
 - **useNotifications** hook - Centralized notification management
 - Push token stored in user context and synced with backend
 - Foreground notification presentation configured with alerts, sound, and badge
+- Physical device required for testing (simulator limitations)
 
 ### Authentication Architecture
 - **Clerk Provider** wraps entire app in root layout
@@ -402,7 +419,13 @@ The codebase has built-in support for specialized educational content agents:
 - **EAS build failures**: Check environment variables in `eas.json` and ensure all API keys are valid
 - **iOS build issues**: Verify Apple Sign-In configuration and team ID (L33CVM28SL)
 - **Android build issues**: Check package name matches `ai.affinitylabs.archivesexpo`
-- **Leftover build artifacts**: Remove any `.ipa` or `.apk` files from project root before committing
+- **Leftover build artifacts**: Run `rm -f *.ipa *.apk build-*.ipa` before commits
+
+#### Metro Bundler Issues
+- **Module resolution errors**: Use `npx expo start --clear`
+- **Transform errors**: Delete `node_modules/.cache` and restart
+- **Dependency conflicts**: Run `rm -rf node_modules && npm install`
+- **Watchman issues**: Run `watchman watch-del-all` if installed
 
 #### Gesture Handling Issues
 - **Carousel swipe conflicts**: Fixed with universal PanGestureHandler that re-enables immediately
@@ -417,8 +440,8 @@ The codebase has built-in support for specialized educational content agents:
 - **Asset management** - Use AWS CloudFront URLs for video/audio, local assets only for icons/images
 
 #### Git Workflow
-- **Clean working directory** - Remove build artifacts (`.ipa`, `.apk`, `build-*.ipa`) before commits
-- **Meaningful commits** - Follow pattern: `feat:`, `fix:`, `refactor:`, `docs:`
+- **Clean working directory** - Remove build artifacts: `rm -f *.ipa *.apk build-*.ipa`
+- **Meaningful commits** - Follow pattern: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`
 - **Branch strategy** - Main branch is `master` (current branch)
 - **Testing before push** - Test on both iOS simulator and physical device when possible
 
@@ -516,20 +539,30 @@ Codebase uses emoji-prefixed logging for easy filtering:
 | Video won't play | CloudFront URL issue | Verify URL accessibility in browser |
 | Auth broken | Clerk config issue | Check dashboard + verify publishable key |
 | Subscription issues | RevenueCat config | Verify API key + check sandbox mode |
-| Build artifacts in git | Leftover .ipa files | Remove `build-*.ipa` before commit |
+| Build artifacts in git | Leftover .ipa files | Run `rm -f *.ipa *.apk build-*.ipa` |
 | Gesture conflicts | Carousel/card issues | Ensure immediate re-enable of swipe gestures |
 | Push notifications | Token not generated | Check notification permissions + Expo config |
+| Metro bundler cache | Module resolution errors | Use `npx expo start --clear` |
 
 ### Recent Changes & Known Issues
 
-#### Latest Updates
-- **Notifications System**: Push notifications with expo-notifications (latest commit)
-- **Async Sync Fix**: Resolved race conditions in background sync
-- **OAuth Integration**: Critical data persistence with authentication
-- **Touch Enhancements**: Improved reading card interactions
-- **Gesture Handling**: Fixed carousel swipe conflicts with card expansion
+#### Latest Updates (from git log)
+- **Subscribe screen UX improvements** - Reordered sections for better user experience
+- **Notifications System** - Push notifications with expo-notifications
+- **Async Sync Fix** - Resolved race conditions in background sync
+- **OAuth Integration** - Critical data persistence with authentication
+- **Touch Enhancements** - Improved reading card interactions
+- **Gesture Handling** - Fixed carousel swipe conflicts with card expansion
+- **Progress Persistence** - Fixed critical bug where progress would reset on app restart
 
 #### Current Git Status
 - Modified iOS project files for notification capabilities
 - Podfile.lock updated with notification dependencies
+- Modified authentication screens in `app/(auth)/`
 - Remember to test push notifications on physical device (simulator limitations)
+
+#### Known Issues
+- Push notifications require physical device testing
+- Video preloading can be slow on first load
+- Some gesture conflicts may still occur on older devices
+- Background sync may have delays in poor network conditions
