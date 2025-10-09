@@ -65,6 +65,8 @@ export default function Adventure5_Module3_Lesson1({
   const [videoProgress, setVideoProgress] = useState(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [videoDuration, setVideoDuration] = useState(0);
+  const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
+  const [wasPlaying, setWasPlaying] = useState(false);
 
   // Reading card states
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
@@ -90,6 +92,23 @@ export default function Adventure5_Module3_Lesson1({
   // Progress context integration
   const { completeLesson } = useProgress();
 
+  // Analytics tracking for video and lesson events
+  const {
+    trackVideoPlay,
+    trackVideoPause,
+    trackVideoComplete,
+    trackCardExpanded,
+    trackLessonComplete
+  } = useLessonTracking({
+    adventureId: 5,
+    moduleId: 3,
+    lessonId: 'lesson1',
+    lessonType: 'video_reading',
+    lessonTitle: "Abbasid Revolution and New Order",
+    chapterNumber: 3,
+    screenUrl: '/adventure/5/module/3/lesson1'
+  });
+
   // Video status handler
   const handleVideoStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
@@ -97,6 +116,26 @@ export default function Adventure5_Module3_Lesson1({
       setVideoDuration(status.durationMillis || 0);
       setVideoProgress(status.positionMillis || 0);
       setIsVideoPlaying(status.isPlaying);
+
+      // Track video play/pause events for analytics
+      if (status.isPlaying && !wasPlaying) {
+        // Video started playing
+        trackVideoPlay(status.durationMillis);
+        setWasPlaying(true);
+      } else if (!status.isPlaying && wasPlaying) {
+        // Video was paused
+        trackVideoPause(status.positionMillis || 0, status.durationMillis || 0);
+        setWasPlaying(false);
+      }
+
+      // Check if video completed
+      if (status.durationMillis && status.positionMillis) {
+        const progress = status.positionMillis / status.durationMillis;
+        if (progress >= 0.95 && !hasVideoCompleted) {
+          setHasVideoCompleted(true);
+          trackVideoComplete(status.durationMillis);
+        }
+      }
     }
   };
 
@@ -189,6 +228,10 @@ export default function Adventure5_Module3_Lesson1({
   // Expand the card to full height
   const expandCard = () => {
     setIsCardExpanded(true);
+
+    // Track reading card expansion in analytics
+    trackCardExpanded();
+
     if (!hasFinishedReading) {
       setHasFinishedReading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -245,6 +288,9 @@ export default function Adventure5_Module3_Lesson1({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
+
+    // Track lesson completion in analytics
+    trackLessonComplete();
 
     // Mark lesson as completed
     completeLesson(5, 3, "lesson1");

@@ -19,6 +19,8 @@ import {
 } from "react-native";
 import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useProgress } from "@/context/ProgressContext";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 import LessonPlayer from "../LessonPlayer";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -36,8 +38,29 @@ export default function Adventure3_Module1_Lesson2({
   onDismiss,
   onBack,
 }: Adventure3_Module1_Lesson2Props) {
+  // Progress context for lesson completion tracking
+  const { completeLesson } = useProgress();
+
+  // Analytics tracking for video and lesson events
+  const {
+    trackVideoPlay,
+    trackVideoPause,
+    trackVideoComplete,
+    trackCardExpanded,
+    trackLessonComplete
+  } = useLessonTracking({
+    adventureId: 3,
+    moduleId: 1,
+    lessonId: 'lesson2',
+    lessonType: 'video_reading',
+    lessonTitle: "Kairouan: From Military Camp to Cultural Center",
+    chapterNumber: 1,
+    screenUrl: '/adventure/3/module/1/lesson2'
+  });
+
   // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [wasPlaying, setWasPlaying] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
@@ -73,6 +96,17 @@ export default function Adventure3_Module1_Lesson2({
         );
       }
 
+      // Track video play/pause events for analytics
+      if (status.isPlaying && !wasPlaying) {
+        // Video started playing
+        trackVideoPlay(status.durationMillis);
+        setWasPlaying(true);
+      } else if (!status.isPlaying && wasPlaying) {
+        // Video was paused
+        trackVideoPause(status.positionMillis || 0, status.durationMillis || 0);
+        setWasPlaying(false);
+      }
+
       // Update video progress for progress bar
       if (status.durationMillis && status.positionMillis) {
         const progress = status.positionMillis / status.durationMillis;
@@ -94,6 +128,7 @@ export default function Adventure3_Module1_Lesson2({
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
           setHasVideoCompleted(true);
+          trackVideoComplete(status.durationMillis);
           console.log("🎬 Video completed - triggering card pop animation");
           triggerCardPopAnimation();
         }
@@ -131,6 +166,11 @@ export default function Adventure3_Module1_Lesson2({
       return;
     }
 
+    // Track lesson completion in analytics
+    trackLessonComplete();
+
+    // Mark lesson as completed in progress context
+    completeLesson(3, 1, "lesson2");
     console.log("🔄 Continue button pressed - proceeding to quiz");
     onContinue();
   };
@@ -217,7 +257,10 @@ export default function Adventure3_Module1_Lesson2({
   // Expand the card to full height
   const expandCard = () => {
     setIsCardExpanded(true);
-    
+
+    // Track reading card expansion in analytics
+    trackCardExpanded();
+
     // Activate continue button when user expands card (shows engagement with content)
     if (!hasFinishedReading) {
       setHasFinishedReading(true);

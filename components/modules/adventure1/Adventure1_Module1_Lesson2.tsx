@@ -20,6 +20,7 @@ import {
 import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useProgress } from "@/context/ProgressContext";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 import LessonPlayer from "../LessonPlayer";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -40,8 +41,26 @@ export default function Adventure1_Module1_Lesson2({
   // Progress context for lesson completion tracking
   const { completeLesson } = useProgress();
 
+  // Analytics tracking for video and lesson events
+  const {
+    trackVideoPlay,
+    trackVideoPause,
+    trackVideoComplete,
+    trackCardExpanded,
+    trackLessonComplete
+  } = useLessonTracking({
+    adventureId: 1,
+    moduleId: 1,
+    lessonId: 'lesson2',
+    lessonType: 'video_reading',
+    lessonTitle: "The Barada River's Gift",
+    chapterNumber: 1,
+    screenUrl: '/adventure/1/module/1/lesson2'
+  });
+
   // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [wasPlaying, setWasPlaying] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
@@ -76,6 +95,17 @@ export default function Adventure1_Module1_Lesson2({
         );
       }
 
+      // Track video play/pause events for analytics
+      if (status.isPlaying && !wasPlaying) {
+        // Video started playing
+        trackVideoPlay(status.durationMillis);
+        setWasPlaying(true);
+      } else if (!status.isPlaying && wasPlaying) {
+        // Video was paused
+        trackVideoPause(status.positionMillis || 0, status.durationMillis || 0);
+        setWasPlaying(false);
+      }
+
       // Update video progress for progress bar
       if (status.durationMillis && status.positionMillis) {
         const progress = status.positionMillis / status.durationMillis;
@@ -97,6 +127,7 @@ export default function Adventure1_Module1_Lesson2({
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
           setHasVideoCompleted(true);
+          trackVideoComplete(status.durationMillis);
           console.log("🎬 DEBUG: Video playback completed, triggering card animation");
           triggerCardPopAnimation();
         }
@@ -129,6 +160,9 @@ export default function Adventure1_Module1_Lesson2({
   // Expand the card to full height
   const expandCard = () => {
     setIsCardExpanded(true);
+
+    // Track reading card expansion in analytics
+    trackCardExpanded();
 
     // Activate continue button when user expands card (shows engagement with content)
     if (!hasFinishedReading) {
@@ -264,6 +298,9 @@ export default function Adventure1_Module1_Lesson2({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
+
+    // Track lesson completion in analytics
+    trackLessonComplete();
 
     // Mark lesson as completed in progress context (Adventure 1, Module 1, Lesson 2)
     completeLesson(1, 1, "lesson2");

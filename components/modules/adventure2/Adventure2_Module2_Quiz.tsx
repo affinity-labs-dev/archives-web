@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
+import { analyticsService } from '@/services/AnalyticsService'
 import {
   QuizQuestion,
   MCQOptionButton,
@@ -93,9 +94,14 @@ export default function Adventure2_Module2_Quiz({ onDismiss, onBack }: Adventure
   // Additional state for individual questions
   const [selectedMCQOption, setSelectedMCQOption] = useState<number | null>(null)
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(null)
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now())
 
   const { updateModuleProgress } = useProgress()
 
+  // Track when each new question is shown
+  useEffect(() => {
+    setQuestionStartTime(Date.now())
+  }, [currentQuestionIndex])
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
@@ -118,6 +124,29 @@ export default function Adventure2_Module2_Quiz({ onDismiss, onBack }: Adventure
       setCorrectAnswers(prev => prev + 1)
       setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
     }
+
+    // Track quiz question answer in analytics
+    const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000)
+    let userAnswer = ''
+    let correctAnswer = ''
+
+    if (currentQuestion.type === 'mcq') {
+      userAnswer = currentQuestion.options?.[selectedMCQOption!] || ''
+      correctAnswer = currentQuestion.options?.[currentQuestion.correctAnswer] || ''
+    } else if (currentQuestion.type === 'trueFalse') {
+      userAnswer = selectedTrueFalse === 0 ? 'True' : 'False'
+      correctAnswer = currentQuestion.correctAnswer === 0 ? 'True' : 'False'
+    }
+
+    analyticsService.trackQuizQuestionAnswered({
+      adventure_id: 2,
+      module_id: 2,
+      question_number: currentQuestionIndex + 1,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer,
+      is_correct: isCorrect,
+      time_taken_seconds: timeTaken,
+    })
 
     setShowExplanation(true)
   }

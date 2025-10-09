@@ -3,6 +3,7 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useProgress } from "@/context/ProgressContext";
+import { analyticsService } from "@/services/AnalyticsService";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -115,8 +116,14 @@ export default function Adventure1_Module3_Quiz({
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(
     null
   );
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
 
   const { updateModuleProgress, completeLesson } = useProgress();
+
+  // Track when each new question is shown
+  useEffect(() => {
+    setQuestionStartTime(Date.now());
+  }, [currentQuestionIndex]);
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
@@ -143,6 +150,29 @@ export default function Adventure1_Module3_Quiz({
         (prev) => prev + quizQuestions[currentQuestionIndex].points
       );
     }
+
+    // Track quiz question answer in analytics
+    const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000);
+    let userAnswer = '';
+    let correctAnswer = '';
+
+    if (currentQuestion.type === 'mcq') {
+      userAnswer = currentQuestion.options?.[selectedMCQOption!] || '';
+      correctAnswer = currentQuestion.options?.[currentQuestion.correctAnswer] || '';
+    } else if (currentQuestion.type === 'trueFalse') {
+      userAnswer = selectedTrueFalse === 0 ? 'True' : 'False';
+      correctAnswer = currentQuestion.correctAnswer === 0 ? 'True' : 'False';
+    }
+
+    analyticsService.trackQuizQuestionAnswered({
+      adventure_id: 1,
+      module_id: 3,
+      question_number: currentQuestionIndex + 1,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer,
+      is_correct: isCorrect,
+      time_taken_seconds: timeTaken,
+    });
 
     setShowExplanation(true);
   };

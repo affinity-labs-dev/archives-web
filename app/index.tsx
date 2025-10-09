@@ -3,11 +3,28 @@ import React, { useState, useEffect } from 'react'
 import { Redirect } from 'expo-router'
 import { useUser } from '@clerk/clerk-expo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { usePostHog } from 'posthog-react-native'
+import { Platform } from 'react-native'
 
 export default function Index() {
   const { isSignedIn, isLoaded } = useUser()
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null)
   const [isChecking, setIsChecking] = useState(true)
+  const posthog = usePostHog()
+
+  // Track initial app entry point (captures very first screen of session)
+  useEffect(() => {
+    if (posthog && Platform.OS !== 'web') {
+      // Identify session start point
+      posthog.capture('app_entry_point', {
+        screen: 'index',
+        timestamp: Date.now(),
+        is_signed_in: isSignedIn,
+        is_loaded: isLoaded,
+      })
+      console.log('🎥 [PostHog] App entry point tracked for session replay')
+    }
+  }, [posthog])
 
   useEffect(() => {
     checkUserState()

@@ -58,6 +58,7 @@ export default function Adventure5_Module2_Lesson1({
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
+  const [wasPlaying, setWasPlaying] = useState(false);
 
   // Reading card states
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
@@ -87,11 +88,39 @@ export default function Adventure5_Module2_Lesson1({
   // Progress context integration
   const { completeLesson } = useProgress();
 
+  // Analytics tracking for video and lesson events
+  const {
+    trackVideoPlay,
+    trackVideoPause,
+    trackVideoComplete,
+    trackCardExpanded,
+    trackLessonComplete
+  } = useLessonTracking({
+    adventureId: 5,
+    moduleId: 2,
+    lessonId: 'lesson1',
+    lessonType: 'video_reading',
+    lessonTitle: "Abbasid Revolutionary Strategy",
+    chapterNumber: 2,
+    screenUrl: '/adventure/5/module/2/lesson1'
+  });
+
   // Ultra-smooth video progress tracking
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       if (!isVideoLoaded) {
         setIsVideoLoaded(true);
+      }
+
+      // Track video play/pause events for analytics
+      if (status.isPlaying && !wasPlaying) {
+        // Video started playing
+        trackVideoPlay(status.durationMillis);
+        setWasPlaying(true);
+      } else if (!status.isPlaying && wasPlaying) {
+        // Video was paused
+        trackVideoPause(status.positionMillis || 0, status.durationMillis || 0);
+        setWasPlaying(false);
       }
 
       if (status.durationMillis && status.positionMillis) {
@@ -113,6 +142,7 @@ export default function Adventure5_Module2_Lesson1({
         // Video completion detection
         if (progress >= VIDEO_COMPLETION_THRESHOLD && !hasVideoCompleted) {
           setHasVideoCompleted(true);
+          trackVideoComplete(status.durationMillis);
           triggerCardPopAnimation();
         }
       }
@@ -210,6 +240,9 @@ export default function Adventure5_Module2_Lesson1({
   const expandCard = () => {
     setIsCardExpanded(true);
 
+    // Track reading card expansion in analytics
+    trackCardExpanded();
+
     if (!hasFinishedReading) {
       setHasFinishedReading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -256,6 +289,9 @@ export default function Adventure5_Module2_Lesson1({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
+
+    // Track lesson completion in analytics
+    trackLessonComplete();
 
     completeLesson(5, 2, "lesson1");
     console.log("🔄 Continue button pressed - proceeding to next lesson");

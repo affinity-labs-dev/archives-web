@@ -43,7 +43,7 @@ export default function HomeTab() {
   useFocusEffect(
     React.useCallback(() => {
       console.log('📊 [HomeTab] Screen focused - starting page view tracking')
-      analyticsService.startPageView('home')
+      analyticsService.startPageView('home', '/(tabs)/')
 
       return () => {
         console.log('📊 [HomeTab] Screen blurred - ending page view tracking')

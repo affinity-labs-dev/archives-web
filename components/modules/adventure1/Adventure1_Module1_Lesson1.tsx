@@ -24,6 +24,7 @@ import {
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useProgress } from "@/context/ProgressContext";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 import LessonPlayer from "../LessonPlayer";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -42,8 +43,26 @@ export default function Adventure1_Module1_Lesson1({
   // Progress context for lesson completion tracking
   const { completeLesson } = useProgress();
 
+  // Analytics tracking for video and lesson events
+  const {
+    trackVideoPlay,
+    trackVideoPause,
+    trackVideoComplete,
+    trackCardExpanded,
+    trackLessonComplete
+  } = useLessonTracking({
+    adventureId: 1,
+    moduleId: 1,
+    lessonId: 'lesson1',
+    lessonType: 'video_reading',
+    lessonTitle: "Bay'ah Ceremony & Damascus",
+    chapterNumber: 1,
+    screenUrl: '/adventure/1/module/1/lesson1'
+  });
+
   // Removed isPlaying state - now managed by LessonPlayer using expo-video useEvent
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [wasPlaying, setWasPlaying] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
@@ -76,16 +95,27 @@ export default function Adventure1_Module1_Lesson1({
         setIsVideoLoaded(true);
       }
 
+      // Track video play/pause events for analytics
+      if (status.isPlaying && !wasPlaying) {
+        // Video started playing
+        trackVideoPlay(status.durationMillis);
+        setWasPlaying(true);
+      } else if (!status.isPlaying && wasPlaying) {
+        // Video was paused
+        trackVideoPause(status.positionMillis || 0, status.durationMillis || 0);
+        setWasPlaying(false);
+      }
+
       // Update video progress for progress bar
       if (status.durationMillis && status.positionMillis) {
         const progress = status.positionMillis / status.durationMillis;
         setVideoProgress(progress);
-        
+
         // Only animate if progress changed significantly (prevents micro-animations)
         const progressDiff = Math.abs(progress - lastProgress.current);
         if (progressDiff > 0.0005) { // More sensitive threshold for ultra-smooth updates
           lastProgress.current = progress;
-          
+
           // Ultra-smooth progress bar animation
           Animated.timing(progressBarWidth, {
             toValue: progress,
@@ -93,10 +123,11 @@ export default function Adventure1_Module1_Lesson1({
             useNativeDriver: false, // Width animations require native driver false
           }).start();
         }
-        
+
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
           setHasVideoCompleted(true);
+          trackVideoComplete(status.durationMillis);
           triggerCardPopAnimation();
         }
       }
@@ -133,9 +164,12 @@ export default function Adventure1_Module1_Lesson1({
       return;
     }
 
+    // Track lesson completion in analytics
+    trackLessonComplete();
+
     // Mark lesson as completed in progress context (Adventure 1, Module 1, Lesson 1)
     completeLesson(1, 1, "lesson1");
-    console.log("🔄 Continue button pressed - Rise of Islam lesson 1 completed, proceeding to lesson 2");
+    console.log("🔄 Continue button pressed - Adventure 1 lesson 1 completed, proceeding to lesson 2");
     onContinue();
   };
 
@@ -227,14 +261,17 @@ export default function Adventure1_Module1_Lesson1({
   // Expand the card to full height
   const expandCard = () => {
     setIsCardExpanded(true);
-    
+
+    // Track reading card expansion in analytics
+    trackCardExpanded();
+
     // Activate continue button when user expands card (shows engagement with content)
     if (!hasFinishedReading) {
       setHasFinishedReading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       console.log("📖 Reading card expanded - Continue button now enabled");
     }
-    
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: SCREEN_HEIGHT * 0.85,

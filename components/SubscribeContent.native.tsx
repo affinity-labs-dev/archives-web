@@ -39,7 +39,7 @@ export default function SubscribeContent() {
   useFocusEffect(
     React.useCallback(() => {
       console.log('📊 [SubscribeContent] Screen focused - starting page view tracking')
-      analyticsService.startPageView('subscription')
+      analyticsService.startPageView('subscription', '/(tabs)/subscribe')
 
       return () => {
         console.log('📊 [SubscribeContent] Screen blurred - ending page view tracking')

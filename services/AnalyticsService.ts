@@ -111,6 +111,7 @@ class AnalyticsService {
   private sessionStartTime: number | null = null;
   private pageStartTimes: Map<string, number> = new Map();
   private pageClicks: Map<string, number> = new Map();
+  private pageUrls: Map<string, string> = new Map(); // Store screen URLs for PostHog activity view
   private currentUserId: string | null = null;
   private anonymousId: string | null = null;
 
@@ -291,16 +292,22 @@ class AnalyticsService {
   }
 
   /**
-   * Track video played
+   * Track video played - Enhanced with chapter/lesson details
    */
   trackVideoPlayed(data: {
     adventure_id: number;
     module_id: number;
     lesson_id: string;
+    lesson_title?: string;
+    chapter_number?: number;
+    video_duration_seconds?: number;
+    $current_url?: string; // Lesson screen URL for activity tracking
   }) {
     const event = {
       ...data,
       ...this.getBaseProperties(),
+      // Add readable content path for easier filtering in PostHog
+      content_path: `Adventure ${data.adventure_id} > Module ${data.module_id} > ${data.lesson_id}`,
     };
 
     this.posthog?.capture('video_played', event);
@@ -308,18 +315,25 @@ class AnalyticsService {
   }
 
   /**
-   * Track video paused
+   * Track video paused - Enhanced with detailed progress tracking
    */
   trackVideoPaused(data: {
     adventure_id: number;
     module_id: number;
     lesson_id: string;
-    video_progress: number;
+    lesson_title?: string;
+    chapter_number?: number;
+    video_progress: number; // Percentage (0-100)
     position_seconds: number;
+    duration_seconds?: number;
+    $current_url?: string;
   }) {
     const event = {
       ...data,
       ...this.getBaseProperties(),
+      content_path: `Adventure ${data.adventure_id} > Module ${data.module_id} > ${data.lesson_id}`,
+      // Add formatted progress for easier reading
+      progress_formatted: `${Math.round(data.video_progress)}%`,
     };
 
     this.posthog?.capture('video_paused', event);
@@ -327,16 +341,22 @@ class AnalyticsService {
   }
 
   /**
-   * Track video completed
+   * Track video completed - Enhanced with completion metrics
    */
   trackVideoCompleted(data: {
     adventure_id: number;
     module_id: number;
     lesson_id: string;
+    lesson_title?: string;
+    chapter_number?: number;
+    video_duration_seconds?: number;
+    completion_time_seconds?: number; // How long it took user to complete
+    $current_url?: string;
   }) {
     const event = {
       ...data,
       ...this.getBaseProperties(),
+      content_path: `Adventure ${data.adventure_id} > Module ${data.module_id} > ${data.lesson_id}`,
     };
 
     this.posthog?.capture('video_completed', event);
@@ -358,6 +378,66 @@ class AnalyticsService {
 
     this.posthog?.capture('reading_card_expanded', event);
     console.log('📊 [Analytics] Reading Card Expanded:', event);
+  }
+
+  /**
+   * Track video buffer/loading time
+   */
+  trackVideoBuffering(data: {
+    adventure_id: number;
+    module_id: number;
+    lesson_id: string;
+    buffer_time_ms: number;
+    video_url: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+      content_path: `Adventure ${data.adventure_id} > Module ${data.module_id} > ${data.lesson_id}`,
+    };
+
+    this.posthog?.capture('video_buffering', event);
+    console.log('📊 [Analytics] Video Buffering:', event);
+  }
+
+  /**
+   * Track carousel image view time
+   */
+  trackCarouselImageView(data: {
+    adventure_id: number;
+    module_id: number;
+    lesson_id: string;
+    image_index: number;
+    time_spent_seconds: number;
+    total_images: number;
+  }) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+      content_path: `Adventure ${data.adventure_id} > Module ${data.module_id} > ${data.lesson_id} > Image ${data.image_index + 1}`,
+    };
+
+    this.posthog?.capture('carousel_image_view', event);
+    console.log('📊 [Analytics] Carousel Image View:', event);
+  }
+
+  /**
+   * Track screen press/interaction
+   */
+  trackScreenPress(data: {
+    adventure_id: number;
+    module_id: number;
+    lesson_id: string;
+    interaction_type: 'tap' | 'swipe' | 'card_expand' | 'card_collapse' | 'button_press';
+    target?: string; // What was tapped/swiped (optional description)
+  }) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('screen_press', event);
+    console.log('📊 [Analytics] Screen Press:', event);
   }
 
   /**
@@ -399,12 +479,17 @@ class AnalyticsService {
     adventure_id: number;
     module_id: number;
     question_number: number;
+    user_answer: string; // The answer the user selected
+    correct_answer: string; // The correct answer
     is_correct: boolean;
     time_taken_seconds: number;
   }) {
     const event = {
       ...data,
       ...this.getBaseProperties(),
+      // Dynamic property naming for filtering (e.g., q1_answer, q2_answer)
+      [`q${data.question_number}_answer`]: data.user_answer,
+      [`q${data.question_number}_correct`]: data.is_correct,
     };
 
     this.posthog?.capture('quiz_question_answered', event);
@@ -480,11 +565,14 @@ class AnalyticsService {
 
   /**
    * Start tracking page view (call on screen focus)
+   * @param pageName - Human-readable page name
+   * @param screenUrl - Screen URL path for PostHog activity view (e.g., '/(tabs)/', '/(tabs)/profile')
    */
-  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'home') {
+  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'home', screenUrl: string) {
     this.pageStartTimes.set(pageName, Date.now());
     this.pageClicks.set(pageName, 0);
-    console.log(`📊 [Analytics] Started tracking ${pageName} page`);
+    this.pageUrls.set(pageName, screenUrl);
+    console.log(`📊 [Analytics] Started tracking ${pageName} page (${screenUrl})`);
   }
 
   /**
@@ -507,12 +595,14 @@ class AnalyticsService {
 
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     const clicks = this.pageClicks.get(pageName) || 0;
+    const screenUrl = this.pageUrls.get(pageName) || `/${pageName}`;
 
     const event = {
       ...this.getBaseProperties(),
       page_name: pageName,
       time_spent_seconds: timeSpent,
       clicks: clicks,
+      $current_url: screenUrl, // PostHog uses this for activity view screen tracking
     };
 
     this.posthog?.capture('page_view', event);
@@ -521,6 +611,7 @@ class AnalyticsService {
     // Clean up
     this.pageStartTimes.delete(pageName);
     this.pageClicks.delete(pageName);
+    this.pageUrls.delete(pageName);
   }
 
   // ==================== NOTIFICATION EVENTS ====================

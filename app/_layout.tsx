@@ -41,6 +41,17 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     if (posthog) {
       analyticsService.initialize(posthog);
       console.log('✅ [Analytics] Service initialized with PostHog instance');
+
+      // CRITICAL: Explicitly start session recording from the beginning
+      // This ensures replay captures from app launch, not just after first interaction
+      if (Platform.OS !== 'web') {
+        try {
+          posthog.startSessionRecording();
+          console.log('🎥 [PostHog] Session replay started from beginning');
+        } catch (error) {
+          console.error('❌ [PostHog] Failed to start session replay:', error);
+        }
+      }
     }
   }, [posthog]);
 
@@ -183,22 +194,29 @@ export default function RootLayout() {
     host: posthogHost,
     // Enable session recording for mobile (disabled on web to prevent compatibility issues)
     enableSessionReplay: Platform.OS !== 'web',
-    // Session replay configuration (only for mobile platforms)
-    sessionReplayConfig: {
-      // Mask text inputs to protect user privacy (quiz answers, personal info)
-      maskAllTextInputs: true,
-      // Keep images visible since educational content is important to analyze
-      maskAllImages: false,
-      // Enable masking of system views for privacy (iOS only)
-      maskAllSandboxedViews: true,
-      // Capture logs for debugging (Android only - native Logcat)
-      captureLog: Platform.OS === 'android',
-      // Capture network telemetry for performance insights (iOS only)
-      captureNetworkTelemetry: Platform.OS === 'ios',
-      // Throttle delay to reduce snapshots and improve performance
-      // Lower number = more snapshots but higher performance impact
-      throttleDelayMs: 1000,
-    },
+    // Person profiles configuration - set to 'always' to avoid type conflicts
+    // PostHog will consistently process person profiles for all events
+    personProfiles: 'always' as const,
+    // Capture all events including $set properties
+    captureMode: 'full' as const,
+    ...(Platform.OS !== 'web' && {
+      sessionReplayConfig: {
+        // Mask text inputs to protect user privacy (quiz answers, personal info)
+        maskAllTextInputs: true,
+        // Keep images visible since educational content is important to analyze
+        maskAllImages: false,
+        // Enable masking of system views for privacy (iOS only)
+        maskAllSandboxedViews: true,
+        // Capture logs for debugging (Android only)
+        captureLog: Platform.OS === 'android',
+        // Capture network telemetry for performance insights (iOS only)
+        captureNetworkTelemetry: Platform.OS === 'ios',
+        // Throttle delay to reduce snapshots and improve performance (unified property for both platforms)
+        throttleDelayMs: 1000,
+        // IMPORTANT: Automatically start recording on app launch (captures from beginning)
+        screenshot: true, // Enable screenshots for better replay quality
+      },
+    }),
   };
 
   return (
