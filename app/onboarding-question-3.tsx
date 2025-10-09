@@ -19,6 +19,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
+import * as Notifications from 'expo-notifications'
+import * as Device from 'expo-device'
+import Constants from 'expo-constants'
+import { notificationTokenSync } from '@/services/NotificationTokenSync'
 
 const questionOptions = [
   "5 min / day • Casual",
@@ -51,6 +55,56 @@ export default function OnboardingQuestion3Screen() {
     }
   }
 
+  // Request notification permissions directly
+  const requestNotificationPermission = async () => {
+    try {
+      // Check if physical device
+      if (!Device.isDevice) {
+        console.warn('⚠️ Push notifications require physical device')
+        await AsyncStorage.setItem('notifications_permission_granted', 'false')
+        return
+      }
+
+      // Request permission - this shows the iOS system modal
+      const { status } = await Notifications.requestPermissionsAsync()
+      console.log('🔔 Permission status:', status)
+
+      if (status === 'granted') {
+        // Get Expo push token
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId
+        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
+        const pushToken = tokenData.data
+
+        console.log('🔔 Expo push token:', pushToken)
+
+        // Get device timezone
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+        console.log('🌍 Device timezone:', timezone)
+
+        // Save to Supabase as anonymous device
+        const saved = await notificationTokenSync.saveAnonymousToken(pushToken, timezone)
+
+        if (saved) {
+          console.log('✅ Token saved to Supabase as anonymous device')
+        } else {
+          // Fallback: store locally if Supabase fails
+          console.log('⚠️ Supabase save failed, storing locally')
+          await AsyncStorage.setItem('pending_push_token', pushToken)
+          await AsyncStorage.setItem('pending_timezone', timezone)
+        }
+
+        await AsyncStorage.setItem('notifications_permission_granted', 'true')
+        await AsyncStorage.setItem('notification_permission_asked', 'true')
+      } else {
+        await AsyncStorage.setItem('notifications_permission_granted', 'false')
+        await AsyncStorage.setItem('notification_permission_asked', 'true')
+      }
+    } catch (error) {
+      console.error('❌ Error requesting notifications:', error)
+      await AsyncStorage.setItem('notifications_permission_granted', 'false')
+    }
+  }
+
   // Continue to next question
   const handleContinue = async () => {
     if (selectedOption === null) return
@@ -67,6 +121,17 @@ export default function OnboardingQuestion3Screen() {
 
       await AsyncStorage.setItem('onboarding_q3_answer', JSON.stringify(answerData))
       console.log('🔥 [OnboardingQ3] Answer saved:', answerData)
+
+      // Check if we've already asked for notification permission
+      const alreadyAsked = await AsyncStorage.getItem('notification_permission_asked')
+
+      if (alreadyAsked !== 'true') {
+        // Request notification permission (shows system modal)
+        console.log('🔥 [OnboardingQ3] Requesting notification permission')
+        await requestNotificationPermission()
+      } else {
+        console.log('🔥 [OnboardingQ3] Already asked for notifications, skipping')
+      }
 
       // Navigate to next question
       router.push('/onboarding-question-4')
