@@ -5,6 +5,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { useUser } from '@clerk/clerk-expo';
 import { simplifiedSyncService } from '@/services/SimplifiedSyncService';
+import { notificationTokenSync } from '@/services/NotificationTokenSync';
 
 interface SyncStatus {
   isOnline: boolean;
@@ -105,7 +106,13 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
     try {
       setSyncStatus(prev => ({ ...prev, isSyncing: true, syncError: undefined }));
 
+      // Initialize data sync from cloud
       const dataRestored = await simplifiedSyncService.initializeSync();
+
+      // Sync push token from onboarding (if exists)
+      if (user?.id) {
+        await notificationTokenSync.syncPushTokenToSupabase(user.id);
+      }
 
       setSyncStatus(prev => ({
         ...prev,

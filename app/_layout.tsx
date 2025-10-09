@@ -18,7 +18,6 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { useAppTrackingTransparency } from "@/hooks/useAppTrackingTransparency";
-import { useNotifications } from "@/hooks/useNotifications";
 import Purchases from 'react-native-purchases';
 import * as Notifications from 'expo-notifications';
 
@@ -82,16 +81,27 @@ export default function RootLayout() {
     }
   }, []);
 
-  // Get push notification permission and token (asks only on first launch)
-  const { expoPushToken } = useNotifications();
-
-  // Listen for notification taps to handle in-app navigation
+  // Listen for notifications (both received and tapped)
   React.useEffect(() => {
-    Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('👆 Notification tapped:', response);
-      // Handle navigation based on notification data
-      // Example: router.push(response.notification.request.content.data.screen)
+    // Listen for notifications received while app is foregrounded
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('🔔 Notification received while app open:', notification);
+      // Notification will be displayed automatically based on setNotificationHandler above
     });
+
+    // Listen for notification taps to handle in-app navigation
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('👆 Notification tapped:', response);
+      // TODO: Handle deep linking (archives://lesson/next)
+      // const deepLink = response.notification.request.content.data?.deepLink;
+      // if (deepLink) { router.push(deepLink) }
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      Notifications.removeNotificationSubscription(notificationListener);
+      Notifications.removeNotificationSubscription(responseListener);
+    };
   }, []);
 
 
