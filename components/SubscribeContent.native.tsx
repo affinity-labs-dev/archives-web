@@ -264,7 +264,7 @@ export default function SubscribeContent() {
               <Text style={styles.priceMain}>{monthlyPricing.main}</Text>
               <Text style={styles.priceDecimal}>{monthlyPricing.decimal}</Text>
             </View>
-            <Text style={styles.originalPrice}>£9.99</Text>
+            <Text style={styles.originalPrice}>$9.99</Text>
             <Text style={styles.planDuration}>Monthly</Text>
             {selectedPlan === "monthly" && (
               <View style={styles.selectedIndicator}>
@@ -292,7 +292,7 @@ export default function SubscribeContent() {
               <Text style={styles.priceMain}>{yearlyPricing.main}</Text>
               <Text style={styles.priceDecimal}>{yearlyPricing.decimal}</Text>
             </View>
-            <Text style={styles.originalPrice}>£89.99</Text>
+            <Text style={styles.originalPrice}>$89.99</Text>
             <Text style={styles.planDuration}>Yearly</Text>
             {selectedPlan === "yearly" && (
               <View style={styles.selectedIndicator}>
