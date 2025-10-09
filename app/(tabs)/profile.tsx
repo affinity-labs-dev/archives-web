@@ -8,6 +8,8 @@ import { useRouter } from 'expo-router'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import { analyticsService } from '@/services/AnalyticsService'
+import { useFocusEffect } from '@react-navigation/native'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -207,7 +209,7 @@ export default function ProfileTab() {
   const { signOut } = useAuth()
   const { user } = useUser()
   const router = useRouter()
-  
+
   // Profile state - EXACT SwiftUI values
   const [selectedAvatar, setSelectedAvatar] = useState(HISTORICAL_AVATARS[0])
   const [showAvatarModal, setShowAvatarModal] = useState(false)
@@ -217,7 +219,19 @@ export default function ProfileTab() {
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [isLoadingPortal, setIsLoadingPortal] = useState(false)
-  
+
+  // Track page views with focus/blur
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📊 [ProfileTab] Screen focused - starting page view tracking')
+      analyticsService.startPageView('profile')
+
+      return () => {
+        console.log('📊 [ProfileTab] Screen blurred - ending page view tracking')
+        analyticsService.endPageView('profile')
+      }
+    }, [])
+  )
 
   const handleSignOut = async () => {
     try {

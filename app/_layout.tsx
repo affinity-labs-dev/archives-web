@@ -17,9 +17,11 @@ import { PostHogProvider } from 'posthog-react-native';
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
-import { useAppTrackingTransparency } from "@/hooks/useAppTrackingTransparency";
 import Purchases from 'react-native-purchases';
 import * as Notifications from 'expo-notifications';
+import { analyticsService } from "@/services/AnalyticsService";
+import { usePostHog } from 'posthog-react-native';
+import { AppState } from 'react-native';
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -30,30 +32,80 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Conditional PostHog provider that respects ATT permissions
-function ConditionalPostHogProvider({
-  children,
-  apiKey,
-  options
-}: {
-  children: React.ReactNode;
-  apiKey: string;
-  options: any;
-}) {
-  const { canTrack } = useAppTrackingTransparency();
+// Analytics initialization wrapper that must be inside PostHogProvider
+function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
+  const posthog = usePostHog();
 
-  // On iOS, only initialize PostHog if user granted tracking permission
-  if (Platform.OS === 'ios' && !canTrack) {
-    console.log('ATT: Tracking not authorized, PostHog disabled');
-    return <>{children}</>;
-  }
+  // Initialize analytics service when PostHog becomes available
+  React.useEffect(() => {
+    if (posthog) {
+      analyticsService.initialize(posthog);
+      console.log('✅ [Analytics] Service initialized with PostHog instance');
+    }
+  }, [posthog]);
 
-  // On non-iOS platforms or when tracking is allowed, initialize PostHog
-  return (
-    <PostHogProvider apiKey={apiKey} options={options}>
-      {children}
-    </PostHogProvider>
-  );
+  // App lifecycle tracking - foreground/background/close
+  React.useEffect(() => {
+    console.log('📊 [AppLifecycle] Setting up app state listener');
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      console.log('📊 [AppLifecycle] App state changed to:', nextAppState);
+
+      if (nextAppState === 'active') {
+        analyticsService.trackCustomEvent('app_foregrounded', {
+          previous_state: 'background',
+        });
+      } else if (nextAppState === 'background') {
+        analyticsService.trackCustomEvent('app_backgrounded', {
+          previous_state: 'active',
+        });
+      } else if (nextAppState === 'inactive') {
+        console.log('📊 [AppLifecycle] App transitioning to inactive state');
+      }
+    });
+
+    // Track initial app open
+    analyticsService.trackCustomEvent('app_opened', {
+      platform: Platform.OS,
+    });
+
+    return () => {
+      subscription?.remove();
+      analyticsService.trackCustomEvent('app_closed', {
+        platform: Platform.OS,
+      });
+    };
+  }, []);
+
+  // Listen for notifications (both received and tapped)
+  React.useEffect(() => {
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('🔔 Notification received while app open:', notification);
+      const messageId = notification.request.identifier || `notif_${Date.now()}`;
+      analyticsService.trackCustomEvent('notification_received', {
+        message_id: messageId,
+        title: notification.request.content.title,
+        app_state: 'foreground',
+      });
+    });
+
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('👆 Notification tapped:', response);
+      const messageId = response.notification.request.identifier || `notif_${Date.now()}`;
+      analyticsService.trackNotificationClicked(messageId);
+    });
+
+    return () => {
+      if (notificationListener) {
+        Notifications.removeNotificationSubscription(notificationListener);
+      }
+      if (responseListener) {
+        Notifications.removeNotificationSubscription(responseListener);
+      }
+    };
+  }, []);
+
+  return <>{children}</>;
 }
 
 export default function RootLayout() {
@@ -79,33 +131,6 @@ export default function RootLayout() {
     } catch (error) {
       console.error('❌ Failed to configure RevenueCat:', error);
     }
-  }, []);
-
-  // Listen for notifications (both received and tapped)
-  React.useEffect(() => {
-    // Listen for notifications received while app is foregrounded
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('🔔 Notification received while app open:', notification);
-      // Notification will be displayed automatically based on setNotificationHandler above
-    });
-
-    // Listen for notification taps to handle in-app navigation
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('👆 Notification tapped:', response);
-      // TODO: Handle deep linking (archives://lesson/next)
-      // const deepLink = response.notification.request.content.data?.deepLink;
-      // if (deepLink) { router.push(deepLink) }
-    });
-
-    // Cleanup listeners on unmount
-    return () => {
-      if (notificationListener) {
-        Notifications.removeNotificationSubscription(notificationListener);
-      }
-      if (responseListener) {
-        Notifications.removeNotificationSubscription(responseListener);
-      }
-    };
   }, []);
 
 
@@ -156,57 +181,58 @@ export default function RootLayout() {
   // Create PostHog options with platform-specific configuration
   const posthogOptions = {
     host: posthogHost,
-    // Disable session recording on web to prevent compatibility issues
+    // Enable session recording for mobile (disabled on web to prevent compatibility issues)
     enableSessionReplay: Platform.OS !== 'web',
-    ...(Platform.OS !== 'web' && {
-      sessionReplayConfig: {
-        // Mask text inputs to protect user privacy (quiz answers, personal info)
-        maskAllTextInputs: true,
-        // Keep images visible since educational content is important to analyze
-        maskAllImages: false,
-        // Enable masking of system views for privacy (iOS only)
-        maskAllSandboxedViews: true,
-        // Capture logs for debugging (Android only)
-        captureLog: Platform.OS === 'android',
-        // Capture network telemetry for performance insights (iOS only)
-        captureNetworkTelemetry: Platform.OS === 'ios',
-        // Debouncer delays for smooth performance
-        androidDebouncerDelayMs: 1000,
-        iOSdebouncerDelayMs: 1000,
-      },
-    }),
+    // Session replay configuration (only for mobile platforms)
+    sessionReplayConfig: {
+      // Mask text inputs to protect user privacy (quiz answers, personal info)
+      maskAllTextInputs: true,
+      // Keep images visible since educational content is important to analyze
+      maskAllImages: false,
+      // Enable masking of system views for privacy (iOS only)
+      maskAllSandboxedViews: true,
+      // Capture logs for debugging (Android only - native Logcat)
+      captureLog: Platform.OS === 'android',
+      // Capture network telemetry for performance insights (iOS only)
+      captureNetworkTelemetry: Platform.OS === 'ios',
+      // Throttle delay to reduce snapshots and improve performance
+      // Lower number = more snapshots but higher performance impact
+      throttleDelayMs: 1000,
+    },
   };
 
   return (
-    <GestureHandlerRootView style={{ 
-      flex: 1, 
-      backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined 
+    <GestureHandlerRootView style={{
+      flex: 1,
+      backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined
     }}>
-      <ConditionalPostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
-        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-            <BackgroundSyncProvider>
-              <ProgressProvider>
-                <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
-              <Stack>
-                <Stack.Screen name="onboarding-video" options={{ headerShown: false, title: '' }} />
-                <Stack.Screen name="onboarding-video-2" options={{ headerShown: false, title: '' }} />
-                <Stack.Screen name="onboarding-welcome" options={{ headerShown: false, title: '' }} />
-                <Stack.Screen name="onboarding-question-1" options={{ headerShown: false }} />
-                <Stack.Screen name="onboarding-question-2" options={{ headerShown: false }} />
-                <Stack.Screen name="onboarding-question-3" options={{ headerShown: false }} />
-                <Stack.Screen name="onboarding-question-4" options={{ headerShown: false }} />
-                <Stack.Screen name="onboarding-results" options={{ headerShown: false }} />
-                <Stack.Screen name="era-selection" options={{ headerShown: false, title: '' }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-              <StatusBar style="auto" />
-                </ThemeProvider>
-              </ProgressProvider>
-            </BackgroundSyncProvider>
-        </ClerkProvider>
-      </ConditionalPostHogProvider>
+      <PostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
+        <AnalyticsWrapper>
+          <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+              <BackgroundSyncProvider>
+                <ProgressProvider>
+                  <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                <Stack>
+                  <Stack.Screen name="onboarding-video" options={{ headerShown: false, title: '' }} />
+                  <Stack.Screen name="onboarding-video-2" options={{ headerShown: false, title: '' }} />
+                  <Stack.Screen name="onboarding-welcome" options={{ headerShown: false, title: '' }} />
+                  <Stack.Screen name="onboarding-question-1" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding-question-2" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding-question-3" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding-question-4" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding-results" options={{ headerShown: false }} />
+                  <Stack.Screen name="era-selection" options={{ headerShown: false, title: '' }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                  <Stack.Screen name="+not-found" />
+                </Stack>
+                <StatusBar style="auto" />
+                  </ThemeProvider>
+                </ProgressProvider>
+              </BackgroundSyncProvider>
+          </ClerkProvider>
+        </AnalyticsWrapper>
+      </PostHogProvider>
     </GestureHandlerRootView>
   );
 }

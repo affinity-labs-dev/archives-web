@@ -14,6 +14,8 @@ import {
   View,
 } from "react-native";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
+import { analyticsService } from "@/services/AnalyticsService";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function SubscribeContent() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">(
@@ -32,6 +34,19 @@ export default function SubscribeContent() {
     purchasePackage,
     restorePurchases
   } = useRevenueCat();
+
+  // Track page views with focus/blur
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📊 [SubscribeContent] Screen focused - starting page view tracking')
+      analyticsService.startPageView('subscription')
+
+      return () => {
+        console.log('📊 [SubscribeContent] Screen blurred - ending page view tracking')
+        analyticsService.endPageView('subscription')
+      }
+    }, [])
+  )
 
   console.log('💎 SubscribeContent rendered with RevenueCat state:', {
     isSubscribed,

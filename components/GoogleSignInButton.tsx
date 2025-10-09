@@ -1,11 +1,12 @@
 import React from 'react'
-import { TouchableOpacity, Text, StyleSheet, Alert, View } from 'react-native'
+import { TouchableOpacity, Text, StyleSheet, Alert, View, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
-import { useOAuth, useSessionList, useSignUp } from '@clerk/clerk-expo'
+import { useOAuth, useSessionList, useSignUp, useUser } from '@clerk/clerk-expo'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { NameCollectionModal } from './NameCollectionModal'
+import { analyticsService } from '@/services/AnalyticsService'
 
 // Warm up the browser for better UX
 export const useWarmUpBrowser = () => {
@@ -56,6 +57,10 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         if (setActive && typeof setActive === 'function') {
           await setActive({ session: createdSessionId })
         }
+
+        // Track session login
+        analyticsService.trackUserSessionIn('google')
+
         onSuccess()
       } else {
         // Handle additional steps like MFA if needed
@@ -64,12 +69,25 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           if (setActive && typeof setActive === 'function' && signIn.createdSessionId) {
             await setActive({ session: signIn.createdSessionId })
           }
+
+          // Track session login
+          analyticsService.trackUserSessionIn('google')
+
           onSuccess()
         } else if (signUp?.status === 'complete') {
           console.log('Sign up complete, setting session')
           if (setActive && typeof setActive === 'function' && signUp.createdSessionId) {
             await setActive({ session: signUp.createdSessionId })
           }
+
+          // Track user sign up - get user ID from signUp object
+          const userId = signUp.createdUserId || signUp.id
+          if (userId) {
+            analyticsService.trackUserSignedUp(userId, {
+              sign_up_method: 'google',
+            })
+          }
+
           onSuccess()
         } else if (signUp?.status === 'missing_requirements') {
           // Handle missing name requirements from Google Sign In
@@ -159,6 +177,15 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         if (setActive && typeof setActive === 'function') {
           await setActive({ session: result.createdSessionId })
         }
+
+        // Track user sign up - get user ID from result
+        const userId = result.createdUserId || result.id
+        if (userId) {
+          analyticsService.trackUserSignedUp(userId, {
+            sign_up_method: 'google',
+          })
+        }
+
         setShowNameCollection(false)
         setIncompleteSignUp(null)
         setUserEmail(undefined)

@@ -60,6 +60,13 @@ class NotificationTokenSyncService {
       // Get current device's push token
       const Notifications = await import('expo-notifications');
       const Constants = await import('expo-constants');
+      const Device = await import('expo-device');
+
+      // Check if running on physical device
+      if (!Device.default.isDevice) {
+        console.log('⚠️ [NotificationSync] Simulator detected - skipping token sync');
+        return false;
+      }
 
       const projectId = Constants.default?.expoConfig?.extra?.eas?.projectId;
       const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
@@ -80,8 +87,16 @@ class NotificationTokenSyncService {
 
       console.log('✅ [NotificationSync] Token mapped to user_id successfully');
       return true;
-    } catch (error) {
-      console.error('❌ [NotificationSync] Error syncing token:', error);
+    } catch (error: any) {
+      // Handle specific APS entitlement error (iOS simulator or missing config)
+      if (error?.message?.includes('aps-environment')) {
+        console.log('⚠️ [NotificationSync] Push notifications require physical device or proper iOS configuration');
+        return false;
+      }
+
+      // Safely log error message
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('❌ [NotificationSync] Error syncing token:', errorMsg);
       return false;
     }
   }

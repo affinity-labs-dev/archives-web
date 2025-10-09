@@ -14,7 +14,11 @@ export function useAnalytics() {
   // Helper function to safely execute tracking
   const safeTrack = (trackingFn: () => void, eventName?: string) => {
     if (!posthog) {
-      console.warn(`Analytics: PostHog not initialized for event${eventName ? ` (${eventName})` : ''}`);
+      // PostHog may not be initialized during early app lifecycle or when ATT permission not granted
+      // This is expected behavior - events will be tracked once PostHog initializes
+      if (__DEV__) {
+        console.log(`📊 [Analytics] Skipping event (PostHog not ready): ${eventName || 'unknown'}`);
+      }
       return;
     }
 

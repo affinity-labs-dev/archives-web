@@ -6,6 +6,7 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 import { useUser } from '@clerk/clerk-expo';
 import { simplifiedSyncService } from '@/services/SimplifiedSyncService';
 import { notificationTokenSync } from '@/services/NotificationTokenSync';
+import { analyticsService } from '@/services/AnalyticsService';
 
 interface SyncStatus {
   isOnline: boolean;
@@ -58,11 +59,24 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
 
       // Set the user ID in the simplified sync service
       simplifiedSyncService.setCurrentUserId(user.id);
+
+      // Track user session and identify user
+      analyticsService.identifyUser(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+      });
+
+      // Track session start (default to 'email', update in auth screens for specific method)
+      analyticsService.trackUserSessionIn('email');
+
       initializeSync();
     } else if (!isSignedIn) {
       console.log('👋 User signed out, clearing sync data...');
       // Clear user ID when user signs out
       simplifiedSyncService.setCurrentUserId(null);
+      analyticsService.reset();
       setIsInitialized(false);
     }
   }, [isSignedIn, user, isInitialized]);

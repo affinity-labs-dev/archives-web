@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useAppTrackingTransparency } from '@/hooks/useAppTrackingTransparency'
+import { analyticsService } from '@/services/AnalyticsService'
 
 export default function OnboardingResultsScreen() {
   const [recommendedEra, setRecommendedEra] = useState('Umayyad Dynasty')
@@ -27,11 +28,51 @@ export default function OnboardingResultsScreen() {
 
   console.log('🎯 [OnboardingResults] Component initializing...')
 
-  // Track screen view when component mounts
+  // Track screen view and onboarding completion when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Results')
     loadRecommendation()
+    trackOnboardingCompletion()
   }, [trackScreenView])
+
+  // Track onboarding completion with all answers
+  const trackOnboardingCompletion = async () => {
+    try {
+      console.log('🎯 [OnboardingResults] Tracking onboarding completion...')
+
+      // Get start time
+      const startTime = await AsyncStorage.getItem('onboarding_start_time')
+      const timeToComplete = startTime
+        ? Math.floor((Date.now() - parseInt(startTime)) / 1000) // Convert to seconds
+        : 0
+
+      // Get all question answers
+      const q1 = await AsyncStorage.getItem('onboarding_q1_answer') || 'Not answered'
+      const q2Raw = await AsyncStorage.getItem('onboarding_q2_answer') || '[]'
+      const q2 = JSON.parse(q2Raw) // Array of interests
+      const q3 = await AsyncStorage.getItem('onboarding_q3_answer') || 'Not answered'
+      const q4 = await AsyncStorage.getItem('onboarding_q4_answer') || 'Not answered'
+
+      // Track the completion
+      analyticsService.trackOnboardingCompleted({
+        time_to_complete_seconds: timeToComplete,
+        q1_answer: q1,
+        q2_answer: q2,
+        q3_answer: q3,
+        q4_answer: q4,
+      })
+
+      console.log('🎯 [OnboardingResults] Onboarding completion tracked:', {
+        timeToComplete,
+        q1,
+        q2,
+        q3,
+        q4,
+      })
+    } catch (error) {
+      console.error('🎯 [OnboardingResults] Error tracking onboarding completion:', error)
+    }
+  }
 
   // Load recommendation based on quiz answers
   const loadRecommendation = async () => {

@@ -19,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { analyticsService } from '@/services/AnalyticsService'
 
 export default function EmailDetailsScreen() {
   // Get route parameters
@@ -72,6 +73,15 @@ export default function EmailDetailsScreen() {
 
       if (signUpAttempt.status === 'complete') {
         await setActiveSignUp({ session: signUpAttempt.createdSessionId })
+
+        // Track user sign up
+        const userId = signUpAttempt.createdUserId || signUpAttempt.id
+        if (userId) {
+          analyticsService.trackUserSignedUp(userId, {
+            sign_up_method: 'email',
+          })
+        }
+
         await onContinue()
       } else {
         await onContinue()
@@ -109,6 +119,10 @@ export default function EmailDetailsScreen() {
 
       if (signInAttempt.status === 'complete') {
         await setActiveSignIn({ session: signInAttempt.createdSessionId })
+
+        // Track session login
+        analyticsService.trackUserSessionIn('email')
+
         await onContinue()
       } else {
         setIsLoading(false)

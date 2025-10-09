@@ -18,6 +18,8 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import { analyticsService } from '@/services/AnalyticsService'
+import { useFocusEffect } from '@react-navigation/native'
 
 // const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
@@ -103,6 +105,19 @@ export default function EraSelection() {
   const router = useRouter()
   const { isSignedIn } = useAuth()
   const { setSelectedEra } = useProgress()
+
+  // Track page views with focus/blur
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📊 [EraSelection] Screen focused - starting page view tracking')
+      analyticsService.startPageView('era')
+
+      return () => {
+        console.log('📊 [EraSelection] Screen blurred - ending page view tracking')
+        analyticsService.endPageView('era')
+      }
+    }, [])
+  )
 
   // const handleBack = () => {
   //   router.back()

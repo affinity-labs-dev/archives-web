@@ -10,6 +10,8 @@ import UmmayadDynastyEra from '@/components/eras/UmmayadDynastyEra'
 import RiseOfIslamEra from '@/components/eras/RiseOfIslamEra'
 import ComingSoonView from '@/components/eras/ComingSoonView'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import { analyticsService } from '@/services/AnalyticsService'
+import { useFocusEffect } from '@react-navigation/native'
 
 export default function HomeTab() {
   const { isSignedIn } = useAuth()
@@ -36,6 +38,19 @@ export default function HomeTab() {
 
     checkOnboardingStatus()
   }, [isLoading])
+
+  // Track page views with focus/blur
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📊 [HomeTab] Screen focused - starting page view tracking')
+      analyticsService.startPageView('home')
+
+      return () => {
+        console.log('📊 [HomeTab] Screen blurred - ending page view tracking')
+        analyticsService.endPageView('home')
+      }
+    }, [])
+  )
 
   const handleBackToEra = () => {
     router.push('/(tabs)/eras')

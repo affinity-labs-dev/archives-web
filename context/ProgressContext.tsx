@@ -1,7 +1,7 @@
 // Progress Context - REDESIGNED for atomic progress management
 // Eliminates race conditions and synchronizes progress, quiz scores, and unlocking logic
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 import { useProgressSync } from '@/hooks/useSyncIntegration'
@@ -552,25 +552,26 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const getAdventureProgress = (adventureId: number): AdventureProgress | null => {
+  // PERFORMANCE: Memoized getter functions to prevent re-creation on every render
+  const getAdventureProgress = useCallback((adventureId: number): AdventureProgress | null => {
     return adventureProgress.find(a => a.adventureId === adventureId) || null
-  }
+  }, [adventureProgress])
 
-  const getModuleProgress = (adventureId: number, moduleId: number): ModuleProgress | null => {
+  const getModuleProgress = useCallback((adventureId: number, moduleId: number): ModuleProgress | null => {
     return moduleProgress.find(m => m.adventureId === adventureId && m.moduleId === moduleId) || null
-  }
+  }, [moduleProgress])
 
   // ROI-specific progress functions
-  const getRoiAdventureProgress = (adventureId: number): AdventureProgress | null => {
+  const getRoiAdventureProgress = useCallback((adventureId: number): AdventureProgress | null => {
     return roiAdventureProgress.find(a => a.adventureId === adventureId) || null
-  }
+  }, [roiAdventureProgress])
 
-  const getRoiModuleProgress = (moduleId: string): ModuleProgress | null => {
+  const getRoiModuleProgress = useCallback((moduleId: string): ModuleProgress | null => {
     return roiModuleProgress.find(m => (m as any).roiModuleId === moduleId) || null
-  }
+  }, [roiModuleProgress])
 
-  // ROI-specific utility functions
-  const isRoiModuleUnlocked = (moduleId: string): boolean => {
+  // ROI-specific utility functions - PERFORMANCE: Memoized with useCallback
+  const isRoiModuleUnlocked = useCallback((moduleId: string): boolean => {
     const parsed = parseRoiModuleId(moduleId)
     if (!parsed) return false
 
@@ -584,19 +585,19 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     const prevModuleId = `ROI_Adv${parsed.adventureId}_M${parsed.moduleId - 1}`
     const prevModule = getRoiModuleProgress(prevModuleId)
     return prevModule?.isCompleted || false
-  }
+  }, [getRoiAdventureProgress, getRoiModuleProgress])
 
-  const isRoiLessonCompleted = (moduleId: string, lessonId: string): boolean => {
+  const isRoiLessonCompleted = useCallback((moduleId: string, lessonId: string): boolean => {
     const module = getRoiModuleProgress(moduleId)
     return module?.lessonsCompleted.includes(lessonId) || false
-  }
+  }, [getRoiModuleProgress])
 
-  const canRetakeRoiModule = (moduleId: string): boolean => {
+  const canRetakeRoiModule = useCallback((moduleId: string): boolean => {
     const module = getRoiModuleProgress(moduleId)
     return module?.quizCompleted || false
-  }
+  }, [getRoiModuleProgress])
 
-  const getRoiModuleStarCount = (moduleId: string): number => {
+  const getRoiModuleStarCount = useCallback((moduleId: string): number => {
     const module = getRoiModuleProgress(moduleId)
     if (!module?.quizScore) return 0
 
@@ -605,7 +606,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     if (module.quizScore >= 4) return 2
     if (module.quizScore >= 2) return 1
     return 0
-  }
+  }, [getRoiModuleProgress])
 
   // Calculate module state for UI display
   const calculateModuleState = (module: ModuleProgress | null): ModuleState => {
@@ -618,19 +619,19 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     return ModuleState.LESSON1_AVAILABLE
   }
 
-  // Get star count based on quiz score (1-2 correct = 1★, 3-4 = 2★, 5 = 3★)
-  const getModuleStarCount = (adventureId: number, moduleId: number): number => {
+  // Get star count based on quiz score (1-2 correct = 1★, 3-4 = 2★, 5 = 3★) - PERFORMANCE: Memoized
+  const getModuleStarCount = useCallback((adventureId: number, moduleId: number): number => {
     const module = getModuleProgress(adventureId, moduleId)
     if (!module || !module.quizCompleted || typeof module.quizScore !== 'number') return 0
-    
+
     const score = module.quizScore
     return score <= 2 ? 1 : score <= 4 ? 2 : 3
-  }
+  }, [getModuleProgress])
 
-  // Validate module unlocking based on sequential completion
-  const isModuleUnlocked = (adventureId: number, moduleId: number): boolean => {
+  // Validate module unlocking based on sequential completion - PERFORMANCE: Memoized
+  const isModuleUnlocked = useCallback((adventureId: number, moduleId: number): boolean => {
     const adventure = getAdventureProgress(adventureId)
-    
+
     if (!adventure?.isUnlocked) return false
 
     // Module 1 is unlocked if adventure is unlocked
@@ -639,28 +640,28 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     // Other modules require previous module completion
     const prevModule = getModuleProgress(adventureId, moduleId - 1)
     return prevModule?.isCompleted || false
-  }
+  }, [getAdventureProgress, getModuleProgress])
 
-  const isLessonCompleted = (adventureId: number, moduleId: number, lessonId: string): boolean => {
+  const isLessonCompleted = useCallback((adventureId: number, moduleId: number, lessonId: string): boolean => {
     const module = getModuleProgress(adventureId, moduleId)
     return module?.lessonsCompleted.includes(lessonId) || false
-  }
+  }, [getModuleProgress])
 
-  const getOverallProgress = (): number => {
+  const getOverallProgress = useCallback((): number => {
     const totalModules = adventureProgress.reduce((sum, a) => sum + a.totalModules, 0)
     const completedModules = moduleProgress.filter(m => m.isCompleted).length
     return totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0
-  }
+  }, [adventureProgress, moduleProgress])
 
-  const canRetakeModule = (adventureId: number, moduleId: number): boolean => {
+  const canRetakeModule = useCallback((adventureId: number, moduleId: number): boolean => {
     const module = getModuleProgress(adventureId, moduleId)
     return module?.quizCompleted || false // Can retake if quiz has been completed at least once
-  }
+  }, [getModuleProgress])
 
-  // CORE ATOMIC PROGRESS UPDATE FUNCTION
-  const atomicProgressUpdate = async (
-    adventureId: number, 
-    moduleId: number, 
+  // CORE ATOMIC PROGRESS UPDATE FUNCTION - PERFORMANCE: Memoized with useCallback
+  const atomicProgressUpdate = useCallback(async (
+    adventureId: number,
+    moduleId: number,
     action: ProgressUpdateAction
   ): Promise<void> => {
     try {
@@ -813,10 +814,10 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       console.error('❌ Atomic progress update failed:', error)
       throw error
     }
-  }
+  }, [adventureProgress, moduleProgress, getModuleProgress, getAdventureProgress, syncModule, syncAdventure])
 
-  // ROI ATOMIC PROGRESS UPDATE FUNCTION
-  const roiAtomicProgressUpdate = async (
+  // ROI ATOMIC PROGRESS UPDATE FUNCTION - PERFORMANCE: Memoized with useCallback
+  const roiAtomicProgressUpdate = useCallback(async (
     moduleId: string,
     action: ProgressUpdateAction
   ): Promise<void> => {
@@ -971,7 +972,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       console.error('❌ ROI Atomic progress update failed:', error)
       throw error
     }
-  }
+  }, [roiAdventureProgress, roiModuleProgress, getRoiAdventureProgress, getRoiModuleProgress, parseRoiModuleId])
 
   // Legacy compatibility functions - these call the new atomic system
   const updateModuleProgress = async (

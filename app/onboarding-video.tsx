@@ -28,36 +28,41 @@ export default function OnboardingVideoScreen() {
   const router = useRouter()
   const { trackScreenView, trackVideoPlayed } = useAnalytics()
 
-  console.log('🎬 [OnboardingVideo] Component initializing...')
-
   // Create video player for intro video
   const player = useVideoPlayer(require("@/assets/videos/Intro_archives.mp4"), player => {
-    console.log('🎬 [OnboardingVideo] Video player initialization callback')
-
     try {
       player.loop = false // Don't loop the intro video
       player.muted = false // Allow audio for intro
-      console.log('🎬 [OnboardingVideo] Player configured - loop: false, muted: false')
 
       // Try to play immediately
       setTimeout(() => {
         try {
-          console.log('🎬 [OnboardingVideo] Attempting to start playback...')
           player.play()
-          console.log('🎬 [OnboardingVideo] Play command sent')
         } catch (playError) {
-          console.error('🎬 [OnboardingVideo] Error calling play():', playError)
+          console.error('🎬 Error calling play():', playError)
         }
       }, 100) // Small delay to ensure player is ready
 
     } catch (error) {
-      console.error('🎬 [OnboardingVideo] Error during player setup:', error)
+      console.error('🎬 Error during player setup:', error)
     }
   })
 
-  // Track screen view when component mounts
+  // Track screen view and onboarding start when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Video')
+
+    // Store onboarding start time for completion tracking
+    const storeStartTime = async () => {
+      try {
+        const startTime = Date.now().toString()
+        await AsyncStorage.setItem('onboarding_start_time', startTime)
+      } catch (error) {
+        console.error('Error storing start time:', error)
+      }
+    }
+
+    storeStartTime()
   }, [trackScreenView])
 
   // Handle video loading state and events
@@ -66,34 +71,23 @@ export default function OnboardingVideoScreen() {
 
     try {
       const statusSubscription = player.addListener('statusChange', (status) => {
-        console.log('🎬 [OnboardingVideo] Video status changed:', status.status)
-        console.log('🎬 [OnboardingVideo] Full status object:', status)
-
         if (status.status === 'readyToPlay' && !videoLoaded) {
-          console.log('🎬 [OnboardingVideo] Video ready to play - setting videoLoaded to true')
           trackVideoPlayed('Intro_archives.mp4')
           setVideoLoaded(true)
 
           // Auto-play when ready
           try {
-            console.log('🎬 [OnboardingVideo] Calling player.play() from statusChange')
             player.play()
-            console.log('🎬 [OnboardingVideo] Auto-play started successfully')
           } catch (error) {
-            console.error('🎬 [OnboardingVideo] Auto-play failed:', error)
+            console.error('Auto-play failed:', error)
           }
         } else if (status.status === 'error') {
-          console.error('🎬 [OnboardingVideo] Video player error:', status.error)
-        } else if (status.status === 'loading') {
-          console.log('🎬 [OnboardingVideo] Video is loading...')
-        } else if (status.status === 'idle') {
-          console.log('🎬 [OnboardingVideo] Video player is idle')
+          console.error('Video player error:', status.error)
         }
       })
 
       // Listen for video completion
       const playbackSubscription = player.addListener('playToEnd', () => {
-        console.log('🎬 [OnboardingVideo] Video reached end, auto-continuing')
         if (!videoCompleted) {
           setVideoCompleted(true)
           // Auto-continue when video completes
@@ -105,18 +99,10 @@ export default function OnboardingVideoScreen() {
 
       // Backup listener for playback status (for progress tracking)
       const statusSubscription2 = player.addListener('playbackStatusChange', (status) => {
-        console.log('🎬 [OnboardingVideo] Playback status:', {
-          isLoaded: status.isLoaded,
-          positionMillis: status.positionMillis,
-          durationMillis: status.durationMillis,
-          progress: status.durationMillis ? (status.positionMillis / status.durationMillis) : 0
-        })
-
         // Fallback completion check
         if (status.isLoaded && status.positionMillis && status.durationMillis) {
           const progress = status.positionMillis / status.durationMillis
           if (progress >= 0.95 && !videoCompleted) {
-            console.log('🎬 [OnboardingVideo] Video 95% complete via status listener, auto-continuing')
             setVideoCompleted(true)
             setTimeout(() => {
               handleContinue()
@@ -131,25 +117,21 @@ export default function OnboardingVideoScreen() {
         statusSubscription2?.remove()
       }
     } catch (error) {
-      console.warn('🎬 [OnboardingVideo] Video listener error:', error)
+      console.warn('Video listener error:', error)
     }
   }, [player, videoLoaded, videoCompleted, trackVideoPlayed])
 
   // Fallback timer - auto-continue after reasonable video length (e.g., 30 seconds)
   useEffect(() => {
     if (videoLoaded && !videoCompleted) {
-      console.log('🎬 [OnboardingVideo] Setting up fallback timer for auto-continue')
-
       const fallbackTimer = setTimeout(() => {
         if (!videoCompleted) {
-          console.log('🎬 [OnboardingVideo] Fallback timer triggered - auto-continuing')
           setVideoCompleted(true)
           handleContinue()
         }
       }, 35000) // 35 seconds fallback timer
 
       return () => {
-        console.log('🎬 [OnboardingVideo] Clearing fallback timer')
         clearTimeout(fallbackTimer)
       }
     }
@@ -158,10 +140,9 @@ export default function OnboardingVideoScreen() {
   // Continue to second video (archives_intro.mp4)
   const handleContinue = async () => {
     try {
-      console.log('🎬 [OnboardingVideo] Continuing to second video')
       router.replace('/onboarding-video-2')
     } catch (error) {
-      console.error('🎬 [OnboardingVideo] Error navigating:', error)
+      console.error('Error navigating:', error)
       // Continue anyway to avoid blocking user
       router.replace('/onboarding-video-2')
     }

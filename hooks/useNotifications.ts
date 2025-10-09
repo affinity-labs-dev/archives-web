@@ -52,8 +52,15 @@ export function useNotifications() {
       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
       const token = await Notifications.getExpoPushTokenAsync({ projectId });
       return token.data;
-    } catch (error) {
-      console.error('❌ Error getting push token:', error);
+    } catch (error: any) {
+      // Handle specific APS entitlement error (iOS simulator or missing config)
+      if (error?.message?.includes('aps-environment')) {
+        console.log('⚠️ [Notifications] Push notifications require physical device or proper iOS configuration');
+        return '';
+      }
+      // Safely log error message
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('❌ [Notifications] Error getting push token:', errorMsg);
       return '';
     }
   };

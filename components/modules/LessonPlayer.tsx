@@ -48,11 +48,12 @@ export default function LessonPlayer({
     if (!onPlaybackStatusUpdate) return
 
     // Set up progress updates when video is ready
+    // PERFORMANCE FIX: Reduced from 60fps (16ms) to 10fps (100ms) - 6x less memory/CPU usage
     const interval = setInterval(() => {
       if (player.status === 'readyToPlay') {
         const currentTime = player.currentTime
         const duration = player.duration
-        
+
         if (duration > 0) {
           onPlaybackStatusUpdate({
             isLoaded: true,
@@ -63,7 +64,7 @@ export default function LessonPlayer({
           })
         }
       }
-    }, 16) // Update ~60fps for silky smooth progress (matches display refresh rate)
+    }, 100) // 10fps is plenty for progress bars, saves 6x memory
 
     return () => clearInterval(interval)
   }, [player, onPlaybackStatusUpdate])

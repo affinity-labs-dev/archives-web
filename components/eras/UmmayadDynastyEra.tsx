@@ -103,7 +103,7 @@ interface UmmayadDynastyEraProps {
   onBackToEra?: () => void
 }
 
-export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProps) {
+const UmmayadDynastyEra = React.memo(function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProps) {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true)
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null) // EXACT SwiftUI: @State private var selectedModuleID: String? = nil
   const [showModuleModal, setShowModuleModal] = useState(false) // Modal visibility state
@@ -183,19 +183,12 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
   useEffect(() => {
     const firstModuleProgress = getModuleProgress(1, 1) // Adventure 1, Module 1
     const isFirstModuleCompleted = firstModuleProgress?.isCompleted || false
-    
-    console.log('🎯 First module bounce check:', {
-      firstModuleProgress,
-      isCompleted: isFirstModuleCompleted,
-      shouldShowBounce: !isFirstModuleCompleted
-    })
-    
+
     // Only show bounce if first module is not completed
     setShouldShowBounce(!isFirstModuleCompleted)
-    
+
     // Stop bounce animation if module gets completed
     if (isFirstModuleCompleted && shouldShowBounce) {
-      console.log('🎯 First module completed - stopping bounce animation')
       setShouldShowBounce(false)
     }
   }, [getModuleProgress, shouldShowBounce])
@@ -203,8 +196,6 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
   // Start bouncing animation when shouldShowBounce is true
   useEffect(() => {
     if (shouldShowBounce) {
-      console.log('🎯 Starting real bounce animation for first module guidance')
-      
       const bounceSequence = Animated.sequence([
         // Quick upward movement (like jumping up)
         Animated.timing(bounceY, {
@@ -303,10 +294,9 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
     const adventureId = parseInt(moduleId.split('_')[0].replace('adv', ''))
     const modId = parseInt(moduleId.split('_')[1].replace('mod', ''))
     
-    
+
     // Stop bounce animation when first module is tapped (immediate user feedback)
     if (moduleId === 'adv1_mod1' && shouldShowBounce) {
-      console.log('🎯 First module tapped - stopping bounce animation')
       setShouldShowBounce(false)
     }
     
@@ -329,15 +319,7 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
     const isUnlocked = isModuleUnlocked(adventureId, moduleId)
     const moduleProgress = getModuleProgress(adventureId, moduleId)
     const isCompleted = moduleProgress?.isCompleted || false
-    
-    // INTENSIVE DEBUG FOR ADV1 MOD3 LOOKUP
-    if (adventureId === 1 && moduleId === 3) {
-      console.log(`🚨 iconPosition.id:`, iconPosition.id)
-      console.log(`🚨 adventureId parsed:`, adventureId)
-      console.log(`🚨 moduleId parsed:`, moduleId)
-      console.log(`🚨 getModuleProgress(${adventureId}, ${moduleId}) returned:`, JSON.stringify(moduleProgress, null, 2))
-      console.log(`🚨 moduleProgress is null/undefined:`, moduleProgress === null || moduleProgress === undefined)
-    }
+
     const isFirstModule = iconPosition.id === 'adv1_mod1'
     const showBounceForThisIcon = isFirstModule && shouldShowBounce && isUnlocked
 
@@ -346,11 +328,6 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
     const mapHeight = 600 // Updated to match new container height
     const iconX = iconPosition.x * mapWidth
     const iconY = iconPosition.y * mapHeight
-
-    
-    if (showBounceForThisIcon) {
-      console.log('🎯 Rendering first module with bounce animation')
-    }
 
     const IconContainer = showBounceForThisIcon ? Animated.View : View
     const iconContainerStyle = showBounceForThisIcon 
@@ -596,7 +573,9 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
       />
     </SafeAreaView>
   )
-}
+})
+
+export default UmmayadDynastyEra
 
 // Styles matching EXACT SwiftUI UmmayadDynastyEra implementation
 const styles = StyleSheet.create({

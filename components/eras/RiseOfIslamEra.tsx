@@ -103,7 +103,7 @@ interface RiseOfIslamEraProps {
   onBackToEra?: () => void
 }
 
-export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
+const RiseOfIslamEra = React.memo(function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true)
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null)
   const [showModuleModal, setShowModuleModal] = useState(false)
@@ -545,7 +545,9 @@ export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
       />
     </SafeAreaView>
   )
-}
+})
+
+export default RiseOfIslamEra
 
 // Styles matching EXACT SwiftUI implementation with Rise of Islam branding
 const styles = StyleSheet.create({

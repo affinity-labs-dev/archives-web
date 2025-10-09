@@ -99,9 +99,20 @@ export default function OnboardingQuestion3Screen() {
         await AsyncStorage.setItem('notifications_permission_granted', 'false')
         await AsyncStorage.setItem('notification_permission_asked', 'true')
       }
-    } catch (error) {
-      console.error('❌ Error requesting notifications:', error)
+    } catch (error: any) {
+      // Handle specific APS entitlement error (iOS simulator or missing config)
+      if (error?.message?.includes('aps-environment')) {
+        console.log('⚠️ [OnboardingQ3] Push notifications require physical device or proper iOS configuration')
+        await AsyncStorage.setItem('notifications_permission_granted', 'false')
+        await AsyncStorage.setItem('notification_permission_asked', 'true')
+        return
+      }
+
+      // Safely log error message
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.error('❌ [OnboardingQ3] Error requesting notifications:', errorMsg)
       await AsyncStorage.setItem('notifications_permission_granted', 'false')
+      await AsyncStorage.setItem('notification_permission_asked', 'true')
     }
   }
 
