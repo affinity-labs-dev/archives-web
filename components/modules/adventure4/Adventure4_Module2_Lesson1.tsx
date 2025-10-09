@@ -2,6 +2,7 @@
 // Full-screen carousel with expandable reading card - EXACT Adventure1_Module2_Lesson1 pattern
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState } from "react";
@@ -17,9 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
+import { ScrollView as GestureHandlerScrollView, PanGestureHandler, State } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const COLLAPSED_HEIGHT = 140;
@@ -66,24 +66,24 @@ export default function Adventure4_Module2_Lesson1({
       id: 1,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img01.jpg",
       title: "Desert Palace Location", // Not displayed on image overlay
-      caption: "In the middle of the Syrian desert, the Umayyads built desert palaces like Qasr al-Hayr - calm retreats far from the crowded cities.",
+      caption: "Qasr al-Hayr as it looks today.",
     },
     {
       id: 2,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img02.jpg",
       title: "Palace Life", // Not displayed on image overlay
-      caption: "These weren't just places to relax. They were hunting lodges, rest stops for caravans, and centers of rural life.",
+      caption: "Qasr al-Hayr as it looks today.",
     },
     {
       id: 3,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img03.jpg",
       title: "Garden Oasis", // Not displayed on image overlay
-      caption: "The walls were decorated with stucco designs, and cool water flowed through pools and channels to beat the desert heat.",
+      caption: "Overhead shot of Qasr al-Hayr as it looks today.",
     },
   ];
 
   // Historical text content for Desert Palaces
-  const historicalText = `The Umayyad desert palaces, or "qusur," represented a unique fusion of luxury and frontier governance. Built in the Syrian desert between 660-750 CE, these magnificent complexes like Qasr al-Hayr al-Gharbi and Qasr al-Hayr al-Sharqi served multiple purposes: administrative centers, hunting lodges, agricultural experiments, and symbols of caliphal power. The palaces featured advanced water management systems, elaborate bathhouses, intricate mosaics, and enclosed hunting parks called "hima." They allowed the Umayyad rulers to maintain control over trade routes while enjoying the traditional Bedouin lifestyle that remained central to their identity.`;
+  const historicalText = `In the middle of the Syrian desert, the Umayyads built desert palaces like Qasr al-Hayr - calm retreats far from the crowded cities. These weren’t just places to relax. They were hunting lodges, rest stops for caravans, and centers of rural life. The walls were decorated with stucco designs, and cool water flowed through pools and channels to beat the desert heat.`;
 
   // Enhanced debug logging for background music
   useEffect(() => {
@@ -394,10 +394,10 @@ export default function Adventure4_Module2_Lesson1({
                   >
                     <View style={styles.readingCardHeader}>
                       <Text style={styles.cardTitle}>
-                        Desert Palaces of the Umayyads
+                        Qasr al-Hayr & Desert Life
                       </Text>
                       <Text style={styles.cardSubtitle}>
-                        The Umayyad desert palaces represented a unique fusion of luxury and frontier governance...
+                        More than just retreats - hunting lodges, caravan stops, and centers of rural life...
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -501,10 +501,10 @@ export default function Adventure4_Module2_Lesson1({
                   >
                     <View style={styles.collapsedContentWrapper}>
                       <Text style={styles.collapsedTitle}>
-                        Desert Palaces of the Umayyads
+                        Qasr al-Hayr & Desert Life
                       </Text>
                       <Text style={styles.collapsedSubtitle}>
-                        The Umayyad desert palaces represented a unique fusion of luxury and frontier governance...
+                        In the middle of the Syrian desert, the Umayyads built desert palaces like Qasr al-Hayr...
                       </Text>
                     </View>
                   </TouchableOpacity>

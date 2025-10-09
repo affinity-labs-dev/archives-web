@@ -2,6 +2,7 @@
 // Full-screen carousel with expandable reading card - EXACT Adventure1_Module2_Lesson1 pattern
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState } from "react";
@@ -17,9 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
+import { ScrollView as GestureHandlerScrollView, PanGestureHandler, State } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const COLLAPSED_HEIGHT = 140;
@@ -66,24 +66,24 @@ export default function Adventure4_Module2_Lesson2({
       id: 1,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img04.png",
       title: "Scribes at Work",
-      caption: "An Umayyad scribe at work in a quiet library. Copying texts by candlelight, surrounded by scrolls, ink, and gold pigment",
+      caption: "Courtyard life at Qasr al-Hayr: carved stone, swaying palms, and the rhythm of desert luxury at an Umayyad retreat",
     },
     {
       id: 2,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img05.png",
       title: "Scribe's Tools",
-      caption: "A scribe&apos;s desk in an Umayyad library - tools of the trade laid out in candlelight: reed pens, pigments, ink, and parchment",
+      caption: "Water flows through hidden channels into a tiled fountain - cooling the desert air",
     },
     {
       id: 3,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img06.png",
       title: "Manuscript Pages",
-      caption: "Half-finished Qur'anic pages in Kufic script dry on wooden racks",
+      caption: "Riders and a falconer gather at the edge of Qasr al-Hayr’s courtyard. Ornate arches frame the desert beyond",
     },
   ];
 
   // Historical text content for Illuminated Manuscripts
-  const historicalText = `Illuminated manuscripts weren't made quickly - they took time, patience, and deep respect. Scribes trained for years to master every curve of the letters. They mixed gold into paint, carefully applied borders, and copied each page by hand. These books weren't just for reading - they were made to last, to be passed on, and to reflect the beauty of the words inside.`;
+  const historicalText = `Even out in the desert, life at a palace could feel like paradise. Fresh water ran through clever channels beneath the stone, feeding fountains and gardens. Visitors rested in shaded walkways, while caliphs went on hunting trips nearby. These palaces showed the Umayyads’ ability to bring beauty, comfort, and control - even to the harshest places.`;
 
   // Enhanced debug logging for background music
   useEffect(() => {
@@ -415,10 +415,10 @@ export default function Adventure4_Module2_Lesson2({
                 >
                   <View style={styles.readingCardHeader}>
                     <Text style={styles.cardTitle}>
-                      Illuminated Manuscripts & Scribes
+                      Umayyad Desert Retreats
                     </Text>
                     <Text style={styles.cardSubtitle}>
-                      Illuminated manuscripts weren&apos;t made quickly - they took time, patience...
+                      Even out in the desert, life at a palace could feel like paradise...
                     </Text>
                   </View>
                 </TouchableOpacity>

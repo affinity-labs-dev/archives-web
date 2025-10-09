@@ -483,7 +483,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quizTitle: {
-    fontFamily: 'DM Sans-Bold', // Use explicit bold font file for Android compatibility
+    fontFamily: 'DM Sans',
+    fontWeight: '600', // Semi-bold weight
     fontSize: 20,
     color: ArchivesTheme.colors.mutedNavy, // EXACT SwiftUI: Color("MutedNavy")
   },
@@ -525,7 +526,8 @@ const styles = StyleSheet.create({
     top: iOSLayout.imageOffsetY, // EXACT iOS: .offset(y: -20)
   },
   questionText: {
-    fontFamily: 'DM Sans-Bold', // Use explicit bold font file for Android compatibility
+    fontFamily: 'DM Sans',
+    fontWeight: '600', // Semi-bold weight
     fontSize: 20, // EXACT iOS font size
     color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
     textAlign: 'center', // EXACT SwiftUI: .multilineTextAlignment(.center)

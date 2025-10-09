@@ -2,6 +2,7 @@
 // Full-screen carousel with expandable reading card - EXACT Adventure1_Module2_Lesson1 pattern
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState } from "react";
@@ -17,9 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
+import { ScrollView as GestureHandlerScrollView, PanGestureHandler, State } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -69,13 +69,13 @@ export default function Adventure4_Module3_Lesson2({
       id: 2,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M3_Img06.png",
       title: "Scribe&apos;s Tools",
-      caption: "A scribe&apos;s desk in an Umayyad library - tools of the trade laid out in candlelight: reed pens, pigments, ink, and parchment",
+      caption: "A scribe's desk in an Umayyad library - tools of the trade laid out in candlelight: reed pens, pigments, ink, and parchment",
     },
     {
       id: 3,
       imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M3_Img07.png",
       title: "Manuscript Pages",
-      caption: "Half-finished Qur&apos;anic pages in Kufic script dry on wooden racks",
+      caption: "Half-finished Qur'anic pages in Kufic script dry on wooden racks",
     },
     {
       id: 4,

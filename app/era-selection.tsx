@@ -428,6 +428,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...ArchivesTheme.typography.h2,
     fontSize: 28,
+    fontWeight: '600',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'left',
     paddingLeft: 25,
@@ -659,12 +660,13 @@ const styles = StyleSheet.create({
   comingSoonText: {
     ...ArchivesTheme.typography.h2,
     fontSize: 20,
+    fontWeight: '600',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'left',
     paddingLeft: 5,
     paddingRight: 20,
     paddingTop: 10,
-    marginBottom: -5,
+    marginBottom: 10,
   },
   
   // Grid container after text
