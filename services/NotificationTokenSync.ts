@@ -98,9 +98,9 @@ class NotificationTokenSyncService {
         .upsert({
           user_id: userId,
           push_token: newToken,
-          last_activity: new Date().toISOString(),
+          notifications_enabled: true,
         }, {
-          onConflict: 'user_id'
+          onConflict: 'push_token' // Conflict on push_token (device-specific)
         });
 
       if (error) {
@@ -156,9 +156,8 @@ class NotificationTokenSyncService {
           user_id: userId,
           push_token: pushToken,
           notifications_enabled: true,
-          last_activity: new Date().toISOString(),
         }, {
-          onConflict: 'user_id'
+          onConflict: 'push_token' // Conflict on push_token (device-specific)
         });
 
       if (error) {
