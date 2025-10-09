@@ -16,7 +16,6 @@ import {
   Animated,
   StatusBar,
   RefreshControl,
-  AppState,
 } from 'react-native'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -103,7 +102,7 @@ interface RiseOfIslamEraProps {
   onBackToEra?: () => void
 }
 
-const RiseOfIslamEra = React.memo(function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
+export default function RiseOfIslamEra({ onBackToEra }: RiseOfIslamEraProps) {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true)
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null)
   const [showModuleModal, setShowModuleModal] = useState(false)
@@ -159,35 +158,8 @@ const RiseOfIslamEra = React.memo(function RiseOfIslamEra({ onBackToEra }: RiseO
     }
   }
 
-  // AppState listener for automatic refresh when app comes to foreground
-  useEffect(() => {
-    let appStateSubscription: any
-
-    const handleAppStateChange = async (nextAppState: string) => {
-      if (nextAppState === 'active') {
-        console.log('📱 App became active, refreshing data (Rise of Islam)...')
-        // Sync and reload in the background (no loading indicator)
-        try {
-          await manualSync()
-          await reloadProgressData()
-          console.log('✅ Background refresh complete (Rise of Islam)')
-        } catch (error) {
-          console.error('❌ Background refresh error:', error)
-        }
-      }
-    }
-
-    // Only add AppState listener on native platforms
-    if (Platform.OS !== 'web') {
-      appStateSubscription = AppState.addEventListener('change', handleAppStateChange)
-    }
-
-    return () => {
-      if (appStateSubscription) {
-        appStateSubscription.remove()
-      }
-    }
-  }, [])
+  // Removed AppState auto-refresh to prevent excessive refreshing
+  // Users can still manually refresh using pull-to-refresh
 
   // Check if we should show the bouncing animation (first module not completed)
   useEffect(() => {
@@ -233,7 +205,7 @@ const RiseOfIslamEra = React.memo(function RiseOfIslamEra({ onBackToEra }: RiseO
     // This effect runs whenever roiModuleProgress changes, forcing icon re-renders
   }, [roiModuleProgress])
 
-  // Handle video playback and Android navigation bar restoration on screen focus
+  // Android navigation bar restoration on screen focus
   useFocusEffect(
     React.useCallback(() => {
       if (Platform.OS === 'android') {
@@ -242,26 +214,9 @@ const RiseOfIslamEra = React.memo(function RiseOfIslamEra({ onBackToEra }: RiseO
         StatusBar.setBarStyle('dark-content', true);
       }
 
-      try {
-        if (player) {
-          player.play();
-          setIsVideoPlaying(true);
-        }
-      } catch (error) {
-        console.warn('Failed to play video on focus:', error);
-      }
-
-      return () => {
-        try {
-          if (player) {
-            player.pause();
-            setIsVideoPlaying(false);
-          }
-        } catch (error) {
-          console.warn('Failed to pause video on blur:', error);
-        }
-      };
-    }, [player])
+      // Video continues playing in background - no restart on focus
+      // This prevents the video from restarting when checking notifications
+    }, [])
   )
 
   const handleVideoPress = () => {
@@ -545,9 +500,7 @@ const RiseOfIslamEra = React.memo(function RiseOfIslamEra({ onBackToEra }: RiseO
       />
     </SafeAreaView>
   )
-})
-
-export default RiseOfIslamEra
+}
 
 // Styles matching EXACT SwiftUI implementation with Rise of Islam branding
 const styles = StyleSheet.create({

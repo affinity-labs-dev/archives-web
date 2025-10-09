@@ -49,6 +49,8 @@ export default function AdventureDetailModal({
       case 1: return require('@/assets/images/adventure-backgrounds/Adventure-1-bg.png')
       case 2: return require('@/assets/images/adventure-backgrounds/Adventure-2-bg.png')
       case 3: return require('@/assets/images/adventure-backgrounds/Adventure-3-bg.png')
+      case 4: return require('@/assets/images/adventure-backgrounds/Adventure-4-bg.png')
+      case 5: return require('@/assets/images/adventure-backgrounds/Adventure-5-bg.png')
       default: return null
     }
   }

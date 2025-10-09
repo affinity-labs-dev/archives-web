@@ -19,7 +19,6 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
-import { analyticsService } from '@/services/AnalyticsService'
 import {
   QuizQuestion,
   MCQOptionButton,
@@ -104,14 +103,8 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
     { text: "Tigris", isUsed: false },
     { text: "Jordan", isUsed: false }
   ])
-  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now())
 
   const { atomicProgressUpdate, canRetakeModule } = useProgress()
-
-  // Track when each new question is shown
-  useEffect(() => {
-    setQuestionStartTime(Date.now())
-  }, [currentQuestionIndex])
 
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
@@ -128,21 +121,6 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
       setCorrectAnswers(prev => prev + 1)
       setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
     }
-
-    // Track quiz question answer in analytics
-    const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000)
-    const userAnswer = currentQuestion.options?.[selectedMCQOption!] || ''
-    const correctAnswer = currentQuestion.options?.[currentQuestion.correctAnswer] || ''
-
-    analyticsService.trackQuizQuestionAnswered({
-      adventure_id: 1,
-      module_id: 1,
-      question_number: currentQuestionIndex + 1, // 1-5
-      user_answer: userAnswer,
-      correct_answer: correctAnswer,
-      is_correct: isCorrect,
-      time_taken_seconds: timeTaken,
-    })
 
     setShowExplanation(true)
   }
@@ -253,7 +231,7 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
             text={option}
             isSelected={selectedMCQOption === index}
             onPress={() => setSelectedMCQOption(index)}
-            forceCenter={currentQuestionIndex === 2 || currentQuestionIndex === 3} // Question 3 & 4 - center align
+            forceCenter={currentQuestionIndex === 0 || currentQuestionIndex === 2 || currentQuestionIndex === 3} // Question 1, 3 & 4 - center align
           />
         ))}
       </View>

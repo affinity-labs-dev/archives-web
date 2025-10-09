@@ -210,6 +210,7 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
               text={option}
               isSelected={selectedMCQOption === index}
               onPress={() => setSelectedMCQOption(index)}
+              forceCenter={currentQuestionIndex === 0 || currentQuestionIndex === 2 || currentQuestionIndex === 4} // Q1, Q3, Q5 - center align
             />
           ))}
         </View>

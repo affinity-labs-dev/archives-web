@@ -230,7 +230,7 @@ export default function Adventure4_Module3_Quiz({ onDismiss, onBack }: Adventure
             text={option}
             isSelected={selectedMCQOption === index}
             onPress={() => setSelectedMCQOption(index)}
-            forceCenter={currentQuestionIndex === 2 || currentQuestionIndex === 4} // Question 3 & 5 - center align
+            forceCenter={true} // All questions center aligned
           />
         ))}
       </View>

@@ -18,8 +18,6 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import ArchivesTheme from '@/constants/ArchivesTheme'
-import { analyticsService } from '@/services/AnalyticsService'
-import { useFocusEffect } from '@react-navigation/native'
 
 // const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
@@ -105,19 +103,6 @@ export default function EraSelection() {
   const router = useRouter()
   const { isSignedIn } = useAuth()
   const { setSelectedEra } = useProgress()
-
-  // Track page views with focus/blur
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log('📊 [EraSelection] Screen focused - starting page view tracking')
-      analyticsService.startPageView('era', '/(tabs)/eras')
-
-      return () => {
-        console.log('📊 [EraSelection] Screen blurred - ending page view tracking')
-        analyticsService.endPageView('era')
-      }
-    }, [])
-  )
 
   // const handleBack = () => {
   //   router.back()
@@ -682,12 +667,13 @@ const styles = StyleSheet.create({
   comingSoonText: {
     ...ArchivesTheme.typography.h2,
     fontSize: 20,
+    fontWeight: '600', // Semi-bold
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'left',
     paddingLeft: 5,
     paddingRight: 20,
     paddingTop: 10,
-    marginBottom: -5,
+    marginBottom: 10,
   },
   
   // Grid container after text

@@ -214,11 +214,13 @@ export default function Adventure3_Module2_Quiz({ onDismiss, onBack }: Adventure
   // Render question content based on type
   const renderQuestionContent = () => {
     if (currentQuestion.type === 'mcq') {
-      // Use left alignment for questions with longer options
+      // Use center alignment for specific questions
+      // Question 1: In what year did Tariq ibn Ziyad land in Iberia?
       // Question 2: What bold order did Tariq give after landing?
+      // Question 4: Did Tariq's men plan to sail back to Africa?
       // Question 5: What does Jabal Tariq mean in English?
-      const shouldLeftAlign = currentQuestionIndex === 1 || currentQuestionIndex === 4
-      
+      const shouldCenterAlign = currentQuestionIndex === 0 || currentQuestionIndex === 1 || currentQuestionIndex === 3 || currentQuestionIndex === 4
+
       return (
         <View style={styles.mcqContainer}>
           {currentQuestion.options?.map((option, index) => (
@@ -228,7 +230,7 @@ export default function Adventure3_Module2_Quiz({ onDismiss, onBack }: Adventure
               text={option}
               isSelected={selectedMCQOption === index}
               onPress={() => setSelectedMCQOption(index)}
-              forceCenter={!shouldLeftAlign}
+              forceCenter={shouldCenterAlign}
             />
           ))}
         </View>

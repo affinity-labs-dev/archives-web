@@ -131,6 +131,7 @@ export default function Adventure2_Module3_Quiz({
               text={option}
               isSelected={selectedMCQOption === index}
               onPress={() => setSelectedMCQOption(index)}
+              forceCenter={currentQuestionIndex === 0 || currentQuestionIndex === 2 || currentQuestionIndex === 4} // Q1, Q3, Q5 center aligned
             />
           ))}
         </View>

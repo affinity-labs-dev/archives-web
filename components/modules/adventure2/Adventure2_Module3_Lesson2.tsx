@@ -2,25 +2,24 @@
 // Full-screen image with expandable reading card - matching Adventure1_Module2_Lesson1 pattern
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Ionicons } from "@expo/vector-icons";
+import { Audio } from 'expo-av';
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
   Image,
   Platform,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
+import { ScrollView as GestureHandlerScrollView, PanGestureHandler, State } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
-import { Audio } from 'expo-av';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -354,7 +353,7 @@ export default function Adventure2_Module3_Lesson2({
                       The Sacred Stone
                     </Text>
                     <Text style={styles.cardSubtitle}>
-                      At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began his night journey...
+                      At the heart of the Dome sits a large stone believed to be where the Prophet Muhammad began...
                     </Text>
                   </View>
                 </TouchableOpacity>

@@ -8,8 +8,6 @@ import { useRouter } from 'expo-router'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
-import { analyticsService } from '@/services/AnalyticsService'
-import { useFocusEffect } from '@react-navigation/native'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -209,7 +207,7 @@ export default function ProfileTab() {
   const { signOut } = useAuth()
   const { user } = useUser()
   const router = useRouter()
-
+  
   // Profile state - EXACT SwiftUI values
   const [selectedAvatar, setSelectedAvatar] = useState(HISTORICAL_AVATARS[0])
   const [showAvatarModal, setShowAvatarModal] = useState(false)
@@ -219,19 +217,7 @@ export default function ProfileTab() {
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [isLoadingPortal, setIsLoadingPortal] = useState(false)
-
-  // Track page views with focus/blur
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log('📊 [ProfileTab] Screen focused - starting page view tracking')
-      analyticsService.startPageView('profile', '/(tabs)/profile')
-
-      return () => {
-        console.log('📊 [ProfileTab] Screen blurred - ending page view tracking')
-        analyticsService.endPageView('profile')
-      }
-    }, [])
-  )
+  
 
   const handleSignOut = async () => {
     try {
@@ -841,9 +827,9 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   avatarContainer: {
-    width: 190, // Increased size to 190
-    height: 190,
-    borderRadius: 95, // Updated border radius to match new size
+    width: 280, // Even bigger circle for more breathing room
+    height: 280,
+    borderRadius: 140, // Updated border radius to match new size
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -855,15 +841,17 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   avatarImage: {
-    width: 190, // Increased size to 190
-    height: 190,
-    borderRadius: 95,
-    resizeMode: 'cover',
+    width: 230, // Increased scale while keeping breathing room
+    height: 230,
+    borderRadius: 115,
+    resizeMode: 'contain',
   },
   editIconContainer: {
     position: 'absolute',
-    bottom: 10,
-    right: 10,
+    top: '50%',
+    left: '50%',
+    marginTop: 50, // Moved down 50px from center
+    marginLeft: 30, // Moved 30px right from center
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -881,6 +869,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
+    marginTop: -5, // Move name slightly up
     marginBottom: 4,
   },
   avatarTitle: {
@@ -1082,9 +1071,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   avatarGridImageContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 130, // Increased for more breathing room
+    height: 130,
+    borderRadius: 65,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -1102,8 +1091,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
   },
   avatarGridImage: {
-    width: 100,
-    height: 100,
+    width: 130, // Increased for more breathing room
+    height: 130,
     resizeMode: 'contain',
   },
   avatarGridName: {
