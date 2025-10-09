@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
+import NotificationPermissionModal from '@/components/NotificationPermissionModal'
 
 const questionOptions = [
   "Just for fun",
@@ -30,6 +31,7 @@ const questionOptions = [
 
 export default function OnboardingQuestion4Screen() {
   const [selectedOptions, setSelectedOptions] = useState<number[]>([])
+  const [showNotificationModal, setShowNotificationModal] = useState(false)
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
 
@@ -71,7 +73,7 @@ export default function OnboardingQuestion4Screen() {
     }
   }
 
-  // Continue to complete onboarding
+  // Continue to notification permission modal
   const handleContinue = async () => {
     if (selectedOptions.length === 0) return
 
@@ -89,17 +91,25 @@ export default function OnboardingQuestion4Screen() {
       await AsyncStorage.setItem('onboarding_q4_answer', JSON.stringify(answerData))
       console.log('🔥 [OnboardingQ4] Answer saved:', answerData)
 
-      // Mark onboarding as completed
-      await AsyncStorage.setItem('onboarding_completed', 'true')
-      console.log('🔥 [OnboardingQ4] Onboarding completed!')
-
-      // Navigate to results screen
-      router.push('/onboarding-results')
+      // Show notification permission modal
+      setShowNotificationModal(true)
     } catch (error) {
       console.error('🔥 [OnboardingQ4] Error saving answer:', error)
       // Continue anyway
-      router.push('/onboarding-results')
+      setShowNotificationModal(true)
     }
+  }
+
+  // Handle notification modal completion
+  const handleNotificationModalComplete = async () => {
+    setShowNotificationModal(false)
+
+    // Mark onboarding as completed
+    await AsyncStorage.setItem('onboarding_completed', 'true')
+    console.log('🔥 [OnboardingQ4] Onboarding completed!')
+
+    // Navigate to results screen
+    router.push('/onboarding-results')
   }
 
   // Go back to previous question
@@ -207,6 +217,12 @@ export default function OnboardingQuestion4Screen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Notification Permission Modal */}
+        <NotificationPermissionModal
+          visible={showNotificationModal}
+          onComplete={handleNotificationModalComplete}
+        />
       </SafeAreaView>
     </>
   )
