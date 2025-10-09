@@ -24,23 +24,15 @@ export function useNotifications() {
         });
       }
 
-      // Check current permission status
-      const { status: existingStatus, canAskAgain } = await Notifications.getPermissionsAsync();
+      // Check current permission status only (don't auto-request)
+      // Permission request is handled in onboarding flow
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
-      let finalStatus = existingStatus;
+      setPermissionStatus(existingStatus);
+      console.log('✅ Notification permission status:', existingStatus);
 
-      // Only ask if we haven't asked before (canAskAgain will be false if already asked)
-      if (existingStatus === 'undetermined') {
-        console.log('📱 First app launch - requesting notification permission');
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      setPermissionStatus(finalStatus);
-      console.log('✅ Notification permission status:', finalStatus);
-
-      // Get push token if permission granted
-      if (finalStatus === 'granted' && Device.isDevice) {
+      // Get push token if permission already granted
+      if (existingStatus === 'granted' && Device.isDevice) {
         const token = await getPushToken();
         if (token) {
           setExpoPushToken(token);

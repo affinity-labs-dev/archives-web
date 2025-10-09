@@ -19,7 +19,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
-import NotificationPermissionModal from '@/components/NotificationPermissionModal'
+import * as Notifications from 'expo-notifications'
+import * as Device from 'expo-device'
+import Constants from 'expo-constants'
+import { notificationTokenSync } from '@/services/NotificationTokenSync'
 
 const questionOptions = [
   "Just for fun",
@@ -31,7 +34,6 @@ const questionOptions = [
 
 export default function OnboardingQuestion4Screen() {
   const [selectedOptions, setSelectedOptions] = useState<number[]>([])
-  const [showNotificationModal, setShowNotificationModal] = useState(false)
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
 
@@ -73,7 +75,57 @@ export default function OnboardingQuestion4Screen() {
     }
   }
 
-  // Continue to notification permission modal
+  // Request notification permissions directly
+  const requestNotificationPermission = async () => {
+    try {
+      // Check if physical device
+      if (!Device.isDevice) {
+        console.warn('⚠️ Push notifications require physical device')
+        await AsyncStorage.setItem('notifications_permission_granted', 'false')
+        return
+      }
+
+      // Request permission - this shows the iOS system modal
+      const { status } = await Notifications.requestPermissionsAsync()
+      console.log('🔔 Permission status:', status)
+
+      if (status === 'granted') {
+        // Get Expo push token
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId
+        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
+        const pushToken = tokenData.data
+
+        console.log('🔔 Expo push token:', pushToken)
+
+        // Get device timezone
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+        console.log('🌍 Device timezone:', timezone)
+
+        // Save to Supabase as anonymous device
+        const saved = await notificationTokenSync.saveAnonymousToken(pushToken, timezone)
+
+        if (saved) {
+          console.log('✅ Token saved to Supabase as anonymous device')
+        } else {
+          // Fallback: store locally if Supabase fails
+          console.log('⚠️ Supabase save failed, storing locally')
+          await AsyncStorage.setItem('pending_push_token', pushToken)
+          await AsyncStorage.setItem('pending_timezone', timezone)
+        }
+
+        await AsyncStorage.setItem('notifications_permission_granted', 'true')
+        await AsyncStorage.setItem('notification_permission_asked', 'true')
+      } else {
+        await AsyncStorage.setItem('notifications_permission_granted', 'false')
+        await AsyncStorage.setItem('notification_permission_asked', 'true')
+      }
+    } catch (error) {
+      console.error('❌ Error requesting notifications:', error)
+      await AsyncStorage.setItem('notifications_permission_granted', 'false')
+    }
+  }
+
+  // Continue to results screen
   const handleContinue = async () => {
     if (selectedOptions.length === 0) return
 
@@ -94,33 +146,26 @@ export default function OnboardingQuestion4Screen() {
       // Check if we've already asked for notification permission
       const alreadyAsked = await AsyncStorage.getItem('notification_permission_asked')
 
-      if (alreadyAsked === 'true') {
-        console.log('🔥 [OnboardingQ4] Already asked for notifications, skipping modal')
-        // Mark onboarding as completed and navigate
-        await AsyncStorage.setItem('onboarding_completed', 'true')
-        router.push('/onboarding-results')
+      if (alreadyAsked !== 'true') {
+        // Request notification permission (shows system modal)
+        console.log('🔥 [OnboardingQ4] Requesting notification permission')
+        await requestNotificationPermission()
       } else {
-        // Show notification permission modal
-        console.log('🔥 [OnboardingQ4] Showing notification permission modal')
-        setShowNotificationModal(true)
+        console.log('🔥 [OnboardingQ4] Already asked for notifications, skipping')
       }
+
+      // Mark onboarding as completed
+      await AsyncStorage.setItem('onboarding_completed', 'true')
+      console.log('🔥 [OnboardingQ4] Onboarding completed!')
+
+      // Navigate to results screen
+      router.push('/onboarding-results')
     } catch (error) {
-      console.error('🔥 [OnboardingQ4] Error saving answer:', error)
-      // Continue anyway
-      setShowNotificationModal(true)
+      console.error('🔥 [OnboardingQ4] Error in handleContinue:', error)
+      // Navigate anyway
+      await AsyncStorage.setItem('onboarding_completed', 'true')
+      router.push('/onboarding-results')
     }
-  }
-
-  // Handle notification modal completion
-  const handleNotificationModalComplete = async () => {
-    setShowNotificationModal(false)
-
-    // Mark onboarding as completed
-    await AsyncStorage.setItem('onboarding_completed', 'true')
-    console.log('🔥 [OnboardingQ4] Onboarding completed!')
-
-    // Navigate to results screen
-    router.push('/onboarding-results')
   }
 
   // Go back to previous question
@@ -228,12 +273,6 @@ export default function OnboardingQuestion4Screen() {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Notification Permission Modal */}
-        <NotificationPermissionModal
-          visible={showNotificationModal}
-          onComplete={handleNotificationModalComplete}
-        />
       </SafeAreaView>
     </>
   )
