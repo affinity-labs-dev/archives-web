@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
+import { useQuizSounds } from '@/hooks/useQuizSounds'
 import {
   QuizQuestion,
   MCQOptionButton,
@@ -94,6 +95,7 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(null)
 
   const { atomicProgressUpdate, canRetakeModule } = useProgress()
+  const { playTap, playCorrect, playIncorrect } = useQuizSounds()
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
@@ -114,10 +116,12 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
     const isCorrect = checkAnswer(currentQuestionIndex, newUserAnswers[currentQuestionIndex])
     if (isCorrect) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      playCorrect()
       setCorrectAnswers(prev => prev + 1)
       setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      playIncorrect()
     }
 
 
@@ -139,8 +143,10 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
       setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 100);
       setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200);
       setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 300);
+      playCorrect()
     } else if (finalScore >= 2) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      playCorrect()
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -233,7 +239,8 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
               text={option}
               isSelected={selectedMCQOption === index}
               onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedMCQOption(index)
             }}
               forceCenter={currentQuestionIndex === 0 || currentQuestionIndex === 2 || currentQuestionIndex === 4} // Q1, Q3, Q5 - center align
@@ -248,7 +255,8 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
             isTrue={true}
             isSelected={selectedTrueFalse === 1}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(1)
             }}
           />
@@ -256,7 +264,8 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
             isTrue={false}
             isSelected={selectedTrueFalse === 0}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(0)
             }}
           />

@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
+import { useQuizSounds } from '@/hooks/useQuizSounds'
 import { analyticsService } from '@/services/AnalyticsService'
 import {
   QuizQuestion,
@@ -96,6 +97,7 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(null)
 
   const { atomicProgressUpdate, canRetakeModule } = useProgress()
+  const { playTap, playCorrect, playIncorrect } = useQuizSounds()
 
   // Track when each new question is shown
   useEffect(() => {
@@ -122,10 +124,12 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
     const isCorrect = checkAnswer(currentQuestionIndex, newUserAnswers[currentQuestionIndex])
     if (isCorrect) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      playCorrect()
       setCorrectAnswers(prev => prev + 1)
       setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      playIncorrect()
     }
 
     // Track quiz question answer in analytics
@@ -263,7 +267,8 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
               text={option}
               isSelected={selectedMCQOption === index}
               onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedMCQOption(index)
             }}
               forceCenter={currentQuestionIndex === 0 || currentQuestionIndex === 2 || currentQuestionIndex === 4} // Q1, Q3, Q5 center aligned
@@ -279,17 +284,19 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
             isTrue={true}
             isSelected={selectedTrueFalse === 0}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(0)
             }}
           />
-          
+
           {/* False option */}
           <TrueFalseOptionButton
             isTrue={false}
             isSelected={selectedTrueFalse === 1}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(1)
             }}
           />

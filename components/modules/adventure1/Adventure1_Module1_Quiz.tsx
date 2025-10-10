@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
 import { analyticsService } from '@/services/AnalyticsService'
+import { useQuizSounds } from '@/hooks/useQuizSounds'
 import {
   QuizQuestion,
   MCQOptionButton,
@@ -108,6 +109,9 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
 
   const { atomicProgressUpdate, canRetakeModule } = useProgress()
 
+  // Quiz sounds hook
+  const { playTap, playCorrect, playIncorrect } = useQuizSounds()
+
   // Track when each new question is shown
   useEffect(() => {
     setQuestionStartTime(Date.now())
@@ -126,10 +130,12 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
     const isCorrect = checkAnswer(currentQuestionIndex, newUserAnswers[currentQuestionIndex])
     if (isCorrect) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      playCorrect() // Play correct sound
       setCorrectAnswers(prev => prev + 1)
       setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      playIncorrect() // Play incorrect sound
     }
 
     // Track quiz question answer in analytics
@@ -273,7 +279,8 @@ export default function Adventure1_Module1_Quiz({ onDismiss, onBack }: Adventure
             text={option}
             isSelected={selectedMCQOption === index}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap() // Play tap sound
               setSelectedMCQOption(index)
             }}
             forceCenter={currentQuestionIndex === 0 || currentQuestionIndex === 2 || currentQuestionIndex === 3} // Question 1, 3 & 4 - center align

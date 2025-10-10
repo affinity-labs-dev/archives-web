@@ -6,6 +6,7 @@ import { useProgress } from "@/context/ProgressContext";
 import { useLessonTracking } from "@/hooks/useLessonTracking";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
+import * as Haptics from "expo-haptics";
 import React, { useRef, useState } from "react";
 import {
   Animated,
@@ -158,6 +159,7 @@ export default function Adventure1_Module1_Lesson1({
 
   // Continue button handler
   const handleContinue = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Track lesson completion in analytics
     trackLessonComplete();
 
@@ -265,6 +267,7 @@ export default function Adventure1_Module1_Lesson1({
 
   // Expand the card to full height
   const expandCard = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsCardExpanded(true);
 
     // Track reading card expansion in analytics
@@ -293,6 +296,7 @@ export default function Adventure1_Module1_Lesson1({
 
   // Collapse the card back to original size
   const collapseCard = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsCardExpanded(false);
 
     Animated.parallel([
@@ -359,7 +363,13 @@ export default function Adventure1_Module1_Lesson1({
 
         {/* Back Button - Top Left */}
         <SafeAreaView style={styles.backButtonContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={onDismiss}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onDismiss();
+            }}
+          >
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </SafeAreaView>

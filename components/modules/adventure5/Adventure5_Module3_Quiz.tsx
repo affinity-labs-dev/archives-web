@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
+import { useQuizSounds } from '@/hooks/useQuizSounds'
 import {
   QuizQuestion,
   MCQOptionButton,
@@ -280,6 +281,7 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
 
   // Progress context integration - NEW ATOMIC SYSTEM
   const { atomicProgressUpdate, canRetakeModule } = useProgress()
+  const { playTap, playCorrect, playIncorrect } = useQuizSounds()
 
   // Get current question
   const currentQuestion = quizQuestions[currentQuestionIndex]
@@ -313,7 +315,8 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
             text={option}
             isSelected={selectedMCQOption === index}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedMCQOption(index)
             }}
             forceCenter={currentQuestionIndex === 2 || currentQuestionIndex === 3} // Questions 3 & 4 - True/False center align
@@ -331,7 +334,8 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
           isTrue={true}
           isSelected={selectedTrueFalse === 0} // True = 0 for these questions
           onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(0)
             }}
         />
@@ -339,7 +343,8 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
           isTrue={false}
           isSelected={selectedTrueFalse === 1} // False = 1 for these questions
           onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(1)
             }}
         />

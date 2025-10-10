@@ -3,6 +3,7 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useProgress } from "@/context/ProgressContext";
+import { useQuizSounds } from "@/hooks/useQuizSounds";
 import { analyticsService } from "@/services/AnalyticsService";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
@@ -120,6 +121,7 @@ export default function Adventure1_Module3_Quiz({
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
 
   const { updateModuleProgress, completeLesson } = useProgress();
+  const { playTap, playCorrect, playIncorrect } = useQuizSounds();
 
   // Track when each new question is shown
   useEffect(() => {
@@ -148,10 +150,14 @@ export default function Adventure1_Module3_Quiz({
     );
     if (isCorrect) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      playCorrect()
       setCorrectAnswers((prev) => prev + 1);
       setTotalPoints(
         (prev) => prev + quizQuestions[currentQuestionIndex].points
       );
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      playIncorrect()
     }
 
     // Track quiz question answer in analytics
@@ -290,7 +296,8 @@ export default function Adventure1_Module3_Quiz({
               text={option}
               isSelected={selectedMCQOption === index}
               onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedMCQOption(index)
             }}
               forceCenter={true} // All Module 3 options are center-aligned
@@ -306,7 +313,8 @@ export default function Adventure1_Module3_Quiz({
             isTrue={true}
             isSelected={selectedTrueFalse === 0}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(0)
             }}
           />
@@ -316,7 +324,8 @@ export default function Adventure1_Module3_Quiz({
             isTrue={false}
             isSelected={selectedTrueFalse === 1}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(1)
             }}
           />

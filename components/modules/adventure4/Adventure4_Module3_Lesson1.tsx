@@ -14,6 +14,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
+import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useBackgroundMusic } from '@/hooks/useBackgroundMusic'
 
@@ -193,7 +194,13 @@ export default function Adventure4_Module3_Lesson1({
       {/* Continue button overlay - only show after scrolling */}
       {hasScrolledToBottom && (
         <View style={styles.continueButtonContainer}>
-          <TouchableOpacity style={styles.continueButton} onPress={onContinue}>
+          <TouchableOpacity
+            style={styles.continueButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onContinue();
+            }}
+          >
             <Text style={styles.continueButtonText}>Continue</Text>
             <Ionicons name="arrow-forward" size={16} color="white" />
           </TouchableOpacity>
@@ -203,6 +210,7 @@ export default function Adventure4_Module3_Lesson1({
       {/* Back Button - always visible */}
       <SafeAreaView style={styles.backButtonContainer}>
         <TouchableOpacity style={styles.backButton} onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           if (backgroundMusic.isPlaying) {
             console.log('🎵 Stopping background music on back button');
             backgroundMusic.stop();
