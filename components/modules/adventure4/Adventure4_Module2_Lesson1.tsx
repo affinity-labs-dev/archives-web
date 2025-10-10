@@ -643,27 +643,31 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
 
-  // Page indicators
+  // Page indicators - Figma design with dark pill container
   pageIndicators: {
     position: "absolute",
     bottom: 170,
-    left: 0,
-    right: 0,
+    alignSelf: "center", // Center horizontally, auto-fit width to content
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+    zIndex: 10,
+    // Dark pill container background - width auto-fits to content
+    backgroundColor: "rgba(0, 0, 0, 0.8)", // 80% black opacity
+    borderRadius: 15, // Smooth rounded pill shape
+    paddingHorizontal: 5, // Left & right padding
+    paddingVertical: 6, // Top & bottom padding
   },
   pageIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.4)",
-    marginHorizontal: 4,
+    width: 9, // Dot size
+    height: 9,
+    borderRadius: 4.5, // Perfect circle (half of width)
+    backgroundColor: "rgb(147, 147, 147)", // Gray color
+    marginHorizontal: 4.5, // Spacing between dots
   },
   pageIndicatorActive: {
-    backgroundColor: "white",
-    width: 12,
+    backgroundColor: "rgb(255, 255, 255)", // Pure white
+    // No scale transform - clean, simple design
   },
 
   // Back Button - Top Left

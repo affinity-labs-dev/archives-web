@@ -61,7 +61,7 @@ export default function ROIERA2Adv1_Module2_Lesson1({
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
 
   // Reading card states
-  const [hasFinishedReading, setHasFinishedReading] = useState(false);
+  const [hasFinishedReading, setHasFinishedReading] = useState(true);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
 
   // Gesture handling states
@@ -143,12 +143,8 @@ export default function ROIERA2Adv1_Module2_Lesson1({
 
   // Lesson Completion Logic
   const handleContinue = async () => {
-    // Prevent continuation if reading not finished
-    if (!hasFinishedReading) {
-      console.log("🔄 Continue button pressed but reading not finished");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return;
-    }
+    // Success haptic feedback
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     // Mark lesson as completed in progress context (ROI system: ROI_Adv1_M2, Lesson 1)
     await roiAtomicProgressUpdate("ROI_Adv1_M2", {

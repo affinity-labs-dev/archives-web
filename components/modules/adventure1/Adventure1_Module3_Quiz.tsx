@@ -6,6 +6,7 @@ import { useProgress } from "@/context/ProgressContext";
 import { analyticsService } from "@/services/AnalyticsService";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
+import * as Haptics from 'expo-haptics';
 import {
   Animated,
   Dimensions,
@@ -187,6 +188,21 @@ export default function Adventure1_Module3_Quiz({
     if (userAnswer === null) return false;
 
     return userAnswer === quizQuestions[questionIndex].correctAnswer;
+  };
+
+  // Celebrate quiz completion with haptic feedback pattern based on score
+  const celebrateQuizCompletion = (finalScore: number) => {
+    if (finalScore === 5) {
+      // Perfect score - escalating celebration
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 100);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200);
+      setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 300);
+    } else if (finalScore >= 2) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   // Handle explanation continue - EXACT SwiftUI: onContinue in ExplanationView

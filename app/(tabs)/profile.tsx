@@ -11,8 +11,44 @@ import ArchivesTheme from '@/constants/ArchivesTheme'
 import * as Haptics from 'expo-haptics'
 import { analyticsService } from '@/services/AnalyticsService'
 import { useFocusEffect } from '@react-navigation/native'
+import { useBadges } from '@/context/BadgeContext'
+import { useProgress } from '@/context/ProgressContext'
+import { useAvatars } from '@/context/AvatarContext'
+import { usePreferences } from '@/context/PreferencesContext'
 
 const { width: screenWidth } = Dimensions.get('window')
+
+// Helper to get avatar image - static mapping (database image_url → actual file)
+const AVATAR_IMAGE_MAP: Record<string, any> = {
+  'avatars/Al-Khwarizmi.png': require('@/assets/images/avatars/Al-Khwarizmi.png'),
+  'avatars/Fatima-al-Fihri.png': require('@/assets/images/avatars/Fatima-al-Fihri.png'),
+  'avatars/ibn-sina-avicenna.png': require('@/assets/images/avatars/Ibn-Sina-Avicenna.png'),
+  'avatars/Ziryab.png': require('@/assets/images/avatars/Ziryab.png'),
+  'avatars/Al-Razi.png': require('@/assets/images/avatars/Al-Razi.png'),
+  'avatars/Ibn-Battuta.png': require('@/assets/images/avatars/Ibn-Battuta.png'),
+  'avatars/Lubna-of-Cordoba.png': require('@/assets/images/avatars/Lubna-of-Cordoba.png'),
+  'avatars/Mariam-al-Asturlabi.png': require('@/assets/images/avatars/Mariam-al-Asturlabi.png'),
+  'avatars/Zaynab-al-Shahda.png': require('@/assets/images/avatars/Zaynab-al-Shahda.png'),
+}
+
+const getAvatarImage = (imageUrl: string) => {
+  return AVATAR_IMAGE_MAP[imageUrl] || AVATAR_IMAGE_MAP['avatars/Al-Khwarizmi.png']
+}
+
+// Helper to get badge image - static mapping for require()
+const BADGE_IMAGE_MAP: Record<string, any> = {
+  'ACH_EarnedXP_1.png': require('@/assets/images/badges/ACH_EarnedXP_1.png'),
+  'ACH_EarnedXP_2.png': require('@/assets/images/badges/ACH_EarnedXP_2.png'),
+  'ACH_EarnedXP_3.png': require('@/assets/images/badges/ACH_EarnedXP_3.png'),
+  'ACH_EarnedXP_4.png': require('@/assets/images/badges/ACH_EarnedXP_4.png'),
+  'ACH_MonthlyActive_1.png': require('@/assets/images/badges/ACH_MonthlyActive_1.png'),
+  'ACH_MonthlyActive_2.png': require('@/assets/images/badges/ACH_MonthlyActive_2.png'),
+  'ACH_MonthlyActive_3.png': require('@/assets/images/badges/ACH_MonthlyActive_3.png'),
+}
+
+const getBadgeImage = (imagePath: string) => {
+  return BADGE_IMAGE_MAP[imagePath]
+}
 
 // Privacy Policy Content
 const PRIVACY_POLICY_CONTENT = `Privacy Policy
@@ -133,86 +169,69 @@ const FAQ_DATA = [
   }
 ]
 
-// Historical Avatars - EXACT SwiftUI data
-const HISTORICAL_AVATARS = [
-  {
-    id: 'al-khwarizmi',
-    name: 'Al-Khwarizmi',
-    title: 'Father of Algebra',
-    image: require('@/assets/images/avatars/Al-Khwarizmi.png')
-  },
-  {
-    id: 'fatima-al-fihri',
-    name: 'Fatima al-Fihri', 
-    title: 'Founder of the World\'s First University',
-    image: require('@/assets/images/avatars/Fatima-al-Fihri.png')
-  },
-  {
-    id: 'ibn-sina',
-    name: 'Ibn Sina',
-    title: 'Philosopher-physician',
-    image: require('@/assets/images/avatars/Ibn-Sina-Avicenna.png')
-  },
-  {
-    id: 'ziryab',
-    name: 'Ziryab',
-    title: 'Cultural innovator and musician',
-    image: require('@/assets/images/avatars/Ziryab.png')
-  },
-  {
-    id: 'al-razi',
-    name: 'Al-Razi',
-    title: 'Early medical pioneer',
-    image: require('@/assets/images/avatars/Al-Razi.png')
-  },
-  {
-    id: 'ibn-battuta',
-    name: 'Ibn Battuta',
-    title: 'World traveler',
-    image: require('@/assets/images/avatars/Ibn-Battuta.png')
-  },
-  {
-    id: 'lubna-cordoba',
-    name: 'Lubna of Córdoba',
-    title: 'Scholar and secretary',
-    image: require('@/assets/images/avatars/Lubna-of-Cordoba.png')
-  },
-  {
-    id: 'mariam-asturlabi',
-    name: 'Mariam al-Asturlabi',
-    title: 'Astrolabe maker and scientist',
-    image: require('@/assets/images/avatars/Mariam-al-Asturlabi.png')
-  },
-  {
-    id: 'zaynab-shahda',
-    name: 'Zaynab al-Shahda',
-    title: 'Scholar and teacher',
-    image: require('@/assets/images/avatars/Zaynab-al-Shahda.png')
-  }
-]
-
-// XP Achievements - EXACT SwiftUI data
-const XP_ACHIEVEMENTS = [
-  { id: '100xp', image: require('@/assets/images/badges/100XP.png') },
-  { id: '250xp', image: require('@/assets/images/badges/250XP.png') },
-  { id: '400xp', image: require('@/assets/images/badges/400XP.png') },
-  { id: '550xp', image: require('@/assets/images/badges/550XP.png') }
-]
-
-// Monthly Badges - EXACT SwiftUI data  
-const MONTHLY_BADGES = [
-  { id: 'august', name: 'August', image: require('@/assets/images/badges/August Badge.png') },
-  { id: 'september', name: 'September', image: require('@/assets/images/badges/September Badge.png') },
-  { id: 'october', name: 'October', image: require('@/assets/images/badges/October Badge.png') }
-]
-
 export default function ProfileTab() {
   const { signOut } = useAuth()
   const { user } = useUser()
   const router = useRouter()
-  
+  const { badges, userBadges, totalXP, loading: badgesLoading } = useBadges()
+  const { moduleProgress } = useProgress()
+  const { avatarTypes, selectedAvatar: dbSelectedAvatar, setSelectedAvatar: setDbSelectedAvatar, isAvatarUnlocked, loading: avatarsLoading } = useAvatars()
+  const { dailyGoal, reminderTime, setReminderTime, loading: preferencesLoading } = usePreferences()
+
+  // Debug: Log badges data
+  console.log('📊 Badges loaded:', badges.length)
+  console.log('📊 User badges:', userBadges.length)
+  console.log('📊 Total XP:', totalXP)
+  console.log('🎭 Avatar types loaded:', avatarTypes.length)
+  console.log('🎭 Current selected avatar:', dbSelectedAvatar?.name)
+
+  // Get current avatar (use first avatar as default if none selected)
+  const currentAvatar = dbSelectedAvatar || avatarTypes[0]
+
+  // Calculate modules finished
+  const modulesFinished = moduleProgress.filter(m => m.isCompleted).length
+
+  // Get user's display name from Clerk (firstName + first letter of lastName)
+  const displayName = user?.firstName && user?.lastName
+    ? `${user.firstName} ${user.lastName.charAt(0)}.`
+    : user?.firstName || 'User'
+
+  // Get joined year from Clerk
+  const joinedYear = user?.createdAt ? new Date(user.createdAt).getFullYear() : new Date().getFullYear()
+
+  // Helper: Check if badge is earned
+  const isBadgeEarned = (badgeName: string, level: number) => {
+    return userBadges.some(ub =>
+      ub.badge?.name === badgeName && ub.badge?.level === level
+    )
+  }
+
+  // Get XP badges from database (ACH_EarnedXP) with images
+  const xpBadges = badges
+    .filter(b => b.name === 'ACH_EarnedXP')
+    .sort((a, b) => a.level - b.level)
+    .map(b => ({
+      ...b,
+      earned: isBadgeEarned(b.name, b.level),
+      imagePath: `${b.name}_${b.level}.png`
+    }))
+
+  // Get monthly badges from database (ACH_MonthlyActive) with images
+  const monthlyBadges = badges
+    .filter(b => b.name === 'ACH_MonthlyActive')
+    .sort((a, b) => b.level - a.level) // Reverse order for display
+    .map(b => ({
+      ...b,
+      earned: isBadgeEarned(b.name, b.level),
+      imagePath: `${b.name}_${b.level}.png`,
+      monthName: b.level === 1 ? 'August' : b.level === 2 ? 'September' : 'October'
+    }))
+
+  // Calculate XP progress to next badge
+  const nextXPBadge = xpBadges.find(b => !b.earned)
+  const xpProgress = nextXPBadge ? Math.min((totalXP / nextXPBadge.threshold) * 100, 100) : 100
+
   // Profile state - EXACT SwiftUI values
-  const [selectedAvatar, setSelectedAvatar] = useState(HISTORICAL_AVATARS[0])
   const [showAvatarModal, setShowAvatarModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
@@ -220,6 +239,10 @@ export default function ProfileTab() {
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [isLoadingPortal, setIsLoadingPortal] = useState(false)
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const [tempHour, setTempHour] = useState(19)
+  const [tempMinute, setTempMinute] = useState(0)
+  const [tempPeriod, setTempPeriod] = useState<'AM' | 'PM'>('PM')
 
   // Track page views with focus/blur
   useFocusEffect(
@@ -244,9 +267,10 @@ export default function ProfileTab() {
     }
   }
 
-  const handleAvatarSelection = (avatar: typeof HISTORICAL_AVATARS[0]) => {
+  const handleAvatarSelection = (avatar: any) => {
     Haptics.selectionAsync()
-    setSelectedAvatar(avatar)
+    console.log('🎭 Avatar selected:', avatar.name, avatar.id)
+    setDbSelectedAvatar(avatar)
     setShowAvatarModal(false)
   }
 
@@ -431,6 +455,40 @@ export default function ProfileTab() {
     setExpandedFAQ(expandedFAQ === id ? null : id)
   }
 
+  const openTimePicker = () => {
+    // Parse current reminder time to set initial picker values
+    const [hours, minutes] = reminderTime.split(':').map(Number)
+
+    // Convert 24-hour to 12-hour format
+    const period: 'AM' | 'PM' = hours >= 12 ? 'PM' : 'AM'
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+
+    setTempHour(hour12)
+    setTempMinute(minutes)
+    setTempPeriod(period)
+    setShowTimePicker(true)
+  }
+
+  const handleTimePickerSave = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+
+    // Convert 12-hour to 24-hour format
+    let hour24 = tempHour
+    if (tempPeriod === 'PM' && tempHour !== 12) {
+      hour24 = tempHour + 12
+    } else if (tempPeriod === 'AM' && tempHour === 12) {
+      hour24 = 0
+    }
+
+    const formattedTime = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`
+    setReminderTime(formattedTime)
+    setShowTimePicker(false)
+  }
+
+  const handleTimePickerCancel = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    setShowTimePicker(false)
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -452,63 +510,122 @@ export default function ProfileTab() {
         
         {/* Avatar Section - EXACT SwiftUI */}
         <View style={styles.avatarSection}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.avatarContainer}
             onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             setShowAvatarModal(true)
           }}
           >
-            <Image source={selectedAvatar.image} style={styles.avatarImage} />
+            <Image source={getAvatarImage(currentAvatar?.image_url || '')} style={styles.avatarImage} />
             {/* Edit Icon Overlay */}
             <View style={styles.editIconContainer}>
               <MaterialIcons name="edit" size={20} color={ArchivesTheme.colors.creamWhite} />
             </View>
           </TouchableOpacity>
-          
-          <Text style={styles.avatarName}>{selectedAvatar.name}</Text>
-          <Text style={styles.avatarTitle}>{selectedAvatar.title}</Text>
-          
+
+          <Text style={styles.userName}>{displayName}</Text>
+          <Text style={styles.avatarSubtitle}>{currentAvatar?.name} • {currentAvatar?.role}</Text>
+          <Text style={styles.joinedText}>Joined {joinedYear}</Text>
+
         </View>
 
         {/* Modules Achievement Card */}
-        {/* <View style={styles.achievementsSection}>
+        <View style={styles.achievementsSection}>
           <View style={styles.moduleAchievementCard}>
             <View style={styles.achievementBadge}>
-              <Text style={styles.achievementNumber}>14</Text>
+              <Text style={styles.achievementNumber}>{modulesFinished}</Text>
             </View>
             <Text style={styles.achievementText}>Modules finished!</Text>
             <View style={styles.achievementIcons}>
               <Image source={require('@/assets/images/icons/modules icon.png')} style={styles.largeModuleIcon} />
             </View>
           </View>
-        </View> */}
+        </View>
 
         {/* Monthly Badges - EXACT SwiftUI */}
-        {/* <View style={styles.badgesSection}>
+        <View style={styles.badgesSection}>
           <Text style={styles.sectionTitle}>Monthly Badges</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesScroll}>
-            {MONTHLY_BADGES.map((badge) => (
+            {monthlyBadges.map((badge) => (
               <View key={badge.id} style={styles.badgeContainer}>
-                <Image source={badge.image} style={styles.badgeImage} />
-                <Text style={styles.badgeLabel}>{badge.name}</Text>
+                <Image
+                  source={getBadgeImage(badge.imagePath)}
+                  style={[
+                    styles.badgeImage,
+                    !badge.earned && styles.badgeImageGrey
+                  ]}
+                />
+                <Text style={styles.badgeLabel}>{badge.monthName}</Text>
               </View>
             ))}
           </ScrollView>
-        </View> */}
+        </View>
 
         {/* XP Achievements - EXACT SwiftUI */}
-        {/* <View style={styles.xpAchievementsSection}>
+        <View style={styles.xpAchievementsSection}>
           <Text style={styles.sectionTitle}>Achievements</Text>
+
+          {/* Progress Bar */}
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBarBackground}>
+              <View style={[styles.progressBarFill, { width: `${xpProgress}%` }]} />
+            </View>
+            <Text style={styles.progressBarText}>
+              {totalXP} / {nextXPBadge?.threshold || xpBadges[xpBadges.length - 1]?.threshold || 550} XP
+            </Text>
+          </View>
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.achievementsScroll}>
-            {XP_ACHIEVEMENTS.map((achievement) => (
-              <View key={achievement.id} style={styles.achievementContainer}>
-                <Image source={achievement.image} style={styles.achievementImage} />
+            {xpBadges.map((badge) => (
+              <View key={badge.id} style={styles.achievementContainer}>
+                <Image
+                  source={getBadgeImage(badge.imagePath)}
+                  style={[
+                    styles.achievementImage,
+                    !badge.earned && styles.badgeImageGrey
+                  ]}
+                />
               </View>
             ))}
           </ScrollView>
-        </View> */}
+        </View>
 
+
+        {/* Learning Preferences */}
+        <View style={styles.preferencesSection}>
+          <Text style={styles.sectionTitle}>Learning Preferences</Text>
+
+          {/* Daily Goal - Locked */}
+          <View style={styles.preferenceCard}>
+            <View style={styles.preferenceLeft}>
+              <MaterialIcons name="schedule" size={24} color={ArchivesTheme.colors.persianOrange} />
+              <Text style={styles.preferenceLabel}>Daily goal</Text>
+            </View>
+            <View style={styles.preferenceRight}>
+              <Text style={styles.preferenceValue}>{dailyGoal} mins</Text>
+              <MaterialIcons name="lock" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.3} />
+            </View>
+          </View>
+
+          {/* Reminders - Editable */}
+          <TouchableOpacity
+            style={styles.preferenceCard}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              openTimePicker()
+            }}
+          >
+            <View style={styles.preferenceLeft}>
+              <MaterialIcons name="notifications" size={24} color={ArchivesTheme.colors.persianOrange} />
+              <Text style={styles.preferenceLabel}>Reminders</Text>
+            </View>
+            <View style={styles.preferenceRight}>
+              <Text style={styles.preferenceValue}>{reminderTime}</Text>
+              <MaterialIcons name="chevron-right" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.3} />
+            </View>
+          </TouchableOpacity>
+        </View>
 
         {/* Sign Out Button */}
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
@@ -545,22 +662,59 @@ export default function ProfileTab() {
             {/* Avatar Grid */}
             <ScrollView style={styles.avatarGrid} showsVerticalScrollIndicator={false}>
               <View style={styles.avatarGridContainer}>
-                {HISTORICAL_AVATARS.map((avatar, index) => (
-                  <TouchableOpacity
-                    key={avatar.id}
-                    style={styles.avatarGridItem}
-                    onPress={() => handleAvatarSelection(avatar)}
-                  >
-                    <View style={[
-                      styles.avatarGridImageContainer,
-                      avatar.id === selectedAvatar.id && styles.avatarGridSelected
-                    ]}>
-                      <Image source={avatar.image} style={styles.avatarGridImage} />
-                    </View>
-                    <Text style={styles.avatarGridName}>{avatar.name}</Text>
-                    <Text style={styles.avatarGridTitle}>{avatar.title}</Text>
-                  </TouchableOpacity>
-                ))}
+                {avatarTypes.map((avatar) => {
+                  const isLocked = !isAvatarUnlocked(avatar.id)
+
+                  return (
+                    <TouchableOpacity
+                      key={avatar.id}
+                      style={styles.avatarGridItem}
+                      onPress={() => {
+                        if (!isLocked) {
+                          handleAvatarSelection(avatar)
+                        } else {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+                        }
+                      }}
+                      disabled={isLocked}
+                    >
+                      {/* Unlock message above avatar */}
+                      {isLocked && (
+                        <Text style={styles.unlockMessage}>{avatar.unlock_message}</Text>
+                      )}
+
+                      <View style={[
+                        styles.avatarGridImageContainer,
+                        avatar.id === currentAvatar?.id && styles.avatarGridSelected,
+                        isLocked && styles.avatarGridLocked
+                      ]}>
+                        <Image
+                          source={getAvatarImage(avatar.image_url)}
+                          style={[
+                            styles.avatarGridImage,
+                            isLocked && styles.avatarGridImageLocked
+                          ]}
+                        />
+
+                        {/* Lock icon overlay */}
+                        {isLocked && (
+                          <View style={styles.lockIconContainer}>
+                            <Ionicons name="lock-closed" size={32} color={ArchivesTheme.colors.mutedNavy} />
+                          </View>
+                        )}
+                      </View>
+
+                      <Text style={[
+                        styles.avatarGridName,
+                        isLocked && styles.avatarGridNameLocked
+                      ]}>{avatar.name}</Text>
+                      <Text style={[
+                        styles.avatarGridTitle,
+                        isLocked && styles.avatarGridTitleLocked
+                      ]}>{avatar.role}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
               </View>
             </ScrollView>
           </View>
@@ -819,6 +973,151 @@ export default function ProfileTab() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Custom Time Picker Modal */}
+      <Modal
+        visible={showTimePicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleTimePickerCancel}
+      >
+        <SafeAreaView style={styles.modalSafeArea}>
+          <View style={styles.modalContainer}>
+            {/* Time Picker Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleTimePickerCancel}
+              >
+                <Text style={styles.timePickerHeaderButton}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Set Reminder Time</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleTimePickerSave}
+              >
+                <Text style={[styles.timePickerHeaderButton, styles.timePickerSaveButton]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Time Picker Content */}
+            <View style={styles.timePickerContainer}>
+              <View style={styles.timePickerRow}>
+                {/* Hour Picker */}
+                <View style={styles.timePickerColumn}>
+                  <ScrollView
+                    style={styles.timePickerScroll}
+                    contentContainerStyle={styles.timePickerScrollContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((hour) => (
+                      <TouchableOpacity
+                        key={hour}
+                        style={[
+                          styles.timePickerItem,
+                          tempHour === hour && styles.timePickerItemSelected
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync()
+                          setTempHour(hour)
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.timePickerItemText,
+                            tempHour === hour && styles.timePickerItemTextSelected
+                          ]}
+                        >
+                          {hour.toString().padStart(2, '0')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Separator */}
+                <Text style={styles.timePickerSeparator}>:</Text>
+
+                {/* Minute Picker */}
+                <View style={styles.timePickerColumn}>
+                  <ScrollView
+                    style={styles.timePickerScroll}
+                    contentContainerStyle={styles.timePickerScrollContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {Array.from({ length: 60 }, (_, i) => i).map((minute) => (
+                      <TouchableOpacity
+                        key={minute}
+                        style={[
+                          styles.timePickerItem,
+                          tempMinute === minute && styles.timePickerItemSelected
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync()
+                          setTempMinute(minute)
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.timePickerItemText,
+                            tempMinute === minute && styles.timePickerItemTextSelected
+                          ]}
+                        >
+                          {minute.toString().padStart(2, '0')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Period Picker (AM/PM) */}
+                <View style={styles.timePickerColumn}>
+                  <View style={styles.timePickerPeriodContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.timePickerItem,
+                        tempPeriod === 'AM' && styles.timePickerItemSelected
+                      ]}
+                      onPress={() => {
+                        Haptics.selectionAsync()
+                        setTempPeriod('AM')
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.timePickerItemText,
+                          tempPeriod === 'AM' && styles.timePickerItemTextSelected
+                        ]}
+                      >
+                        AM
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.timePickerItem,
+                        tempPeriod === 'PM' && styles.timePickerItemSelected
+                      ]}
+                      onPress={() => {
+                        Haptics.selectionAsync()
+                        setTempPeriod('PM')
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.timePickerItemText,
+                          tempPeriod === 'PM' && styles.timePickerItemTextSelected
+                        ]}
+                      >
+                        PM
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -913,6 +1212,29 @@ const styles = StyleSheet.create({
     marginTop: -5, // Move name slightly up
     marginBottom: 4,
   },
+  userName: {
+    fontFamily: 'Cormorant-Bold',
+    fontSize: 28,
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  avatarSubtitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    color: ArchivesTheme.colors.persianOrange,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  joinedText: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: ArchivesTheme.colors.mutedNavy,
+    opacity: 0.6,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
   avatarTitle: {
     fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
     fontSize: 14,
@@ -953,6 +1275,9 @@ const styles = StyleSheet.create({
     height: 140,
     resizeMode: 'contain',
     marginBottom: 8,
+  },
+  badgeImageGrey: {
+    opacity: 0.5,
   },
   badgeLabel: {
     fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 11))
@@ -1022,6 +1347,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 30,
   },
+  progressBarContainer: {
+    marginBottom: 16,
+  },
+  progressBarBackground: {
+    height: 8,
+    backgroundColor: ArchivesTheme.colors.mutedNavy + '20',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    borderRadius: 4,
+  },
+  progressBarText: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: ArchivesTheme.colors.mutedNavy,
+    opacity: 0.7,
+    textAlign: 'center',
+  },
   achievementsScroll: {
     marginHorizontal: -20,
     paddingHorizontal: 20,
@@ -1036,6 +1383,48 @@ const styles = StyleSheet.create({
   },
   
   
+  // Learning Preferences Section
+  preferencesSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+  },
+  preferenceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: 'rgba(0, 0, 0, 0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  preferenceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  preferenceLabel: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '500',
+    color: ArchivesTheme.colors.mutedNavy,
+  },
+  preferenceRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  preferenceValue: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.persianOrange,
+  },
+
   // Sign Out Button
   signOutButton: {
     marginHorizontal: 20,
@@ -1124,11 +1513,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     overflow: 'hidden',
+    backgroundColor: 'transparent',
   },
   avatarGridSelected: {
-    borderWidth: 3,
-    borderColor: ArchivesTheme.colors.persianOrange,
-    shadowColor: ArchivesTheme.colors.persianOrange,
+    // Removed border - only one green circle indicator needed
+    shadowColor: ArchivesTheme.colors.mossGreen,
     shadowOpacity: 0.3,
   },
   avatarGridImage: {
@@ -1149,6 +1538,38 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.persianOrange,
     textAlign: 'center',
     lineHeight: 16,
+  },
+  unlockMessage: {
+    fontFamily: 'DM Sans',
+    fontSize: 11,
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: 'center',
+    marginBottom: 8,
+    opacity: 0.7,
+    fontStyle: 'italic',
+  },
+  lockIconContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -16,
+    marginLeft: -16,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarGridLocked: {
+    opacity: 0.5,
+  },
+  avatarGridImageLocked: {
+    opacity: 0.4,
+  },
+  avatarGridNameLocked: {
+    opacity: 0.5,
+  },
+  avatarGridTitleLocked: {
+    opacity: 0.5,
   },
 
   // Settings Modal Styles
@@ -1301,5 +1722,73 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.persianOrange,
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+
+  // Custom Time Picker Styles
+  timePickerHeaderButton: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.mutedNavy,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  timePickerSaveButton: {
+    color: ArchivesTheme.colors.persianOrange,
+    fontWeight: '700',
+  },
+  timePickerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  timePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  timePickerColumn: {
+    height: 240,
+  },
+  timePickerScroll: {
+    height: 240,
+    width: 80,
+  },
+  timePickerScrollContent: {
+    paddingVertical: 96, // Center the selected item
+  },
+  timePickerItem: {
+    height: 48,
+    width: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    marginVertical: 4,
+  },
+  timePickerItemSelected: {
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+  },
+  timePickerItemText: {
+    fontFamily: 'DM Sans',
+    fontSize: 24,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.mutedNavy,
+  },
+  timePickerItemTextSelected: {
+    color: 'white',
+  },
+  timePickerSeparator: {
+    fontFamily: 'DM Sans',
+    fontSize: 32,
+    fontWeight: '700',
+    color: ArchivesTheme.colors.mutedNavy,
+    marginHorizontal: 8,
+  },
+  timePickerPeriodContainer: {
+    height: 240,
+    justifyContent: 'center',
+    gap: 8,
   },
 })

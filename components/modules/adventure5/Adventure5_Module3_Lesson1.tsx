@@ -3,6 +3,7 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useProgress } from "@/context/ProgressContext";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
@@ -69,7 +70,7 @@ export default function Adventure5_Module3_Lesson1({
   const [wasPlaying, setWasPlaying] = useState(false);
 
   // Reading card states
-  const [hasFinishedReading, setHasFinishedReading] = useState(false);
+  const [hasFinishedReading, setHasFinishedReading] = useState(true);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [touchStart, setTouchStart] = useState<{
@@ -283,11 +284,8 @@ export default function Adventure5_Module3_Lesson1({
   };
 
   const handleContinuePress = () => {
-    if (!hasFinishedReading) {
-      console.log("🔄 Continue button pressed but reading not finished");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return;
-    }
+    // Light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Track lesson completion in analytics
     trackLessonComplete();

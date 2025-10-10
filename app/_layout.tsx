@@ -17,11 +17,17 @@ import { PostHogProvider } from 'posthog-react-native';
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
+import { BadgeProvider } from "@/context/BadgeContext";
+import { AvatarProvider, useAvatars } from "@/context/AvatarContext";
+import { PreferencesProvider } from "@/context/PreferencesContext";
 import Purchases from 'react-native-purchases';
 import * as Notifications from 'expo-notifications';
 import { analyticsService } from "@/services/AnalyticsService";
 import { usePostHog } from 'posthog-react-native';
 import { AppState } from 'react-native';
+import AvatarUnlockAnimation from "@/components/AvatarUnlockAnimation";
+import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
+import ConfettiEffect from "@/components/ConfettiEffect";
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -104,6 +110,84 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   }, []);
 
   return <>{children}</>;
+}
+
+// Avatar unlock animation wrapper that must be inside AvatarProvider
+function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
+  const { newlyUnlockedAvatar, clearNewlyUnlockedAvatar } = useAvatars();
+  const [showNotification, setShowNotification] = React.useState(false);
+  const [notificationAvatar, setNotificationAvatar] = React.useState<{ image: any; name: string } | null>(null);
+  const [showConfetti, setShowConfetti] = React.useState(false);
+
+  // Helper to get avatar image - static mapping for require()
+  const AVATAR_IMAGE_MAP: Record<string, any> = {
+    'avatars/Al-Khwarizmi.png': require('@/assets/images/avatars/Al-Khwarizmi.png'),
+    'avatars/Fatima-al-Fihri.png': require('@/assets/images/avatars/Fatima-al-Fihri.png'),
+    'avatars/ibn-sina-avicenna.png': require('@/assets/images/avatars/Ibn-Sina-Avicenna.png'),
+    'avatars/Ziryab.png': require('@/assets/images/avatars/Ziryab.png'),
+    'avatars/Al-Razi.png': require('@/assets/images/avatars/Al-Razi.png'),
+    'avatars/Ibn-Battuta.png': require('@/assets/images/avatars/Ibn-Battuta.png'),
+    'avatars/Lubna-of-Cordoba.png': require('@/assets/images/avatars/Lubna-of-Cordoba.png'),
+    'avatars/Mariam-al-Asturlabi.png': require('@/assets/images/avatars/Mariam-al-Asturlabi.png'),
+    'avatars/Zaynab-al-Shahda.png': require('@/assets/images/avatars/Zaynab-al-Shahda.png'),
+  };
+
+  const getAvatarImage = (imageUrl: string) => {
+    return AVATAR_IMAGE_MAP[imageUrl] || AVATAR_IMAGE_MAP['avatars/Al-Khwarizmi.png'];
+  };
+
+  // Trigger confetti when avatar is unlocked
+  React.useEffect(() => {
+    if (newlyUnlockedAvatar) {
+      setShowConfetti(true);
+    }
+  }, [newlyUnlockedAvatar]);
+
+  // When animation completes, show notification
+  const handleAnimationComplete = () => {
+    if (newlyUnlockedAvatar) {
+      setNotificationAvatar({
+        image: getAvatarImage(newlyUnlockedAvatar.image_url),
+        name: newlyUnlockedAvatar.name,
+      });
+      setShowNotification(true);
+    }
+    clearNewlyUnlockedAvatar();
+  };
+
+  // When notification completes, clear everything
+  const handleNotificationComplete = () => {
+    setShowNotification(false);
+    setNotificationAvatar(null);
+  };
+
+  // When confetti completes
+  const handleConfettiComplete = () => {
+    setShowConfetti(false);
+  };
+
+  return (
+    <>
+      {children}
+      <ConfettiEffect visible={showConfetti} onComplete={handleConfettiComplete} />
+      {newlyUnlockedAvatar && (
+        <AvatarUnlockAnimation
+          visible={true}
+          avatarImage={getAvatarImage(newlyUnlockedAvatar.image_url)}
+          avatarName={newlyUnlockedAvatar.name}
+          onComplete={handleAnimationComplete}
+        />
+      )}
+      {showNotification && notificationAvatar && (
+        <AvatarUnlockNotification
+          visible={true}
+          avatarImage={notificationAvatar.image}
+          avatarName={notificationAvatar.name}
+          onComplete={handleNotificationComplete}
+        />
+      )}
+    </>
+  );
 }
 
 export default function RootLayout() {
@@ -215,25 +299,33 @@ export default function RootLayout() {
         <AnalyticsWrapper>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
               <BackgroundSyncProvider>
-                <ProgressProvider>
-                  <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
-                <Stack>
-                  <Stack.Screen name="onboarding-video" options={{ headerShown: false, title: '' }} />
-                  <Stack.Screen name="onboarding-video-2" options={{ headerShown: false, title: '' }} />
-                  <Stack.Screen name="onboarding-welcome" options={{ headerShown: false, title: '' }} />
-                  <Stack.Screen name="onboarding-question-1" options={{ headerShown: false }} />
-                  <Stack.Screen name="onboarding-question-2" options={{ headerShown: false }} />
-                  <Stack.Screen name="onboarding-question-3" options={{ headerShown: false }} />
-                  <Stack.Screen name="onboarding-question-4" options={{ headerShown: false }} />
-                  <Stack.Screen name="onboarding-results" options={{ headerShown: false }} />
-                  <Stack.Screen name="era-selection" options={{ headerShown: false, title: '' }} />
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                  <Stack.Screen name="+not-found" />
-                </Stack>
-                <StatusBar style="auto" />
-                  </ThemeProvider>
-                </ProgressProvider>
+                <BadgeProvider>
+                  <AvatarProvider>
+                    <ProgressProvider>
+                      <PreferencesProvider>
+                        <AvatarAnimationWrapper>
+                          <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                            <Stack>
+                              <Stack.Screen name="onboarding-video" options={{ headerShown: false, title: '' }} />
+                              <Stack.Screen name="onboarding-video-2" options={{ headerShown: false, title: '' }} />
+                              <Stack.Screen name="onboarding-welcome" options={{ headerShown: false, title: '' }} />
+                              <Stack.Screen name="onboarding-question-1" options={{ headerShown: false }} />
+                              <Stack.Screen name="onboarding-question-2" options={{ headerShown: false }} />
+                              <Stack.Screen name="onboarding-question-3" options={{ headerShown: false }} />
+                              <Stack.Screen name="onboarding-question-4" options={{ headerShown: false }} />
+                              <Stack.Screen name="onboarding-results" options={{ headerShown: false }} />
+                              <Stack.Screen name="era-selection" options={{ headerShown: false, title: '' }} />
+                              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                              <Stack.Screen name="+not-found" />
+                            </Stack>
+                            <StatusBar style="auto" />
+                          </ThemeProvider>
+                        </AvatarAnimationWrapper>
+                      </PreferencesProvider>
+                    </ProgressProvider>
+                  </AvatarProvider>
+                </BadgeProvider>
               </BackgroundSyncProvider>
           </ClerkProvider>
         </AnalyticsWrapper>

@@ -62,7 +62,7 @@ export default function Adventure1_Module2_Lesson2({
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [wasPlaying, setWasPlaying] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
-  const [hasFinishedReading, setHasFinishedReading] = useState(false);
+  const [hasFinishedReading, setHasFinishedReading] = useState(true);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -160,13 +160,10 @@ export default function Adventure1_Module2_Lesson2({
 
   // Removed handleTogglePlayback - now handled directly by LessonPlayer
 
-  // Continue button handler - only works if reading is finished
+  // Continue button handler
   const handleContinue = () => {
-    if (!hasFinishedReading) {
-      console.log("🔄 Continue button pressed but reading not finished");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return;
-    }
+    // Light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Track lesson completion in analytics
     trackLessonComplete();
@@ -271,10 +268,9 @@ export default function Adventure1_Module2_Lesson2({
     // Activate continue button when user expands card (shows engagement with content)
     if (!hasFinishedReading) {
       setHasFinishedReading(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       console.log("📖 Reading card expanded - Continue button now enabled");
     }
-    
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: SCREEN_HEIGHT * 0.85,

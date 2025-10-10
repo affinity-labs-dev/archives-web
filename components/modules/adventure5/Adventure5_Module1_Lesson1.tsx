@@ -350,6 +350,9 @@ export default function Adventure5_Module1_Lesson1({
   };
 
   const handleContinuePress = () => {
+    // Light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     if (backgroundMusic.isPlaying) {
       console.log("🎵 Stopping background music before continue");
       backgroundMusic.stop();
@@ -644,27 +647,31 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
 
-  // PAGE INDICATORS - Elegant dots above reading card
+  // PAGE INDICATORS - Figma design with dark pill container
   pageIndicatorsOnly: {
     position: "absolute",
-    bottom: UI_CONSTANTS.pageIndicatorBottom, // 180px from bottom (above reading card)
-    left: 0,
-    right: 0,
+    bottom: 180, // Position above the reading card
+    alignSelf: "center", // Center horizontally, auto-fit width to content
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 10, // Ensure visibility over other elements
+    zIndex: 10,
+    // Dark pill container background - width auto-fits to content
+    backgroundColor: "rgba(0, 0, 0, 0.8)", // 80% black opacity
+    borderRadius: 15, // Smooth rounded pill shape
+    paddingHorizontal: 5, // Left & right padding
+    paddingVertical: 6, // Top & bottom padding
   },
   pageIndicator: {
-    width: 8, // 8px inactive dots
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.6)", // 60% opacity for inactive
-    marginHorizontal: 4, // 8px spacing between dots
+    width: 9, // Dot size
+    height: 9,
+    borderRadius: 4.5, // Perfect circle (half of width)
+    backgroundColor: "rgb(147, 147, 147)", // Gray color
+    marginHorizontal: 4.5, // Spacing between dots
   },
   pageIndicatorActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.9)", // 90% opacity for active
-    transform: [{ scale: 1.2 }], // 20% scale increase for active state
+    backgroundColor: "rgb(255, 255, 255)", // Pure white
+    // No scale transform - clean, simple design
   },
 
   // NAVIGATION BUTTONS - Floating controls

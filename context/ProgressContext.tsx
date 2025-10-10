@@ -8,6 +8,8 @@ import * as Haptics from 'expo-haptics'
 import { useProgressSync } from '@/hooks/useSyncIntegration'
 import { useUser } from '@clerk/clerk-expo'
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
+import { useBadges } from '@/context/BadgeContext'
+import { useAvatars } from '@/context/AvatarContext'
 
 // Web-compatible storage wrapper to prevent SSR issues
 class WebCompatibleStorage {
@@ -215,6 +217,12 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
   // CRITICAL: Wait for background sync to complete before loading data on login
   const { isInitialized: syncInitialized } = useBackgroundSync()
+
+  // Badge system integration
+  const { calculateTotalXP, checkAndAwardBadges } = useBadges()
+
+  // Avatar system integration
+  const { avatarTypes, userAvatars, giveAvatar } = useAvatars()
 
   // Helper function to parse ROI module IDs (ROI_Adv1_M1 format)
   const parseRoiModuleId = (moduleId: string): { adventureId: number; moduleId: number } | null => {
@@ -718,7 +726,20 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
             updatedModule.isCompleted = true
             updatedModule.lessonsCompleted = ['lesson1', 'lesson2'] // Ensure lessons are marked complete
             console.log(`🎉 Module ${moduleId} completed!`)
+
+            // Haptic feedback for module completion
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+
+            // Award random locked avatar on module completion
+            const lockedAvatars = avatarTypes.filter(avatar =>
+              !userAvatars.some(ua => ua.avatar_id === avatar.id)
+            )
+
+            if (lockedAvatars.length > 0) {
+              const randomAvatar = lockedAvatars[Math.floor(Math.random() * lockedAvatars.length)]
+              console.log(`🎁 Awarding random avatar: ${randomAvatar.name}`)
+              await giveAvatar(randomAvatar.id)
+            }
           }
           break
 
@@ -772,8 +793,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
             )
 
             // Celebration haptic for adventure unlock
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
-            setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 100)
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
 
             // Auto-create Module 1 for the newly unlocked adventure
             const nextAdventureModule1: ModuleProgress = {
@@ -810,6 +830,35 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       setModuleProgress(updatedModules)
       await saveProgressData(updatedAdventures, updatedModules)
 
+      // Check and award badges after quiz completion
+      if (action.type === 'QUIZ_COMPLETED' || action.type === 'QUIZ_RETAKEN') {
+        // Calculate total XP from all modules (each correct answer = 10 XP)
+        let totalXP = 0;
+        updatedModules.forEach(m => {
+          if (m.quizScore) {
+            totalXP += m.quizScore * 10;
+          }
+        });
+
+        // Build minimal user data for monthly badge checking
+        const userData: any = { data: {} };
+        updatedModules.forEach(m => {
+          const advKey = `adventure${m.adventureId}`;
+          if (!userData.data[advKey]) {
+            userData.data[advKey] = { modules: {} };
+          }
+          userData.data[advKey].modules[`module${m.moduleId}`] = {
+            isCompleted: m.isCompleted,
+            quizCompleted: m.quizCompleted,
+            lessonsCompleted: m.lessonsCompleted,
+            quizScore: m.quizScore,
+            unlockedAt: m.unlockedAt
+          };
+        });
+
+        await checkAndAwardBadges(userData, totalXP);
+      }
+
       // Trigger cloud sync
       syncModule()
       syncAdventure()
@@ -820,7 +869,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       console.error('❌ Atomic progress update failed:', error)
       throw error
     }
-  }, [adventureProgress, moduleProgress, getModuleProgress, getAdventureProgress, syncModule, syncAdventure])
+  }, [adventureProgress, moduleProgress, getModuleProgress, getAdventureProgress, syncModule, syncAdventure, checkAndAwardBadges])
 
   // ROI ATOMIC PROGRESS UPDATE FUNCTION - PERFORMANCE: Memoized with useCallback
   const roiAtomicProgressUpdate = useCallback(async (
@@ -872,7 +921,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
           if (action.quizScore >= 2) {
             updatedModule.isCompleted = true
             console.log(`🎉 ROI Module ${moduleId} completed with score: ${action.quizScore}/5`)
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
           } else {
             updatedModule.isCompleted = false
             console.log(`📝 ROI Module ${moduleId} quiz completed but not passed: ${action.quizScore}/5`)
@@ -932,8 +981,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
             )
 
             // Celebration haptic for ROI adventure unlock
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
-            setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 100)
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
 
             // Auto-create Module 1 for the newly unlocked adventure
             const nextAdventureModule1: ModuleProgress = {

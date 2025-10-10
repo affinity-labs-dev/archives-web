@@ -378,6 +378,9 @@ export default function ROIERA2Adv1_Module1_Lesson2({
 
   // Lesson Completion Logic
   const handleContinue = async () => {
+    // Light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     // Mark lesson as completed in progress context (ROI system: ROI_Adv1_M1, Lesson 2)
     await roiAtomicProgressUpdate("ROI_Adv1_M1", {
       type: "LESSON_COMPLETED",
@@ -817,28 +820,31 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
 
-  // Page indicators - bottom center overlay
+  // Page indicators - Figma design with dark pill container
   pageIndicatorsOnly: {
     position: "absolute",
-    bottom: 180, // Just above reading card
-    left: 0,
-    right: 0,
+    bottom: 180, // Position above the reading card
+    alignSelf: "center", // Center horizontally, auto-fit width to content
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 8,
-    gap: 8,
+    zIndex: 10,
+    // Dark pill container background - width auto-fits to content
+    backgroundColor: "rgba(0, 0, 0, 0.8)", // 80% black opacity
+    borderRadius: 15, // Smooth rounded pill shape
+    paddingHorizontal: 5, // Left & right padding
+    paddingVertical: 6, // Top & bottom padding
   },
   pageIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.6)",
-    marginHorizontal: 4,
+    width: 9, // Dot size
+    height: 9,
+    borderRadius: 4.5, // Perfect circle (half of width)
+    backgroundColor: "rgb(147, 147, 147)", // Gray color
+    marginHorizontal: 4.5, // Spacing between dots
   },
   pageIndicatorActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    transform: [{ scale: 1.2 }],
+    backgroundColor: "rgb(255, 255, 255)", // Pure white
+    // No scale transform - clean, simple design
   },
 
   // Reading card - bottom overlay
