@@ -69,7 +69,7 @@ export default function Adventure5_Module3_Lesson1({
   const [wasPlaying, setWasPlaying] = useState(false);
 
   // Reading card states
-  const [hasFinishedReading, setHasFinishedReading] = useState(false);
+  const [hasFinishedReading, setHasFinishedReading] = useState(true);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [touchStart, setTouchStart] = useState<{
@@ -283,11 +283,8 @@ export default function Adventure5_Module3_Lesson1({
   };
 
   const handleContinuePress = () => {
-    if (!hasFinishedReading) {
-      console.log("🔄 Continue button pressed but reading not finished");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return;
-    }
+    // Success haptic feedback
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     // Track lesson completion in analytics
     trackLessonComplete();

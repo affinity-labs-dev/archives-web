@@ -22,11 +22,12 @@ eas build --platform ios --profile development  # Create development build
 ## Critical Rules
 
 **MUST follow these rules - no exceptions:**
-1. **Run `npm run lint` before EVERY commit** - ESLint flat config
-2. **NEVER access AsyncStorage directly** - Use `atomicProgressUpdate()` from ProgressContext
-3. **ALWAYS use ArchivesTheme constants** - Never hardcode colors/spacing
-4. **Component naming**: `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
-5. **Clean commits**: Run `rm -f *.ipa *.apk build-*.ipa` before committing
+1. **Check for syntax errors before commit** - Run `npm run lint` to check for errors. If errors found, REPORT them to user and ASK for permission before fixing. DO NOT automatically fix code - only inform user of issues.
+2. **Git commit attribution** - NEVER include Claude attribution in commits. User wants commits to show only their GitHub account. Remove "Co-Authored-By: Claude" and "Generated with Claude Code" lines from ALL commit messages.
+3. **NEVER access AsyncStorage directly** - Use `atomicProgressUpdate()` from ProgressContext
+4. **ALWAYS use ArchivesTheme constants** - Never hardcode colors/spacing
+5. **Component naming**: `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
+6. **Clean commits**: Run `rm -f *.ipa *.apk build-*.ipa` before committing
 
 ## Architecture Overview
 
@@ -303,9 +304,10 @@ iOS requires ATT permission before analytics initialization - PostHog wrapped co
 ## Testing Checklist
 
 Before submitting code:
-- [ ] Run `npm run lint`
+- [ ] Run `npm run lint` and report any errors to user (don't auto-fix)
 - [ ] Test on iOS simulator
 - [ ] Test critical features on physical device (if applicable)
 - [ ] Remove build artifacts (`rm -f *.ipa *.apk`)
 - [ ] Verify progress persists after app restart
 - [ ] Check AsyncStorage usage (must use ProgressContext)
+- [ ] Ensure commit messages don't include Claude attribution

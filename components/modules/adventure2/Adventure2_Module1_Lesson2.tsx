@@ -62,7 +62,7 @@ export default function Adventure2_Module1_Lesson2({
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [wasPlaying, setWasPlaying] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
-  const [hasFinishedReading, setHasFinishedReading] = useState(false);
+  const [hasFinishedReading, setHasFinishedReading] = useState(true);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -160,13 +160,10 @@ export default function Adventure2_Module1_Lesson2({
 
   // Removed handleTogglePlayback - now handled directly by LessonPlayer
 
-  // Continue button handler - only works if reading is finished
+  // Continue button handler
   const handleContinue = () => {
-    if (!hasFinishedReading) {
-      console.log("🔄 Continue button pressed but reading not finished");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return;
-    }
+    // Success haptic feedback
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     // Track lesson completion in analytics
     trackLessonComplete();
