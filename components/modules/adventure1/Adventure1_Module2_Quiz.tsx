@@ -116,7 +116,8 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
-    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+
     // Store the user's answer - All questions are MCQ now
     const newUserAnswers = [...userAnswers]
     newUserAnswers[currentQuestionIndex] = selectedMCQOption
@@ -125,8 +126,11 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
     // Check if answer is correct and update score
     const isCorrect = checkAnswer(currentQuestionIndex, newUserAnswers[currentQuestionIndex])
     if (isCorrect) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       setCorrectAnswers(prev => prev + 1)
       setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
     }
 
     // Track quiz question answer in analytics
@@ -157,6 +161,7 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
 
   // Handle explanation continue - EXACT SwiftUI: onContinue in ExplanationView
   const handleExplanationContinue = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     if (currentQuestionIndex < 4) {
       // Move to next question (0-4 for 5 questions)
       setCurrentQuestionIndex(prev => prev + 1)
@@ -165,6 +170,7 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
     } else {
       // Quiz completed - check minimum score requirement (need at least 1 out of 5)
       if (correctAnswers >= 1) {
+        celebrateQuizCompletion(correctAnswers)
         setShowResults(true)
         setShowExplanation(false)
       } else {
@@ -172,6 +178,21 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
         setShowMinimumScoreAlert(true)
         setShowExplanation(false)
       }
+    }
+  }
+
+  // Quiz completion celebration haptic
+  const celebrateQuizCompletion = (finalScore: number) => {
+    if (finalScore === 5) {
+      // Perfect score - escalating celebration
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 100)
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200)
+      setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 300)
+    } else if (finalScore >= 2) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     }
   }
 
@@ -253,7 +274,10 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
             letter={String.fromCharCode(65 + index)} // A, B, C, D
             text={option}
             isSelected={selectedMCQOption === index}
-            onPress={() => setSelectedMCQOption(index)}
+            onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedMCQOption(index)
+            }}
             forceCenter={true}
           />
         ))}

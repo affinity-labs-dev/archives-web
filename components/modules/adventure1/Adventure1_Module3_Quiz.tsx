@@ -127,6 +127,7 @@ export default function Adventure1_Module3_Quiz({
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     // Store the user's answer based on question type
     const newUserAnswers = [...userAnswers];
     const currentQuestion = quizQuestions[currentQuestionIndex];
@@ -145,6 +146,7 @@ export default function Adventure1_Module3_Quiz({
       newUserAnswers[currentQuestionIndex]
     );
     if (isCorrect) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       setCorrectAnswers((prev) => prev + 1);
       setTotalPoints(
         (prev) => prev + quizQuestions[currentQuestionIndex].points
@@ -189,6 +191,7 @@ export default function Adventure1_Module3_Quiz({
 
   // Handle explanation continue - EXACT SwiftUI: onContinue in ExplanationView
   const handleExplanationContinue = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     if (currentQuestionIndex < 4) {
       // Move to next question (0-4 for 5 questions)
       setCurrentQuestionIndex((prev) => prev + 1);
@@ -197,6 +200,7 @@ export default function Adventure1_Module3_Quiz({
     } else {
       // Quiz completed - check minimum score requirement (need at least 1 out of 5)
       if (correctAnswers >= 1) {
+        celebrateQuizCompletion(correctAnswers)
         setShowResults(true);
         setShowExplanation(false);
       } else {
@@ -269,7 +273,10 @@ export default function Adventure1_Module3_Quiz({
               letter={String.fromCharCode(65 + index)} // A, B, C, D
               text={option}
               isSelected={selectedMCQOption === index}
-              onPress={() => setSelectedMCQOption(index)}
+              onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedMCQOption(index)
+            }}
               forceCenter={true} // All Module 3 options are center-aligned
             />
           ))}
@@ -282,14 +289,20 @@ export default function Adventure1_Module3_Quiz({
           <TrueFalseOptionButton
             isTrue={true}
             isSelected={selectedTrueFalse === 0}
-            onPress={() => setSelectedTrueFalse(0)}
+            onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedTrueFalse(0)
+            }}
           />
 
           {/* False option */}
           <TrueFalseOptionButton
             isTrue={false}
             isSelected={selectedTrueFalse === 1}
-            onPress={() => setSelectedTrueFalse(1)}
+            onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedTrueFalse(1)
+            }}
           />
         </View>
       );

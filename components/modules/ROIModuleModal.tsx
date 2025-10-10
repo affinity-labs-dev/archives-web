@@ -12,6 +12,7 @@ import {
 } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { useProgress } from '@/context/ProgressContext'
+import * as Haptics from 'expo-haptics'
 
 // Import ROI lesson and quiz components
 import ROIERA2Adv1_Module1_Lesson1 from './roiera2/ROIERA2Adv1_Module1_Lesson1'
@@ -35,6 +36,7 @@ export default function ROIModuleModal({ isVisible, moduleId, onDismiss }: ROIMo
   useEffect(() => {
     if (isVisible && moduleId) {
       setCurrentStep('lesson1')
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     }
   }, [isVisible, moduleId])
 
@@ -78,6 +80,7 @@ export default function ROIModuleModal({ isVisible, moduleId, onDismiss }: ROIMo
 
   // Modal dismiss handler
   const handleModalDismiss = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     setCurrentStep('lesson1') // Reset for next time
     onDismiss()
   }

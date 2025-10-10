@@ -312,7 +312,10 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
             letter={String.fromCharCode(65 + index)} // A, B, C, D
             text={option}
             isSelected={selectedMCQOption === index}
-            onPress={() => setSelectedMCQOption(index)}
+            onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedMCQOption(index)
+            }}
             forceCenter={currentQuestionIndex === 2 || currentQuestionIndex === 3} // Questions 3 & 4 - True/False center align
           />
         ))}
@@ -327,12 +330,18 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
         <TrueFalseOptionButton
           isTrue={true}
           isSelected={selectedTrueFalse === 0} // True = 0 for these questions
-          onPress={() => setSelectedTrueFalse(0)}
+          onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedTrueFalse(0)
+            }}
         />
         <TrueFalseOptionButton
           isTrue={false}
           isSelected={selectedTrueFalse === 1} // False = 1 for these questions
-          onPress={() => setSelectedTrueFalse(1)}
+          onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedTrueFalse(1)
+            }}
         />
       </View>
     )
@@ -354,6 +363,7 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
 
   // Handle answer submission
   const handleSubmit = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     let selectedAnswer: number | null = null
 
     if (currentQuestion.type === 'mcq') {
@@ -382,6 +392,7 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
 
   // Handle explanation continue
   const handleExplanationContinue = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     setShowExplanation(false)
 
     // Reset selection states

@@ -16,6 +16,7 @@ import {
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { analyticsService } from "@/services/AnalyticsService";
 import { useFocusEffect } from "@react-navigation/native";
+import * as Haptics from 'expo-haptics';
 
 export default function SubscribeContent() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">(
@@ -161,6 +162,7 @@ export default function SubscribeContent() {
   const handleSubscribe = async () => {
     try {
       console.log('🎯 Subscribe button pressed for plan:', selectedPlan);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
 
       // Check if we have the required packages
       const packageToUse = selectedPlan === 'monthly' ? monthlyPackage : yearlyPackage;
@@ -174,6 +176,7 @@ export default function SubscribeContent() {
           offeringsKeys: offerings ? Object.keys(offerings.all || {}) : []
         });
 
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
         Alert.alert(
           "Product Not Available",
           `The ${selectedPlan} subscription is currently not available. Please check console logs for details.`,
@@ -187,9 +190,15 @@ export default function SubscribeContent() {
 
       // Success is handled automatically by the useRevenueCat hook
       // The UI will update automatically when subscription becomes active
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
 
     } catch (error: any) {
       console.error('❌ Subscribe error:', error);
+
+      // Only play error haptic if not cancelled by user
+      if (error && !error.userCancelled) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      }
 
       // Error handling is done in the hook, but we can show additional UI feedback if needed
       if (error && !error.userCancelled) {
@@ -283,7 +292,10 @@ export default function SubscribeContent() {
               styles.pricingOption,
               selectedPlan === "monthly" && styles.pricingOptionSelected,
             ]}
-            onPress={() => setSelectedPlan("monthly")}
+            onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedPlan("monthly")
+            }}
           >
             <View style={styles.priceDisplayRow}>
               <Text style={styles.priceMain}>{monthlyPricing.main}</Text>
@@ -311,7 +323,10 @@ export default function SubscribeContent() {
               styles.pricingOption,
               selectedPlan === "yearly" && styles.pricingOptionSelected,
             ]}
-            onPress={() => setSelectedPlan("yearly")}
+            onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedPlan("yearly")
+            }}
           >
             <View style={styles.priceDisplayRow}>
               <Text style={styles.priceMain}>{yearlyPricing.main}</Text>
@@ -430,7 +445,15 @@ export default function SubscribeContent() {
 
         {/* Restore Purchases Link */}
         <TouchableOpacity
-          onPress={restorePurchases}
+          onPress={async () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+            try {
+              await restorePurchases()
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+            } catch (error) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+            }
+          }}
           disabled={isLoading || isPurchasing}
           style={styles.restoreButton}
         >

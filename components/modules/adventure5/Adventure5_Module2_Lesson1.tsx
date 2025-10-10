@@ -24,6 +24,7 @@ import {
   State,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 import LessonPlayer from "../LessonPlayer";
 
 interface Adventure5_Module2_Lesson1Props {

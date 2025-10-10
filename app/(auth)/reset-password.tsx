@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { useSignIn } from '@clerk/clerk-expo'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import * as Haptics from 'expo-haptics'
 
 export default function ResetPasswordScreen() {
   const { email } = useLocalSearchParams()
@@ -35,32 +36,39 @@ export default function ResetPasswordScreen() {
   const router = useRouter()
 
   const onBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     router.back()
   }
 
   const handleResetPassword = async () => {
     if (!isLoaded) return
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+
     // Validate inputs
     if (!code.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setErrorMessage('Please enter the verification code')
       setShowError(true)
       return
     }
 
     if (!newPassword.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setErrorMessage('Please enter a new password')
       setShowError(true)
       return
     }
 
     if (newPassword.length < 8) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setErrorMessage('Password must be at least 8 characters')
       setShowError(true)
       return
     }
 
     if (newPassword !== confirmPassword) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setErrorMessage('Passwords do not match')
       setShowError(true)
       return
@@ -78,6 +86,7 @@ export default function ResetPasswordScreen() {
       })
 
       if (resetResult.status === 'complete') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         // Set the active session
         await setActive({ session: resetResult.createdSessionId })
 
@@ -85,11 +94,13 @@ export default function ResetPasswordScreen() {
         // Navigate to era selection after successful reset
         router.replace('/era-selection')
       } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
         setIsLoading(false)
         setErrorMessage('Password reset incomplete. Please try again.')
         setShowError(true)
       }
     } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setIsLoading(false)
       if (err.errors && err.errors[0]) {
         setErrorMessage(err.errors[0].longMessage || err.errors[0].message)
@@ -159,7 +170,10 @@ export default function ResetPasswordScreen() {
                       secureTextEntry={!showPassword}
                       autoComplete="password-new"
                     />
-                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <TouchableOpacity onPress={() => {
+                      Haptics.selectionAsync()
+                      setShowPassword(!showPassword)
+                    }}>
                       <Ionicons
                         name={showPassword ? "eye" : "eye-off"}
                         size={20}
@@ -182,7 +196,10 @@ export default function ResetPasswordScreen() {
                       secureTextEntry={!showConfirmPassword}
                       autoComplete="password-new"
                     />
-                    <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    <TouchableOpacity onPress={() => {
+                      Haptics.selectionAsync()
+                      setShowConfirmPassword(!showConfirmPassword)
+                    }}>
                       <Ionicons
                         name={showConfirmPassword ? "eye" : "eye-off"}
                         size={20}
@@ -220,7 +237,10 @@ export default function ResetPasswordScreen() {
                 {/* Resend code option */}
                 <TouchableOpacity
                   style={styles.resendButton}
-                  onPress={() => router.back()}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                    router.back()
+                  }}
                 >
                   <Text style={styles.resendText}>Didn't receive the code? Try again</Text>
                 </TouchableOpacity>

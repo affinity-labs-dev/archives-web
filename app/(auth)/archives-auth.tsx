@@ -19,6 +19,7 @@ import {
   View
 } from 'react-native'
 import { VideoView, useVideoPlayer } from 'expo-video'
+import * as Haptics from 'expo-haptics'
 
 export default function ArchivesAuthScreen() {
   // Get route parameters
@@ -58,6 +59,7 @@ export default function ArchivesAuthScreen() {
 
   // Navigation handlers
   const onBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     router.back()
   }
 
@@ -86,13 +88,16 @@ export default function ArchivesAuthScreen() {
 
       if (signUpAttempt.status === 'complete') {
         await setActiveSignUp({ session: signUpAttempt.createdSessionId })
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         await onContinue()
       } else {
         // Handle email verification or other steps
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         await onContinue() // For now, proceed anyway
       }
     } catch (err: any) {
       setIsLoading(false)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       if (err.errors && err.errors[0]) {
         setErrorMessage(err.errors[0].longMessage || err.errors[0].message)
       } else {
@@ -124,14 +129,17 @@ export default function ArchivesAuthScreen() {
 
       if (signInAttempt.status === 'complete') {
         await setActiveSignIn({ session: signInAttempt.createdSessionId })
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         await onContinue()
       } else {
         setIsLoading(false)
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
         setErrorMessage('Sign in incomplete. Please try again.')
         setShowError(true)
       }
     } catch (err: any) {
       setIsLoading(false)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       if (err.errors && err.errors[0]) {
         setErrorMessage(err.errors[0].longMessage || err.errors[0].message)
       } else {
@@ -230,7 +238,10 @@ export default function ArchivesAuthScreen() {
             {/* Auth Toggle - Shared Component */}
             <AuthToggle
               isSignInMode={isSignInMode}
-              onToggle={(mode) => setIsSignInMode(mode === 'signin')}
+              onToggle={(mode) => {
+                Haptics.selectionAsync()
+                setIsSignInMode(mode === 'signin')
+              }}
             />
 
             {/* Dotted Line Divider */}
@@ -243,10 +254,12 @@ export default function ArchivesAuthScreen() {
               <AppleSignInButton
                 onSuccess={async () => {
                   setIsLoading(false)
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
                   await onContinue()
                 }}
                 onError={(error) => {
                   setIsLoading(false)
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
                   setErrorMessage('Apple Sign In failed. Please try again.')
                   setShowError(true)
                   console.error('Apple Sign In Error:', error)
@@ -256,10 +269,12 @@ export default function ArchivesAuthScreen() {
               <GoogleSignInButton
                 onSuccess={async () => {
                   setIsLoading(false)
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
                   await onContinue()
                 }}
                 onError={(error) => {
                   setIsLoading(false)
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
                   setErrorMessage('Google Sign In failed. Please try again.')
                   setShowError(true)
                   console.error('Google Sign In Error:', error)
@@ -270,6 +285,7 @@ export default function ArchivesAuthScreen() {
               <TouchableOpacity
                 style={styles.emailButton}
                 onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                   router.push({
                     pathname: '/(auth)/email-details',
                     params: { mode: isSignInMode ? 'signin' : 'signup' }

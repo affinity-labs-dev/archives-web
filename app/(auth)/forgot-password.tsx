@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import * as Haptics from 'expo-haptics'
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('')
@@ -28,15 +29,19 @@ export default function ForgotPasswordScreen() {
   const router = useRouter()
 
   const onBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     router.back()
   }
 
   const handleResetPassword = async () => {
     if (!isLoaded) return
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+
     // Validate email
     const emailRegEx = /[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,64}/
     if (!emailRegEx.test(email)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setErrorMessage('Please enter a valid email address')
       setShowError(true)
       return
@@ -52,6 +57,7 @@ export default function ForgotPasswordScreen() {
         identifier: email,
       })
 
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       setIsLoading(false)
       // Navigate to reset password screen with email
       router.push({
@@ -59,6 +65,7 @@ export default function ForgotPasswordScreen() {
         params: { email }
       })
     } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setIsLoading(false)
       if (err.errors && err.errors[0]) {
         setErrorMessage(err.errors[0].longMessage || err.errors[0].message)

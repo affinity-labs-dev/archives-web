@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
+import { analyticsService } from '@/services/AnalyticsService'
 import {
   QuizQuestion,
   MCQOptionButton,
@@ -88,6 +89,7 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
   const [totalPoints, setTotalPoints] = useState(0) // @State private var totalPoints = 0
   const [userAnswers, setUserAnswers] = useState<(number | null)[]>([null, null, null, null, null]) // @State private var userAnswers: [Int?] = [nil, nil, nil, nil, nil]
   const [showMinimumScoreAlert, setShowMinimumScoreAlert] = useState(false) // @State private var showMinimumScoreAlert = false
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now())
 
   // Additional state for individual questions
   const [selectedMCQOption, setSelectedMCQOption] = useState<number | null>(null)
@@ -95,9 +97,14 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
 
   const { atomicProgressUpdate, canRetakeModule } = useProgress()
 
+  // Track when each new question is shown
+  useEffect(() => {
+    setQuestionStartTime(Date.now())
+  }, [currentQuestionIndex])
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     
     // Store the user's answer based on question type
     const newUserAnswers = [...userAnswers]
@@ -114,9 +121,35 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
     // Check if answer is correct and update score
     const isCorrect = checkAnswer(currentQuestionIndex, newUserAnswers[currentQuestionIndex])
     if (isCorrect) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       setCorrectAnswers(prev => prev + 1)
       setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
     }
+
+    // Track quiz question answer in analytics
+    const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000)
+    let userAnswer = ''
+    let correctAnswer = ''
+
+    if (currentQuestion.type === 'mcq') {
+      userAnswer = currentQuestion.options?.[selectedMCQOption!] || ''
+      correctAnswer = currentQuestion.options?.[currentQuestion.correctAnswer] || ''
+    } else if (currentQuestion.type === 'trueFalse') {
+      userAnswer = selectedTrueFalse === 0 ? 'True' : 'False'
+      correctAnswer = currentQuestion.correctAnswer === 0 ? 'True' : 'False'
+    }
+
+    analyticsService.trackQuizQuestionAnswered({
+      adventure_id: 2,
+      module_id: 1,
+      question_number: currentQuestionIndex + 1,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer,
+      is_correct: isCorrect,
+      time_taken_seconds: timeTaken,
+    })
 
     setShowExplanation(true)
   }
@@ -128,8 +161,24 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
     return userAnswer === quizQuestions[questionIndex].correctAnswer
   }
 
+  // Quiz completion celebration haptic
+  const celebrateQuizCompletion = (finalScore: number) => {
+    if (finalScore === 5) {
+      // Perfect score - escalating celebration
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 100)
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200)
+      setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 300)
+    } else if (finalScore >= 2) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    }
+  }
+
   // Handle explanation continue - EXACT SwiftUI: onContinue in ExplanationView
   const handleExplanationContinue = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     if (currentQuestionIndex < 4) {
       // Move to next question (0-4 for 5 questions)
       setCurrentQuestionIndex(prev => prev + 1)
@@ -138,6 +187,7 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
     } else {
       // Quiz completed - check minimum score requirement (need at least 1 out of 5)
       if (correctAnswers >= 1) {
+        celebrateQuizCompletion(correctAnswers)
         setShowResults(true)
         setShowExplanation(false)
       } else {
@@ -212,7 +262,10 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
               letter={String.fromCharCode(65 + index)} // A, B, C, D
               text={option}
               isSelected={selectedMCQOption === index}
-              onPress={() => setSelectedMCQOption(index)}
+              onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedMCQOption(index)
+            }}
               forceCenter={currentQuestionIndex === 0 || currentQuestionIndex === 2 || currentQuestionIndex === 4} // Q1, Q3, Q5 center aligned
             />
           ))}
@@ -225,14 +278,20 @@ export default function Adventure2_Module1_Quiz({ onDismiss, onBack }: Adventure
           <TrueFalseOptionButton
             isTrue={true}
             isSelected={selectedTrueFalse === 0}
-            onPress={() => setSelectedTrueFalse(0)}
+            onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedTrueFalse(0)
+            }}
           />
           
           {/* False option */}
           <TrueFalseOptionButton
             isTrue={false}
             isSelected={selectedTrueFalse === 1}
-            onPress={() => setSelectedTrueFalse(1)}
+            onPress={() => {
+              Haptics.selectionAsync()
+              setSelectedTrueFalse(1)
+            }}
           />
         </View>
       )

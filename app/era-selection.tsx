@@ -19,6 +19,7 @@ import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Haptics from 'expo-haptics'
 
 // Development flag - set to false when ready for production subscription system
 const DEVELOPMENT_UNLOCK_ERA2 = false
@@ -113,6 +114,7 @@ export default function EraSelection() {
   // }
 
   const handleContinue = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     if (selectedEraIndex === 0 || (selectedEraIndex === 1 && DEVELOPMENT_UNLOCK_ERA2)) {
       const selectedEra = eras[selectedEraIndex]
       console.log('Selected era:', selectedEra)
@@ -144,6 +146,7 @@ export default function EraSelection() {
   }
 
   const handleEraSelect = (index: number) => {
+    Haptics.selectionAsync()
     setSelectedEraIndex(index)
   }
 

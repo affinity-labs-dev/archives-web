@@ -102,7 +102,7 @@ interface UmmayadDynastyEraProps {
   onBackToEra?: () => void
 }
 
-export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProps) {
+const UmmayadDynastyEra = React.memo(function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProps) {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true)
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null) // EXACT SwiftUI: @State private var selectedModuleID: String? = nil
   const [showModuleModal, setShowModuleModal] = useState(false) // Modal visibility state
@@ -549,7 +549,9 @@ export default function UmmayadDynastyEra({ onBackToEra }: UmmayadDynastyEraProp
       />
     </SafeAreaView>
   )
-}
+})
+
+export default UmmayadDynastyEra
 
 // Styles matching EXACT SwiftUI UmmayadDynastyEra implementation
 const styles = StyleSheet.create({

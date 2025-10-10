@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { useProgressSync } from '@/hooks/useSyncIntegration'
 import { useUser } from '@clerk/clerk-expo'
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
@@ -717,6 +718,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
             updatedModule.isCompleted = true
             updatedModule.lessonsCompleted = ['lesson1', 'lesson2'] // Ensure lessons are marked complete
             console.log(`🎉 Module ${moduleId} completed!`)
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
           }
           break
 
@@ -768,7 +770,11 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
                 ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
                 : a
             )
-            
+
+            // Celebration haptic for adventure unlock
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
+            setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 100)
+
             // Auto-create Module 1 for the newly unlocked adventure
             const nextAdventureModule1: ModuleProgress = {
               adventureId: nextAdventureId,
@@ -866,6 +872,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
           if (action.quizScore >= 2) {
             updatedModule.isCompleted = true
             console.log(`🎉 ROI Module ${moduleId} completed with score: ${action.quizScore}/5`)
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
           } else {
             updatedModule.isCompleted = false
             console.log(`📝 ROI Module ${moduleId} quiz completed but not passed: ${action.quizScore}/5`)
@@ -923,6 +930,10 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
                 ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
                 : a
             )
+
+            // Celebration haptic for ROI adventure unlock
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
+            setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 100)
 
             // Auto-create Module 1 for the newly unlocked adventure
             const nextAdventureModule1: ModuleProgress = {

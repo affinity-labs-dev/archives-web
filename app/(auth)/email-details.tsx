@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native'
 import { analyticsService } from '@/services/AnalyticsService'
+import * as Haptics from 'expo-haptics'
 
 export default function EmailDetailsScreen() {
   // Get route parameters
@@ -45,6 +46,7 @@ export default function EmailDetailsScreen() {
 
   // Navigation handlers
   const onBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     router.back()
   }
 
@@ -80,14 +82,17 @@ export default function EmailDetailsScreen() {
           analyticsService.trackUserSignedUp(userId, {
             sign_up_method: 'email',
           })
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         }
 
         await onContinue()
       } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         await onContinue()
       }
     } catch (err: any) {
       setIsLoading(false)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       if (err.errors && err.errors[0]) {
         setErrorMessage(err.errors[0].longMessage || err.errors[0].message)
       } else {
@@ -122,15 +127,18 @@ export default function EmailDetailsScreen() {
 
         // Track session login
         analyticsService.trackUserSessionIn('email')
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
 
         await onContinue()
       } else {
         setIsLoading(false)
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
         setErrorMessage('Sign in incomplete. Please try again.')
         setShowError(true)
       }
     } catch (err: any) {
       setIsLoading(false)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       if (err.errors && err.errors[0]) {
         setErrorMessage(err.errors[0].longMessage || err.errors[0].message)
       } else {
@@ -228,6 +236,7 @@ export default function EmailDetailsScreen() {
               <AuthToggle
                 isSignInMode={isSignInMode}
                 onToggle={(mode) => {
+          Haptics.selectionAsync()
                   setIsSignInMode(mode === 'signin')
                   // Clear errors when switching modes
                   setErrorMessage('')
@@ -309,7 +318,10 @@ export default function EmailDetailsScreen() {
                       secureTextEntry={!showPassword}
                       autoComplete="password"
                     />
-                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <TouchableOpacity onPress={() => {
+                      Haptics.selectionAsync()
+                      setShowPassword(!showPassword)
+                    }}>
                       <Ionicons
                         name={showPassword ? "eye-off" : "eye"}
                         size={20}
@@ -333,7 +345,10 @@ export default function EmailDetailsScreen() {
                         secureTextEntry={!showConfirmPassword}
                         autoComplete="password"
                       />
-                      <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync()
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }}>
                         <Ionicons
                           name={showConfirmPassword ? "eye-off" : "eye"}
                           size={20}
@@ -351,7 +366,10 @@ export default function EmailDetailsScreen() {
                   styles.primaryButton,
                   (isLoading || !email.trim() || !password.trim() || (!isSignInMode && (!firstName.trim() || !lastName.trim()))) && styles.primaryButtonDisabled
                 ]}
-                onPress={() => isSignInMode ? signInUser() : signUpUser()}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                  isSignInMode ? signInUser() : signUpUser()
+                }}
                 disabled={isLoading || !email.trim() || !password.trim() || (!isSignInMode && (!firstName.trim() || !lastName.trim()))}
               >
                 <Ionicons

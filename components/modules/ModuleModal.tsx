@@ -12,6 +12,7 @@ import {
 } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { useProgress } from '@/context/ProgressContext'
+import * as Haptics from 'expo-haptics'
 
 // Import lesson and quiz components
 import Adventure1_Module1_Lesson1 from './adventure1/Adventure1_Module1_Lesson1'
@@ -104,6 +105,7 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
   useEffect(() => {
     if (isVisible && moduleId) {
       setCurrentStep('lesson1')
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     }
   }, [isVisible, moduleId])
 
@@ -166,6 +168,7 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
 
   // Modal dismiss handler - EXACT SwiftUI behavior
   const handleModalDismiss = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     setCurrentStep('lesson1') // Reset for next time
     onDismiss()
   }

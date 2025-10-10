@@ -8,6 +8,9 @@ import { useRouter } from 'expo-router'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import * as Haptics from 'expo-haptics'
+import { analyticsService } from '@/services/AnalyticsService'
+import { useFocusEffect } from '@react-navigation/native'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -217,9 +220,22 @@ export default function ProfileTab() {
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [isLoadingPortal, setIsLoadingPortal] = useState(false)
-  
+
+  // Track page views with focus/blur
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📊 [ProfileTab] Screen focused - starting page view tracking')
+      analyticsService.startPageView('profile', '/(tabs)/profile')
+
+      return () => {
+        console.log('📊 [ProfileTab] Screen blurred - ending page view tracking')
+        analyticsService.endPageView('profile')
+      }
+    }, [])
+  )
 
   const handleSignOut = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     try {
       await signOut()
       router.replace('/onboarding-video')
@@ -229,6 +245,7 @@ export default function ProfileTab() {
   }
 
   const handleAvatarSelection = (avatar: typeof HISTORICAL_AVATARS[0]) => {
+    Haptics.selectionAsync()
     setSelectedAvatar(avatar)
     setShowAvatarModal(false)
   }
@@ -248,6 +265,7 @@ export default function ProfileTab() {
   }
 
   const handleDeleteAccount = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
     if (isDeletingAccount) return // Prevent multiple deletion attempts
     
     Alert.alert(
@@ -317,6 +335,7 @@ export default function ProfileTab() {
   }
 
   const handleManageSubscription = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     if (isLoadingPortal) return // Prevent multiple portal creation attempts
     
     // For now, show information about subscription management
@@ -408,6 +427,7 @@ export default function ProfileTab() {
   }
 
   const toggleFAQ = (id: number) => {
+    Haptics.selectionAsync()
     setExpandedFAQ(expandedFAQ === id ? null : id)
   }
 
@@ -421,7 +441,10 @@ export default function ProfileTab() {
           <Text style={styles.profileTitle}>Profile</Text>
           <TouchableOpacity 
             style={styles.settingsButton} 
-            onPress={() => setShowSettingsModal(true)}
+            onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+            setShowSettingsModal(true)
+          }}
           >
             <MaterialIcons name="settings" size={24} color={ArchivesTheme.colors.mutedNavy} />
           </TouchableOpacity>
@@ -431,7 +454,10 @@ export default function ProfileTab() {
         <View style={styles.avatarSection}>
           <TouchableOpacity 
             style={styles.avatarContainer}
-            onPress={() => setShowAvatarModal(true)}
+            onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+            setShowAvatarModal(true)
+          }}
           >
             <Image source={selectedAvatar.image} style={styles.avatarImage} />
             {/* Edit Icon Overlay */}
@@ -505,7 +531,10 @@ export default function ProfileTab() {
             <View style={styles.modalHeader}>
               <TouchableOpacity 
                 style={styles.closeButton}
-                onPress={() => setShowAvatarModal(false)}
+                onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                setShowAvatarModal(false)
+              }}
               >
                 <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
@@ -551,7 +580,10 @@ export default function ProfileTab() {
             <View style={styles.modalHeader}>
               <TouchableOpacity 
                 style={styles.closeButton}
-                onPress={() => setShowSettingsModal(false)}
+                onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                setShowSettingsModal(false)
+              }}
               >
                 <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
@@ -567,6 +599,7 @@ export default function ProfileTab() {
                 <TouchableOpacity 
                   style={styles.settingsOption} 
                   onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                     setShowSettingsModal(false)
                     setTimeout(() => handlePrivacyPolicy(), 300) // Small delay for smooth transition
                   }}
@@ -582,6 +615,7 @@ export default function ProfileTab() {
                 <TouchableOpacity 
                   style={styles.settingsOption} 
                   onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                     setShowSettingsModal(false)
                     handleSupport()
                   }}
@@ -597,6 +631,7 @@ export default function ProfileTab() {
                 <TouchableOpacity 
                   style={styles.settingsOption} 
                   onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                     setShowSettingsModal(false)
                     handleFAQ()
                   }}
@@ -686,7 +721,10 @@ export default function ProfileTab() {
             <View style={styles.modalHeader}>
               <TouchableOpacity 
                 style={styles.closeButton}
-                onPress={() => setShowPrivacyModal(false)}
+                onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                setShowPrivacyModal(false)
+              }}
               >
                 <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
@@ -715,7 +753,10 @@ export default function ProfileTab() {
             <View style={styles.modalHeader}>
               <TouchableOpacity 
                 style={styles.closeButton}
-                onPress={() => setShowFAQModal(false)}
+                onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                setShowFAQModal(false)
+              }}
               >
                 <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>

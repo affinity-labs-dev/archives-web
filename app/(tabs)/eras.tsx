@@ -18,6 +18,9 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import * as Haptics from 'expo-haptics'
+import { analyticsService } from '@/services/AnalyticsService'
+import { useFocusEffect } from '@react-navigation/native'
 
 // const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
@@ -109,6 +112,7 @@ export default function EraSelection() {
   // }
 
   const handleContinue = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     if (selectedEraIndex === 0) {
       const selectedEra = eras[selectedEraIndex]
       console.log('Selected era:', selectedEra)
@@ -136,8 +140,22 @@ export default function EraSelection() {
   }
 
   const handleEraSelect = (index: number) => {
+    Haptics.selectionAsync()
     setSelectedEraIndex(index)
   }
+
+  // Track page views with focus/blur
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📊 [EraSelection] Screen focused - starting page view tracking')
+      analyticsService.startPageView('era', '/(tabs)/eras')
+
+      return () => {
+        console.log('📊 [EraSelection] Screen blurred - ending page view tracking')
+        analyticsService.endPageView('era')
+      }
+    }, [])
+  )
 
   return (
     <SafeAreaView style={styles.safeArea}>
