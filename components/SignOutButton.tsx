@@ -1,6 +1,7 @@
 import { useClerk } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { Text, TouchableOpacity } from 'react-native'
+import * as Haptics from 'expo-haptics'
 
 export const SignOutButton = () => {
   // Use `useClerk()` to access the `signOut()` function
@@ -8,6 +9,7 @@ export const SignOutButton = () => {
   const router = useRouter()
 
   const handleSignOut = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await signOut()
       // Redirect to your desired page

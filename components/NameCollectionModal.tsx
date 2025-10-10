@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
+import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 interface NameCollectionModalProps {
@@ -34,8 +35,9 @@ export const NameCollectionModal: React.FC<NameCollectionModalProps> = ({
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setError('')
-    
+
     // Validation
     if (!firstName.trim()) {
       setError('Please enter your first name')
@@ -61,6 +63,7 @@ export const NameCollectionModal: React.FC<NameCollectionModalProps> = ({
   }
 
   const handleCancel = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Reset form
     setFirstName('')
     setLastName('')

@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av'
+import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 interface Adventure3_Module1_Lesson1Props {
@@ -131,7 +132,13 @@ export default function Adventure3_Module1_Lesson1({
       {/* Continue button overlay - only show after scrolling */}
       {hasScrolledToBottom && (
         <View style={styles.continueButtonContainer}>
-          <TouchableOpacity style={styles.continueButton} onPress={onContinue}>
+          <TouchableOpacity
+            style={styles.continueButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onContinue();
+            }}
+          >
             <Text style={styles.continueButtonText}>Continue</Text>
             <Ionicons name="arrow-forward" size={16} color="white" />
           </TouchableOpacity>
@@ -140,7 +147,14 @@ export default function Adventure3_Module1_Lesson1({
 
       {/* Back Button - always visible */}
       <SafeAreaView style={styles.backButtonContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack || onDismiss}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            const callback = onBack || onDismiss;
+            callback();
+          }}
+        >
           <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
         </TouchableOpacity>
       </SafeAreaView>

@@ -1,6 +1,7 @@
 import React from 'react'
 import { TouchableOpacity, Text, StyleSheet, Alert, View, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import * as Haptics from 'expo-haptics'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import { useOAuth, useSessionList, useSignUp, useUser } from '@clerk/clerk-expo'
@@ -38,9 +39,10 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const [userEmail, setUserEmail] = React.useState<string | undefined>(undefined)
 
   const onPress = React.useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       setIsLoading(true)
-      
+
       console.log('Starting Google OAuth flow...')
 
       const redirectUrl = Linking.createURL('sso-callback');

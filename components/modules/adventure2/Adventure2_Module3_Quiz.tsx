@@ -3,6 +3,7 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useProgress } from "@/context/ProgressContext";
+import { useQuizSounds } from "@/hooks/useQuizSounds";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import * as Haptics from 'expo-haptics';
@@ -116,7 +117,7 @@ export default function Adventure2_Module3_Quiz({
   );
 
   const { updateModuleProgress, completeModule } = useProgress();
-
+  const { playTap, playCorrect, playIncorrect } = useQuizSounds();
 
   const currentQuestion = quizQuestions[currentQuestionIndex];
 
@@ -132,7 +133,8 @@ export default function Adventure2_Module3_Quiz({
               text={option}
               isSelected={selectedMCQOption === index}
               onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedMCQOption(index)
             }}
               forceCenter={currentQuestionIndex === 0 || currentQuestionIndex === 2 || currentQuestionIndex === 4} // Q1, Q3, Q5 center aligned
@@ -149,7 +151,8 @@ export default function Adventure2_Module3_Quiz({
             isTrue={true}
             isSelected={selectedTrueFalse === 0}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(0)
             }}
           />
@@ -157,7 +160,8 @@ export default function Adventure2_Module3_Quiz({
             isTrue={false}
             isSelected={selectedTrueFalse === 1}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedTrueFalse(1)
             }}
           />
@@ -192,12 +196,14 @@ export default function Adventure2_Module3_Quiz({
     );
     if (isCorrect) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      playCorrect()
       setCorrectAnswers((prev) => prev + 1);
       setTotalPoints(
         (prev) => prev + quizQuestions[currentQuestionIndex].points
       );
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      playIncorrect()
     }
 
 

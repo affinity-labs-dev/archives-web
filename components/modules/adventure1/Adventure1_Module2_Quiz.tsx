@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
+import { useQuizSounds } from '@/hooks/useQuizSounds'
 import { analyticsService } from '@/services/AnalyticsService'
 import {
   QuizQuestion,
@@ -107,6 +108,7 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now())
 
   const { atomicProgressUpdate, canRetakeModule } = useProgress()
+  const { playTap, playCorrect, playIncorrect } = useQuizSounds()
 
   // Track when each new question is shown
   useEffect(() => {
@@ -127,10 +129,12 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
     const isCorrect = checkAnswer(currentQuestionIndex, newUserAnswers[currentQuestionIndex])
     if (isCorrect) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      playCorrect()
       setCorrectAnswers(prev => prev + 1)
       setTotalPoints(prev => prev + quizQuestions[currentQuestionIndex].points)
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      playIncorrect()
     }
 
     // Track quiz question answer in analytics
@@ -275,7 +279,8 @@ export default function Adventure1_Module2_Quiz({ onDismiss, onBack }: Adventure
             text={option}
             isSelected={selectedMCQOption === index}
             onPress={() => {
-              Haptics.selectionAsync()
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              playTap()
               setSelectedMCQOption(index)
             }}
             forceCenter={true}

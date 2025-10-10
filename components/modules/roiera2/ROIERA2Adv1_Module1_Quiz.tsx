@@ -3,6 +3,7 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useProgress } from "@/context/ProgressContext";
+import { useQuizSounds } from '@/hooks/useQuizSounds'
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState } from "react";
@@ -130,6 +131,7 @@ export default function ROIERA2Adv1_Module1_Quiz({
   ]);
 
   const { roiAtomicProgressUpdate, canRetakeRoiModule } = useProgress();
+  const { playTap, playCorrect, playIncorrect } = useQuizSounds()
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
@@ -245,6 +247,9 @@ export default function ROIERA2Adv1_Module1_Quiz({
 
   // Fill-in-blank option selection
   const handleFillBlankSelection = (selectedText: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    playTap();
+
     if (selectedFillBlank) {
       // Reset previous selection
       setFillBlankOptions((prev) =>
@@ -291,7 +296,11 @@ export default function ROIERA2Adv1_Module1_Quiz({
                 letter={String.fromCharCode(65 + index)} // A, B, C, D
                 text={option}
                 isSelected={selectedMCQOption === index}
-                onPress={() => setSelectedMCQOption(index)}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                  playTap()
+                  setSelectedMCQOption(index)
+                }}
                 forceCenter={false}
               />
             ))}
@@ -304,12 +313,20 @@ export default function ROIERA2Adv1_Module1_Quiz({
             <TrueFalseOptionButton
               isTrue={true}
               isSelected={selectedTrueFalse === 1}
-              onPress={() => setSelectedTrueFalse(1)}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                playTap()
+                setSelectedTrueFalse(1)
+              }}
             />
             <TrueFalseOptionButton
               isTrue={false}
               isSelected={selectedTrueFalse === 0}
-              onPress={() => setSelectedTrueFalse(0)}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                playTap()
+                setSelectedTrueFalse(0)
+              }}
             />
           </View>
         );
