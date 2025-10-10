@@ -148,7 +148,7 @@ export default function EraSelection() {
   useFocusEffect(
     React.useCallback(() => {
       console.log('📊 [EraSelection] Screen focused - starting page view tracking')
-      analyticsService.startPageView('era', '/(tabs)/eras')
+      analyticsService.startPageView('era', '/eras')
 
       return () => {
         console.log('📊 [EraSelection] Screen blurred - ending page view tracking')

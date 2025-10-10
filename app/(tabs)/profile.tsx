@@ -225,7 +225,7 @@ export default function ProfileTab() {
   useFocusEffect(
     React.useCallback(() => {
       console.log('📊 [ProfileTab] Screen focused - starting page view tracking')
-      analyticsService.startPageView('profile', '/(tabs)/profile')
+      analyticsService.startPageView('profile', '/profile')
 
       return () => {
         console.log('📊 [ProfileTab] Screen blurred - ending page view tracking')
