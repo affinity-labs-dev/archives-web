@@ -26,7 +26,8 @@ import { AppState } from 'react-native';
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -41,17 +42,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     if (posthog) {
       analyticsService.initialize(posthog);
       console.log('✅ [Analytics] Service initialized with PostHog instance');
-
-      // CRITICAL: Explicitly start session recording from the beginning
-      // This ensures replay captures from app launch, not just after first interaction
-      if (Platform.OS !== 'web') {
-        try {
-          posthog.startSessionRecording();
-          console.log('🎥 [PostHog] Session replay started from beginning');
-        } catch (error) {
-          console.error('❌ [PostHog] Failed to start session replay:', error);
-        }
-      }
+      // Note: Session replay starts automatically via enableSessionReplay: true config (line 193)
     }
   }, [posthog]);
 
@@ -107,12 +98,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      if (notificationListener) {
-        Notifications.removeNotificationSubscription(notificationListener);
-      }
-      if (responseListener) {
-        Notifications.removeNotificationSubscription(responseListener);
-      }
+      notificationListener.remove();
+      responseListener.remove();
     };
   }, []);
 
