@@ -14,7 +14,7 @@
         "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ2loYWlubG5udHNodXBpenR1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDY4MzM3MywiZXhwIjoyMDcwMjU5MzczfQ.uKZEHB93aQPpb-uDtdYsWJ_0_DGPhECx1ZAUYOzCzhE",
         "EXPO_NO_CAPABILITY_SYNC": "1",
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_oxMRgfHsashdXXOSrczqvnYYIxg",
-        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "your_android_api_key_here"
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_aJrTsOTWwhjzorwbmCTJADKObSG"
       },
       "channel": "base"
     },

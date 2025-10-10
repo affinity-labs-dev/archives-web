@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Platform } from 'react-native';
 import Purchases, {
   CustomerInfo,
   Offerings,
@@ -7,8 +8,13 @@ import Purchases, {
   PURCHASES_ERROR_CODE
 } from 'react-native-purchases';
 
-// Constants matching the sample app configuration
-const REVENUECAT_API_KEY = 'appl_oxMRgfHsashdXXOSrczqvnYYIxg';
+// Platform-specific RevenueCat API keys
+const REVENUECAT_API_KEY = Platform.select({
+  ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || 'appl_oxMRgfHsashdXXOSrczqvnYYIxg',
+  android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || 'goog_aJrTsOTWwhjzorwbmCTJADKObSG',
+  default: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || 'appl_oxMRgfHsashdXXOSrczqvnYYIxg'
+}) as string;
+
 const ENTITLEMENT_IDENTIFIER = 'Access of All Eras';
 
 interface UseRevenueCatReturn {
@@ -95,9 +101,9 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
 
     const initializeRevenueCat = async () => {
       try {
-        console.log('🚀 Initializing RevenueCat with API key:', REVENUECAT_API_KEY);
+        console.log(`🚀 Initializing RevenueCat for ${Platform.OS} with API key:`, REVENUECAT_API_KEY);
 
-        // Configure RevenueCat with the same API key as sample app
+        // Configure RevenueCat with platform-specific API key
         Purchases.configure({ apiKey: REVENUECAT_API_KEY });
 
         // Set up customer info listener for real-time updates
