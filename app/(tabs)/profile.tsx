@@ -173,8 +173,25 @@ export default function ProfileTab() {
   const { signOut } = useAuth()
   const { user } = useUser()
   const router = useRouter()
-  const { badges, userBadges, totalXP, loading: badgesLoading } = useBadges()
+  const { badges, userBadges, calculateTotalXP, loading: badgesLoading } = useBadges()
   const { moduleProgress } = useProgress()
+
+  // Calculate totalXP from module progress (each correct answer = 10 XP)
+  const totalXP = React.useMemo(() => {
+    console.log('🔄 [Profile] Recalculating XP...')
+    console.log('📊 [Profile] Module progress count:', moduleProgress.length)
+
+    const calculated = moduleProgress.reduce((xp, module) => {
+      if (module.quizScore) {
+        console.log(`📊 [Profile] Adventure ${module.adventureId} Module ${module.moduleId}: ${module.quizScore} correct = ${module.quizScore * 10} XP`)
+        return xp + (module.quizScore * 10)
+      }
+      return xp
+    }, 0)
+
+    console.log('✅ [Profile] Total XP calculated:', calculated)
+    return calculated
+  }, [moduleProgress])
   const { avatarTypes, selectedAvatar: dbSelectedAvatar, setSelectedAvatar: setDbSelectedAvatar, isAvatarUnlocked, loading: avatarsLoading } = useAvatars()
   const { dailyGoal, reminderTime, setReminderTime, loading: preferencesLoading } = usePreferences()
 
@@ -188,8 +205,16 @@ export default function ProfileTab() {
   // Get current avatar (use first avatar as default if none selected)
   const currentAvatar = dbSelectedAvatar || avatarTypes[0]
 
-  // Calculate modules finished
-  const modulesFinished = moduleProgress.filter(m => m.isCompleted).length
+  // Calculate modules finished (ONLY unique modules with quizScore)
+  const uniqueModules = new Map<string, any>()
+  moduleProgress.forEach(m => {
+    if (m.quizScore !== undefined && m.quizScore !== null) {
+      const key = `${m.adventureId}_${m.moduleId}`
+      uniqueModules.set(key, m)
+    }
+  })
+  const modulesFinished = uniqueModules.size
+  console.log('📊 [Profile] Unique modules with quiz scores:', Array.from(uniqueModules.values()).map(m => `Adv${m.adventureId}_M${m.moduleId} (score: ${m.quizScore})`))
 
   // Get user's display name from Clerk (firstName + first letter of lastName)
   const displayName = user?.firstName && user?.lastName
@@ -199,33 +224,27 @@ export default function ProfileTab() {
   // Get joined year from Clerk
   const joinedYear = user?.createdAt ? new Date(user.createdAt).getFullYear() : new Date().getFullYear()
 
-  // Helper: Check if badge is earned
-  const isBadgeEarned = (badgeName: string, level: number) => {
-    return userBadges.some(ub =>
-      ub.badge?.name === badgeName && ub.badge?.level === level
-    )
-  }
-
   // Get XP badges from database (ACH_EarnedXP) with images
   const xpBadges = badges
     .filter(b => b.name === 'ACH_EarnedXP')
     .sort((a, b) => a.level - b.level)
     .map(b => ({
       ...b,
-      earned: isBadgeEarned(b.name, b.level),
+      earned: userBadges.some(ub => ub.badge?.name === b.name && ub.badge?.level === b.level),
       imagePath: `${b.name}_${b.level}.png`
     }))
 
   // Get monthly badges from database (ACH_MonthlyActive) with images
   const monthlyBadges = badges
     .filter(b => b.name === 'ACH_MonthlyActive')
-    .sort((a, b) => b.level - a.level) // Reverse order for display
+    .sort((a, b) => b.level - a.level) // Descending order so October (highest level) appears first
     .map(b => ({
       ...b,
-      earned: isBadgeEarned(b.name, b.level),
-      imagePath: `${b.name}_${b.level}.png`,
-      monthName: b.level === 1 ? 'August' : b.level === 2 ? 'September' : 'October'
+      earned: userBadges.some(ub => ub.badge?.name === b.name && ub.badge?.level === b.level),
+      imagePath: `${b.name}_${b.level}.png`
     }))
+
+  console.log('📊 [Profile] Monthly badges:', monthlyBadges.map(b => `${b.displayName} (L${b.level}) - earned: ${b.earned}`))
 
   // Calculate XP progress to next badge
   const nextXPBadge = xpBadges.find(b => !b.earned)
@@ -547,45 +566,75 @@ export default function ProfileTab() {
         <View style={styles.badgesSection}>
           <Text style={styles.sectionTitle}>Monthly Badges</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesScroll}>
-            {monthlyBadges.map((badge) => (
-              <View key={badge.id} style={styles.badgeContainer}>
-                <Image
-                  source={getBadgeImage(badge.imagePath)}
-                  style={[
-                    styles.badgeImage,
-                    !badge.earned && styles.badgeImageGrey
-                  ]}
-                />
-                <Text style={styles.badgeLabel}>{badge.monthName}</Text>
-              </View>
-            ))}
+            {monthlyBadges.map((badge) => {
+              console.log('🎖️ Badge:', badge.displayName, 'Earned:', badge.earned, 'Level:', badge.level)
+              return (
+                <View key={badge.id} style={styles.badgeContainer}>
+                  <View style={styles.badgeImageContainer}>
+                    <Image
+                      source={getBadgeImage(badge.imagePath)}
+                      style={styles.badgeImage}
+                    />
+                  </View>
+                  {badge.earned ? (
+                    <View style={styles.badgeLabelContainerEarned}>
+                      <Text style={styles.badgeLabelEarned}>{badge.displayName}</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.badgeLabel}>{badge.displayName}</Text>
+                  )}
+                </View>
+              )
+            })}
           </ScrollView>
         </View>
 
-        {/* XP Achievements - EXACT SwiftUI */}
-        <View style={styles.xpAchievementsSection}>
+        {/* Achievements - Timeline Design */}
+        <View style={styles.achievementsTimelineSection}>
           <Text style={styles.sectionTitle}>Achievements</Text>
 
-          {/* Progress Bar */}
-          <View style={styles.progressBarContainer}>
-            <View style={styles.progressBarBackground}>
-              <View style={[styles.progressBarFill, { width: `${xpProgress}%` }]} />
+          {/* Progress Bar with Nodes */}
+          <View style={styles.timelineProgressContainer}>
+            <View style={styles.timelineProgressBar}>
+              <View style={[styles.timelineProgressFill, { width: `${Math.min((totalXP / 550) * 100, 100)}%` }]} />
+
+              {/* Nodes on progress bar */}
+              {xpBadges.map((badge, index) => {
+                const position = (badge.threshold / 550) * 100
+                return (
+                  <View
+                    key={badge.id}
+                    style={[
+                      styles.timelineNode,
+                      { left: `${position}%` },
+                      badge.earned && styles.timelineNodeEarned
+                    ]}
+                  />
+                )
+              })}
             </View>
-            <Text style={styles.progressBarText}>
-              {totalXP} / {nextXPBadge?.threshold || xpBadges[xpBadges.length - 1]?.threshold || 550} XP
-            </Text>
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.achievementsScroll}>
+          {/* Badge Cards Below Timeline */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timelineBadgesScroll}>
             {xpBadges.map((badge) => (
-              <View key={badge.id} style={styles.achievementContainer}>
+              <View
+                key={badge.id}
+                style={[
+                  styles.timelineBadgeCard,
+                  !badge.earned && styles.timelineBadgeCardLocked
+                ]}
+              >
                 <Image
                   source={getBadgeImage(badge.imagePath)}
-                  style={[
-                    styles.achievementImage,
-                    !badge.earned && styles.badgeImageGrey
-                  ]}
+                  style={styles.timelineBadgeImage}
                 />
+                <Text style={[
+                  styles.timelineBadgeText,
+                  !badge.earned && styles.timelineBadgeTextLocked
+                ]}>
+                  {badge.threshold} XP
+                </Text>
               </View>
             ))}
           </ScrollView>
@@ -1270,20 +1319,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 20,
   },
+  badgeImageContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   badgeImage: {
     width: 140, // Set to 140
     height: 140,
     resizeMode: 'contain',
-    marginBottom: 8,
   },
   badgeImageGrey: {
     opacity: 0.5,
   },
+  badgeLabelContainerEarned: {
+    backgroundColor: ArchivesTheme.colors.shoeBrown,
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    alignSelf: 'center',
+  },
   badgeLabel: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 11))
+    fontFamily: 'DM Sans',
     fontSize: 11,
     color: ArchivesTheme.colors.mutedNavy,
     opacity: 0.7,
+    textAlign: 'center',
+  },
+  badgeLabelEarned: {
+    fontFamily: 'DM Sans',
+    fontSize: 11,
+    color: ArchivesTheme.colors.creamWhite,
+    fontWeight: '600',
   },
   
   // Modules Achievement Card
@@ -1342,44 +1412,79 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
 
-  // XP Achievements - EXACT SwiftUI
-  xpAchievementsSection: {
+  // Achievements Timeline Design - Matching Screenshot
+  achievementsTimelineSection: {
     paddingHorizontal: 20,
     marginBottom: 30,
   },
-  progressBarContainer: {
-    marginBottom: 16,
+  timelineProgressContainer: {
+    marginBottom: 24,
+    paddingHorizontal: 10,
   },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: ArchivesTheme.colors.mutedNavy + '20',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
+  timelineProgressBar: {
+    height: 6,
+    backgroundColor: ArchivesTheme.colors.mutedNavy + '30',
+    borderRadius: 3,
+    position: 'relative',
   },
-  progressBarFill: {
+  timelineProgressFill: {
     height: '100%',
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    borderRadius: 4,
+    backgroundColor: ArchivesTheme.colors.mossGreen,
+    borderRadius: 3,
   },
-  progressBarText: {
-    fontFamily: 'DM Sans',
-    fontSize: 12,
-    color: ArchivesTheme.colors.mutedNavy,
-    opacity: 0.7,
-    textAlign: 'center',
+  timelineNode: {
+    position: 'absolute',
+    top: -5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: ArchivesTheme.colors.mutedNavy + '30',
+    borderWidth: 3,
+    borderColor: ArchivesTheme.colors.creamWhite,
+    marginLeft: -8, // Center the node
   },
-  achievementsScroll: {
+  timelineNodeEarned: {
+    backgroundColor: ArchivesTheme.colors.mossGreen,
+  },
+  timelineBadgesScroll: {
     marginHorizontal: -20,
     paddingHorizontal: 20,
   },
-  achievementContainer: {
+  timelineBadgeCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
     marginRight: 16,
+    alignItems: 'center',
+    minWidth: 120,
+    borderWidth: 2,
+    borderColor: ArchivesTheme.colors.persianOrange,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  achievementImage: {
-    width: 140,
-    height: 140,
+  timelineBadgeCardLocked: {
+    opacity: 0.4,
+    borderColor: ArchivesTheme.colors.mutedNavy + '40',
+  },
+  timelineBadgeImage: {
+    width: 80,
+    height: 80,
     resizeMode: 'contain',
+    marginBottom: 8,
+  },
+  timelineBadgeText: {
+    fontFamily: 'DM Sans Bold',
+    fontSize: 18,
+    fontWeight: '700',
+    color: ArchivesTheme.colors.persianOrange,
+    textAlign: 'center',
+  },
+  timelineBadgeTextLocked: {
+    color: ArchivesTheme.colors.mutedNavy,
+    opacity: 0.5,
   },
   
   

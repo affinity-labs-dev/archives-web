@@ -163,6 +163,7 @@ class SimplifiedSyncService {
       const { error } = await supabase.from("user_data").upsert({
         user_id: userId,
         data: userData,
+        updated_at: new Date().toISOString(),
       });
 
       if (error) {

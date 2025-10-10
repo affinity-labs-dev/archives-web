@@ -709,6 +709,11 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
           const newScore = action.quizScore
           const currentBestScore = updatedModule.quizScore || 0
 
+          console.log(`📝 [ProgressContext] Quiz completion - Adventure ${adventureId} Module ${moduleId}`)
+          console.log(`📝 [ProgressContext] Action type: ${action.type}`)
+          console.log(`📝 [ProgressContext] New score: ${newScore}`)
+          console.log(`📝 [ProgressContext] Current best: ${currentBestScore}`)
+
           if (isRetake) {
             // For retakes, only update if score improved (never downgrade)
             updatedModule.quizScore = Math.max(currentBestScore, newScore)
@@ -720,6 +725,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
           }
 
           updatedModule.quizCompleted = true
+          console.log(`📝 [ProgressContext] Updated module quizScore: ${updatedModule.quizScore}`)
           
           // Module is completed when quiz is passed (score >= 1)
           if (updatedModule.quizScore >= 1) {
@@ -730,16 +736,16 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
             // Haptic feedback for module completion
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
 
+            // TODO: Avatar awarding disabled for now
             // Award random locked avatar on module completion
-            const lockedAvatars = avatarTypes.filter(avatar =>
-              !userAvatars.some(ua => ua.avatar_id === avatar.id)
-            )
-
-            if (lockedAvatars.length > 0) {
-              const randomAvatar = lockedAvatars[Math.floor(Math.random() * lockedAvatars.length)]
-              console.log(`🎁 Awarding random avatar: ${randomAvatar.name}`)
-              await giveAvatar(randomAvatar.id)
-            }
+            // const lockedAvatars = avatarTypes.filter(avatar =>
+            //   !userAvatars.some(ua => ua.avatar_id === avatar.id)
+            // )
+            // if (lockedAvatars.length > 0) {
+            //   const randomAvatar = lockedAvatars[Math.floor(Math.random() * lockedAvatars.length)]
+            //   console.log(`🎁 Awarding random avatar: ${randomAvatar.name}`)
+            //   await giveAvatar(randomAvatar.id)
+            // }
           }
           break
 
@@ -826,9 +832,15 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Atomic state update and save
+      console.log(`📝 [ProgressContext] Updating state - ${updatedModules.length} modules`)
+      console.log(`📝 [ProgressContext] Updated module details:`, updatedModules.find(m => m.adventureId === adventureId && m.moduleId === moduleId))
+
       setAdventureProgress(updatedAdventures)
       setModuleProgress(updatedModules)
+
+      console.log(`💾 [ProgressContext] Saving to AsyncStorage...`)
       await saveProgressData(updatedAdventures, updatedModules)
+      console.log(`✅ [ProgressContext] Saved to AsyncStorage`)
 
       // Check and award badges after quiz completion
       if (action.type === 'QUIZ_COMPLETED' || action.type === 'QUIZ_RETAKEN') {

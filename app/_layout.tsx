@@ -136,12 +136,13 @@ function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
     return AVATAR_IMAGE_MAP[imageUrl] || AVATAR_IMAGE_MAP['avatars/Al-Khwarizmi.png'];
   };
 
+  // TODO: Confetti disabled for now
   // Trigger confetti when avatar is unlocked
-  React.useEffect(() => {
-    if (newlyUnlockedAvatar) {
-      setShowConfetti(true);
-    }
-  }, [newlyUnlockedAvatar]);
+  // React.useEffect(() => {
+  //   if (newlyUnlockedAvatar) {
+  //     setShowConfetti(true);
+  //   }
+  // }, [newlyUnlockedAvatar]);
 
   // When animation completes, show notification
   const handleAnimationComplete = () => {
@@ -169,7 +170,8 @@ function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      <ConfettiEffect visible={showConfetti} onComplete={handleConfettiComplete} />
+      {/* TODO: Confetti disabled for now */}
+      {/* <ConfettiEffect visible={showConfetti} onComplete={handleConfettiComplete} /> */}
       {newlyUnlockedAvatar && (
         <AvatarUnlockAnimation
           visible={true}

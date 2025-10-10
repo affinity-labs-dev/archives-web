@@ -1,6 +1,7 @@
 import { supabase } from '@/hooks/lib/supabase';
 import { useUser } from '@clerk/clerk-expo';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface BadgeDefinition {
   id: string;
@@ -21,7 +22,6 @@ interface UserBadge {
 interface BadgeContextType {
   badges: BadgeDefinition[];
   userBadges: UserBadge[];
-  totalXP: number;
   giveBadge: (badgeName: string, level: number) => Promise<void>;
   calculateTotalXP: (userData: any) => number;
   checkAndAwardBadges: (userData: any, totalXP: number) => Promise<void>;
@@ -30,14 +30,15 @@ interface BadgeContextType {
 
 const BadgeContext = createContext<BadgeContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'user_badges_data';
+
 export function BadgeProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
   const [badges, setBadges] = useState<BadgeDefinition[]>([]);
   const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
-  const [totalXP, setTotalXP] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Load badge definitions and user badges on mount
+  // Load badge definitions and user badges on mount (STARTUP: Supabase → AsyncStorage)
   useEffect(() => {
     console.log('🎖️ Badge useEffect triggered, user:', user?.id);
 
@@ -48,7 +49,7 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
 
     const loadBadgeData = async () => {
       try {
-        console.log('🎖️ Loading badge data for user:', user.id);
+        console.log('🎖️ [STARTUP] Loading badge data from Supabase for user:', user.id);
 
         // Load all badge definitions
         const { data: badgeDefs, error: badgeError } = await supabase
@@ -73,45 +74,25 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
 
         if (userBadgeError) throw userBadgeError;
 
-        // Load user's progress data to calculate XP from quiz scores
-        const { data: userData, error: xpError } = await supabase
-          .from('user_data')
-          .select('data')
-          .eq('user_id', user.id)
-          .single();
-
-        if (xpError && xpError.code !== 'PGRST116') throw xpError;
-
-        // Calculate totalXP from quiz scores in all modules
-        const calculatedXP = calculateTotalXP(userData);
-
-        // Update totalxp field in user_data
-        if (userData) {
-          const { error: updateError } = await supabase
-            .from('user_data')
-            .update({ totalxp: calculatedXP })
-            .eq('user_id', user.id);
-
-          if (updateError) {
-            console.error('❌ Error updating totalxp:', updateError);
-          } else {
-            console.log('✅ Updated totalxp in DB:', calculatedXP);
-          }
-        }
-
         console.log('🎖️ Raw badge definitions from DB:', badgeDefs);
         console.log('🎖️ Raw user badges from DB:', userBadgeData);
-        console.log('🎖️ Calculated totalXP from quiz scores:', calculatedXP);
 
         setBadges(badgeDefs || []);
         setUserBadges(userBadgeData || []);
-        setTotalXP(calculatedXP);
+
+        // Store to AsyncStorage (Supabase → AsyncStorage)
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userBadgeData || []));
+        console.log('✅ [STARTUP] Badge data saved to AsyncStorage');
 
         console.log('✅ Badge data loaded:', {
           definitions: badgeDefs?.length || 0,
-          earned: userBadgeData?.length || 0,
-          totalXP: calculatedXP
+          earned: userBadgeData?.length || 0
         });
+
+        // Check and award badges on login
+        console.log('🎖️ [LOGIN] Checking for badges to award...');
+        await checkBadgesOnLogin(badgeDefs || [], userBadgeData || []);
+
       } catch (error) {
         console.error('❌ Error loading badge data:', error);
       } finally {
@@ -121,6 +102,70 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
 
     loadBadgeData();
   }, [user?.id]);
+
+  // Check badges on login by reading progress from AsyncStorage
+  const checkBadgesOnLogin = async (badgeDefs: BadgeDefinition[], currentUserBadges: UserBadge[]) => {
+    try {
+      // Load module progress from AsyncStorage
+      const moduleProgressData = await AsyncStorage.getItem('module_progress');
+      if (!moduleProgressData) {
+        console.log('🎖️ [LOGIN] No module progress found');
+        return;
+      }
+
+      const moduleProgress = JSON.parse(moduleProgressData);
+      console.log('🎖️ [LOGIN] Module progress loaded:', moduleProgress.length, 'modules');
+
+      // Calculate XP
+      let totalXP = 0;
+      moduleProgress.forEach((m: any) => {
+        if (m.quizScore) {
+          totalXP += m.quizScore * 10;
+        }
+      });
+      console.log('🎖️ [LOGIN] Total XP:', totalXP);
+
+      // Build userData structure for monthly badge checking
+      const userData: any = { data: {} };
+      moduleProgress.forEach((m: any) => {
+        const advKey = `adventure${m.adventureId}`;
+        if (!userData.data[advKey]) {
+          userData.data[advKey] = { modules: {} };
+        }
+        userData.data[advKey].modules[`module${m.moduleId}`] = {
+          isCompleted: m.isCompleted,
+          quizCompleted: m.quizCompleted,
+          lessonsCompleted: m.lessonsCompleted,
+          quizScore: m.quizScore,
+          unlockedAt: m.unlockedAt
+        };
+      });
+
+      // Calculate months active
+      const monthsActive = calculateMonthsActive(userData);
+      console.log('🎖️ [LOGIN] Months active:', monthsActive);
+
+      const metrics: Record<string, number> = {
+        'ACH_EarnedXP': totalXP,
+        'ACH_MonthlyActive': monthsActive
+      };
+
+      // Check all badge definitions
+      for (const badge of badgeDefs) {
+        const currentValue = metrics[badge.name];
+        const alreadyHas = currentUserBadges.some(ub => ub.badge?.name === badge.name && ub.badge?.level === badge.level);
+
+        console.log(`🎖️ [LOGIN] ${badge.name} L${badge.level}: current=${currentValue}, threshold=${badge.threshold}, has=${alreadyHas}`);
+
+        if (currentValue !== undefined && currentValue >= badge.threshold && !alreadyHas) {
+          console.log(`🎉 [LOGIN] Awarding ${badge.name} L${badge.level}!`);
+          await giveBadge(badge.name, badge.level);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error checking badges on login:', error);
+    }
+  };
 
   // Calculate total XP from user_data modules
   const calculateTotalXP = (userData: any): number => {
@@ -147,7 +192,7 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
     return xp;
   };
 
-  // Give badge to user (IN-MEMORY ONLY - no DB write)
+  // Give badge to user (AsyncStorage + Supabase IMMEDIATELY)
   const giveBadge = async (badgeName: string, level: number) => {
     if (!user?.id) return;
 
@@ -165,9 +210,9 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    console.log(`🎉 Awarding badge in memory: ${badgeName} level ${level}`);
+    console.log(`🎉 Awarding badge: ${badgeName} level ${level}`);
 
-    // Create badge object in memory
+    // Create badge object
     const newBadge: UserBadge = {
       id: `temp_${Date.now()}`, // Temporary ID
       badge_id: badgeDef.id,
@@ -176,28 +221,84 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
       badge: badgeDef
     };
 
-    // Update local state only
-    setUserBadges((prev) => [...prev, newBadge]);
-    console.log(`✅ Badge awarded (in memory): ${badgeName} level ${level}`);
+    // Update state
+    const updatedBadges = [...userBadges, newBadge];
+    setUserBadges(updatedBadges);
+
+    // Store to AsyncStorage immediately
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedBadges));
+      console.log(`✅ Badge awarded and saved to AsyncStorage: ${badgeName} level ${level}`);
+    } catch (error) {
+      console.error('❌ Error saving badge to AsyncStorage:', error);
+    }
+
+    // IMMEDIATELY save to Supabase (don't wait for shutdown)
+    try {
+      console.log(`🎖️ Saving new badge to Supabase...`);
+
+      // Check if already exists in DB first
+      const { data: existing } = await supabase
+        .from('user_badges')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('badge_id', badgeDef.id)
+        .single();
+
+      if (existing) {
+        console.log(`⚠️ Badge already exists in DB: ${badgeName} level ${level}`);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('user_badges')
+        .insert({
+          badge_id: badgeDef.id,
+          user_id: user.id,
+          received_at: new Date().toISOString()
+        });
+
+      if (error && error.code !== '23505') {
+        console.error('❌ Error saving badge to Supabase:', error);
+      } else {
+        console.log(`✅ Badge saved to Supabase: ${badgeName} level ${level}`);
+      }
+    } catch (error) {
+      console.error('❌ Error syncing badge to Supabase:', error);
+    }
   };
 
   // Check and award badges based on user data (IN-MEMORY ONLY)
   const checkAndAwardBadges = async (userData: any, currentXP: number) => {
     if (!user?.id) return;
 
-    setTotalXP(currentXP);
+    console.log('🎖️ [BadgeCheck] Starting badge check...');
+    console.log('🎖️ [BadgeCheck] Current XP:', currentXP);
 
     // Calculate all metric values
+    const monthsActive = calculateMonthsActive(userData);
     const metrics: Record<string, number> = {
       'ACH_EarnedXP': currentXP,
-      'ACH_MonthlyActive': calculateMonthsActive(userData)
+      'ACH_MonthlyActive': monthsActive
     };
+
+    console.log('🎖️ [BadgeCheck] Metrics:', metrics);
+    console.log('🎖️ [BadgeCheck] Badge definitions:', badges.length);
 
     // Check all badge definitions against thresholds
     for (const badge of badges) {
       const currentValue = metrics[badge.name];
+      const alreadyHas = userBadges.some(ub => ub.badge?.name === badge.name && ub.badge?.level === badge.level);
+
+      console.log(`🎖️ [BadgeCheck] ${badge.name} L${badge.level}: current=${currentValue}, threshold=${badge.threshold}, has=${alreadyHas}`);
+
       if (currentValue !== undefined && currentValue >= badge.threshold) {
-        await giveBadge(badge.name, badge.level);
+        if (!alreadyHas) {
+          console.log(`🎉 [BadgeCheck] Awarding ${badge.name} L${badge.level}!`);
+          await giveBadge(badge.name, badge.level);
+        } else {
+          console.log(`✅ [BadgeCheck] Already has ${badge.name} L${badge.level}`);
+        }
       }
     }
   };
@@ -218,42 +319,47 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
       Object.keys(adventure.modules).forEach((moduleKey) => {
         const module = adventure.modules[moduleKey];
 
-        // Check completion criteria
-        if (
-          module.unlockedAt &&
-          module.isCompleted &&
-          module.quizCompleted &&
-          module.lessonsCompleted &&
-          module.quizScore != null
-        ) {
+        // Simple check: quiz completed + month from unlockedAt
+        if (module.unlockedAt && module.quizCompleted) {
           const date = new Date(module.unlockedAt);
           const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
           monthsSet.add(monthKey);
+          console.log(`🎖️ Month counted: ${monthKey} for ${adventureKey} ${moduleKey}`);
         }
       });
     });
 
+    console.log(`🎖️ Total unique months active: ${monthsSet.size}`, Array.from(monthsSet));
     return monthsSet.size;
   };
 
-  // Sync badges to database on unmount (shutdown/logout)
+  // Sync badges to Supabase on unmount (SHUTDOWN: AsyncStorage → Supabase)
   useEffect(() => {
     return () => {
       if (!user?.id) return;
 
-      console.log('🎖️ Syncing badges to database on shutdown...');
-
-      // Filter out temporary badges (newly earned in this session)
-      const newBadges = userBadges.filter((ub) => ub.id.startsWith('temp_'));
-
-      if (newBadges.length === 0) {
-        console.log('✅ No new badges to sync');
-        return;
-      }
-
-      // Sync new badges to database
-      const syncBadges = async () => {
+      const syncToSupabase = async () => {
         try {
+          console.log('🎖️ [SHUTDOWN] Syncing badges from AsyncStorage to Supabase...');
+
+          // Load from AsyncStorage
+          const storedData = await AsyncStorage.getItem(STORAGE_KEY);
+          if (!storedData) {
+            console.log('⚠️ No badge data in AsyncStorage to sync');
+            return;
+          }
+
+          const badgesToSync: UserBadge[] = JSON.parse(storedData);
+
+          // Filter out temporary badges (newly earned in this session)
+          const newBadges = badgesToSync.filter((ub) => ub.id.startsWith('temp_'));
+
+          if (newBadges.length === 0) {
+            console.log('✅ No new badges to sync');
+            return;
+          }
+
+          // Insert new badges to database
           const badgesToInsert = newBadges.map((ub) => ({
             badge_id: ub.badge_id,
             user_id: user.id,
@@ -264,41 +370,25 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
             .from('user_badges')
             .insert(badgesToInsert);
 
-          if (error && error.code !== '23505') throw error;
-
-          console.log(`✅ Synced ${newBadges.length} badges to database`);
+          if (error && error.code !== '23505') {
+            console.error('❌ Error inserting new badges:', error);
+          } else {
+            console.log(`✅ [SHUTDOWN] Synced ${newBadges.length} badges to Supabase`);
+          }
         } catch (error) {
-          console.error('❌ Error syncing badges:', error);
+          console.error('❌ Error syncing badges to Supabase:', error);
         }
       };
 
-      syncBadges();
-
-      // Also sync totalXP to user_data
-      const syncXP = async () => {
-        try {
-          const { error } = await supabase
-            .from('user_data')
-            .update({ totalxp: totalXP })
-            .eq('user_id', user.id);
-
-          if (error) throw error;
-          console.log(`✅ Synced totalXP: ${totalXP}`);
-        } catch (error) {
-          console.error('❌ Error syncing totalXP:', error);
-        }
-      };
-
-      syncXP();
+      syncToSupabase();
     };
-  }, [user?.id, userBadges, totalXP]);
+  }, [user?.id]);
 
   return (
     <BadgeContext.Provider
       value={{
         badges,
         userBadges,
-        totalXP,
         giveBadge,
         calculateTotalXP,
         checkAndAwardBadges,
