@@ -69,7 +69,7 @@ export default function Adventure2_Module2_Lesson2({
   }
 
   const handleContinue = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     onContinue()
   }
 

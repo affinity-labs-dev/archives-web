@@ -3,6 +3,7 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useProgress } from "@/context/ProgressContext";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
@@ -283,8 +284,8 @@ export default function Adventure5_Module3_Lesson1({
   };
 
   const handleContinuePress = () => {
-    // Success haptic feedback
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Track lesson completion in analytics
     trackLessonComplete();

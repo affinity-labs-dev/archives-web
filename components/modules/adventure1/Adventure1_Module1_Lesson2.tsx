@@ -153,8 +153,6 @@ export default function Adventure1_Module1_Lesson2({
         friction: 8,
       }),
     ]).start();
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   // Expand the card to full height
@@ -167,7 +165,6 @@ export default function Adventure1_Module1_Lesson2({
     // Activate continue button when user expands card (shows engagement with content)
     if (!hasFinishedReading) {
       setHasFinishedReading(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       console.log("📖 Reading card expanded - Continue button now enabled");
     }
 
@@ -235,7 +232,6 @@ export default function Adventure1_Module1_Lesson2({
         platform: Platform.OS
       });
       expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
       console.log("📖 Android touch swipe down detected - collapsing card", {
         distance,
@@ -244,7 +240,6 @@ export default function Adventure1_Module1_Lesson2({
         platform: Platform.OS
       });
       collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
     // Reset touch start
@@ -277,7 +272,6 @@ export default function Adventure1_Module1_Lesson2({
           platform: Platform.OS
         });
         expandCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else if (isCardExpanded &&
                  (translationY > minDistance || velocityY > minVelocity)) {
         console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
@@ -286,16 +280,12 @@ export default function Adventure1_Module1_Lesson2({
           platform: Platform.OS
         });
         collapseCard();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
   };
 
   // Continue button handler
   const handleContinue = () => {
-    // Success haptic feedback
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
     // Track lesson completion in analytics
     trackLessonComplete();
 

@@ -368,6 +368,9 @@ export default function Adventure5_Module2_Lesson2({
   };
 
   const handleContinuePress = () => {
+    // Light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     // Mark lesson as completed
     completeLesson(5, 2, "lesson2");
 

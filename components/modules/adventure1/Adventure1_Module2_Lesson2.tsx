@@ -162,8 +162,8 @@ export default function Adventure1_Module2_Lesson2({
 
   // Continue button handler
   const handleContinue = () => {
-    // Success haptic feedback
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Track lesson completion in analytics
     trackLessonComplete();
@@ -268,10 +268,9 @@ export default function Adventure1_Module2_Lesson2({
     // Activate continue button when user expands card (shows engagement with content)
     if (!hasFinishedReading) {
       setHasFinishedReading(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       console.log("📖 Reading card expanded - Continue button now enabled");
     }
-    
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: SCREEN_HEIGHT * 0.85,

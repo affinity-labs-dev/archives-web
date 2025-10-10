@@ -105,7 +105,6 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
   useEffect(() => {
     if (isVisible && moduleId) {
       setCurrentStep('lesson1')
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     }
   }, [isVisible, moduleId])
 

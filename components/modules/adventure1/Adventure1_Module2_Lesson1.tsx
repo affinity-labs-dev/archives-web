@@ -388,6 +388,9 @@ export default function Adventure1_Module2_Lesson1({
             onPress={
               currentImageIndex === palaceInteriors.length - 1
                 ? () => {
+                    // Light haptic feedback
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
                     // Stop all audio before continuing (no await for instant navigation)
                     if (backgroundMusic.isPlaying) {
                       console.log(
@@ -624,27 +627,31 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
 
-  // Page indicators only - centered without buttons
+  // Page indicators only - Figma design with dark pill container
   pageIndicatorsOnly: {
     position: "absolute",
     bottom: 180, // Position above the reading card
-    left: 0,
-    right: 0,
+    alignSelf: "center", // Center the container horizontally
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 10,
+    // Dark pill container background - width auto-fits to content
+    backgroundColor: "rgba(0, 0, 0, 0.8)", // 80% black opacity from Figma
+    borderRadius: 15, // 12.75 rounded up for smoother pill shape
+    paddingHorizontal: 5, // ~4.75px from Figma
+    paddingVertical: 6, // Adjusted for better visual balance
   },
   pageIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.6)", // 60% opacity for inactive dots
-    marginHorizontal: 4,
+    width: 9, // 9.33px from Figma (rounded)
+    height: 9,
+    borderRadius: 4.5, // Half of 9 for perfect circle
+    backgroundColor: "rgb(147, 147, 147)", // Gray from Figma (inactive dots)
+    marginHorizontal: 4.5, // Adjusted for proper spacing
   },
   pageIndicatorActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.9)", // 90% opacity for active dot
-    transform: [{ scale: 1.2 }],
+    backgroundColor: "rgb(255, 255, 255)", // Pure white from Figma (active dot)
+    // No scale transform - removed per Figma design
   },
 
   // Reading Card Container

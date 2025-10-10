@@ -163,8 +163,8 @@ export default function Adventure4_Module1_Lesson2({
 
   // Continue button handler
   const handleContinue = () => {
-    // Success haptic feedback
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Track lesson completion in analytics
     trackLessonComplete();

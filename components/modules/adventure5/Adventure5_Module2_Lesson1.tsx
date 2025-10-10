@@ -285,8 +285,8 @@ export default function Adventure5_Module2_Lesson1({
 
   // Lesson completion logic
   const handleContinue = () => {
-    // Success haptic feedback
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Track lesson completion in analytics
     trackLessonComplete();
