@@ -17,8 +17,7 @@ import { PostHogProvider } from 'posthog-react-native';
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
-import { BadgeProvider } from "@/context/BadgeContext";
-import { AvatarProvider, useAvatars } from "@/context/AvatarContext";
+import { RewardsProvider, useRewards } from "@/context/RewardsContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
 import Purchases from 'react-native-purchases';
 import * as Notifications from 'expo-notifications';
@@ -112,12 +111,15 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Avatar unlock animation wrapper that must be inside AvatarProvider
+// Avatar unlock animation wrapper that must be inside RewardsProvider
 function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
-  const { newlyUnlockedAvatar, clearNewlyUnlockedAvatar } = useAvatars();
+  const { newlyUnlockedItem, clearNewlyUnlockedItem } = useRewards();
   const [showNotification, setShowNotification] = React.useState(false);
   const [notificationAvatar, setNotificationAvatar] = React.useState<{ image: any; name: string } | null>(null);
   const [showConfetti, setShowConfetti] = React.useState(false);
+
+  // Only show animations for avatars (not badges)
+  const newlyUnlockedAvatar = newlyUnlockedItem?.type === 'avatar' ? newlyUnlockedItem : null;
 
   // Helper to get avatar image - static mapping for require()
   const AVATAR_IMAGE_MAP: Record<string, any> = {
@@ -149,11 +151,11 @@ function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
     if (newlyUnlockedAvatar) {
       setNotificationAvatar({
         image: getAvatarImage(newlyUnlockedAvatar.image_url),
-        name: newlyUnlockedAvatar.name,
+        name: newlyUnlockedAvatar.display_text,
       });
       setShowNotification(true);
     }
-    clearNewlyUnlockedAvatar();
+    clearNewlyUnlockedItem();
   };
 
   // When notification completes, clear everything
@@ -176,7 +178,7 @@ function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
         <AvatarUnlockAnimation
           visible={true}
           avatarImage={getAvatarImage(newlyUnlockedAvatar.image_url)}
-          avatarName={newlyUnlockedAvatar.name}
+          avatarName={newlyUnlockedAvatar.display_text}
           onComplete={handleAnimationComplete}
         />
       )}
@@ -301,33 +303,31 @@ export default function RootLayout() {
         <AnalyticsWrapper>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
               <BackgroundSyncProvider>
-                <BadgeProvider>
-                  <AvatarProvider>
-                    <ProgressProvider>
-                      <PreferencesProvider>
-                        <AvatarAnimationWrapper>
-                          <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
-                            <Stack>
-                              <Stack.Screen name="onboarding-video" options={{ headerShown: false, title: '' }} />
-                              <Stack.Screen name="onboarding-video-2" options={{ headerShown: false, title: '' }} />
-                              <Stack.Screen name="onboarding-welcome" options={{ headerShown: false, title: '' }} />
-                              <Stack.Screen name="onboarding-question-1" options={{ headerShown: false }} />
-                              <Stack.Screen name="onboarding-question-2" options={{ headerShown: false }} />
-                              <Stack.Screen name="onboarding-question-3" options={{ headerShown: false }} />
-                              <Stack.Screen name="onboarding-question-4" options={{ headerShown: false }} />
-                              <Stack.Screen name="onboarding-results" options={{ headerShown: false }} />
-                              <Stack.Screen name="era-selection" options={{ headerShown: false, title: '' }} />
-                              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                              <Stack.Screen name="+not-found" />
-                            </Stack>
-                            <StatusBar style="auto" />
-                          </ThemeProvider>
-                        </AvatarAnimationWrapper>
-                      </PreferencesProvider>
-                    </ProgressProvider>
-                  </AvatarProvider>
-                </BadgeProvider>
+                <RewardsProvider>
+                  <ProgressProvider>
+                    <PreferencesProvider>
+                      <AvatarAnimationWrapper>
+                        <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                          <Stack>
+                            <Stack.Screen name="onboarding-video" options={{ headerShown: false, title: '' }} />
+                            <Stack.Screen name="onboarding-video-2" options={{ headerShown: false, title: '' }} />
+                            <Stack.Screen name="onboarding-welcome" options={{ headerShown: false, title: '' }} />
+                            <Stack.Screen name="onboarding-question-1" options={{ headerShown: false }} />
+                            <Stack.Screen name="onboarding-question-2" options={{ headerShown: false }} />
+                            <Stack.Screen name="onboarding-question-3" options={{ headerShown: false }} />
+                            <Stack.Screen name="onboarding-question-4" options={{ headerShown: false }} />
+                            <Stack.Screen name="onboarding-results" options={{ headerShown: false }} />
+                            <Stack.Screen name="era-selection" options={{ headerShown: false, title: '' }} />
+                            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                            <Stack.Screen name="+not-found" />
+                          </Stack>
+                          <StatusBar style="auto" />
+                        </ThemeProvider>
+                      </AvatarAnimationWrapper>
+                    </PreferencesProvider>
+                  </ProgressProvider>
+                </RewardsProvider>
               </BackgroundSyncProvider>
           </ClerkProvider>
         </AnalyticsWrapper>

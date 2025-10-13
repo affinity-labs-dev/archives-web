@@ -8,8 +8,7 @@ import * as Haptics from 'expo-haptics'
 import { useProgressSync } from '@/hooks/useSyncIntegration'
 import { useUser } from '@clerk/clerk-expo'
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
-import { useBadges } from '@/context/BadgeContext'
-import { useAvatars } from '@/context/AvatarContext'
+import { useRewards } from '@/context/RewardsContext'
 
 // Web-compatible storage wrapper to prevent SSR issues
 class WebCompatibleStorage {
@@ -218,11 +217,8 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   // CRITICAL: Wait for background sync to complete before loading data on login
   const { isInitialized: syncInitialized } = useBackgroundSync()
 
-  // Badge system integration
-  const { calculateTotalXP, checkAndAwardBadges } = useBadges()
-
-  // Avatar system integration
-  const { avatarTypes, userAvatars, giveAvatar } = useAvatars()
+  // Rewards system integration (badges + avatars)
+  const { checkAndUnlockItems } = useRewards()
 
   // Helper function to parse ROI module IDs (ROI_Adv1_M1 format)
   const parseRoiModuleId = (moduleId: string): { adventureId: number; moduleId: number } | null => {
@@ -852,7 +848,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
           }
         });
 
-        // Build minimal user data for monthly badge checking
+        // Build user data for reward checking
         const userData: any = { data: {} };
         updatedModules.forEach(m => {
           const advKey = `adventure${m.adventureId}`;
@@ -868,7 +864,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
           };
         });
 
-        await checkAndAwardBadges(userData, totalXP);
+        await checkAndUnlockItems(userData, totalXP);
       }
 
       // Trigger cloud sync
@@ -881,7 +877,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       console.error('❌ Atomic progress update failed:', error)
       throw error
     }
-  }, [adventureProgress, moduleProgress, getModuleProgress, getAdventureProgress, syncModule, syncAdventure, checkAndAwardBadges])
+  }, [adventureProgress, moduleProgress, getModuleProgress, getAdventureProgress, syncModule, syncAdventure, checkAndUnlockItems])
 
   // ROI ATOMIC PROGRESS UPDATE FUNCTION - PERFORMANCE: Memoized with useCallback
   const roiAtomicProgressUpdate = useCallback(async (
