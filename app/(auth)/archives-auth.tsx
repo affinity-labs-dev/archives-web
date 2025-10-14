@@ -206,7 +206,7 @@ export default function ArchivesAuthScreen() {
     <View style={styles.absoluteContainer}>
       <StatusBar barStyle="dark-content" backgroundColor={ArchivesTheme.colors.creamWhite} />
       <View style={styles.solidBackground}>
-        <SafeAreaView style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 15 : 0 }]}>
+        <SafeAreaView style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.container}>
             {/* Header with back button and title */}
