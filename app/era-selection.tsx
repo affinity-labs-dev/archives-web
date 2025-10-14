@@ -11,6 +11,7 @@ import {
   StatusBar,
   SafeAreaView,
   Image,
+  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -151,7 +152,7 @@ export default function EraSelection() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 15 : 0 }]}>
       <StatusBar barStyle="dark-content" translucent={false} backgroundColor={ArchivesTheme.colors.creamWhite} />
       <View style={styles.container}>
         {/* Background - CreamWhite */}
