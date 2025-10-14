@@ -68,10 +68,6 @@ export default function Adventure1_Module1_Lesson1({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{
-    y: number;
-    time: number;
-  } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
@@ -169,59 +165,6 @@ export default function Adventure1_Module1_Lesson1({
       "🔄 Continue button pressed - Adventure 1 lesson 1 completed, proceeding to lesson 2"
     );
     onContinue();
-  };
-
-  // Custom touch handlers for reliable Android swipe detection
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now(),
-    });
-  };
-
-  const handleTouchEnd = (event: any) => {
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-
-    // Optimized Android swipe detection for smoothness
-    const minDistance = 40; // Increased for better gesture recognition
-    const maxTime = 300; // Shorter time for more responsive gestures
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.5; // Minimum velocity threshold
-
-    if (
-      !isCardExpanded &&
-      distance > minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      expandCard();
-    } else if (
-      isCardExpanded &&
-      distance < -minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      collapseCard();
-    }
-
-    // Reset touch start
-    setTouchStart(null);
   };
 
   // iOS PanGestureHandler for native iOS gesture experience
@@ -524,126 +467,124 @@ export default function Adventure1_Module1_Lesson1({
             </Animated.View>
           </PanGestureHandler>
         ) : (
-          // Android: Custom Touch Handlers
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          // Android: TouchableOpacity for tap-to-expand
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }],
+              },
+            ]}
+          >
             <Animated.View
               style={[
-                styles.cardContainer,
+                styles.readingCard,
                 {
-                  transform: [{ translateY: cardTranslateY }],
+                  height: cardHeight,
                 },
               ]}
             >
+              {/* Top handle indicator */}
+              <View style={styles.cardHandle} />
+
+              {/* Collapsed content */}
               <Animated.View
-                style={[
-                  styles.readingCard,
-                  {
-                    height: cardHeight,
-                  },
-                ]}
+                style={[styles.collapsedContent, { opacity: cardOpacity }]}
               >
-                {/* Top handle indicator */}
-                <View style={styles.cardHandle} />
-
-                {/* Collapsed content */}
-                <Animated.View
-                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
                 >
-                  <TouchableOpacity
-                    onPress={expandCard}
-                    activeOpacity={0.8}
-                    disabled={isCardExpanded}
-                  >
-                    <View style={styles.collapsedContentWrapper}>
-                      <Text style={styles.collapsedTitle}>
-                        Bay&apos;ah Ceremony & Damascus
-                      </Text>
-                      <Text style={styles.collapsedSubtitle}>
-                        In 661 CE, Muʿawiya became the first Umayyad caliph...
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
-
-                {/* Expanded content when card is swiped up */}
-                {isCardExpanded && (
-                  <Animated.View
-                    style={[
-                      styles.expandedContent,
-                      { opacity: Animated.subtract(1, cardOpacity) },
-                    ]}
-                  >
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                    >
-                      <View style={styles.expandedContentInner}>
-                        {/* Title Section - Tappable to collapse */}
-                        <TouchableOpacity
-                          onPress={collapseCard}
-                          activeOpacity={0.9}
-                        >
-                          <View style={styles.titleSection}>
-                            <Text style={styles.sheetTitle}>
-                              Bay&apos;ah Ceremony & Damascus
-                            </Text>
-                            <Text style={styles.sheetSubtitle}>
-                              Module 1 • Lesson 1
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Historical Context Section */}
-                        <TouchableOpacity
-                          onPress={collapseCard}
-                          activeOpacity={0.9}
-                        >
-                          <View style={styles.historicalSection}>
-                            <Text style={styles.sectionTitle}>
-                              Historical Context
-                            </Text>
-                            <Text style={styles.historicalText}>
-                              {historicalText}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Key Terms Section */}
-                        <TouchableOpacity
-                          onPress={collapseCard}
-                          activeOpacity={0.9}
-                        >
-                          <View style={styles.keyTermsSection}>
-                            <Text style={styles.sectionTitle}>Key Terms</Text>
-                            <View style={styles.keyTermsContainer}>
-                              <KeyTermRow
-                                term="Bay'ah"
-                                definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
-                              />
-                              <KeyTermRow
-                                term="Damascus"
-                                definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
-                              />
-                              <KeyTermRow
-                                term="Legitimacy"
-                                definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
-                              />
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Bottom spacer to ensure full scroll */}
-                        <View style={styles.sheetBottomSpacer} />
-                      </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
+                  <View style={styles.collapsedContentWrapper}>
+                    <Text style={styles.collapsedTitle}>
+                      Bay&apos;ah Ceremony & Damascus
+                    </Text>
+                    <Text style={styles.collapsedSubtitle}>
+                      In 661 CE, Muʿawiya became the first Umayyad caliph...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
+
+              {/* Expanded content when card is expanded */}
+              {isCardExpanded && (
+                <Animated.View
+                  style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) },
+                  ]}
+                >
+                  <GestureHandlerScrollView
+                    ref={scrollViewGestureRef}
+                    style={styles.expandedScroll}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={handleReadingScroll}
+                    scrollEventThrottle={100}
+                  >
+                    <View style={styles.expandedContentInner}>
+                      {/* Title Section - Tappable to collapse */}
+                      <TouchableOpacity
+                        onPress={collapseCard}
+                        activeOpacity={0.9}
+                      >
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            Bay&apos;ah Ceremony & Damascus
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Module 1 • Lesson 1
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Historical Context Section */}
+                      <TouchableOpacity
+                        onPress={collapseCard}
+                        activeOpacity={0.9}
+                      >
+                        <View style={styles.historicalSection}>
+                          <Text style={styles.sectionTitle}>
+                            Historical Context
+                          </Text>
+                          <Text style={styles.historicalText}>
+                            {historicalText}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Key Terms Section */}
+                      <TouchableOpacity
+                        onPress={collapseCard}
+                        activeOpacity={0.9}
+                      >
+                        <View style={styles.keyTermsSection}>
+                          <Text style={styles.sectionTitle}>Key Terms</Text>
+                          <View style={styles.keyTermsContainer}>
+                            <KeyTermRow
+                              term="Bay'ah"
+                              definition="A pledge of loyalty ceremony where people place hands with the caliph to show allegiance"
+                            />
+                            <KeyTermRow
+                              term="Damascus"
+                              definition="The capital city chosen by Muʿawiya for the Umayyad Caliphate in 661 CE"
+                            />
+                            <KeyTermRow
+                              term="Legitimacy"
+                              definition="The acceptance of a leader's right to rule, established through ceremonies like bay'ah"
+                            />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Bottom spacer to ensure full scroll */}
+                      <View style={styles.sheetBottomSpacer} />
+                    </View>
+                  </GestureHandlerScrollView>
+                </Animated.View>
+              )}
             </Animated.View>
-          </View>
+          </Animated.View>
         )}
       </View>
     </>
@@ -914,12 +855,9 @@ const styles = StyleSheet.create({
 
   // Collapsed card text styles (for Android touch version)
   collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
   },
   collapsedTitle: {
     fontFamily: "DM Sans",

@@ -66,7 +66,6 @@ export default function Adventure1_Module2_Lesson2({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -211,51 +210,6 @@ export default function Adventure1_Module2_Lesson2({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
-  };
-
-  // Custom touch handlers for reliable Android swipe detection
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now()
-    });
-  };
-
-  const handleTouchEnd = (event: any) => {
-    if (!touchStart) return;
-    
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-    
-    // Optimized Android swipe detection for smoothness
-    const minDistance = 40; // Increased for better gesture recognition
-    const maxTime = 300; // Shorter time for more responsive gestures
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.5; // Minimum velocity threshold
-    
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
-    // Reset touch start
-    setTouchStart(null);
   };
 
   // Expand the card to full height
@@ -490,17 +444,13 @@ export default function Adventure1_Module2_Lesson2({
             </Animated.View>
           </PanGestureHandler>
         ) : (
-          // Android: Custom Touch Handlers
-          <View 
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }]
-              }
-            ]}>
+          // Android: TouchableOpacity for tap-to-expand
+          <Animated.View style={[
+            styles.cardContainer,
+            {
+              transform: [{ translateY: cardTranslateY }]
+            }
+          ]}>
               <Animated.View style={[
                 styles.readingCard,
                 {
@@ -594,8 +544,7 @@ export default function Adventure1_Module2_Lesson2({
                 )}
               </Animated.View>
             </Animated.View>
-          </View>
-        )}
+          )}
 
       </View>
     </>
@@ -866,12 +815,9 @@ const styles = StyleSheet.create({
 
   // Android-Specific Styles for proper text positioning
   collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
   },
   collapsedTitle: {
     fontFamily: "DM Sans",

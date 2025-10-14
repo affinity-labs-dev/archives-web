@@ -66,7 +66,6 @@ export default function Adventure1_Module1_Lesson2({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
@@ -200,50 +199,6 @@ export default function Adventure1_Module1_Lesson2({
         useNativeDriver: false,
       }),
     ]).start();
-  };
-
-  // Enhanced Android touch handlers with improved sensitivity
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now()
-    });
-    console.log("📖 Android card gesture started");
-  };
-
-  const handleTouchEnd = (event: any) => {
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-
-    // Improved Android swipe detection with better sensitivity
-    const minDistance = 25; // Reduced from 40 for better responsiveness
-    const maxTime = 300; // Shorter time for more responsive gestures
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.4; // Reduced threshold for better responsiveness
-
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      expandCard();
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      collapseCard();
-    }
-
-    // Reset touch start
-    setTouchStart(null);
   };
 
   // Enhanced iOS PanGestureHandler with gesture coordination
@@ -482,12 +437,8 @@ export default function Adventure1_Module1_Lesson2({
           </Animated.View>
           </PanGestureHandler>
         ) : (
-          // Android: Custom Touch Handlers
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <Animated.View style={[
+          // Android: TouchableOpacity for tap-to-expand
+          <Animated.View style={[
             styles.cardContainer,
             {
               transform: [{ translateY: cardTranslateY }]
@@ -587,7 +538,6 @@ export default function Adventure1_Module1_Lesson2({
             )}
             </Animated.View>
           </Animated.View>
-          </View>
         )}
       </View>
     </>
@@ -811,12 +761,9 @@ const styles = StyleSheet.create({
 
   // Collapsed card text styles (for Android touch version)
   collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
   },
   collapsedTitle: {
     fontFamily: "DM Sans",

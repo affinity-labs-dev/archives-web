@@ -66,7 +66,6 @@ export default function Adventure2_Module1_Lesson2({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -75,10 +74,10 @@ export default function Adventure2_Module1_Lesson2({
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
-  
+
   // Animated value for smooth progress bar
   const progressBarWidth = useRef(new Animated.Value(0)).current;
-  
+
   // Track last progress to prevent unnecessary animations
   const lastProgress = useRef(0);
 
@@ -113,12 +112,12 @@ export default function Adventure2_Module1_Lesson2({
       if (status.durationMillis && status.positionMillis) {
         const progress = status.positionMillis / status.durationMillis;
         setVideoProgress(progress);
-        
+
         // Only animate if progress changed significantly (prevents micro-animations)
         const progressDiff = Math.abs(progress - lastProgress.current);
         if (progressDiff > 0.0005) { // More sensitive threshold for ultra-smooth updates
           lastProgress.current = progress;
-          
+
           // Ultra-smooth progress bar animation
           Animated.timing(progressBarWidth, {
             toValue: progress,
@@ -126,7 +125,7 @@ export default function Adventure2_Module1_Lesson2({
             useNativeDriver: false, // Width animations require native driver false
           }).start();
         }
-        
+
         // Check if video completed (reached 95% to account for slight timing issues)
         if (progress >= 0.95 && !hasVideoCompleted) {
           setHasVideoCompleted(true);
@@ -154,7 +153,7 @@ export default function Adventure2_Module1_Lesson2({
         friction: 8,
       }),
     ]).start();
-    
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -174,55 +173,10 @@ export default function Adventure2_Module1_Lesson2({
     onContinue();
   };
 
-  // Custom touch handlers for reliable Android swipe detection
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now()
-    });
-  };
-
-  const handleTouchEnd = (event: any) => {
-    if (!touchStart) return;
-    
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-    
-    // Optimized Android swipe detection for smoothness
-    const minDistance = 40; // Increased for better gesture recognition
-    const maxTime = 300; // Shorter time for more responsive gestures
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.5; // Minimum velocity threshold
-    
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
-    // Reset touch start
-    setTouchStart(null);
-  };
-
   // iOS PanGestureHandler for native iOS gesture experience
   const handleSwipeGesture = (event: any) => {
     if (Platform.OS !== 'ios') return;
-    
+
     if (event.nativeEvent.state === State.END) {
       const { translationY, velocityY } = event.nativeEvent;
       console.log("📱 iOS PanGesture detected", {
@@ -231,12 +185,12 @@ export default function Adventure2_Module1_Lesson2({
         isCardExpanded,
         platform: Platform.OS
       });
-      
+
       // iOS-optimized swipe detection
       const minDistance = 30;
       const minVelocity = 500;
-      
-      if (!isCardExpanded && 
+
+      if (!isCardExpanded &&
           (translationY < -minDistance || velocityY < -minVelocity)) {
         console.log("📱 iOS PanGesture swipe up detected - expanding card", {
           translationY,
@@ -245,7 +199,7 @@ export default function Adventure2_Module1_Lesson2({
         });
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (isCardExpanded && 
+      } else if (isCardExpanded &&
                  (translationY > minDistance || velocityY > minVelocity)) {
         console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
           translationY,
@@ -271,7 +225,7 @@ export default function Adventure2_Module1_Lesson2({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       console.log("📖 Reading card expanded - Continue button now enabled");
     }
-    
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: SCREEN_HEIGHT * 0.85,
@@ -290,7 +244,7 @@ export default function Adventure2_Module1_Lesson2({
   // Collapse the card back to original size
   const collapseCard = () => {
     setIsCardExpanded(false);
-    
+
     Animated.parallel([
       Animated.spring(cardHeight, {
         toValue: 160,
@@ -320,6 +274,119 @@ export default function Adventure2_Module1_Lesson2({
     collapseCard();
   };
 
+  // Key terms component
+  interface KeyTermRowProps {
+    term: string;
+    definition: string;
+  }
+
+  function KeyTermRow({ term, definition }: KeyTermRowProps) {
+    return (
+      <View style={styles.keyTermRow}>
+        <Text style={styles.keyTermTitle}>{term}</Text>
+        <Text style={styles.keyTermDefinition}>{definition}</Text>
+      </View>
+    );
+  }
+
+  // Reading card content - unified for both iOS and Android
+  const renderReadingCard = () => (
+    <Animated.View
+      style={[
+        styles.cardContainer,
+        { transform: [{ translateY: cardTranslateY }] },
+      ]}
+    >
+      <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
+        {/* Top handle indicator */}
+        <View style={styles.cardHandle} />
+
+        {/* Collapsed content */}
+        <Animated.View
+          style={[styles.collapsedContent, { opacity: cardOpacity }]}
+        >
+          <TouchableOpacity
+            onPress={expandCard}
+            activeOpacity={0.8}
+            disabled={isCardExpanded}
+          >
+            <View style={styles.readingCardHeader}>
+              <Text style={styles.cardTitle}>
+                The Umayyad Administrative Revolution
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                Switching to Arabic was not simple. Some governors resisted...
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Expanded content */}
+        {isCardExpanded && (
+          <Animated.View
+            style={[
+              styles.expandedContent,
+              { opacity: Animated.subtract(1, cardOpacity) },
+            ]}
+          >
+            <GestureHandlerScrollView
+              ref={scrollViewGestureRef}
+              style={styles.expandedScroll}
+              showsVerticalScrollIndicator={false}
+              onScroll={handleReadingScroll}
+              scrollEventThrottle={100}
+              waitFor={Platform.OS === "ios" ? panGestureRef : undefined}
+            >
+              <View style={styles.expandedContentInner}>
+                {/* Title Section - Tappable to collapse */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.titleSection}>
+                    <Text style={styles.sheetTitle}>
+                      The Umayyad Administrative Revolution
+                    </Text>
+                    <Text style={styles.sheetSubtitle}>Module 1 • Lesson 2</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Historical Content */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.historicalSection}>
+                    <Text style={styles.sectionTitle}>Historical Context</Text>
+                    <Text style={styles.historicalText}>{historicalText}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Key Terms Section */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.keyTermsSection}>
+                    <Text style={styles.sectionTitle}>Key Terms</Text>
+                    <View style={styles.keyTermsContainer}>
+                      <KeyTermRow
+                        term="Diwān"
+                        definition="Government office that fully adopted Arabic as its working language"
+                      />
+                      <KeyTermRow
+                        term="Governor Resistance"
+                        definition="Some governors opposed the Arabic switch, fearing loss of control"
+                      />
+                      <KeyTermRow
+                        term="Scribe Training"
+                        definition="New scribes were trained in Arabic to staff the changing government offices"
+                      />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Bottom spacer to ensure full scroll */}
+                <View style={styles.sheetBottomSpacer} />
+              </View>
+            </GestureHandlerScrollView>
+          </Animated.View>
+        )}
+      </Animated.View>
+    </Animated.View>
+  );
+
   return (
     <>
       {Platform.OS === 'android' && (
@@ -340,7 +407,7 @@ export default function Adventure2_Module1_Lesson2({
             <Animated.View
               style={[
                 styles.progressBarFill,
-                { 
+                {
                   width: progressBarWidth.interpolate({
                     inputRange: [0, 1],
                     outputRange: ['0%', '100%'],
@@ -360,24 +427,24 @@ export default function Adventure2_Module1_Lesson2({
 
         {/* Next Button - Top Right */}
         <SafeAreaView style={styles.nextButtonContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.nextButton,
               !hasFinishedReading && styles.nextButtonDisabled
-            ]} 
+            ]}
             onPress={hasFinishedReading ? handleContinue : undefined}
             disabled={!hasFinishedReading}
           >
-            <Ionicons 
-              name="chevron-forward" 
-              size={24} 
-              color={hasFinishedReading ? "white" : "#666"} 
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={hasFinishedReading ? "white" : "#666"}
             />
           </TouchableOpacity>
         </SafeAreaView>
 
-        {/* Reading Card at Bottom - Expandable */}
-        {Platform.OS === 'ios' ? (
+        {/* Platform-Specific Reading Card */}
+        {Platform.OS === "ios" ? (
           <PanGestureHandler
             ref={panGestureRef}
             onGestureEvent={handleSwipeGesture}
@@ -385,269 +452,14 @@ export default function Adventure2_Module1_Lesson2({
             activeOffsetY={[-20, 20]}
             failOffsetX={[-30, 30]}
           >
-          <Animated.View style={[
-            styles.cardContainer,
-            {
-              transform: [{ translateY: cardTranslateY }]
-            }
-          ]}>
-            <Animated.View style={[
-              styles.readingCard,
-              {
-                height: cardHeight,
-              }
-            ]}>
-            {/* Top handle indicator */}
-            <View style={styles.cardHandle} />
-
-            {/* Collapsed content */}
-            <Animated.View style={[
-              styles.collapsedContent,
-              { opacity: cardOpacity }
-            ]}>
-              {Platform.OS === 'ios' ? (
-                <TouchableOpacity
-                  onPress={expandCard}
-                  activeOpacity={0.8}
-                  disabled={isCardExpanded}
-                >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      The Umayyad Administrative Revolution
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Switching to Arabic was not simple. Some governors resisted...
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={expandCard}
-                  activeOpacity={0.8}
-                  disabled={isCardExpanded}
-                >
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>
-                      The Umayyad Administrative Revolution
-                    </Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Switching to Arabic was not simple. Some governors resisted...
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </Animated.View>
-
-            {/* Expanded content */}
-            {isCardExpanded && (
-              <Animated.View style={[
-                styles.expandedContent,
-                { opacity: Animated.subtract(1, cardOpacity) }
-              ]}>
-
-                <GestureHandlerScrollView
-                  ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
-                  style={styles.expandedScroll}
-                  showsVerticalScrollIndicator={false}
-                  onScroll={handleReadingScroll}
-                  scrollEventThrottle={100}
-                >
-                  <View style={styles.expandedContentInner}>
-                    {/* Title Section - Tappable to collapse */}
-                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          The Umayyad Administrative Revolution
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 1 • Lesson 2
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Historical Content */}
-                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>Historical Context</Text>
-                        <Text style={styles.historicalText}>{historicalText}</Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Key Terms Section */}
-                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Diw\u0101n"
-                            definition="Government office that fully adopted Arabic as its working language"
-                          />
-                          <KeyTermRow
-                            term="Governor Resistance"
-                            definition="Some governors opposed the Arabic switch, fearing loss of control"
-                          />
-                          <KeyTermRow
-                            term="Scribe Training"
-                            definition="New scribes were trained in Arabic to staff the changing government offices"
-                          />
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Bottom spacer to ensure full scroll */}
-                    <View style={styles.sheetBottomSpacer} />
-                  </View>
-                </GestureHandlerScrollView>
-                
-              </Animated.View>
-            )}
-            </Animated.View>
-          </Animated.View>
+            {renderReadingCard()}
           </PanGestureHandler>
         ) : (
-          <View 
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-          <Animated.View style={[
-            styles.cardContainer,
-            {
-              transform: [{ translateY: cardTranslateY }]
-            }
-          ]}>
-            <Animated.View style={[
-              styles.readingCard,
-              {
-                height: cardHeight,
-              }
-            ]}>
-            {/* Top handle indicator */}
-            <View style={styles.cardHandle} />
-
-            {/* Collapsed content */}
-            <Animated.View style={[
-              styles.collapsedContent,
-              { opacity: cardOpacity }
-            ]}>
-              {Platform.OS === 'ios' ? (
-                <TouchableOpacity
-                  onPress={expandCard}
-                  activeOpacity={0.8}
-                  disabled={isCardExpanded}
-                >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      The Umayyad Administrative Revolution
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Building an empire required more than conquest...
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={expandCard}
-                  activeOpacity={0.8}
-                  disabled={isCardExpanded}
-                >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      The Umayyad Administrative Revolution
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Building an empire required more than conquest...
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </Animated.View>
-
-            {/* Expanded content */}
-            {isCardExpanded && (
-              <Animated.View style={[
-                styles.expandedContent,
-                { opacity: Animated.subtract(1, cardOpacity) }
-              ]}>
-                <GestureHandlerScrollView
-                  ref={scrollViewGestureRef}
-                  waitFor={panGestureRef}
-                  style={styles.expandedScroll}
-                  showsVerticalScrollIndicator={false}
-                  onScroll={handleReadingScroll}
-                  scrollEventThrottle={100}
-                >
-                  <View style={styles.expandedContentInner}>
-                    {/* Title Section - Tappable to collapse */}
-                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                      <View style={styles.titleSection}>
-                        <Text style={styles.sheetTitle}>
-                          The Umayyad Administrative Revolution
-                        </Text>
-                        <Text style={styles.sheetSubtitle}>
-                          Module 1 • Lesson 2
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Historical Content */}
-                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                      <View style={styles.historicalSection}>
-                        <Text style={styles.sectionTitle}>Historical Context</Text>
-                        <Text style={styles.historicalText}>{historicalText}</Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Key Terms Section */}
-                    <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                      <View style={styles.keyTermsSection}>
-                        <Text style={styles.sectionTitle}>Key Terms</Text>
-                        <View style={styles.keyTermsContainer}>
-                          <KeyTermRow
-                            term="Diwan al-Kharaj"
-                            definition="The tax administration system that revolutionized Umayyad governance"
-                          />
-                          <KeyTermRow
-                            term="Abd al-Malik"
-                            definition="Caliph who standardized currency and Arabic as administrative language"
-                          />
-                          <KeyTermRow
-                            term="Administrative Arabization"
-                            definition="Process of making Arabic the official language of government"
-                          />
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Bottom spacer to ensure full scroll */}
-                    <View style={styles.sheetBottomSpacer} />
-                  </View>
-                </GestureHandlerScrollView>
-                
-              </Animated.View>
-            )}
-            </Animated.View>
-          </Animated.View>
-          </View>
+          renderReadingCard()
         )}
 
       </View>
     </>
-  );
-}
-
-// Key Term Row Component - EXACT SwiftUI: keyTermRow(term:definition:)
-interface KeyTermRowProps {
-  term: string;
-  definition: string;
-}
-
-function KeyTermRow({ term, definition }: KeyTermRowProps) {
-  return (
-    <View style={styles.keyTermRow}>
-      <Text style={styles.keyTermTitle}>{term}</Text>
-      <Text style={styles.keyTermDefinition}>{definition}</Text>
-    </View>
   );
 }
 
@@ -721,7 +533,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  
+
   // Reading Card at Bottom - Swipeable
   readingCard: {
     height: 160,
@@ -747,7 +559,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 30,
   },
-  
+
   // Collapsed and expanded content styles
   collapsedContent: {
     flex: 1,
@@ -766,7 +578,7 @@ const styles = StyleSheet.create({
   expandedContentInner: {
     padding: 20,
   },
-  
+
   cardTitle: {
     fontFamily: "DM Sans",
     fontSize: 18,
@@ -847,29 +659,5 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
-  },
-
-  // Collapsed card text styles (for Android touch version)
-  collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    opacity: 0.8,
-    lineHeight: 20,
   },
 });

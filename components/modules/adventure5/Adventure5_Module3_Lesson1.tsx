@@ -73,10 +73,6 @@ export default function Adventure5_Module3_Lesson1({
   const [hasFinishedReading, setHasFinishedReading] = useState(true);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{
-    y: number;
-    time: number;
-  } | null>(null);
 
   // Critical gesture coordination state
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
@@ -179,52 +175,6 @@ export default function Adventure5_Module3_Lesson1({
     }
   };
 
-  // Enhanced Android touch handlers
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now(),
-    });
-    setIsCardGestureActive(true);
-  };
-
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);
-
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd;
-    const time = Date.now() - touchStart.time;
-
-    const minDistance = ANDROID_GESTURE_CONSTANTS.minDistance;
-    const maxTime = ANDROID_GESTURE_CONSTANTS.maxTime;
-    const velocity = Math.abs(distance) / time;
-    const velocityThreshold = ANDROID_GESTURE_CONSTANTS.velocityThreshold;
-
-    // Swipe up to expand
-    if (
-      !isCardExpanded &&
-      distance > minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    // Swipe down to collapse
-    else if (
-      isCardExpanded &&
-      distance < -minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
-    setTouchStart(null);
-  };
 
   // Expand the card to full height
   const expandCard = () => {
@@ -484,13 +434,12 @@ export default function Adventure5_Module3_Lesson1({
             </Animated.View>
           </PanGestureHandler>
         ) : (
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            <Animated.View
-              style={[
-                styles.cardContainer,
-                { transform: [{ translateY: cardTranslateY }] },
-              ]}
-            >
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              { transform: [{ translateY: cardTranslateY }] },
+            ]}
+          >
               <Animated.View
                 style={[styles.readingCard, { height: cardHeight }]}
               >
@@ -503,15 +452,14 @@ export default function Adventure5_Module3_Lesson1({
                     onPress={expandCard}
                     activeOpacity={0.8}
                     disabled={isCardExpanded}
+                    style={styles.collapsedContentWrapper}
                   >
-                    <View style={styles.collapsedContentWrapper}>
-                      <Text style={styles.collapsedTitle}>
-                        Abbasid Revolution and New Order
-                      </Text>
-                      <Text style={styles.collapsedSubtitle}>
-                        Building a new capital to reflect their power and vision
-                      </Text>
-                    </View>
+                    <Text style={styles.collapsedTitle}>
+                      Abbasid Revolution and New Order
+                    </Text>
+                    <Text style={styles.collapsedSubtitle}>
+                      Building a new capital to reflect their power and vision
+                    </Text>
                   </TouchableOpacity>
                 </Animated.View>
 
@@ -580,7 +528,6 @@ export default function Adventure5_Module3_Lesson1({
                 )}
               </Animated.View>
             </Animated.View>
-          </View>
         )}
       </View>
     </>
@@ -784,12 +731,9 @@ const styles = StyleSheet.create({
 
   // Android-specific optimizations
   collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15,
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
   },
   collapsedTitle: {
     fontFamily: "DM Sans",

@@ -67,10 +67,6 @@ export default function Adventure5_Module2_Lesson1({
 
   // Gesture handling states
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{
-    y: number;
-    time: number;
-  } | null>(null);
 
   // Component refs for gesture coordination
   const scrollViewRef = useRef<ScrollView>(null);
@@ -196,46 +192,6 @@ export default function Adventure5_Module2_Lesson1({
     }
   };
 
-  // Android touch events
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now(),
-    });
-  };
-
-  const handleTouchEnd = (event: any) => {
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd;
-    const time = Date.now() - touchStart.time;
-
-    const minDistance = 40;
-    const maxTime = 300;
-    const velocity = Math.abs(distance) / time;
-    const velocityThreshold = 0.5;
-
-    if (
-      !isCardExpanded &&
-      distance > minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (
-      isCardExpanded &&
-      distance < -minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
-    setTouchStart(null);
-  };
 
   // Card expansion logic
   const expandCard = () => {
@@ -476,9 +432,7 @@ export default function Adventure5_Module2_Lesson1({
             {renderReadingCard()}
           </PanGestureHandler>
         ) : (
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            {renderReadingCard()}
-          </View>
+          renderReadingCard()
         )}
       </View>
     </>

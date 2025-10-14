@@ -36,7 +36,6 @@ export default function Adventure2_Module3_Lesson2({
 }: Adventure2_Module3_Lesson2Props) {
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -139,25 +138,6 @@ export default function Adventure2_Module3_Lesson2({
     };
   }, []);
 
-  // Custom touch handlers for reliable Android swipe detection
-  const handleTouchStart = (event: any) => {
-    setIsCardGestureActive(true);
-    setTouchStart({ y: event.nativeEvent.pageY, time: Date.now() });
-  };
-  const handleTouchEnd = (event: any) => {
-    setIsCardGestureActive(false);
-    if (!touchStart) return;
-    const touchEnd = event.nativeEvent.pageY, distance = touchStart.y - touchEnd, time = Date.now() - touchStart.time;
-    const minDistance = 30, maxTime = 400, velocity = Math.abs(distance) / time, velocityThreshold = 0.3;
-    if (!isCardExpanded && distance > minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe up detected - expanding card", { distance, time, velocity: velocity.toFixed(2), platform: Platform.OS });
-      expandCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (isCardExpanded && distance < -minDistance && time < maxTime && velocity > velocityThreshold) {
-      console.log("📖 Android touch swipe down detected - collapsing card", { distance, time, velocity: velocity.toFixed(2), platform: Platform.OS });
-      collapseCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setTouchStart(null);
-  };
   // iOS PanGestureHandler for native iOS gesture experience
   const handleSwipeGesture = (event: any) => {
     if (Platform.OS !== 'ios') return;
@@ -446,7 +426,6 @@ export default function Adventure2_Module3_Lesson2({
           </Animated.View>
           </PanGestureHandler>
         ) : (
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           <Animated.View style={[
             styles.cardContainer,
             {
@@ -552,7 +531,6 @@ export default function Adventure2_Module3_Lesson2({
             )}
             </Animated.View>
           </Animated.View>
-          </View>
         )}
 
       </View>
@@ -806,7 +784,9 @@ const styles = StyleSheet.create({
     height: 60,
   },
   collapsedContentWrapper: {
-    flex: 1, justifyContent: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 25, marginTop: -15,
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
   },
   collapsedTitle: {
     fontFamily: "DM Sans", fontSize: 18, fontWeight: "600", color: "white", marginBottom: 8,

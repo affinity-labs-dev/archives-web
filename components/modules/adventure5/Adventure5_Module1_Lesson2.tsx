@@ -1,5 +1,5 @@
 // Adventure5_Module1_Lesson2.tsx - StaticImageReadingLesson about Yazīd II's Cultural Synthesis
-// Following EXACT implementation pattern from Adventure1_Module3_Lesson1.tsx
+// Redesigned with clean pattern - single renderReadingCard() function
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
@@ -63,10 +63,6 @@ const LAYOUT_CONSTANTS = {
   keyTermsContainerPadding: 12, // 12px padding inside key terms container
   keyTermRowBottomMargin: 8, // 8px spacing between key term rows
 
-  // Android-specific adjustments
-  androidCollapsedContentMarginTop: -15, // Move text content up slightly on Android
-  androidCollapsedPadding: { horizontal: 20, top: 10, bottom: 25 },
-
   // Animation timing
   springAnimationTension: 100, // Spring animation tension
   springAnimationFriction: 8, // Spring animation friction
@@ -84,10 +80,6 @@ export default function Adventure5_Module1_Lesson2({
 
   // Advanced gesture handling states
   const [scrollY, setScrollY] = useState(0); // Track scroll position for gesture priority
-  const [touchStart, setTouchStart] = useState<{
-    y: number;
-    time: number;
-  } | null>(null); // Android gesture tracking
 
   // Component refs for gesture coordination
   const panGestureRef = useRef(null); // iOS PanGestureHandler ref
@@ -289,76 +281,6 @@ export default function Adventure5_Module1_Lesson2({
     }
   };
 
-  // Enhanced Android touch handlers with optimized sensitivity and comprehensive logging
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now(),
-    });
-  };
-
-  const handleTouchEnd = (event: any) => {
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-
-    // Advanced Android swipe detection with velocity calculation
-    const minDistance = 40; // Increased for better gesture recognition
-    const maxTime = 300; // Shorter time for more responsive gestures
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.5; // Minimum velocity threshold
-
-    console.log("📖 Android gesture analysis:", {
-      distance,
-      time,
-      velocity: velocity.toFixed(2),
-      minDistance,
-      maxTime,
-      velocityThreshold,
-      meetsDistanceRequirement: Math.abs(distance) > minDistance,
-      meetsTimeRequirement: time < maxTime,
-      meetsVelocityRequirement: velocity > velocityThreshold,
-    });
-
-    // Swipe up to expand
-    if (
-      !isCardExpanded &&
-      distance > minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    // Swipe down to collapse
-    else if (
-      isCardExpanded &&
-      distance < -minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
-    // Reset touch tracking
-    setTouchStart(null);
-  };
-
   // Navigation cleanup - Stop audio before transitions
   const handleBackPress = () => {
     if (backgroundMusic.isPlaying) {
@@ -375,6 +297,115 @@ export default function Adventure5_Module1_Lesson2({
     }
     onContinue();
   };
+
+  // Key terms component
+  interface KeyTermRowProps {
+    term: string;
+    definition: string;
+  }
+
+  function KeyTermRow({ term, definition }: KeyTermRowProps) {
+    return (
+      <View style={styles.keyTermRow}>
+        <Text style={styles.keyTermTitle}>{term}</Text>
+        <Text style={styles.keyTermDefinition}>{definition}</Text>
+      </View>
+    );
+  }
+
+  // Reading card content - unified for both iOS and Android
+  const renderReadingCard = () => (
+    <Animated.View
+      style={[
+        styles.cardContainer,
+        { transform: [{ translateY: cardTranslateY }] },
+      ]}
+    >
+      <Animated.View style={[styles.readingCard, { height: cardHeight }]}>
+        {/* Card handle indicator */}
+        <View style={styles.cardHandle} />
+
+        {/* Collapsed content with fade animation */}
+        <Animated.View
+          style={[styles.collapsedContent, { opacity: cardOpacity }]}
+        >
+          <TouchableOpacity
+            onPress={expandCard}
+            activeOpacity={0.8}
+            disabled={isCardExpanded}
+          >
+            <View style={styles.readingCardHeader}>
+              <Text style={styles.cardTitle}>{imageTitle}</Text>
+              <Text style={styles.cardSubtitle}>
+                {educationalContent.historicalContext.substring(0, 100)}...
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Expanded content when card is swiped up or tapped */}
+        {isCardExpanded && (
+          <Animated.View
+            style={[
+              styles.expandedContent,
+              { opacity: Animated.subtract(1, cardOpacity) },
+            ]}
+          >
+            <GestureHandlerScrollView
+              ref={scrollViewGestureRef}
+              style={styles.expandedScroll}
+              showsVerticalScrollIndicator={false}
+              onScroll={handleReadingScroll}
+              scrollEventThrottle={100}
+              waitFor={Platform.OS === "ios" ? panGestureRef : undefined}
+              simultaneousHandlers={Platform.OS === "ios" ? panGestureRef : undefined}
+            >
+              <View style={styles.expandedContentInner}>
+                {/* Title Section - Tappable to collapse */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.titleSection}>
+                    <Text style={styles.sheetTitle}>{imageTitle}</Text>
+                    <Text style={styles.sheetSubtitle}>
+                      {educationalContent.moduleInfo}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Historical Content */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.historicalSection}>
+                    <Text style={styles.sectionTitle}>Historical Context</Text>
+                    <Text style={styles.historicalText}>
+                      {educationalContent.historicalContext}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Key Terms Section */}
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.keyTermsSection}>
+                    <Text style={styles.sectionTitle}>Key Terms</Text>
+                    <View style={styles.keyTermsContainer}>
+                      {educationalContent.keyTerms.map((keyTerm, index) => (
+                        <KeyTermRow
+                          key={index}
+                          term={keyTerm.term}
+                          definition={keyTerm.definition}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Bottom spacer to ensure full scroll */}
+                <View style={styles.sheetBottomSpacer} />
+              </View>
+            </GestureHandlerScrollView>
+          </Animated.View>
+        )}
+      </Animated.View>
+    </Animated.View>
+  );
 
   return (
     <>
@@ -413,205 +444,22 @@ export default function Adventure5_Module1_Lesson2({
           </TouchableOpacity>
         </SafeAreaView>
 
-        {/* PLATFORM-SPECIFIC EXPANDABLE READING CARD */}
-
-        {/* Android Implementation - Custom Touch Handlers */}
-        {Platform.OS === "android" && (
-          <Animated.View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            style={[styles.androidReadingCard, { height: cardHeight }]}
-          >
-            {/* Card handle indicator */}
-            <View style={styles.cardHandle} />
-
-            {/* Collapsed content */}
-            {!isCardExpanded && (
-              <Animated.View
-                style={[styles.collapsedContent, { opacity: cardOpacity }]}
-              >
-                <TouchableOpacity
-                  onPress={expandCard}
-                  activeOpacity={0.8}
-                  disabled={isCardExpanded}
-                >
-                  <View style={styles.collapsedContentWrapper}>
-                    <Text style={styles.collapsedTitle}>{imageTitle}</Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      {educationalContent.historicalContext.substring(0, 100)}...
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-
-            {/* Expanded content when card is swiped up */}
-            {isCardExpanded && (
-              <View style={styles.androidExpandedContent}>
-                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                  <Text style={styles.androidExpandedTitle}>{imageTitle}</Text>
-
-                  <Text style={styles.androidExpandedSubtitle}>
-                    {educationalContent.moduleInfo}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                  <Text style={styles.androidSectionTitle}>
-                    Historical Context
-                  </Text>
-
-                  <Text style={styles.androidHistoricalText}>
-                    {educationalContent.historicalContext}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                  <Text style={styles.androidSectionTitle}>Key Terms</Text>
-
-                  <View style={styles.androidKeyTermsContainer}>
-                    {educationalContent.keyTerms.map((keyTerm, index) => (
-                      <View key={index} style={styles.androidKeyTermRow}>
-                        <Text style={styles.androidKeyTermTitle}>
-                          {keyTerm.term}
-                        </Text>
-                        <Text style={styles.androidKeyTermDefinition}>
-                          {keyTerm.definition}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </TouchableOpacity>
-              </View>
-            )}
-          </Animated.View>
-        )}
-
-        {/* iOS Implementation - Native PanGestureHandler */}
-        {Platform.OS === "ios" && (
+        {/* Platform-Specific Reading Card */}
+        {Platform.OS === "ios" ? (
           <PanGestureHandler
             ref={panGestureRef}
             onGestureEvent={handleSwipeGesture}
             onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-20, 20]} // Optimized sensitivity
-            failOffsetX={[-30, 30]} // Prevent horizontal conflicts
+            activeOffsetY={[-20, 20]}
+            failOffsetX={[-30, 30]}
           >
-            <Animated.View
-              style={[
-                styles.cardContainer,
-                { transform: [{ translateY: cardTranslateY }] },
-              ]}
-            >
-              <Animated.View
-                style={[styles.readingCard, { height: cardHeight }]}
-              >
-                {/* Card handle indicator */}
-                <View style={styles.cardHandle} />
-
-                {/* Collapsed content with fade animation */}
-                <Animated.View
-                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
-                >
-                  <TouchableOpacity
-                    onPress={expandCard}
-                    activeOpacity={0.8}
-                    disabled={isCardExpanded}
-                  >
-                    <View style={styles.readingCardHeader}>
-                      <Text style={styles.cardTitle}>{imageTitle}</Text>
-                      <Text style={styles.cardSubtitle}>
-                        {educationalContent.historicalContext.substring(0, 100)}
-                        ...
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
-
-                {/* Expanded content when card is swiped up */}
-                {isCardExpanded && (
-                  <Animated.View
-                    style={[
-                      styles.expandedContent,
-                      { opacity: Animated.subtract(1, cardOpacity) },
-                    ]}
-                  >
-                    <GestureHandlerScrollView
-                      ref={scrollViewGestureRef}
-                      style={styles.expandedScroll}
-                      showsVerticalScrollIndicator={false}
-                      onScroll={handleReadingScroll}
-                      scrollEventThrottle={100}
-                      waitFor={panGestureRef}
-                      simultaneousHandlers={panGestureRef}
-                    >
-                      <View style={styles.expandedContentInner}>
-                        {/* Title Section - Tappable to collapse */}
-                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                          <View style={styles.titleSection}>
-                            <Text style={styles.sheetTitle}>{imageTitle}</Text>
-                            <Text style={styles.sheetSubtitle}>
-                              {educationalContent.moduleInfo}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Historical Content */}
-                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                          <View style={styles.historicalSection}>
-                            <Text style={styles.sectionTitle}>
-                              Historical Context
-                            </Text>
-                            <Text style={styles.historicalText}>
-                              {educationalContent.historicalContext}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Key Terms Section */}
-                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                          <View style={styles.keyTermsSection}>
-                            <Text style={styles.sectionTitle}>Key Terms</Text>
-                            <View style={styles.keyTermsContainer}>
-                              {educationalContent.keyTerms.map(
-                                (keyTerm, index) => (
-                                  <KeyTermRow
-                                    key={index}
-                                    term={keyTerm.term}
-                                    definition={keyTerm.definition}
-                                  />
-                                )
-                              )}
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Bottom spacer to ensure full scroll */}
-                        <View style={styles.sheetBottomSpacer} />
-                      </View>
-                    </GestureHandlerScrollView>
-                  </Animated.View>
-                )}
-              </Animated.View>
-            </Animated.View>
+            {renderReadingCard()}
           </PanGestureHandler>
+        ) : (
+          renderReadingCard()
         )}
       </View>
     </>
-  );
-}
-
-// EXACT KeyTermRow component from Adventure1_Module3_Lesson1.tsx
-interface KeyTermRowProps {
-  term: string;
-  definition: string;
-}
-
-function KeyTermRow({ term, definition }: KeyTermRowProps) {
-  return (
-    <View style={styles.keyTermRow}>
-      <Text style={styles.keyTermTitle}>{term}</Text>
-      <Text style={styles.keyTermDefinition}>{definition}</Text>
-    </View>
   );
 }
 
@@ -637,7 +485,7 @@ const styles = StyleSheet.create({
   // FLOATING TEXT OVERLAY - Professional positioning with shadows
   textOverlay: {
     position: "absolute",
-    top: LAYOUT_CONSTANTS.textOverlayTop, // 100px from top for SafeArea
+    top: LAYOUT_CONSTANTS.textOverlayTop, // 140px from top for SafeArea
     left: 0,
     right: 0,
     paddingHorizontal: LAYOUT_CONSTANTS.textOverlayHorizontalPadding, // 40px horizontal padding
@@ -693,7 +541,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // READING CARD SYSTEM - iOS Implementation
+  // READING CARD SYSTEM - Unified implementation
   cardContainer: {
     position: "absolute",
     bottom: 0,
@@ -819,100 +667,6 @@ const styles = StyleSheet.create({
     fontFamily: "DM Sans",
     fontSize: 14,
     color: "white",
-    lineHeight: 16,
-  },
-
-  // ANDROID-SPECIFIC IMPLEMENTATION
-  androidReadingCard: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0,0,0,0.9)",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    zIndex: 30,
-    elevation: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -4 },
-  },
-  collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: LAYOUT_CONSTANTS.androidCollapsedPadding.horizontal, // 20px
-    paddingTop: LAYOUT_CONSTANTS.androidCollapsedPadding.top, // 10px
-    paddingBottom: LAYOUT_CONSTANTS.androidCollapsedPadding.bottom, // 25px
-    marginTop: LAYOUT_CONSTANTS.androidCollapsedContentMarginTop, // -15px - Move text up slightly
-  },
-  collapsedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  collapsedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    opacity: 0.8,
-    lineHeight: 20,
-  },
-
-  // Android expanded content styles
-  androidExpandedContent: {
-    flex: 1,
-    padding: 20,
-    paddingTop: 40,
-  },
-  androidExpandedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 22,
-    fontWeight: "700",
-    color: "white",
-    marginBottom: 8,
-  },
-  androidExpandedSubtitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: 20,
-  },
-  androidSectionTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 8,
-  },
-  androidHistoricalText: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    color: "white",
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  androidKeyTermsContainer: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 8,
-    padding: 12,
-  },
-  androidKeyTermRow: {
-    marginBottom: 8,
-  },
-  androidKeyTermTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    fontWeight: "600",
-    color: "white",
-    marginBottom: 2,
-  },
-  androidKeyTermDefinition: {
-    fontFamily: "DM Sans",
-    fontSize: 12,
-    color: "rgba(255,255,255,0.8)",
     lineHeight: 16,
   },
 

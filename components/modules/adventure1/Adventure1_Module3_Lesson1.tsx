@@ -39,10 +39,6 @@ export default function Adventure1_Module3_Lesson1({
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{
-    y: number;
-    time: number;
-  } | null>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
 
@@ -61,61 +57,6 @@ export default function Adventure1_Module3_Lesson1({
     console.log("📖 Read button pressed in Module3 Lesson1");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     expandCard();
-  };
-
-  // Custom touch handlers for reliable Android swipe detection
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now(),
-    });
-  };
-
-  const handleTouchEnd = (event: any) => {
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd; // Positive = swipe up
-    const time = Date.now() - touchStart.time;
-
-    // Optimized Android swipe detection for smoothness
-    const minDistance = 40; // Increased for better gesture recognition
-    const maxTime = 300; // Shorter time for more responsive gestures
-    const velocity = Math.abs(distance) / time; // Calculate velocity
-    const velocityThreshold = 0.5; // Minimum velocity threshold
-
-    if (
-      !isCardExpanded &&
-      distance > minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (
-      isCardExpanded &&
-      distance < -minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
-    // Reset touch start
-    setTouchStart(null);
   };
 
   // iOS PanGestureHandler for native iOS gesture experience
@@ -247,8 +188,6 @@ export default function Adventure1_Module3_Lesson1({
         {/* Android Reading Card - Simplified Working Version with Animation */}
         {Platform.OS === "android" && (
           <Animated.View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
             style={{
               position: "absolute",
               bottom: 0,
@@ -599,16 +538,15 @@ export default function Adventure1_Module3_Lesson1({
             </Animated.View>
           </PanGestureHandler>
         ) : (
-          // Android: Custom Touch Handlers
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            <Animated.View
-              style={[
-                styles.cardContainer,
-                // {
-                //   transform: [{ translateY: cardTranslateY }]
-                // }
-              ]}
-            >
+          // Android: TouchableOpacity for tap-to-expand
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              // {
+              //   transform: [{ translateY: cardTranslateY }]
+              // }
+            ]}
+          >
               <Animated.View
                 style={[
                   styles.readingCard,
@@ -717,8 +655,7 @@ export default function Adventure1_Module3_Lesson1({
                 )}
               </Animated.View>
             </Animated.View>
-          </View>
-        )}
+          )}
       </View>
     </>
   );
@@ -970,12 +907,9 @@ const styles = StyleSheet.create({
 
   // Collapsed card text styles (for Android touch version)
   collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15, // Move text content up slightly
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
   },
   collapsedTitle: {
     fontFamily: "DM Sans",

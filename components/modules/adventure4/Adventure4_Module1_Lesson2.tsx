@@ -69,10 +69,6 @@ export default function Adventure4_Module1_Lesson2({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [touchStart, setTouchStart] = useState<{
-    y: number;
-    time: number;
-  } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
@@ -215,59 +211,6 @@ export default function Adventure4_Module1_Lesson2({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
-  };
-
-  // Custom touch handlers for reliable Android swipe detection
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now(),
-    });
-  };
-
-  const handleTouchEnd = (event: any) => {
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd;
-    const time = Date.now() - touchStart.time;
-
-    const minDistance = 40;
-    const maxTime = 300;
-    const velocity = Math.abs(distance) / time;
-    const velocityThreshold = 0.5;
-
-    if (
-      !isCardExpanded &&
-      distance > minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe up detected - expanding card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (
-      isCardExpanded &&
-      distance < -minDistance &&
-      time < maxTime &&
-      velocity > velocityThreshold
-    ) {
-      console.log("📖 Android touch swipe down detected - collapsing card", {
-        distance,
-        time,
-        velocity: velocity.toFixed(2),
-        platform: Platform.OS,
-      });
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
-    setTouchStart(null);
   };
 
   // Expand the card to full height
@@ -510,16 +453,15 @@ export default function Adventure4_Module1_Lesson2({
             </Animated.View>
           </PanGestureHandler>
         ) : (
-          // Android: Custom Touch Handlers
-          <View onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            <Animated.View
-              style={[
-                styles.cardContainer,
-                {
-                  transform: [{ translateY: cardTranslateY }],
-                },
-              ]}
-            >
+          // Android: TouchableOpacity for tap-to-expand
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }],
+              },
+            ]}
+          >
               <Animated.View
                 style={[
                   styles.readingCard,
@@ -620,7 +562,6 @@ export default function Adventure4_Module1_Lesson2({
                 )}
               </Animated.View>
             </Animated.View>
-          </View>
         )}
       </View>
     </>
@@ -841,12 +782,9 @@ const styles = StyleSheet.create({
 
   // Android-Specific Styles for proper text positioning
   collapsedContentWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 25,
-    marginTop: -15,
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
   },
   collapsedTitle: {
     fontFamily: "DM Sans",
