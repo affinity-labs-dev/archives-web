@@ -50,7 +50,7 @@ export default function OnboardingWelcomeScreen() {
         backgroundColor={ArchivesTheme.colors.creamWhite}
         translucent={false}
       />
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
         <View style={styles.content}>
           {/* Speech Bubble */}
           <View style={styles.speechBubble}>

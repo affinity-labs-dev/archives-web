@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -125,7 +126,7 @@ export default function OnboardingResultsScreen() {
         backgroundColor={ArchivesTheme.colors.creamWhite}
         translucent={true}
       />
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
         <View style={styles.content}>
           {/* Camel Mascot with Speech Bubble */}
           <View style={styles.mascotSection}>

@@ -121,7 +121,7 @@ export default function OnboardingQuestion4Screen() {
         backgroundColor={ArchivesTheme.colors.creamWhite}
         translucent={true}
       />
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
         {/* Header with Back Button */}
         <View style={styles.header}>
           <TouchableOpacity

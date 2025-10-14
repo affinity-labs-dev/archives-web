@@ -86,7 +86,7 @@ export default function OnboardingQuestion1Screen() {
         backgroundColor={ArchivesTheme.colors.creamWhite}
         translucent
       />
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>

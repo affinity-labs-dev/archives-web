@@ -155,7 +155,7 @@ export default function OnboardingVideoScreen() {
         backgroundColor="black"
         translucent
       />
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
         {/* Full Screen Video */}
         {videoLoaded ? (
           <VideoView

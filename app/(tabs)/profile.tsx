@@ -272,45 +272,41 @@ export default function ProfileTab() {
     progress: xpProgress.toFixed(1) + '%'
   })
 
-  // Get monthly badges - Filter by unlock_metric (dynamic)
-  const monthlyBadges = badges
-    .filter(b => b.unlock_metric === 'months_active')
-    .map(b => {
-      // Extract level from name (e.g., 'ACH_MonthlyActive_1' → 1)
-      const level = parseInt(b.name.split('_').pop() || '0')
-      // Threshold IS the month number (1-12)
-      const monthNumber = b.unlock_threshold || 0
+  // Get monthly badges - Filter by unlock_metric (dynamic) - MEMOIZED to prevent re-calculation on every render
+  const monthlyBadges = React.useMemo(() => {
+    console.log('🎁 [Profile] Calculating monthly badges...')
 
-      console.log(`\n🎁 [Profile] Checking Monthly Badge: ${b.display_text} (Month ${monthNumber})`)
+    return badges
+      .filter(b => b.unlock_metric === 'months_active')
+      .map(b => {
+        // Extract level from name (e.g., 'ACH_MonthlyActive_1' → 1)
+        const level = parseInt(b.name.split('_').pop() || '0')
+        // Threshold IS the month number (1-12)
+        const monthNumber = b.unlock_threshold || 0
 
-      // Check if user unlocked any modules in this specific month (any year)
-      const earned = moduleProgress.some(m => {
-        // Check if module has required data: quizScore and unlockedAt
-        if (!m.quizScore || !m.unlockedAt) {
-          return false
+        // Check if user unlocked any modules in this specific month (any year)
+        const earned = moduleProgress.some(m => {
+          // Check if module has required data: quizScore and unlockedAt
+          if (!m.quizScore || !m.unlockedAt) {
+            return false
+          }
+
+          // Extract month from ISO string (format: "2025-11-09T..." -> month = "11")
+          const monthString = m.unlockedAt.substring(5, 7)
+          const completionMonth = parseInt(monthString, 10)
+
+          return completionMonth === monthNumber
+        })
+
+        return {
+          ...b,
+          level,
+          earned: earned,
+          imagePath: b.image_url
         }
-
-        // Extract month from ISO string (format: "2025-11-09T..." -> month = "11")
-        const monthString = m.unlockedAt.substring(5, 7)
-        const completionMonth = parseInt(monthString, 10)
-
-        const isMatch = completionMonth === monthNumber
-
-        console.log(`   📅 Module ${m.adventureId}-${m.moduleId}: unlockedAt=${m.unlockedAt}, Month=${completionMonth} - ${isMatch ? '✅ MATCH' : '❌'}`)
-
-        return isMatch
       })
-
-      console.log(`   🏆 Badge ${b.display_text}: ${earned ? 'EARNED ✅' : 'LOCKED ❌'}`)
-
-      return {
-        ...b,
-        level,
-        earned: earned,
-        imagePath: b.image_url
-      }
-    })
-    .sort((a, b) => b.level - a.level) // Descending order (October appears first)
+      .sort((a, b) => b.level - a.level) // Descending order (October appears first)
+  }, [badges, moduleProgress])
 
   // Profile state - EXACT SwiftUI values
   const [showAvatarModal, setShowAvatarModal] = useState(false)

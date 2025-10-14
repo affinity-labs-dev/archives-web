@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import {
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -205,7 +206,7 @@ export default function ArchivesAuthScreen() {
     <View style={styles.absoluteContainer}>
       <StatusBar barStyle="dark-content" backgroundColor={ArchivesTheme.colors.creamWhite} />
       <View style={styles.solidBackground}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.container}>
             {/* Header with back button and title */}
