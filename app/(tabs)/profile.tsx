@@ -568,7 +568,7 @@ export default function ProfileTab() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 15 : 0 }]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
         {/* Header with Profile Title and Settings Button */}

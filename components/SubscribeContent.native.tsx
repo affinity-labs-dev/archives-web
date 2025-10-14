@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Image,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -94,7 +95,7 @@ export default function SubscribeContent() {
   // If user is already subscribed, show success state
   if (isSubscribed) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 15 : 0 }]}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
           <View style={styles.subscribedContainer}>
             <Ionicons
@@ -212,7 +213,7 @@ export default function SubscribeContent() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 15 : 0 }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
