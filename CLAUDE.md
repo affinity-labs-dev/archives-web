@@ -28,6 +28,7 @@ eas build --platform ios --profile development  # Create development build
 4. **ALWAYS use ArchivesTheme constants** - Never hardcode colors/spacing
 5. **Component naming**: `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
 6. **Clean commits**: Run `rm -f *.ipa *.apk build-*.ipa` before committing
+7. **Cross-platform impact analysis** - Before answering ANY questions about layout, styling, positioning, or UI changes, ALWAYS analyze how the change will affect BOTH iOS and Android. Check platform-specific component behavior (SafeAreaView, StatusBar, etc.), different layout structures, and margin/padding/positioning differences. Include iOS impact analysis in your response.
 
 ## Architecture Overview
 

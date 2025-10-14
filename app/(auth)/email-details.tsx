@@ -204,7 +204,7 @@ export default function EmailDetailsScreen() {
     <View style={styles.absoluteContainer}>
       <StatusBar barStyle="dark-content" backgroundColor={ArchivesTheme.colors.creamWhite} />
       <View style={styles.solidBackground}>
-        <SafeAreaView style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
+        <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
