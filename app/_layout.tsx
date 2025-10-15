@@ -199,6 +199,7 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     "DM Sans": require("../assets/fonts/DM_Sans.ttf"),
+    "DM-Sans-SemiBold": require("../assets/fonts/DM_Sans-SemiBold.ttf"),
     "DM-Sans-Bold": require("../assets/fonts/DM_Sans-Bold.ttf"),
     "DMSans-Bold": require("../assets/fonts/DM_Sans-Bold.ttf"),
     "DM Sans Bold": require("../assets/fonts/DM_Sans-Bold.ttf"),
@@ -218,7 +219,6 @@ export default function RootLayout() {
       console.error('❌ Failed to configure RevenueCat:', error);
     }
   }, []);
-
 
   console.log('RootLayout - Fonts loaded:', loaded);
   console.log('RootLayout - Platform:', Platform.OS);
