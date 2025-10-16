@@ -1,36 +1,36 @@
 // UmmayadDynastyEra Component - EXACT replica of SwiftUI UmmayadDynastyEra.swift
 // Matches the exact structure: video player + adventure map section with proper headers
 
-import React, { useState, useEffect, useRef } from 'react'
-import { useFocusEffect } from '@react-navigation/native'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  SafeAreaView,
-  Dimensions,
-  Image,
-  Platform,
-  Animated,
-  StatusBar,
-  RefreshControl,
-} from 'react-native'
-import { useVideoPlayer, VideoView } from 'expo-video'
-import { LinearGradient } from 'expo-linear-gradient'
-import { Ionicons, MaterialIcons } from '@expo/vector-icons'
-import * as Haptics from 'expo-haptics'
-import { useProgress } from '@/context/ProgressContext'
-import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
-import ArchivesTheme from '@/constants/ArchivesTheme'
-import ModuleModal from '@/components/modules/ModuleModal'
 import AdventureDetailModal from '@/components/adventures/AdventureDetailModal'
 import Adventure1Icon from '@/components/icons/Adventure1Icon'
 import Adventure2Icon from '@/components/icons/Adventure2Icon'
 import Adventure3Icon from '@/components/icons/Adventure3Icon'
 import Adventure4Icon from '@/components/icons/Adventure4Icon'
 import Adventure5Icon from '@/components/icons/Adventure5Icon'
+import ModuleModal from '@/components/modules/ModuleModal'
+import ArchivesTheme from '@/constants/ArchivesTheme'
+import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
+import { useProgress } from '@/context/ProgressContext'
+import { Ionicons, MaterialIcons } from '@expo/vector-icons'
+import { useFocusEffect } from '@react-navigation/native'
+import * as Haptics from 'expo-haptics'
+import { LinearGradient } from 'expo-linear-gradient'
+import { useVideoPlayer, VideoView } from 'expo-video'
+import React, { useEffect, useRef, useState } from 'react'
+import {
+  Animated,
+  Dimensions,
+  Image,
+  Platform,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -441,18 +441,52 @@ const UmmayadDynastyEra = React.memo(function UmmayadDynastyEra({ onBackToEra }:
 
         {/* Adventure Map */}
         <View style={styles.adventureMapContainer}>
-          <Image 
-            source={adventure.mapImage} 
+          <Image
+            source={adventure.mapImage}
             style={styles.adventureMapImage}
             onError={(error) => {
             }}
             onLoad={() => {
             }}
           />
-          
+
           {/* Black overlay - EXACT SwiftUI: 0.15 opacity */}
           <View style={styles.mapOverlay} />
-          
+
+          {/* First-time user guidance: "Start here!" text and arrow - ONLY for Adventure 1 */}
+          {adventure.id === 1 && shouldShowBounce && (() => {
+            // Calculate first module position (same logic as renderModuleIcon)
+            const firstModulePos = adventure.iconPositions[0] // adv1_mod1 at x:0.4, y:0.22
+            const mapWidth = screenWidth - 40
+            const mapHeight = 600
+            const iconWidth = 80 // Module icon size
+            const firstModuleX = firstModulePos.x * mapWidth
+            const firstModuleY = firstModulePos.y * mapHeight
+
+            return (
+              <>
+                {/* "Start here" speech bubble - EXACT Figma design */}
+                <View
+                  style={[
+                    styles.startHereContainerOnMap,
+                    {
+                      left: firstModuleX - 30, // Position so pointer aligns with module center
+                      top: firstModuleY - 100, // Position above the module icon
+                    }
+                  ]}
+                >
+                  {/* Speech bubble - same pattern as onboarding screen */}
+                  <View style={styles.startHereBubble}>
+                    <Text style={styles.startHereText}>Start here</Text>
+                    {/* Speech bubble pointer with border (downward) */}
+                    <View style={styles.speechPointer} />
+                    <View style={styles.speechPointerInner} />
+                  </View>
+                </View>
+              </>
+            )
+          })()}
+
           {/* Module Icons positioned exactly like SwiftUI CGIconPositioner */}
           {adventure.iconPositions.map((iconPosition: any) => renderModuleIcon(iconPosition))}
         </View>
@@ -489,20 +523,11 @@ const UmmayadDynastyEra = React.memo(function UmmayadDynastyEra({ onBackToEra }:
               allowsPictureInPicture={false}
             />
             
-            {/* Dark overlay for better text readability - EXACT SwiftUI */}
-            <LinearGradient
-              colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.3)']}
-              start={{x: 0, y: 0}}
-              end={{x: 0, y: 1}}
-              style={styles.videoOverlay}
-            />
+            {/* Dark overlay for better text readability - Uniform 15% opacity */}
+            <View style={styles.videoOverlay} />
             
             {/* Overlay content - EXACT SwiftUI positioning */}
             <View style={styles.dynastyHeader}>
-              <Image 
-                source={require('@/assets/images/icons/adventures/Umayyad Dynasty Icon.png')}
-                style={styles.dynastyIcon}
-              />
               <Text style={styles.dynastyTitle}>Umayyad Dynasty</Text>
               <Text style={styles.dynastySubtitle}>661-750 CE</Text>
             </View>
@@ -591,6 +616,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.20)', // Uniform 20% opacity for better text contrast
   },
   dynastyHeader: {
     position: 'absolute',
@@ -820,5 +846,78 @@ const styles = StyleSheet.create({
   // Bottom Spacer - EXACT SwiftUI: Spacer(minLength: 50)
   bottomSpacer: {
     height: 50,
+  },
+
+  // First-time user guidance styles - "Start here!" speech bubble - EXACT Figma design
+  // Union total height: 67.305px, Rectangle height: 56px, Triangle extends 11.3px below
+  startHereContainerOnMap: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 15, // Above overlay and icons to ensure visibility
+    elevation: 15, // Android elevation
+  },
+  startHereBubble: {
+    backgroundColor: ArchivesTheme.colors.creamWhite, // App background color
+    borderRadius: 18,
+    borderWidth: 3,
+    borderColor: 'rgb(149, 156, 0)', // Olive/moss green border
+    paddingHorizontal: 20,
+    paddingVertical: 6, // Reduced height
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  startHereText: {
+    fontFamily: 'DM-Sans-Bold',
+    fontSize: 22,
+    color: '#41425E',
+    textAlign: 'center',
+  },
+  // Speech bubble pointer (border triangle - olive/moss green) with rounded corners
+  speechPointer: {
+    position: 'absolute',
+    bottom: -18,
+    left: 8, // Position on the corner radius
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderTopWidth: 18,
+    borderRightWidth: 18,
+    borderBottomWidth: 0,
+    borderLeftWidth: 18,
+    borderTopColor: 'rgb(149, 156, 0)', // Olive/moss green border
+    borderRightColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: 'transparent',
+    borderRadius: 50, // Very rounded corners for outer pointer
+    overflow: 'hidden',
+  },
+  // Speech bubble pointer inner (fill triangle - cream background) with rounded corners
+  speechPointerInner: {
+    position: 'absolute',
+    bottom: -15,
+    left: 11, // Slightly offset from border
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderTopWidth: 15,
+    borderRightWidth: 15,
+    borderBottomWidth: 0,
+    borderLeftWidth: 15,
+    borderTopColor: ArchivesTheme.colors.creamWhite, // Match bubble background
+    borderRightColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: 'transparent',
+    borderRadius: 2, // Add corner radius to inner pointer
+    overflow: 'hidden',
   },
 })

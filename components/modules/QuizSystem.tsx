@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
+import { VideoView, useVideoPlayer } from 'expo-video'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 const { width, height } = Dimensions.get('window')
@@ -438,6 +439,58 @@ export function ExplanationPopup({
           </Text>
         </TouchableOpacity>
       </Animated.View>
+    </View>
+  )
+}
+
+// Video Reward Player - Score-based celebration videos
+// Based on working auth screen implementation with proper error handling
+function getRewardVideo(correctAnswers: number) {
+  if (correctAnswers >= 4) {
+    return require('@/assets/videos/quiz_reward/quiz-reward3.mp4')
+  } else if (correctAnswers >= 2 && correctAnswers <= 3) {
+    return require('@/assets/videos/quiz_reward/quiz-reward2.mp4')
+  } else {
+    return require('@/assets/videos/quiz_reward/quiz-reward1.mp4')
+  }
+}
+
+interface VideoRewardPlayerProps {
+  correctAnswers: number
+}
+
+export function VideoRewardPlayer({ correctAnswers }: VideoRewardPlayerProps) {
+  const [isLoaded, setIsLoaded] = useState(false)
+  const videoSource = getRewardVideo(correctAnswers)
+
+  const player = useVideoPlayer(videoSource, player => {
+    player.loop = false
+    player.muted = false
+    player.play()
+  })
+
+  // Track when video is ready
+  useEffect(() => {
+    if (player.status === 'readyToPlay' || player.status === 'idle') {
+      setIsLoaded(true)
+    }
+  }, [player.status])
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🎬 Quiz reward video status:', player.status)
+  }, [player.status])
+
+  return (
+    <View style={styles.videoRewardContainer}>
+      <VideoView
+        player={player}
+        style={styles.videoRewardPlayer}
+        nativeControls={false}
+        contentFit="contain"
+        allowsFullscreen={false}
+        allowsPictureInPicture={false}
+      />
     </View>
   )
 }
@@ -878,5 +931,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600', // .fontWeight(.semibold)
     color: 'white',
+  },
+
+  // Video Reward Player - Re-implemented for better compatibility
+  videoRewardContainer: {
+    alignSelf: 'center',
+    width: width * 1.1, // 110% screen width (slight overflow)
+    aspectRatio: 16 / 9, // 16:9 aspect ratio for videos
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 20, // Top spacing
+    marginBottom: 10, // Reduced spacing to "Keep Learning!" text
+    backgroundColor: 'transparent', // Transparent background
+  },
+  videoRewardPlayer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
   },
 })

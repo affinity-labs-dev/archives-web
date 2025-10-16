@@ -21,6 +21,7 @@ import {
 } from 'react-native'
 import { VideoView, useVideoPlayer } from 'expo-video'
 import * as Haptics from 'expo-haptics'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 export default function ArchivesAuthScreen() {
   // Get route parameters
@@ -65,8 +66,25 @@ export default function ArchivesAuthScreen() {
   }
 
   const onContinue = async () => {
-    // After authentication, go to era selection page
-    router.replace('/era-selection')
+    // Check if user has already completed onboarding
+    try {
+      const onboardingComplete = await AsyncStorage.getItem('onboarding_completed')
+      const hasSelectedEra = await AsyncStorage.getItem('selected_era')
+
+      if (onboardingComplete || hasSelectedEra) {
+        // Returning user - go directly to main app
+        console.log('🏠 Returning user after auth - routing to main app')
+        router.replace('/(tabs)')
+      } else {
+        // New user - go to era selection for onboarding
+        console.log('👋 New user after auth - routing to era selection')
+        router.replace('/era-selection')
+      }
+    } catch (error) {
+      console.error('Error checking onboarding status:', error)
+      // Default to era selection on error
+      router.replace('/era-selection')
+    }
   }
 
   // Sign Up function (exact replica with Clerk)

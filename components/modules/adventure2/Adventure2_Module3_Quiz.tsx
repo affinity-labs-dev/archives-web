@@ -22,6 +22,7 @@ import {
   MCQOptionButton,
   QuizQuestion,
   TrueFalseOptionButton,
+  VideoRewardPlayer,
 } from "../QuizSystem";
 
 interface Adventure2_Module3_QuizProps {
@@ -418,22 +419,7 @@ function QuizResultsView({
         <View style={styles.resultsContent}>
           {/* Header - EXACT SwiftUI structure */}
           <View style={styles.resultsHeader}>
-            <View
-              style={[
-                styles.resultsIconContainer,
-                {
-                  backgroundColor: passed
-                    ? ArchivesTheme.colors.mossGreen
-                    : ArchivesTheme.colors.shoeBrown,
-                },
-              ]}
-            >
-              <Ionicons
-                name={passed ? "trophy" : "refresh"}
-                size={50}
-                color="white"
-              />
-            </View>
+            <VideoRewardPlayer correctAnswers={correctAnswers} />
 
             <Text style={styles.resultsTitle}>
               {passed ? "Quiz Completed!" : "Keep Learning!"}
@@ -666,20 +652,6 @@ const styles = StyleSheet.create({
   resultsHeader: {
     alignItems: "center",
     marginBottom: 30, // EXACT SwiftUI: VStack spacing: 30
-  },
-  resultsIconContainer: {
-    width: 120, // EXACT SwiftUI: .frame(width: 120, height: 120)
-    height: 120,
-    borderRadius: 60,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20, // EXACT SwiftUI: VStack spacing: 20
-    // EXACT SwiftUI shadow: .shadow(radius: 8)
-    shadowColor: "black",
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
   },
   resultsTitle: {
     fontFamily: "DM Sans", // EXACT SwiftUI: .font(.custom("DM Sans", size: 28))

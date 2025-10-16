@@ -19,14 +19,15 @@ import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { RewardsProvider, useRewards } from "@/context/RewardsContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
-import Purchases from 'react-native-purchases';
 import * as Notifications from 'expo-notifications';
+import * as SplashScreen from 'expo-splash-screen';
 import { analyticsService } from "@/services/AnalyticsService";
 import { usePostHog } from 'posthog-react-native';
 import { AppState } from 'react-native';
 import AvatarUnlockAnimation from "@/components/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
 import ConfettiEffect from "@/components/ConfettiEffect";
+import LoadingScreen from "@/components/LoadingScreen";
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -36,6 +37,15 @@ Notifications.setNotificationHandler({
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
+});
+
+// Prevent native splash screen from auto-hiding (GLOBAL SCOPE - must be called before component renders)
+SplashScreen.preventAutoHideAsync();
+
+// Configure splash screen fade animation
+SplashScreen.setOptions({
+  duration: 1000,
+  fade: true,
 });
 
 // Analytics initialization wrapper that must be inside PostHogProvider
@@ -207,19 +217,6 @@ export default function RootLayout() {
     "Cormorant-Bold": require("../assets/fonts/Cormorant-Bold.ttf"),
   });
 
-  // Initialize RevenueCat early - matching sample app configuration
-  React.useEffect(() => {
-    console.log('🚀 Configuring RevenueCat in RootLayout...');
-    const REVENUECAT_API_KEY = 'appl_oxMRgfHsashdXXOSrczqvnYYIxg';
-
-    try {
-      Purchases.configure({ apiKey: REVENUECAT_API_KEY });
-      console.log('✅ RevenueCat configured successfully');
-    } catch (error) {
-      console.error('❌ Failed to configure RevenueCat:', error);
-    }
-  }, []);
-
   console.log('RootLayout - Fonts loaded:', loaded);
   console.log('RootLayout - Platform:', Platform.OS);
   console.log('RootLayout - Available fonts:', {
@@ -230,14 +227,18 @@ export default function RootLayout() {
     'Cormorant-Bold': '✓'
   });
 
+  // Hide splash screen when fonts are loaded
+  React.useEffect(() => {
+    if (loaded) {
+      console.log('RootLayout - Fonts loaded, hiding splash screen');
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
   if (!loaded) {
-    // Show loading screen instead of null to prevent blank app
-    console.log('RootLayout - Fonts not loaded, showing loading screen');
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-        <Text style={{ color: 'white', fontSize: 16 }}>Loading Archives...</Text>
-      </View>
-    );
+    // Show branded loading screen while fonts load
+    console.log('RootLayout - Fonts not loaded, showing branded loading screen');
+    return <LoadingScreen />;
   }
 
   // Custom theme with brand background color for Android

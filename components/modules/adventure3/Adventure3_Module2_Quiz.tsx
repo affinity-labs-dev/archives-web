@@ -23,6 +23,7 @@ import {
   MCQOptionButton,
   TrueFalseOptionButton,
   ExplanationPopup,
+  VideoRewardPlayer,
 } from '../QuizSystem'
 
 const { width } = Dimensions.get('window')
@@ -392,16 +393,7 @@ function QuizResultsView({
         <View style={styles.resultsContent}>
           {/* Header */}
           <View style={styles.resultsHeader}>
-            <View style={[
-              styles.resultsIconContainer,
-              { backgroundColor: passed ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
-            ]}>
-              <Ionicons 
-                name={passed ? "trophy" : "refresh"} 
-                size={50} 
-                color="white"
-              />
-            </View>
+            <VideoRewardPlayer correctAnswers={correctAnswers} />
             
             <Text style={styles.resultsTitle}>
               {passed ? "Quiz Completed!" : "Keep Learning!"}
@@ -571,19 +563,6 @@ const styles = StyleSheet.create({
   resultsHeader: {
     alignItems: 'center',
     marginBottom: 30,
-  },
-  resultsIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: 'black',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
   },
   resultsTitle: {
     fontFamily: 'DM Sans',

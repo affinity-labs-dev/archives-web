@@ -5,6 +5,7 @@ import { useUser } from '@clerk/clerk-expo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { usePostHog } from 'posthog-react-native'
 import { Platform } from 'react-native'
+import LoadingScreen from '@/components/LoadingScreen'
 
 export default function Index() {
   const { isSignedIn, isLoaded } = useUser()
@@ -50,9 +51,9 @@ export default function Index() {
     }
   }
 
-  // Show loading while checking user state
+  // Show branded loading while checking user state
   if (isChecking || !isLoaded) {
-    return null // Could show a loading spinner here
+    return <LoadingScreen />
   }
 
   // Returning user: signed in AND has completed onboarding
