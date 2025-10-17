@@ -24,6 +24,7 @@ import {
   TrueFalseOptionButton,
   ExplanationPopup,
   VideoRewardPlayer,
+  getQuizResultMessages,
 } from '../QuizSystem'
 
 
@@ -358,6 +359,9 @@ function QuizResultsView({
   const passed = percentage >= 40 // EXACT SwiftUI: private var passed: Bool (40% passing score)
   const canAccessAdventure = correctAnswers >= 2 // EXACT SwiftUI: private var canAccessAdventure: Bool (need 2/5 correct)
 
+  // Get dynamic messages based on score
+  const messages = getQuizResultMessages(correctAnswers, totalQuestions);
+
   return (
     <View style={styles.resultsContainer}>
       {/* Back button for results */}
@@ -376,11 +380,11 @@ function QuizResultsView({
             <VideoRewardPlayer correctAnswers={correctAnswers} />
 
             <Text style={styles.resultsTitle}>
-              {passed ? "Quiz Completed!" : "Keep Learning!"}
+              {messages.title}
             </Text>
 
             <Text style={styles.resultsSubtitle}>
-              {passed ? "Excellent work on the Module 1 quiz!" : "Review the material and try again"}
+              {messages.subtitle}
             </Text>
           </View>
 

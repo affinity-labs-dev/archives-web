@@ -446,9 +446,9 @@ export function ExplanationPopup({
 // Video Reward Player - Score-based celebration videos
 // Based on working auth screen implementation with proper error handling
 function getRewardVideo(correctAnswers: number) {
-  if (correctAnswers >= 4) {
+  if (correctAnswers === 5) {
     return require('@/assets/videos/quiz_reward/quiz-reward3.mp4')
-  } else if (correctAnswers >= 2 && correctAnswers <= 3) {
+  } else if (correctAnswers >= 3 && correctAnswers <= 4) {
     return require('@/assets/videos/quiz_reward/quiz-reward2.mp4')
   } else {
     return require('@/assets/videos/quiz_reward/quiz-reward1.mp4')
@@ -493,6 +493,22 @@ export function VideoRewardPlayer({ correctAnswers }: VideoRewardPlayerProps) {
       />
     </View>
   )
+}
+
+// Helper function to get dynamic quiz result messages based on score
+export function getQuizResultMessages(correctAnswers: number, totalQuestions: number) {
+  // 4 or 5 correct (80-100%) = Brilliant Effort!
+  if (correctAnswers >= 4) {
+    return {
+      title: "Brilliant Effort!",
+      subtitle: "You're getting better every time"
+    };
+  }
+  // 0-3 correct (0-60%) = You've Got This!
+  return {
+    title: "You've Got This!",
+    subtitle: "Revisit the lessons & try again"
+  };
 }
 
 const styles = StyleSheet.create({

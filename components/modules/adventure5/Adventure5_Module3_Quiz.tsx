@@ -27,6 +27,7 @@ import {
   FillBlankOption,
   ExplanationPopup,
   VideoRewardPlayer,
+  getQuizResultMessages,
 } from '../QuizSystem'
 
 const { width } = Dimensions.get('window')
@@ -107,6 +108,9 @@ function QuizResultsView({
   const passed = percentage >= 40
   const canAccessAdventure = correctAnswers >= 2
 
+  // Get dynamic messages based on score
+  const messages = getQuizResultMessages(correctAnswers, totalQuestions);
+
   return (
     <View style={styles.resultsContainer}>
       {/* Back button for results */}
@@ -125,11 +129,11 @@ function QuizResultsView({
             <VideoRewardPlayer correctAnswers={correctAnswers} />
 
             <Text style={styles.resultsTitle}>
-              {passed ? "Quiz Completed!" : "Keep Learning!"}
+              {messages.title}
             </Text>
 
             <Text style={styles.resultsSubtitle}>
-              {passed ? "Excellent work on the Module 3 quiz!" : "Review the material and try again"}
+              {messages.subtitle}
             </Text>
           </View>
 
@@ -376,14 +380,19 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
       setUserAnswers(newUserAnswers)
 
       // Check if correct
-      if (selectedAnswer === currentQuestion.correctAnswer) {
+      const isCorrect = selectedAnswer === currentQuestion.correctAnswer
+      if (isCorrect) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+        playCorrect()
         setCorrectAnswers(correctAnswers + 1)
         setTotalPoints(totalPoints + currentQuestion.points)
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+        playIncorrect()
       }
 
       // Show explanation
       setShowExplanation(true)
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     }
   }
 

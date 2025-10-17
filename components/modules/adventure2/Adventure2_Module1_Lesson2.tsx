@@ -2,10 +2,12 @@
 // Full-screen video lesson with progress bar, reading card, and repositioned controls
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useProgress } from "@/context/ProgressContext";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -17,10 +19,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { PanGestureHandler, State, ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
+import { ScrollView as GestureHandlerScrollView, PanGestureHandler, State } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useProgress } from "@/context/ProgressContext";
-import { useLessonTracking } from "@/hooks/useLessonTracking";
 import LessonPlayer from "../LessonPlayer";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -362,7 +362,7 @@ export default function Adventure2_Module1_Lesson2({
                     <Text style={styles.sectionTitle}>Key Terms</Text>
                     <View style={styles.keyTermsContainer}>
                       <KeyTermRow
-                        term="Diwān"
+                        term="Diwan"
                         definition="Government office that fully adopted Arabic as its working language"
                       />
                       <KeyTermRow

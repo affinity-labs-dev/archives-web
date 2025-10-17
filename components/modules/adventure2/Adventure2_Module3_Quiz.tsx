@@ -23,6 +23,7 @@ import {
   QuizQuestion,
   TrueFalseOptionButton,
   VideoRewardPlayer,
+  getQuizResultMessages,
 } from "../QuizSystem";
 
 interface Adventure2_Module3_QuizProps {
@@ -397,6 +398,9 @@ function QuizResultsView({
   const passed = percentage >= 70; // EXACT SwiftUI: private var passed: Bool
   const canAccessAdventure = correctAnswers >= 1; // EXACT SwiftUI: private var canAccessAdventure: Bool - Updated for 5 questions
 
+  // Get dynamic messages based on score
+  const messages = getQuizResultMessages(correctAnswers, totalQuestions);
+
   return (
     <View style={styles.resultsContainer}>
       {/* Back button for results */}
@@ -422,13 +426,11 @@ function QuizResultsView({
             <VideoRewardPlayer correctAnswers={correctAnswers} />
 
             <Text style={styles.resultsTitle}>
-              {passed ? "Quiz Completed!" : "Keep Learning!"}
+              {messages.title}
             </Text>
 
             <Text style={styles.resultsSubtitle}>
-              {passed
-                ? "Excellent work on the Module 3 quiz!"
-                : "Review the material and try again"}
+              {messages.subtitle}
             </Text>
           </View>
 

@@ -2,7 +2,7 @@
 // Replaces all Expo default loading/error screens with branded experience
 
 import React, { useEffect, useRef } from 'react'
-import { View, Image, StyleSheet, Animated, Easing, Text } from 'react-native'
+import { View, StyleSheet, Animated, Easing, Text } from 'react-native'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 export default function LoadingScreen() {
@@ -33,13 +33,6 @@ export default function LoadingScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Archives Logo */}
-      <Image
-        source={require('@/assets/images/archives-logo-dark.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-
       {/* Loading Spinner */}
       <Animated.View
         style={[
@@ -62,11 +55,6 @@ const styles = StyleSheet.create({
     backgroundColor: ArchivesTheme.colors.creamWhite,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logo: {
-    width: 280,
-    height: 62,
-    marginBottom: 30,
   },
   spinner: {
     width: 40,

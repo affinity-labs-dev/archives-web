@@ -47,7 +47,7 @@ const mosqueMosaics = [
     imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M1_Img02.jpg",
     title: "The Umayyad Mosque Today",
     caption:
-      "These weren&apos;t pictures of people or battles. Instead, they showed peaceful imaginary landscapes filled with trees, palaces, and flowing water.",
+      "These weren't pictures of people or battles. Instead, they showed peaceful imaginary landscapes filled with trees, palaces, and flowing water.",
   },
   {
     id: 3,

@@ -5,7 +5,9 @@ import Purchases, {
   Offerings,
   PurchasesPackage,
   PurchasesError,
-  PURCHASES_ERROR_CODE
+  PURCHASES_ERROR_CODE,
+  IntroEligibility,
+  INTRO_ELIGIBILITY_STATUS
 } from 'react-native-purchases';
 
 // Platform-specific RevenueCat API keys
@@ -26,6 +28,10 @@ interface UseRevenueCatReturn {
   offerings: Offerings | null;
   monthlyPackage: PurchasesPackage | null;
   yearlyPackage: PurchasesPackage | null;
+
+  // Intro offer eligibility (iOS only)
+  monthlyEligibility: IntroEligibility | null;
+  yearlyEligibility: IntroEligibility | null;
 
   // Purchase flow
   purchase: (packageToPurchase: PurchasesPackage) => Promise<void>;
@@ -52,6 +58,10 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isFetchingOfferings, setIsFetchingOfferings] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Intro offer eligibility state (iOS only)
+  const [monthlyEligibility, setMonthlyEligibility] = useState<IntroEligibility | null>(null);
+  const [yearlyEligibility, setYearlyEligibility] = useState<IntroEligibility | null>(null);
 
   // Derived state - check if user has active subscription
   const isSubscribed = customerInfo?.entitlements.active[ENTITLEMENT_IDENTIFIER]?.isActive ?? false;
@@ -207,6 +217,9 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
       }
 
       setOfferings(fetchedOfferings);
+
+      // Check intro offer eligibility after offerings are fetched
+      await checkIntroEligibility(fetchedOfferings);
     } catch (error) {
       console.error('❌ Failed to fetch offerings:', error);
       setError('Failed to load subscription options');
@@ -214,6 +227,75 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
       setIsFetchingOfferings(false);
     }
   }, [isFetchingOfferings]);
+
+  // Check intro offer eligibility (iOS only)
+  const checkIntroEligibility = useCallback(async (fetchedOfferings: Offerings) => {
+    // Only check on iOS - Android always returns UNKNOWN
+    if (Platform.OS !== 'ios') {
+      console.log('ℹ️ Skipping intro eligibility check - not on iOS');
+      return;
+    }
+
+    try {
+      // Find monthly and yearly packages from fetched offerings
+      const monthlyPkg = findPackageByType('MONTHLY') ||
+        fetchedOfferings?.current?.availablePackages?.find(pkg =>
+          pkg.storeProduct?.productIdentifier?.includes('MONTH') ||
+          pkg.identifier?.toLowerCase().includes('month')
+        );
+
+      const yearlyPkg = findPackageByType('ANNUAL') ||
+        fetchedOfferings?.current?.availablePackages?.find(pkg =>
+          pkg.storeProduct?.productIdentifier?.includes('YEAR') ||
+          pkg.identifier?.toLowerCase().includes('year') ||
+          pkg.identifier?.toLowerCase().includes('annual')
+        );
+
+      // Collect product IDs to check
+      const productIds: string[] = [];
+      if (monthlyPkg?.storeProduct?.productIdentifier) {
+        productIds.push(monthlyPkg.storeProduct.productIdentifier);
+      }
+      if (yearlyPkg?.storeProduct?.productIdentifier) {
+        productIds.push(yearlyPkg.storeProduct.productIdentifier);
+      }
+
+      if (productIds.length === 0) {
+        console.log('⚠️ No product IDs found for eligibility check');
+        return;
+      }
+
+      console.log('🔍 Checking intro eligibility for products:', productIds);
+
+      // Check eligibility for all products
+      const eligibilityMap = await Purchases.checkTrialOrIntroductoryPriceEligibility(productIds);
+
+      console.log('✅ Intro eligibility results:', eligibilityMap);
+
+      // Update state with eligibility for each product
+      if (monthlyPkg?.storeProduct?.productIdentifier) {
+        const monthlyElig = eligibilityMap[monthlyPkg.storeProduct.productIdentifier];
+        setMonthlyEligibility(monthlyElig);
+        console.log('📱 Monthly eligibility:', {
+          status: monthlyElig.status,
+          description: monthlyElig.description
+        });
+      }
+
+      if (yearlyPkg?.storeProduct?.productIdentifier) {
+        const yearlyElig = eligibilityMap[yearlyPkg.storeProduct.productIdentifier];
+        setYearlyEligibility(yearlyElig);
+        console.log('📅 Yearly eligibility:', {
+          status: yearlyElig.status,
+          description: yearlyElig.description
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to check intro eligibility:', error);
+      // Don't set error state - this is not critical for purchase flow
+    }
+  }, []);
 
   // Purchase function - replicates sample app's purchase flow
   const purchase = useCallback(async (packageToPurchase: PurchasesPackage) => {
@@ -323,6 +405,10 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
     offerings,
     monthlyPackage,
     yearlyPackage,
+
+    // Intro offer eligibility
+    monthlyEligibility,
+    yearlyEligibility,
 
     // Purchase flow
     purchase,

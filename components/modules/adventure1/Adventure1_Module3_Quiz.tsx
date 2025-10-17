@@ -6,8 +6,8 @@ import { useProgress } from "@/context/ProgressContext";
 import { useQuizSounds } from "@/hooks/useQuizSounds";
 import { analyticsService } from "@/services/AnalyticsService";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
 import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -25,6 +25,7 @@ import {
   QuizQuestion,
   TrueFalseOptionButton,
   VideoRewardPlayer,
+  getQuizResultMessages,
 } from "../QuizSystem";
 
 const { width } = Dimensions.get("window");
@@ -77,7 +78,7 @@ const quizQuestions = [
     image: require("@/assets/images/quiz-images/Map.png"),
   },
   {
-    question: "Inside a Damascus tea house, scholars were most likely to be __",
+    question: "Inside a Damascus tea house, scholars were most likely to be ___",
     correctAnswer: 0, // A) Debating new ideas
     explanation:
       "Damascus tea houses were intellectual centers where scholars would gather to debate new ideas, discuss philosophy, and exchange knowledge. These spaces fostered the rich intellectual culture of the Umayyad period.",
@@ -424,6 +425,9 @@ function QuizResultsView({
   const passed = percentage >= 70; // EXACT SwiftUI: private var passed: Bool
   const canAccessAdventure = correctAnswers >= 1; // EXACT SwiftUI: private var canAccessAdventure: Bool - Need at least 1/5
 
+  // Get dynamic messages based on score
+  const messages = getQuizResultMessages(correctAnswers, totalQuestions);
+
   return (
     <View style={styles.resultsContainer}>
       {/* Back button for results */}
@@ -449,13 +453,11 @@ function QuizResultsView({
             <VideoRewardPlayer correctAnswers={correctAnswers} />
 
             <Text style={styles.resultsTitle}>
-              {passed ? "Quiz Completed!" : "Keep Learning!"}
+              {messages.title}
             </Text>
 
             <Text style={styles.resultsSubtitle}>
-              {passed
-                ? "Excellent work on the Module 3 quiz!"
-                : "Review the material and try again"}
+              {messages.subtitle}
             </Text>
           </View>
 

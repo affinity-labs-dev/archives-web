@@ -1,22 +1,22 @@
 // Adventure4_Module3_Lesson1.tsx - EXACT replica of Adventure3_Module3_Lesson2 format
 // Scroll-based lesson about Advanced Islamic Architecture and Innovation
 
-import React, { useState, useEffect } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Image,
-  Platform,
-} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
-import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useBackgroundMusic } from '@/hooks/useBackgroundMusic'
+import { Ionicons } from '@expo/vector-icons'
+import * as Haptics from 'expo-haptics'
+import React, { useEffect, useState } from 'react'
+import {
+  Image,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 interface Adventure4_Module3_Lesson1Props {
   onContinue: () => void;
@@ -41,13 +41,13 @@ export default function Adventure4_Module3_Lesson1({
   )
 
   // Content for Advanced Islamic Architecture and Innovation
-  const text1 = `Under the Umayyads, Islamic architecture reached new heights of sophistication. Master builders combined Byzantine engineering with Arabian aesthetic principles, creating structures that were both functional and breathtakingly beautiful.`
+  const text1 = `The earliest Qur’ans were written in Kufic script - bold, angular letters without vowels. Every stroke had to be perfect, guiding readers through rhythm and shape alone.`
 
-  const text2 = `The Great Mosque of Damascus became the architectural crown jewel of the empire. Its soaring minarets and gleaming golden mosaics set the standard for Islamic religious architecture across the known world.`
+  const text2 = `To mark a new chapter or surah, scribes added gold-leaf bands. These shimmering lines made the divine words shine - literally - on the page.`
 
-  const text3 = `Advanced water management systems, including complex aqueducts and fountain networks, transformed arid landscapes into gardens of paradise. These innovations made urban life possible in previously uninhabitable regions.`
+  const text3 = `At first, Qur’anic script had no dots or vowels. Later scribes added red diacritical marks to help readers pronounce every verse precisely.`
 
-  const text4 = `The fusion of artistic traditions from conquered territories created a distinctive Umayyad style. Persian carpets, Byzantine mosaics, and Arabian geometric patterns merged into a unified aesthetic that defined an empire.`
+  const text4 = `Floral borders wrapped each page in beauty. No pictures - only patterns, echoing gardens of paradise and the sacred rhythm of the words within.`
 
   // Enhanced debug logging for background music
   useEffect(() => {

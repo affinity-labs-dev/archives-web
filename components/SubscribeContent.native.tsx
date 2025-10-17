@@ -18,6 +18,7 @@ import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { analyticsService } from "@/services/AnalyticsService";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from 'expo-haptics';
+import Purchases from 'react-native-purchases';
 
 export default function SubscribeContent() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">(
@@ -34,7 +35,9 @@ export default function SubscribeContent() {
     isLoading,
     error,
     purchasePackage,
-    restorePurchases
+    restorePurchases,
+    monthlyEligibility,
+    yearlyEligibility
   } = useRevenueCat();
 
   // Track page views with focus/blur
@@ -60,8 +63,19 @@ export default function SubscribeContent() {
     yearlyPackageId: yearlyPackage?.identifier,
     monthlyPrice: monthlyPackage?.storeProduct?.priceString,
     yearlyPrice: yearlyPackage?.storeProduct?.priceString,
+    monthlyEligibility: monthlyEligibility?.status,
+    yearlyEligibility: yearlyEligibility?.status,
     error
   });
+
+  // Helper function to check if user is eligible for intro offer
+  const isEligibleForIntro = (eligibility: typeof monthlyEligibility) => {
+    if (!eligibility) return false;
+    return eligibility.status === Purchases.INTRO_ELIGIBILITY_STATUS.ELIGIBLE;
+  };
+
+  // Check if ANY plan has intro offer available (for banner display)
+  const hasAnyIntroOffer = isEligibleForIntro(monthlyEligibility) || isEligibleForIntro(yearlyEligibility);
 
   // Helper function to format pricing for display
   const formatPrice = (priceString: string | undefined, fallback: string) => {
@@ -285,6 +299,14 @@ export default function SubscribeContent() {
           </View>
         </View>
 
+        {/* Intro Offer Banner - Show only if eligible */}
+        {hasAnyIntroOffer && (
+          <View style={styles.introBanner}>
+            <Text style={styles.introBannerText}>🎉 1 MONTH FREE</Text>
+            <Text style={styles.introBannerSubtext}>For new subscribers</Text>
+          </View>
+        )}
+
         {/* Pricing Options - Interactive Selection */}
         <View style={styles.pricingContainer}>
           {/* Monthly Plan */}
@@ -298,11 +320,22 @@ export default function SubscribeContent() {
               setSelectedPlan("monthly")
             }}
           >
-            <View style={styles.priceDisplayRow}>
-              <Text style={styles.priceMain}>{monthlyPricing.main}</Text>
-              <Text style={styles.priceDecimal}>{monthlyPricing.decimal}</Text>
-            </View>
-            <Text style={styles.originalPrice}>{currencySymbol}9.99</Text>
+            {isEligibleForIntro(monthlyEligibility) ? (
+              <>
+                <Text style={styles.introOfferText}>Free for 1 month</Text>
+                <Text style={styles.thenPriceText}>
+                  then {monthlyPricing.main}{monthlyPricing.decimal}/mo
+                </Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.priceDisplayRow}>
+                  <Text style={styles.priceMain}>{monthlyPricing.main}</Text>
+                  <Text style={styles.priceDecimal}>{monthlyPricing.decimal}</Text>
+                </View>
+                <Text style={styles.originalPrice}>{currencySymbol}9.99</Text>
+              </>
+            )}
             <Text style={styles.planDuration}>Monthly</Text>
             {selectedPlan === "monthly" && (
               <View style={styles.selectedIndicator}>
@@ -329,11 +362,22 @@ export default function SubscribeContent() {
               setSelectedPlan("yearly")
             }}
           >
-            <View style={styles.priceDisplayRow}>
-              <Text style={styles.priceMain}>{yearlyPricing.main}</Text>
-              <Text style={styles.priceDecimal}>{yearlyPricing.decimal}</Text>
-            </View>
-            <Text style={styles.originalPrice}>{currencySymbol}89.99</Text>
+            {isEligibleForIntro(yearlyEligibility) ? (
+              <>
+                <Text style={styles.introOfferText}>Free for 1 month</Text>
+                <Text style={styles.thenPriceText}>
+                  then {yearlyPricing.main}{yearlyPricing.decimal}/yr
+                </Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.priceDisplayRow}>
+                  <Text style={styles.priceMain}>{yearlyPricing.main}</Text>
+                  <Text style={styles.priceDecimal}>{yearlyPricing.decimal}</Text>
+                </View>
+                <Text style={styles.originalPrice}>{currencySymbol}89.99</Text>
+              </>
+            )}
             <Text style={styles.planDuration}>Yearly</Text>
             {selectedPlan === "yearly" && (
               <View style={styles.selectedIndicator}>
@@ -850,5 +894,55 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     lineHeight: 24,
     opacity: 0.8,
+  },
+
+  // Intro offer banner styles
+  introBanner: {
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    alignItems: 'center',
+    shadowColor: ArchivesTheme.colors.persianOrange,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  introBannerText: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
+    fontWeight: '700',
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  introBannerSubtext: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'white',
+    textAlign: 'center',
+    opacity: 0.9,
+  },
+
+  // Intro offer pricing text styles
+  introOfferText: {
+    fontFamily: 'DM Sans',
+    fontSize: 20,
+    fontWeight: '700',
+    color: ArchivesTheme.colors.mossGreen,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  thenPriceText: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    fontWeight: '500',
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: 'center',
+    opacity: 0.7,
+    marginBottom: 8,
   },
 });

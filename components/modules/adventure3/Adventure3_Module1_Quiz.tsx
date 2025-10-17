@@ -3,10 +3,10 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useProgress } from "@/context/ProgressContext";
-import { useQuizSounds } from '@/hooks/useQuizSounds'
+import { useQuizSounds } from '@/hooks/useQuizSounds';
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
 import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   ScrollView,
@@ -23,6 +23,7 @@ import {
   QuizQuestion,
   TrueFalseOptionButton,
   VideoRewardPlayer,
+  getQuizResultMessages,
 } from "../QuizSystem";
 
 interface Adventure3_Module1_QuizProps {
@@ -55,7 +56,7 @@ const quizQuestions: QuizQuestionData[] = [
     image: require("@/assets/images/quiz-images/books.png"),
   },
   {
-    question: "Kairouan began as a __",
+    question: "Kairouan began as a ___",
     correctAnswer: 0, // A) Military camp
     explanation:
       "Kairouan began as a military camp established by Uqba ibn Nafi in 670 CE. It later evolved into a major city and center of Islamic learning and culture in North Africa.",
@@ -85,7 +86,7 @@ const quizQuestions: QuizQuestionData[] = [
     image: require("@/assets/images/quiz-images/navigation.png"),
   },
   {
-    question: "The Umayyad march into North Africa was mainly __",
+    question: "The Umayyad march into North Africa was mainly ___",
     correctAnswer: 2, // C) Desert trek with resistance and alliances
     explanation:
       "The Umayyad expansion into North Africa involved long treks through challenging desert terrain, facing various forms of resistance from local populations, and forming strategic alliances with different tribes and groups.",
@@ -403,6 +404,9 @@ function QuizResultsView({
   const passed = percentage >= 70; // EXACT SwiftUI: private var passed: Bool
   const canAccessAdventure = correctAnswers >= 1; // EXACT SwiftUI: private var canAccessAdventure: Bool - Need at least 1/5
 
+  // Get dynamic messages based on score
+  const messages = getQuizResultMessages(correctAnswers, totalQuestions);
+
   return (
     <View style={styles.resultsContainer}>
       {/* Back button for results */}
@@ -428,13 +432,11 @@ function QuizResultsView({
             <VideoRewardPlayer correctAnswers={correctAnswers} />
 
             <Text style={styles.resultsTitle}>
-              {passed ? "Quiz Completed!" : "Keep Learning!"}
+              {messages.title}
             </Text>
 
             <Text style={styles.resultsSubtitle}>
-              {passed
-                ? "Excellent work on the Module 1 quiz!"
-                : "Review the material and try again"}
+              {messages.subtitle}
             </Text>
           </View>
 
