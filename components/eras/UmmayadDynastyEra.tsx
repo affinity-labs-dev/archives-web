@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.20)', // Uniform 20% opacity for better text contrast
+    backgroundColor: 'rgba(0,0,0,0.50)', // Uniform 50% opacity for better text contrast
   },
   dynastyHeader: {
     position: 'absolute',

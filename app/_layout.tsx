@@ -310,6 +310,7 @@ export default function RootLayout() {
                       <AvatarAnimationWrapper>
                         <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
                           <Stack>
+                            <Stack.Screen name="index" options={{ headerShown: false }} />
                             <Stack.Screen name="onboarding-video" options={{ headerShown: false, title: '' }} />
                             <Stack.Screen name="onboarding-video-2" options={{ headerShown: false, title: '' }} />
                             <Stack.Screen name="onboarding-welcome" options={{ headerShown: false, title: '' }} />

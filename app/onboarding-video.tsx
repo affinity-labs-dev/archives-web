@@ -165,6 +165,7 @@ export default function OnboardingVideoScreen() {
             nativeControls={false}
             allowsFullscreen={false}
             allowsPictureInPicture={false}
+            allowsVideoFrameAnalysis={false}
           />
         ) : (
           // Loading state with Archives branding
