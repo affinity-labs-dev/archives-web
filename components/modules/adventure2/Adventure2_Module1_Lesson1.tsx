@@ -69,9 +69,9 @@ export default function Adventure2_Module1_Lesson1({
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Background music hook - Desert Whispers ambience from AWS CloudFront (same as working Adv1)
+  // Background music hook - Administrative Language background music from AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
-    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" }, // Using working Adv1 file
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M1_L1.mp3" },
     {
       volume: 0.15, // 15% volume - very low ambient background
       shouldLoop: true,
@@ -92,7 +92,7 @@ export default function Adventure2_Module1_Lesson1({
     // Additional debugging for audio file loading (AWS CloudFront)
     if (!backgroundMusic.isLoaded && !backgroundMusic.isLoading) {
       console.log('🎵 Audio not loading - AWS CloudFront source should be available');
-      console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3 (using working Adv1 file)');
+      console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M1_L1.mp3');
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
 

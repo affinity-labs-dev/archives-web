@@ -14,7 +14,8 @@
       "mcp__Ref__ref_search_documentation",
       "WebSearch",
       "mcp__Ref__ref_read_url",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: add introductory offer display with eligibility checking\n\nImplement App Store introductory offer support for subscription screen:\n- Add RevenueCat intro eligibility checking (iOS only)\n- Display \"1 MONTH FREE\" banner for eligible users\n- Update pricing UI to show intro offer terms dynamically\n- Add helper functions to check eligibility status\n- Support both monthly and yearly intro offers\n\nChanges include:\n- hooks/useRevenueCat.ts: Add checkIntroEligibility function and state\n- components/SubscribeContent.native.tsx: Add intro offer UI and conditional display\n- New styles for intro offer banner and pricing text\n\nAlso includes:\n- Loading screen improvements\n- Quiz system updates\n- Video reward condition changes\n- Quiz sound fixes for Adventure 5 Module 3\nEOF\n)\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

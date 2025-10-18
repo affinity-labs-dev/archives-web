@@ -92,9 +92,9 @@ export default function Adventure5_Module1_Lesson2({
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Background music integration - same as Lesson 1
+  // Background music integration - Yazīd II Cultural Synthesis audio
   const backgroundMusic = useBackgroundMusic(
-    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M1_L1.mp3" },
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M1_L2.mp3" },
     {
       volume: 0.5, // 50% volume for ambient atmosphere
       shouldLoop: true, // Continuous loop for immersive experience
@@ -149,7 +149,7 @@ export default function Adventure5_Module1_Lesson2({
         "🎵 Audio not loading - AWS CloudFront source should be available"
       );
       console.log(
-        "🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M1_L1.mp3"
+        "🎵 AWS CloudFront Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv5_M1_L2.mp3"
       );
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying]);

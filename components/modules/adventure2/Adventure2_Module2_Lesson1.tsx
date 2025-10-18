@@ -63,9 +63,9 @@ export default function Adventure2_Module2_Lesson1({
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Background music hook - Desert Whispers ambience from AWS CloudFront
+  // Background music hook - Currency Reform background music from AWS CloudFront
   const backgroundMusic = useBackgroundMusic(
-    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3" }, // Temporarily using working Adv1 file for testing
+    { uri: "https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M2_L1_Desert+Whispers.mp3" },
     {
       volume: 0.15, // 15% volume - very low ambient background
       shouldLoop: true,
@@ -86,7 +86,7 @@ export default function Adventure2_Module2_Lesson1({
     // Additional debugging for audio file loading (AWS CloudFront)
     if (!backgroundMusic.isLoaded && !backgroundMusic.isLoading) {
       console.log('🎵 Audio not loading - AWS CloudFront source should be available');
-      console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv1_M2_L1_Desert+Whispers.mp3 (using working Adv1 file)');
+      console.log('🎵 AWS Audio URL: https://dzyjrzj2lngmg.cloudfront.net/Audios/Adv2_M2_L1_Desert+Whispers.mp3');
     }
   }, [backgroundMusic.isLoaded, backgroundMusic.isPlaying, backgroundMusic.isLoading]);
 
