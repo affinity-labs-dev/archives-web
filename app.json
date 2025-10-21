@@ -2,7 +2,7 @@
   "expo": {
     "name": "Archives",
     "slug": "archives",
-    "version": "2.2.6",
+    "version": "2.2.7",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
     "scheme": "archives",
@@ -13,10 +13,9 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "L33CVM28SL",
-      "buildNumber": "64",
+      "buildNumber": "68",
       "infoPlist": {
         "UIBackgroundModes": [
-          "audio",
           "remote-notification"
         ],
         "NSUserTrackingUsageDescription": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform."
@@ -34,7 +33,7 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "versionCode": 8
+      "versionCode": 13
     },
     "web": {
       "bundler": "metro",

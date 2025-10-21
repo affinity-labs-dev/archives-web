@@ -189,11 +189,8 @@ export default function EraSelection() {
             showLock={false}
           />
 
-          {/* Eras Coming Soon Text */}
-          <Text style={styles.comingSoonText}>Eras Coming Soon...</Text>
-
           {/* Eras 2-3 - 2x2 Grid */}
-          <View style={[styles.gridContainer, styles.gridContainerAfterText]}>
+          <View style={styles.gridContainer}>
             <View style={styles.gridRow}>
               <GridEraCard
                 era={eras[1]}
@@ -315,6 +312,7 @@ function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: Hori
       {showLock && (
         <View style={styles.simpleLockOverlay}>
           <MaterialIcons name="lock" size={28} color="white" />
+          <Text style={styles.comingSoonOverlayText}>COMING SOON</Text>
         </View>
       )}
 
@@ -388,6 +386,7 @@ function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCar
       {showLock && (
         <View style={styles.gridSimpleLockOverlay}>
           <MaterialIcons name="lock" size={24} color="white" />
+          <Text style={styles.comingSoonOverlayText}>COMING SOON</Text>
         </View>
       )}
 
@@ -707,12 +706,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     borderRadius: 24,
+    flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     paddingTop: 16,
     paddingLeft: 16,
+    gap: 8,
   },
   
   gridSimpleLockOverlay: {
@@ -721,12 +722,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     borderRadius: 18,
+    flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     paddingTop: 12,
     paddingLeft: 12,
+    gap: 6,
+  },
+
+  // Coming Soon overlay text
+  comingSoonOverlayText: {
+    fontFamily: 'DM-Sans-Bold',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: ArchivesTheme.colors.creamWhite,
+    textAlign: 'left',
   },
 
   // Selected Indicator Styles - Top Right
