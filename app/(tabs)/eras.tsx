@@ -311,8 +311,8 @@ function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: Hori
       {/* Simple Lock Overlay */}
       {showLock && (
         <View style={styles.simpleLockOverlay}>
-          <MaterialIcons name="lock" size={28} color="white" />
-          <Text style={styles.comingSoonOverlayText}>COMING SOON</Text>
+          <MaterialIcons name="lock" size={28} color={ArchivesTheme.colors.creamWhite} />
+          <Text style={styles.comingSoonOverlayText}>Coming soon</Text>
         </View>
       )}
 
@@ -385,8 +385,8 @@ function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCar
       {/* Simple Lock Overlay */}
       {showLock && (
         <View style={styles.gridSimpleLockOverlay}>
-          <MaterialIcons name="lock" size={24} color="white" />
-          <Text style={styles.comingSoonOverlayText}>COMING SOON</Text>
+          <MaterialIcons name="lock" size={24} color={ArchivesTheme.colors.creamWhite} />
+          <Text style={styles.comingSoonOverlayText}>Coming soon</Text>
         </View>
       )}
 
@@ -734,11 +734,12 @@ const styles = StyleSheet.create({
 
   // Coming Soon overlay text
   comingSoonOverlayText: {
-    fontFamily: 'DM-Sans-Bold',
+    fontFamily: 'DM-Sans-SemiBold',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: ArchivesTheme.colors.creamWhite,
     textAlign: 'left',
+    marginTop: 4,
   },
 
   // Selected Indicator Styles - Top Right

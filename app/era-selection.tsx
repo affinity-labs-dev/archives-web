@@ -712,11 +712,12 @@ const styles = StyleSheet.create({
 
   // Coming Soon overlay text
   comingSoonOverlayText: {
-    fontFamily: 'DM-Sans-Bold',
+    fontFamily: 'DM-Sans-SemiBold',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: ArchivesTheme.colors.creamWhite,
     textAlign: 'left',
+    marginTop: 4,
   },
 
   // Selected Indicator Styles - Top Right
