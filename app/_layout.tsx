@@ -21,6 +21,7 @@ import { RewardsProvider, useRewards } from "@/context/RewardsContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
+import * as NavigationBar from 'expo-navigation-bar';
 import { analyticsService } from "@/services/AnalyticsService";
 import { usePostHog } from 'posthog-react-native';
 import { AppState } from 'react-native';
@@ -234,6 +235,13 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
+
+  // Set Android navigation bar color to match app background
+  React.useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync('#F4EBDB');
+    }
+  }, []);
 
   if (!loaded) {
     // Show branded loading screen while fonts load

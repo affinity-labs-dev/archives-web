@@ -9,10 +9,12 @@ import {
   StatusBar,
   Modal,
   BackHandler,
+  Platform,
 } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { useProgress } from '@/context/ProgressContext'
 import * as Haptics from 'expo-haptics'
+import * as NavigationBar from 'expo-navigation-bar'
 
 // Import ROI lesson and quiz components
 import ROIERA2Adv1_Module1_Lesson1 from './roiera2/ROIERA2Adv1_Module1_Lesson1'
@@ -39,6 +41,13 @@ export default function ROIModuleModal({ isVisible, moduleId, onDismiss }: ROIMo
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     }
   }, [isVisible, moduleId])
+
+  // Set navigation bar color when modal opens (Android)
+  useEffect(() => {
+    if (Platform.OS === 'android' && isVisible) {
+      NavigationBar.setBackgroundColorAsync('#F4EBDB')
+    }
+  }, [isVisible])
 
   // Handle Android back button - prevent dismissal during lessons
   useEffect(() => {

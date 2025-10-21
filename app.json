@@ -13,7 +13,10 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "L33CVM28SL",
-      "buildNumber": "68",
+      "buildNumber": "72",
+      "associatedDomains": [
+        "applinks:link.archiveszone.app"
+      ],
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
@@ -31,9 +34,10 @@
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 13
+      "versionCode": 15
     },
     "web": {
       "bundler": "metro",
@@ -117,6 +121,7 @@
     "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/4f1f4bc4-0ced-48f3-b712-178b54175088"
-    }
+    },
+    "owner": "sunny_panchal"
   }
 }

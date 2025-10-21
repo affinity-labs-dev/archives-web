@@ -9,10 +9,12 @@ import {
   StatusBar,
   Modal,
   BackHandler,
+  Platform,
 } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { useProgress } from '@/context/ProgressContext'
 import * as Haptics from 'expo-haptics'
+import * as NavigationBar from 'expo-navigation-bar'
 
 // Import lesson and quiz components
 import Adventure1_Module1_Lesson1 from './adventure1/Adventure1_Module1_Lesson1'
@@ -107,6 +109,13 @@ export default function ModuleModal({ isVisible, moduleId, onDismiss }: ModuleMo
       setCurrentStep('lesson1')
     }
   }, [isVisible, moduleId])
+
+  // Set navigation bar color when modal opens (Android)
+  useEffect(() => {
+    if (Platform.OS === 'android' && isVisible) {
+      NavigationBar.setBackgroundColorAsync('#F4EBDB')
+    }
+  }, [isVisible])
 
   // Handle Android back button - EXACT SwiftUI: prevent dismissal during lessons
   useEffect(() => {

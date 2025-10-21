@@ -83,11 +83,11 @@ export default function Adventure4_Module3_Lesson1({
 
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
-          {/* Section 1: Architectural Innovation */}
+          {/* Section 1: The Birth of Qurʾanic Script */}
           <View style={styles.section}>
             {/* Section Title */}
             <View style={styles.textContainer}>
-              <Text style={styles.sectionTitle}>Architectural Innovation</Text>
+              <Text style={styles.sectionTitle}>The Birth of Qurʾanic Script</Text>
             </View>
 
             {/* Image 1 - Architectural Innovation */}
@@ -107,11 +107,11 @@ export default function Adventure4_Module3_Lesson1({
             </View>
           </View>
 
-          {/* Section 2: The Great Mosque Legacy */}
+          {/* Section 2: Gold Lines of Revelation */}
           <View style={styles.section}>
             {/* Section Title */}
             <View style={styles.textContainer}>
-              <Text style={styles.sectionTitle}>The Great Mosque Legacy</Text>
+              <Text style={styles.sectionTitle}>Gold Lines of Revelation</Text>
             </View>
 
             {/* Image 2 - Great Mosque */}
@@ -131,14 +131,14 @@ export default function Adventure4_Module3_Lesson1({
             </View>
           </View>
 
-          {/* Section 3: Engineering Marvels */}
+          {/* Section 3: The Addition of Dots and Vowels */}
           <View style={styles.section}>
             {/* Section Title */}
             <View style={styles.textContainer}>
-              <Text style={styles.sectionTitle}>Engineering Marvels</Text>
+              <Text style={styles.sectionTitle}>The Addition of Dots and Vowels</Text>
             </View>
 
-            {/* Image 3 - Engineering systems */}
+            {/* Image 3 - The Addition of Dots and Vowels */}
             <View style={styles.imageContainer}>
               <Image
                 source={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M3_Img03.jpg" }}
@@ -155,14 +155,14 @@ export default function Adventure4_Module3_Lesson1({
             </View>
           </View>
 
-          {/* Section 4: Cultural Fusion */}
+          {/* Section 4: Gardens on the Page */}
           <View style={styles.section}>
             {/* Section Title */}
             <View style={styles.textContainer}>
-              <Text style={styles.sectionTitle}>Cultural Fusion</Text>
+              <Text style={styles.sectionTitle}>Gardens on the Page</Text>
             </View>
 
-            {/* Image 4 - Cultural fusion */}
+            {/* Image 4 - Gardens on the Page */}
             <View style={styles.imageContainer}>
               <Image
                 source={{ uri: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M3_Img04.png" }}

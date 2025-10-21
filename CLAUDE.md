@@ -11,6 +11,7 @@ npx expo start                        # Start dev server (i=iOS, a=Android, w=we
 npm run lint                          # Run linting (REQUIRED before commits)
 npx expo start --clear                # Clear Metro cache (fixes module resolution)
 eas build --platform ios --profile development  # Create development build
+eas update --branch [channel]         # Push OTA update to specified channel
 ```
 
 **First files to understand:**
@@ -35,10 +36,14 @@ eas build --platform ios --profile development  # Create development build
 ### Provider Hierarchy (app/_layout.tsx)
 ```
 PostHogProvider (analytics from app launch)
-└── ClerkProvider (authentication)
-    └── BackgroundSyncProvider (cloud sync)
-        └── ProgressProvider (state management)
-            └── Stack Navigation (routing)
+└── AnalyticsWrapper (PostHog initialization + app lifecycle tracking)
+    └── ClerkProvider (authentication)
+        └── BackgroundSyncProvider (cloud sync)
+            └── RewardsProvider (badges + avatars system)
+                └── ProgressProvider (state management)
+                    └── PreferencesProvider (user settings)
+                        └── AvatarAnimationWrapper (unlock animations)
+                            └── Stack Navigation (routing)
 ```
 
 **Critical flow:** BackgroundSync waits for Clerk auth, then syncs cloud data BEFORE ProgressContext loads AsyncStorage (prevents data overwrite).
@@ -81,8 +86,11 @@ await AsyncStorage.setItem(...)  // ❌ NEVER
 | `expo-av` | Background music | CloudFront compatible (expo-audio isn't) |
 | `react-native-purchases` | Subscriptions | RevenueCat (expo-iap installed but unused) |
 | `@supabase/supabase-js` | Cloud sync | Single table with JSONB column |
-| `posthog-react-native` | Analytics | Conditional init based on iOS ATT |
+| `posthog-react-native` | Analytics | Conditional init based on iOS ATT, session replay enabled |
 | `expo-notifications` | Push notifications | Physical device required |
+| `rive-react-native` | Animated illustrations | Used for Start Here speech bubble animation |
+| `react-native-bottom-tabs` | Native tab bar | Custom iOS-style tabs (not React Navigation tabs) |
+| `expo-tracking-transparency` | iOS ATT | Required before PostHog initialization on iOS |
 
 ## File Structure
 
@@ -131,10 +139,26 @@ rm -rf node_modules && npm install  # Nuclear option
 # Development build (with dev menu)
 eas build --platform ios --profile development
 
+# Preview build (internal testing)
+eas build --platform ios --profile preview
+
 # Production build
 eas build --platform ios --profile production
 eas submit --platform ios  # Submit to App Store
+
+# Check build status
+eas build:list --limit 10
+
+# Push OTA updates (for changes that don't require native rebuild)
+eas update --branch production --message "Your update message"
 ```
+
+**Build profiles (eas.json):**
+- `development` - Dev client, internal distribution, simulator support, APK for Android
+- `preview` - Internal testing build, APK for Android, simulator support
+- `production` - Store distribution, auto-increments buildNumber (iOS) and versionCode (Android)
+- All profiles inherit from `base` (includes all env vars)
+- Each profile has its own update channel for OTA updates
 
 ### Debug device-specific features
 **Physical device required for:**
@@ -190,6 +214,7 @@ When users request content creation, these agents are available:
 - `quiz-designer` - Quiz components
 - `video-reading-lesson-designer` - Video + Reading lessons
 - `image-carousel-lesson-designer` - Image galleries
+- `video-carousel-lesson-designer` - Video series lessons
 - `content-orchestrator` - Multi-adventure workflows
 - `task-queue-coordinator` - Complex dependencies
 
@@ -220,9 +245,12 @@ if (Platform.OS === 'ios' && !canTrack) {
 ```
 
 **Event tracking patterns:**
+- App lifecycle: `app_opened`, `app_foregrounded`, `app_backgrounded`, `app_closed`
 - Lesson: `lesson_started`, `lesson_completed`
 - Quiz: `quiz_started`, `quiz_completed`, `quiz_answer_selected`
 - Module: `module_completed`, `adventure_unlocked`
+- Notifications: `notification_received`, `notification_clicked`
+- Session replay: Automatically captures all sessions (text inputs masked for privacy)
 
 ## Cloud Sync Architecture
 
@@ -269,11 +297,21 @@ console.log('🔔 Notification')    // Push notifications
 **iOS:**
 - Bundle ID: `ai.affinitylabs.archivesexpo`
 - Team ID: `L33CVM28SL`
+- App Store ID: `6751173663`
+- Build number: Auto-increments via EAS (currently 65)
 - Requires physical device for: notifications, Apple Sign-In
+- Background modes: audio, remote-notification
 
 **Android:**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code auto-increments
+- Version code auto-increments (currently 8)
+- Edge-to-edge: Disabled
+
+**Cross-platform:**
+- EAS Project ID: `4f1f4bc4-0ced-48f3-b712-178b54175088`
+- App version: `2.2.6` (from app.json)
+- Runtime version: `1.0.0`
+- New Architecture: Enabled
 
 ## Current Development Status
 
@@ -299,8 +337,17 @@ All module state transitions handled in single transaction to prevent race condi
 ### Auto-Unlocking Chain
 Complete module → Auto-unlock next → Complete adventure → Auto-unlock next adventure
 
+### Rewards System
+- **Badges**: Automatically checked and awarded after quiz completion based on XP thresholds
+- **Avatars**: Historical figures unlocked via module completion (animation system in place)
+- Integration: `RewardsContext` → `checkAndUnlockItems()` called from `atomicProgressUpdate()`
+- XP Calculation: Each correct quiz answer = 10 XP
+
 ### Conditional Provider Pattern
 iOS requires ATT permission before analytics initialization - PostHog wrapped conditionally.
+
+### Notification Token Sync
+Push notification tokens automatically synced to Supabase on registration and app launch.
 
 ## Testing Checklist
 

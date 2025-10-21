@@ -1,6 +1,10 @@
 // Native subscription implementation for iOS/Android - Rich UI with Original Design
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { useRevenueCat } from "@/hooks/useRevenueCat";
+import { analyticsService } from "@/services/AnalyticsService";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
@@ -14,10 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useRevenueCat } from "@/hooks/useRevenueCat";
-import { analyticsService } from "@/services/AnalyticsService";
-import { useFocusEffect } from "@react-navigation/native";
-import * as Haptics from 'expo-haptics';
 import Purchases from 'react-native-purchases';
 
 export default function SubscribeContent() {
@@ -299,14 +299,6 @@ export default function SubscribeContent() {
           </View>
         </View>
 
-        {/* Intro Offer Banner - Show only if eligible */}
-        {hasAnyIntroOffer && (
-          <View style={styles.introBanner}>
-            <Text style={styles.introBannerText}>🎉 1 MONTH FREE</Text>
-            <Text style={styles.introBannerSubtext}>For new subscribers</Text>
-          </View>
-        )}
-
         {/* Pricing Options - Interactive Selection */}
         <View style={styles.pricingContainer}>
           {/* Monthly Plan */}
@@ -389,6 +381,11 @@ export default function SubscribeContent() {
               </View>
             )}
           </TouchableOpacity>
+        </View>
+
+        {/* Intro Offer Message - Styled as regular text */}
+        <View style={styles.introMessageContainer}>
+          <Text style={styles.introBannerText}>Start your free month today</Text>
         </View>
 
         {/* More Eras Section - Original Design */}
@@ -704,7 +701,7 @@ const styles = StyleSheet.create({
 
   // More Eras Section - Original Design
   moreErasSection: {
-    marginTop: 40, // Increased space after white box
+    marginTop: 10, // Reduced spacing for tighter layout
     marginBottom: 24,
     paddingHorizontal: 20, // Added horizontal padding
   },
@@ -896,35 +893,25 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
 
-  // Intro offer banner styles
-  introBanner: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+  // Intro offer message styles (no banner background)
+  introMessageContainer: {
     marginBottom: 20,
-    alignItems: 'center',
-    shadowColor: ArchivesTheme.colors.persianOrange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    paddingHorizontal: 8,
   },
   introBannerText: {
     fontFamily: 'DM Sans',
     fontSize: 18,
-    fontWeight: '700',
-    color: 'white',
+    fontWeight: '500',
+    color: ArchivesTheme.colors.persianOrange,
     textAlign: 'center',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   introBannerSubtext: {
     fontFamily: 'DM Sans',
-    fontSize: 12,
+    fontSize: 18,
     fontWeight: '500',
-    color: 'white',
+    color: ArchivesTheme.colors.persianOrange,
     textAlign: 'center',
-    opacity: 0.9,
   },
 
   // Intro offer pricing text styles
