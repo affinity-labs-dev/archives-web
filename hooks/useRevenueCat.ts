@@ -114,7 +114,12 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
         console.log(`🚀 Initializing RevenueCat for ${Platform.OS} with API key:`, REVENUECAT_API_KEY);
 
         // Configure RevenueCat with platform-specific API key
-        Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+        // CRITICAL: useAmazon must be false for Google Play Store (Android)
+        Purchases.configure({
+          apiKey: REVENUECAT_API_KEY,
+          appUserID: null,      // Let RevenueCat manage anonymous user IDs
+          useAmazon: false      // Use Google Play Store, not Amazon App Store
+        });
 
         // Set up customer info listener for real-time updates
         // This replicates the sample app's customerInfoStream pattern
