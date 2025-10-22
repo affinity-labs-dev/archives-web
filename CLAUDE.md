@@ -84,7 +84,7 @@ await AsyncStorage.setItem(...)  // ❌ NEVER
 | `@clerk/clerk-expo` | Authentication | Apple Sign-In, token caching |
 | `expo-video` | Lesson videos | Modern API (NOT expo-av for video) |
 | `expo-av` | Background music | CloudFront compatible (expo-audio isn't) |
-| `react-native-purchases` | Subscriptions | RevenueCat (expo-iap installed but unused) |
+| `react-native-purchases` | Subscriptions | RevenueCat with intro offer eligibility checking (expo-iap installed but unused) |
 | `@supabase/supabase-js` | Cloud sync | Single table with JSONB column |
 | `posthog-react-native` | Analytics | Conditional init based on iOS ATT, session replay enabled |
 | `expo-notifications` | Push notifications | Physical device required |
@@ -202,7 +202,7 @@ await atomicProgressUpdate(adventureId, moduleId, {
 3. **Video Carousel** - Video series
 4. **Static Image Reading** - Hero image + text
 5. **Scrollable Media View** - Mixed media storytelling
-6. **Quiz System** - MCQ, True/False, drag-and-drop
+6. **Quiz System** - MCQ, True/False, drag-and-drop with sound effects (correct/incorrect/reward)
 
 **Content status:**
 - **Umayyad Dynasty**: Complete (5 adventures, 15 modules, 30 lessons, 15 quizzes)
@@ -296,27 +296,28 @@ console.log('🔔 Notification')    // Push notifications
 
 **iOS:**
 - Bundle ID: `ai.affinitylabs.archivesexpo`
-- Team ID: `L33CVM28SL`
+- Team ID: `LQ9LP2WW94`
 - App Store ID: `6751173663`
-- Build number: Auto-increments via EAS (currently 65)
+- Build number: Auto-increments via EAS (currently 73)
 - Requires physical device for: notifications, Apple Sign-In
-- Background modes: audio, remote-notification
+- Background modes: remote-notification
+- Universal Links: Configured via `link.archiveszone.app` (deep linking support)
 
 **Android:**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code auto-increments (currently 8)
+- Version code auto-increments (currently 15)
 - Edge-to-edge: Disabled
 
 **Cross-platform:**
 - EAS Project ID: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `2.2.6` (from app.json)
+- App version: `2.2.7` (from app.json)
 - Runtime version: `1.0.0`
 - New Architecture: Enabled
 
 ## Current Development Status
 
 **Git branch:** master
-**Recent focus:** PostHog analytics, push notifications, progress persistence fixes
+**Recent focus:** Universal Links/deep linking, RevenueCat intro offers, quiz sound effects, era selection UI
 
 **Known limitations:**
 - Push notifications require physical device
@@ -348,6 +349,12 @@ iOS requires ATT permission before analytics initialization - PostHog wrapped co
 
 ### Notification Token Sync
 Push notification tokens automatically synced to Supabase on registration and app launch.
+
+### Universal Links (Deep Linking)
+Deep links configured via `link.archiveszone.app` with associated domains. Interstitial page handles incoming deep links and routes users appropriately.
+
+### Subscription Intro Offers
+RevenueCat integration checks intro offer eligibility (iOS only) and displays "1 MONTH FREE" banner for eligible users dynamically.
 
 ## Testing Checklist
 
