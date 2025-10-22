@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["L33CVM28SL.ai.affinitylabs.archivesexpo"],
+        "appIDs": ["LQ9LP2WW94.ai.affinitylabs.archivesexpo"],
         "components": [
           {
             "/": "*"
@@ -12,6 +12,6 @@
     ]
   },
   "webcredentials": {
-    "apps": ["L33CVM28SL.ai.affinitylabs.archivesexpo"]
+    "apps": ["LQ9LP2WW94.ai.affinitylabs.archivesexpo"]
   }
 }
