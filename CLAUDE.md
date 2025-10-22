@@ -350,8 +350,44 @@ iOS requires ATT permission before analytics initialization - PostHog wrapped co
 ### Notification Token Sync
 Push notification tokens automatically synced to Supabase on registration and app launch.
 
-### Universal Links (Deep Linking)
-Deep links configured via `link.archiveszone.app` with associated domains. Interstitial page handles incoming deep links and routes users appropriately.
+### Universal Links & App Links (Deep Linking)
+**Domain:** `link.archiveszone.app` configured for both iOS and Android
+
+**How it works:**
+- User clicks `https://link.archiveszone.app/anything`
+- iOS/Android OS intercepts HTTPS link (before browser opens)
+- App opens directly with seamless UX (Duolingo-style)
+- Expo Router automatically handles routing to correct screen
+
+**iOS Universal Links (Configured):**
+- Verification file: `public/.well-known/apple-app-site-association`
+- App config: `associatedDomains` in app.json
+- Works automatically after app install (~20 min verification)
+
+**Android App Links (Configured):**
+- Verification file: `public/.well-known/assetlinks.json`
+- App config: `intentFilters` in app.json with `autoVerify: true`
+- Native manifest: HTTPS intent filter with `android:autoVerify="true"`
+- SHA-256 fingerprint: `DB:00:7D:4D:EB:F5:75:79:D9:73:AD:F7:C1:0E:63:65:BC:B9:3F:72:D2:A2:33:DF:2B:FA:8A:C6:FC:89:29:B3`
+
+**Testing deep links:**
+```bash
+# Verify files are accessible
+curl https://link.archiveszone.app/.well-known/apple-app-site-association
+curl https://link.archiveszone.app/.well-known/assetlinks.json
+
+# Check Android verification status
+adb shell dumpsys package domain-preferred-apps | grep -A 5 archivesexpo
+
+# Real test: Send link via Messages/WhatsApp/Email and click it
+# Expected: App opens directly (no browser)
+```
+
+**Troubleshooting:**
+- Wait ~20 minutes after app install for verification
+- Some apps (Facebook, WhatsApp) block Universal Links for security
+- If app not installed → Interstitial page shows with download button
+- Android verification issues → Check SHA-256 matches in Google Play Console
 
 ### Subscription Intro Offers
 RevenueCat integration checks intro offer eligibility (iOS only) and displays "1 MONTH FREE" banner for eligible users dynamically.
