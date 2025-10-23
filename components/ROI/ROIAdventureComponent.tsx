@@ -5,6 +5,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import {
+  Dimensions,
   Platform,
   StyleSheet,
   Text,
@@ -169,14 +170,52 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
     .sort((a, b) => a.order_by - b.order_by)
     .slice(0, 5);
 
-  // Fixed card positions matching original EraBentoGrid layout
+  // Responsive card positions based on screen width
+  const { width: screenWidth } = Dimensions.get('window');
+  const containerPadding = screenWidth * 0.034; // ~13px on 375px screen
+  const gap = screenWidth * 0.021; // ~8px gap between columns
+  const cardWidth = (screenWidth - containerPadding * 2 - gap) / 2;
+
   const cardPositions = [
-    { left: 13, top: 64, width: 177.76, height: 204.81 },      // Card 1 - Large left
-    { left: 13, top: 274.5, width: 178.12, height: 97.57 },    // Card 2 - Small left bottom
-    { left: 197.88, top: 0, width: 178.12, height: 97.57 },    // Card 3 - Small right top
-    { left: 197.88, top: 102.84, width: 178.12, height: 97.57 }, // Card 4 - Small right middle
-    { left: 198.10, top: 206.61, width: 177.76, height: 204.81 }, // Card 5 - Large right bottom
+    // Card 1 - Large left
+    {
+      left: containerPadding,
+      top: cardWidth * 0.36,
+      width: cardWidth,
+      height: cardWidth * 1.15
+    },
+    // Card 2 - Small left bottom
+    {
+      left: containerPadding,
+      top: cardWidth * 1.54,
+      width: cardWidth,
+      height: cardWidth * 0.55
+    },
+    // Card 3 - Small right top
+    {
+      left: containerPadding + cardWidth + gap,
+      top: 0,
+      width: cardWidth,
+      height: cardWidth * 0.55
+    },
+    // Card 4 - Small right middle
+    {
+      left: containerPadding + cardWidth + gap,
+      top: cardWidth * 0.58,
+      width: cardWidth,
+      height: cardWidth * 0.55
+    },
+    // Card 5 - Large right bottom
+    {
+      left: containerPadding + cardWidth + gap,
+      top: cardWidth * 1.16,
+      width: cardWidth,
+      height: cardWidth * 1.15
+    },
   ];
+
+  // Calculate container height based on card dimensions
+  const containerHeight = cardWidth * 2.08;
 
   const renderCard = (item: ContentItem, index: number) => {
     const cardStyle = cardPositions[index];
@@ -321,8 +360,8 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
       {/* Timeline */}
       <Text style={styles.dateRange}>{adventure.timeline}</Text>
 
-      {/* Bento Grid - Fixed 5 cards layout */}
-      <View style={styles.bentoGridContainer}>
+      {/* Bento Grid - Responsive 5 cards layout */}
+      <View style={[styles.bentoGridContainer, { height: containerHeight }]}>
         {sortedContent.map((item, index) => renderCard(item, index))}
       </View>
     </View>
@@ -393,10 +432,9 @@ const styles = StyleSheet.create({
     marginBottom: 13,
   },
 
-  // Bento Grid - Fixed height for 5 cards
+  // Bento Grid - Responsive layout (height set dynamically)
   bentoGridContainer: {
     position: 'relative',
-    height: 370,
     marginBottom: 100,
   },
 
