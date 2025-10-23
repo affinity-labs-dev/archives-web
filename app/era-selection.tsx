@@ -182,31 +182,31 @@ export default function EraSelection() {
             showLock={false}
           />
 
-          {/* Eras 2-3 - 2x2 Grid */}
+          {/* Era 2 - Horizontal */}
+          <HorizontalEraCard
+            era={eras[1]}
+            isSelected={1 === selectedEraIndex}
+            onSelect={() => handleEraSelect(1)}
+            showLock={!DEVELOPMENT_UNLOCK_ERA2}
+          />
+
+          {/* Eras 3-4 - 2x2 Grid */}
           <View style={styles.gridContainer}>
             <View style={styles.gridRow}>
-              <GridEraCard
-                era={eras[1]}
-                isSelected={1 === selectedEraIndex}
-                onSelect={() => handleEraSelect(1)}
-                showLock={!DEVELOPMENT_UNLOCK_ERA2}
-              />
               <GridEraCard
                 era={eras[2]}
                 isSelected={2 === selectedEraIndex}
                 onSelect={() => handleEraSelect(2)}
                 showLock={true}
               />
+              <GridEraCard
+                era={eras[3]}
+                isSelected={3 === selectedEraIndex}
+                onSelect={() => handleEraSelect(3)}
+                showLock={true}
+              />
             </View>
           </View>
-
-          {/* Era 4 - Horizontal */}
-          <HorizontalEraCard
-            era={eras[3]}
-            isSelected={3 === selectedEraIndex}
-            onSelect={() => handleEraSelect(3)}
-            showLock={true}
-          />
 
           {/* Eras 5-6 - 2x2 Grid */}
           <View style={styles.gridContainer}>
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
     gap: 8,
   },
-  
+
   gridSimpleLockOverlay: {
     position: 'absolute',
     top: 0,
@@ -717,7 +717,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: ArchivesTheme.colors.creamWhite,
     textAlign: 'left',
-    marginTop: 4,
+    marginTop: 6,
   },
 
   // Selected Indicator Styles - Top Right

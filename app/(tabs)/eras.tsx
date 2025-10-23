@@ -191,31 +191,31 @@ export default function EraSelection() {
           {/* Eras Coming Soon Text */}
           <Text style={styles.comingSoonText}>Eras Coming Soon...</Text>
 
-          {/* Eras 2-3 - 2x2 Grid */}
-          <View style={[styles.gridContainer, styles.gridContainerAfterText]}>
+          {/* Era 2 - Horizontal */}
+          <HorizontalEraCard
+            era={eras[1]}
+            isSelected={1 === selectedEraIndex}
+            onSelect={() => handleEraSelect(1)}
+            showLock={false}
+          />
+
+          {/* Eras 3-4 - 2x2 Grid */}
+          <View style={styles.gridContainer}>
             <View style={styles.gridRow}>
-              <GridEraCard
-                era={eras[1]}
-                isSelected={1 === selectedEraIndex}
-                onSelect={() => handleEraSelect(1)}
-                showLock={false}
-              />
               <GridEraCard
                 era={eras[2]}
                 isSelected={2 === selectedEraIndex}
                 onSelect={() => handleEraSelect(2)}
                 showLock={true}
               />
+              <GridEraCard
+                era={eras[3]}
+                isSelected={3 === selectedEraIndex}
+                onSelect={() => handleEraSelect(3)}
+                showLock={true}
+              />
             </View>
           </View>
-
-          {/* Era 4 - Horizontal */}
-          <HorizontalEraCard
-            era={eras[3]}
-            isSelected={3 === selectedEraIndex}
-            onSelect={() => handleEraSelect(3)}
-            showLock={true}
-          />
 
           {/* Eras 5-6 - 2x2 Grid */}
           <View style={styles.gridContainer}>
@@ -703,7 +703,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: ArchivesTheme.colors.creamWhite,
     textAlign: 'left',
-    marginTop: 4,
+    marginTop: 6,
   },
 
   // Grid container after text
@@ -720,12 +720,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 24,
+    flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     paddingTop: 16,
     paddingLeft: 16,
+    gap: 8,
   },
-  
+
   gridSimpleLockOverlay: {
     position: 'absolute',
     top: 0,
@@ -734,10 +736,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 18,
+    flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     paddingTop: 12,
     paddingLeft: 12,
+    gap: 6,
   },
 
   // Selected Indicator Styles - Top Right
