@@ -313,7 +313,8 @@ function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: Hori
       {/* Simple Lock Overlay */}
       {showLock && (
         <View style={styles.simpleLockOverlay}>
-          <MaterialIcons name="lock" size={28} color="white" />
+          <MaterialIcons name="lock" size={28} color={ArchivesTheme.colors.creamWhite} />
+          <Text style={styles.comingSoonOverlayText}>Coming soon</Text>
         </View>
       )}
 
@@ -386,7 +387,8 @@ function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCar
       {/* Simple Lock Overlay */}
       {showLock && (
         <View style={styles.gridSimpleLockOverlay}>
-          <MaterialIcons name="lock" size={24} color="white" />
+          <MaterialIcons name="lock" size={24} color={ArchivesTheme.colors.creamWhite} />
+          <Text style={styles.comingSoonOverlayText}>Coming soon</Text>
         </View>
       )}
 
@@ -693,7 +695,17 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     marginBottom: 10,
   },
-  
+
+  // Coming Soon overlay text
+  comingSoonOverlayText: {
+    fontFamily: 'DM-Sans-SemiBold',
+    fontSize: 14,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.creamWhite,
+    textAlign: 'left',
+    marginTop: 4,
+  },
+
   // Grid container after text
   gridContainerAfterText: {
     marginTop: -10,
