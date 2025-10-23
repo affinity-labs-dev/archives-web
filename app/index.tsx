@@ -39,10 +39,9 @@ export default function Index() {
       }
 
       // Check if user has completed onboarding
-      const onboardingComplete = await AsyncStorage.getItem('onboarding_completed')
       const hasSelectedEra = await AsyncStorage.getItem('selected_era')
 
-      setHasCompletedOnboarding(!!(onboardingComplete || hasSelectedEra))
+      setHasCompletedOnboarding(!!hasSelectedEra)
     } catch (error) {
       console.error('Error checking user state:', error)
       setHasCompletedOnboarding(false)

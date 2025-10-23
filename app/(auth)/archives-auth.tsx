@@ -68,10 +68,9 @@ export default function ArchivesAuthScreen() {
   const onContinue = async () => {
     // Check if user has already completed onboarding
     try {
-      const onboardingComplete = await AsyncStorage.getItem('onboarding_completed')
       const hasSelectedEra = await AsyncStorage.getItem('selected_era')
 
-      if (onboardingComplete || hasSelectedEra) {
+      if (hasSelectedEra) {
         // Returning user - go directly to main app
         console.log('🏠 Returning user after auth - routing to main app')
         router.replace('/(tabs)')
