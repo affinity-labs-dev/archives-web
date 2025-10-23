@@ -69,8 +69,9 @@ await AsyncStorage.setItem(...)  // ❌ NEVER
 4. Trigger cloud sync (debounced, async)
 
 **Dual-era system:**
-- **Umayyad Dynasty**: Adventures 1-5
-- **Rise of Islam**: Separate Adventures 1-5 (new `roiAtomicProgressUpdate()`)
+- **Umayyad Dynasty**: Adventures 1-5 (use `atomicProgressUpdate()` in `ProgressContext`)
+- **Rise of Islam**: Separate Adventures 1-5 (use `roiAtomicProgressUpdate()` in `ROIProgressContext`)
+- Each era has its own progress tracking, unlock logic, and context
 
 ### Module Completion Logic
 - **Unlock chain**: Adventure 1 unlocked by default → Complete all 3 modules → Unlock Adventure 2
@@ -305,14 +306,16 @@ console.log('🔔 Notification')    // Push notifications
 
 **Android:**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code auto-increments (currently 15)
+- Version code auto-increments (currently 17)
 - Edge-to-edge: Disabled
+- App Links: SHA-256 fingerprint in `assetlinks.json` must match Google Play Console
 
 **Cross-platform:**
 - EAS Project ID: `4f1f4bc4-0ced-48f3-b712-178b54175088`
 - App version: `2.2.7` (from app.json)
 - Runtime version: `1.0.0`
 - New Architecture: Enabled
+- Fonts: DM Sans, Cormorant (loaded in _layout.tsx - MUST load before splash screen hides)
 
 ## Current Development Status
 
