@@ -1,0 +1,646 @@
+// ROIImageCarouselLesson.tsx - Reusable Image Carousel lesson for Rise of Islam
+// Accepts data from adventures.content_list and injects dynamically
+// Full-screen TabView carousel showing image series
+
+import ArchivesTheme from "@/constants/ArchivesTheme";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { Image } from 'expo-image';
+import React, { useRef, useState, useEffect } from "react";
+import {
+  Animated,
+  Dimensions,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
+  GestureHandlerRootView,
+  ScrollView as GestureHandlerScrollView,
+  PanGestureHandler,
+  State,
+} from "react-native-gesture-handler";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { ContentItem } from "./types";
+import RenderHtml from 'react-native-render-html';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+interface ROIImageCarouselLessonProps {
+  contentItem: ContentItem;  // Data from adventures.content_list
+  moduleId: string;          // e.g., "ROI_Adv1_M1"
+  lessonId: string;          // e.g., "lesson2"
+  onContinue: () => void;
+  onDismiss: () => void;
+  onBack?: () => void;
+}
+
+export default function ROIImageCarouselLesson({
+  contentItem,
+  moduleId,
+  lessonId,
+  onContinue,
+  onDismiss,
+  onBack,
+}: ROIImageCarouselLessonProps) {
+  // Safe area insets for proper button positioning
+  const insets = useSafeAreaInsets();
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showReadContent, setShowReadContent] = useState(false);
+  const [isCardExpanded, setIsCardExpanded] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewGestureRef = useRef(null);
+  const panGestureRef = useRef(null);
+  const horizontalSwipeRef = useRef(null);
+  const [isCardGestureActive, setIsCardGestureActive] = useState(false);
+
+  // Animation values
+  const cardHeight = useRef(new Animated.Value(160)).current;
+  const cardOpacity = useRef(new Animated.Value(1)).current;
+  const cardTranslateY = useRef(new Animated.Value(0)).current;
+
+  // Extract images and captions from contentItem
+  const images = contentItem.media_url || [];
+  const captions = contentItem.bottom_content?.carousel_captions || [];
+
+  // Debug logging for carousel scroll state
+  useEffect(() => {
+    console.log(
+      `🎠 Carousel scroll state: ${
+        isCardGestureActive
+          ? "🔒 BLOCKED (card gesture active)"
+          : "✅ ENABLED (can swipe images)"
+      }`
+    );
+  }, [isCardGestureActive]);
+
+  // Safety mechanism: Reset gesture state if stuck
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isCardGestureActive) {
+        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        setIsCardGestureActive(false);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [isCardExpanded]);
+
+  // Handle carousel scroll
+  const handleScroll = (event: any) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const imageIndex = Math.round(contentOffsetX / SCREEN_WIDTH);
+
+    if (imageIndex !== currentImageIndex) {
+      setCurrentImageIndex(imageIndex);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  // Universal gesture handler
+  const handleSwipeGesture = (event: any) => {
+    const { state, translationY, velocityY } = event.nativeEvent;
+
+    if (state === State.BEGAN || state === State.ACTIVE) {
+      setIsCardGestureActive(true);
+      console.log("📱 Card gesture started - blocking carousel");
+    }
+
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      console.log("📱 Gesture state:", state, {
+        translationY,
+        velocityY,
+        isCardExpanded,
+        platform: Platform.OS,
+      });
+
+      if (state === State.END) {
+        const minDistance = 20;
+        const minVelocity = 300;
+
+        if (
+          !isCardExpanded &&
+          (translationY < -minDistance || velocityY < -minVelocity)
+        ) {
+          console.log("📱 Swipe up detected - expanding card");
+          expandCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        } else if (
+          isCardExpanded &&
+          (translationY > minDistance || velocityY > minVelocity)
+        ) {
+          console.log("📱 Swipe down detected - collapsing card");
+          collapseCard();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return;
+        }
+      }
+
+      setIsCardGestureActive(false);
+      console.log("📱 Gesture ended - carousel re-enabled");
+    }
+  };
+
+  // Expand card
+  const expandCard = () => {
+    console.log("🎬 Card expansion starting...");
+    setIsCardExpanded(true);
+    setShowReadContent(true);
+
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
+    Animated.parallel([
+      Animated.spring(cardHeight, {
+        toValue: SCREEN_HEIGHT * 0.85,
+        useNativeDriver: false,
+        tension: 100,
+        friction: 8,
+      }),
+      Animated.timing(cardOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  };
+
+  // Collapse card
+  const collapseCard = () => {
+    console.log("🎬 Card collapse starting...");
+    setIsCardExpanded(false);
+    setShowReadContent(false);
+
+    setIsCardGestureActive(false);
+    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+
+    Animated.parallel([
+      Animated.spring(cardHeight, {
+        toValue: 160,
+        useNativeDriver: false,
+        tension: 100,
+        friction: 8,
+      }),
+      Animated.timing(cardOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  };
+
+  // Handle reading scroll
+  const handleReadingScroll = (event: any) => {
+    const { contentOffset } = event.nativeEvent;
+    setScrollY(contentOffset.y);
+  };
+
+  // Handle continue
+  const handleContinue = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    console.log(`🔄 ${moduleId} ${lessonId}`);
+    onContinue();
+  };
+
+  // Horizontal Swipe Gesture Handler (for navigation)
+  const handleHorizontalSwipe = (event: any) => {
+    if (event.nativeEvent.state === State.END) {
+      const { translationX, velocityX } = event.nativeEvent;
+
+      const minDistance = 50;  // Minimum swipe distance
+      const minVelocity = 500; // Minimum swipe velocity
+
+      // Swipe right -> Continue (next lesson) - only when on last image
+      if (currentImageIndex === images.length - 1 && translationX > minDistance && velocityX > minVelocity) {
+        console.log('👉 Swipe right detected - continuing to next');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        handleContinue();
+      }
+      // Swipe left -> Go back (dismiss)
+      else if (translationX < -minDistance && velocityX < -minVelocity) {
+        console.log('👈 Swipe left detected - going back');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onDismiss();
+      }
+    }
+  };
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      {Platform.OS === "android" && (
+        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+      )}
+      <PanGestureHandler
+        ref={horizontalSwipeRef}
+        onHandlerStateChange={handleHorizontalSwipe}
+        activeOffsetX={[-30, 30]}
+        failOffsetY={[-20, 20]}
+        waitFor={panGestureRef}
+      >
+        <View style={{ flex: 1 }}>
+          <View style={styles.container}>
+        {/* Main carousel - full screen */}
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleScroll}
+          scrollEnabled={!isCardGestureActive}
+          style={styles.carousel}
+        >
+          {images.map((imageUrl, index) => (
+            <View key={index} style={styles.imageContainer}>
+              {/* Full screen image */}
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.carouselImage}
+                contentFit="cover"
+                placeholder={{ blurhash: 'LKO2?U%2Tw=w]~RBVZRi};RPxuwH' }}
+                transition={300}
+              />
+
+              {/* Text overlay with caption */}
+              <View style={styles.textOverlay}>
+                <Text style={styles.captionText}>{captions[index] || ''}</Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Back Button */}
+        <View style={[styles.backButtonContainer, { top: insets.top + 8 }]}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => (onBack || onDismiss)()}
+          >
+            <Ionicons name="chevron-back" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Continue Button */}
+        <View style={[styles.continueButtonContainer, { top: insets.top + 8 }]}>
+          <TouchableOpacity
+            style={[
+              styles.topContinueButton,
+              currentImageIndex !== images.length - 1 &&
+                styles.topContinueButtonDisabled,
+            ]}
+            onPress={
+              currentImageIndex === images.length - 1
+                ? handleContinue
+                : undefined
+            }
+            disabled={currentImageIndex !== images.length - 1}
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={
+                currentImageIndex === images.length - 1 ? "white" : "#666"
+              }
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Page indicators */}
+        {!isCardExpanded && (
+          <View style={styles.pageIndicatorsOnly}>
+            {images.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.pageIndicator,
+                  currentImageIndex === index && styles.pageIndicatorActive,
+                ]}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Reading Card */}
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={handleSwipeGesture}
+          onHandlerStateChange={handleSwipeGesture}
+          activeOffsetY={[-15, 15]}
+          failOffsetX={[-40, 40]}
+          minPointers={1}
+          maxPointers={1}
+        >
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: cardTranslateY }],
+              },
+            ]}
+          >
+            <Animated.View
+              style={[
+                styles.readingCard,
+                {
+                  height: cardHeight,
+                },
+              ]}
+            >
+              <View style={styles.cardHandle} />
+
+              {/* Collapsed content */}
+              <Animated.View
+                style={[styles.collapsedContent, { opacity: cardOpacity }]}
+              >
+                <TouchableOpacity
+                  onPress={expandCard}
+                  activeOpacity={0.8}
+                  disabled={isCardExpanded}
+                >
+                  <View style={styles.readingCardHeader}>
+                    <Text style={styles.cardTitle}>
+                      {contentItem.thumbnail_title || 'Image Gallery'}
+                    </Text>
+                    <Text style={styles.cardSubtitle} numberOfLines={2}>
+                      {contentItem.bottom_content?.reading_text?.replace(/<[^>]*>/g, '').substring(0, 100) || ''}...
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+
+              {/* Expanded content */}
+              {isCardExpanded && (
+                <Animated.View
+                  style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) },
+                  ]}
+                >
+                  <GestureHandlerScrollView
+                    ref={scrollViewGestureRef}
+                    style={styles.expandedScroll}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={handleReadingScroll}
+                    scrollEventThrottle={100}
+                    waitFor={panGestureRef}
+                    simultaneousHandlers={panGestureRef}
+                  >
+                    <View style={styles.expandedContentInner}>
+                      {/* Title Section */}
+                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                        <View style={styles.titleSection}>
+                          <Text style={styles.sheetTitle}>
+                            {contentItem.thumbnail_title || 'Image Gallery'}
+                          </Text>
+                          <Text style={styles.sheetSubtitle}>
+                            Image Carousel • {contentItem.order_by}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* HTML Content */}
+                      {contentItem.bottom_content?.reading_text && (
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <RenderHtml
+                              contentWidth={SCREEN_WIDTH - 40}
+                              source={{ html: contentItem.bottom_content.reading_text }}
+                              tagsStyles={{
+                                body: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20 },
+                                h1: { color: 'white', fontFamily: 'DM Sans', fontSize: 24, fontWeight: '700', marginBottom: 12 },
+                                h2: { color: 'white', fontFamily: 'DM Sans', fontSize: 20, fontWeight: '700', marginBottom: 10 },
+                                h3: { color: 'white', fontFamily: 'DM Sans', fontSize: 18, fontWeight: '600', marginBottom: 8 },
+                                p: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 12 },
+                                strong: { fontWeight: '600', color: 'white' },
+                                em: { fontStyle: 'italic', color: 'white' },
+                                ul: { marginBottom: 12 },
+                                li: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 6 },
+                                blockquote: { borderLeftWidth: 3, borderLeftColor: ArchivesTheme.colors.persianOrange, paddingLeft: 12, marginBottom: 12, fontStyle: 'italic' },
+                                hr: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.2)', marginVertical: 16 },
+                              }}
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      )}
+
+                      <View style={styles.sheetBottomSpacer} />
+                    </View>
+                  </GestureHandlerScrollView>
+                </Animated.View>
+              )}
+            </Animated.View>
+          </Animated.View>
+        </PanGestureHandler>
+          </View>
+        </View>
+      </PanGestureHandler>
+    </GestureHandlerRootView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "black",
+  },
+
+  carousel: {
+    flex: 1,
+  },
+  imageContainer: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "black",
+    overflow: "hidden",
+  },
+  carouselImage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+
+  textOverlay: {
+    position: "absolute",
+    top: 120,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 40,
+    alignItems: "center",
+  },
+  captionText: {
+    fontFamily: "DM Sans",
+    fontSize: 20,
+    fontWeight: "700",
+    color: "white",
+    textAlign: "center",
+    lineHeight: 26,
+    textShadowColor: "black",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  pageIndicatorsOnly: {
+    position: "absolute",
+    bottom: 180,
+    alignSelf: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    borderRadius: 15,
+    paddingHorizontal: 5,
+    paddingVertical: 6,
+  },
+  pageIndicator: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: "rgb(147, 147, 147)",
+    marginHorizontal: 4.5,
+  },
+  pageIndicatorActive: {
+    backgroundColor: "rgb(255, 255, 255)",
+  },
+
+  cardContainer: {
+    position: "absolute",
+    bottom: -40,
+    left: 0,
+    right: 0,
+  },
+
+  readingCard: {
+    height: 160,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 12,
+  },
+
+  cardHandle: {
+    width: 70,
+    height: 5,
+    backgroundColor: "rgba(255,255,255,0.4)",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: 12,
+  },
+
+  readingCardHeader: {
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
+  },
+
+  backButtonContainer: {
+    position: "absolute",
+    left: 16,
+    zIndex: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  continueButtonContainer: {
+    position: "absolute",
+    right: 16,
+    zIndex: 20,
+  },
+  topContinueButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ArchivesTheme.colors.mossGreen,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  topContinueButtonDisabled: {
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+
+  collapsedContent: {
+    flex: 1,
+  },
+
+  expandedContent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 20,
+  },
+
+  expandedScroll: {
+    flex: 1,
+  },
+
+  expandedContentInner: {
+    padding: 20,
+  },
+
+  cardTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 4,
+  },
+
+  cardSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    opacity: 0.7,
+  },
+
+  historicalSection: {
+    marginBottom: 20,
+  },
+
+  titleSection: {
+    marginBottom: 24,
+  },
+
+  sheetTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 24,
+    fontWeight: "700",
+    color: "white",
+    marginBottom: 8,
+  },
+
+  sheetSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    opacity: 0.7,
+  },
+
+  sheetBottomSpacer: {
+    height: 60,
+  },
+});
