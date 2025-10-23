@@ -9,6 +9,16 @@ import { useProgressSync } from '@/hooks/useSyncIntegration'
 import { useUser } from '@clerk/clerk-expo'
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
 import { useRewards } from '@/context/RewardsContext'
+import { simplifiedSyncService } from '@/services/SimplifiedSyncService'
+import { EraType, ModuleState } from '@/types/progress'
+import type {
+  ProgressUpdateAction,
+  ModuleProgress,
+  AdventureProgress,
+  ModuleProgressV2,
+  AdventureProgressV2,
+  EraProgress
+} from '@/types/progress'
 
 // Web-compatible storage wrapper to prevent SSR issues
 class WebCompatibleStorage {
@@ -40,102 +50,31 @@ class WebCompatibleStorage {
   }
 }
 
-// Enhanced module state enum for clear progression tracking
-export enum ModuleState {
-  LOCKED = 'locked',
-  LESSON1_AVAILABLE = 'lesson1_available', 
-  LESSON1_COMPLETED = 'lesson1_completed',
-  LESSON2_AVAILABLE = 'lesson2_available',
-  LESSON2_COMPLETED = 'lesson2_completed', 
-  QUIZ_AVAILABLE = 'quiz_available',
-  MODULE_COMPLETED = 'module_completed'
-}
-
-// Progress update action types for atomic operations
-export type ProgressUpdateAction = 
-  | { type: 'LESSON_COMPLETED'; lessonId: string }
-  | { type: 'QUIZ_COMPLETED'; quizScore: number; quizCorrectAnswers: number }
-  | { type: 'QUIZ_RETAKEN'; quizScore: number; quizCorrectAnswers: number }
-  | { type: 'MODULE_RESET' }
-
-// Enhanced data structures with state machine and retaking support
-export interface ModuleProgressV2 {
-  adventureId: number
-  moduleId: number
-  state: ModuleState
-  lesson1Completed: boolean
-  lesson2Completed: boolean
-  quizCompleted: boolean
-  quizScore?: number // Number of correct answers (0-5)
-  quizAttempts: number // Track retake attempts
-  bestQuizScore?: number // Highest score achieved across all attempts
-  unlockedAt: string
-  completedAt?: string
-  lastUpdated: string
-}
-
-export interface AdventureProgressV2 {
-  adventureId: number
-  isUnlocked: boolean
-  modulesCompleted: number
-  totalModules: number
-  unlockedAt?: string
-  completedAt?: string
-}
-
-export interface EraProgress {
-  eraId: string // "umayyad", "riseOfIslam", etc.
-  selectedAt?: string
-  adventuresCompleted: number
-  totalAdventures: number
-  overallProgress: number // 0-100
-}
-
-// Legacy interfaces for backward compatibility during migration
-export interface ModuleProgress {
-  adventureId: number
-  moduleId: number
-  isCompleted: boolean
-  lessonsCompleted: string[]
-  quizCompleted: boolean
-  quizScore?: number
-  unlockedAt?: string
-}
-
-export interface AdventureProgress {
-  adventureId: number
-  isUnlocked: boolean
-  modulesCompleted: number
-  totalModules: number
-  unlockedAt?: string
-}
+// Re-export types from centralized location for convenience
+export { EraType, ModuleState } from '@/types/progress'
+export type { ProgressUpdateAction, ModuleProgress, AdventureProgress, ModuleProgressV2, AdventureProgressV2, EraProgress } from '@/types/progress'
 
 interface ProgressContextType {
   // Era state
   selectedEra: string | null
   setSelectedEra: (eraId: string) => Promise<void>
 
-  // Adventure progress (Umayyad Dynasty)
+  // Adventure progress (Umayyad Dynasty - Era 1)
   adventureProgress: AdventureProgress[]
   getAdventureProgress: (adventureId: number) => AdventureProgress | null
 
-  // Module progress (Umayyad Dynasty) - NEW ATOMIC SYSTEM
+  // Module progress - ATOMIC SYSTEM
   moduleProgress: ModuleProgress[]
   getModuleProgress: (adventureId: number, moduleId: number) => ModuleProgress | null
   atomicProgressUpdate: (adventureId: number, moduleId: number, action: ProgressUpdateAction) => Promise<void>
 
-  // ROI-specific progress functions (new module ID format)
-  roiAdventureProgress: AdventureProgress[]
-  roiModuleProgress: ModuleProgress[]
-  getRoiAdventureProgress: (adventureId: number) => AdventureProgress | null
-  getRoiModuleProgress: (moduleId: string) => ModuleProgress | null // ROI_Adv1_M1 format
-  roiAtomicProgressUpdate: (moduleId: string, action: ProgressUpdateAction) => Promise<void>
+  // New progress system - Direct save with database IDs
+  saveNewProgressData: (moduleData: any) => Promise<void>
 
-  // Unified functions (work with both eras)
-  isRoiModuleUnlocked: (moduleId: string) => boolean
-  isRoiLessonCompleted: (moduleId: string, lessonId: string) => boolean
-  canRetakeRoiModule: (moduleId: string) => boolean
-  getRoiModuleStarCount: (moduleId: string) => number
+  // Centralized calculations (used by Profile, Rewards, 50 XP modal)
+  calculateTotalXP: (legacyModules: any[], newModules: any[]) => number
+  calculateModulesCompleted: (legacyModules: any[], newModules: any[]) => number
+  checkIfCrossed50XPBoundary: (oldXP: number, newXP: number) => number | null
 
   // Legacy functions (backwards compatibility)
   canRetakeModule: (adventureId: number, moduleId: number) => boolean
@@ -143,7 +82,7 @@ interface ProgressContextType {
   isLessonCompleted: (adventureId: number, moduleId: number, lessonId: string) => boolean
   getOverallProgress: () => number
   getModuleStarCount: (adventureId: number, moduleId: number) => number
-  
+
   // Loading state
   isLoading: boolean
 
@@ -167,8 +106,84 @@ const STORAGE_KEYS = {
   MODULE_PROGRESS: 'module_progress',
 }
 
+// Calculate XP for one era type (centralized XP logic)
+export const calculateXPForEra = (
+  modules: any[],
+  eraType: EraType
+): number => {
+  let totalXP = 0;
+
+  if (eraType === EraType.LEGACY) {
+    // Deduplicate by adventureId+moduleId (take highest score)
+    const moduleMap = new Map<string, number>();
+    modules.forEach(m => {
+      const key = `${m.adventureId}-${m.moduleId}`;
+      const currentScore = m.quizScore || 0;
+      const existingScore = moduleMap.get(key) || 0;
+
+      // Only count if score >= 2 (Era 1 rule)
+      if (currentScore >= 2) {
+        moduleMap.set(key, Math.max(existingScore, currentScore));
+      }
+    });
+
+    moduleMap.forEach(score => {
+      totalXP += score * 10;
+    });
+  } else if (eraType === EraType.NEW) {
+    // Already deduplicated in storage
+    modules.forEach(m => {
+      if (m.quizCorrectAnswers !== undefined) {
+        totalXP += m.quizCorrectAnswers * 10;
+      }
+    });
+  }
+
+  return totalXP;
+};
+
+// Get total XP across all eras
+export const calculateTotalXP = (legacyModules: any[], newModules: any[]): number => {
+  return calculateXPForEra(legacyModules, EraType.LEGACY) +
+         calculateXPForEra(newModules, EraType.NEW);
+};
+
+// Calculate total modules completed across all eras (centralized logic)
+export const calculateModulesCompleted = (legacyModules: any[], newModules: any[]): number => {
+  let totalModules = 0;
+
+  // Era 1: Count modules with quizScore >= 2 (2/5 minimum rule)
+  legacyModules.forEach(m => {
+    if (m.quizScore && m.quizScore >= 2) {
+      totalModules += 1;
+    }
+  });
+
+  // Era 2: Count completed modules
+  newModules.forEach(m => {
+    if (m.isCompleted) {
+      totalModules += 1;
+    }
+  });
+
+  return totalModules;
+};
+
+// Check if user crossed a 50 XP boundary (50, 100, 150, etc.)
+// Returns the milestone number if crossed, null otherwise
+export const checkIfCrossed50XPBoundary = (oldXP: number, newXP: number): number | null => {
+  const oldMilestone = Math.floor(oldXP / 50);
+  const newMilestone = Math.floor(newXP / 50);
+
+  if (newMilestone > oldMilestone) {
+    return newMilestone * 50;
+  }
+
+  return null;
+};
+
 // Initial data for Umayyad Dynasty Era (Adventure IDs 1-5)
-const UMAYYAD_INITIAL_ADVENTURE_DATA: AdventureProgress[] = [
+const INITIAL_ADVENTURE_DATA: AdventureProgress[] = [
   { adventureId: 1, isUnlocked: true, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 1 (unlocked by default)
   { adventureId: 2, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 2
   { adventureId: 3, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 3
@@ -176,35 +191,10 @@ const UMAYYAD_INITIAL_ADVENTURE_DATA: AdventureProgress[] = [
   { adventureId: 5, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 5
 ]
 
-// Initial data for Rise of Islam Era (Adventure IDs 1-5, independent from Umayyad)
-const ROI_INITIAL_ADVENTURE_DATA: AdventureProgress[] = [
-  { adventureId: 1, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // ROI Adventure 1 (unlocked when era selected)
-  { adventureId: 2, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // ROI Adventure 2
-  { adventureId: 3, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // ROI Adventure 3
-  { adventureId: 4, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // ROI Adventure 4
-  { adventureId: 5, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // ROI Adventure 5
-]
-
-// Combined initial data (backwards compatible with old system)
-const INITIAL_ADVENTURE_DATA: AdventureProgress[] = [
-  ...UMAYYAD_INITIAL_ADVENTURE_DATA,
-  // Legacy ROI data (Adventure IDs 6-10) - will be migrated to new system
-  { adventureId: 6, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Legacy ROI Adventure 1
-  { adventureId: 7, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Legacy ROI Adventure 2
-  { adventureId: 8, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Legacy ROI Adventure 3
-  { adventureId: 9, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Legacy ROI Adventure 4
-  { adventureId: 10, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Legacy ROI Adventure 5
-]
-
 export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const [selectedEra, setSelectedEraState] = useState<string | null>(null)
   const [adventureProgress, setAdventureProgress] = useState<AdventureProgress[]>(INITIAL_ADVENTURE_DATA)
   const [moduleProgress, setModuleProgress] = useState<ModuleProgress[]>([])
-
-  // ROI-specific state management (independent progress tracking)
-  const [roiAdventureProgress, setRoiAdventureProgress] = useState<AdventureProgress[]>(ROI_INITIAL_ADVENTURE_DATA)
-  const [roiModuleProgress, setRoiModuleProgress] = useState<ModuleProgress[]>([])
-
   const [isLoading, setIsLoading] = useState(true)
 
   // User sign-in detection for data reload
@@ -219,18 +209,6 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
   // Rewards system integration (badges + avatars)
   const { checkAndUnlockItems } = useRewards()
-
-  // Helper function to parse ROI module IDs (ROI_Adv1_M1 format)
-  const parseRoiModuleId = (moduleId: string): { adventureId: number; moduleId: number } | null => {
-    const match = moduleId.match(/^ROI_Adv(\d+)_M(\d+)$/)
-    if (match) {
-      return {
-        adventureId: parseInt(match[1]),
-        moduleId: parseInt(match[2])
-      }
-    }
-    return null
-  }
 
   // Load progress from AsyncStorage - reload when user signs in
   // CRITICAL: Wait for Supabase sync to complete BEFORE loading data on login
@@ -290,60 +268,6 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
-  // ROI-specific migration logic: Convert legacy Adventure IDs 6-10 to new ROI system
-  const migrateRoiProgressData = (legacyModules: ModuleProgress[], legacyAdventures: AdventureProgress[]) => {
-    const migratedRoiModules: ModuleProgress[] = []
-    const migratedRoiAdventures: AdventureProgress[] = [...ROI_INITIAL_ADVENTURE_DATA]
-
-    console.log('🔄 Starting ROI progress migration from legacy system...')
-
-    // Process each legacy ROI module (Adventure IDs 6-10)
-    legacyModules.forEach(legacyModule => {
-      if (legacyModule.adventureId >= 6 && legacyModule.adventureId <= 10) {
-        // Convert legacy Adventure ID to new ROI Adventure ID
-        const newAdventureId = legacyModule.adventureId - 5 // 6→1, 7→2, 8→3, 9→4, 10→5
-        const roiModuleId = `ROI_Adv${newAdventureId}_M${legacyModule.moduleId}`
-
-        // Create new ROI module with converted data
-        const migratedRoiModule: ModuleProgress = {
-          ...legacyModule,
-          adventureId: newAdventureId, // Update to new adventure ID
-          moduleId: legacyModule.moduleId // Keep same module ID
-        }
-
-        // Add ROI-specific identifier
-        ;(migratedRoiModule as any).roiModuleId = roiModuleId
-
-        migratedRoiModules.push(migratedRoiModule)
-
-        console.log(`🔄 Migrated legacy Adventure ${legacyModule.adventureId} Module ${legacyModule.moduleId} → ${roiModuleId}`)
-      }
-    })
-
-    // Process legacy ROI adventures
-    legacyAdventures.forEach(legacyAdventure => {
-      if (legacyAdventure.adventureId >= 6 && legacyAdventure.adventureId <= 10) {
-        const newAdventureId = legacyAdventure.adventureId - 5
-
-        // Update the corresponding ROI adventure
-        const adventureIndex = migratedRoiAdventures.findIndex(a => a.adventureId === newAdventureId)
-        if (adventureIndex !== -1) {
-          migratedRoiAdventures[adventureIndex] = {
-            ...migratedRoiAdventures[adventureIndex],
-            isUnlocked: legacyAdventure.isUnlocked,
-            modulesCompleted: legacyAdventure.modulesCompleted,
-            unlockedAt: legacyAdventure.unlockedAt
-          }
-
-          console.log(`🔄 Migrated legacy ROI Adventure ${legacyAdventure.adventureId} → Adventure ${newAdventureId}`)
-        }
-      }
-    })
-
-    console.log(`✅ ROI migration complete: ${migratedRoiModules.length} modules migrated`)
-    return { migratedRoiModules, migratedRoiAdventures }
-  }
-
   const loadProgressData = async () => {
     try {
       setIsLoading(true)
@@ -389,7 +313,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Immediate save for critical data - no debouncing
+  // Standard progress save
   const saveProgressData = async (adventures: AdventureProgress[], modules: ModuleProgress[]) => {
     try {
       await Promise.all([
@@ -403,6 +327,57 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // New progress system save - data flows AS IS to Supabase
+  const saveNewProgressData = async (moduleData: any) => {
+    try {
+      // Save the module completion data directly (already has adventureId, moduleId, era_id, etc.)
+      const existingData = await WebCompatibleStorage.getItem('new_user_progress')
+      const progressData = existingData ? JSON.parse(existingData) : []
+
+      // Add or update this module's data
+      const moduleIndex = progressData.findIndex(
+        (m: any) => m.adventureId === moduleData.adventureId && m.moduleId === moduleData.moduleId
+      )
+
+      if (moduleIndex >= 0) {
+        progressData[moduleIndex] = moduleData
+      } else {
+        progressData.push(moduleData)
+      }
+
+      await WebCompatibleStorage.setItem('new_user_progress', JSON.stringify(progressData))
+      console.log('✅ New progress data saved to cache', moduleData)
+
+      // Calculate total XP using centralized deduplication logic
+      const totalXP = calculateTotalXP(moduleProgress, progressData);
+      console.log(`📊 [NEW] Total XP calculated: ${totalXP}`);
+
+      // Check and unlock badges/avatars (same as Era 1)
+      // Build user data structure for reward checking
+      const userData: any = { data: {} };
+      progressData.forEach((m: any) => {
+        const advKey = m.adventureId; // Era 2 uses database IDs directly
+        if (!userData.data[advKey]) {
+          userData.data[advKey] = { modules: {} };
+        }
+        userData.data[advKey].modules[m.moduleId] = {
+          isCompleted: m.isCompleted,
+          quizCompleted: m.quizCompleted,
+          quizScore: m.quizScore,
+          quizCorrectAnswers: m.quizCorrectAnswers
+        };
+      });
+
+      await checkAndUnlockItems(userData, totalXP);
+
+      // Trigger real-time cloud sync (awaits immediately, no debounce)
+      await syncModule()
+    } catch (error) {
+      console.error('❌ Error saving new progress data:', error)
+      throw error
+    }
+  }
+
   const setSelectedEra = async (eraId: string) => {
     try {
       await WebCompatibleStorage.setItem(STORAGE_KEYS.SELECTED_ERA, eraId)
@@ -411,7 +386,8 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       // Initialize era-specific adventure and module data if needed
       await initializeEraData(eraId)
 
-      syncEra()
+      // Trigger real-time cloud sync
+      await syncEra()
     } catch (error) {
       console.error('Error saving selected era:', error)
     }
@@ -437,80 +413,9 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       console.log(`🆕 First-time initialization for era: ${eraId}`)
 
       if (eraId === 'riseOfIslam') {
-        // NEW ROI SYSTEM: Initialize ROI-specific progress tracking
-        const currentRoiAdventures = [...roiAdventureProgress]
-        const roiAdv1 = currentRoiAdventures.find(a => a.adventureId === 1)
-
-        if (roiAdv1 && !roiAdv1.isUnlocked) {
-          console.log('🔓 Unlocking Rise of Islam Adventure 1 (New ROI System)')
-
-          // Unlock ROI Adventure 1
-          const updatedRoiAdventures = currentRoiAdventures.map(a =>
-            a.adventureId === 1
-              ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
-              : a
-          )
-          setRoiAdventureProgress(updatedRoiAdventures)
-          // TODO: Add ROI-specific storage
-        }
-
-        // Check if ROI Adventure 1 Module 1 exists
-        const existingRoiModule = getRoiModuleProgress('ROI_Adv1_M1')
-        if (!existingRoiModule) {
-          // Create ROI Adventure 1 Module 1 as unlocked by default
-          const roiAdv1Module1: ModuleProgress = {
-            adventureId: 1, // ROI Adventure 1
-            moduleId: 1,
-            isCompleted: false,
-            lessonsCompleted: [],
-            quizCompleted: false,
-            unlockedAt: new Date().toISOString()
-          }
-          ;(roiAdv1Module1 as any).roiModuleId = 'ROI_Adv1_M1'
-
-          const updatedRoiModules = [...roiModuleProgress, roiAdv1Module1]
-          setRoiModuleProgress(updatedRoiModules)
-        }
-
-        // LEGACY SYSTEM: Also initialize legacy data for backwards compatibility
-        const currentAdventures = [...adventureProgress]
-        const riseOfIslamAdv1 = currentAdventures.find(a => a.adventureId === 6)
-
-        if (riseOfIslamAdv1 && !riseOfIslamAdv1.isUnlocked) {
-          console.log('🔓 Unlocking Rise of Islam Adventure 1 (Legacy ID: 6)')
-
-          // Unlock Adventure 6
-          const updatedAdventures = currentAdventures.map(a =>
-            a.adventureId === 6
-              ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
-              : a
-          )
-          setAdventureProgress(updatedAdventures)
-          await WebCompatibleStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, JSON.stringify(updatedAdventures))
-        }
-
-        // Check if Rise of Islam Adventure 1 Module 1 exists (Legacy ID: 6)
-        const existingModule = getModuleProgress(6, 1)
-        if (!existingModule) {
-          console.log('🆕 Creating Rise of Islam Adventure 1 Module 1 (Legacy ID: 6)')
-
-          // Create Rise of Islam Adventure 1 Module 1 as unlocked by default
-          const riseOfIslamAdv1Module1: ModuleProgress = {
-            adventureId: 6, // Legacy ID for database consistency
-            moduleId: 1,
-            isCompleted: false,
-            lessonsCompleted: [],
-            quizCompleted: false,
-            unlockedAt: new Date().toISOString()
-          }
-
-          const updatedModules = [...moduleProgress, riseOfIslamAdv1Module1]
-          setModuleProgress(updatedModules)
-
-          // Save to storage
-          await WebCompatibleStorage.setItem(STORAGE_KEYS.MODULE_PROGRESS, JSON.stringify(updatedModules))
-          console.log('✅ Rise of Islam Adventure 1 Module 1 created and saved')
-        }
+        // NEW PROGRESS SYSTEM: No state initialization needed
+        // Data is loaded from database and saved directly via saveNewProgressData()
+        console.log('✅ Rise of Islam uses new progress system - no state initialization needed')
       } else if (eraId === 'umayyad') {
         // Ensure Umayyad Adventure 1 (Internal ID: 1) is unlocked (should already be from INITIAL_ADVENTURE_DATA)
         const currentAdventures = [...adventureProgress]
@@ -565,53 +470,6 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const getModuleProgress = useCallback((adventureId: number, moduleId: number): ModuleProgress | null => {
     return moduleProgress.find(m => m.adventureId === adventureId && m.moduleId === moduleId) || null
   }, [moduleProgress])
-
-  // ROI-specific progress functions
-  const getRoiAdventureProgress = useCallback((adventureId: number): AdventureProgress | null => {
-    return roiAdventureProgress.find(a => a.adventureId === adventureId) || null
-  }, [roiAdventureProgress])
-
-  const getRoiModuleProgress = useCallback((moduleId: string): ModuleProgress | null => {
-    return roiModuleProgress.find(m => (m as any).roiModuleId === moduleId) || null
-  }, [roiModuleProgress])
-
-  // ROI-specific utility functions - PERFORMANCE: Memoized with useCallback
-  const isRoiModuleUnlocked = useCallback((moduleId: string): boolean => {
-    const parsed = parseRoiModuleId(moduleId)
-    if (!parsed) return false
-
-    const adventure = getRoiAdventureProgress(parsed.adventureId)
-    if (!adventure?.isUnlocked) return false
-
-    // Module 1 is unlocked if adventure is unlocked
-    if (parsed.moduleId === 1) return true
-
-    // Other modules require previous module completion
-    const prevModuleId = `ROI_Adv${parsed.adventureId}_M${parsed.moduleId - 1}`
-    const prevModule = getRoiModuleProgress(prevModuleId)
-    return prevModule?.isCompleted || false
-  }, [getRoiAdventureProgress, getRoiModuleProgress])
-
-  const isRoiLessonCompleted = useCallback((moduleId: string, lessonId: string): boolean => {
-    const module = getRoiModuleProgress(moduleId)
-    return module?.lessonsCompleted.includes(lessonId) || false
-  }, [getRoiModuleProgress])
-
-  const canRetakeRoiModule = useCallback((moduleId: string): boolean => {
-    const module = getRoiModuleProgress(moduleId)
-    return module?.quizCompleted || false
-  }, [getRoiModuleProgress])
-
-  const getRoiModuleStarCount = useCallback((moduleId: string): number => {
-    const module = getRoiModuleProgress(moduleId)
-    if (!module?.quizScore) return 0
-
-    // Same star rating logic as legacy system
-    if (module.quizScore >= 5) return 3
-    if (module.quizScore >= 4) return 2
-    if (module.quizScore >= 2) return 1
-    return 0
-  }, [getRoiModuleProgress])
 
   // Calculate module state for UI display
   const calculateModuleState = (module: ModuleProgress | null): ModuleState => {
@@ -840,13 +698,13 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
       // Check and award badges after quiz completion
       if (action.type === 'QUIZ_COMPLETED' || action.type === 'QUIZ_RETAKEN') {
-        // Calculate total XP from all modules (each correct answer = 10 XP)
-        let totalXP = 0;
-        updatedModules.forEach(m => {
-          if (m.quizScore) {
-            totalXP += m.quizScore * 10;
-          }
-        });
+        // Load new era progress to calculate total XP across ALL eras
+        const newProgressData = await WebCompatibleStorage.getItem('new_user_progress');
+        const newModules = newProgressData ? JSON.parse(newProgressData) : [];
+
+        // Calculate total XP using centralized deduplication logic
+        const totalXP = calculateTotalXP(updatedModules, newModules);
+        console.log(`📊 Total XP calculated (all eras): ${totalXP}`);
 
         // Build user data for reward checking
         const userData: any = { data: {} };
@@ -867,9 +725,9 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         await checkAndUnlockItems(userData, totalXP);
       }
 
-      // Trigger cloud sync
-      syncModule()
-      syncAdventure()
+      // Trigger real-time cloud sync (awaits immediately, no debounce)
+      await syncModule()
+      await syncAdventure()
 
       console.log(`✅ Atomic progress update completed successfully`)
 
@@ -878,168 +736,6 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       throw error
     }
   }, [adventureProgress, moduleProgress, getModuleProgress, getAdventureProgress, syncModule, syncAdventure, checkAndUnlockItems])
-
-  // ROI ATOMIC PROGRESS UPDATE FUNCTION - PERFORMANCE: Memoized with useCallback
-  const roiAtomicProgressUpdate = useCallback(async (
-    moduleId: string,
-    action: ProgressUpdateAction
-  ): Promise<void> => {
-    try {
-      console.log(`🔄 ROI Atomic progress update: ${moduleId}`, action)
-
-      const parsed = parseRoiModuleId(moduleId)
-      if (!parsed) {
-        throw new Error(`Invalid ROI module ID format: ${moduleId}`)
-      }
-
-      // Find or create module
-      let existingModule = getRoiModuleProgress(moduleId)
-      if (!existingModule) {
-        // Create new module if it doesn't exist
-        existingModule = {
-          adventureId: parsed.adventureId, // This is for internal tracking compatibility
-          moduleId: parsed.moduleId, // This is for internal tracking compatibility
-          isCompleted: false,
-          lessonsCompleted: [],
-          quizCompleted: false,
-          unlockedAt: new Date().toISOString()
-        }
-        // Add the full ROI module ID for ROI-specific tracking
-        ;(existingModule as any).roiModuleId = moduleId
-      }
-
-      // Create updated module based on action type (same logic as legacy)
-      let updatedModule: ModuleProgress = { ...existingModule }
-      ;(updatedModule as any).roiModuleId = moduleId
-
-      switch (action.type) {
-        case 'LESSON_COMPLETED':
-          if (!updatedModule.lessonsCompleted.includes(action.lessonId)) {
-            updatedModule.lessonsCompleted = [...updatedModule.lessonsCompleted, action.lessonId]
-          }
-          console.log(`✅ ROI Lesson ${action.lessonId} completed for ${moduleId}`)
-          break
-
-        case 'QUIZ_COMPLETED':
-        case 'QUIZ_RETAKEN':
-          updatedModule.quizCompleted = true
-          updatedModule.quizScore = action.quizScore
-
-          // Module is completed when quiz is passed (score >= 2 out of 5)
-          if (action.quizScore >= 2) {
-            updatedModule.isCompleted = true
-            console.log(`🎉 ROI Module ${moduleId} completed with score: ${action.quizScore}/5`)
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-          } else {
-            updatedModule.isCompleted = false
-            console.log(`📝 ROI Module ${moduleId} quiz completed but not passed: ${action.quizScore}/5`)
-          }
-          break
-
-        case 'MODULE_RESET':
-          updatedModule = {
-            ...existingModule,
-            isCompleted: false,
-            lessonsCompleted: [],
-            quizCompleted: false,
-            quizScore: undefined
-          }
-          ;(updatedModule as any).roiModuleId = moduleId
-          console.log(`🔄 ROI Module ${moduleId} reset`)
-          break
-      }
-
-      // Update ROI modules array
-      const updatedRoiModules = existingModule && roiModuleProgress.some(m => (m as any).roiModuleId === moduleId)
-        ? roiModuleProgress.map(m =>
-            (m as any).roiModuleId === moduleId ? updatedModule : m
-          )
-        : [...roiModuleProgress, updatedModule]
-
-      // Update ROI adventure progress and handle unlocking
-      let updatedRoiAdventures = [...roiAdventureProgress]
-      const adventure = getRoiAdventureProgress(parsed.adventureId)
-
-      if (adventure && updatedModule.isCompleted) {
-        const completedModulesCount = updatedRoiModules.filter(
-          m => {
-            const mParsed = parseRoiModuleId((m as any).roiModuleId || '')
-            return mParsed?.adventureId === parsed.adventureId && m.isCompleted
-          }
-        ).length
-
-        // Update adventure completion count
-        updatedRoiAdventures = roiAdventureProgress.map(a =>
-          a.adventureId === parsed.adventureId
-            ? { ...a, modulesCompleted: completedModulesCount }
-            : a
-        )
-
-        // Check for adventure completion and unlocking
-        if (completedModulesCount === adventure.totalModules) {
-          console.log(`🎉 ROI Adventure ${parsed.adventureId} completed! Unlocking next adventure...`)
-
-          // Unlock next ROI adventure
-          const nextAdventureId = parsed.adventureId + 1
-          if (nextAdventureId <= 5) { // Max 5 ROI adventures
-            updatedRoiAdventures = updatedRoiAdventures.map(a =>
-              a.adventureId === nextAdventureId
-                ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
-                : a
-            )
-
-            // Celebration haptic for ROI adventure unlock
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-
-            // Auto-create Module 1 for the newly unlocked adventure
-            const nextAdventureModule1: ModuleProgress = {
-              adventureId: nextAdventureId,
-              moduleId: 1,
-              isCompleted: false,
-              lessonsCompleted: [],
-              quizCompleted: false,
-              unlockedAt: new Date().toISOString()
-            }
-            ;(nextAdventureModule1 as any).roiModuleId = `ROI_Adv${nextAdventureId}_M1`
-            updatedRoiModules.push(nextAdventureModule1)
-            console.log(`✅ ROI Adventure ${nextAdventureId} Module 1 auto-created`)
-          }
-        }
-
-        // Auto-unlock next module in same adventure
-        const nextModuleId = parsed.moduleId + 1
-        const nextRoiModuleId = `ROI_Adv${parsed.adventureId}_M${nextModuleId}`
-        if (nextModuleId <= adventure.totalModules && !getRoiModuleProgress(nextRoiModuleId)) {
-          const nextModule: ModuleProgress = {
-            adventureId: parsed.adventureId,
-            moduleId: nextModuleId,
-            isCompleted: false,
-            lessonsCompleted: [],
-            quizCompleted: false,
-            unlockedAt: new Date().toISOString()
-          }
-          ;(nextModule as any).roiModuleId = nextRoiModuleId
-          updatedRoiModules.push(nextModule)
-          console.log(`✅ ROI Adventure ${parsed.adventureId} Module ${nextModuleId} auto-unlocked`)
-        }
-      }
-
-      // Atomic state update
-      setRoiAdventureProgress(updatedRoiAdventures)
-      setRoiModuleProgress(updatedRoiModules)
-
-      // TODO: Add ROI-specific save/sync functions
-      // await saveRoiProgressData(updatedRoiAdventures, updatedRoiModules)
-      // syncModule()
-      // syncAdventure()
-
-      console.log(`✅ ROI Atomic progress update completed successfully`)
-
-    } catch (error) {
-      console.error('❌ ROI Atomic progress update failed:', error)
-      throw error
-    }
-  }, [roiAdventureProgress, roiModuleProgress, getRoiAdventureProgress, getRoiModuleProgress, parseRoiModuleId])
 
   // Legacy compatibility functions - these call the new atomic system
   const updateModuleProgress = async (
@@ -1104,16 +800,13 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     getModuleProgress,
     atomicProgressUpdate,
 
-    // ROI-specific functions
-    roiAdventureProgress,
-    roiModuleProgress,
-    getRoiAdventureProgress,
-    getRoiModuleProgress,
-    roiAtomicProgressUpdate,
-    isRoiModuleUnlocked,
-    isRoiLessonCompleted,
-    canRetakeRoiModule,
-    getRoiModuleStarCount,
+    // New era system (Era 2+)
+    saveNewProgressData,
+
+    // Centralized calculations
+    calculateTotalXP,
+    calculateModulesCompleted,
+    checkIfCrossed50XPBoundary,
 
     // Legacy functions (backwards compatibility)
     canRetakeModule,

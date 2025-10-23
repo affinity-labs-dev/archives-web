@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useUser } from '@clerk/clerk-expo';
 import { supabase } from '@/hooks/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { calculateTotalXP, calculateModulesCompleted } from './ProgressContext';
+import type { EraType } from '@/types/progress';
 
 // Unified interface for all unlockable items (avatars + badges)
 interface UnlockableItem {
@@ -180,30 +182,28 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
   // Check unlocks on login by reading progress from AsyncStorage
   const checkUnlocksOnLogin = async (items: UnlockableItem[], currentUnlocked: UserUnlockable[]) => {
     try {
-      // Load module progress from AsyncStorage
+      // Load Era 1 (Umayyad) progress from AsyncStorage
       const moduleProgressData = await AsyncStorage.getItem('module_progress');
-      if (!moduleProgressData) {
-        console.log('🎁 [LOGIN] No module progress found');
-        return;
-      }
+      const moduleProgress = moduleProgressData ? JSON.parse(moduleProgressData) : [];
+      console.log('🎁 [LOGIN] Era 1 progress loaded:', moduleProgress.length, 'modules');
 
-      const moduleProgress = JSON.parse(moduleProgressData);
-      console.log('🎁 [LOGIN] Module progress loaded:', moduleProgress.length, 'modules');
+      // Load Era 2 (Rise of Islam) progress from AsyncStorage
+      const newUserProgressData = await AsyncStorage.getItem('new_user_progress');
+      const newUserProgress = newUserProgressData ? JSON.parse(newUserProgressData) : [];
+      console.log('🎁 [LOGIN] Era 2 progress loaded:', newUserProgress.length, 'modules');
 
-      // Calculate metrics
-      let totalXP = 0;
-      let modulesCompleted = 0;
-      moduleProgress.forEach((m: any) => {
-        if (m.quizScore) {
-          totalXP += m.quizScore * 10;
-        }
-        if (m.isCompleted) {
-          modulesCompleted += 1;
-        }
-      });
+      // Calculate total XP using centralized function (Era 1 + Era 2)
+      const totalXP = calculateTotalXP(moduleProgress, newUserProgress);
+      console.log('🎁 [LOGIN] Total XP (deduplicated):', totalXP);
 
-      // Build userData for months calculation
+      // Calculate modules completed using centralized function (both eras)
+      const modulesCompleted = calculateModulesCompleted(moduleProgress, newUserProgress);
+      console.log('🎁 [LOGIN] Modules completed:', modulesCompleted);
+
+      // Build userData for months calculation (Era 1 + Era 2)
       const userData: any = { data: {} };
+
+      // Add Era 1 modules
       moduleProgress.forEach((m: any) => {
         const advKey = `adventure${m.adventureId}`;
         if (!userData.data[advKey]) {
@@ -218,6 +218,21 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
         };
       });
 
+      // Add Era 2 modules
+      newUserProgress.forEach((m: any) => {
+        const advKey = `era2_${m.adventureId}`; // Use era2_ prefix to avoid conflicts
+        if (!userData.data[advKey]) {
+          userData.data[advKey] = { modules: {} };
+        }
+        userData.data[advKey].modules[m.moduleId] = {
+          isCompleted: m.isCompleted,
+          quizCompleted: m.quizCompleted,
+          quizScore: m.quizScore,
+          completedAt: m.completedAt,
+          unlockedAt: m.completedAt // Use completedAt as unlockedAt for Era 2
+        };
+      });
+
       const monthsActive = calculateMonthsActive(userData);
 
       console.log('🎁 [LOGIN] Metrics - XP:', totalXP, 'Modules:', modulesCompleted, 'Months:', monthsActive);
@@ -228,6 +243,9 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
         'modules_completed': modulesCompleted,
         'months_active': monthsActive
       };
+
+      // OPTIMIZATION: Create Set for O(1) lookup instead of O(n)
+      const unlockedItemIds = new Set(currentUnlocked.map(u => u.item_id));
 
       // Check all items for unlock eligibility (dynamic lookup based on DB unlock_metric)
       for (const item of items) {
@@ -241,7 +259,7 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
           continue;
         }
 
-        const alreadyUnlocked = currentUnlocked.some(u => u.item_id === item.id);
+        const alreadyUnlocked = unlockedItemIds.has(item.id);
 
         console.log(`🎁 [LOGIN] ${item.display_text} (${item.type}): ${currentValue}/${item.unlock_threshold} ${item.unlock_metric} - unlocked: ${alreadyUnlocked}`);
 
@@ -440,6 +458,9 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
 
     console.log('🎁 [CHECK] Available metrics:', metrics);
 
+    // OPTIMIZATION: Create Set for O(1) lookup instead of O(n)
+    const unlockedItemIds = new Set(userUnlockables.map(u => u.item_id));
+
     // Check all items (dynamic lookup based on DB unlock_metric)
     for (const item of allItems) {
       if (!item.unlock_metric || item.unlock_threshold === null || item.unlock_threshold === undefined) continue;
@@ -452,7 +473,7 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
         continue;
       }
 
-      const alreadyUnlocked = userUnlockables.some(u => u.item_id === item.id);
+      const alreadyUnlocked = unlockedItemIds.has(item.id);
 
       console.log(`🎁 [CHECK] ${item.display_text}: ${currentValue}/${item.unlock_threshold} ${item.unlock_metric} - unlocked: ${alreadyUnlocked}`);
 

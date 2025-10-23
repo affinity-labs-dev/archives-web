@@ -126,6 +126,13 @@ export default function TabLayout() {
           ),
         }}
       />
+      <TabComponent.Screen
+        name="roi-bento"
+        options={{
+          href: null, // Hide from tab bar
+          headerShown: false,
+        }}
+      />
     </TabComponent>
   )
 }

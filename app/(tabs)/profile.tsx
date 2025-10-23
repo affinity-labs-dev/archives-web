@@ -1,19 +1,19 @@
 // Profile Tab - EXACT replica of SwiftUI Profile.swift
 // Matches the exact structure: historical avatars + stats + badges + achievements + settings
 
-import ArchivesTheme from '@/constants/ArchivesTheme'
-import { usePreferences } from '@/context/PreferencesContext'
-import { useProgress } from '@/context/ProgressContext'
-import { useRewards } from '@/context/RewardsContext'
-import { analyticsService } from '@/services/AnalyticsService'
+import React, { useState } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, Modal, Dimensions, Alert, Linking, Platform } from 'react-native'
 import { useAuth, useUser } from '@clerk/clerk-expo'
+import { useRouter } from 'expo-router'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useFocusEffect } from '@react-navigation/native'
+import ArchivesTheme from '@/constants/ArchivesTheme'
 import * as Haptics from 'expo-haptics'
-import { useRouter } from 'expo-router'
-import React, { useState } from 'react'
-import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { analyticsService } from '@/services/AnalyticsService'
+import { useFocusEffect } from '@react-navigation/native'
+import { useProgress } from '@/context/ProgressContext'
+import { usePreferences } from '@/context/PreferencesContext'
+import { useRewards } from '@/context/RewardsContext'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -176,11 +176,23 @@ const FAQ_DATA = [
   }
 ]
 
+// User progress type for Era 2+ (matching new_user_progress structure)
+interface NewUserProgress {
+  adventureId: string;
+  moduleId: string;
+  quizScore: number;
+  quizCorrectAnswers?: number; // Actual correct answers (for XP calculation)
+  isCompleted: boolean;
+  quizCompleted: boolean;
+  completedAt: string;
+  era_id: number;
+}
+
 export default function ProfileTab() {
   const { signOut } = useAuth()
   const { user } = useUser()
   const router = useRouter()
-  const { moduleProgress } = useProgress()
+  const { moduleProgress, calculateTotalXP, calculateModulesCompleted } = useProgress()
   const {
     avatars,
     badges,
@@ -193,44 +205,37 @@ export default function ProfileTab() {
   } = useRewards()
   const { dailyGoal, reminderTime, setReminderTime, loading: preferencesLoading } = usePreferences()
 
-  // Calculate totalXP from module progress (each correct answer = 10 XP)
-  const totalXP = React.useMemo(() => {
-    console.log('🔄 [Profile] Recalculating XP...')
-    console.log('📊 [Profile] Module progress count:', moduleProgress.length)
+  // Load Era 2+ progress from AsyncStorage
+  const [newUserProgress, setNewUserProgress] = React.useState<NewUserProgress[]>([])
 
-    const calculated = moduleProgress.reduce((xp, module) => {
-      if (module.quizScore) {
-        console.log(`📊 [Profile] Adventure ${module.adventureId} Module ${module.moduleId}: ${module.quizScore} correct = ${module.quizScore * 10} XP`)
-        return xp + (module.quizScore * 10)
+  React.useEffect(() => {
+    const loadNewProgress = async () => {
+      try {
+        const data = await AsyncStorage.getItem('new_user_progress')
+        if (data) {
+          const parsed: NewUserProgress[] = JSON.parse(data)
+          setNewUserProgress(parsed)
+          console.log('📊 [Profile] Loaded Era 2+ progress:', parsed.length, 'modules')
+        }
+      } catch (error) {
+        console.error('❌ [Profile] Error loading Era 2+ progress:', error)
       }
-      return xp
-    }, 0)
+    }
+    loadNewProgress()
+  }, [])
 
-    console.log('✅ [Profile] Total XP calculated:', calculated)
-    return calculated
-  }, [moduleProgress])
-
-  // Debug: Log rewards data
-  console.log('🎁 Avatars loaded:', avatars.length)
-  console.log('🎁 Badges loaded:', badges.length)
-  console.log('🎁 Unlocked avatars:', unlockedAvatars.length)
-  console.log('🎁 Unlocked badges:', unlockedBadges.length)
-  console.log('🎁 Total XP:', totalXP)
-  console.log('🎁 Current selected avatar:', selectedAvatar?.display_text)
+  // Calculate totalXP using centralized deduplication logic
+  const totalXP = React.useMemo(() => {
+    return calculateTotalXP(moduleProgress, newUserProgress)
+  }, [moduleProgress, newUserProgress, calculateTotalXP])
 
   // Get current avatar (use first avatar as default if none selected)
   const currentAvatar = selectedAvatar || avatars[0]
 
-  // Calculate modules finished (ONLY unique modules with quizScore)
-  const uniqueModules = new Map<string, any>()
-  moduleProgress.forEach(m => {
-    if (m.quizScore !== undefined && m.quizScore !== null) {
-      const key = `${m.adventureId}_${m.moduleId}`
-      uniqueModules.set(key, m)
-    }
-  })
-  const modulesFinished = uniqueModules.size
-  console.log('📊 [Profile] Unique modules with quiz scores:', Array.from(uniqueModules.values()).map(m => `Adv${m.adventureId}_M${m.moduleId} (score: ${m.quizScore})`))
+  // Calculate modules finished using centralized function (BOTH Era 1 and Era 2+)
+  const modulesFinished = React.useMemo(() => {
+    return calculateModulesCompleted(moduleProgress, newUserProgress)
+  }, [moduleProgress, newUserProgress, calculateModulesCompleted])
 
   // Get user's display name from Clerk (firstName + first letter of lastName)
   const displayName = user?.firstName && user?.lastName
@@ -241,16 +246,12 @@ export default function ProfileTab() {
   const joinedYear = user?.createdAt ? new Date(user.createdAt).getFullYear() : new Date().getFullYear()
 
   // Get XP badges from database - Calculate earned status locally based on totalXP
-  console.log('🎁 [Profile] ALL badges from RewardsContext:', badges.map(b => `${b.name}: ${b.display_text} (threshold: ${b.unlock_threshold})`))
-
   // Get ALL XP badges - filter by unlock_metric (dynamic, works with any number of badges)
   const xpBadges = badges
     .filter(b => b.unlock_metric === 'xp')
     .map(b => {
       // Calculate earned status locally based on totalXP (single source of truth)
       const earned = totalXP >= (b.unlock_threshold || 0)
-
-      console.log(`🎁 [Profile] Badge: ${b.display_text} | Threshold: ${b.unlock_threshold} | Image: ${b.image_url} | Earned: ${earned}`)
 
       return {
         ...b,
@@ -260,53 +261,61 @@ export default function ProfileTab() {
     })
     .sort((a, b) => (a.unlock_threshold || 0) - (b.unlock_threshold || 0)) // Sort by THRESHOLD (dynamic!)
 
-  console.log('🎁 [Profile] XP Badges Summary:', xpBadges.map(b => `${b.display_text} (${b.unlock_threshold}): ${b.earned ? 'EARNED ✅' : 'LOCKED ❌'}`).join(', '))
-
   // Calculate XP progress - show position on FULL scale (matches node positioning)
   const maxThreshold = xpBadges[xpBadges.length - 1]?.unlock_threshold || 1
   const xpProgress = Math.min((totalXP / maxThreshold) * 100, 100)
 
-  console.log('🎁 [Profile] XP Progress:', {
-    totalXP,
-    maxThreshold,
-    progress: xpProgress.toFixed(1) + '%'
-  })
+  // Get monthly badges - Filter by unlock_metric (dynamic) - CHECK BOTH ERA 1 AND ERA 2+
+  const monthlyBadges = badges
+    .filter(b => b.unlock_metric === 'months_active')
+    .map(b => {
+      // Extract level from name (e.g., 'ACH_MonthlyActive_1' → 1)
+      const level = parseInt(b.name.split('_').pop() || '0')
+      // Threshold IS the month number (1-12)
+      const monthNumber = b.unlock_threshold || 0
 
-  // Get monthly badges - Filter by unlock_metric (dynamic) - MEMOIZED to prevent re-calculation on every render
-  const monthlyBadges = React.useMemo(() => {
-    console.log('🎁 [Profile] Calculating monthly badges...')
-
-    return badges
-      .filter(b => b.unlock_metric === 'months_active')
-      .map(b => {
-        // Extract level from name (e.g., 'ACH_MonthlyActive_1' → 1)
-        const level = parseInt(b.name.split('_').pop() || '0')
-        // Threshold IS the month number (1-12)
-        const monthNumber = b.unlock_threshold || 0
-
-        // Check if user unlocked any modules in this specific month (any year)
-        const earned = moduleProgress.some(m => {
-          // Check if module has required data: quizScore and unlockedAt
-          if (!m.quizScore || !m.unlockedAt) {
-            return false
-          }
-
-          // Extract month from ISO string (format: "2025-11-09T..." -> month = "11")
-          const monthString = m.unlockedAt.substring(5, 7)
-          const completionMonth = parseInt(monthString, 10)
-
-          return completionMonth === monthNumber
-        })
-
-        return {
-          ...b,
-          level,
-          earned: earned,
-          imagePath: b.image_url
+      // Check Era 1 (Umayyad Dynasty) - uses unlockedAt
+      const era1Match = moduleProgress.some(m => {
+        // Check if module has required data: quizScore and unlockedAt
+        if (!m.quizScore || !m.unlockedAt) {
+          return false
         }
+
+        // Extract month from ISO string (format: "2025-11-09T..." -> month = "11")
+        const monthString = m.unlockedAt.substring(5, 7)
+        const completionMonth = parseInt(monthString, 10)
+
+        const isMatch = completionMonth === monthNumber
+
+        return isMatch
       })
-      .sort((a, b) => b.level - a.level) // Descending order (October appears first)
-  }, [badges, moduleProgress])
+
+      // Check Era 2+ (Rise of Islam) - uses completedAt
+      const era2Match = newUserProgress.some(m => {
+        // Check if module has required data: quizCompleted and completedAt
+        if (!m.quizCompleted || !m.completedAt) {
+          return false
+        }
+
+        // Extract month from ISO string (format: "2025-11-09T..." -> month = "11")
+        const monthString = m.completedAt.substring(5, 7)
+        const completionMonth = parseInt(monthString, 10)
+
+        const isMatch = completionMonth === monthNumber
+
+        return isMatch
+      })
+
+      const earned = era1Match || era2Match
+
+      return {
+        ...b,
+        level,
+        earned: earned,
+        imagePath: b.image_url
+      }
+    })
+    .sort((a, b) => b.level - a.level) // Descending order (October appears first)
 
   // Profile state - EXACT SwiftUI values
   const [showAvatarModal, setShowAvatarModal] = useState(false)
@@ -346,7 +355,6 @@ export default function ProfileTab() {
 
   const handleAvatarSelection = (avatar: any) => {
     Haptics.selectionAsync()
-    console.log('🎁 Avatar selected:', avatar.display_text, avatar.id)
     setSelectedAvatar(avatar)
     setShowAvatarModal(false)
   }
@@ -568,7 +576,7 @@ export default function ProfileTab() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
         {/* Header with Profile Title and Settings Button */}
@@ -607,17 +615,15 @@ export default function ProfileTab() {
 
         </View>
 
-        {/* Modules Achievement - Badge, Text, and Icon */}
+        {/* Modules Achievement Card */}
         <View style={styles.achievementsSection}>
-          <View style={styles.achievementRectangle}>
-            <View style={styles.moduleAchievementContent}>
-              <View style={styles.badgeTextGroup}>
-                <View style={styles.achievementBadge}>
-                  <Text style={styles.achievementNumber}>{modulesFinished}</Text>
-                </View>
-                <Text style={styles.achievementText}>Modules finished!</Text>
-              </View>
-              <Image source={require('@/assets/images/icons/modules-icon.png')} style={styles.largeModuleIcon} />
+          <View style={styles.moduleAchievementCard}>
+            <View style={styles.achievementBadge}>
+              <Text style={styles.achievementNumber}>{modulesFinished}</Text>
+            </View>
+            <Text style={styles.achievementText}>Modules finished!</Text>
+            <View style={styles.achievementIcons}>
+              <Image source={require('@/assets/images/icons/modules icon.png')} style={styles.largeModuleIcon} />
             </View>
           </View>
         </View>
@@ -733,17 +739,23 @@ export default function ProfileTab() {
             </View>
           </View>
 
-          {/* Reminders - Locked */}
-          <View style={styles.preferenceCard}>
+          {/* Reminders - Editable */}
+          <TouchableOpacity
+            style={styles.preferenceCard}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              openTimePicker()
+            }}
+          >
             <View style={styles.preferenceLeft}>
               <MaterialIcons name="notifications" size={24} color={ArchivesTheme.colors.persianOrange} />
               <Text style={styles.preferenceLabel}>Reminders</Text>
             </View>
             <View style={styles.preferenceRight}>
               <Text style={styles.preferenceValue}>{formatTime24To12Hour(reminderTime)}</Text>
-              <MaterialIcons name="lock" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.3} />
+              <MaterialIcons name="chevron-right" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.3} />
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Sign Out Button */}
@@ -774,7 +786,7 @@ export default function ProfileTab() {
               >
                 <Ionicons name="chevron-back" size={28} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Avatar</Text>
+              <Text style={styles.modalTitle}>Profile</Text>
               <View style={styles.closeButtonPlaceholder} />
             </View>
 
@@ -1261,13 +1273,11 @@ const styles = StyleSheet.create({
     paddingBottom: 10, // Added bottom padding
   },
   profileTitle: {
-    fontFamily: 'DM-Sans-SemiBold',
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#41425E',
+    fontFamily: 'Cormorant-Bold',
+    fontSize: 36,
+    fontWeight: '700',
+    color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'left',
-    lineHeight: 28,
-    letterSpacing: 0,
   },
   settingsButton: {
     width: 44,
@@ -1307,7 +1317,7 @@ const styles = StyleSheet.create({
     top: '50%',
     left: '50%',
     marginTop: 50, // Moved down 50px from center
-    marginLeft: 55, // Moved 55px right from center
+    marginLeft: 30, // Moved 30px right from center
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -1432,9 +1442,6 @@ const styles = StyleSheet.create({
   
   // Modules Achievement Card
   moduleAchievementCard: {
-    width: '90%',
-    height: 110,
-    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
@@ -1442,59 +1449,34 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     paddingLeft: 16,
     paddingRight: 4,
+    marginHorizontal: 10,
     shadowColor: 'rgba(0, 0, 0, 0.05)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 3,
-  },
-  achievementRectangle: {
-    width: 380,  // Customizable width
-    height: 70, // Customizable height
-    alignSelf: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#C3C3C3',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingLeft: 6,
-    shadowColor: 'rgba(0, 0, 0, 0.05)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  moduleAchievementContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  badgeTextGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
   },
   achievementBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     backgroundColor: ArchivesTheme.colors.mossGreen,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 16,
   },
   achievementNumber: {
     fontFamily: 'DM Sans',
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: 'white',
   },
   achievementText: {
     fontFamily: 'DM Sans',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '500',
     color: ArchivesTheme.colors.persianOrange,
+    flex: 1,
   },
   achievementIcons: {
     flexDirection: 'row',
@@ -1509,8 +1491,8 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   largeModuleIcon: {
-    width: 120,
-    height: 120,
+    width: 90,
+    height: 90,
     resizeMode: 'contain',
   },
 
@@ -1751,8 +1733,7 @@ const styles = StyleSheet.create({
   },
   avatarGridTitle: {
     fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
     color: ArchivesTheme.colors.persianOrange,
     textAlign: 'center',
     lineHeight: 16,

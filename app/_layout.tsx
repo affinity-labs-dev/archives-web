@@ -17,11 +17,12 @@ import { PostHogProvider } from 'posthog-react-native';
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
+import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
 import { RewardsProvider, useRewards } from "@/context/RewardsContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
-import * as NavigationBar from 'expo-navigation-bar';
+import * as SystemUI from 'expo-system-ui';
 import { analyticsService } from "@/services/AnalyticsService";
 import { usePostHog } from 'posthog-react-native';
 import { AppState } from 'react-native';
@@ -239,7 +240,7 @@ export default function RootLayout() {
   // Set Android navigation bar color to match app background
   React.useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync('#F4EBDB');
+      SystemUI.setBackgroundColorAsync('#F4EBDB');
     }
   }, []);
 
@@ -312,10 +313,11 @@ export default function RootLayout() {
         <AnalyticsWrapper>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
               <BackgroundSyncProvider>
-                <RewardsProvider>
-                  <ProgressProvider>
-                    <PreferencesProvider>
-                      <AvatarAnimationWrapper>
+                <AdventuresContentProvider>
+                  <RewardsProvider>
+                    <ProgressProvider>
+                      <PreferencesProvider>
+                        <AvatarAnimationWrapper>
                         <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
                           <Stack>
                             <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -338,7 +340,8 @@ export default function RootLayout() {
                     </PreferencesProvider>
                   </ProgressProvider>
                 </RewardsProvider>
-              </BackgroundSyncProvider>
+              </AdventuresContentProvider>
+            </BackgroundSyncProvider>
           </ClerkProvider>
         </AnalyticsWrapper>
       </PostHogProvider>

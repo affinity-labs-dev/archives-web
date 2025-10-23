@@ -11,7 +11,6 @@ import {
   StatusBar,
   SafeAreaView,
   Image,
-  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -114,7 +113,7 @@ export default function EraSelection() {
 
   const handleContinue = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    if (selectedEraIndex === 0) {
+    if (selectedEraIndex === 0 || selectedEraIndex === 1) {
       const selectedEra = eras[selectedEraIndex]
       console.log('Selected era:', selectedEra)
 
@@ -135,7 +134,7 @@ export default function EraSelection() {
       // Store selected era in context
       await setSelectedEra(eraId)
 
-      // Navigate to home tab
+      // Navigate to home tab for both eras (content rendered in Home based on selectedEra)
       router.push('/(tabs)/')
     }
   }
@@ -159,7 +158,7 @@ export default function EraSelection() {
   )
 
   return (
-    <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" translucent={false} backgroundColor={ArchivesTheme.colors.creamWhite} />
       <View style={styles.container}>
         {/* Background - CreamWhite */}
@@ -189,14 +188,17 @@ export default function EraSelection() {
             showLock={false}
           />
 
+          {/* Eras Coming Soon Text */}
+          <Text style={styles.comingSoonText}>Eras Coming Soon...</Text>
+
           {/* Eras 2-3 - 2x2 Grid */}
-          <View style={styles.gridContainer}>
+          <View style={[styles.gridContainer, styles.gridContainerAfterText]}>
             <View style={styles.gridRow}>
               <GridEraCard
                 era={eras[1]}
                 isSelected={1 === selectedEraIndex}
                 onSelect={() => handleEraSelect(1)}
-                showLock={true}
+                showLock={false}
               />
               <GridEraCard
                 era={eras[2]}
@@ -257,10 +259,10 @@ export default function EraSelection() {
           <Pressable
             style={[
               styles.enterEraButton,
-              selectedEraIndex === 0 && styles.enterEraButtonActive
+              (selectedEraIndex === 0 || selectedEraIndex === 1) && styles.enterEraButtonActive
             ]}
             onPress={handleContinue}
-            disabled={selectedEraIndex !== 0}
+            disabled={selectedEraIndex !== 0 && selectedEraIndex !== 1}
           >
             <Text style={styles.enterEraButtonText}>ENTER ERA</Text>
           </Pressable>
@@ -311,8 +313,7 @@ function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: Hori
       {/* Simple Lock Overlay */}
       {showLock && (
         <View style={styles.simpleLockOverlay}>
-          <MaterialIcons name="lock" size={28} color={ArchivesTheme.colors.creamWhite} />
-          <Text style={styles.comingSoonOverlayText}>Coming soon</Text>
+          <MaterialIcons name="lock" size={28} color="white" />
         </View>
       )}
 
@@ -385,8 +386,7 @@ function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCar
       {/* Simple Lock Overlay */}
       {showLock && (
         <View style={styles.gridSimpleLockOverlay}>
-          <MaterialIcons name="lock" size={24} color={ArchivesTheme.colors.creamWhite} />
-          <Text style={styles.comingSoonOverlayText}>Coming soon</Text>
+          <MaterialIcons name="lock" size={24} color="white" />
         </View>
       )}
 
@@ -706,14 +706,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 24,
-    flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     paddingTop: 16,
     paddingLeft: 16,
-    gap: 8,
   },
   
   gridSimpleLockOverlay: {
@@ -722,24 +720,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 18,
-    flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     paddingTop: 12,
     paddingLeft: 12,
-    gap: 6,
-  },
-
-  // Coming Soon overlay text
-  comingSoonOverlayText: {
-    fontFamily: 'DM-Sans-SemiBold',
-    fontSize: 14,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.creamWhite,
-    textAlign: 'left',
-    marginTop: 4,
   },
 
   // Selected Indicator Styles - Top Right

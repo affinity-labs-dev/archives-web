@@ -7,8 +7,8 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import UmmayadDynastyEra from '@/components/eras/UmmayadDynastyEra'
-import RiseOfIslamEra from '@/components/eras/RiseOfIslamEra'
 import ComingSoonView from '@/components/eras/ComingSoonView'
+import ROIBentoScreen from './roi-bento'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { analyticsService } from '@/services/AnalyticsService'
 import { useFocusEffect } from '@react-navigation/native'
@@ -73,8 +73,9 @@ export default function HomeTab() {
       return <UmmayadDynastyEra onBackToEra={handleBackToEra} />
 
     case 'riseOfIslam':
-      return <RiseOfIslamEra onBackToEra={handleBackToEra} />
-      
+      // Render ROI content directly in Home tab
+      return <ROIBentoScreen />
+
     case 'abbasid':
       return <ComingSoonView era="abbasid" onBack={handleBackToEra} />
       
@@ -125,11 +126,27 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   loadingText: {
     ...ArchivesTheme.typography.bodyLarge,
     color: ArchivesTheme.colors.mutedNavy,
     fontWeight: '500',
+    marginTop: 16,
+  },
+  errorText: {
+    fontSize: 18,
+    fontFamily: 'DM Sans',
+    fontWeight: '600',
+    color: ArchivesTheme.colors.shoeBrown,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    fontFamily: 'DM Sans',
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: 'center',
   },
   title: {
     ...ArchivesTheme.typography.h2,
