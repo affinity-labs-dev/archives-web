@@ -188,9 +188,6 @@ export default function EraSelection() {
             showLock={false}
           />
 
-          {/* Eras Coming Soon Text */}
-          <Text style={styles.comingSoonText}>Eras Coming Soon...</Text>
-
           {/* Era 2 - Horizontal */}
           <HorizontalEraCard
             era={eras[1]}
@@ -683,19 +680,6 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.creamWhite,
   },
 
-  // Coming Soon Text
-  comingSoonText: {
-    ...ArchivesTheme.typography.h2,
-    fontSize: 20,
-    fontWeight: '600', // Semi-bold
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: 'left',
-    paddingLeft: 5,
-    paddingRight: 20,
-    paddingTop: 10,
-    marginBottom: 10,
-  },
-
   // Coming Soon overlay text
   comingSoonOverlayText: {
     fontFamily: 'DM-Sans-SemiBold',
@@ -704,11 +688,6 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.creamWhite,
     textAlign: 'left',
     marginTop: 6,
-  },
-
-  // Grid container after text
-  gridContainerAfterText: {
-    marginTop: -10,
   },
 
   // Simple Lock Overlay Styles
