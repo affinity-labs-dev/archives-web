@@ -623,7 +623,7 @@ export default function ProfileTab() {
             </View>
             <Text style={styles.achievementText}>Modules finished!</Text>
             <View style={styles.achievementIcons}>
-              <Image source={require('@/assets/images/icons/modules icon.png')} style={styles.largeModuleIcon} />
+              <Image source={require('@/assets/images/icons/modules-icon.png')} style={styles.largeModuleIcon} />
             </View>
           </View>
         </View>

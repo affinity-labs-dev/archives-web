@@ -180,7 +180,7 @@ function AdventureCompleteView({
         <View style={styles.statCard}>
           <View style={styles.statIconContainer}>
             <Image
-              source={require('@/assets/images/icons/modules icon.png')}
+              source={require('@/assets/images/icons/modules-icon.png')}
               style={styles.moduleIcon}
             />
           </View>
