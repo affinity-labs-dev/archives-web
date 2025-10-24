@@ -63,7 +63,7 @@ const AdventureIcon = ({ iconUrl }: { iconUrl: string | null }) => {
 const StarBadge = ({ starCount, isLarge }: { starCount: number; isLarge: boolean }) => {
   // Calculate star sizes relative to card type (Era 1 pattern)
   // Middle star is ~18% larger than side stars for emphasis
-  const baseSize = isLarge ? 22 : 16;           // Side stars
+  const baseSize = 22;                          // Side stars - same size for all cards
   const middleSize = baseSize * 1.18;           // Middle star (18% larger)
   const middleOffset = -(middleSize / 2);       // Dynamic centering offset
 
