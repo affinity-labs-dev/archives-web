@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   Dimensions,
@@ -67,32 +68,34 @@ const AdventureIcon = ({ iconUrl }: { iconUrl: string | null }) => {
   );
 };
 
-// Star Badge Component - Using asset star SVG
+// Star Badge Component - Ionicons style matching Era 1 (Umayyad Dynasty)
 const StarBadge = ({ starCount, isLarge }: { starCount: number; isLarge: boolean }) => {
-  // Scale stars based on card size (larger for big cards)
-  const starScale = isLarge ? 1 : 0.75;
-  const starSize = 26 * starScale;
-
-  const StarSvg = ({ filled }: { filled: boolean }) => (
-    <Svg width={starSize} height={starSize} viewBox="0 0 26 27" fill="none">
-      <Path
-        d="M4.69411 1.69751C4.64067 1.14403 5.17785 0.720877 5.70342 0.902452L11.5699 2.92921C11.7508 2.99168 11.9485 2.98399 12.1239 2.90765L17.8152 0.431177C18.3251 0.209313 18.8935 0.589442 18.8832 1.1454L18.7685 7.35108C18.765 7.54237 18.8334 7.72802 18.9602 7.87127L23.0742 12.5187C23.4427 12.9351 23.2569 13.5932 22.7249 13.7552L16.7875 15.5638C16.6045 15.6195 16.4491 15.7419 16.352 15.9068L13.2033 21.2556C12.9212 21.7348 12.2379 21.7614 11.9195 21.3055L8.36465 16.2176C8.25507 16.0608 8.09061 15.9508 7.90381 15.9094L1.84383 14.5677C1.30092 14.4475 1.06448 13.8058 1.39958 13.3621L5.13999 8.40902C5.25529 8.25635 5.30906 8.06595 5.29067 7.87551L4.69411 1.69751Z"
-        fill={filled ? "#DFB723" : "#A9A9A9"}
-      />
-    </Svg>
-  );
+  // Calculate star sizes relative to card type (Era 1 pattern)
+  // Middle star is ~18% larger than side stars for emphasis
+  const baseSize = isLarge ? 22 : 16;           // Side stars
+  const middleSize = baseSize * 1.18;           // Middle star (18% larger)
+  const middleOffset = -(middleSize / 2);       // Dynamic centering offset
 
   return (
     <View style={styles.starBadge}>
-      <View style={styles.leftStar}>
-        <StarSvg filled={starCount >= 1} />
-      </View>
-      <View style={styles.middleStar}>
-        <StarSvg filled={starCount >= 2} />
-      </View>
-      <View style={styles.rightStar}>
-        <StarSvg filled={starCount >= 3} />
-      </View>
+      <Ionicons
+        name="star"
+        size={baseSize}
+        color={starCount >= 1 ? "#DFB723" : "#A9A9A9"}
+        style={styles.leftStar}
+      />
+      <Ionicons
+        name="star"
+        size={middleSize}
+        color={starCount >= 2 ? "#DFB723" : "#A9A9A9"}
+        style={[styles.middleStar, { marginLeft: middleOffset }]}
+      />
+      <Ionicons
+        name="star"
+        size={baseSize}
+        color={starCount >= 3 ? "#DFB723" : "#A9A9A9"}
+        style={styles.rightStar}
+      />
     </View>
   );
 };
@@ -540,44 +543,35 @@ const styles = StyleSheet.create({
   },
   starBadge: {
     width: 70,
-    height: 30,
+    height: 25,
     position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   starBadgeBackground: {
     display: 'none',
   },
   leftStar: {
     position: 'absolute',
-    left: 0,
-    top: 8, // Lower to touch button
-    transform: [{ rotate: '-20deg' }], // Steeper angle
-    shadowColor: '#000',
-    shadowOffset: { width: 1, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
+    left: '5%',              // Relative positioning (5% from left)
+    top: '33%',              // Relative positioning (creates subtle arc)
+    transform: [{ rotate: '-15deg' }], // Era 1 gentle angle
+    borderRadius: 50,        // Era 1 glow effect
   },
   middleStar: {
     position: 'absolute',
-    left: '50%',
-    marginLeft: -13,
-    top: 0, // At top of arc
-    shadowColor: '#000',
-    shadowOffset: { width: 1, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
+    left: '50%',             // Centered horizontally
+    // marginLeft calculated dynamically in component
+    top: '0%',               // At top of arc (highest point)
+    borderRadius: 50,        // Era 1 glow effect
   },
   rightStar: {
     position: 'absolute',
-    right: 0,
-    top: 8, // Lower to touch button
-    transform: [{ rotate: '20deg' }], // Steeper angle
-    shadowColor: '#000',
-    shadowOffset: { width: 1, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
+    right: '5%',             // Relative positioning (5% from right)
+    top: '33%',              // Relative positioning (matches left star)
+    transform: [{ rotate: '15deg' }],  // Era 1 gentle angle
+    borderRadius: 50,        // Era 1 glow effect
   },
 
   // Small Card Completed Layout (Horizontal)
