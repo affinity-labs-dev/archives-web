@@ -23,7 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
 
 // Development flag - set to false when ready for production subscription system
-const DEVELOPMENT_UNLOCK_ERA2 = false
+const DEVELOPMENT_UNLOCK_ERA2 = true
 
 // const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
