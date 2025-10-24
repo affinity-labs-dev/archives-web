@@ -3,8 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faStar, faArrowRotateLeft } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
 import {
   Dimensions,
@@ -70,20 +69,20 @@ const StarBadge = ({ starCount, isLarge }: { starCount: number; isLarge: boolean
 
   return (
     <View style={styles.starBadge}>
-      <FontAwesomeIcon
-        icon={faStar}
+      <FontAwesome
+        name="star"
         size={baseSize}
         color={starCount >= 1 ? "#DFB723" : "#A9A9A9"}
         style={styles.leftStar}
       />
-      <FontAwesomeIcon
-        icon={faStar}
+      <FontAwesome
+        name="star"
         size={middleSize}
         color={starCount >= 2 ? "#DFB723" : "#A9A9A9"}
         style={[styles.middleStar, { marginLeft: middleOffset }]}
       />
-      <FontAwesomeIcon
-        icon={faStar}
+      <FontAwesome
+        name="star"
         size={baseSize}
         color={starCount >= 3 ? "#DFB723" : "#A9A9A9"}
         style={styles.rightStar}
@@ -273,7 +272,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
                     </View>
                   )}
                   <View style={styles.replayButton}>
-                    <FontAwesomeIcon icon={faArrowRotateLeft} size={28} color="white" />
+                    <FontAwesome name="undo" size={28} color="white" />
                   </View>
                 </View>
                 <View style={styles.cardTitleContainerCompleted}>
@@ -291,7 +290,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
                     </View>
                   )}
                   <View style={styles.smallReplayButton}>
-                    <FontAwesomeIcon icon={faArrowRotateLeft} size={28} color="white" />
+                    <FontAwesome name="undo" size={28} color="white" />
                   </View>
                 </View>
 
