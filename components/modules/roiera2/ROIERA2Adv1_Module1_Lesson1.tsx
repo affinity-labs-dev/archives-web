@@ -296,14 +296,20 @@ export default function ROIERA2Adv1_Module1_Lesson1({
           styles.collapsedContent,
           { opacity: cardOpacity }
         ]}>
-          <View style={styles.readingCardHeader}>
-            <Text style={styles.cardTitle}>
-              Meccan Life & Tribal Culture
-            </Text>
-            <Text style={styles.cardSubtitle}>
-              Understanding desert city culture and tribal traditions
-            </Text>
-          </View>
+          <TouchableOpacity
+            onPress={expandCard}
+            activeOpacity={0.8}
+            disabled={isCardExpanded}
+          >
+            <View style={styles.readingCardHeader}>
+              <Text style={styles.cardTitle}>
+                Meccan Life & Tribal Culture
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                Understanding desert city culture and tribal traditions
+              </Text>
+            </View>
+          </TouchableOpacity>
         </Animated.View>
 
         {/* Expanded Content - Only visible when card is expanded */}
@@ -322,39 +328,45 @@ export default function ROIERA2Adv1_Module1_Lesson1({
             >
               <View style={styles.expandedContentInner}>
                 {/* Title Section */}
-                <View style={styles.titleSection}>
-                  <Text style={styles.sheetTitle}>
-                    Meccan Life & Tribal Culture
-                  </Text>
-                  <Text style={styles.sheetSubtitle}>
-                    Module 1 • Lesson 1
-                  </Text>
-                </View>
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.titleSection}>
+                    <Text style={styles.sheetTitle}>
+                      Meccan Life & Tribal Culture
+                    </Text>
+                    <Text style={styles.sheetSubtitle}>
+                      Module 1 • Lesson 1
+                    </Text>
+                  </View>
+                </TouchableOpacity>
 
                 {/* Historical Content */}
-                <View style={styles.historicalSection}>
-                  <Text style={styles.sectionTitle}>Historical Context</Text>
-                  <Text style={styles.historicalText}>{historicalText}</Text>
-                </View>
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.historicalSection}>
+                    <Text style={styles.sectionTitle}>Historical Context</Text>
+                    <Text style={styles.historicalText}>{historicalText}</Text>
+                  </View>
+                </TouchableOpacity>
 
                 {/* Key Terms Section */}
-                <View style={styles.keyTermsSection}>
-                  <Text style={styles.sectionTitle}>Key Terms</Text>
-                  <View style={styles.keyTermsContainer}>
-                    <KeyTermRow
-                      term="Kaaba"
-                      definition="The sacred black cube structure at the center of Mecca, surrounded by tribal idols before Islam"
-                    />
-                    <KeyTermRow
-                      term="Tribal Culture"
-                      definition="The social organization based on family clans that provided protection and identity in Arabian society"
-                    />
-                    <KeyTermRow
-                      term="Caravan Trade"
-                      definition="The commercial network that brought goods and cultures from Yemen and Syria through Mecca"
-                    />
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.keyTermsSection}>
+                    <Text style={styles.sectionTitle}>Key Terms</Text>
+                    <View style={styles.keyTermsContainer}>
+                      <KeyTermRow
+                        term="Kaaba"
+                        definition="The sacred black cube structure at the center of Mecca, surrounded by tribal idols before Islam"
+                      />
+                      <KeyTermRow
+                        term="Tribal Culture"
+                        definition="The social organization based on family clans that provided protection and identity in Arabian society"
+                      />
+                      <KeyTermRow
+                        term="Caravan Trade"
+                        definition="The commercial network that brought goods and cultures from Yemen and Syria through Mecca"
+                      />
+                    </View>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* Bottom Spacer */}
                 <View style={styles.sheetBottomSpacer} />

@@ -298,14 +298,20 @@ export default function ROIReelLesson({
           styles.collapsedContent,
           { opacity: cardOpacity }
         ]}>
-          <View style={styles.readingCardHeader}>
-            <Text style={styles.cardTitle}>
-              {contentItem.thumbnail_title || 'Content'}
-            </Text>
-            <Text style={styles.cardSubtitle} numberOfLines={2}>
-              {contentItem.bottom_content?.reading_text?.replace(/<[^>]*>/g, '').substring(0, 100) || ''}...
-            </Text>
-          </View>
+          <TouchableOpacity
+            onPress={expandCard}
+            activeOpacity={0.8}
+            disabled={isCardExpanded}
+          >
+            <View style={styles.readingCardHeader}>
+              <Text style={styles.cardTitle}>
+                {contentItem.thumbnail_title || 'Content'}
+              </Text>
+              <Text style={styles.cardSubtitle} numberOfLines={2}>
+                {contentItem.bottom_content?.reading_text?.replace(/<[^>]*>/g, '').substring(0, 100) || ''}...
+              </Text>
+            </View>
+          </TouchableOpacity>
         </Animated.View>
 
         {/* Expanded Content */}
@@ -324,36 +330,40 @@ export default function ROIReelLesson({
             >
               <View style={styles.expandedContentInner}>
                 {/* Title Section */}
-                <View style={styles.titleSection}>
-                  <Text style={styles.sheetTitle}>
-                    {contentItem.thumbnail_title || 'Content'}
-                  </Text>
-                  <Text style={styles.sheetSubtitle}>
-                    Reel • {contentItem.order_by}
-                  </Text>
-                </View>
+                <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                  <View style={styles.titleSection}>
+                    <Text style={styles.sheetTitle}>
+                      {contentItem.thumbnail_title || 'Content'}
+                    </Text>
+                    <Text style={styles.sheetSubtitle}>
+                      Reel • {contentItem.order_by}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
 
                 {/* HTML Content Rendering */}
                 {contentItem.bottom_content?.reading_text && (
-                  <View style={styles.historicalSection}>
-                    <RenderHtml
-                      contentWidth={SCREEN_WIDTH - 40}
-                      source={{ html: contentItem.bottom_content.reading_text }}
-                      tagsStyles={{
-                        body: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20 },
-                        h1: { color: 'white', fontFamily: 'DM Sans', fontSize: 24, fontWeight: '700', marginBottom: 12 },
-                        h2: { color: 'white', fontFamily: 'DM Sans', fontSize: 20, fontWeight: '700', marginBottom: 10 },
-                        h3: { color: 'white', fontFamily: 'DM Sans', fontSize: 18, fontWeight: '600', marginBottom: 8 },
-                        p: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 12 },
-                        strong: { fontWeight: '600', color: 'white' },
-                        em: { fontStyle: 'italic', color: 'white' },
-                        ul: { marginBottom: 12 },
-                        li: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 6 },
-                        blockquote: { borderLeftWidth: 3, borderLeftColor: ArchivesTheme.colors.persianOrange, paddingLeft: 12, marginBottom: 12, fontStyle: 'italic' },
-                        hr: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.2)', marginVertical: 16 },
-                      }}
-                    />
-                  </View>
+                  <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                    <View style={styles.historicalSection}>
+                      <RenderHtml
+                        contentWidth={SCREEN_WIDTH - 40}
+                        source={{ html: contentItem.bottom_content.reading_text }}
+                        tagsStyles={{
+                          body: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20 },
+                          h1: { color: 'white', fontFamily: 'DM Sans', fontSize: 24, fontWeight: '700', marginBottom: 12 },
+                          h2: { color: 'white', fontFamily: 'DM Sans', fontSize: 20, fontWeight: '700', marginBottom: 10 },
+                          h3: { color: 'white', fontFamily: 'DM Sans', fontSize: 18, fontWeight: '600', marginBottom: 8 },
+                          p: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 12 },
+                          strong: { fontWeight: '600', color: 'white' },
+                          em: { fontStyle: 'italic', color: 'white' },
+                          ul: { marginBottom: 12 },
+                          li: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 6 },
+                          blockquote: { borderLeftWidth: 3, borderLeftColor: ArchivesTheme.colors.persianOrange, paddingLeft: 12, marginBottom: 12, fontStyle: 'italic' },
+                          hr: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.2)', marginVertical: 16 },
+                        }}
+                      />
+                    </View>
+                  </TouchableOpacity>
                 )}
 
                 {/* Bottom Spacer */}

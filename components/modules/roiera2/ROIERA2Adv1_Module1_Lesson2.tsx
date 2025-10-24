@@ -535,14 +535,20 @@ export default function ROIERA2Adv1_Module1_Lesson2({
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Meccan Life & Tribal Culture
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Understanding desert city culture and tribal traditions
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        Meccan Life & Tribal Culture
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        Understanding desert city culture and tribal traditions
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}
@@ -643,14 +649,20 @@ export default function ROIERA2Adv1_Module1_Lesson2({
                 <Animated.View
                   style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Meccan Life & Tribal Culture
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Understanding desert city culture and tribal traditions
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        Meccan Life & Tribal Culture
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        Understanding desert city culture and tribal traditions
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* Expanded content when card is swiped up */}

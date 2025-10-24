@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   },
   leftStar: {
     position: 'absolute',
-    left: '5%',              // Relative positioning (5% from left)
+    left: '0%',              // Relative positioning (0% from left - absolute edge)
     top: '33%',              // Relative positioning (creates subtle arc)
     transform: [{ rotate: '-15deg' }], // Era 1 gentle angle
     borderRadius: 50,        // Era 1 glow effect
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
   },
   rightStar: {
     position: 'absolute',
-    right: '5%',             // Relative positioning (5% from right)
+    right: '0%',             // Relative positioning (0% from right - absolute edge)
     top: '33%',              // Relative positioning (matches left star)
     transform: [{ rotate: '15deg' }],  // Era 1 gentle angle
     borderRadius: 50,        // Era 1 glow effect
