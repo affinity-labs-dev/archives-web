@@ -244,13 +244,13 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
             isVideo={!!isVideoThumbnail}
           />
 
-          {/* Solid overlay for image visibility */}
-          <View style={styles.cardOverlay} />
-
-          {/* Number Badge - top right */}
+          {/* Number Badge - top right (under overlay) */}
           <View style={styles.numberBadge}>
             <Text style={styles.numberText}>{item.order_by}</Text>
           </View>
+
+          {/* Solid overlay for image visibility */}
+          <View style={styles.cardOverlay} />
 
           {/* Conditional Layout based on completion and card size */}
           {isCompleted ? (
@@ -435,7 +435,8 @@ const styles = StyleSheet.create({
   },
   cardOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    zIndex: 2,
   },
 
   // Card Elements
@@ -449,6 +450,7 @@ const styles = StyleSheet.create({
     marginTop: -25,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 3,
   },
   replayButton: {
     width: 50,
@@ -462,6 +464,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
+    zIndex: 3,
   },
   numberBadge: {
     position: 'absolute',
@@ -473,9 +476,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#E6D5B7',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 3,
   },
   numberText: {
-    color: '#4D392E',
+    color: '#F4EBDB',
     fontSize: 10,
     fontFamily: 'DMSans-SemiBold',
     textAlign: 'center',
@@ -489,6 +493,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 14,
+    zIndex: 3,
   },
   cardTitleContainerCompleted: {
     position: 'absolute',
@@ -497,6 +502,7 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     paddingHorizontal: 14,
+    zIndex: 3,
   },
   cardTitle: {
     color: '#FFFFFF',
@@ -564,6 +570,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
+    zIndex: 3,
   },
   smallCardLeftSide: {
     position: 'relative',
