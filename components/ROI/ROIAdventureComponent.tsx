@@ -244,19 +244,11 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
             isVideo={!!isVideoThumbnail}
           />
 
-          {/* Gradient overlay for image visibility */}
-          <LinearGradient
-            colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.4)']}
-            locations={[0, 1]}
-            style={StyleSheet.absoluteFillObject}
-          />
+          {/* Solid overlay for image visibility */}
+          <View style={styles.cardOverlay} />
 
           {/* Number Badge - top right */}
-          <View style={styles.numberBadgeContainer}>
-            <Svg width={18} height={18} viewBox="0 0 18 18" style={StyleSheet.absoluteFillObject}>
-              <Circle cx={9} cy={9} r={9} fill="#E6D5B7" />
-              <Circle cx={9} cy={9} r={9} fill="black" fillOpacity={0.2} />
-            </Svg>
+          <View style={styles.numberBadge}>
             <Text style={styles.numberText}>{item.order_by}</Text>
           </View>
 
@@ -441,6 +433,10 @@ const styles = StyleSheet.create({
     borderRadius: 10.28,
     overflow: 'hidden',
   },
+  cardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
 
   // Card Elements
   replayButtonContainer: {
@@ -467,24 +463,22 @@ const styles = StyleSheet.create({
     top: 8,
     left: 8,
   },
-  numberBadgeContainer: {
+  numberBadge: {
     position: 'absolute',
     top: 8,
     right: 8,
     width: 18,
     height: 18,
+    borderRadius: 9,
+    backgroundColor: '#E6D5B7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   numberText: {
-    color: '#F4EBDB',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'DM Sans',
-    lineHeight: 15.68,
+    color: '#4D392E',
+    fontSize: 10,
+    fontFamily: 'DMSans-SemiBold',
     textAlign: 'center',
-    zIndex: 1,
-    position: 'absolute',
   },
   cardTitleContainerCentered: {
     position: 'absolute',
