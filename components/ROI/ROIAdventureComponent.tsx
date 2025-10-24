@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
 import {
   Dimensions,
@@ -78,19 +78,19 @@ const StarBadge = ({ starCount, isLarge }: { starCount: number; isLarge: boolean
 
   return (
     <View style={styles.starBadge}>
-      <Ionicons
+      <FontAwesome
         name="star"
         size={baseSize}
         color={starCount >= 1 ? "#DFB723" : "#A9A9A9"}
         style={styles.leftStar}
       />
-      <Ionicons
+      <FontAwesome
         name="star"
         size={middleSize}
         color={starCount >= 2 ? "#DFB723" : "#A9A9A9"}
         style={[styles.middleStar, { marginLeft: middleOffset }]}
       />
-      <Ionicons
+      <FontAwesome
         name="star"
         size={baseSize}
         color={starCount >= 3 ? "#DFB723" : "#A9A9A9"}

@@ -11,7 +11,7 @@ import ModuleModal from '@/components/modules/ModuleModal'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
 import { useProgress } from '@/context/ProgressContext'
-import { Ionicons, MaterialIcons } from '@expo/vector-icons'
+import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -349,21 +349,21 @@ const UmmayadDynastyEra = React.memo(function UmmayadDynastyEra({ onBackToEra }:
             
             return (
               <View style={styles.starRating}>
-                <Ionicons 
+                <FontAwesome
                   name="star"
-                  size={22} 
+                  size={22}
                   color={starCount >= 1 ? "#DFB723" : "#A9A9A9"}
                   style={styles.leftStar}
                 />
-                <Ionicons 
+                <FontAwesome
                   name="star"
-                  size={26} 
+                  size={26}
                   color={starCount >= 2 ? "#DFB723" : "#A9A9A9"}
                   style={styles.middleStar}
                 />
-                <Ionicons 
+                <FontAwesome
                   name="star"
-                  size={22} 
+                  size={22}
                   color={starCount >= 3 ? "#DFB723" : "#A9A9A9"}
                   style={styles.rightStar}
                 />
