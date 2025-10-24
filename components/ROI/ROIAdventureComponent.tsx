@@ -213,7 +213,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
 
   const renderCard = (item: ContentItem, index: number) => {
     const cardStyle = cardPositions[index];
-    const isLarge = cardStyle.height > 100;
+    const isLarge = index === 0 || index === 4; // Cards 1 and 5 are large
 
     // Determine if this content type should show play button when uncompleted
     // Only show play button for video content (reel and video_carousel)
@@ -264,7 +264,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
                     </View>
                   )}
                   <View style={styles.replayButton}>
-                    <FontAwesome name="undo" size={28} color="white" />
+                    <FontAwesome name="undo" size={34} color="white" />
                   </View>
                 </View>
                 <View style={styles.cardTitleContainerCompleted}>
@@ -282,7 +282,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
                     </View>
                   )}
                   <View style={styles.smallReplayButton}>
-                    <FontAwesome name="undo" size={28} color="white" />
+                    <FontAwesome name="undo" size={34} color="white" />
                   </View>
                 </View>
 
@@ -297,7 +297,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
               {/* Uncompleted cards: Show play button ONLY for video content */}
               {isVideoContent && (
                 <View style={styles.playIconTopLeft}>
-                  <Svg width={24} height={24} viewBox="0 0 42 42" fill="none">
+                  <Svg width={42} height={42} viewBox="0 0 42 42" fill="none">
                     <Path
                       d="M14 30.0559V11.9434C14 11.4475 14.175 11.0319 14.525 10.6965C14.875 10.3611 15.2833 10.1934 15.75 10.1934C15.8958 10.1934 16.049 10.2152 16.2094 10.259C16.3698 10.3027 16.5229 10.3684 16.6688 10.4559L30.9312 19.5121C31.1938 19.6871 31.3906 19.9059 31.5219 20.1684C31.6531 20.4309 31.7188 20.7079 31.7188 20.9996C31.7188 21.2913 31.6531 21.5684 31.5219 21.8309C31.3906 22.0934 31.1938 22.3121 30.9312 22.4871L16.6688 31.5434C16.5229 31.6309 16.3698 31.6965 16.2094 31.7402C16.049 31.784 15.8958 31.8059 15.75 31.8059C15.2833 31.8059 14.875 31.6382 14.525 31.3027C14.175 30.9673 14 30.5517 14 30.0559ZM17.5 26.8621L26.6875 20.9996L17.5 15.1371V26.8621Z"
                       fill="white"
@@ -369,16 +369,16 @@ const styles = StyleSheet.create({
   eraText: {
     color: '#C99151',
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.68,
+    fontWeight: '500',
+    letterSpacing: 1.5,
     fontFamily: 'DM Sans',
     lineHeight: 12,
   },
   adventureText: {
     color: 'rgba(0, 0, 0, 0.20)',
     fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1.68,
+    fontWeight: '500',
+    letterSpacing: 1.5,
     fontFamily: 'DM Sans',
     lineHeight: 12,
   },
@@ -395,10 +395,9 @@ const styles = StyleSheet.create({
   },
   mainTitle: {
     width: 242,
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: '700',
-    lineHeight: 30,
-    color: ArchivesTheme?.colors?.shoeBrown || '#4D392E',
+    color: ArchivesTheme?.colors?.mutedNavy,
     fontFamily: 'Cormorant-Bold',
   },
   shareButton: {
@@ -411,9 +410,9 @@ const styles = StyleSheet.create({
   dateRange: {
     marginLeft: 14,
     color: '#D7C5B6',
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 16,
+    fontSize: 18,
+    fontWeight: '500',
+    lineHeight: 18,
     fontFamily: 'DM Sans',
     marginBottom: 13,
   },
@@ -462,8 +461,8 @@ const styles = StyleSheet.create({
   },
   playIconTopLeft: {
     position: 'absolute',
-    top: 8,
-    left: 8,
+    top: 2,
+    left: 0,
     zIndex: 3,
   },
   numberBadge: {
@@ -519,7 +518,7 @@ const styles = StyleSheet.create({
   // Star Badge - EXACT screenshot positioning (tight arc around button)
   starBadgePosition: {
     position: 'absolute',
-    top: -15, // Very tight to button top
+    top: 10, // Positioned below button
     left: 0,
     right: 0,
     height: 30,
@@ -541,22 +540,22 @@ const styles = StyleSheet.create({
   leftStar: {
     position: 'absolute',
     left: '0%',              // Relative positioning (0% from left - absolute edge)
-    top: '33%',              // Relative positioning (creates subtle arc)
-    transform: [{ rotate: '-15deg' }], // Era 1 gentle angle
+    top: -22.5,              // Moved up 35px from 50% (12.5px)
+    transform: [{ rotate: '-60deg' }], // Dramatic arc angle
     borderRadius: 50,        // Era 1 glow effect
   },
   middleStar: {
     position: 'absolute',
     left: '50%',             // Centered horizontally
     // marginLeft calculated dynamically in component
-    top: '0%',               // At top of arc (highest point)
+    top: -35,                // Moved up 35px from 0%
     borderRadius: 50,        // Era 1 glow effect
   },
   rightStar: {
     position: 'absolute',
-    right: '0%',             // Relative positioning (0% from right - absolute edge)
-    top: '33%',              // Relative positioning (matches left star)
-    transform: [{ rotate: '15deg' }],  // Era 1 gentle angle
+    right: '2%',             // Adjusted inward to balance visual spacing with rotation
+    top: -22.5,              // Moved up 35px from 50% (12.5px)
+    transform: [{ rotate: '60deg' }],  // Dramatic arc angle
     borderRadius: 50,        // Era 1 glow effect
   },
 
@@ -569,7 +568,9 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingLeft: 20,
+    paddingRight: 12,
+    paddingTop: 25,
     zIndex: 3,
   },
   smallCardLeftSide: {
@@ -578,11 +579,11 @@ const styles = StyleSheet.create({
     height: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 8,
   },
   smallCardStarsPosition: {
     position: 'absolute',
-    top: -15,
+    top: 10,
     left: -10,
     right: -10,
     height: 30,
