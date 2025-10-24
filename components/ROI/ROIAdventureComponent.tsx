@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
 import {
   Dimensions,
@@ -272,7 +272,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
                     </View>
                   )}
                   <View style={styles.replayButton}>
-                    <MaterialIcons name="replay" size={32} color="white" />
+                    <FontAwesome name="arrow-rotate-left" size={28} color="white" />
                   </View>
                 </View>
                 <View style={styles.cardTitleContainerCompleted}>
@@ -290,7 +290,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
                     </View>
                   )}
                   <View style={styles.smallReplayButton}>
-                    <MaterialIcons name="replay" size={32} color="white" />
+                    <FontAwesome name="arrow-rotate-left" size={28} color="white" />
                   </View>
                 </View>
 
