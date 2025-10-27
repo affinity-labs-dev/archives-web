@@ -323,14 +323,14 @@ export default function ROIQuiz({
 
   // Handle continue to next question
   const handleContinueToNext = async () => {
-    setShowFeedback(false);
-    setSelectedAnswer(null);
-
     if (questionNumber < totalQuestions) {
-      // Move to next question and randomize image
+      // Not last question - clear UI and move to next
+      setShowFeedback(false);
+      setSelectedAnswer(null);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
     } else {
+      // Last question - keep feedback visible during async operations
       // Quiz complete - correctAnswers already includes the last answer from handleSubmit
       const finalCorrect = correctAnswers;
 
