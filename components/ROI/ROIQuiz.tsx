@@ -103,6 +103,75 @@ function ROIMCQOptionButton({
   );
 }
 
+// True/False Option Button - Umayyad Dynasty Design
+interface ROITrueFalseOptionButtonProps {
+  isTrue: boolean;
+  isSelected: boolean;
+  isCorrect?: boolean;
+  isWrong?: boolean;
+  showResult?: boolean;
+  onPress: () => void;
+}
+
+function ROITrueFalseOptionButton({
+  isTrue,
+  isSelected,
+  isCorrect,
+  isWrong,
+  showResult,
+  onPress,
+}: ROITrueFalseOptionButtonProps) {
+  // Determine colors based on state - match Umayyad design
+  const getShadowColor = () => {
+    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
+    if (showResult && isWrong) return ArchivesTheme.colors.concreteGrey;
+    if (isSelected) return ArchivesTheme.colors.shoeBrown;
+    return ArchivesTheme.colors.concreteGrey;
+  };
+
+  const getBorderColor = () => {
+    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
+    if (isSelected) return ArchivesTheme.colors.shoeBrown;
+    return 'rgba(128,128,128,0.3)';
+  };
+
+  const getContentBorderColor = () => {
+    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
+    if (isSelected) return ArchivesTheme.colors.shoeBrown;
+    return 'rgba(128,128,128,0.2)';
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.trueFalseContainer}
+      onPress={onPress}
+      disabled={showResult}
+      activeOpacity={0.7}
+    >
+      {/* Shadow layer - 3D depth effect */}
+      <View style={[styles.trueFalseShadow, { backgroundColor: getShadowColor() }]} />
+
+      {/* Border layer - 4px stroke */}
+      <View style={[styles.trueFalseBorder, { borderColor: getBorderColor() }]} />
+
+      {/* Content layer - white background with 2px overlay */}
+      <View style={[styles.trueFalseContent, { borderColor: getContentBorderColor() }]}>
+        {/* Icon circle */}
+        <View style={styles.trueFalseIconCircle}>
+          <Ionicons
+            name={isTrue ? "checkmark" : "close"}
+            size={24}
+            color="white"
+          />
+        </View>
+
+        {/* Text */}
+        <Text style={styles.trueFalseText}>{isTrue ? "True" : "False"}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 // Explanation Popup - Umayyad Dynasty Design (Centered Card)
 interface ExplanationPopupProps {
   isVisible: boolean;
@@ -385,24 +454,45 @@ export default function ROIQuiz({
         {/* Question */}
         <Text style={styles.roiQuestionText}>{currentQuestion.question_text}</Text>
 
-        {/* Answer options */}
-        <View style={styles.questionOptionsGroup}>
-          {options.map((option, index) => {
-            const letter = String.fromCharCode(65 + index); // A, B, C, D
-            return (
-              <ROIMCQOptionButton
-                key={index}
-                letter={letter}
-                text={option}
-                isSelected={selectedAnswer === index}
-                isCorrect={showFeedback && index === correctAnswerIndex}
-                isWrong={showFeedback && selectedAnswer === index && !isCorrect}
-                showResult={showFeedback}
-                onPress={() => handleAnswerSelect(index)}
-              />
-            );
-          })}
-        </View>
+        {/* Answer options - Conditional rendering based on question type */}
+        {currentQuestion.question_type === 'trueFalse' ? (
+          // True/False layout - Horizontal buttons
+          <View style={styles.trueFalseOptionsGroup}>
+            {options.map((option, index) => {
+              const isTrue = option.toLowerCase().includes('true');
+              return (
+                <ROITrueFalseOptionButton
+                  key={index}
+                  isTrue={isTrue}
+                  isSelected={selectedAnswer === index}
+                  isCorrect={showFeedback && index === correctAnswerIndex}
+                  isWrong={showFeedback && selectedAnswer === index && !isCorrect}
+                  showResult={showFeedback}
+                  onPress={() => handleAnswerSelect(index)}
+                />
+              );
+            })}
+          </View>
+        ) : (
+          // MCQ layout - Vertical stack
+          <View style={styles.questionOptionsGroup}>
+            {options.map((option, index) => {
+              const letter = String.fromCharCode(65 + index); // A, B, C, D
+              return (
+                <ROIMCQOptionButton
+                  key={index}
+                  letter={letter}
+                  text={option}
+                  isSelected={selectedAnswer === index}
+                  isCorrect={showFeedback && index === correctAnswerIndex}
+                  isWrong={showFeedback && selectedAnswer === index && !isCorrect}
+                  showResult={showFeedback}
+                  onPress={() => handleAnswerSelect(index)}
+                />
+              );
+            })}
+          </View>
+        )}
 
           {/* Spacer for submit button */}
           <View style={{ height: 120 }} />
@@ -590,6 +680,55 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.shoeBrown,
     lineHeight: 22,
     flexWrap: 'wrap',
+  },
+
+  // True/False Options - Umayyad Dynasty Design
+  trueFalseOptionsGroup: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20, // Space between True and False buttons
+    paddingHorizontal: 0,
+  },
+  trueFalseContainer: {
+    position: 'relative',
+  },
+  trueFalseShadow: {
+    position: 'absolute',
+    width: 132, // EXACT: Vertical button 132x120px
+    height: 120,
+    borderRadius: 20,
+    top: 7, // EXACT: 3D depth effect
+  },
+  trueFalseBorder: {
+    position: 'absolute',
+    width: 130, // EXACT: Border layer
+    height: 120,
+    borderRadius: 20,
+    borderWidth: 4,
+  },
+  trueFalseContent: {
+    width: 130, // EXACT: Content layer
+    height: 120,
+    backgroundColor: '#F7F7F7', // Slightly off-white for True/False
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  trueFalseIconCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(77, 57, 46, 0.4)', // ShoeBrown with 40% opacity (matches MCQ circle)
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  trueFalseText: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '500',
+    color: ArchivesTheme.colors.shoeBrown,
   },
 
   // Submit button - Umayyad Dynasty Design
