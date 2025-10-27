@@ -172,8 +172,8 @@ function ROITrueFalseOptionButton({
   );
 }
 
-// Explanation Popup - Umayyad Dynasty Design (Centered Card)
-interface ExplanationPopupProps {
+// Bottom Sheet Feedback - ROI Design
+interface ROIFeedbackSheetProps {
   isVisible: boolean;
   isCorrect: boolean;
   points: number;
@@ -181,91 +181,79 @@ interface ExplanationPopupProps {
   onContinue: () => void;
 }
 
-function ExplanationPopup({
+function ROIFeedbackSheet({
   isVisible,
   isCorrect,
   points,
   explanation,
   onContinue,
-}: ExplanationPopupProps) {
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+}: ROIFeedbackSheetProps) {
+  const slideAnim = useRef(new Animated.Value(300)).current;
 
   useEffect(() => {
     if (isVisible) {
-      // EXACT SwiftUI: .transition(.asymmetric(insertion: .scale(scale: 0.8).combined(with: .opacity)))
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 100,
-        friction: 8,
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 80,
+        friction: 12,
         useNativeDriver: true,
       }).start();
     } else {
-      scaleAnim.setValue(0.8);
+      slideAnim.setValue(300);
     }
-  }, [isVisible, scaleAnim]);
+  }, [isVisible, slideAnim]);
 
   if (!isVisible) return null;
 
   return (
-    <View style={styles.explanationOverlay}>
+    <>
+      {/* Overlay */}
+      <View style={styles.roiFeedbackOverlay} />
+
+      {/* Bottom sheet */}
       <Animated.View
         style={[
-          styles.explanationCard,
-          { transform: [{ scale: scaleAnim }] }
+          styles.roiFeedbackSheet,
+          {
+            backgroundColor: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.persianOrange,
+            transform: [{ translateY: slideAnim }],
+          },
         ]}
       >
-        {/* Success/Failure indicator - EXACT SwiftUI structure */}
-        <View style={styles.explanationHeader}>
-          <View style={[
-            styles.explanationIcon,
-            { backgroundColor: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
-          ]}>
-            <Ionicons
-              name={isCorrect ? "checkmark" : "close"}
-              size={18}
-              color="white"
-            />
-          </View>
-
-          <View style={styles.explanationHeaderText}>
-            <Text style={styles.explanationResult}>
-              {isCorrect ? "Correct!" : "Incorrect"}
-            </Text>
-            {isCorrect && (
-              <Text style={styles.explanationPoints}>+{points} points</Text>
-            )}
-          </View>
-        </View>
-
-        {/* Divider - EXACT SwiftUI */}
-        <View style={styles.explanationDivider} />
-
-        {/* Explanation section - EXACT SwiftUI structure */}
-        <View style={styles.explanationSection}>
-          <View style={styles.explanationTitleRow}>
-            <Ionicons name="bulb" size={12} color={ArchivesTheme.colors.shoeBrown} />
-            <Text style={styles.explanationTitle}>Explanation</Text>
-          </View>
-
-          <View style={styles.explanationTextContainer}>
-            <Text style={styles.explanationText}>{explanation}</Text>
-          </View>
-        </View>
-
-        {/* Continue button - EXACT SwiftUI conditional styling */}
-        <TouchableOpacity
-          style={[
-            styles.explanationContinueButton,
-            { backgroundColor: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
-          ]}
-          onPress={onContinue}
-        >
-          <Text style={styles.explanationContinueText}>
-            {isCorrect ? "CONTINUE" : "NEXT QUESTION"}
+        {/* Header with points badge (correct only) */}
+        <View style={styles.roiFeedbackHeader}>
+          <Text style={styles.roiFeedbackTitle}>
+            {isCorrect ? 'Correct!' : 'Incorrect!'}
           </Text>
+          {isCorrect && (
+            <View style={styles.roiPointsBadge}>
+              <Text style={styles.roiPointsText}>+{points} points</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Explanation */}
+        <Text style={styles.roiFeedbackExplanation}>{explanation}</Text>
+
+        {/* Continue button */}
+        <TouchableOpacity
+          style={[styles.roiContinueButton, { backgroundColor: 'rgba(195, 195, 195, 1)' }]}
+          onPress={onContinue}
+          activeOpacity={0.9}
+        >
+          <View style={styles.roiContinueButtonInner}>
+            <Text
+              style={[
+                styles.roiContinueButtonText,
+                { color: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.persianOrange },
+              ]}
+            >
+              CONTINUE
+            </Text>
+          </View>
         </TouchableOpacity>
       </Animated.View>
-    </View>
+    </>
   );
 }
 
@@ -524,8 +512,8 @@ export default function ROIQuiz({
         </View>
       )}
 
-      {/* Explanation popup */}
-      <ExplanationPopup
+      {/* Feedback bottom sheet */}
+      <ROIFeedbackSheet
         isVisible={showFeedback}
         isCorrect={isCorrect}
         points={pointsPerQuestion}
@@ -761,113 +749,77 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // Explanation Popup - Umayyad Dynasty Design
-  explanationOverlay: {
+  // Feedback Bottom Sheet - ROI Design
+  roiFeedbackOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)', // EXACT SwiftUI: Color.black.opacity(0.4)
+    backgroundColor: 'rgba(0, 0, 0, 0.30)',
+  },
+  roiFeedbackSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 233,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 32,
+    paddingTop: 18,
+    paddingBottom: 30,
+  },
+  roiFeedbackHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    marginBottom: 12,
   },
-  explanationCard: {
-    backgroundColor: 'white',
-    borderRadius: 14, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 14)
-    padding: 16, // EXACT SwiftUI: .padding(16)
-    maxWidth: 380, // EXACT SwiftUI: .frame(maxWidth: 380)
-    // EXACT SwiftUI shadow: .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-    shadowColor: 'black',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-
-  // Explanation Header - EXACT SwiftUI structure
-  explanationHeader: {
-    flexDirection: 'row', // HStack
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  explanationIcon: {
-    width: 45, // EXACT SwiftUI: .frame(width: 45, height: 45)
-    height: 45,
-    borderRadius: 22.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12, // HStack spacing: 12
-  },
-  explanationHeaderText: {
-    flex: 1,
-    flexDirection: 'row', // HStack
-    alignItems: 'center',
-  },
-  explanationResult: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.mutedNavy, // EXACT SwiftUI: Color("MutedNavy")
-    marginRight: 8, // HStack spacing: 8
-  },
-  explanationPoints: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 12))
-    fontSize: 12,
-    fontWeight: '600', // .fontWeight(.semibold)
-    color: ArchivesTheme.colors.mossGreen, // EXACT SwiftUI: Color("MossGreen")
-  },
-
-  // Explanation Divider - EXACT SwiftUI
-  explanationDivider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.2)', // EXACT SwiftUI: Color.gray.opacity(0.2)
-    marginHorizontal: 4, // EXACT SwiftUI: .padding(.horizontal, 4)
-    marginBottom: 16,
-  },
-
-  // Explanation Section - EXACT SwiftUI structure
-  explanationSection: {
-    marginBottom: 16,
-  },
-  explanationTitleRow: {
-    flexDirection: 'row', // HStack
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  explanationTitle: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
-    fontSize: 14,
-    fontWeight: '600', // .fontWeight(.semibold)
-    color: ArchivesTheme.colors.mutedNavy, // EXACT SwiftUI: Color("MutedNavy")
-    marginLeft: 4, // HStack spacing: 4
-  },
-  explanationTextContainer: {
-    paddingHorizontal: 16, // EXACT SwiftUI: .padding(.horizontal, 16)
-    paddingVertical: 12, // EXACT SwiftUI: .padding(.vertical, 12)
-    backgroundColor: 'rgba(243,242,237,0.6)', // EXACT SwiftUI: Color("CreamWhite").opacity(0.6)
-    borderRadius: 8, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 8)
-  },
-  explanationText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
-    lineHeight: 16, // EXACT SwiftUI: .lineSpacing(2)
-    textAlign: 'left', // EXACT SwiftUI: .multilineTextAlignment(.leading)
-  },
-
-  // Continue Button - EXACT SwiftUI conditional styling
-  explanationContinueButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12, // EXACT SwiftUI: minHeight: 44 adjusted for padding
-    borderRadius: 10, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 10)
-  },
-  explanationContinueText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
-    fontSize: 16,
-    fontWeight: '600', // .fontWeight(.semibold)
+  roiFeedbackTitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 24,
+    fontWeight: '700',
     color: 'white',
+  },
+  roiPointsBadge: {
+    backgroundColor: 'white',
+    borderRadius: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  roiPointsText: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.persianOrange,
+  },
+  roiFeedbackExplanation: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'white',
+    lineHeight: 18.21,
+    marginBottom: 20,
+  },
+  roiContinueButton: {
+    width: '100%',
+    height: 54,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  roiContinueButtonInner: {
+    width: '100%',
+    height: 51,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  roiContinueButtonText: {
+    fontFamily: 'DM Sans',
+    fontSize: 20,
+    fontWeight: '700',
   },
 });
