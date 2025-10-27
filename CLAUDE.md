@@ -8,8 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install                           # Install dependencies
 npx expo start                        # Start dev server (i=iOS, a=Android, w=web)
+npm run start                         # Alternative: start dev server
 npm run lint                          # Run linting (REQUIRED before commits)
 npx expo start --clear                # Clear Metro cache (fixes module resolution)
+npm run android                       # Run on Android device/emulator
+npm run ios                           # Run on iOS simulator/device
+npm run web                           # Run on web browser
 eas build --platform ios --profile development  # Create development build
 eas update --branch [channel]         # Push OTA update to specified channel
 ```
@@ -23,13 +27,14 @@ eas update --branch [channel]         # Push OTA update to specified channel
 ## Critical Rules
 
 **MUST follow these rules - no exceptions:**
-1. **Check for syntax errors before commit** - Run `npm run lint` to check for errors. If errors found, REPORT them to user and ASK for permission before fixing. DO NOT automatically fix code - only inform user of issues.
-2. **Git commit attribution** - NEVER include Claude attribution in commits. User wants commits to show only their GitHub account. Remove "Co-Authored-By: Claude" and "Generated with Claude Code" lines from ALL commit messages.
-3. **NEVER access AsyncStorage directly** - Use `atomicProgressUpdate()` from ProgressContext
-4. **ALWAYS use ArchivesTheme constants** - Never hardcode colors/spacing
-5. **Component naming**: `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
-6. **Clean commits**: Run `rm -f *.ipa *.apk build-*.ipa` before committing
-7. **Cross-platform impact analysis** - Before answering ANY questions about layout, styling, positioning, or UI changes, ALWAYS analyze how the change will affect BOTH iOS and Android. Check platform-specific component behavior (SafeAreaView, StatusBar, etc.), different layout structures, and margin/padding/positioning differences. Include iOS impact analysis in your response.
+1. **🚀 PRODUCTION APP - iOS & Android LIVE** - Both platforms are in production with real users. ALL code changes MUST work perfectly on BOTH iOS and Android. Test on both platforms before committing. Cross-platform compatibility is MANDATORY.
+2. **Check for syntax errors before commit** - Run `npm run lint` to check for errors. If errors found, REPORT them to user and ASK for permission before fixing. DO NOT automatically fix code - only inform user of issues.
+3. **Git commit attribution** - NEVER include Claude attribution in commits. User wants commits to show only their GitHub account. Remove "Co-Authored-By: Claude" and "Generated with Claude Code" lines from ALL commit messages.
+4. **NEVER access AsyncStorage directly** - Use `atomicProgressUpdate()` from ProgressContext
+5. **ALWAYS use ArchivesTheme constants** - Never hardcode colors/spacing
+6. **Component naming**: `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
+7. **Clean commits**: Run `rm -f *.ipa *.apk build-*.ipa` before committing
+8. **Cross-platform impact analysis** - Before answering ANY questions about layout, styling, positioning, or UI changes, ALWAYS analyze how the change will affect BOTH iOS and Android. Check platform-specific component behavior (SafeAreaView, StatusBar, etc.), different layout structures, and margin/padding/positioning differences. Include both iOS and Android impact analysis in your response.
 
 ## Architecture Overview
 
@@ -106,12 +111,17 @@ app/
 
 components/
 ├── modules/
-│   ├── adventure1-5/              # Umayyad Dynasty (complete)
-│   ├── roiera2/                   # Rise of Islam (in development)
+│   ├── adventure1/                # Umayyad Dynasty Adventure 1
+│   ├── adventure2/                # Umayyad Dynasty Adventure 2
+│   ├── adventure3/                # Umayyad Dynasty Adventure 3
+│   ├── adventure4/                # Umayyad Dynasty Adventure 4
+│   ├── adventure5/                # Umayyad Dynasty Adventure 5
 │   ├── ModuleModal.tsx            # Umayyad wrapper
-│   ├── ROIModuleModal.tsx         # ROI wrapper
 │   ├── LessonPlayer.tsx           # Video player
 │   └── QuizSystem.tsx             # Quiz engine
+├── ROI/                           # Rise of Islam era components
+│   └── ROIModuleModal.tsx         # ROI wrapper
+├── adventures/                    # Adventure-specific components
 └── eras/                          # Era selection screens
 ```
 
@@ -295,11 +305,17 @@ console.log('🔔 Notification')    // Push notifications
 
 ## Platform-Specific Notes
 
+**🚀 PRODUCTION STATUS: Both iOS and Android are LIVE in production**
+- **CRITICAL**: All features, UI changes, and functionality MUST work on BOTH platforms
+- Test on both iOS and Android before committing any changes
+- Cross-platform compatibility is mandatory - no platform-specific bugs allowed
+
 **iOS:**
 - Bundle ID: `ai.affinitylabs.archivesexpo`
 - Team ID: `LQ9LP2WW94`
 - App Store ID: `6751173663`
-- Build number: Auto-increments via EAS (currently 73)
+- Build number: Auto-increments via EAS (currently 77)
+- Status: **LIVE on App Store**
 - Requires physical device for: notifications, Apple Sign-In
 - Background modes: remote-notification
 - Universal Links: Configured via `link.archiveszone.app` (deep linking support)
@@ -307,6 +323,7 @@ console.log('🔔 Notification')    // Push notifications
 **Android:**
 - Package: `ai.affinitylabs.archivesexpo`
 - Version code auto-increments (currently 17)
+- Status: **LIVE on Google Play Store**
 - Edge-to-edge: Disabled
 - App Links: SHA-256 fingerprint in `assetlinks.json` must match Google Play Console
 
@@ -316,16 +333,23 @@ console.log('🔔 Notification')    // Push notifications
 - Runtime version: `1.0.0`
 - New Architecture: Enabled
 - Fonts: DM Sans, Cormorant (loaded in _layout.tsx - MUST load before splash screen hides)
+- **Development requirement**: ALL code must be tested on both iOS and Android simulators/devices before deployment
 
 ## Current Development Status
 
 **Git branch:** master
-**Recent focus:** Universal Links/deep linking, RevenueCat intro offers, quiz sound effects, era selection UI
+**Production Status:** 🚀 **LIVE on App Store and Google Play Store**
+**Recent focus:** Universal Links/deep linking, RevenueCat intro offers, quiz sound effects, era selection UI, cross-platform compatibility
 
 **Known limitations:**
 - Push notifications require physical device
 - Video preloading can be slow initially
 - Background sync may delay in poor network
+
+**Development priorities:**
+- Maintain cross-platform compatibility (iOS and Android)
+- Ensure all features work identically on both platforms
+- Test thoroughly on both iOS and Android before deployment
 
 ## Important Patterns
 
@@ -399,9 +423,12 @@ RevenueCat integration checks intro offer eligibility (iOS only) and displays "1
 
 Before submitting code:
 - [ ] Run `npm run lint` and report any errors to user (don't auto-fix)
-- [ ] Test on iOS simulator
+- [ ] **CRITICAL: Test on BOTH iOS and Android simulators** (production requirement)
+- [ ] **Verify feature works identically on both platforms**
 - [ ] Test critical features on physical device (if applicable)
 - [ ] Remove build artifacts (`rm -f *.ipa *.apk`)
 - [ ] Verify progress persists after app restart
 - [ ] Check AsyncStorage usage (must use ProgressContext)
 - [ ] Ensure commit messages don't include Claude attribution
+- [ ] Verify cross-platform UI consistency (layout, spacing, colors)
+- [ ] Test on different screen sizes (iOS and Android)

@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useProgress } from '@/context/ProgressContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ArchivesTheme from '@/constants/ArchivesTheme';
 import type { ContentItem } from './types';
 
 interface ROIQuizProps {
@@ -51,46 +52,59 @@ function ROIMCQOptionButton({
   showResult,
   onPress,
 }: ROIMCQOptionButtonProps) {
-  // Determine background and border colors
+  // Determine colors based on state - match Umayyad design
   const getShadowColor = () => {
-    if (showResult && isCorrect) return '#959C00';
-    if (showResult && isWrong) return '#E2E2E2';
-    if (isSelected) return '#4D392E';
-    return '#E2E2E2';
+    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
+    if (showResult && isWrong) return ArchivesTheme.colors.concreteGrey;
+    if (isSelected) return ArchivesTheme.colors.shoeBrown;
+    return ArchivesTheme.colors.concreteGrey;
   };
 
   const getBorderColor = () => {
-    if (showResult && isCorrect) return '#959C00';
-    if (isSelected) return '#4D392E';
-    return '#E2E2E2';
+    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
+    if (isSelected) return ArchivesTheme.colors.shoeBrown;
+    return 'rgba(128,128,128,0.3)';
+  };
+
+  const getContentBorderColor = () => {
+    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
+    if (isSelected) return ArchivesTheme.colors.shoeBrown;
+    return 'rgba(128,128,128,0.2)';
   };
 
   return (
     <TouchableOpacity
-      style={styles.roiOptionContainer}
+      style={styles.mcqOptionContainer}
       onPress={onPress}
       disabled={showResult}
       activeOpacity={0.7}
     >
-      {/* Shadow layer */}
-      <View style={[styles.roiOptionShadow, { backgroundColor: getShadowColor() }]} />
+      {/* Shadow layer - 3D depth effect */}
+      <View style={[styles.mcqOptionShadow, { backgroundColor: getShadowColor() }]} />
 
-      {/* Main button */}
-      <View style={[styles.roiOptionContent, { borderColor: getBorderColor() }]}>
+      {/* Border layer - 4px stroke */}
+      <View style={[styles.mcqOptionBorder, { borderColor: getBorderColor() }]} />
+
+      {/* Content layer - white background with 2px overlay */}
+      <View style={[styles.mcqOptionContent, { borderColor: getContentBorderColor() }]}>
         {/* Letter badge */}
-        <View style={styles.roiOptionLetterCircle}>
-          <Text style={styles.roiOptionLetter}>{letter}</Text>
+        <View style={styles.mcqOptionLetterContainer}>
+          <View style={styles.mcqOptionLetterCircle}>
+            <Text style={styles.mcqOptionLetter}>{letter}</Text>
+          </View>
         </View>
 
         {/* Text */}
-        <Text style={styles.roiOptionText}>{text}</Text>
+        <View style={styles.mcqOptionTextContainer}>
+          <Text style={styles.mcqOptionText}>{text}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
 }
 
-// Bottom Sheet Feedback - ROI Design
-interface ROIFeedbackSheetProps {
+// Explanation Popup - Umayyad Dynasty Design (Centered Card)
+interface ExplanationPopupProps {
   isVisible: boolean;
   isCorrect: boolean;
   points: number;
@@ -98,79 +112,91 @@ interface ROIFeedbackSheetProps {
   onContinue: () => void;
 }
 
-function ROIFeedbackSheet({
+function ExplanationPopup({
   isVisible,
   isCorrect,
   points,
   explanation,
   onContinue,
-}: ROIFeedbackSheetProps) {
-  const slideAnim = useRef(new Animated.Value(300)).current;
+}: ExplanationPopupProps) {
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
     if (isVisible) {
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 80,
-        friction: 12,
+      // EXACT SwiftUI: .transition(.asymmetric(insertion: .scale(scale: 0.8).combined(with: .opacity)))
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 100,
+        friction: 8,
         useNativeDriver: true,
       }).start();
     } else {
-      slideAnim.setValue(300);
+      scaleAnim.setValue(0.8);
     }
-  }, [isVisible, slideAnim]);
+  }, [isVisible, scaleAnim]);
 
   if (!isVisible) return null;
 
   return (
-    <>
-      {/* Overlay */}
-      <View style={styles.roiFeedbackOverlay} />
-
-      {/* Bottom sheet */}
+    <View style={styles.explanationOverlay}>
       <Animated.View
         style={[
-          styles.roiFeedbackSheet,
-          {
-            backgroundColor: isCorrect ? '#959C00' : '#C99151',
-            transform: [{ translateY: slideAnim }],
-          },
+          styles.explanationCard,
+          { transform: [{ scale: scaleAnim }] }
         ]}
       >
-        {/* Header with points badge (correct only) */}
-        <View style={styles.roiFeedbackHeader}>
-          <Text style={styles.roiFeedbackTitle}>
-            {isCorrect ? 'Correct!' : 'Incorrect!'}
-          </Text>
-          {isCorrect && (
-            <View style={styles.roiPointsBadge}>
-              <Text style={styles.roiPointsText}>+{points} points</Text>
-            </View>
-          )}
+        {/* Success/Failure indicator - EXACT SwiftUI structure */}
+        <View style={styles.explanationHeader}>
+          <View style={[
+            styles.explanationIcon,
+            { backgroundColor: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
+          ]}>
+            <Ionicons
+              name={isCorrect ? "checkmark" : "close"}
+              size={18}
+              color="white"
+            />
+          </View>
+
+          <View style={styles.explanationHeaderText}>
+            <Text style={styles.explanationResult}>
+              {isCorrect ? "Correct!" : "Incorrect"}
+            </Text>
+            {isCorrect && (
+              <Text style={styles.explanationPoints}>+{points} points</Text>
+            )}
+          </View>
         </View>
 
-        {/* Explanation */}
-        <Text style={styles.roiFeedbackExplanation}>{explanation}</Text>
+        {/* Divider - EXACT SwiftUI */}
+        <View style={styles.explanationDivider} />
 
-        {/* Continue button */}
-        <TouchableOpacity
-          style={[styles.roiContinueButton, { backgroundColor: '#C3C3C3' }]}
-          onPress={onContinue}
-          activeOpacity={0.9}
-        >
-          <View style={styles.roiContinueButtonInner}>
-            <Text
-              style={[
-                styles.roiContinueButtonText,
-                { color: isCorrect ? '#959C00' : '#C99151' },
-              ]}
-            >
-              CONTINUE
-            </Text>
+        {/* Explanation section - EXACT SwiftUI structure */}
+        <View style={styles.explanationSection}>
+          <View style={styles.explanationTitleRow}>
+            <Ionicons name="bulb" size={12} color={ArchivesTheme.colors.shoeBrown} />
+            <Text style={styles.explanationTitle}>Explanation</Text>
           </View>
+
+          <View style={styles.explanationTextContainer}>
+            <Text style={styles.explanationText}>{explanation}</Text>
+          </View>
+        </View>
+
+        {/* Continue button - EXACT SwiftUI conditional styling */}
+        <TouchableOpacity
+          style={[
+            styles.explanationContinueButton,
+            { backgroundColor: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.shoeBrown }
+          ]}
+          onPress={onContinue}
+        >
+          <Text style={styles.explanationContinueText}>
+            {isCorrect ? "CONTINUE" : "NEXT QUESTION"}
+          </Text>
         </TouchableOpacity>
       </Animated.View>
-    </>
+    </View>
   );
 }
 
@@ -328,10 +354,10 @@ export default function ROIQuiz({
       <ScrollView
         style={styles.roiScrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.roiScrollContent}
       >
-        {/* Header */}
-        <View style={styles.roiHeader}>
+        <View style={styles.questionContent}>
+          {/* Header */}
+          <View style={styles.roiHeader}>
           {onBack && (
             <TouchableOpacity style={styles.roiBackButton} onPress={onBack}>
               <Ionicons name="chevron-back" size={24} color="#4D392E" />
@@ -360,7 +386,7 @@ export default function ROIQuiz({
         <Text style={styles.roiQuestionText}>{currentQuestion.question_text}</Text>
 
         {/* Answer options */}
-        <View style={styles.roiOptionsContainer}>
+        <View style={styles.questionOptionsGroup}>
           {options.map((option, index) => {
             const letter = String.fromCharCode(65 + index); // A, B, C, D
             return (
@@ -378,35 +404,38 @@ export default function ROIQuiz({
           })}
         </View>
 
-        {/* Spacer for submit button */}
-        <View style={{ height: 120 }} />
+          {/* Spacer for submit button */}
+          <View style={{ height: 120 }} />
+        </View>
       </ScrollView>
 
       {/* Submit button */}
       {!showFeedback && (
-        <View style={styles.roiSubmitContainer}>
-          <TouchableOpacity
+        <View style={styles.submitButtonContainer}>
+          {/* Shadow layer - 3D depth effect */}
+          <View
             style={[
-              styles.roiSubmitShadow,
-              { backgroundColor: selectedAnswer !== null ? '#6E7300' : '#C3C3C3' },
+              styles.submitButtonShadow,
+              { backgroundColor: selectedAnswer !== null ? ArchivesTheme.colors.mossGreenShadow : 'rgba(0,0,0,0.3)' },
             ]}
           />
+          {/* Button */}
           <TouchableOpacity
             style={[
-              styles.roiSubmitButton,
-              { backgroundColor: selectedAnswer !== null ? '#959C00' : '#C3C3C3' },
+              styles.submitButton,
+              { backgroundColor: selectedAnswer !== null ? ArchivesTheme.colors.mossGreen : 'gray' },
             ]}
             onPress={handleSubmit}
             disabled={selectedAnswer === null}
-            activeOpacity={0.9}
+            activeOpacity={1}
           >
-            <Text style={styles.roiSubmitButtonText}>SUBMIT</Text>
+            <Text style={styles.submitButtonText}>SUBMIT</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Feedback sheet */}
-      <ROIFeedbackSheet
+      {/* Explanation popup */}
+      <ExplanationPopup
         isVisible={showFeedback}
         isCorrect={isCorrect}
         points={pointsPerQuestion}
@@ -425,21 +454,23 @@ const styles = StyleSheet.create({
   roiScrollView: {
     flex: 1,
   },
-  roiScrollContent: {
-    paddingBottom: 50,
+  questionContent: {
+    // Main content container - EXACT iOS measurements
+    paddingHorizontal: 20, // Standard horizontal padding
+    paddingTop: 5,         // Reduced padding for better spacing
+    paddingBottom: 15,     // Minimal bottom padding
   },
 
   // Header
   roiHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
     paddingTop: 10,
     marginBottom: 20,
   },
   roiBackButton: {
     position: 'absolute',
-    left: 16,
+    left: 0, // Now 0 since questionContent has paddingHorizontal: 20
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -493,162 +524,211 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#4D392E',
     textAlign: 'center',
-    paddingHorizontal: 35,
+    paddingHorizontal: 0, // Removed - handled by questionContent container
     marginBottom: 25,
     lineHeight: 28,
   },
 
-  // Options
-  roiOptionsContainer: {
-    paddingHorizontal: 32,
+  // Options - Umayyad Dynasty Design
+  questionOptionsGroup: {
+    alignItems: 'center', // Center 320px buttons
+    paddingHorizontal: 0,
   },
-  roiOptionContainer: {
+  mcqOptionContainer: {
     position: 'relative',
-    marginBottom: 14,
-    height: 49,
+    marginBottom: 18, // EXACT iOS: VStack(spacing: 18)
   },
-  roiOptionShadow: {
+  mcqOptionShadow: {
     position: 'absolute',
-    width: '100%',
-    height: 49,
-    borderRadius: 17,
-    bottom: 0,
+    width: 322, // EXACT SwiftUI: .frame(width: 322, height: 50)
+    height: 50,
+    borderRadius: 16,
+    top: 7, // EXACT SwiftUI: .offset(y: 7) - 3D depth effect
   },
-  roiOptionContent: {
+  mcqOptionBorder: {
     position: 'absolute',
-    width: '100%',
-    height: 49,
-    backgroundColor: '#F7F7F7',
-    borderRadius: 17,
-    borderWidth: 1.79,
+    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 4, // EXACT SwiftUI: lineWidth: 4
+  },
+  mcqOptionContent: {
+    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
+    height: 50,
+    backgroundColor: 'white',
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 21,
-    top: 0,
+    borderWidth: 2, // EXACT SwiftUI: overlay stroke
   },
-  roiOptionLetterCircle: {
-    width: 25,
-    height: 25,
-    borderRadius: 12.5,
-    backgroundColor: '#E6D5B7',
-    justifyContent: 'center',
+  mcqOptionLetterContainer: {
+    paddingLeft: 20,
+  },
+  mcqOptionLetterCircle: {
+    width: 30, // EXACT SwiftUI: .frame(width: 30, height: 30)
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(139,96,64,0.4)', // EXACT SwiftUI: Color("ShoeBrown").opacity(0.4)
     alignItems: 'center',
-    marginRight: 15,
+    justifyContent: 'center',
   },
-  roiOptionLetter: {
-    fontFamily: 'DM Sans',
-    fontSize: 17.39,
-    fontWeight: '500',
+  mcqOptionLetter: {
+    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
+    fontSize: 16,
     color: 'white',
   },
-  roiOptionText: {
+  mcqOptionTextContainer: {
     flex: 1,
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#4D392E',
+    paddingLeft: 20, // Space after circle
+    paddingRight: 20,
+    paddingVertical: 8, // Vertical padding for better text spacing
+    justifyContent: 'center',
+  },
+  mcqOptionText: {
+    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
+    fontSize: 16,
+    color: ArchivesTheme.colors.shoeBrown,
+    lineHeight: 22,
+    flexWrap: 'wrap',
   },
 
-  // Submit button
-  roiSubmitContainer: {
+  // Submit button - Umayyad Dynasty Design
+  submitButtonContainer: {
     position: 'absolute',
     bottom: 30,
-    left: 32,
-    right: 32,
+    left: 0,
+    right: 0,
     alignItems: 'center',
+    backgroundColor: ArchivesTheme.colors.creamWhite,
   },
-  roiSubmitShadow: {
+  submitButtonShadow: {
     position: 'absolute',
-    width: '100%',
-    height: 54,
-    borderRadius: 17,
-    bottom: 0,
+    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
+    height: 50,
+    borderRadius: 16,
+    top: 7, // EXACT SwiftUI: .offset(y: 7) - 3D depth effect
   },
-  roiSubmitButton: {
-    width: '100%',
-    height: 51,
-    borderRadius: 17,
-    justifyContent: 'center',
+  submitButton: {
+    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
+    height: 50,
+    borderRadius: 16, // EXACT SwiftUI: .cornerRadius(16)
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  roiSubmitButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '600',
+  submitButtonText: {
+    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 22))
+    fontSize: 22,
     color: 'white',
+    fontWeight: 'bold',
   },
 
-  // Feedback sheet
-  roiFeedbackOverlay: {
+  // Explanation Popup - Umayyad Dynasty Design
+  explanationOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.30)',
-  },
-  roiFeedbackSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 233,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 32,
-    paddingTop: 18,
-    paddingBottom: 30,
-  },
-  roiFeedbackHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0,0,0,0.4)', // EXACT SwiftUI: Color.black.opacity(0.4)
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  roiFeedbackTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'white',
-  },
-  roiPointsBadge: {
+  explanationCard: {
     backgroundColor: 'white',
-    borderRadius: 13,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    borderRadius: 14, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 14)
+    padding: 16, // EXACT SwiftUI: .padding(16)
+    maxWidth: 380, // EXACT SwiftUI: .frame(maxWidth: 380)
+    // EXACT SwiftUI shadow: .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+    shadowColor: 'black',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  roiPointsText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#C99151',
+
+  // Explanation Header - EXACT SwiftUI structure
+  explanationHeader: {
+    flexDirection: 'row', // HStack
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  roiFeedbackExplanation: {
-    fontFamily: 'DM Sans',
+  explanationIcon: {
+    width: 45, // EXACT SwiftUI: .frame(width: 45, height: 45)
+    height: 45,
+    borderRadius: 22.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12, // HStack spacing: 12
+  },
+  explanationHeaderText: {
+    flex: 1,
+    flexDirection: 'row', // HStack
+    alignItems: 'center',
+  },
+  explanationResult: {
+    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: ArchivesTheme.colors.mutedNavy, // EXACT SwiftUI: Color("MutedNavy")
+    marginRight: 8, // HStack spacing: 8
+  },
+  explanationPoints: {
+    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 12))
+    fontSize: 12,
+    fontWeight: '600', // .fontWeight(.semibold)
+    color: ArchivesTheme.colors.mossGreen, // EXACT SwiftUI: Color("MossGreen")
+  },
+
+  // Explanation Divider - EXACT SwiftUI
+  explanationDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)', // EXACT SwiftUI: Color.gray.opacity(0.2)
+    marginHorizontal: 4, // EXACT SwiftUI: .padding(.horizontal, 4)
+    marginBottom: 16,
+  },
+
+  // Explanation Section - EXACT SwiftUI structure
+  explanationSection: {
+    marginBottom: 16,
+  },
+  explanationTitleRow: {
+    flexDirection: 'row', // HStack
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  explanationTitle: {
+    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600', // .fontWeight(.semibold)
+    color: ArchivesTheme.colors.mutedNavy, // EXACT SwiftUI: Color("MutedNavy")
+    marginLeft: 4, // HStack spacing: 4
+  },
+  explanationTextContainer: {
+    paddingHorizontal: 16, // EXACT SwiftUI: .padding(.horizontal, 16)
+    paddingVertical: 12, // EXACT SwiftUI: .padding(.vertical, 12)
+    backgroundColor: 'rgba(243,242,237,0.6)', // EXACT SwiftUI: Color("CreamWhite").opacity(0.6)
+    borderRadius: 8, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 8)
+  },
+  explanationText: {
+    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 14))
+    fontSize: 14,
+    color: ArchivesTheme.colors.shoeBrown, // EXACT SwiftUI: Color("ShoeBrown")
+    lineHeight: 16, // EXACT SwiftUI: .lineSpacing(2)
+    textAlign: 'left', // EXACT SwiftUI: .multilineTextAlignment(.leading)
+  },
+
+  // Continue Button - EXACT SwiftUI conditional styling
+  explanationContinueButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12, // EXACT SwiftUI: minHeight: 44 adjusted for padding
+    borderRadius: 10, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 10)
+  },
+  explanationContinueText: {
+    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
+    fontSize: 16,
+    fontWeight: '600', // .fontWeight(.semibold)
     color: 'white',
-    lineHeight: 18.21,
-    marginBottom: 20,
-  },
-  roiContinueButton: {
-    width: '100%',
-    height: 54,
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  roiContinueButtonInner: {
-    width: '100%',
-    height: 51,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  roiContinueButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '700',
   },
 });
