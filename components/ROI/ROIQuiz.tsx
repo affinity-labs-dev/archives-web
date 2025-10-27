@@ -14,7 +14,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useProgress } from '@/context/ProgressContext';
@@ -178,7 +178,7 @@ interface ROIFeedbackSheetProps {
   isCorrect: boolean;
   points: number;
   explanation: string;
-  onContinue: () => void;
+  bottomInset: number;
 }
 
 function ROIFeedbackSheet({
@@ -186,7 +186,7 @@ function ROIFeedbackSheet({
   isCorrect,
   points,
   explanation,
-  onContinue,
+  bottomInset,
 }: ROIFeedbackSheetProps) {
   const slideAnim = useRef(new Animated.Value(300)).current;
 
@@ -217,6 +217,7 @@ function ROIFeedbackSheet({
           {
             backgroundColor: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.persianOrange,
             transform: [{ translateY: slideAnim }],
+            paddingBottom: 80 + bottomInset, // Content space + safe area
           },
         ]}
       >
@@ -234,24 +235,6 @@ function ROIFeedbackSheet({
 
         {/* Explanation */}
         <Text style={styles.roiFeedbackExplanation}>{explanation}</Text>
-
-        {/* Continue button */}
-        <TouchableOpacity
-          style={[styles.roiContinueButton, { backgroundColor: 'rgba(195, 195, 195, 1)' }]}
-          onPress={onContinue}
-          activeOpacity={0.9}
-        >
-          <View style={styles.roiContinueButtonInner}>
-            <Text
-              style={[
-                styles.roiContinueButtonText,
-                { color: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.persianOrange },
-              ]}
-            >
-              CONTINUE
-            </Text>
-          </View>
-        </TouchableOpacity>
       </Animated.View>
     </>
   );
@@ -286,6 +269,7 @@ export default function ROIQuiz({
   onMilestoneReached,
 }: ROIQuizProps) {
   const { saveNewProgressData, calculateTotalXP, checkIfCrossed50XPBoundary } = useProgress();
+  const insets = useSafeAreaInsets();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -487,30 +471,37 @@ export default function ROIQuiz({
         </View>
       </ScrollView>
 
-      {/* Submit button */}
-      {!showFeedback && (
-        <View style={styles.submitButtonContainer}>
-          {/* Shadow layer - 3D depth effect */}
-          <View
-            style={[
-              styles.submitButtonShadow,
-              { backgroundColor: selectedAnswer !== null ? ArchivesTheme.colors.mossGreenShadow : 'rgba(0,0,0,0.3)' },
-            ]}
-          />
-          {/* Button */}
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              { backgroundColor: selectedAnswer !== null ? ArchivesTheme.colors.mossGreen : 'gray' },
-            ]}
-            onPress={handleSubmit}
-            disabled={selectedAnswer === null}
-            activeOpacity={1}
-          >
-            <Text style={styles.submitButtonText}>SUBMIT</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* Submit button - Always visible, stays on top with z-index */}
+      <View style={[styles.submitButtonContainer, { bottom: Math.max(50, insets.bottom + 30) }]}>
+        {/* Shadow layer - 3D depth effect */}
+        <View
+          style={[
+            styles.submitButtonShadow,
+            { backgroundColor: showFeedback ? 'rgba(0,0,0,0.3)' : (selectedAnswer !== null ? ArchivesTheme.colors.mossGreenShadow : 'rgba(0,0,0,0.3)') },
+          ]}
+        />
+        {/* Button */}
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            { backgroundColor: showFeedback ? 'white' : (selectedAnswer !== null ? ArchivesTheme.colors.mossGreen : 'gray') },
+          ]}
+          onPress={showFeedback ? handleContinueToNext : handleSubmit}
+          disabled={!showFeedback && selectedAnswer === null}
+          activeOpacity={1}
+        >
+          <Text style={[
+            styles.submitButtonText,
+            showFeedback && {
+              color: isCorrect
+                ? ArchivesTheme.colors.mossGreen      // Green text for correct
+                : ArchivesTheme.colors.persianOrange  // Orange text for incorrect
+            }
+          ]}>
+            {showFeedback ? "CONTINUE" : "SUBMIT"}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Feedback bottom sheet */}
       <ROIFeedbackSheet
@@ -518,7 +509,7 @@ export default function ROIQuiz({
         isCorrect={isCorrect}
         points={pointsPerQuestion}
         explanation={currentQuestion.explanation || 'Good job!'}
-        onContinue={handleContinueToNext}
+        bottomInset={insets.bottom}
       />
     </SafeAreaView>
   );
@@ -722,11 +713,12 @@ const styles = StyleSheet.create({
   // Submit button - Umayyad Dynasty Design
   submitButtonContainer: {
     position: 'absolute',
-    bottom: 30,
+    // bottom: dynamic - set inline with useSafeAreaInsets
     left: 0,
     right: 0,
     alignItems: 'center',
-    backgroundColor: ArchivesTheme.colors.creamWhite,
+    backgroundColor: 'transparent',
+    zIndex: 10, // Keep button on top of feedback sheet
   },
   submitButtonShadow: {
     position: 'absolute',
@@ -768,7 +760,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 32,
     paddingTop: 18,
-    paddingBottom: 30,
+    // paddingBottom: dynamic - set inline with useSafeAreaInsets (80 + insets.bottom)
+    zIndex: 5, // Keep sheet behind button
   },
   roiFeedbackHeader: {
     flexDirection: 'row',
