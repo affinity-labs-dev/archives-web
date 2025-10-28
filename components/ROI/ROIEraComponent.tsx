@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import ROIAdventureComponent from './ROIAdventureComponent';
 import ROIAdventureCardComponent from './ROIAdventureCardComponent';
@@ -240,48 +241,50 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ progressBar, adventur
           animationType="slide"
           presentationStyle="fullScreen"
         >
-          {/* Show quiz if flag is set */}
-          {showQuiz ? (
-            <ROIQuiz
-              contentItem={selectedLesson.contentItem}
-              adventureId={selectedLesson.adventureId}
-              moduleId={selectedLesson.moduleId}
-              onContinue={handleQuizContinue}
-              onDismiss={handleLessonDismiss}
-              onMilestoneReached={handleMilestoneReached}
-            />
-          ) : (
-            <>
-              {/* Render lesson based on content_type */}
-              {selectedLesson.contentItem.content_type === 'reel' && (
-                <ROIReelLesson
-                  contentItem={selectedLesson.contentItem}
-                  moduleId={selectedLesson.moduleId}
-                  lessonId={selectedLesson.lessonId}
-                  onContinue={handleLessonContinue}
-                  onDismiss={handleLessonDismiss}
-                />
-              )}
-              {selectedLesson.contentItem.content_type === 'video_carousel' && (
-                <ROIVideoCarouselLesson
-                  contentItem={selectedLesson.contentItem}
-                  moduleId={selectedLesson.moduleId}
-                  lessonId={selectedLesson.lessonId}
-                  onContinue={handleLessonContinue}
-                  onDismiss={handleLessonDismiss}
-                />
-              )}
-              {selectedLesson.contentItem.content_type === 'image_carousel' && (
-                <ROIImageCarouselLesson
-                  contentItem={selectedLesson.contentItem}
-                  moduleId={selectedLesson.moduleId}
-                  lessonId={selectedLesson.lessonId}
-                  onContinue={handleLessonContinue}
-                  onDismiss={handleLessonDismiss}
-                />
-              )}
-            </>
-          )}
+          <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+            {/* Show quiz if flag is set */}
+            {showQuiz ? (
+              <ROIQuiz
+                contentItem={selectedLesson.contentItem}
+                adventureId={selectedLesson.adventureId}
+                moduleId={selectedLesson.moduleId}
+                onContinue={handleQuizContinue}
+                onDismiss={handleLessonDismiss}
+                onMilestoneReached={handleMilestoneReached}
+              />
+            ) : (
+              <>
+                {/* Render lesson based on content_type */}
+                {selectedLesson.contentItem.content_type === 'reel' && (
+                  <ROIReelLesson
+                    contentItem={selectedLesson.contentItem}
+                    moduleId={selectedLesson.moduleId}
+                    lessonId={selectedLesson.lessonId}
+                    onContinue={handleLessonContinue}
+                    onDismiss={handleLessonDismiss}
+                  />
+                )}
+                {selectedLesson.contentItem.content_type === 'video_carousel' && (
+                  <ROIVideoCarouselLesson
+                    contentItem={selectedLesson.contentItem}
+                    moduleId={selectedLesson.moduleId}
+                    lessonId={selectedLesson.lessonId}
+                    onContinue={handleLessonContinue}
+                    onDismiss={handleLessonDismiss}
+                  />
+                )}
+                {selectedLesson.contentItem.content_type === 'image_carousel' && (
+                  <ROIImageCarouselLesson
+                    contentItem={selectedLesson.contentItem}
+                    moduleId={selectedLesson.moduleId}
+                    lessonId={selectedLesson.lessonId}
+                    onContinue={handleLessonContinue}
+                    onDismiss={handleLessonDismiss}
+                  />
+                )}
+              </>
+            )}
+          </SafeAreaProvider>
         </Modal>
       )}
 

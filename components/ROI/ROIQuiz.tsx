@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { useProgress } from '@/context/ProgressContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
+import { useQuizSounds } from '@/hooks/useQuizSounds';
 import type { ContentItem } from './types';
 
 interface ROIQuizProps {
@@ -270,6 +271,7 @@ export default function ROIQuiz({
 }: ROIQuizProps) {
   const { saveNewProgressData, calculateTotalXP, checkIfCrossed50XPBoundary } = useProgress();
   const insets = useSafeAreaInsets();
+  const { playTap, playCorrect, playIncorrect } = useQuizSounds();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -301,6 +303,7 @@ export default function ROIQuiz({
     if (!showFeedback) {
       setSelectedAnswer(answerIndex);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      playTap();
     }
   };
 
@@ -314,8 +317,10 @@ export default function ROIQuiz({
       setScore(score + pointsPerQuestion);
       setCorrectAnswers(correctAnswers + 1);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      playCorrect();
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      playIncorrect();
     }
 
     setShowFeedback(true);
@@ -554,9 +559,9 @@ const styles = StyleSheet.create({
   },
   roiQuizTitle: {
     fontFamily: 'DM Sans',
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#4D392E',
+    color: ArchivesTheme.colors.mutedNavy,
   },
   roiQuestionCounter: {
     fontFamily: 'DM Sans',
@@ -755,7 +760,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 233,
+    height: 260,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 32,

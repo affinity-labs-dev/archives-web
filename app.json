@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "77",
+      "buildNumber": "78",
       "associatedDomains": [
         "applinks:link.archiveszone.app"
       ],
@@ -26,7 +26,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-icon.png",
+        "foregroundImage": "./assets/images/android_icon.png",
         "backgroundColor": "#F4EBDB"
       },
       "edgeToEdgeEnabled": false,

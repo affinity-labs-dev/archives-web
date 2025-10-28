@@ -1,19 +1,17 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import * as Haptics from 'expo-haptics';
-import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
 import {
   Dimensions,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import Svg, { Circle, G, Mask, Path, Rect } from 'react-native-svg';
+import Svg, { G, Mask, Path, Rect } from 'react-native-svg';
 import type { Adventure, ContentItem } from './types';
 
 // SVG Icon Components - Original correct version
@@ -268,7 +266,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
                   </View>
                 </View>
                 <View style={styles.cardTitleContainerCompleted}>
-                  <Text style={styles.cardTitle}>{item.thumbnail_title}</Text>
+                  <Text style={styles.cardTitleLarge}>{item.thumbnail_title}</Text>
                 </View>
               </>
             ) : (
@@ -308,7 +306,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
 
               {/* Card Title CENTERED for all uncompleted */}
               <View style={styles.cardTitleContainerCentered}>
-                <Text style={styles.cardTitle}>{item.thumbnail_title}</Text>
+                <Text style={isLarge ? styles.cardTitleLarge : styles.cardTitle}>{item.thumbnail_title}</Text>
               </View>
             </>
           )}
@@ -472,7 +470,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#E6D5B7',
+    backgroundColor: '#B8AA92',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 3,
@@ -504,6 +502,17 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   cardTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'DM Sans',
+    lineHeight: 11.76,
+    textAlign: 'left',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  cardTitleLarge: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
@@ -579,7 +588,7 @@ const styles = StyleSheet.create({
     height: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 12,
   },
   smallCardStarsPosition: {
     position: 'absolute',
@@ -601,8 +610,9 @@ const styles = StyleSheet.create({
   },
   smallCardRightSide: {
     flex: 1,
-    justifyContent: 'center',
-    paddingRight: 8,
+    justifyContent: 'flex-start',
+    paddingBottom: 12,
+    paddingRight: 7,
   },
 });
 

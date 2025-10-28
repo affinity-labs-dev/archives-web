@@ -346,9 +346,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '400',
     color: ArchivesTheme.colors.shoeBrown,
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: 20,
     opacity: 0.7,
+    paddingLeft: 35,
   },
 
   // Options

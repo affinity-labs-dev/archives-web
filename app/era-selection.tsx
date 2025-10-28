@@ -280,6 +280,10 @@ function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: Hori
         showLock && styles.horizontalEraCardNoEffects
       ]}
       onPress={onSelect}
+      android_ripple={{
+        foreground: true,
+        color: 'rgba(0, 0, 0, 0.1)',
+      }}
     >
       {/* Background Image */}
       <Image 
@@ -351,6 +355,10 @@ function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCar
         showLock && styles.gridEraCardNoEffects
       ]}
       onPress={onSelect}
+      android_ripple={{
+        foreground: true,
+        color: 'rgba(0, 0, 0, 0.1)',
+      }}
     >
       {/* Background Image */}
       <Image 
