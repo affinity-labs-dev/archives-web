@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import Svg, { Path } from 'react-native-svg'
 
 export default function OnboardingWelcomeScreen() {
   const router = useRouter()
@@ -57,9 +58,46 @@ export default function OnboardingWelcomeScreen() {
             <Text style={styles.welcomeText} selectable={false}>
               <Text style={styles.boldText}>Just 4 quick</Text> questions to personalize your experience
             </Text>
-            {/* Speech bubble pointer with border */}
-            <View style={styles.speechPointer} />
-            <View style={styles.speechPointerInner} />
+            {/* Speech bubble pointer with border - SVG arrow */}
+            <View style={styles.speechPointer}>
+              <Svg width="36" height="18" viewBox="0 0 36 18" style={{ position: 'absolute' }}>
+                {/* White filled triangle (no stroke) */}
+                <Path
+                  d="M18 18 L0 0 L36 0 Z"
+                  fill="white"
+                />
+
+                {/* Green line on left diagonal edge */}
+                <Path
+                  d="M18 18 L0 0"
+                  stroke={ArchivesTheme.colors.mossGreen}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+
+                {/* Green line on right diagonal edge */}
+                <Path
+                  d="M18 18 L36 0"
+                  stroke={ArchivesTheme.colors.mossGreen}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+
+                {/* White line on horizontal base (top) - blends with background */}
+                <Path
+                  d="M0 0 L36 0"
+                  stroke="white"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </Svg>
+            </View>
           </View>
 
           {/* Camel Image */}
@@ -123,37 +161,10 @@ const styles = StyleSheet.create({
   },
   speechPointer: {
     position: 'absolute',
-    bottom: -18,
+    bottom: -17.5,
     right: 60,
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderTopWidth: 18,
-    borderRightWidth: 18,
-    borderBottomWidth: 0,
-    borderLeftWidth: 18,
-    borderTopColor: ArchivesTheme.colors.mossGreen,
-    borderRightColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
-  },
-  speechPointerInner: {
-    position: 'absolute',
-    bottom: -15,
-    right: 63,
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderTopWidth: 15,
-    borderRightWidth: 15,
-    borderBottomWidth: 0,
-    borderLeftWidth: 15,
-    borderTopColor: 'white',
-    borderRightColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
+    width: 36,
+    height: 18,
   },
   welcomeText: {
     fontFamily: 'DM Sans',

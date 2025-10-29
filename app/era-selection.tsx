@@ -10,9 +10,9 @@ import {
   StyleSheet,
   StatusBar,
   SafeAreaView,
-  Image,
   Platform,
 } from 'react-native'
+import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
@@ -286,8 +286,10 @@ function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: Hori
       }}
     >
       {/* Background Image */}
-      <Image 
-        source={era.imageName} 
+      <Image
+        key={`horizontal-era-${era.id}`}
+        source={era.imageName}
+        contentFit="cover"
         style={styles.horizontalEraCardImage}
       />
 
@@ -361,8 +363,10 @@ function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCar
       }}
     >
       {/* Background Image */}
-      <Image 
-        source={era.imageName} 
+      <Image
+        key={`grid-era-${era.id}`}
+        source={era.imageName}
+        contentFit="cover"
         style={styles.gridEraCardImage}
       />
 

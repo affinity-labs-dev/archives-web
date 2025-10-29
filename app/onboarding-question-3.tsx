@@ -23,6 +23,7 @@ import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import Constants from 'expo-constants'
 import { notificationTokenSync } from '@/services/NotificationTokenSync'
+import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
   "5 min / day • Casual",
@@ -214,9 +215,46 @@ export default function OnboardingQuestion3Screen() {
                 What's your daily{'\n'}learning goal?
               </Text>
 
-              {/* Speech bubble tail */}
-              <View style={styles.speechTail} />
-              <View style={styles.speechTailInner} />
+              {/* Speech bubble tail - SVG arrow */}
+              <View style={styles.speechTail}>
+                <Svg width="15" height="20" viewBox="0 0 15 20" style={{ position: 'absolute' }}>
+                  {/* White filled triangle (no stroke) */}
+                  <Path
+                    d="M0 10 L15 0 L15 20 Z"
+                    fill="white"
+                  />
+
+                  {/* Green line on top diagonal edge */}
+                  <Path
+                    d="M0 10 L15 0"
+                    stroke={ArchivesTheme.colors.mossGreen}
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+
+                  {/* Green line on bottom diagonal edge */}
+                  <Path
+                    d="M0 10 L15 20"
+                    stroke={ArchivesTheme.colors.mossGreen}
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+
+                  {/* White line on vertical base - blends with background */}
+                  <Path
+                    d="M15 0 L15 20"
+                    stroke="white"
+                    strokeWidth="1"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </Svg>
+              </View>
             </View>
           </View>
 
@@ -350,39 +388,11 @@ const styles = StyleSheet.create({
   },
   speechTail: {
     position: 'absolute',
-    left: -15,
+    left: -14.5,
     top: '50%',
     marginTop: -10,
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderTopWidth: 10,
-    borderRightWidth: 15,
-    borderBottomWidth: 10,
-    borderLeftWidth: 0,
-    borderTopColor: 'transparent',
-    borderRightColor: ArchivesTheme.colors.mossGreen,
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
-  },
-  speechTailInner: {
-    position: 'absolute',
-    left: -12,
-    top: '50%',
-    marginTop: -8,
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderTopWidth: 8,
-    borderRightWidth: 12,
-    borderBottomWidth: 8,
-    borderLeftWidth: 0,
-    borderTopColor: 'transparent',
-    borderRightColor: 'white',
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
+    width: 15,
+    height: 20,
   },
 
   // Options
