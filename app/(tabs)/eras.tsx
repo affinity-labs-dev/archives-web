@@ -1,11 +1,12 @@
 // Exact replica of Archives Affinity Labs SwiftUI EraSelection
 // Pixel-perfect conversion with immersive era cards and selection states
 
-import React, { useState } from 'react'
+import React, { useState, memo } from 'react'
 import {
   View,
   Text,
   Pressable,
+  TouchableOpacity,
   ScrollView,
   StyleSheet,
   StatusBar,
@@ -277,20 +278,22 @@ interface HorizontalEraCardProps {
   showLock?: boolean
 }
 
-function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: HorizontalEraCardProps) {
+const HorizontalEraCard = memo(function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: HorizontalEraCardProps) {
   return (
-    <Pressable
+    <TouchableOpacity
       style={[
         styles.horizontalEraCard,
         isSelected && !showLock && styles.horizontalEraCardSelected,
         showLock && styles.horizontalEraCardNoEffects
       ]}
       onPress={onSelect}
+      activeOpacity={0.7}
     >
       {/* Background Image */}
-      <Image 
-        source={era.imageName} 
+      <Image
+        source={era.imageName}
         style={styles.horizontalEraCardImage}
+        pointerEvents="none"
       />
 
       {/* Maximum Contrast Dark Overlay - Only for unlocked */}
@@ -339,9 +342,9 @@ function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: Hori
           <Text style={styles.selectedText}>Selected</Text>
         </View>
       )}
-    </Pressable>
+    </TouchableOpacity>
   )
-}
+})
 
 // Grid Era Card Component - Smaller for 2x2 layout
 interface GridEraCardProps {
@@ -362,8 +365,8 @@ function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCar
       onPress={onSelect}
     >
       {/* Background Image */}
-      <Image 
-        source={era.imageName} 
+      <Image
+        source={era.imageName}
         style={styles.gridEraCardImage}
       />
 
