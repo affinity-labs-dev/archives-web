@@ -175,21 +175,97 @@ export default function EraSelection() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Era 1 - Horizontal */}
-          <HorizontalEraCard
-            era={eras[0]}
-            isSelected={0 === selectedEraIndex}
-            onSelect={() => handleEraSelect(0)}
-            showLock={false}
-          />
+          {/* Era 1 - Umayyad Dynasty (Inline Hardcoded) */}
+          <TouchableOpacity
+            style={[
+              styles.horizontalEraCard,
+              0 === selectedEraIndex && styles.horizontalEraCardSelected,
+            ]}
+            onPress={() => handleEraSelect(0)}
+            activeOpacity={0.7}
+          >
+            <Image
+              source={require('@/assets/images/eras/era1-bg.jpg')}
+              style={styles.horizontalEraCardImage}
+              pointerEvents="none"
+            />
+            <LinearGradient
+              colors={[
+                'rgba(0,0,0,0)',
+                'rgba(0,0,0,0.3)',
+                'rgba(0,0,0,0.6)',
+                'rgba(0,0,0,0.8)',
+              ]}
+              locations={[0, 0.24, 0.64, 1.0]}
+              style={styles.horizontalGradientOverlay}
+            />
+            <View style={styles.horizontalEraCardContent}>
+              <View style={styles.horizontalEraTextSection}>
+                <Text style={styles.horizontalEraTitle} numberOfLines={2}>
+                  Umayyad Dynasty (661–750 CE)
+                </Text>
+              </View>
+            </View>
+            <View style={[
+              styles.selectedIndicatorTopRight,
+              { opacity: 0 === selectedEraIndex ? 1 : 0 }
+            ]}>
+              <MaterialIcons name="check-circle" size={14} color="white" />
+              <Text style={styles.selectedText}>Selected</Text>
+            </View>
+          </TouchableOpacity>
 
-          {/* Era 2 - Horizontal */}
-          <HorizontalEraCard
-            era={eras[1]}
-            isSelected={1 === selectedEraIndex}
-            onSelect={() => handleEraSelect(1)}
-            showLock={!DEVELOPMENT_UNLOCK_ERA2}
-          />
+          {/* Era 2 - Rise of Islam (Inline Hardcoded) */}
+          <TouchableOpacity
+            style={[
+              styles.horizontalEraCard,
+              1 === selectedEraIndex && DEVELOPMENT_UNLOCK_ERA2 && styles.horizontalEraCardSelected,
+              !DEVELOPMENT_UNLOCK_ERA2 && styles.horizontalEraCardNoEffects
+            ]}
+            onPress={() => handleEraSelect(1)}
+            activeOpacity={0.7}
+          >
+            <Image
+              source={require('@/assets/images/eras/era2-bg.jpg')}
+              style={styles.horizontalEraCardImage}
+              pointerEvents="none"
+            />
+            {DEVELOPMENT_UNLOCK_ERA2 && (
+              <LinearGradient
+                colors={[
+                  'rgba(0,0,0,0)',
+                  'rgba(0,0,0,0.3)',
+                  'rgba(0,0,0,0.6)',
+                  'rgba(0,0,0,0.8)',
+                ]}
+                locations={[0, 0.24, 0.64, 1.0]}
+                style={styles.horizontalGradientOverlay}
+              />
+            )}
+            {!DEVELOPMENT_UNLOCK_ERA2 && (
+              <View style={styles.simpleLockOverlay}>
+                <MaterialIcons name="lock" size={28} color={ArchivesTheme.colors.creamWhite} />
+                <Text style={styles.comingSoonOverlayText}>Coming soon</Text>
+              </View>
+            )}
+            <View style={styles.horizontalEraCardContent}>
+              <View style={styles.horizontalEraTextSection}>
+                <Text style={[
+                  styles.horizontalEraTitle,
+                  !DEVELOPMENT_UNLOCK_ERA2 && styles.horizontalEraTitleNoEffects
+                ]} numberOfLines={2}>
+                  Rise of Islam (570–632 CE)
+                </Text>
+              </View>
+            </View>
+            <View style={[
+              styles.selectedIndicatorTopRight,
+              { opacity: (1 === selectedEraIndex && DEVELOPMENT_UNLOCK_ERA2) ? 1 : 0 }
+            ]}>
+              <MaterialIcons name="check-circle" size={14} color="white" />
+              <Text style={styles.selectedText}>Selected</Text>
+            </View>
+          </TouchableOpacity>
 
           {/* Eras 3-4 - 2x2 Grid */}
           <View style={styles.gridContainer}>
@@ -481,6 +557,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     marginBottom: 8,
+    borderWidth: 3,
+    borderColor: 'transparent',
     shadowColor: 'black',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
@@ -488,7 +566,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   horizontalEraCardSelected: {
-    borderWidth: 3,
     borderColor: ArchivesTheme.colors.mossGreen,
     shadowColor: ArchivesTheme.colors.mossGreen,
     shadowOffset: { width: 0, height: 10 },
