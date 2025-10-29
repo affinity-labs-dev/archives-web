@@ -274,6 +274,7 @@ interface HorizontalEraCardProps {
 function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: HorizontalEraCardProps) {
   return (
     <Pressable
+      collapsable={false}
       style={[
         styles.horizontalEraCard,
         isSelected && !showLock && styles.horizontalEraCardSelected,
@@ -351,6 +352,7 @@ interface GridEraCardProps {
 function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCardProps) {
   return (
     <Pressable
+      collapsable={false}
       style={[
         styles.gridEraCard,
         isSelected && !showLock && styles.gridEraCardSelected,
