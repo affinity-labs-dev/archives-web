@@ -434,7 +434,7 @@ function QuizResultsView({
               <TouchableOpacity style={styles.adventureButton} onPress={onGoToAdventure}>
                 <View style={styles.adventureButtonContent}>
                   <Ionicons name="checkmark-circle" size={24} color="white" />
-                  <Text style={styles.adventureButtonText}>Complete Module</Text>
+                  <Text style={styles.adventureButtonText}>Go to Adventure</Text>
                   <Ionicons name="arrow-forward" size={20} color="white" />
                 </View>
               </TouchableOpacity>

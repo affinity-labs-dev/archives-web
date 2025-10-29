@@ -1,4 +1,4 @@
-// Adventure4_Module2_Lesson2.tsx - Illuminated Manuscripts & Scribes Carousel
+// Adventure4_Module2_Lesson2.tsx - Desert Palaces (Previously Lesson 1)
 // Full-screen carousel with expandable reading card - EXACT Adventure1_Module2_Lesson1 pattern
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
@@ -36,11 +36,10 @@ export default function Adventure4_Module2_Lesson2({
   onDismiss,
   onBack,
 }: Adventure4_Module2_Lesson2Props) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  // Removed hasFinishedReading - using currentPageIndex for continue button logic like Adventure1
   const [isCardExpanded, setIsCardExpanded] = useState(false);
-  const [showReadContent, setShowReadContent] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [isCardGestureActive, setIsCardGestureActive] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const panGestureRef = useRef(null);
@@ -60,30 +59,30 @@ export default function Adventure4_Module2_Lesson2({
     }
   );
 
-  // Manuscript & Scribes carousel data - Using AWS CloudFront URLs
-  const palaceInteriors = [
+  // Desert Palaces carousel data - Using AWS CloudFront URLs
+  const carouselData = [
     {
       id: 1,
-      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img04.png",
-      title: "Scribes at Work",
-      caption: "Courtyard life at Qasr al-Hayr: carved stone, swaying palms, and the rhythm of desert luxury at an Umayyad retreat",
+      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img01.jpg",
+      title: "Desert Palace Location", // Not displayed on image overlay
+      caption: "Qasr al-Hayr as it looks today.",
     },
     {
       id: 2,
-      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img05.png",
-      title: "Scribe's Tools",
-      caption: "Water flows through hidden channels into a tiled fountain - cooling the desert air",
+      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img02.jpg",
+      title: "Palace Life", // Not displayed on image overlay
+      caption: "Qasr al-Hayr as it looks today.",
     },
     {
       id: 3,
-      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img06.png",
-      title: "Manuscript Pages",
-      caption: "Riders and a falconer gather at the edge of Qasr al-Hayr’s courtyard. Ornate arches frame the desert beyond",
+      imageUrl: "https://dzyjrzj2lngmg.cloudfront.net/Images/Adv4_M2_Img03.jpg",
+      title: "Garden Oasis", // Not displayed on image overlay
+      caption: "Overhead shot of Qasr al-Hayr as it looks today.",
     },
   ];
 
-  // Historical text content for Illuminated Manuscripts
-  const historicalText = `Even out in the desert, life at a palace could feel like paradise. Fresh water ran through clever channels beneath the stone, feeding fountains and gardens. Visitors rested in shaded walkways, while caliphs went on hunting trips nearby. These palaces showed the Umayyads’ ability to bring beauty, comfort, and control - even to the harshest places.`;
+  // Historical text content for Desert Palaces
+  const historicalText = `In the middle of the Syrian desert, the Umayyads built desert palaces like Qasr al-Hayr - calm retreats far from the crowded cities. These weren't just places to relax. They were hunting lodges, rest stops for caravans, and centers of rural life. The walls were decorated with stucco designs, and cool water flowed through pools and channels to beat the desert heat.`;
 
   // Enhanced debug logging for background music
   useEffect(() => {
@@ -119,114 +118,75 @@ export default function Adventure4_Module2_Lesson2({
     };
   }, []);
 
-  // Debug logging for carousel scroll state
-  useEffect(() => {
-    console.log(
-      `🎠 Carousel scroll state: ${
-        isCardGestureActive
-          ? "🔒 BLOCKED (card gesture active)"
-          : "✅ ENABLED (can swipe images)"
-      }`
-    );
-  }, [isCardGestureActive]);
-
-  // Safety mechanism: Reset gesture state if stuck
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isCardGestureActive) {
-        console.log("⚠️ Safety reset: Clearing stuck gesture state");
-        setIsCardGestureActive(false);
-      }
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [isCardExpanded]);
-
-  // Handle horizontal scroll for image tracking
+  // Handle horizontal scroll for page tracking
   const handleScroll = (event: any) => {
     const { contentOffset } = event.nativeEvent;
-    const imageIndex = Math.round(contentOffset.x / SCREEN_WIDTH);
+    const pageIndex = Math.round(contentOffset.x / SCREEN_WIDTH);
 
-    if (imageIndex !== currentImageIndex && imageIndex >= 0 && imageIndex < palaceInteriors.length) {
-      setCurrentImageIndex(imageIndex);
-      console.log("📱 Image changed to:", imageIndex + 1);
+    if (pageIndex !== currentPageIndex && pageIndex >= 0 && pageIndex < carouselData.length) {
+      setCurrentPageIndex(pageIndex);
+      console.log("📱 Page changed to:", pageIndex + 1);
     }
   };
 
-  // Navigate to next image (Swipe button functionality)
-  const handleSwipeNext = () => {
-    if (currentImageIndex < palaceInteriors.length - 1) {
-      const nextIndex = currentImageIndex + 1;
-      scrollViewRef.current?.scrollTo({ x: nextIndex * SCREEN_WIDTH, animated: true });
-      setCurrentImageIndex(nextIndex);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  // Continue button handler - only works when user reaches last image (Adventure1 pattern)
+  const handleContinue = () => {
+    if (currentPageIndex !== carouselData.length - 1) {
+      console.log("🔄 Continue button pressed but not on last image");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
     }
+
+    console.log("🔄 Continue button pressed - proceeding to quiz");
+    onContinue();
   };
 
-  // Universal gesture handler using PanGestureHandler (works on all platforms)
+  // iOS PanGestureHandler for native iOS gesture experience
   const handleSwipeGesture = (event: any) => {
-    const { state, translationY, velocityY } = event.nativeEvent;
+    if (Platform.OS !== 'ios') return;
 
-    // Track gesture activity for carousel coordination
-    if (state === State.BEGAN || state === State.ACTIVE) {
-      setIsCardGestureActive(true);
-      console.log("📱 Card gesture started - blocking carousel");
-    }
-
-    // Handle ALL end states (END, CANCELLED, FAILED)
-    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      console.log("📱 Gesture state:", state, {
+    if (event.nativeEvent.state === State.END) {
+      const { translationY, velocityY } = event.nativeEvent;
+      console.log("📱 iOS PanGesture detected", {
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS,
+        platform: Platform.OS
       });
 
-      // Only process swipe if gesture completed successfully
-      if (state === State.END) {
-        const minDistance = 20;
-        const minVelocity = 300;
+      // iOS-optimized swipe detection
+      const minDistance = 30;
+      const minVelocity = 500;
 
-        if (
-          !isCardExpanded &&
-          (translationY < -minDistance || velocityY < -minVelocity)
-        ) {
-          console.log("📱 Swipe up detected - expanding card", {
-            translationY,
-            velocityY,
-          });
-          expandCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          return;
-        } else if (
-          isCardExpanded &&
-          (translationY > minDistance || velocityY > minVelocity)
-        ) {
-          console.log("📱 Swipe down detected - collapsing card", {
-            translationY,
-            velocityY,
-          });
-          collapseCard();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          return;
-        }
+      if (!isCardExpanded &&
+          (translationY < -minDistance || velocityY < -minVelocity)) {
+        console.log("📱 iOS PanGesture swipe up detected - expanding card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        expandCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (isCardExpanded &&
+                 (translationY > minDistance || velocityY > minVelocity)) {
+        console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
+          translationY,
+          velocityY,
+          platform: Platform.OS
+        });
+        collapseCard();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-
-      // Always reset if we reach here (gesture ended without action)
-      setIsCardGestureActive(false);
-      console.log("📱 Gesture ended - carousel re-enabled");
     }
   };
 
   // Expand the card to full height
   const expandCard = () => {
-    console.log("🎬 Card expansion starting...");
     setIsCardExpanded(true);
-    setShowReadContent(true);
 
-    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
-    setIsCardGestureActive(false);
-    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    // Just expand the card - continue button logic now based on image position
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    console.log("📖 Reading card expanded");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -240,20 +200,12 @@ export default function Adventure4_Module2_Lesson2({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start(() => {
-      console.log("🎬 Card expansion animation finished");
-    });
+    ]).start();
   };
 
   // Collapse the card back to original size
   const collapseCard = () => {
-    console.log("🎬 Card collapse starting...");
     setIsCardExpanded(false);
-    setShowReadContent(false);
-
-    // ✅ IMMEDIATE FIX: Reset gesture state IMMEDIATELY for instant carousel re-enable
-    setIsCardGestureActive(false);
-    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -267,9 +219,7 @@ export default function Adventure4_Module2_Lesson2({
         duration: 300,
         useNativeDriver: false,
       }),
-    ]).start(() => {
-      console.log("🎬 Card collapse animation finished");
-    });
+    ]).start();
   };
 
   // Handle reading scroll - track scroll position for gesture priority
@@ -280,21 +230,19 @@ export default function Adventure4_Module2_Lesson2({
     // But completion is now triggered by card expansion for better UX
   };
 
-  // Page indicators - only show when card is not expanded
+  // Page indicators
   const renderPageIndicators = () => (
-    !isCardExpanded && (
-      <View style={styles.pageIndicatorsOnly}>
-        {palaceInteriors.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.pageIndicator,
-              currentImageIndex === index && styles.pageIndicatorActive
-            ]}
-          />
-        ))}
-      </View>
-    )
+    <View style={styles.pageIndicators}>
+      {carouselData.map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.pageIndicator,
+            currentPageIndex === index && styles.pageIndicatorActive,
+          ]}
+        />
+      ))}
+    </View>
   );
 
   return (
@@ -303,36 +251,32 @@ export default function Adventure4_Module2_Lesson2({
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
       <View style={styles.container}>
-        {/* Main carousel - full screen TabView equivalent */}
+        {/* Full-screen horizontal carousel */}
         <ScrollView
           ref={scrollViewRef}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={handleScroll}
-          scrollEnabled={!isCardGestureActive} // Disable carousel when card gesture is active
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          bounces={false}
           style={styles.carousel}
         >
-          {palaceInteriors.map((interior, index) => (
-            <View key={interior.id} style={styles.imageContainer}>
-              {/* Full screen manuscript image */}
-              <Image
-                source={{ uri: interior.imageUrl }}
-                style={styles.palaceImage}
-                resizeMode="cover"
-              />
+          {carouselData.map((item, index) => (
+            <View key={item.id} style={styles.carouselPage}>
+              <Image source={{ uri: item.imageUrl }} style={styles.carouselImage} />
 
               {/* Text overlay with descriptive caption */}
               <View style={styles.textOverlay}>
                 <Text style={styles.captionText}>
-                  {interior.caption}
+                  {item.caption}
                 </Text>
               </View>
             </View>
           ))}
         </ScrollView>
 
-        {/* Page indicator dots - centered */}
+        {/* Page indicators */}
         {renderPageIndicators()}
 
         {/* Back Button - Top Left */}
@@ -349,149 +293,237 @@ export default function Adventure4_Module2_Lesson2({
           </TouchableOpacity>
         </SafeAreaView>
 
-        {/* Continue Button - Top Right (only active on final image) */}
-        <SafeAreaView style={styles.continueButtonContainer}>
+        {/* Next Button - Top Right */}
+        <SafeAreaView style={styles.nextButtonContainer}>
           <TouchableOpacity
             style={[
-              styles.topContinueButton,
-              currentImageIndex !== palaceInteriors.length - 1 && styles.topContinueButtonDisabled
+              styles.nextButton,
+              currentPageIndex !== carouselData.length - 1 && styles.nextButtonDisabled
             ]}
-            onPress={currentImageIndex === palaceInteriors.length - 1 ? () => {
-              // Stop all audio before continuing (no await for instant navigation)
-              // if (backgroundMusic.isPlaying) {
-              //   console.log('🎵 Stopping background music before continue');
-              //   backgroundMusic.stop(); // Remove await for instant navigation
-              // }
-
-              onContinue();
-            } : undefined}
-            disabled={currentImageIndex !== palaceInteriors.length - 1}
+            onPress={currentPageIndex === carouselData.length - 1 ? handleContinue : undefined}
+            disabled={currentPageIndex !== carouselData.length - 1}
           >
             <Ionicons
               name="chevron-forward"
               size={24}
-              color={currentImageIndex === palaceInteriors.length - 1 ? "white" : "#666"}
+              color={currentPageIndex === carouselData.length - 1 ? "white" : "#666"}
             />
           </TouchableOpacity>
         </SafeAreaView>
 
-        {/* Reading Card at Bottom - Universal Gesture Handling */}
-        <PanGestureHandler
-          ref={panGestureRef}
-          onGestureEvent={handleSwipeGesture}
-          onHandlerStateChange={handleSwipeGesture}
-          activeOffsetY={[-15, 15]}
-          failOffsetX={[-40, 40]}
-          minPointers={1}
-          maxPointers={1}
-        >
-          <Animated.View
-            style={[
+        {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
+        {Platform.OS === 'ios' ? (
+          // iOS: Native PanGestureHandler
+          <PanGestureHandler
+            ref={panGestureRef}
+            onGestureEvent={handleSwipeGesture}
+            onHandlerStateChange={handleSwipeGesture}
+            activeOffsetY={[-20, 20]}
+            failOffsetX={[-30, 30]}
+          >
+            <Animated.View style={[
               styles.cardContainer,
               {
-                transform: [{ translateY: cardTranslateY }],
-              },
-            ]}
-          >
-            <Animated.View
-              style={[
+                transform: [{ translateY: cardTranslateY }]
+              }
+            ]}>
+              <Animated.View style={[
                 styles.readingCard,
                 {
                   height: cardHeight,
-                },
-              ]}
-            >
-              {/* Top handle indicator */}
-              <View style={styles.cardHandle} />
+                }
+              ]}>
+                {/* Top handle indicator */}
+                <View style={styles.cardHandle} />
 
-              {/* Collapsed content */}
-              <Animated.View
-                style={[styles.collapsedContent, { opacity: cardOpacity }]}
-              >
-                <TouchableOpacity
-                  onPress={expandCard}
-                  activeOpacity={0.8}
-                  disabled={isCardExpanded}
-                >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      Umayyad Desert Retreats
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      Even out in the desert, life at a palace could feel like paradise...
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
-
-              {/* Expanded content */}
-              {isCardExpanded && (
-                <Animated.View
-                  style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) },
-                  ]}
-                >
-                  <GestureHandlerScrollView
-                    ref={scrollViewGestureRef}
-                    style={styles.expandedScroll}
-                    showsVerticalScrollIndicator={false}
-                    onScroll={handleReadingScroll}
-                    scrollEventThrottle={100}
-                    waitFor={panGestureRef}
-                    simultaneousHandlers={panGestureRef}
+                {/* iOS Collapsed content */}
+                <Animated.View style={[
+                  styles.collapsedContent,
+                  { opacity: cardOpacity }
+                ]}>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
                   >
-                    <View style={styles.expandedContentInner}>
-                      {/* Title Section - Tappable to collapse */}
-                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            Palace Life & Architecture
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Module 2 • Lesson 2
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-
-                      {/* Historical Content */}
-                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                        <View style={styles.historicalSection}>
-                          <Text style={styles.sectionTitle}>Historical Context</Text>
-                          <Text style={styles.historicalText}>{historicalText}</Text>
-                        </View>
-                      </TouchableOpacity>
-
-                      {/* Key Terms Section */}
-                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                        <View style={styles.keyTermsSection}>
-                          <Text style={styles.sectionTitle}>Key Terms</Text>
-                          <View style={styles.keyTermsContainer}>
-                            <KeyTermRow
-                              term="Courtyard Gardens"
-                              definition="Central palace spaces with fountains, palm trees, and shaded walkways for relaxation"
-                            />
-                            <KeyTermRow
-                              term="Water Channels"
-                              definition="Clever underground systems that carried fresh water to fountains and gardens"
-                            />
-                            <KeyTermRow
-                              term="Hunting Grounds"
-                              definition="Desert areas around palaces where caliphs and nobles practiced falconry and hunting"
-                            />
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-
-                      {/* Bottom spacer to ensure full scroll */}
-                      <View style={styles.sheetBottomSpacer} />
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        Qasr al-Hayr & Desert Life
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        More than just retreats - hunting lodges, caravan stops, and centers of rural life...
+                      </Text>
                     </View>
-                  </GestureHandlerScrollView>
+                  </TouchableOpacity>
                 </Animated.View>
-              )}
+
+                {/* Expanded content when card is swiped up */}
+                {isCardExpanded && (
+                  <Animated.View style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) }
+                  ]}>
+                    <GestureHandlerScrollView
+                      ref={scrollViewGestureRef}
+                      style={styles.expandedScroll}
+                      showsVerticalScrollIndicator={false}
+                      onScroll={handleReadingScroll}
+                      scrollEventThrottle={100}
+                      waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
+                    >
+                      <View style={styles.expandedContentInner}>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Desert Palaces of the Umayyads
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 2 • Lesson 2
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Historical Content */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>Historical Context</Text>
+                            <Text style={styles.historicalText}>{historicalText}</Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Key Terms Section */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Qusur (Desert Palaces)"
+                                definition="Magnificent palace complexes built in the Syrian desert as centers of power and luxury"
+                              />
+                              <KeyTermRow
+                                term="Qasr al-Hayr al-Gharbi"
+                                definition="The western desert palace built around 727 CE with intricate mosaics and bathhouses"
+                              />
+                              <KeyTermRow
+                                term="Hima (Hunting Parks)"
+                                definition="Enclosed hunting grounds within the palace complexes for royal recreation"
+                              />
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Bottom spacer to ensure full scroll */}
+                        <View style={styles.sheetBottomSpacer} />
+                      </View>
+                    </GestureHandlerScrollView>
+                  </Animated.View>
+                )}
+              </Animated.View>
             </Animated.View>
-          </Animated.View>
-        </PanGestureHandler>
+          </PanGestureHandler>
+        ) : (
+          // Android: TouchableOpacity for tap-to-expand
+          <Animated.View style={[
+            styles.cardContainer,
+            {
+              transform: [{ translateY: cardTranslateY }]
+            }
+          ]}>
+              <Animated.View style={[
+                styles.readingCard,
+                {
+                  height: cardHeight,
+                }
+              ]}>
+                {/* Top handle indicator */}
+                <View style={styles.cardHandle} />
+
+                {/* Android Collapsed content with improved styling */}
+                <Animated.View style={[
+                  styles.collapsedContent,
+                  { opacity: cardOpacity }
+                ]}>
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
+                  >
+                    <View style={styles.collapsedContentWrapper}>
+                      <Text style={styles.collapsedTitle}>
+                        Qasr al-Hayr & Desert Life
+                      </Text>
+                      <Text style={styles.collapsedSubtitle}>
+                        In the middle of the Syrian desert, the Umayyads built desert palaces like Qasr al-Hayr...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+
+                {/* Expanded content when card is swiped up */}
+                {isCardExpanded && (
+                  <Animated.View style={[
+                    styles.expandedContent,
+                    { opacity: Animated.subtract(1, cardOpacity) }
+                  ]}>
+                    <GestureHandlerScrollView
+                      ref={scrollViewGestureRef}
+                      style={styles.expandedScroll}
+                      showsVerticalScrollIndicator={false}
+                      onScroll={handleReadingScroll}
+                      scrollEventThrottle={100}
+                    >
+                      <View style={styles.expandedContentInner}>
+                        {/* Title Section - Tappable to collapse */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              Desert Palaces of the Umayyads
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Module 2 • Lesson 2
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Historical Content */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.historicalSection}>
+                            <Text style={styles.sectionTitle}>Historical Context</Text>
+                            <Text style={styles.historicalText}>{historicalText}</Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Key Terms Section */}
+                        <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                          <View style={styles.keyTermsSection}>
+                            <Text style={styles.sectionTitle}>Key Terms</Text>
+                            <View style={styles.keyTermsContainer}>
+                              <KeyTermRow
+                                term="Qusur (Desert Palaces)"
+                                definition="Magnificent palace complexes built in the Syrian desert as centers of power and luxury"
+                              />
+                              <KeyTermRow
+                                term="Qasr al-Hayr al-Gharbi"
+                                definition="The western desert palace built around 727 CE with intricate mosaics and bathhouses"
+                              />
+                              <KeyTermRow
+                                term="Hima (Hunting Parks)"
+                                definition="Enclosed hunting grounds within the palace complexes for royal recreation"
+                              />
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Bottom spacer to ensure full scroll */}
+                        <View style={styles.sheetBottomSpacer} />
+                      </View>
+                    </GestureHandlerScrollView>
+                  </Animated.View>
+                )}
+              </Animated.View>
+            </Animated.View>
+        )}
 
       </View>
     </>
@@ -516,14 +548,14 @@ function KeyTermRow({ term, definition }: KeyTermRowProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: ArchivesTheme.colors.creamWhite,
   },
 
-  // Main carousel - full screen
+  // Full-screen carousel
   carousel: {
     flex: 1,
   },
-  imageContainer: {
+  carouselPage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     position: 'relative',
@@ -532,14 +564,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',    // Ensure no white gaps
     overflow: 'hidden',          // Prevent any content from spilling out
   },
-  palaceImage: {
+  carouselImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     position: 'absolute',        // Absolute positioning for perfect centering
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    resizeMode: "cover",
   },
 
   // Text overlay at top - matching Adventure1 design exactly
@@ -564,16 +593,16 @@ const styles = StyleSheet.create({
   },
 
   // Page indicators - Figma design with dark pill container
-  pageIndicatorsOnly: {
-    position: 'absolute',
-    bottom: 180, // Position above the reading card
-    alignSelf: 'center', // Center horizontally, auto-fit width to content
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  pageIndicators: {
+    position: "absolute",
+    bottom: 170,
+    alignSelf: "center", // Center horizontally, auto-fit width to content
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 10,
     // Dark pill container background - width auto-fits to content
-    backgroundColor: 'rgba(0, 0, 0, 0.8)', // 80% black opacity
+    backgroundColor: "rgba(0, 0, 0, 0.8)", // 80% black opacity
     borderRadius: 15, // Smooth rounded pill shape
     paddingHorizontal: 5, // Left & right padding
     paddingVertical: 6, // Top & bottom padding
@@ -582,11 +611,11 @@ const styles = StyleSheet.create({
     width: 9, // Dot size
     height: 9,
     borderRadius: 4.5, // Perfect circle (half of width)
-    backgroundColor: 'rgb(147, 147, 147)', // Gray color
+    backgroundColor: "rgb(147, 147, 147)", // Gray color
     marginHorizontal: 4.5, // Spacing between dots
   },
   pageIndicatorActive: {
-    backgroundColor: 'rgb(255, 255, 255)', // Pure white
+    backgroundColor: "rgb(255, 255, 255)", // Pure white
     // No scale transform - clean, simple design
   },
 
@@ -608,8 +637,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Continue Button - Top Right
-  continueButtonContainer: {
+  // Next Button - Top Right
+  nextButtonContainer: {
     position: "absolute",
     top: 0,
     right: 0,
@@ -617,7 +646,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingRight: 16,
   },
-  topContinueButton: {
+  nextButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -625,9 +654,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  topContinueButtonDisabled: {
-    backgroundColor: "rgba(0,0,0,0.3)", // Gray when disabled
+  nextButtonDisabled: {
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
 
   // Card Container for scale animation
@@ -762,5 +790,26 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
+  },
+
+  // Android-Specific Styles for proper text positioning
+  collapsedContentWrapper: {
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
+  },
+  collapsedTitle: {
+    fontFamily: "DM Sans",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 8,
+  },
+  collapsedSubtitle: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    color: "white",
+    opacity: 0.8,
+    lineHeight: 20,
   },
 });

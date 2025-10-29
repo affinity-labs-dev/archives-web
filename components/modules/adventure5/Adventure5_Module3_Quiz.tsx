@@ -325,7 +325,10 @@ export default function Adventure5_Module3_Quiz({ onDismiss, onBack }: Adventure
   // Render True/False options (for questions that use True/False format)
   const renderTrueFalseOptions = () => {
     return (
-      <View style={styles.trueFalseOptionsContainer}>
+      <View style={[
+        styles.trueFalseOptionsContainer,
+        currentQuestionIndex === 2 && styles.trueFalseOptionsHorizontal
+      ]}>
         <TrueFalseOptionButton
           isTrue={true}
           isSelected={selectedTrueFalse === 0} // True = 0 for these questions
@@ -538,6 +541,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     paddingTop: 20,
     paddingBottom: 80,
+    gap: 30,
+  },
+
+  // True/False Options Horizontal - for Question 3
+  trueFalseOptionsHorizontal: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
     gap: 30,
   },
 

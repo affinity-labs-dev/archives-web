@@ -1,15 +1,15 @@
 // Main Tab Navigation - Native iOS Bottom Tabs with automatic iOS 18+ floating behavior
 // 4 tabs: Home, Eras, Subscribe, Profile with Archives styling
 
+import ErasIcon from '@/components/icons/ErasIcon'
+import HomeIcon from '@/components/icons/HomeIcon'
+import ProfileIcon from '@/components/icons/ProfileIcon'
+import SubscribeIcon from '@/components/icons/SubscribeIcon'
+import ArchivesTheme from '@/constants/ArchivesTheme'
+import { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs'
+import { Tabs } from 'expo-router'
 import React from 'react'
 import { Platform } from 'react-native'
-import { Tabs } from 'expo-router'
-import { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs'
-import ArchivesTheme from '@/constants/ArchivesTheme'
-import HomeIcon from '@/components/icons/HomeIcon'
-import ErasIcon from '@/components/icons/ErasIcon'
-import SubscribeIcon from '@/components/icons/SubscribeIcon'
-import ProfileIcon from '@/components/icons/ProfileIcon'
 
 // Use native bottom tabs only on iOS, fallback to Expo Router tabs on other platforms
 const useNativeTabs = Platform.OS === 'ios'
@@ -33,8 +33,8 @@ const getScreenOptions = (): BottomTabNavigationOptions => ({
   tabBarStyle: {
     backgroundColor: ArchivesTheme.colors.creamWhite,
     borderTopWidth: 0,
-    height: Platform.OS === 'ios' ? 88 : Platform.OS === 'web' ? 75 : 65,
-    paddingBottom: Platform.OS === 'ios' ? 34 : Platform.OS === 'web' ? 15 : 10,
+    height: Platform.OS === 'ios' ? 88 : Platform.OS === 'web' ? 75 : 75,
+    paddingBottom: Platform.OS === 'ios' ? 34 : Platform.OS === 'web' ? 15 : 15,
     paddingTop: 8,
     // Subtle shadow matching SwiftUI (native tabs handle this automatically)
     ...(!useNativeTabs && {

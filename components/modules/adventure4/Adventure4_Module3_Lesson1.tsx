@@ -289,7 +289,6 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.shoeBrown,
     lineHeight: 24,
     textAlign: 'left',
-    fontStyle: 'italic', // Emphasize the quote-like nature
     marginTop: 20, // Extra spacing after image
   },
 
