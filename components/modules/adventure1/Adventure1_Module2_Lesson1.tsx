@@ -560,23 +560,6 @@ export default function Adventure1_Module2_Lesson1({
           </Animated.View>
         </PanGestureHandler>
 
-        {/* Above Dots Walkthrough Hint */}
-        <View style={styles.aboveDotsHintContainer}>
-          <ExpoImage
-            source={require('@/assets/images/walkthrough/abovedots.svg')}
-            style={styles.aboveDotsHintImage}
-            contentFit="contain"
-          />
-        </View>
-
-        {/* Continue Walkthrough Hint - Left of Continue button */}
-        <SafeAreaView style={styles.continueHintContainer}>
-          <ExpoImage
-            source={require('@/assets/images/walkthrough/continue.svg')}
-            style={styles.continueHintImage}
-            contentFit="contain"
-          />
-        </SafeAreaView>
       </View>
     </>
   );
@@ -860,34 +843,6 @@ const styles = StyleSheet.create({
 
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
-    height: 60,
-  },
-
-  // Walkthrough hints
-  aboveDotsHintContainer: {
-    position: 'absolute',
-    bottom: DOTS_BOTTOM_POSITION - 20, // Very close to dots (relational)
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 15, // Below card, above dots
-    pointerEvents: 'none', // Don't block interactions
-  },
-  aboveDotsHintImage: {
-    width: 180,
-    height: 180,
-  },
-
-  continueHintContainer: {
-    position: 'absolute',
-    top: 0,
-    right: 64, // Left of Continue button (paddingRight 16 + button 40 + spacing 8)
-    paddingTop: 8, // Same as Continue button
-    zIndex: 15, // Below card, above dots
-    pointerEvents: 'none',
-  },
-  continueHintImage: {
-    width: 120,
     height: 60,
   },
 });

@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "78",
+      "buildNumber": "79",
       "associatedDomains": [
         "applinks:link.archiveszone.app"
       ],
@@ -120,7 +120,9 @@
           }
         }
       ],
-      "expo-iap"
+      "expo-iap",
+      "expo-web-browser",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

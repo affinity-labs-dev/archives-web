@@ -25,6 +25,7 @@ export default function ROIBentoScreen() {
   const { adventures, loading, error, refreshAdventures } = useROIAdventures(2);
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // User sign-in detection for data reload
   const { user, isSignedIn } = useUser();
@@ -83,34 +84,20 @@ export default function ROIBentoScreen() {
     }, [loadProgress])
   );
 
-  // Calculate progress bar based on completed ADVENTURES (only Era 2 / Rise of Islam)
-  // An adventure is completed when ALL its modules are completed
-  const completedAdventuresCount = adventures.filter(adventure => {
-    // Get all modules for this adventure from userProgress
-    const adventureModules = userProgress.filter(
-      p => p.adventureId === adventure.readable_id && p.era_id === 2
-    );
-
-    // Get total modules for this adventure from content_list
-    const totalModulesForAdventure = adventure.content_list?.length || 0;
-
-    // Adventure is complete if:
-    // 1. It has modules in userProgress
-    // 2. Number of completed modules = total modules
-    // 3. All modules are actually completed and quiz passed
-    const completedModulesForAdventure = adventureModules.filter(
-      p => p.isCompleted && p.quizCompleted
-    ).length;
-
-    return totalModulesForAdventure > 0 && completedModulesForAdventure === totalModulesForAdventure;
-  }).length;
-
-  const progressBarData = {
-    title: 'Exploring Rise of Islam',
-    subtitle: '570 - 632 CE',
-    currentStep: completedAdventuresCount,
-    totalSteps: adventures.length, // Total number of adventures
-  };
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    console.log('🔄 [ROI] Pull-to-refresh triggered');
+    setRefreshing(true);
+    try {
+      await refreshAdventures(); // Refresh adventures from Supabase
+      await loadProgress(); // Reload user progress
+      console.log('✅ [ROI] Refresh complete');
+    } catch (error) {
+      console.error('❌ [ROI] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshAdventures, loadProgress]);
 
   if (loading || progressLoading) {
     return (
@@ -132,10 +119,11 @@ export default function ROIBentoScreen() {
 
   return (
     <ROIEraComponent
-      progressBar={progressBarData}
       adventures={adventures}
       userProgress={userProgress}
       onProgressUpdate={loadProgress}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
     />
   );
 }

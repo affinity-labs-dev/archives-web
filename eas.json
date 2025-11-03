@@ -4,7 +4,7 @@
   },
   "build": {
     "base": {
-      "node": "18.18.0",
+      "node": "20.19.4",
       "env": {
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsuYXJjaGl2ZXN6b25lLmFwcCQ",
         "EXPO_PUBLIC_SUPABASE_URL": "https://kcgihainlnntshupiztu.supabase.co",

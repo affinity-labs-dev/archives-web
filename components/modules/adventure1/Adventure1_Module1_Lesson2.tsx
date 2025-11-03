@@ -540,24 +540,6 @@ export default function Adventure1_Module1_Lesson2({
             </Animated.View>
           </Animated.View>
         )}
-
-        {/* Read Walkthrough Hint - Above reading card */}
-        <View style={styles.readHintContainer}>
-          <Image
-            source={require('@/assets/images/walkthrough/read.svg')}
-            style={styles.readHintImage}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Continue Walkthrough Hint - Left of Next button */}
-        <SafeAreaView style={styles.continueHintContainer}>
-          <Image
-            source={require('@/assets/images/walkthrough/continue.svg')}
-            style={styles.continueHintImage}
-            resizeMode="contain"
-          />
-        </SafeAreaView>
       </View>
     </>
   );
@@ -798,33 +780,5 @@ const styles = StyleSheet.create({
     color: "white",
     opacity: 0.8,
     lineHeight: 20,
-  },
-
-  // Walkthrough hints
-  readHintContainer: {
-    position: 'absolute',
-    bottom: COLLAPSED_HEIGHT - 80, // Very close to card top (COLLAPSED_HEIGHT - 40 bottom offset - 40 spacing)
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 15, // Below card, above progress bar
-    pointerEvents: 'none', // Don't block interactions
-  },
-  readHintImage: {
-    width: 180,
-    height: 180,
-  },
-
-  continueHintContainer: {
-    position: 'absolute',
-    top: 0,
-    right: 64, // Left of Next button (paddingRight 16 + button 40 + spacing 8)
-    paddingTop: 8, // Same as Next button
-    zIndex: 15, // Below card, above progress bar
-    pointerEvents: 'none',
-  },
-  continueHintImage: {
-    width: 120,
-    height: 60,
   },
 });

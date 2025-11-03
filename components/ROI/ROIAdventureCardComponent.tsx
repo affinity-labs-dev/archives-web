@@ -39,11 +39,12 @@ export default function ROIAdventureCardComponent({
   // Calculate modules count from content_list
   const modulesCount = adventure.content_list?.length || 0
 
-  // Calculate XP reward: total questions × 10 XP per correct answer
-  const totalQuestions = adventure.content_list?.reduce((sum, item) => {
-    return sum + (item.questions?.length || 0);
-  }, 0) || 0;
-  const xpReward = totalQuestions * 10
+  // Calculate XP reward: number of quizzes × 10 XP per quiz
+  // Each module with questions = 1 quiz
+  const quizCount = adventure.content_list?.filter(item =>
+    item.questions && item.questions.length > 0
+  ).length || 0;
+  const xpReward = quizCount * 10
 
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)

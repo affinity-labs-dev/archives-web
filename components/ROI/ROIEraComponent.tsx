@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { Modal, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
+import ArchivesTheme from '@/constants/ArchivesTheme';
 import ROIAdventureComponent from './ROIAdventureComponent';
 import ROIAdventureCardComponent from './ROIAdventureCardComponent';
 import ROIAdventureSummary, { SummaryMode } from './ROIAdventureSummary';
 import ROIReelLesson from './ROIReelLesson';
 import ROIVideoCarouselLesson from './ROIVideoCarouselLesson';
 import ROIImageCarouselLesson from './ROIImageCarouselLesson';
+import ROIScrollableMediaViewLesson from './ROIScrollableMediaViewLesson';
 import ROIQuiz from './ROIQuiz';
-import type { Adventure, ProgressBar, ContentItem } from './types';
+import type { Adventure, ContentItem } from './types';
 
 // TypeScript interfaces
 interface UserProgress {
@@ -24,13 +26,14 @@ interface UserProgress {
 }
 
 interface ROIEraComponentProps {
-  progressBar: ProgressBar;
   adventures: Adventure[];
   userProgress: UserProgress[];
   onProgressUpdate?: () => void;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
-const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ progressBar, adventures, userProgress, onProgressUpdate }) => {
+const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh }) => {
   const [selectedLesson, setSelectedLesson] = useState<{
     contentItem: ContentItem;
     adventureId: string;
@@ -49,6 +52,35 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ progressBar, adventur
     milestoneXP: number;
     totalXP: number;
   } | null>(null);
+  const [isCardSticky, setIsCardSticky] = useState(false);
+
+  // Calculate completed adventures count dynamically (recalculates when userProgress changes)
+  const completedAdventuresCount = useMemo(() => {
+    return adventures.filter(adventure => {
+      // Get all modules for this adventure from userProgress
+      const adventureModules = userProgress.filter(
+        p => p.adventureId === adventure.readable_id && p.era_id === 2
+      );
+
+      // Get total modules for this adventure from content_list
+      const totalModulesForAdventure = adventure.content_list?.length || 0;
+
+      // Adventure is complete if all modules are completed and quizzes passed
+      const completedModulesForAdventure = adventureModules.filter(
+        p => p.isCompleted && p.quizCompleted
+      ).length;
+
+      return totalModulesForAdventure > 0 && completedModulesForAdventure === totalModulesForAdventure;
+    }).length;
+  }, [adventures, userProgress]);
+
+  // Create dynamic progress bar data
+  const progressBarData = {
+    title: 'Exploring Rise of Islam',
+    subtitle: '500 - 632 CE',
+    currentStep: completedAdventuresCount,
+    totalSteps: adventures.length,
+  };
 
   // Handle card press - open lesson modal
   const handleCardPress = (contentItem: ContentItem, adventureId: string) => {
@@ -195,26 +227,37 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ progressBar, adventur
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        stickyHeaderIndices={[0]}
+        onScroll={(event) => {
+          const scrollY = event.nativeEvent.contentOffset.y;
+          setIsCardSticky(scrollY > 0);
+        }}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || false}
+            onRefresh={onRefresh}
+            tintColor={ArchivesTheme.colors.persianOrange}
+            colors={[ArchivesTheme.colors.persianOrange]}
+          />
+        }
       >
-        {/* Progress Card */}
-        <View style={styles.progressWrapper}>
-          {/* Shadow */}
-          <View style={[styles.progressCard, styles.progressShadow]} />
-          {/* Main Card */}
+        {/* Progress Card - Sticky Header */}
+        <View style={[styles.progressWrapper, isCardSticky && { paddingTop: 60 }]}>
           <View style={styles.progressCard}>
             <View style={styles.progressTextContainer}>
-              <Text style={styles.progressTitle}>{progressBar.title}</Text>
+              <Text style={styles.progressTitle}>{progressBarData.title}</Text>
               <View style={styles.progressSubtitleRow}>
-                <Text style={styles.progressSubtitle}>{progressBar.subtitle}</Text>
+                <Text style={styles.progressSubtitle}>{progressBarData.subtitle}</Text>
                 {/* Progress Bar */}
                 <View style={styles.progressBarContainer}>
                   <Svg width={192} height={8} viewBox="0 0 192 8">
                     <Path d="M5 4L187 4" stroke="#D7C5B6" strokeWidth={2} strokeLinecap="round" />
-                    <Circle cx={4} cy={4} r={4} fill={progressBar.currentStep > 0 ? "white" : "#D7C5B6"} />
-                    <Circle cx={50} cy={4} r={4} fill={progressBar.currentStep > 1 ? "white" : "#D7C5B6"} />
-                    <Circle cx={96} cy={4} r={4} fill={progressBar.currentStep > 2 ? "white" : "#D7C5B6"} />
-                    <Circle cx={142} cy={4} r={4} fill={progressBar.currentStep > 3 ? "white" : "#D7C5B6"} />
-                    <Circle cx={188} cy={4} r={4} fill={progressBar.currentStep > 4 ? "white" : "#D7C5B6"} />
+                    <Circle cx={4} cy={4} r={4} fill={progressBarData.currentStep > 0 ? "white" : "#D7C5B6"} />
+                    <Circle cx={50} cy={4} r={4} fill={progressBarData.currentStep > 1 ? "white" : "#D7C5B6"} />
+                    <Circle cx={96} cy={4} r={4} fill={progressBarData.currentStep > 2 ? "white" : "#D7C5B6"} />
+                    <Circle cx={142} cy={4} r={4} fill={progressBarData.currentStep > 3 ? "white" : "#D7C5B6"} />
+                    <Circle cx={188} cy={4} r={4} fill={progressBarData.currentStep > 4 ? "white" : "#D7C5B6"} />
                   </Svg>
                 </View>
               </View>
@@ -250,6 +293,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ progressBar, adventur
                 moduleId={selectedLesson.moduleId}
                 onContinue={handleQuizContinue}
                 onDismiss={handleLessonDismiss}
+                onBack={handleLessonDismiss}
                 onMilestoneReached={handleMilestoneReached}
               />
             ) : (
@@ -275,6 +319,15 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ progressBar, adventur
                 )}
                 {selectedLesson.contentItem.content_type === 'image_carousel' && (
                   <ROIImageCarouselLesson
+                    contentItem={selectedLesson.contentItem}
+                    moduleId={selectedLesson.moduleId}
+                    lessonId={selectedLesson.lessonId}
+                    onContinue={handleLessonContinue}
+                    onDismiss={handleLessonDismiss}
+                  />
+                )}
+                {selectedLesson.contentItem.content_type === 'scrollable_media_view' && (
+                  <ROIScrollableMediaViewLesson
                     contentItem={selectedLesson.contentItem}
                     moduleId={selectedLesson.moduleId}
                     lessonId={selectedLesson.lessonId}
@@ -328,33 +381,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4EBDB',
   },
   scrollContent: {
-    paddingTop: 50, // Account for status bar / notch
-    paddingBottom: 120, // Increased to account for tab bar height (88px + extra spacing)
+    paddingTop: 77, // Account for status bar / notch
+    paddingBottom: 120, // Account for tab bar height
   },
 
-  // Progress Card
+  // Progress Card (scrolls with content)
   progressWrapper: {
     marginLeft: 13,
     marginRight: 16,
-    marginTop: 27,
-    height: 57,
-    position: 'relative',
     marginBottom: 40,
   },
   progressCard: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
     height: 53,
     backgroundColor: '#C99151',
     borderRadius: 11,
     paddingLeft: 24,
     paddingRight: 24,
     justifyContent: 'center',
-  },
-  progressShadow: {
-    backgroundColor: '#6E4E29',
-    top: 4,
   },
   progressTextContainer: {
     flex: 1,

@@ -219,6 +219,260 @@ await atomicProgressUpdate(adventureId, moduleId, {
 - **Umayyad Dynasty**: Complete (5 adventures, 15 modules, 30 lessons, 15 quizzes)
 - **Rise of Islam**: Adventure 1 Module 1 complete (rest in development)
 
+## Walkthrough Hints System
+
+**Implementation:** First-time-only conditional timing-based hints with AsyncStorage persistence
+
+**Current scope:**
+- ✅ Umayyad Dynasty: Adventure 1, Module 1, Lessons 1 & 2 (reel format)
+- ✅ Umayyad Dynasty: Adventure 1, Module 2, Lesson 1 (image carousel format)
+- ✅ Rise of Islam: ROIReelLesson, ROIImageCarouselLesson, ROIVideoCarouselLesson
+
+**First-time detection:**
+- Uses AsyncStorage flags in `constants/WalkthroughKeys.ts`
+- Two flags: `REEL` (for reel lessons) and `CAROUSEL` (for carousel lessons)
+- Flags are shared across both Umayyad Dynasty and Rise of Islam eras
+- User sees walkthrough hints only the FIRST time they open ANY reel or carousel lesson
+- Once marked as "seen", hints never appear again (persists across app sessions)
+- Flag saved to AsyncStorage when user taps continue button (completes lesson)
+
+**Timeline for reel lessons (when walkthroughEnabled):**
+- **0s:** Video starts
+- **3s:** BOTH "read" AND "continue" hints appear together
+- **5s:** Both hints auto-hide (after 2 seconds)
+- **During video:** No hints visible
+- **Video end (sequence):**
+  1. "Read" hint appears (2 seconds)
+  2. "Read" hint hides
+  3. "Continue" hint appears (stays visible)
+
+**Exception:** If user expands reading card → Both hints disappear immediately and read hint never shows again. Continue hint still appears at video end.
+
+**Timeline for carousel lessons (when walkthroughEnabled):**
+- **"abovedots" hint:** Always visible while walkthrough enabled
+- **"continue" hint:** Appears ONLY when user reaches last image/video, then stays visible
+- **Logic:** User swipes through carousel → reaches last slide → continue hint appears
+
+**Assets:** Located in `/assets/images/walkthrough/`
+- `read.svg` - Points to reading card (reel lessons: shows at 3s and video end)
+- `continue.svg` - Points to Next button (shows after read hint at video end / on last carousel item)
+- `abovedots.svg` - Points above carousel dots (carousel lessons only, always visible when walkthroughEnabled)
+
+**AsyncStorage constants:**
+```typescript
+// constants/WalkthroughKeys.ts
+export const WALKTHROUGH_KEYS = {
+  REEL: 'hasSeenReelWalkthrough',
+  CAROUSEL: 'hasSeenCarouselWalkthrough',
+} as const;
+```
+
+**Technical implementation for reel lessons:**
+```typescript
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
+
+// State variables
+const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
+const [showReadHint, setShowReadHint] = useState(false);
+const [showContinueHint, setShowContinueHint] = useState(false);
+const [hasEverExpandedCard, setHasEverExpandedCard] = useState(false);
+
+// Check if user has seen reel walkthrough before
+useEffect(() => {
+  const checkWalkthrough = async () => {
+    try {
+      const hasSeenReel = await AsyncStorage.getItem(WALKTHROUGH_KEYS.REEL);
+      if (hasSeenReel !== 'true') {
+        setWalkthroughEnabled(true);
+        console.log('👁️ Reel walkthrough enabled - first time');
+      } else {
+        console.log('👁️ Reel walkthrough disabled - already seen');
+      }
+    } catch (error) {
+      console.error('❌ Error checking reel walkthrough:', error);
+    }
+  };
+  checkWalkthrough();
+}, []);
+
+// First appearance: 3s delay, show BOTH hints for 2s
+useEffect(() => {
+  if (walkthroughEnabled && videoProgress > 0 && !hasEverExpandedCard && !hasVideoCompleted) {
+    const showTimer = setTimeout(() => {
+      setShowReadHint(true);
+      setShowContinueHint(true);
+      console.log('👁️ Both hints shown at 3 seconds');
+
+      // Auto-hide both after 2 seconds
+      const hideTimer = setTimeout(() => {
+        setShowReadHint(false);
+        setShowContinueHint(false);
+        console.log('👁️ Both hints hidden after 2 seconds');
+      }, 2000);
+
+      return () => clearTimeout(hideTimer);
+    }, 3000);
+
+    return () => clearTimeout(showTimer);
+  }
+}, [walkthroughEnabled, videoProgress, hasEverExpandedCard, hasVideoCompleted]);
+
+// Video end sequence: read hint → continue hint
+useEffect(() => {
+  if (walkthroughEnabled && hasVideoCompleted && !hasEverExpandedCard) {
+    setShowReadHint(true);
+    setShowContinueHint(false);
+    console.log('👁️ Read hint shown at video end');
+
+    const hideReadTimer = setTimeout(() => {
+      setShowReadHint(false);
+      console.log('👁️ Read hint hidden at video end');
+
+      setShowContinueHint(true);
+      console.log('👁️ Continue hint shown after read hint (permanent)');
+    }, 2000);
+
+    return () => clearTimeout(hideReadTimer);
+  } else if (walkthroughEnabled && hasVideoCompleted && hasEverExpandedCard) {
+    setShowContinueHint(true);
+    console.log('👁️ Continue hint shown at video end (card was expanded)');
+  }
+}, [walkthroughEnabled, hasVideoCompleted, hasEverExpandedCard]);
+
+// Hide both hints when card expands
+useEffect(() => {
+  if (isCardExpanded && !hasEverExpandedCard) {
+    setShowReadHint(false);
+    setShowContinueHint(false);
+    setHasEverExpandedCard(true);
+    console.log('👁️ Both hints hidden - card expanded');
+  }
+}, [isCardExpanded, hasEverExpandedCard]);
+
+// Save flag when user completes lesson
+const handleContinue = async () => {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+  try {
+    await AsyncStorage.setItem(WALKTHROUGH_KEYS.REEL, 'true');
+    console.log('✅ Reel walkthrough marked as seen');
+  } catch (error) {
+    console.error('❌ Error saving reel walkthrough flag:', error);
+  }
+
+  onContinue();
+};
+
+// JSX rendering
+{showReadHint && (
+  <View style={styles.readHintContainer}>
+    <Image
+      source={require('@/assets/images/walkthrough/read.svg')}
+      style={styles.readHintImage}
+      contentFit="contain"
+    />
+  </View>
+)}
+
+{showContinueHint && (
+  <View style={styles.continueHintContainer}>
+    <Image
+      source={require('@/assets/images/walkthrough/continue.svg')}
+      style={styles.continueHintImage}
+      contentFit="contain"
+    />
+  </View>
+)}
+```
+
+**Technical implementation for carousel lessons:**
+```typescript
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
+
+// State variables
+const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
+const [showContinueHint, setShowContinueHint] = useState(false);
+
+// Check if user has seen carousel walkthrough before
+useEffect(() => {
+  const checkWalkthrough = async () => {
+    try {
+      const hasSeenCarousel = await AsyncStorage.getItem(WALKTHROUGH_KEYS.CAROUSEL);
+      if (hasSeenCarousel !== 'true') {
+        setWalkthroughEnabled(true);
+        console.log('👁️ Carousel walkthrough enabled - first time');
+      } else {
+        console.log('👁️ Carousel walkthrough disabled - already seen');
+      }
+    } catch (error) {
+      console.error('❌ Error checking carousel walkthrough:', error);
+    }
+  };
+  checkWalkthrough();
+}, []);
+
+// Show continue hint when on last image/video (only if walkthrough enabled)
+useEffect(() => {
+  if (walkthroughEnabled && currentImageIndex === images.length - 1) {
+    setShowContinueHint(true);
+    console.log('👁️ Continue hint shown - last image reached');
+  } else {
+    setShowContinueHint(false);
+  }
+}, [walkthroughEnabled, currentImageIndex, images.length]);
+
+// Save flag when user completes lesson
+const handleContinue = async () => {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+  try {
+    await AsyncStorage.setItem(WALKTHROUGH_KEYS.CAROUSEL, 'true');
+    console.log('✅ Carousel walkthrough marked as seen');
+  } catch (error) {
+    console.error('❌ Error saving carousel walkthrough flag:', error);
+  }
+
+  onContinue();
+};
+
+// JSX rendering
+{walkthroughEnabled && (
+  <View style={styles.aboveDotsHintContainer}>
+    <Image
+      source={require('@/assets/images/walkthrough/abovedots.svg')}
+      style={styles.aboveDotsHintImage}
+      contentFit="contain"
+    />
+  </View>
+)}
+
+{walkthroughEnabled && showContinueHint && (
+  <View style={styles.continueHintContainer}>
+    <Image
+      source={require('@/assets/images/walkthrough/continue.svg')}
+      style={styles.continueHintImage}
+      contentFit="contain"
+    />
+  </View>
+)}
+```
+
+**Styling:**
+- `pointerEvents: 'none'` - Hints don't block interactions (abovedots only)
+- `zIndex: 15-25` - Below expanded cards, above other content
+- No animations - instant show/hide
+- Positioned absolutely over lesson content
+
+**Files implementing walkthrough:**
+- `components/modules/adventure1/Adventure1_Module1_Lesson1.tsx` (Umayyad reel)
+- `components/modules/adventure1/Adventure1_Module1_Lesson2.tsx` (Umayyad reel)
+- `components/modules/adventure1/Adventure1_Module2_Lesson1.tsx` (Umayyad image carousel)
+- `components/ROI/ROIReelLesson.tsx` (ROI reel - reusable)
+- `components/ROI/ROIImageCarouselLesson.tsx` (ROI image carousel - reusable)
+- `components/ROI/ROIVideoCarouselLesson.tsx` (ROI video carousel - reusable)
+
 ### Specialized Claude Code Agents
 
 When users request content creation, these agents are available:
@@ -314,7 +568,7 @@ console.log('🔔 Notification')    // Push notifications
 - Bundle ID: `ai.affinitylabs.archivesexpo`
 - Team ID: `LQ9LP2WW94`
 - App Store ID: `6751173663`
-- Build number: Auto-increments via EAS (currently 77)
+- Build number: Auto-increments via EAS (currently 78)
 - Status: **LIVE on App Store**
 - Requires physical device for: notifications, Apple Sign-In
 - Background modes: remote-notification
@@ -339,7 +593,7 @@ console.log('🔔 Notification')    // Push notifications
 
 **Git branch:** master
 **Production Status:** 🚀 **LIVE on App Store and Google Play Store**
-**Recent focus:** Universal Links/deep linking, RevenueCat intro offers, quiz sound effects, era selection UI, cross-platform compatibility
+**Recent focus:** Walkthrough hints timing logic (reel lessons), Universal Links/deep linking, RevenueCat intro offers, quiz sound effects, era selection UI, cross-platform compatibility
 
 **Known limitations:**
 - Push notifications require physical device

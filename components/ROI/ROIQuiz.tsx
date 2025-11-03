@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useQuizSounds } from '@/hooks/useQuizSounds';
 import type { ContentItem } from './types';
+import ROIQuizResults from './ROIQuizResults';
 
 interface ROIQuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
@@ -279,6 +280,7 @@ export default function ROIQuiz({
   const [score, setScore] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [randomImageIndex, setRandomImageIndex] = useState(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
+  const [showResults, setShowResults] = useState(false);
 
   // Extract quiz data from contentItem
   const questions = contentItem.questions || [];
@@ -327,7 +329,7 @@ export default function ROIQuiz({
   };
 
   // Handle continue to next question
-  const handleContinueToNext = async () => {
+  const handleContinueToNext = () => {
     if (questionNumber < totalQuestions) {
       // Not last question - clear UI and move to next
       setShowFeedback(false);
@@ -335,61 +337,88 @@ export default function ROIQuiz({
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
     } else {
-      // Last question - keep feedback visible during async operations
-      // Quiz complete - correctAnswers already includes the last answer from handleSubmit
-      const finalCorrect = correctAnswers;
-
-      // New progress system scoring: quizScore = correctAnswers + 1
-      // 0 correct = 1 star, 1 correct = 2 stars, 2 correct = 3 stars
-      const quizScore = finalCorrect + 1;
-
-      // Load Era 2 progress to calculate old XP (BEFORE saving)
-      const newModulesData = await AsyncStorage.getItem('new_user_progress');
-      const newModules = newModulesData ? JSON.parse(newModulesData) : [];
-
-      const oldXP = calculateTotalXP([], newModules); // Only Era 2 XP
-      console.log(`📊 Old XP (Era 2 before quiz): ${oldXP}`);
-
-      // Always save progress (no minimum check for new system)
-      const moduleData = {
-        adventureId,     // Database readable_id (e.g., "roi_adventure_1")
-        moduleId,        // Database content_list.id (media_id)
-        quizScore,       // Score = correct answers + 1 (for stars)
-        quizCorrectAnswers: finalCorrect, // Actual correct answers (for XP calculation)
-        isCompleted: true,
-        quizCompleted: true,
-        completedAt: new Date().toISOString(),
-        era_id: 2
-      };
-
-      console.log('💾 [NEW] Saving quiz completion:', moduleData);
-      await saveNewProgressData(moduleData);
-
-      // Load updated Era 2 progress to calculate new XP (AFTER saving)
-      const updatedNewModulesData = await AsyncStorage.getItem('new_user_progress');
-      const updatedNewModules = updatedNewModulesData ? JSON.parse(updatedNewModulesData) : [];
-
-      const newXP = calculateTotalXP([], updatedNewModules); // Only Era 2 XP
-      console.log(`📊 New XP (Era 2 after quiz): ${newXP}`);
-
-      // Check if user crossed 50 XP boundary (50, 100, 150, etc.) - Era 2 only
-      const milestone = checkIfCrossed50XPBoundary(oldXP, newXP);
-
-      if (milestone && onMilestoneReached) {
-        console.log(`🎉 50 XP Milestone reached: ${milestone}`);
-        onMilestoneReached(milestone, newXP);
-        return; // Don't call onContinue - let milestone modal handle it
-      }
-
-      // Haptic feedback for quiz completion
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      console.log(`✅ Quiz completed - Correct: ${finalCorrect}/${totalQuestions}, Score: ${quizScore}`);
-      onContinue();
+      // Last question - show results screen
+      setShowFeedback(false);
+      setShowResults(true);
     }
   };
 
+  // Handle quiz completion from results screen
+  const handleQuizCompletion = async () => {
+    console.log('🚀 Quiz completion: ROI Quiz');
+
+    // New progress system scoring: quizScore = correctAnswers + 1
+    // 0 correct = 1 star, 1 correct = 2 stars, 2 correct = 3 stars
+    const quizScore = correctAnswers + 1;
+
+    // Load Era 2 progress to calculate old XP (BEFORE saving)
+    const newModulesData = await AsyncStorage.getItem('new_user_progress');
+    const newModules = newModulesData ? JSON.parse(newModulesData) : [];
+
+    const oldXP = calculateTotalXP([], newModules); // Only Era 2 XP
+    console.log(`📊 Old XP (Era 2 before quiz): ${oldXP}`);
+
+    // Always save progress (no minimum check for new system)
+    const moduleData = {
+      adventureId,     // Database readable_id (e.g., "roi_adventure_1")
+      moduleId,        // Database content_list.id (media_id)
+      quizScore,       // Score = correct answers + 1 (for stars)
+      quizCorrectAnswers: correctAnswers, // Actual correct answers (for XP calculation)
+      isCompleted: true,
+      quizCompleted: true,
+      completedAt: new Date().toISOString(),
+      era_id: 2
+    };
+
+    console.log('💾 [NEW] Saving quiz completion:', moduleData);
+    await saveNewProgressData(moduleData);
+
+    // Load updated Era 2 progress to calculate new XP (AFTER saving)
+    const updatedNewModulesData = await AsyncStorage.getItem('new_user_progress');
+    const updatedNewModules = updatedNewModulesData ? JSON.parse(updatedNewModulesData) : [];
+
+    const newXP = calculateTotalXP([], updatedNewModules); // Only Era 2 XP
+    console.log(`📊 New XP (Era 2 after quiz): ${newXP}`);
+
+    // Check if user crossed 50 XP boundary (50, 100, 150, etc.) - Era 2 only
+    const milestone = checkIfCrossed50XPBoundary(oldXP, newXP);
+
+    if (milestone && onMilestoneReached) {
+      console.log(`🎉 50 XP Milestone reached: ${milestone}`);
+      onMilestoneReached(milestone, newXP);
+      return; // Don't call onContinue - let milestone modal handle it
+    }
+
+    console.log(`✅ Quiz completed - Correct: ${correctAnswers}/${totalQuestions}, Score: ${quizScore}`);
+    onContinue();
+  };
+
+  // Handle retake quiz
+  const handleRetakeQuiz = () => {
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setShowFeedback(false);
+    setScore(0);
+    setCorrectAnswers(0);
+    setShowResults(false);
+    setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
+  };
+
   const isCorrect = selectedAnswer === correctAnswerIndex;
+
+  // Show results screen if quiz is complete
+  if (showResults) {
+    return (
+      <ROIQuizResults
+        correctAnswers={correctAnswers}
+        totalQuestions={totalQuestions}
+        totalPoints={score}
+        onRetake={handleRetakeQuiz}
+        onContinue={handleQuizCompletion}
+        onBack={onBack}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.roiContainer} edges={['top']}>

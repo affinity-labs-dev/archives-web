@@ -214,8 +214,8 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
     const isLarge = index === 0 || index === 4; // Cards 1 and 5 are large
 
     // Determine if this content type should show play button when uncompleted
-    // Only show play button for video content (reel and video_carousel)
-    const isVideoContent = item.content_type === 'reel' || item.content_type === 'video_carousel';
+    // Only show play button for reel content
+    const isVideoContent = item.content_type === 'reel';
 
     // Check if thumbnail is a video file
     const isVideoThumbnail = item.thumbnail_url?.match(/\.(mp4|mov|m4v|webm)$/i);
@@ -336,7 +336,16 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
         >
           <Text style={styles.mainTitle}>{adventure.adventure_title}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.shareButton}>
+        <TouchableOpacity
+          style={styles.shareButton}
+          onPress={() => {
+            if (onTitlePress) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onTitlePress();
+            }
+          }}
+          activeOpacity={0.7}
+        >
           <AdventureIcon iconUrl={adventure.icon_url} />
         </TouchableOpacity>
       </View>
@@ -354,7 +363,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
 
 const styles = StyleSheet.create({
   adventureContainer: {
-    marginBottom: 40,
+    marginBottom: 24,
   },
 
   // ERA Badge
@@ -388,8 +397,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    minHeight: 51,
-    marginBottom: 11,
+    marginBottom: 0,
   },
   mainTitle: {
     width: 242,
@@ -406,6 +414,7 @@ const styles = StyleSheet.create({
 
   // Timeline
   dateRange: {
+    marginTop: '2%',
     marginLeft: 14,
     color: '#D7C5B6',
     fontSize: 18,
@@ -418,7 +427,7 @@ const styles = StyleSheet.create({
   // Bento Grid - Responsive layout (height set dynamically)
   bentoGridContainer: {
     position: 'relative',
-    marginBottom: 100,
+    marginBottom: 50,
   },
 
   // Card wrapper

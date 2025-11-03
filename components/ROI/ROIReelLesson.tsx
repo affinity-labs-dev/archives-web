@@ -6,7 +6,7 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -67,6 +67,7 @@ export default function ROIReelLesson({
   // Video-related states
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
 
   // Reading card states
   const [hasFinishedReading, setHasFinishedReading] = useState(true);
@@ -101,6 +102,7 @@ export default function ROIReelLesson({
 
       if (status.durationMillis && status.positionMillis) {
         const progress = status.positionMillis / status.durationMillis;
+        setVideoProgress(progress);
 
         const progressDiff = Math.abs(progress - lastProgress.current);
         if (progressDiff > PROGRESS_SENSITIVITY) {
@@ -144,6 +146,7 @@ export default function ROIReelLesson({
   // Lesson Completion Logic
   const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
     console.log(`🔄 Continue button pressed - ${moduleId} ${lessonId}`);
     onContinue();
   };

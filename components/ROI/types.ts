@@ -12,6 +12,15 @@ export interface Question {
   explanation?: string;
 }
 
+export interface ContentBlock {
+  type: 'video' | 'image' | 'text';
+  order: number;
+  url?: string;  // For video/image blocks
+  content?: string;  // For text blocks
+  autoplay?: boolean;  // For video blocks
+  loop?: boolean;  // For video blocks
+}
+
 export interface BottomContent {
   reading_text: string; // HTML content string (supports h1-h6, p, strong, em, ul, li, blockquote, hr, etc.)
   carousel_captions?: string[]; // Plain text captions for video carousel items
@@ -22,10 +31,12 @@ export interface ContentItem {
   thumbnail_url: string | null;
   thumbnail_title: string | null;
   media_url: string[] | null;
-  content_type: 'reel' | 'video_carousel' | 'image_carousel';
+  content_type: 'reel' | 'video_carousel' | 'image_carousel' | 'scrollable_media_view';
   bottom_content: BottomContent | null;
   questions?: Question[];
   order_by: number;
+  background_music_url?: string | null;
+  content_blocks?: ContentBlock[];  // For scrollable_media_view lesson type
 }
 
 export interface CardContent {
@@ -45,11 +56,4 @@ export interface Adventure {
   icon_url: string | null;
   content_list: ContentItem[];
   card_content?: CardContent | null;
-}
-
-export interface ProgressBar {
-  title: string;
-  subtitle: string;
-  currentStep: number;
-  totalSteps: number;
 }

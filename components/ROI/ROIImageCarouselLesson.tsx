@@ -6,6 +6,7 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from 'expo-image';
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import React, { useRef, useState, useEffect } from "react";
 import {
   Animated,
@@ -64,6 +65,12 @@ export default function ROIImageCarouselLesson({
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
+
+  // Background music hook - Auto-play immediately if URL exists
+  const backgroundMusic = useBackgroundMusic(
+    contentItem.background_music_url ? { uri: contentItem.background_music_url } : null,
+    { volume: 0.5, shouldLoop: true }
+  );
 
   // Extract images and captions from contentItem
   const images = contentItem.media_url || [];
@@ -204,7 +211,8 @@ export default function ROIImageCarouselLesson({
 
   // Handle continue
   const handleContinue = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackStyle.Success);
+
     console.log(`🔄 ${moduleId} ${lessonId}`);
     onContinue();
   };
