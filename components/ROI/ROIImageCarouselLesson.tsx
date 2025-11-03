@@ -5,12 +5,12 @@
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Image } from 'expo-image';
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import React, { useRef, useState, useEffect } from "react";
 import {
   Animated,
   Dimensions,
+  Image,
   Platform,
   ScrollView,
   StatusBar,
@@ -23,13 +23,22 @@ import {
   GestureHandlerRootView,
   ScrollView as GestureHandlerScrollView,
   PanGestureHandler,
+  TapGestureHandler,
   State,
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ContentItem } from "./types";
 import RenderHtml from 'react-native-render-html';
+import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+// Static dimensions (module-level) - Umayyad Dynasty pattern
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
+  Platform.OS === 'android' ? "screen" : "window"
+);
+
+// Responsive card heights (module-level)
+const COLLAPSED_HEIGHT = SCREEN_HEIGHT * ROI_LESSON_CONSTANTS.READING_CARD.COLLAPSED_HEIGHT_RATIO;
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * ROI_LESSON_CONSTANTS.READING_CARD.EXPANDED_HEIGHT_RATIO;
 
 interface ROIImageCarouselLessonProps {
   contentItem: ContentItem;  // Data from adventures.content_list
@@ -58,11 +67,12 @@ export default function ROIImageCarouselLesson({
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
+  const tapGestureRef = useRef(null);
   const horizontalSwipeRef = useRef(null);
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
 
   // Animation values
-  const cardHeight = useRef(new Animated.Value(160)).current;
+  const cardHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
@@ -110,7 +120,20 @@ export default function ROIImageCarouselLesson({
     }
   };
 
-  // Universal gesture handler
+  // Tap Gesture Handler (cross-platform)
+  const handleTapGesture = (event: any) => {
+    if (event.nativeEvent.state === State.END) {
+      console.log('👆 Tap detected on reading card');
+      if (isCardExpanded) {
+        collapseCard();
+      } else {
+        expandCard();
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  // Swipe gesture handler (cross-platform)
   const handleSwipeGesture = (event: any) => {
     const { state, translationY, velocityY } = event.nativeEvent;
 
@@ -166,10 +189,10 @@ export default function ROIImageCarouselLesson({
 
     Animated.parallel([
       Animated.spring(cardHeight, {
-        toValue: SCREEN_HEIGHT * 0.85,
+        toValue: EXPANDED_HEIGHT,
         useNativeDriver: false,
-        tension: 100,
-        friction: 8,
+        tension: ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_TENSION,
+        friction: ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_FRICTION,
       }),
       Animated.timing(cardOpacity, {
         toValue: 0,
@@ -190,10 +213,10 @@ export default function ROIImageCarouselLesson({
 
     Animated.parallel([
       Animated.spring(cardHeight, {
-        toValue: 160,
+        toValue: COLLAPSED_HEIGHT,
         useNativeDriver: false,
-        tension: 100,
-        friction: 8,
+        tension: ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_TENSION,
+        friction: ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_FRICTION,
       }),
       Animated.timing(cardOpacity, {
         toValue: 1,
@@ -211,7 +234,7 @@ export default function ROIImageCarouselLesson({
 
   // Handle continue
   const handleContinue = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackStyle.Success);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     console.log(`🔄 ${moduleId} ${lessonId}`);
     onContinue();
@@ -253,7 +276,10 @@ export default function ROIImageCarouselLesson({
         waitFor={panGestureRef}
       >
         <View style={{ flex: 1 }}>
-          <View style={styles.container}>
+          <View style={[
+            styles.container,
+            Platform.OS === 'android' && { width: SCREEN_WIDTH, height: SCREEN_HEIGHT }
+          ]}>
         {/* Main carousel - full screen */}
         <ScrollView
           ref={scrollViewRef}
@@ -270,9 +296,7 @@ export default function ROIImageCarouselLesson({
               <Image
                 source={{ uri: imageUrl }}
                 style={styles.carouselImage}
-                contentFit="cover"
-                placeholder={{ blurhash: 'LKO2?U%2Tw=w]~RBVZRi};RPxuwH' }}
-                transition={300}
+                resizeMode="cover"
               />
 
               {/* Text overlay with caption */}
@@ -333,117 +357,226 @@ export default function ROIImageCarouselLesson({
           </View>
         )}
 
-        {/* Reading Card */}
-        <PanGestureHandler
-          ref={panGestureRef}
-          onGestureEvent={handleSwipeGesture}
-          onHandlerStateChange={handleSwipeGesture}
-          activeOffsetY={[-15, 15]}
-          failOffsetX={[-40, 40]}
-          minPointers={1}
-          maxPointers={1}
+        {/* Reading Card: Tap only on Android, Tap + Swipe on iOS */}
+        <TapGestureHandler
+          ref={tapGestureRef}
+          onHandlerStateChange={handleTapGesture}
         >
-          <Animated.View
-            style={[
-              styles.cardContainer,
-              {
-                transform: [{ translateY: cardTranslateY }],
-              },
-            ]}
-          >
+          {Platform.OS === 'ios' ? (
+            <PanGestureHandler
+              ref={panGestureRef}
+              onGestureEvent={handleSwipeGesture}
+              onHandlerStateChange={handleSwipeGesture}
+              activeOffsetY={[-ROI_LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y, ROI_LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y]}
+              failOffsetX={[-ROI_LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X, ROI_LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X]}
+              minPointers={1}
+              maxPointers={1}
+              simultaneousHandlers={tapGestureRef}
+            >
+              <Animated.View
+                style={[
+                  styles.cardContainer,
+                  {
+                    transform: [{ translateY: cardTranslateY }],
+                  },
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    styles.readingCard,
+                    {
+                      height: cardHeight,
+                    },
+                  ]}
+                >
+                  <View style={styles.cardHandle} />
+
+                  {/* Collapsed content */}
+                  <Animated.View
+                    style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                  >
+                    <TouchableOpacity
+                      onPress={expandCard}
+                      activeOpacity={0.8}
+                      disabled={isCardExpanded}
+                    >
+                      <View style={styles.readingCardHeader}>
+                        <Text style={styles.cardTitle}>
+                          {contentItem.thumbnail_title || 'Image Gallery'}
+                        </Text>
+                        <Text style={styles.cardSubtitle} numberOfLines={2}>
+                          {contentItem.bottom_content?.reading_text?.replace(/<[^>]*>/g, '').substring(0, 100) || ''}...
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </Animated.View>
+
+                  {/* Expanded content */}
+                  {isCardExpanded && (
+                    <Animated.View
+                      style={[
+                        styles.expandedContent,
+                        { opacity: Animated.subtract(1, cardOpacity) },
+                      ]}
+                    >
+                      <GestureHandlerScrollView
+                        ref={scrollViewGestureRef}
+                        style={styles.expandedScroll}
+                        showsVerticalScrollIndicator={false}
+                        onScroll={handleReadingScroll}
+                        scrollEventThrottle={100}
+                        waitFor={panGestureRef}
+                        simultaneousHandlers={panGestureRef}
+                      >
+                        <View style={styles.expandedContentInner}>
+                          {/* Title Section */}
+                          <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                            <View style={styles.titleSection}>
+                              <Text style={styles.sheetTitle}>
+                                {contentItem.thumbnail_title || 'Image Gallery'}
+                              </Text>
+                              <Text style={styles.sheetSubtitle}>
+                                Image Carousel • {contentItem.order_by}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+
+                          {/* HTML Content */}
+                          {contentItem.bottom_content?.reading_text && (
+                            <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                              <View style={styles.historicalSection}>
+                                <RenderHtml
+                                  contentWidth={SCREEN_WIDTH - 40}
+                                  source={{ html: contentItem.bottom_content.reading_text }}
+                                  tagsStyles={{
+                                    body: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20 },
+                                    h1: { color: 'white', fontFamily: 'DM Sans', fontSize: 24, fontWeight: '700', marginBottom: 12 },
+                                    h2: { color: 'white', fontFamily: 'DM Sans', fontSize: 20, fontWeight: '700', marginBottom: 10 },
+                                    h3: { color: 'white', fontFamily: 'DM Sans', fontSize: 18, fontWeight: '600', marginBottom: 8 },
+                                    p: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 12 },
+                                    strong: { fontWeight: '600', color: 'white' },
+                                    em: { fontStyle: 'italic', color: 'white' },
+                                    ul: { marginBottom: 12 },
+                                    li: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 6 },
+                                    blockquote: { borderLeftWidth: 3, borderLeftColor: ArchivesTheme.colors.persianOrange, paddingLeft: 12, marginBottom: 12, fontStyle: 'italic' },
+                                    hr: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.2)', marginVertical: 16 },
+                                  }}
+                                />
+                              </View>
+                            </TouchableOpacity>
+                          )}
+
+                          <View style={styles.sheetBottomSpacer} />
+                        </View>
+                      </GestureHandlerScrollView>
+                    </Animated.View>
+                  )}
+                </Animated.View>
+              </Animated.View>
+            </PanGestureHandler>
+          ) : (
             <Animated.View
               style={[
-                styles.readingCard,
+                styles.cardContainer,
                 {
-                  height: cardHeight,
+                  transform: [{ translateY: cardTranslateY }],
                 },
               ]}
             >
-              <View style={styles.cardHandle} />
-
-              {/* Collapsed content */}
               <Animated.View
-                style={[styles.collapsedContent, { opacity: cardOpacity }]}
+                style={[
+                  styles.readingCard,
+                  {
+                    height: cardHeight,
+                  },
+                ]}
               >
-                <TouchableOpacity
-                  onPress={expandCard}
-                  activeOpacity={0.8}
-                  disabled={isCardExpanded}
-                >
-                  <View style={styles.readingCardHeader}>
-                    <Text style={styles.cardTitle}>
-                      {contentItem.thumbnail_title || 'Image Gallery'}
-                    </Text>
-                    <Text style={styles.cardSubtitle} numberOfLines={2}>
-                      {contentItem.bottom_content?.reading_text?.replace(/<[^>]*>/g, '').substring(0, 100) || ''}...
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
+                <View style={styles.cardHandle} />
 
-              {/* Expanded content */}
-              {isCardExpanded && (
+                {/* Collapsed content */}
                 <Animated.View
-                  style={[
-                    styles.expandedContent,
-                    { opacity: Animated.subtract(1, cardOpacity) },
-                  ]}
+                  style={[styles.collapsedContent, { opacity: cardOpacity }]}
                 >
-                  <GestureHandlerScrollView
-                    ref={scrollViewGestureRef}
-                    style={styles.expandedScroll}
-                    showsVerticalScrollIndicator={false}
-                    onScroll={handleReadingScroll}
-                    scrollEventThrottle={100}
-                    waitFor={panGestureRef}
-                    simultaneousHandlers={panGestureRef}
+                  <TouchableOpacity
+                    onPress={expandCard}
+                    activeOpacity={0.8}
+                    disabled={isCardExpanded}
                   >
-                    <View style={styles.expandedContentInner}>
-                      {/* Title Section */}
-                      <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                        <View style={styles.titleSection}>
-                          <Text style={styles.sheetTitle}>
-                            {contentItem.thumbnail_title || 'Image Gallery'}
-                          </Text>
-                          <Text style={styles.sheetSubtitle}>
-                            Image Carousel • {contentItem.order_by}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
+                    <View style={styles.readingCardHeader}>
+                      <Text style={styles.cardTitle}>
+                        {contentItem.thumbnail_title || 'Image Gallery'}
+                      </Text>
+                      <Text style={styles.cardSubtitle} numberOfLines={2}>
+                        {contentItem.bottom_content?.reading_text?.replace(/<[^>]*>/g, '').substring(0, 100) || ''}...
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
 
-                      {/* HTML Content */}
-                      {contentItem.bottom_content?.reading_text && (
+                {/* Expanded content */}
+                {isCardExpanded && (
+                  <Animated.View
+                    style={[
+                      styles.expandedContent,
+                      { opacity: Animated.subtract(1, cardOpacity) },
+                    ]}
+                  >
+                    <GestureHandlerScrollView
+                      ref={scrollViewGestureRef}
+                      style={styles.expandedScroll}
+                      showsVerticalScrollIndicator={false}
+                      onScroll={handleReadingScroll}
+                      scrollEventThrottle={100}
+                      waitFor={panGestureRef}
+                      simultaneousHandlers={panGestureRef}
+                    >
+                      <View style={styles.expandedContentInner}>
+                        {/* Title Section */}
                         <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                          <View style={styles.historicalSection}>
-                            <RenderHtml
-                              contentWidth={SCREEN_WIDTH - 40}
-                              source={{ html: contentItem.bottom_content.reading_text }}
-                              tagsStyles={{
-                                body: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20 },
-                                h1: { color: 'white', fontFamily: 'DM Sans', fontSize: 24, fontWeight: '700', marginBottom: 12 },
-                                h2: { color: 'white', fontFamily: 'DM Sans', fontSize: 20, fontWeight: '700', marginBottom: 10 },
-                                h3: { color: 'white', fontFamily: 'DM Sans', fontSize: 18, fontWeight: '600', marginBottom: 8 },
-                                p: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 12 },
-                                strong: { fontWeight: '600', color: 'white' },
-                                em: { fontStyle: 'italic', color: 'white' },
-                                ul: { marginBottom: 12 },
-                                li: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 6 },
-                                blockquote: { borderLeftWidth: 3, borderLeftColor: ArchivesTheme.colors.persianOrange, paddingLeft: 12, marginBottom: 12, fontStyle: 'italic' },
-                                hr: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.2)', marginVertical: 16 },
-                              }}
-                            />
+                          <View style={styles.titleSection}>
+                            <Text style={styles.sheetTitle}>
+                              {contentItem.thumbnail_title || 'Image Gallery'}
+                            </Text>
+                            <Text style={styles.sheetSubtitle}>
+                              Image Carousel • {contentItem.order_by}
+                            </Text>
                           </View>
                         </TouchableOpacity>
-                      )}
 
-                      <View style={styles.sheetBottomSpacer} />
-                    </View>
-                  </GestureHandlerScrollView>
-                </Animated.View>
-              )}
+                        {/* HTML Content */}
+                        {contentItem.bottom_content?.reading_text && (
+                          <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
+                            <View style={styles.historicalSection}>
+                              <RenderHtml
+                                contentWidth={SCREEN_WIDTH - 40}
+                                source={{ html: contentItem.bottom_content.reading_text }}
+                                tagsStyles={{
+                                  body: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20 },
+                                  h1: { color: 'white', fontFamily: 'DM Sans', fontSize: 24, fontWeight: '700', marginBottom: 12 },
+                                  h2: { color: 'white', fontFamily: 'DM Sans', fontSize: 20, fontWeight: '700', marginBottom: 10 },
+                                  h3: { color: 'white', fontFamily: 'DM Sans', fontSize: 18, fontWeight: '600', marginBottom: 8 },
+                                  p: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 12 },
+                                  strong: { fontWeight: '600', color: 'white' },
+                                  em: { fontStyle: 'italic', color: 'white' },
+                                  ul: { marginBottom: 12 },
+                                  li: { color: 'white', fontFamily: 'DM Sans', fontSize: 14, lineHeight: 20, marginBottom: 6 },
+                                  blockquote: { borderLeftWidth: 3, borderLeftColor: ArchivesTheme.colors.persianOrange, paddingLeft: 12, marginBottom: 12, fontStyle: 'italic' },
+                                  hr: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.2)', marginVertical: 16 },
+                                }}
+                              />
+                            </View>
+                          </TouchableOpacity>
+                        )}
+
+                        <View style={styles.sheetBottomSpacer} />
+                      </View>
+                    </GestureHandlerScrollView>
+                  </Animated.View>
+                )}
+              </Animated.View>
             </Animated.View>
-          </Animated.View>
-        </PanGestureHandler>
+          )}
+        </TapGestureHandler>
           </View>
         </View>
       </PanGestureHandler>

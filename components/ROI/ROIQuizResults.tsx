@@ -1,7 +1,7 @@
 // ROIQuizResults.tsx - Percentage-based quiz results screen for Rise of Islam
 // Shows 3 different screens based on score percentage: <30%, 30-70%, >=70%
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,9 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 
 const { width } = Dimensions.get('window');
@@ -30,13 +30,17 @@ interface ROIQuizResultsProps {
   onBack?: () => void;
 }
 
-// Video Reward Player - Score-based celebration videos (matching Umayyad Dynasty threshold)
+// Video Reward Player - Score-based celebration videos (3-tier system)
 function getRewardVideo(percentage: number) {
   // 70% or above = quiz-reward3
   if (percentage >= 70) {
     return require('@/assets/videos/quiz_reward/quiz-reward3.mp4');
   }
-  // Below 70% = quiz-reward1
+  // 30-69% = quiz-reward2
+  if (percentage >= 30) {
+    return require('@/assets/videos/quiz_reward/quiz-reward2.mp4');
+  }
+  // Below 30% = quiz-reward1
   return require('@/assets/videos/quiz_reward/quiz-reward1.mp4');
 }
 
@@ -46,7 +50,13 @@ interface VideoRewardPlayerProps {
 
 function VideoRewardPlayer({ percentage }: VideoRewardPlayerProps) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const videoSource = getRewardVideo(percentage);
+  const rawVideoSource = getRewardVideo(percentage);
+
+  // PERFORMANCE: Enable video caching for reward videos (played multiple times)
+  const videoSource: VideoSource = useMemo(() => ({
+    assetId: rawVideoSource,
+    useCaching: true  // Enable 1GB default cache
+  }), [rawVideoSource]);
 
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = false;
@@ -196,7 +206,11 @@ export default function ROIQuizResults({
               {/* Retake Quiz button */}
               <TouchableOpacity style={styles.retakeButton} onPress={handleRetake}>
                 <View style={styles.retakeButtonContent}>
-                  <Ionicons name="refresh-circle" size={24} color={ArchivesTheme.colors.mossGreen} />
+                  <MaterialIcons
+                    name="replay"
+                    size={24}
+                    color={ArchivesTheme.colors.mossGreen}
+                  />
                   <Text style={styles.retakeButtonText}>Retake Quiz</Text>
                 </View>
               </TouchableOpacity>
