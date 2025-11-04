@@ -20,6 +20,7 @@ import {
 import {
   ScrollView as GestureHandlerScrollView,
   PanGestureHandler,
+  TapGestureHandler,
   State,
   GestureHandlerRootView
 } from "react-native-gesture-handler";
@@ -27,16 +28,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LessonPlayer from "../modules/LessonPlayer";
 import type { ContentItem } from "./types";
 import RenderHtml from 'react-native-render-html';
+import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Card Height Constants
-const COLLAPSED_HEIGHT = 160;
+// Card Height Constants (responsive to screen size)
+const COLLAPSED_HEIGHT = SCREEN_HEIGHT * ROI_LESSON_CONSTANTS.READING_CARD.COLLAPSED_HEIGHT_RATIO;
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * ROI_LESSON_CONSTANTS.READING_CARD.EXPANDED_HEIGHT_RATIO;
 
 // Animation Constants
 const PROGRESS_ANIMATION_DURATION = 50;
-const CARD_ANIMATION_TENSION = 100;
-const CARD_ANIMATION_FRICTION = 8;
+const CARD_ANIMATION_TENSION = ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_TENSION;
+const CARD_ANIMATION_FRICTION = ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_FRICTION;
 const VIDEO_COMPLETION_THRESHOLD = 0.95;
 const PROGRESS_SENSITIVITY = 0.0005;
 
@@ -73,12 +76,10 @@ export default function ROIReelLesson({
   const [hasFinishedReading, setHasFinishedReading] = useState(true);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
 
-  // Gesture handling states
-  const [touchStart, setTouchStart] = useState<{y: number, time: number} | null>(null);
-
   // Component refs for gesture coordination
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
+  const tapGestureRef = useRef(null);
   const horizontalSwipeRef = useRef(null);
 
   // Animation refs
@@ -151,65 +152,40 @@ export default function ROIReelLesson({
     onContinue();
   };
 
-  // iOS PanGestureHandler
-  const handleSwipeGesture = (event: any) => {
-    if (Platform.OS !== 'ios') return;
+  // Tap Gesture Handler (cross-platform)
+  const handleTapGesture = (event: any) => {
+    if (event.nativeEvent.state === State.END) {
+      console.log('👆 Tap detected on reading card');
+      if (isCardExpanded) {
+        collapseCard();
+      } else {
+        expandCard();
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
 
+  // Swipe Gesture Handler (cross-platform)
+  const handleSwipeGesture = (event: any) => {
     if (event.nativeEvent.state === State.END) {
       const { translationY, velocityY } = event.nativeEvent;
 
-      const minDistance = 30;
-      const minVelocity = 500;
+      const minDistance = ROI_LESSON_CONSTANTS.GESTURES.MIN_SWIPE_DISTANCE;
+      const minVelocity = ROI_LESSON_CONSTANTS.GESTURES.MIN_SWIPE_VELOCITY;
 
       if (!isCardExpanded &&
           (translationY < -minDistance || velocityY < -minVelocity)) {
+        console.log('👆 Swipe up detected - expanding card');
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       else if (isCardExpanded &&
                (translationY > minDistance || velocityY > minVelocity)) {
+        console.log('👇 Swipe down detected - collapsing card');
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
-  };
-
-  // Android Touch Events
-  const handleTouchStart = (event: any) => {
-    setTouchStart({
-      y: event.nativeEvent.pageY,
-      time: Date.now()
-    });
-  };
-
-  const handleTouchEnd = (event: any) => {
-    if (!touchStart) return;
-
-    const touchEnd = event.nativeEvent.pageY;
-    const distance = touchStart.y - touchEnd;
-    const time = Date.now() - touchStart.time;
-
-    const minDistance = 40;
-    const maxTime = 300;
-    const velocity = Math.abs(distance) / time;
-    const velocityThreshold = 0.5;
-
-    if (!isCardExpanded &&
-        distance > minDistance &&
-        time < maxTime &&
-        velocity > velocityThreshold) {
-      expandCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    else if (isCardExpanded &&
-             distance < -minDistance &&
-             time < maxTime &&
-             velocity > velocityThreshold) {
-      collapseCard();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
-    setTouchStart(null);
   };
 
   // Horizontal Swipe Gesture Handler (for navigation)
@@ -246,7 +222,7 @@ export default function ROIReelLesson({
 
     Animated.parallel([
       Animated.spring(cardHeight, {
-        toValue: SCREEN_HEIGHT * 0.85,
+        toValue: EXPANDED_HEIGHT,
         useNativeDriver: false,
         tension: CARD_ANIMATION_TENSION,
         friction: CARD_ANIMATION_FRICTION,
@@ -443,25 +419,26 @@ export default function ROIReelLesson({
           </TouchableOpacity>
         </View>
 
-        {/* Platform-Specific Reading Card */}
-        {Platform.OS === 'ios' ? (
-          <PanGestureHandler
-            ref={panGestureRef}
-            onGestureEvent={handleSwipeGesture}
-            onHandlerStateChange={handleSwipeGesture}
-            activeOffsetY={[-20, 20]}
-            failOffsetX={[-30, 30]}
-          >
-            {renderReadingCard()}
-          </PanGestureHandler>
-        ) : (
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            {renderReadingCard()}
-          </View>
-        )}
+        {/* Reading Card: Tap only on Android, Tap + Swipe on iOS */}
+        <TapGestureHandler
+          ref={tapGestureRef}
+          onHandlerStateChange={handleTapGesture}
+        >
+          {Platform.OS === 'ios' ? (
+            <PanGestureHandler
+              ref={panGestureRef}
+              onGestureEvent={handleSwipeGesture}
+              onHandlerStateChange={handleSwipeGesture}
+              activeOffsetY={[-ROI_LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y, ROI_LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y]}
+              failOffsetX={[-ROI_LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X, ROI_LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X]}
+              simultaneousHandlers={tapGestureRef}
+            >
+              {renderReadingCard()}
+            </PanGestureHandler>
+          ) : (
+            renderReadingCard()
+          )}
+        </TapGestureHandler>
         </View>
       </PanGestureHandler>
     </GestureHandlerRootView>

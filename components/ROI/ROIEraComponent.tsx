@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Modal, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -52,7 +52,10 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
     milestoneXP: number;
     totalXP: number;
   } | null>(null);
-  const [isCardSticky, setIsCardSticky] = useState(false);
+
+  // Responsive padding to match bento grid
+  const { width: screenWidth } = Dimensions.get('window');
+  const containerPadding = screenWidth * 0.034; // ~13px on 375px screen
 
   // Calculate completed adventures count dynamically (recalculates when userProgress changes)
   const completedAdventuresCount = useMemo(() => {
@@ -228,11 +231,6 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         stickyHeaderIndices={[0]}
-        onScroll={(event) => {
-          const scrollY = event.nativeEvent.contentOffset.y;
-          setIsCardSticky(scrollY > 0);
-        }}
-        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing || false}
@@ -242,8 +240,8 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
           />
         }
       >
-        {/* Progress Card - Sticky Header */}
-        <View style={[styles.progressWrapper, isCardSticky && { paddingTop: 60 }]}>
+        {/* Progress Card */}
+        <View style={[styles.progressWrapper, { paddingLeft: containerPadding, paddingRight: containerPadding }]}>
           <View style={styles.progressCard}>
             <View style={styles.progressTextContainer}>
               <Text style={styles.progressTitle}>{progressBarData.title}</Text>
@@ -381,15 +379,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4EBDB',
   },
   scrollContent: {
-    paddingTop: 77, // Account for status bar / notch
     paddingBottom: 120, // Account for tab bar height
   },
 
-  // Progress Card (scrolls with content)
+  // Progress Card (sticky header)
   progressWrapper: {
-    marginLeft: 13,
-    marginRight: 16,
     marginBottom: 40,
+    paddingTop: 77, // Status bar space when sticky
+    backgroundColor: '#F4EBDB', // Match container background
+    // paddingLeft and paddingRight applied inline to match bento grid (screenWidth * 0.034)
   },
   progressCard: {
     height: 53,

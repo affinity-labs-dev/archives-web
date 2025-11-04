@@ -288,8 +288,8 @@ const styles = StyleSheet.create({
   },
   descriptionText: {
     fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '400',
     color: ArchivesTheme.colors.shoeBrown,
     lineHeight: 20,
   },

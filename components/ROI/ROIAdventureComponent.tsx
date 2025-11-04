@@ -156,7 +156,7 @@ interface ROIAdventureComponentProps {
   onTitlePress?: () => void;
 }
 
-const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure, userProgress, onCardPress, onTitlePress }) => {
+const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = React.memo(({ adventure, userProgress, onCardPress, onTitlePress }) => {
   // Sort by order_by and take first 5 items
   const sortedContent = [...(adventure.content_list || [])]
     .sort((a, b) => a.order_by - b.order_by)
@@ -359,7 +359,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = ({ adventure
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   adventureContainer: {
@@ -402,7 +402,6 @@ const styles = StyleSheet.create({
   mainTitle: {
     width: 242,
     fontSize: 24,
-    fontWeight: '700',
     color: ArchivesTheme?.colors?.mutedNavy,
     fontFamily: 'Cormorant-Bold',
   },
