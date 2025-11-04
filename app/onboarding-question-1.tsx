@@ -62,7 +62,7 @@ export default function OnboardingQuestion1Screen() {
 
       // Save answer to storage
       const answerData = {
-        question: "How much Middle Eastern history do you already know?",
+        question: "How much Islamic history do you already know?",
         answer: questionOptions[selectedOption],
         optionIndex: selectedOption
       }
@@ -117,7 +117,7 @@ export default function OnboardingQuestion1Screen() {
             {/* Speech Bubble on Right */}
             <View style={styles.speechBubble}>
               <Text style={styles.mainQuestion} selectable={false}>
-                How much Middle{'\n'}Eastern history do{'\n'}you already know?
+                How much Islamic{'\n'}history do you{'\n'}already know?
               </Text>
 
               {/* Speech bubble tail - SVG arrow */}

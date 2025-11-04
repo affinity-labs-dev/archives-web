@@ -165,7 +165,7 @@ export default function OnboardingVideo2Screen() {
 
               {/* Subtitle */}
               <Text style={styles.subtitleText} selectable={false}>
-                Middle Eastern History
+                Islamic History
               </Text>
               <Text style={styles.subtitleText} selectable={false}>
                 5 Minutes At A Time

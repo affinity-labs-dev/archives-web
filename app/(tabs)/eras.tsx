@@ -170,7 +170,7 @@ export default function EraSelection() {
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>Choose Your Era</Text>
             <Text style={styles.headerSubtitle}>
-              Begin your journey through Middle Eastern history
+              Begin your journey through Islamic history
             </Text>
           </View>
         </View>

@@ -1,19 +1,19 @@
 // Profile Tab - EXACT replica of SwiftUI Profile.swift
 // Matches the exact structure: historical avatars + stats + badges + achievements + settings
 
-import React, { useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, Modal, Dimensions, Alert, Linking, Platform } from 'react-native'
+import ArchivesTheme from '@/constants/ArchivesTheme'
+import { usePreferences } from '@/context/PreferencesContext'
+import { useProgress } from '@/context/ProgressContext'
+import { useRewards } from '@/context/RewardsContext'
+import { analyticsService } from '@/services/AnalyticsService'
 import { useAuth, useUser } from '@clerk/clerk-expo'
-import { useRouter } from 'expo-router'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import ArchivesTheme from '@/constants/ArchivesTheme'
-import * as Haptics from 'expo-haptics'
-import { analyticsService } from '@/services/AnalyticsService'
 import { useFocusEffect } from '@react-navigation/native'
-import { useProgress } from '@/context/ProgressContext'
-import { usePreferences } from '@/context/PreferencesContext'
-import { useRewards } from '@/context/RewardsContext'
+import * as Haptics from 'expo-haptics'
+import { useRouter } from 'expo-router'
+import React, { useState } from 'react'
+import { Alert, Dimensions, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -152,7 +152,7 @@ const FAQ_DATA = [
   {
     id: 1,
     question: "When will Archives be available?",
-    answer: "We're launching our beta version in Q4 2025. Join our waitlist to get early access and be among the first to experience gamified Middle Eastern history!"
+    answer: "We're launching our beta version in Q4 2025. Join our waitlist to get early access and be among the first to experience gamified Islamic history!"
   },
   {
     id: 2,
@@ -162,7 +162,7 @@ const FAQ_DATA = [
   {
     id: 3,
     question: "Who is Archives designed for?",
-    answer: "Archives is designed for anyone curious about Middle Eastern history, from students and educators to history enthusiasts of all ages. Our content is carefully crafted to be engaging and educational while remaining historically accurate."
+    answer: "Archives is designed for anyone curious about Islamic history, from students and educators to history enthusiasts of all ages. Our content is carefully crafted to be engaging and educational while remaining historically accurate."
   },
   {
     id: 4,
@@ -1273,9 +1273,9 @@ const styles = StyleSheet.create({
     paddingBottom: 10, // Added bottom padding
   },
   profileTitle: {
-    fontFamily: 'Cormorant-Bold',
-    fontSize: 36,
-    fontWeight: '700',
+    fontFamily: 'DM Sans',
+    fontSize: 24,
+    fontWeight: '600',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'left',
   },
@@ -1442,6 +1442,9 @@ const styles = StyleSheet.create({
   
   // Modules Achievement Card
   moduleAchievementCard: {
+    width: '100%',
+    height: 60,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
@@ -1449,7 +1452,6 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     paddingLeft: 16,
     paddingRight: 4,
-    marginHorizontal: 10,
     shadowColor: 'rgba(0, 0, 0, 0.05)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,

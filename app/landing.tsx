@@ -193,7 +193,7 @@ export default function LandingPage() {
 
           {/* Subtitle Section - Spacing 5px between lines */}
           <View style={styles.subtitleContainer}>
-            <Text style={styles.subtitleText}>Middle Eastern History</Text>
+            <Text style={styles.subtitleText}>Islamic History</Text>
             <Text style={styles.subtitleText}>5 Minutes At A Time</Text>
           </View>
 

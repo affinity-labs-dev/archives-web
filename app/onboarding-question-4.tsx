@@ -82,7 +82,7 @@ export default function OnboardingQuestion4Screen() {
       // Save answer to storage
       const selectedAnswers = selectedOptions.map(index => questionOptions[index])
       const answerData = {
-        question: "Why are you learning about Middle Eastern history?",
+        question: "Why are you learning about Islamic history?",
         answers: selectedAnswers,
         optionIndices: selectedOptions
       }
@@ -162,7 +162,7 @@ export default function OnboardingQuestion4Screen() {
             {/* Speech Bubble on Right */}
             <View style={styles.speechBubble}>
               <Text style={styles.mainQuestion} selectable={false}>
-                Why are you{'\n'}learning about{'\n'}Middle Eastern{'\n'}history?
+                Why are you{'\n'}learning about{'\n'}Islamic{'\n'}history?
               </Text>
 
               {/* Speech bubble tail - SVG arrow */}
