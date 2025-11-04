@@ -1,8 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Dimensions, Modal, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
+import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import ROIAdventureComponent from './ROIAdventureComponent';
 import ROIAdventureCardComponent from './ROIAdventureCardComponent';
 import ROIAdventureSummary, { SummaryMode } from './ROIAdventureSummary';
@@ -369,6 +372,28 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
           onContinue={() => setStreakMilestone(null)}
         />
       )}
+
+      {/* Development Only: Walkthrough Reset Button */}
+      {__DEV__ && (
+        <View style={styles.devButtonContainer}>
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={async () => {
+              try {
+                await AsyncStorage.removeItem(WALKTHROUGH_KEYS.REEL);
+                await AsyncStorage.removeItem(WALKTHROUGH_KEYS.CAROUSEL);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                console.log('✅ Walkthrough flags cleared');
+              } catch (error) {
+                console.error('❌ Error clearing walkthrough flags:', error);
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.resetButtonText}>RESET WALKTHROUGH</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -423,6 +448,34 @@ const styles = StyleSheet.create({
   progressBarContainer: {
     width: 192,
     height: 8,
+  },
+
+  // Development Only: Reset Button
+  devButtonContainer: {
+    position: 'absolute',
+    bottom: 100, // Above tab bar
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  resetButton: {
+    backgroundColor: '#FF3B30', // iOS red
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  resetButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'DM Sans',
+    letterSpacing: 0.5,
   },
 });
 

@@ -30,6 +30,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ContentItem } from "./types";
 import RenderHtml from 'react-native-render-html';
 import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
+import { Image as ExpoImage } from "expo-image";
 
 // Static dimensions (module-level) - Umayyad Dynasty pattern
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
@@ -71,6 +74,10 @@ export default function ROIImageCarouselLesson({
   const horizontalSwipeRef = useRef(null);
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
 
+  // Walkthrough hint states
+  const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
+  const [showContinueHint, setShowContinueHint] = useState(false);
+
   // Animation values
   const cardHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
@@ -85,6 +92,34 @@ export default function ROIImageCarouselLesson({
   // Extract images and captions from contentItem
   const images = contentItem.media_url || [];
   const captions = contentItem.bottom_content?.carousel_captions || [];
+
+  // Check if user has seen carousel walkthrough before
+  useEffect(() => {
+    const checkWalkthrough = async () => {
+      try {
+        const hasSeenCarousel = await AsyncStorage.getItem(WALKTHROUGH_KEYS.CAROUSEL);
+        if (hasSeenCarousel !== 'true') {
+          setWalkthroughEnabled(true);
+          console.log('👁️ Carousel walkthrough enabled - first time');
+        } else {
+          console.log('👁️ Carousel walkthrough disabled - already seen');
+        }
+      } catch (error) {
+        console.error('❌ Error checking carousel walkthrough:', error);
+      }
+    };
+    checkWalkthrough();
+  }, []);
+
+  // Show continue hint when on last image (only if walkthrough enabled)
+  useEffect(() => {
+    if (walkthroughEnabled && currentImageIndex === images.length - 1) {
+      setShowContinueHint(true);
+      console.log('👁️ Continue hint shown - last image reached');
+    } else {
+      setShowContinueHint(false);
+    }
+  }, [walkthroughEnabled, currentImageIndex, images.length]);
 
   // Debug logging for carousel scroll state
   useEffect(() => {
@@ -233,8 +268,16 @@ export default function ROIImageCarouselLesson({
   };
 
   // Handle continue
-  const handleContinue = () => {
+  const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Save walkthrough flag when user completes lesson
+    try {
+      await AsyncStorage.setItem(WALKTHROUGH_KEYS.CAROUSEL, 'true');
+      console.log('✅ Carousel walkthrough marked as seen');
+    } catch (error) {
+      console.error('❌ Error saving carousel walkthrough flag:', error);
+    }
 
     console.log(`🔄 ${moduleId} ${lessonId}`);
     onContinue();
@@ -341,6 +384,27 @@ export default function ROIImageCarouselLesson({
             />
           </TouchableOpacity>
         </View>
+
+        {/* Walkthrough Hints */}
+        {walkthroughEnabled && (
+          <View style={styles.aboveDotsHintContainer}>
+            <ExpoImage
+              source={require('@/assets/images/walkthrough/abovedots.svg')}
+              style={styles.aboveDotsHintImage}
+              contentFit="contain"
+            />
+          </View>
+        )}
+
+        {walkthroughEnabled && showContinueHint && (
+          <View style={styles.continueHintContainer}>
+            <ExpoImage
+              source={require('@/assets/images/walkthrough/continue.svg')}
+              style={styles.continueHintImage}
+              contentFit="contain"
+            />
+          </View>
+        )}
 
         {/* Page indicators */}
         {!isCardExpanded && (
@@ -634,7 +698,7 @@ const styles = StyleSheet.create({
 
   pageIndicatorsOnly: {
     position: "absolute",
-    bottom: 180,
+    bottom: SCREEN_HEIGHT * 0.22,  // Responsive: ~22% from bottom
     alignSelf: "center",
     flexDirection: "row",
     justifyContent: "center",
@@ -783,5 +847,29 @@ const styles = StyleSheet.create({
 
   sheetBottomSpacer: {
     height: 60,
+  },
+
+  // Walkthrough hints
+  aboveDotsHintContainer: {
+    position: 'absolute',
+    bottom: SCREEN_HEIGHT * 0.25,  // Responsive: ~25% from bottom (closer to dots)
+    alignSelf: 'center',
+    zIndex: 15,
+    pointerEvents: 'none',
+  },
+  aboveDotsHintImage: {
+    width: 180,  // Match reel hint width
+    height: 81,  // Match 176:79 SVG aspect ratio
+  },
+  continueHintContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 70,
+    right: 70,
+    zIndex: 25,
+    pointerEvents: 'none',
+  },
+  continueHintImage: {
+    width: 150,  // 1.5X (was 100)
+    height: 60,  // Match 120:48 SVG aspect ratio
   },
 });

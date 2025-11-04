@@ -29,6 +29,9 @@ import LessonPlayer from "../modules/LessonPlayer";
 import type { ContentItem } from "./types";
 import RenderHtml from 'react-native-render-html';
 import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
+import { Image } from "expo-image";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -76,6 +79,12 @@ export default function ROIReelLesson({
   const [hasFinishedReading, setHasFinishedReading] = useState(true);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
 
+  // Walkthrough hint states
+  const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
+  const [showReadHint, setShowReadHint] = useState(false);
+  const [showContinueHint, setShowContinueHint] = useState(false);
+  const [hasEverExpandedCard, setHasEverExpandedCard] = useState(false);
+
   // Component refs for gesture coordination
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
@@ -93,6 +102,69 @@ export default function ROIReelLesson({
 
   // Extract video URL from media_url array (first item)
   const videoUrl = contentItem.media_url?.[0] || '';
+
+  // Check if user has seen reel walkthrough before
+  useEffect(() => {
+    const checkWalkthrough = async () => {
+      try {
+        const hasSeenReel = await AsyncStorage.getItem(WALKTHROUGH_KEYS.REEL);
+        if (hasSeenReel !== 'true') {
+          setWalkthroughEnabled(true);
+          console.log('👁️ Reel walkthrough enabled - first time');
+        } else {
+          console.log('👁️ Reel walkthrough disabled - already seen');
+        }
+      } catch (error) {
+        console.error('❌ Error checking reel walkthrough:', error);
+      }
+    };
+    checkWalkthrough();
+  }, []);
+
+  // Percentage-based hint timing
+  useEffect(() => {
+    if (!walkthroughEnabled || hasEverExpandedCard) return;
+
+    // Read hint triggers: 20-30%, 50-60%, 95%+ (10% duration)
+    if ((videoProgress >= 0.20 && videoProgress < 0.30) ||
+        (videoProgress >= 0.50 && videoProgress < 0.60) ||
+        (videoProgress >= 0.95)) {
+      if (!showReadHint) {
+        setShowReadHint(true);
+        console.log(`👁️ Read hint shown at ${Math.round(videoProgress * 100)}%`);
+      }
+    } else {
+      if (showReadHint) {
+        setShowReadHint(false);
+        console.log(`👁️ Read hint hidden at ${Math.round(videoProgress * 100)}%`);
+      }
+    }
+
+    // Continue hint triggers: 30-40%, 60-70%, 100%+ (10% duration)
+    if ((videoProgress >= 0.30 && videoProgress < 0.40) ||
+        (videoProgress >= 0.60 && videoProgress < 0.70) ||
+        (videoProgress >= 1.0)) {
+      if (!showContinueHint) {
+        setShowContinueHint(true);
+        console.log(`👁️ Continue hint shown at ${Math.round(videoProgress * 100)}%`);
+      }
+    } else {
+      if (showContinueHint && videoProgress < 1.0) {
+        setShowContinueHint(false);
+        console.log(`👁️ Continue hint hidden at ${Math.round(videoProgress * 100)}%`);
+      }
+    }
+  }, [videoProgress, walkthroughEnabled, hasEverExpandedCard, showReadHint, showContinueHint]);
+
+  // Hide both hints when card expands
+  useEffect(() => {
+    if (isCardExpanded && !hasEverExpandedCard) {
+      setShowReadHint(false);
+      setShowContinueHint(false);
+      setHasEverExpandedCard(true);
+      console.log('👁️ Both hints hidden - card expanded');
+    }
+  }, [isCardExpanded, hasEverExpandedCard]);
 
   // Ultra-Smooth Video Progress System
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
@@ -145,8 +217,16 @@ export default function ROIReelLesson({
   };
 
   // Lesson Completion Logic
-  const handleContinue = () => {
+  const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Save walkthrough flag when user completes lesson
+    try {
+      await AsyncStorage.setItem(WALKTHROUGH_KEYS.REEL, 'true');
+      console.log('✅ Reel walkthrough marked as seen');
+    } catch (error) {
+      console.error('❌ Error saving reel walkthrough flag:', error);
+    }
 
     console.log(`🔄 Continue button pressed - ${moduleId} ${lessonId}`);
     onContinue();
@@ -419,6 +499,27 @@ export default function ROIReelLesson({
           </TouchableOpacity>
         </View>
 
+        {/* Walkthrough Hints */}
+        {showReadHint && (
+          <View style={styles.readHintContainer}>
+            <Image
+              source={require('@/assets/images/walkthrough/read.svg')}
+              style={styles.readHintImage}
+              contentFit="contain"
+            />
+          </View>
+        )}
+
+        {showContinueHint && (
+          <View style={[styles.continueHintContainer, { top: insets.top + 8 }]}>
+            <Image
+              source={require('@/assets/images/walkthrough/continue.svg')}
+              style={styles.continueHintImage}
+              contentFit="contain"
+            />
+          </View>
+        )}
+
         {/* Reading Card: Tap only on Android, Tap + Swipe on iOS */}
         <TapGestureHandler
           ref={tapGestureRef}
@@ -597,5 +698,29 @@ const styles = StyleSheet.create({
   // Bottom spacer
   sheetBottomSpacer: {
     height: 80,
+  },
+
+  // Walkthrough hints
+  readHintContainer: {
+    position: 'absolute',
+    bottom: COLLAPSED_HEIGHT - (SCREEN_HEIGHT * 0.01),  // Overlap by 1% (responsive)
+    alignSelf: 'center',
+    zIndex: 15,
+    pointerEvents: 'none',
+  },
+  readHintImage: {
+    width: 180,  // 1.5X (was 120)
+    height: 73,  // Match 198:80 SVG aspect ratio
+  },
+  continueHintContainer: {
+    position: 'absolute',
+    top: 0,  // Will be set inline with insets.top + 8
+    right: 16 + BUTTON_SIZE + 10,  // Relative to button position
+    zIndex: 25,
+    pointerEvents: 'none',
+  },
+  continueHintImage: {
+    width: 150,  // 1.5X (was 100)
+    height: 60,  // Match 120:48 SVG aspect ratio
   },
 });
