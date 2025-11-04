@@ -27,7 +27,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const LAYOUT_CONSTANTS = {
   contentPaddingTop: 130,
   contentPaddingBottom: 130,
-  videoSectionSpacing: 30,
+  videoSectionSpacing: 20,
   videoContainerSpacing: 16,
   videoHorizontalPadding: 20,
   videoHeight: 250,
