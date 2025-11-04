@@ -64,6 +64,9 @@ export default function Adventure2_Module1_Lesson1({
   const panGestureRef = useRef(null);
   const scrollViewGestureRef = useRef(null);
 
+  // Hardcoded walkthrough hint (carousel: only continue hint, shows on last image)
+  const [showContinueHint, setShowContinueHint] = useState(false);
+
   // Animation values for card expansion
   const cardHeight = useRef(new Animated.Value(160)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
@@ -172,6 +175,16 @@ export default function Adventure2_Module1_Lesson1({
       }`
     );
   }, [isCardGestureActive]);
+
+  // Hardcoded walkthrough hint - show continue hint when on last image
+  useEffect(() => {
+    if (currentImageIndex === languageScenes.length - 1) {
+      setShowContinueHint(true);
+      console.log('👁️ Continue hint shown - last image reached');
+    } else {
+      setShowContinueHint(false);
+    }
+  }, [currentImageIndex]);
 
   // Safety mechanism: Auto-reset gesture state if stuck
   useEffect(() => {
@@ -489,6 +502,16 @@ export default function Adventure2_Module1_Lesson1({
             </Animated.View>
           </PanGestureHandler>
 
+        {/* Hardcoded Walkthrough Hint - Continue hint (shows on last image) */}
+        {showContinueHint && (
+          <SafeAreaView style={styles.continueHintContainer}>
+            <Image
+              source={require("@/assets/images/walkthrough/continue.svg")}
+              style={styles.continueHintImage}
+              resizeMode="contain"
+            />
+          </SafeAreaView>
+        )}
       </View>
     </>
   );
@@ -772,6 +795,21 @@ const styles = StyleSheet.create({
   // Bottom spacer to ensure full scroll
   sheetBottomSpacer: {
     height: 60,
+  },
+
+  // Hardcoded walkthrough hint - Continue hint
+  continueHintContainer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 25,
+    paddingTop: 8,
+    paddingRight: 76, // 16 (padding) + 40 (button width) + 20 (spacing)
+    pointerEvents: "none",
+  },
+  continueHintImage: {
+    width: 150,
+    height: 60, // Match 120:48 SVG aspect ratio
   },
 
 });

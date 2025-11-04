@@ -70,6 +70,10 @@ export default function Adventure1_Module1_Lesson1({
   const [hasVideoCompleted, setHasVideoCompleted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Hardcoded walkthrough hints (no first-time condition)
+  const [showReadHint, setShowReadHint] = useState(false);
+  const [showContinueHint, setShowContinueHint] = useState(false);
   const scrollViewGestureRef = useRef(null);
   const panGestureRef = useRef(null);
 
@@ -151,6 +155,37 @@ export default function Adventure1_Module1_Lesson1({
       }),
     ]).start();
   };
+
+  // Hardcoded walkthrough hints - percentage-based timing (no conditions)
+  useEffect(() => {
+    // Read hint triggers: 20-30%, 50-60%, 95%+ (10% duration each)
+    const shouldShowRead =
+      (videoProgress >= 0.2 && videoProgress < 0.3) ||
+      (videoProgress >= 0.5 && videoProgress < 0.6) ||
+      videoProgress >= 0.95;
+
+    if (shouldShowRead && !showReadHint) {
+      setShowReadHint(true);
+      console.log(`👁️ Read hint shown at ${Math.round(videoProgress * 100)}%`);
+    } else if (!shouldShowRead && showReadHint) {
+      setShowReadHint(false);
+      console.log(`👁️ Read hint hidden at ${Math.round(videoProgress * 100)}%`);
+    }
+
+    // Continue hint triggers: 30-40%, 60-70%, 100%+ (10% duration each)
+    const shouldShowContinue =
+      (videoProgress >= 0.3 && videoProgress < 0.4) ||
+      (videoProgress >= 0.6 && videoProgress < 0.7) ||
+      videoProgress >= 1.0;
+
+    if (shouldShowContinue && !showContinueHint) {
+      setShowContinueHint(true);
+      console.log(`👁️ Continue hint shown at ${Math.round(videoProgress * 100)}%`);
+    } else if (!shouldShowContinue && showContinueHint) {
+      setShowContinueHint(false);
+      console.log(`👁️ Continue hint hidden at ${Math.round(videoProgress * 100)}%`);
+    }
+  }, [videoProgress]);
 
   // Removed handleTogglePlayback - now handled directly by LessonPlayer
 
@@ -336,6 +371,27 @@ export default function Adventure1_Module1_Lesson1({
             />
           </TouchableOpacity>
         </SafeAreaView>
+
+        {/* Hardcoded Walkthrough Hints */}
+        {showReadHint && (
+          <View style={styles.readHintContainer}>
+            <Image
+              source={require("@/assets/images/walkthrough/read.svg")}
+              style={styles.readHintImage}
+              contentFit="contain"
+            />
+          </View>
+        )}
+
+        {showContinueHint && (
+          <SafeAreaView style={styles.continueHintContainer}>
+            <Image
+              source={require("@/assets/images/walkthrough/continue.svg")}
+              style={styles.continueHintImage}
+              contentFit="contain"
+            />
+          </SafeAreaView>
+        )}
 
         {/* Reading Card at Bottom - Platform-Specific Gesture Handling */}
         {Platform.OS === "ios" ? (
@@ -875,5 +931,31 @@ const styles = StyleSheet.create({
     color: "white",
     opacity: 0.8,
     lineHeight: 20,
+  },
+
+  // Hardcoded walkthrough hints
+  readHintContainer: {
+    position: "absolute",
+    bottom: COLLAPSED_HEIGHT - SCREEN_HEIGHT * 0.01, // Responsive overlap
+    alignSelf: "center",
+    zIndex: 15,
+    pointerEvents: "none",
+  },
+  readHintImage: {
+    width: 180,
+    height: 73, // Match 198:80 SVG aspect ratio
+  },
+  continueHintContainer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 25,
+    paddingTop: 8,
+    paddingRight: 76, // 16 (padding) + 40 (button width) + 20 (spacing)
+    pointerEvents: "none",
+  },
+  continueHintImage: {
+    width: 150,
+    height: 60, // Match 120:48 SVG aspect ratio
   },
 });
