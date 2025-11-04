@@ -40,18 +40,18 @@ interface Era {
 
 const eras: Era[] = [
   {
-    id: '1',
-    title: 'Umayyad Dynasty (661–750 CE)',
-    subtitle: 'The first Islamic empire, expanding its reach from Damascus',
-    imageName: require('@/assets/images/eras/era1-bg.jpg'),
-    adventuresCompleted: 0,
-    totalAdventures: 5,
-  },
-  {
     id: '2',
     title: 'Rise of Islam (570–632 CE)',
     subtitle: 'The life of Prophet Muhammad and the birth of Islam',
     imageName: require('@/assets/images/eras/era2-bg.jpg'),
+    adventuresCompleted: 0,
+    totalAdventures: 5,
+  },
+  {
+    id: '1',
+    title: 'Umayyad Dynasty (661–750 CE)',
+    subtitle: 'The first Islamic empire, expanding its reach from Damascus',
+    imageName: require('@/assets/images/eras/era1-bg.jpg'),
     adventuresCompleted: 0,
     totalAdventures: 5,
   },
@@ -117,7 +117,7 @@ export default function EraSelection() {
 
   const handleContinue = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    if (selectedEraIndex === 0 || (selectedEraIndex === 1 && DEVELOPMENT_UNLOCK_ERA2)) {
+    if ((selectedEraIndex === 0 && DEVELOPMENT_UNLOCK_ERA2) || selectedEraIndex === 1) {
       const selectedEra = eras[selectedEraIndex]
       console.log('Selected era:', selectedEra)
       
@@ -175,54 +175,14 @@ export default function EraSelection() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Era 1 - Umayyad Dynasty (Inline Hardcoded) */}
+          {/* Era 1 - Rise of Islam (Inline Hardcoded) */}
           <TouchableOpacity
             style={[
               styles.horizontalEraCard,
-              0 === selectedEraIndex && styles.horizontalEraCardSelected,
-            ]}
-            onPress={() => handleEraSelect(0)}
-            activeOpacity={0.7}
-          >
-            <Image
-              source={require('@/assets/images/eras/era1-bg.jpg')}
-              style={styles.horizontalEraCardImage}
-              pointerEvents="none"
-            />
-            <LinearGradient
-              colors={[
-                'rgba(0,0,0,0)',
-                'rgba(0,0,0,0.3)',
-                'rgba(0,0,0,0.6)',
-                'rgba(0,0,0,0.8)',
-              ]}
-              locations={[0, 0.24, 0.64, 1.0]}
-              style={styles.horizontalGradientOverlay}
-            />
-            <View style={styles.horizontalEraCardContent}>
-              <View style={styles.horizontalEraTextSection}>
-                <Text style={styles.horizontalEraTitle} numberOfLines={2}>
-                  Umayyad Dynasty (661–750 CE)
-                </Text>
-              </View>
-            </View>
-            <View style={[
-              styles.selectedIndicatorTopRight,
-              { opacity: 0 === selectedEraIndex ? 1 : 0 }
-            ]}>
-              <MaterialIcons name="check-circle" size={14} color="white" />
-              <Text style={styles.selectedText}>Selected</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Era 2 - Rise of Islam (Inline Hardcoded) */}
-          <TouchableOpacity
-            style={[
-              styles.horizontalEraCard,
-              1 === selectedEraIndex && DEVELOPMENT_UNLOCK_ERA2 && styles.horizontalEraCardSelected,
+              0 === selectedEraIndex && DEVELOPMENT_UNLOCK_ERA2 && styles.horizontalEraCardSelected,
               !DEVELOPMENT_UNLOCK_ERA2 && styles.horizontalEraCardNoEffects
             ]}
-            onPress={() => handleEraSelect(1)}
+            onPress={() => handleEraSelect(0)}
             activeOpacity={0.7}
           >
             <Image
@@ -260,7 +220,47 @@ export default function EraSelection() {
             </View>
             <View style={[
               styles.selectedIndicatorTopRight,
-              { opacity: (1 === selectedEraIndex && DEVELOPMENT_UNLOCK_ERA2) ? 1 : 0 }
+              { opacity: (0 === selectedEraIndex && DEVELOPMENT_UNLOCK_ERA2) ? 1 : 0 }
+            ]}>
+              <MaterialIcons name="check-circle" size={14} color="white" />
+              <Text style={styles.selectedText}>Selected</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Era 2 - Umayyad Dynasty (Inline Hardcoded) */}
+          <TouchableOpacity
+            style={[
+              styles.horizontalEraCard,
+              1 === selectedEraIndex && styles.horizontalEraCardSelected,
+            ]}
+            onPress={() => handleEraSelect(1)}
+            activeOpacity={0.7}
+          >
+            <Image
+              source={require('@/assets/images/eras/era1-bg.jpg')}
+              style={styles.horizontalEraCardImage}
+              pointerEvents="none"
+            />
+            <LinearGradient
+              colors={[
+                'rgba(0,0,0,0)',
+                'rgba(0,0,0,0.3)',
+                'rgba(0,0,0,0.6)',
+                'rgba(0,0,0,0.8)',
+              ]}
+              locations={[0, 0.24, 0.64, 1.0]}
+              style={styles.horizontalGradientOverlay}
+            />
+            <View style={styles.horizontalEraCardContent}>
+              <View style={styles.horizontalEraTextSection}>
+                <Text style={styles.horizontalEraTitle} numberOfLines={2}>
+                  Umayyad Dynasty (661–750 CE)
+                </Text>
+              </View>
+            </View>
+            <View style={[
+              styles.selectedIndicatorTopRight,
+              { opacity: 1 === selectedEraIndex ? 1 : 0 }
             ]}>
               <MaterialIcons name="check-circle" size={14} color="white" />
               <Text style={styles.selectedText}>Selected</Text>
@@ -327,10 +327,10 @@ export default function EraSelection() {
           <Pressable
             style={[
               styles.enterEraButton,
-              (selectedEraIndex === 0 || (selectedEraIndex === 1 && DEVELOPMENT_UNLOCK_ERA2)) && styles.enterEraButtonActive
+              ((selectedEraIndex === 0 && DEVELOPMENT_UNLOCK_ERA2) || selectedEraIndex === 1) && styles.enterEraButtonActive
             ]}
             onPress={handleContinue}
-            disabled={selectedEraIndex !== 0 && !(selectedEraIndex === 1 && DEVELOPMENT_UNLOCK_ERA2)}
+            disabled={!(selectedEraIndex === 0 && DEVELOPMENT_UNLOCK_ERA2) && selectedEraIndex !== 1}
           >
             <Text style={styles.enterEraButtonText}>ENTER ERA</Text>
           </Pressable>
