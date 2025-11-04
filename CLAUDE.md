@@ -237,16 +237,12 @@ await atomicProgressUpdate(adventureId, moduleId, {
 - Flag saved to AsyncStorage when user taps continue button (completes lesson)
 
 **Timeline for reel lessons (when walkthroughEnabled):**
-- **0s:** Video starts
-- **3s:** BOTH "read" AND "continue" hints appear together
-- **5s:** Both hints auto-hide (after 2 seconds)
-- **During video:** No hints visible
-- **Video end (sequence):**
-  1. "Read" hint appears (2 seconds)
-  2. "Read" hint hides
-  3. "Continue" hint appears (stays visible)
+- **Percentage-based timing** tied to video progress (not wall-clock time)
+- **Read hint triggers:** Shows at 20-30%, 50-60%, 95%+ of video progress (10% duration each)
+- **Continue hint triggers:** Shows at 30-40%, 60-70%, 100%+ of video progress (10% duration each)
+- **Logic:** Hints appear/disappear based on video playback percentage for consistent UX across different video lengths
 
-**Exception:** If user expands reading card → Both hints disappear immediately and read hint never shows again. Continue hint still appears at video end.
+**Exception:** If user expands reading card → Both hints disappear immediately and never show again for that lesson.
 
 **Timeline for carousel lessons (when walkthroughEnabled):**
 - **"abovedots" hint:** Always visible while walkthrough enabled
@@ -296,49 +292,40 @@ useEffect(() => {
   checkWalkthrough();
 }, []);
 
-// First appearance: 3s delay, show BOTH hints for 2s
+// Percentage-based hint timing
 useEffect(() => {
-  if (walkthroughEnabled && videoProgress > 0 && !hasEverExpandedCard && !hasVideoCompleted) {
-    const showTimer = setTimeout(() => {
+  if (!walkthroughEnabled || hasEverExpandedCard) return;
+
+  // Read hint triggers: 20-30%, 50-60%, 95%+ (10% duration)
+  if ((videoProgress >= 0.20 && videoProgress < 0.30) ||
+      (videoProgress >= 0.50 && videoProgress < 0.60) ||
+      (videoProgress >= 0.95)) {
+    if (!showReadHint) {
       setShowReadHint(true);
-      setShowContinueHint(true);
-      console.log('👁️ Both hints shown at 3 seconds');
-
-      // Auto-hide both after 2 seconds
-      const hideTimer = setTimeout(() => {
-        setShowReadHint(false);
-        setShowContinueHint(false);
-        console.log('👁️ Both hints hidden after 2 seconds');
-      }, 2000);
-
-      return () => clearTimeout(hideTimer);
-    }, 3000);
-
-    return () => clearTimeout(showTimer);
-  }
-}, [walkthroughEnabled, videoProgress, hasEverExpandedCard, hasVideoCompleted]);
-
-// Video end sequence: read hint → continue hint
-useEffect(() => {
-  if (walkthroughEnabled && hasVideoCompleted && !hasEverExpandedCard) {
-    setShowReadHint(true);
-    setShowContinueHint(false);
-    console.log('👁️ Read hint shown at video end');
-
-    const hideReadTimer = setTimeout(() => {
+      console.log(`👁️ Read hint shown at ${Math.round(videoProgress * 100)}%`);
+    }
+  } else {
+    if (showReadHint) {
       setShowReadHint(false);
-      console.log('👁️ Read hint hidden at video end');
-
-      setShowContinueHint(true);
-      console.log('👁️ Continue hint shown after read hint (permanent)');
-    }, 2000);
-
-    return () => clearTimeout(hideReadTimer);
-  } else if (walkthroughEnabled && hasVideoCompleted && hasEverExpandedCard) {
-    setShowContinueHint(true);
-    console.log('👁️ Continue hint shown at video end (card was expanded)');
+      console.log(`👁️ Read hint hidden at ${Math.round(videoProgress * 100)}%`);
+    }
   }
-}, [walkthroughEnabled, hasVideoCompleted, hasEverExpandedCard]);
+
+  // Continue hint triggers: 30-40%, 60-70%, 100%+ (10% duration)
+  if ((videoProgress >= 0.30 && videoProgress < 0.40) ||
+      (videoProgress >= 0.60 && videoProgress < 0.70) ||
+      (videoProgress >= 1.0)) {
+    if (!showContinueHint) {
+      setShowContinueHint(true);
+      console.log(`👁️ Continue hint shown at ${Math.round(videoProgress * 100)}%`);
+    }
+  } else {
+    if (showContinueHint && videoProgress < 1.0) {
+      setShowContinueHint(false);
+      console.log(`👁️ Continue hint hidden at ${Math.round(videoProgress * 100)}%`);
+    }
+  }
+}, [videoProgress, walkthroughEnabled, hasEverExpandedCard, showReadHint, showContinueHint]);
 
 // Hide both hints when card expands
 useEffect(() => {
@@ -376,7 +363,7 @@ const handleContinue = async () => {
 )}
 
 {showContinueHint && (
-  <View style={styles.continueHintContainer}>
+  <View style={[styles.continueHintContainer, { top: insets.top + 8 }]}>
     <Image
       source={require('@/assets/images/walkthrough/continue.svg')}
       style={styles.continueHintImage}
@@ -460,10 +447,19 @@ const handleContinue = async () => {
 ```
 
 **Styling:**
-- `pointerEvents: 'none'` - Hints don't block interactions (abovedots only)
+- `pointerEvents: 'none'` - Hints don't block interactions
 - `zIndex: 15-25` - Below expanded cards, above other content
 - No animations - instant show/hide
 - Positioned absolutely over lesson content
+- **SVG aspect ratios MUST match source files** to prevent whitespace:
+  - `read.svg` (198×80): Use width 180, height 73
+  - `continue.svg` (120×48): Use width 150, height 60
+  - `abovedots.svg` (176×79): Use width 180, height 81
+- **Responsive positioning** using `SCREEN_HEIGHT` percentages (not hardcoded pixels):
+  - Carousel dots: `bottom: SCREEN_HEIGHT * 0.22`
+  - Above dots hint: `bottom: SCREEN_HEIGHT * 0.25`
+  - Read hint: `bottom: COLLAPSED_HEIGHT - (SCREEN_HEIGHT * 0.01)`
+  - Continue hint: `top: insets.top + 8` with `right: 16 + BUTTON_SIZE + 10`
 
 **Files implementing walkthrough:**
 - `components/modules/adventure1/Adventure1_Module1_Lesson1.tsx` (Umayyad reel)
