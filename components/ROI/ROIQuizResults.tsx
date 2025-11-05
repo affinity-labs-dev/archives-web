@@ -1,7 +1,7 @@
 // ROIQuizResults.tsx - Percentage-based quiz results screen for Rise of Islam
 // Shows 3 different screens based on score percentage: <30%, 30-70%, >=70%
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 
 const { width } = Dimensions.get('window');
@@ -50,13 +50,7 @@ interface VideoRewardPlayerProps {
 
 function VideoRewardPlayer({ percentage }: VideoRewardPlayerProps) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const rawVideoSource = getRewardVideo(percentage);
-
-  // PERFORMANCE: Enable video caching for reward videos (played multiple times)
-  const videoSource: VideoSource = useMemo(() => ({
-    assetId: rawVideoSource,
-    useCaching: true  // Enable 1GB default cache
-  }), [rawVideoSource]);
+  const videoSource = getRewardVideo(percentage);
 
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = false;

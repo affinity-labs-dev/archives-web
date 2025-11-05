@@ -30,27 +30,25 @@ export default function LessonPlayer({
 }: LessonPlayerProps) {
   const [isVideoLoaded, setIsVideoLoaded] = useState(false)
 
-  // PERFORMANCE: Convert videoSource to VideoSource object with caching enabled
-  // This enables 1GB default cache for 50-90% faster loading on repeated views
-  const cachedVideoSource: VideoSource = useMemo(() => {
-    // If already a VideoSource object, ensure caching is enabled
+  // PERFORMANCE: Optimize videoSource with useMemo (no caching to avoid bugs)
+  const optimizedVideoSource = useMemo(() => {
+    // Remote URL object - pass as-is (NO caching)
     if (typeof videoSource === 'object' && videoSource !== null && 'uri' in videoSource) {
-      return { ...videoSource, useCaching: true }
+      return videoSource;
     }
-    // If it's a number (require() result), convert to VideoSource with caching
+    // Local asset from require() - pass directly (NO assetId wrapper)
     if (typeof videoSource === 'number') {
-      return { assetId: videoSource, useCaching: true }
+      return videoSource;
     }
-    // If it's a string URI, convert to VideoSource with caching
+    // String URI - wrap in object (NO caching)
     if (typeof videoSource === 'string') {
-      return { uri: videoSource, useCaching: true }
+      return { uri: videoSource };
     }
-    // Fallback: return as-is (shouldn't happen)
-    return videoSource
+    return videoSource;
   }, [videoSource])
 
-  // Create video player with expo-video API and cached source
-  const player = useVideoPlayer(cachedVideoSource, player => {
+  // Create video player with expo-video API and optimized source
+  const player = useVideoPlayer(optimizedVideoSource, player => {
     player.loop = shouldLoop
     if (autoPlay) {
       player.play()

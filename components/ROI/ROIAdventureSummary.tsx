@@ -1,7 +1,7 @@
 // ROIAdventureSummary.tsx - Adventure completion modal for Rise of Islam
 // Shows when user completes all modules in an adventure OR reaches 50 XP milestone
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import type { Adventure } from './types';
@@ -50,13 +50,7 @@ interface VideoRewardPlayerProps {
 
 function VideoRewardPlayer({ totalStars }: VideoRewardPlayerProps) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const rawVideoSource = getRewardVideo(totalStars);
-
-  // PERFORMANCE: Enable video caching for reward videos (played multiple times)
-  const videoSource: VideoSource = useMemo(() => ({
-    assetId: rawVideoSource,
-    useCaching: true  // Enable 1GB default cache
-  }), [rawVideoSource]);
+  const videoSource = getRewardVideo(totalStars);
 
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = false;
