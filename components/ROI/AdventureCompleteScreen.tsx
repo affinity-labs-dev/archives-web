@@ -1,0 +1,323 @@
+// Adventure Complete Screen - Celebration screen for completing an adventure
+// Figma design: https://www.figma.com/design/rQCyFdW0CFzpUoegFfew7u/Archives_Raw_File?node-id=693-1885
+// Features:
+// - Blurred background image (25% height) with two-line title overlay
+// - Badge "ADVENTURE COMPLETED!" with description text
+// - Character illustration
+// - Stats card (Badges, Total XP, Modules as "X/Y" format) with Persian Orange text
+// - Moss green "START NEXT ADVENTURE" button
+// FULLY RESPONSIVE - All values use percentages based on screen dimensions
+
+import ArchivesTheme from '@/constants/ArchivesTheme';
+import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import React from 'react';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { Adventure } from './types';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+interface AdventureCompleteScreenProps {
+  // Option 1: Pass Adventure object (data extracted automatically)
+  adventure?: Adventure;
+
+  // Option 2: Pass individual props (overrides adventure object)
+  adventureSubtitle?: string; // Small title (e.g., "The New Capital")
+  adventureTitle?: string; // Large title (e.g., "Damascus")
+  adventureDescription?: string; // Description after badge
+  backgroundVideo?: string; // Background video URL (preferred)
+  backgroundImage?: string; // Background image URL (fallback)
+
+  // Stats
+  totalBadges?: number;
+  totalXP?: number;
+  completedModules?: number; // Number of completed modules
+  totalModules?: number; // Total number of modules
+  onContinue: () => void;
+}
+
+export default function AdventureCompleteScreen({
+  adventure,
+  adventureSubtitle: propSubtitle,
+  adventureTitle: propTitle,
+  adventureDescription: propDescription,
+  backgroundImage: propBackgroundImage,
+  totalBadges = 3,
+  totalXP = 150,
+  completedModules = 3,
+  totalModules = 3,
+  onContinue,
+}: AdventureCompleteScreenProps) {
+  // Extract data from adventure object or use provided props
+  const fullTitle = propTitle || adventure?.adventure_title || 'Complete';
+  const description = propDescription || `You've discovered the rich history of ${adventure?.adventure_title || 'this era'}!`;
+  const bgImage = propBackgroundImage || adventure?.card_content?.background_image || '';
+
+  // Split title into two lines if it contains multiple words
+  // Line 1: 35px, Line 2: 40px
+  const titleParts = fullTitle.split(' ');
+  const hasMultipleWords = titleParts.length > 1;
+  const titleLine1 = hasMultipleWords ? titleParts.slice(0, Math.ceil(titleParts.length / 2)).join(' ') : '';
+  const titleLine2 = hasMultipleWords ? titleParts.slice(Math.ceil(titleParts.length / 2)).join(' ') : fullTitle;
+
+  const handleContinue = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onContinue();
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Top Image Section with Two-Line Title */}
+      <View style={styles.topImageSection}>
+        <Image
+          source={{ uri: bgImage }}
+          style={styles.backgroundImage}
+          contentFit="cover"
+          blurRadius={3}
+          placeholder={{ blurhash: 'LKO2?U%2Tw=w]~RBVZRi};RPxuwH' }}
+        />
+
+        {/* Gradient overlay for text readability */}
+        <LinearGradient
+          colors={['rgba(244,235,219,0)', 'rgba(244,235,219,0)', 'rgba(244,235,219,0.8)', 'rgba(244,235,219,1)']}
+          locations={[0, 0.5, 0.85, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.gradientOverlay}
+        />
+
+        {/* Title over image */}
+        <View style={styles.titleContainer}>
+          {hasMultipleWords && titleLine1 ? (
+            <>
+              <Text style={styles.titleLine1}>{titleLine1}</Text>
+              <Text style={styles.titleLine2}>{titleLine2}</Text>
+            </>
+          ) : (
+            <Text style={styles.titleLine2}>{titleLine2}</Text>
+          )}
+        </View>
+      </View>
+
+      {/* Content Section - Solid Background */}
+      <View style={styles.contentSection}>
+        {/* Badge - "ADVENTURE COMPLETED!" */}
+        <View style={styles.badgeContainer}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>ADVENTURE COMPLETED!</Text>
+          </View>
+        </View>
+
+        {/* Description Text */}
+        <View style={styles.descriptionContainer}>
+          <Text style={styles.descriptionText}>{description}</Text>
+        </View>
+
+        {/* Character Section */}
+        <View style={styles.characterSection}>
+          <Image
+            source={require('@/assets/images/Explorer.png')}
+            style={styles.characterImage}
+            contentFit="contain"
+          />
+        </View>
+
+        {/* Stats Card */}
+        <View style={styles.statsCard}>
+          {/* Badges Column */}
+          <View style={styles.statColumn}>
+            <Text style={styles.statValue}>{totalBadges}</Text>
+            <Text style={styles.statLabel}>Badges</Text>
+          </View>
+
+          {/* Total XP Column */}
+          <View style={styles.statColumn}>
+            <Text style={styles.statValue}>{totalXP}</Text>
+            <Text style={styles.statLabel}>Total XP</Text>
+          </View>
+
+          {/* Modules Column */}
+          <View style={styles.statColumn}>
+            <Text style={styles.statValue}>{completedModules}/{totalModules}</Text>
+            <Text style={styles.statLabel}>Modules</Text>
+          </View>
+        </View>
+
+        {/* Continue Button */}
+        <TouchableOpacity
+          style={styles.continueButton}
+          onPress={handleContinue}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.continueButtonText}>START NEXT ADVENTURE</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
+  },
+
+  // Top Image Section - 25% of screen height
+  topImageSection: {
+    height: SCREEN_HEIGHT * 0.25, // 25% of screen height
+    width: SCREEN_WIDTH,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backgroundImage: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    top: 0,
+    left: 0,
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    top: 0,
+    left: 0,
+  },
+  titleContainer: {
+    alignItems: 'center',
+    paddingHorizontal: SCREEN_WIDTH * 0.05,
+    marginTop: SCREEN_HEIGHT * 0.16, // Move text down by 16% of screen height
+  },
+  titleLine1: {
+    fontFamily: 'Cormorant-Bold',
+    fontSize: SCREEN_WIDTH * 0.09, // 9% → ~35px on standard screen
+    fontWeight: '700',
+    color: ArchivesTheme.colors.mutedNavy, // #41425E - Muted Navy
+    textAlign: 'center',
+    lineHeight: SCREEN_WIDTH * 0.09, // 35px line height
+  },
+  titleLine2: {
+    fontFamily: 'Cormorant-Bold',
+    fontSize: SCREEN_WIDTH * 0.103, // 10.3% → ~40px on standard screen
+    fontWeight: '700',
+    color: ArchivesTheme.colors.mutedNavy, // #41425E - Muted Navy
+    textAlign: 'center',
+    lineHeight: SCREEN_WIDTH * 0.103, // 40px line height
+  },
+
+  // Content Section - Rest of screen with solid background
+  contentSection: {
+    flex: 1,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
+    alignItems: 'center',
+    paddingVertical: SCREEN_HEIGHT * 0.03, // 3% top/bottom padding
+    paddingHorizontal: SCREEN_WIDTH * 0.05, // 5% left/right padding
+    justifyContent: 'space-between',
+  },
+
+  // Badge Section
+  badgeContainer: {
+    alignItems: 'center',
+    marginTop: SCREEN_HEIGHT * -0.01, // Move badge up by 1% of screen height
+    marginBottom: SCREEN_HEIGHT * 0.015, // 1.5% spacing below badge
+  },
+  badge: {
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    borderRadius: SCREEN_WIDTH * 0.042, // 4.2% → ~16.5px on standard screen
+    paddingHorizontal: SCREEN_WIDTH * 0.031, // 3.1% → ~12px
+    paddingVertical: SCREEN_HEIGHT * 0.0024, // 0.24% → ~2px (minimal vertical padding)
+    height: SCREEN_HEIGHT * 0.035, // 3.5% → ~29px fixed height
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontFamily: 'DM Sans',
+    fontSize: SCREEN_WIDTH * 0.036, // 3.6% → ~14px on standard screen
+    fontWeight: '700',
+    color: 'white',
+    letterSpacing: 0.5,
+  },
+
+  // Description Section
+  descriptionContainer: {
+    alignItems: 'center',
+    paddingHorizontal: SCREEN_WIDTH * 0.05, // 5% horizontal padding
+    marginTop: SCREEN_HEIGHT * -0.01, // Move description up by 1% of screen height
+    marginBottom: SCREEN_HEIGHT * 0.02, // 2% spacing below description
+  },
+  descriptionText: {
+    fontFamily: 'DM Sans',
+    fontSize: SCREEN_WIDTH * 0.046, // 4.6% → ~18px on standard screen
+    fontWeight: '600',
+    color: ArchivesTheme.colors.mutedNavy, // #41425E
+    textAlign: 'center',
+    lineHeight: SCREEN_WIDTH * 0.059, // Line height for readability
+    letterSpacing: -0.18,
+  },
+
+  // Character Section
+  characterSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  characterImage: {
+    width: SCREEN_WIDTH * 0.64, // 64% of screen width
+    height: SCREEN_WIDTH * 0.64, // Keep aspect ratio square
+  },
+
+  // Stats Card
+  statsCard: {
+    backgroundColor: 'white',
+    borderRadius: SCREEN_WIDTH * 0.051, // 5.1% → ~20px on standard screen
+    borderWidth: 2,
+    borderColor: ArchivesTheme.colors.persianOrange,
+    width: SCREEN_WIDTH * 0.835, // 83.5% → ~327px on standard screen
+    height: SCREEN_HEIGHT * 0.127, // 12.7% → ~105px on standard screen
+    paddingVertical: SCREEN_HEIGHT * 0.015, // Vertical padding
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  statColumn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SCREEN_HEIGHT * 0.008, // 0.8% spacing between value and label
+  },
+  statValue: {
+    fontFamily: 'DM Sans',
+    fontSize: SCREEN_WIDTH * 0.115, // 11.5% → ~45px on standard screen
+    fontWeight: '600',
+    color: ArchivesTheme.colors.persianOrange, // Changed to Persian Orange
+  },
+  statLabel: {
+    fontFamily: 'DM Sans',
+    fontSize: SCREEN_WIDTH * 0.041, // 4.1% → ~16px on standard screen
+    fontWeight: '500',
+    color: ArchivesTheme.colors.persianOrange, // Changed to Persian Orange
+  },
+
+  // Continue Button
+  continueButton: {
+    backgroundColor: '#959C00', // Moss green
+    borderRadius: SCREEN_WIDTH * 0.068, // 6.8% → ~26.5px on standard screen (fully rounded)
+    width: SCREEN_WIDTH * 0.835, // 83.5% → ~327px on standard screen
+    height: SCREEN_HEIGHT * 0.054, // 5.4% → ~44.59px on standard screen
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Moss green shadow
+    shadowColor: '#6E7300',
+    shadowOffset: { width: 0, height: 4.179 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 5,
+  },
+  continueButtonText: {
+    fontFamily: 'DM Sans',
+    fontSize: SCREEN_WIDTH * 0.046, // 4.6% → ~18px on standard screen
+    fontWeight: '700',
+    color: 'white',
+    letterSpacing: -0.18,
+  },
+});

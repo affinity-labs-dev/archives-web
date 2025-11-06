@@ -13,7 +13,10 @@ import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
-import { Alert, Dimensions, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import XPMilestoneScreen from '@/components/ROI/XPMilestoneScreen'
+import AdventureCompleteScreen from '@/components/ROI/AdventureCompleteScreen'
+import { useROIAdventures } from '@/hooks/useROIAdventures'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -224,10 +227,34 @@ export default function ProfileTab() {
     loadNewProgress()
   }, [])
 
-  // Calculate totalXP using centralized deduplication logic
+  // Load stored totalXP from AsyncStorage (optimized to avoid recalculation)
+  const [storedTotalXP, setStoredTotalXP] = React.useState<number | null>(null)
+
+  React.useEffect(() => {
+    async function loadTotalXP() {
+      try {
+        const xpData = await AsyncStorage.getItem('totalXP')
+        if (xpData) {
+          const parsed = JSON.parse(xpData)
+          setStoredTotalXP(parsed)
+          console.log(`✅ [Profile] Loaded stored totalXP: ${parsed}`)
+        } else {
+          console.log('⚠️ [Profile] No stored totalXP found, will calculate')
+        }
+      } catch (error) {
+        console.error('❌ [Profile] Error loading stored totalXP:', error)
+      }
+    }
+    loadTotalXP()
+  }, [moduleProgress, newUserProgress]) // Reload when progress changes
+
+  // Use stored totalXP if available, otherwise calculate (backwards compatibility)
   const totalXP = React.useMemo(() => {
+    if (storedTotalXP !== null) {
+      return storedTotalXP
+    }
     return calculateTotalXP(moduleProgress, newUserProgress)
-  }, [moduleProgress, newUserProgress, calculateTotalXP])
+  }, [storedTotalXP, moduleProgress, newUserProgress, calculateTotalXP])
 
   // Get current avatar (use first avatar as default if none selected)
   const currentAvatar = selectedAvatar || avatars[0]
@@ -329,6 +356,12 @@ export default function ProfileTab() {
   const [tempHour, setTempHour] = useState(19)
   const [tempMinute, setTempMinute] = useState(0)
   const [tempPeriod, setTempPeriod] = useState<'AM' | 'PM'>('PM')
+  // Temporary test screen states
+  const [showXPTest, setShowXPTest] = useState(false)
+  const [showAdventureTest, setShowAdventureTest] = useState(false)
+
+  // Fetch ROI adventures for test button (Era 2)
+  const { adventures: roiAdventures, loading: roiLoading } = useROIAdventures(2)
 
   // Track page views with focus/blur
   useFocusEffect(
@@ -576,21 +609,37 @@ export default function ProfileTab() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
         {/* Header with Profile Title and Settings Button */}
         <View style={styles.header}>
           <Text style={styles.profileTitle}>Profile</Text>
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-            setShowSettingsModal(true)
-          }}
-          >
-            <Ionicons name="settings-outline" size={28} color={ArchivesTheme.colors.persianOrange} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {/* Temporary test buttons */}
+            <TouchableOpacity
+              style={styles.testButton}
+              onPress={() => setShowXPTest(true)}
+            >
+              <Text style={styles.testButtonText}>XP</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.testButton, roiLoading && styles.testButtonDisabled]}
+              onPress={() => setShowAdventureTest(true)}
+              disabled={roiLoading}
+            >
+              <Text style={styles.testButtonText}>ADV</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              setShowSettingsModal(true)
+            }}
+            >
+              <Ionicons name="settings-outline" size={28} color={ArchivesTheme.colors.persianOrange} />
+            </TouchableOpacity>
+          </View>
         </View>
         
         {/* Avatar Section - EXACT SwiftUI */}
@@ -1249,6 +1298,32 @@ export default function ProfileTab() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Temporary Test Screens */}
+      {showXPTest && (
+        <Modal visible={showXPTest} animationType="slide" presentationStyle="fullScreen">
+          <XPMilestoneScreen />
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 50, right: 20, backgroundColor: 'white', padding: 10, borderRadius: 8 }}
+            onPress={() => setShowXPTest(false)}
+          >
+            <Text>Close</Text>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+      {showAdventureTest && roiAdventures.length > 0 && (
+        <Modal visible={showAdventureTest} animationType="slide" presentationStyle="fullScreen">
+          <AdventureCompleteScreen
+            adventure={roiAdventures[0]}
+            totalBadges={3}
+            totalXP={150}
+            completedModules={3}
+            totalModules={3}
+            onContinue={() => setShowAdventureTest(false)}
+          />
+        </Modal>
+      )}
     </SafeAreaView>
   )
 }
@@ -1991,5 +2066,25 @@ const styles = StyleSheet.create({
     height: 240,
     justifyContent: 'center',
     gap: 8,
+  },
+
+  // Temporary Test Button Styles
+  testButton: {
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  testButtonDisabled: {
+    backgroundColor: '#CCC',
+    opacity: 0.5,
+  },
+  testButtonText: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'white',
   },
 })
