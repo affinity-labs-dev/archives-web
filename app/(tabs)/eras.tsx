@@ -12,6 +12,7 @@ import {
   StatusBar,
   SafeAreaView,
   Image,
+  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -159,7 +160,7 @@ export default function EraSelection() {
   )
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
       <StatusBar barStyle="dark-content" translucent={false} backgroundColor={ArchivesTheme.colors.creamWhite} />
       <View style={styles.container}>
         {/* Background - CreamWhite */}
@@ -497,7 +498,7 @@ const styles = StyleSheet.create({
   // Header Section (exact match - 120px height)
   headerSection: {
     height: 120,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
     paddingHorizontal: 0, // Remove padding from container
   },
@@ -505,7 +506,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'center',
     gap: 4,
-    maxWidth: '100%',
+    width: '100%',
   },
   headerTitle: {
     ...ArchivesTheme.typography.h2,

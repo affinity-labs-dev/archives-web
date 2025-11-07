@@ -5,10 +5,11 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
+import { WALKTHROUGH_KEYS, ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import ROIAdventureComponent from './ROIAdventureComponent';
 import ROIAdventureCardComponent from './ROIAdventureCardComponent';
-import ROIAdventureSummary, { SummaryMode } from './ROIAdventureSummary';
+import XPMilestoneScreen from './XPMilestoneScreen';
+import AdventureCompleteScreen from './AdventureCompleteScreen';
 import ROIReelLesson from './ROIReelLesson';
 import ROIVideoCarouselLesson from './ROIVideoCarouselLesson';
 import ROIImageCarouselLesson from './ROIImageCarouselLesson';
@@ -137,38 +138,60 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
   };
 
   // Handle quiz continue - check if adventure is complete
-  const handleQuizContinue = () => {
+  const handleQuizContinue = async () => {
     console.log('✅ Quiz completed, checking if adventure complete');
 
-    // Reload progress to show stars immediately
+    // Reload progress to show stars immediately in UI
     if (onProgressUpdate) {
       onProgressUpdate();
     }
+
+    // Read FRESH progress data from AsyncStorage to avoid race condition
+    const progressData = await AsyncStorage.getItem('new_user_progress');
+    const freshUserProgress: UserProgress[] = progressData ? JSON.parse(progressData) : [];
+    console.log('📊 Fresh progress data loaded:', freshUserProgress.length, 'modules');
 
     // Check if adventure is complete (all modules in content_list are done)
     if (selectedLesson) {
       const adventure = adventures.find(a => a.readable_id === selectedLesson.adventureId);
 
       if (adventure && adventure.content_list) {
-        // Get all completed modules for this adventure
-        const completedModules = userProgress.filter(
+        // Get displayed content (must match ROIAdventureComponent display logic)
+        const sortedContent = [...adventure.content_list]
+          .sort((a, b) => a.order_by - b.order_by)
+          .slice(0, 5);  // Match UI - only first 5 modules count
+
+        // Get all completed modules for this adventure using FRESH data
+        const completedModules = freshUserProgress.filter(
           p => p.adventureId === selectedLesson.adventureId &&
                p.isCompleted &&
                p.quizCompleted
         );
 
-        // Check if all modules are complete
-        const totalModules = adventure.content_list.length;
+        // Check if all displayed modules are complete
+        const totalModules = sortedContent.length;  // Should always be 5
         const isAdventureComplete = completedModules.length === totalModules;
 
         console.log(`📊 Adventure completion check:`, {
           adventureId: selectedLesson.adventureId,
           completedModules: completedModules.length,
           totalModules,
+          displayedContent: sortedContent.length,
           isComplete: isAdventureComplete
         });
 
         if (isAdventureComplete) {
+          // Check if user has already seen this adventure complete screen
+          const adventureCompleteKey = ADVENTURE_KEYS.getAdventureCompleteKey(selectedLesson.adventureId);
+          const hasSeenScreen = await AsyncStorage.getItem(adventureCompleteKey);
+
+          if (hasSeenScreen === 'true') {
+            console.log(`✅ User already saw adventure complete screen for ${selectedLesson.adventureId} - skipping`);
+            setSelectedLesson(null);
+            setShowQuiz(false);
+            return; // Don't show modal again
+          }
+
           // Calculate stats
           const totalStars = completedModules.reduce((sum, m) => sum + (m.quizScore || 0), 0);
           const totalXP = completedModules.reduce((sum, m) => {
@@ -178,7 +201,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
             return sum + (correctAnswers * 10);
           }, 0);
 
-          console.log('🎉 Adventure complete! Showing summary');
+          console.log('🎉 Adventure complete! Showing summary (FIRST TIME)');
 
           // Close lesson/quiz modal first
           setSelectedLesson(null);
@@ -209,8 +232,21 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
   };
 
   // Handle 50 XP milestone reached
-  const handleMilestoneReached = (milestoneXP: number, totalXP: number) => {
-    console.log(`🎉 50 XP Milestone reached in Era Component: ${milestoneXP}`);
+  const handleMilestoneReached = async (milestoneXP: number, totalXP: number) => {
+    console.log(`🎉 XP Milestone reached: ${milestoneXP}`);
+
+    // Check if user has already seen this milestone screen
+    const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP);
+    const hasSeenMilestone = await AsyncStorage.getItem(milestoneKey);
+
+    if (hasSeenMilestone === 'true') {
+      console.log(`✅ User already saw XP milestone screen for ${milestoneXP} XP - skipping`);
+      setSelectedLesson(null);
+      setShowQuiz(false);
+      return; // Don't show modal again
+    }
+
+    console.log(`🎉 Showing XP milestone screen for ${milestoneXP} XP (FIRST TIME)`);
 
     // Reload progress to show stars immediately
     if (onProgressUpdate) {
@@ -351,26 +387,26 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
 
       {/* Adventure Summary Modal (Adventure completion) */}
       {adventureSummary && (
-        <ROIAdventureSummary
-          isVisible={true}
-          mode={SummaryMode.ADVENTURE_COMPLETE}
-          adventure={adventureSummary.adventure}
-          totalModules={adventureSummary.totalModules}
-          totalXP={adventureSummary.totalXP}
-          totalStars={adventureSummary.totalStars}
-          onContinue={() => setAdventureSummary(null)}
-        />
+        <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
+          <AdventureCompleteScreen
+            adventure={adventureSummary.adventure}
+            totalXP={adventureSummary.totalXP}
+            completedModules={adventureSummary.totalModules}
+            totalModules={adventureSummary.totalModules}
+            onContinue={() => setAdventureSummary(null)}
+          />
+        </Modal>
       )}
 
       {/* Streak Milestone Modal (50 XP milestone) */}
       {streakMilestone && (
-        <ROIAdventureSummary
-          isVisible={true}
-          mode={SummaryMode.STREAK_MILESTONE}
-          milestoneXP={streakMilestone.milestoneXP}
-          totalXP={streakMilestone.totalXP}
-          onContinue={() => setStreakMilestone(null)}
-        />
+        <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
+          <XPMilestoneScreen
+            totalXP={streakMilestone.totalXP}
+            milestoneXP={streakMilestone.milestoneXP}
+            onContinue={() => setStreakMilestone(null)}
+          />
+        </Modal>
       )}
 
       {/* Development Only: Walkthrough Reset Button */}

@@ -9,11 +9,14 @@
 // FULLY RESPONSIVE - All values use percentages based on screen dimensions
 
 import ArchivesTheme from '@/constants/ArchivesTheme';
+import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
+import { useProgress } from '@/context/ProgressContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Adventure } from './types';
 
@@ -45,15 +48,58 @@ export default function AdventureCompleteScreen({
   adventureDescription: propDescription,
   backgroundImage: propBackgroundImage,
   totalBadges = 3,
-  totalXP = 150,
-  completedModules = 3,
-  totalModules = 3,
+  totalXP = 0,
+  completedModules = 5,
+  totalModules = 5,
   onContinue,
 }: AdventureCompleteScreenProps) {
+  // Get progress functions
+  const { getROIAdventureStats } = useProgress();
+
+  // State for calculated stats
+  const [calculatedStats, setCalculatedStats] = useState({ xp: 0, completedModules: 0 });
+
+  // Calculate stats from adventure progress data
+  useEffect(() => {
+    const loadStats = async () => {
+      if (adventure?.readable_id) {
+        const stats = await getROIAdventureStats(adventure.readable_id);
+        setCalculatedStats(stats);
+        console.log(`📊 [AdventureCompleteScreen] Loaded stats for ${adventure.readable_id}:`, stats);
+      }
+    };
+    loadStats();
+  }, [adventure?.readable_id, getROIAdventureStats]);
+
+  // Set up video player for character animation
+  const videoSource = require('@/assets/videos/advend.mp4');
+  const player = useVideoPlayer(videoSource, (player) => {
+    player.loop = true;
+    player.play();
+  });
+
+  // Cleanup video player on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        player.pause();
+      } catch (error) {
+        // Silently handle cleanup errors
+      }
+    };
+  }, [player]);
+
   // Extract data from adventure object or use provided props
   const fullTitle = propTitle || adventure?.adventure_title || 'Complete';
   const description = propDescription || `You've discovered the rich history of ${adventure?.adventure_title || 'this era'}!`;
   const bgImage = propBackgroundImage || adventure?.card_content?.background_image || '';
+
+  // Calculate total modules from adventure content_list
+  const totalModulesCount = totalModules || adventure?.content_list?.length || 5;
+
+  // Use calculated stats (with fallback to props for backwards compatibility)
+  const displayXP = totalXP || calculatedStats.xp;
+  const displayCompletedModules = completedModules || calculatedStats.completedModules;
 
   // Split title into two lines if it contains multiple words
   // Line 1: 35px, Line 2: 40px
@@ -62,8 +108,20 @@ export default function AdventureCompleteScreen({
   const titleLine1 = hasMultipleWords ? titleParts.slice(0, Math.ceil(titleParts.length / 2)).join(' ') : '';
   const titleLine2 = hasMultipleWords ? titleParts.slice(Math.ceil(titleParts.length / 2)).join(' ') : fullTitle;
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Save flag to mark this adventure complete screen as seen
+    if (adventure?.readable_id) {
+      try {
+        const adventureCompleteKey = ADVENTURE_KEYS.getAdventureCompleteKey(adventure.readable_id);
+        await AsyncStorage.setItem(adventureCompleteKey, 'true');
+        console.log(`✅ Marked adventure complete screen as seen: ${adventure.readable_id}`);
+      } catch (error) {
+        console.error('❌ Error saving adventure complete flag:', error);
+      }
+    }
+
     onContinue();
   };
 
@@ -92,11 +150,11 @@ export default function AdventureCompleteScreen({
         <View style={styles.titleContainer}>
           {hasMultipleWords && titleLine1 ? (
             <>
-              <Text style={styles.titleLine1}>{titleLine1}</Text>
-              <Text style={styles.titleLine2}>{titleLine2}</Text>
+              <Text style={styles.titleLine1} numberOfLines={1}>{titleLine1}</Text>
+              <Text style={styles.titleLine2} numberOfLines={1}>{titleLine2}</Text>
             </>
           ) : (
-            <Text style={styles.titleLine2}>{titleLine2}</Text>
+            <Text style={styles.titleLine2} numberOfLines={1}>{titleLine2}</Text>
           )}
         </View>
       </View>
@@ -117,10 +175,13 @@ export default function AdventureCompleteScreen({
 
         {/* Character Section */}
         <View style={styles.characterSection}>
-          <Image
-            source={require('@/assets/images/Explorer.png')}
+          <VideoView
+            player={player}
             style={styles.characterImage}
-            contentFit="contain"
+            nativeControls={false}
+            contentFit="cover"
+            allowsFullscreen={false}
+            allowsPictureInPicture={false}
           />
         </View>
 
@@ -134,13 +195,13 @@ export default function AdventureCompleteScreen({
 
           {/* Total XP Column */}
           <View style={styles.statColumn}>
-            <Text style={styles.statValue}>{totalXP}</Text>
+            <Text style={styles.statValue}>{displayXP}</Text>
             <Text style={styles.statLabel}>Total XP</Text>
           </View>
 
           {/* Modules Column */}
           <View style={styles.statColumn}>
-            <Text style={styles.statValue}>{completedModules}/{totalModules}</Text>
+            <Text style={styles.statValue}>{displayCompletedModules}/{totalModulesCount}</Text>
             <Text style={styles.statLabel}>Modules</Text>
           </View>
         </View>
@@ -213,16 +274,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: ArchivesTheme.colors.creamWhite,
     alignItems: 'center',
-    paddingVertical: SCREEN_HEIGHT * 0.03, // 3% top/bottom padding
+    paddingTop: SCREEN_HEIGHT * 0.03, // 3% top padding
+    paddingBottom: SCREEN_HEIGHT * 0.05, // 5% bottom padding
     paddingHorizontal: SCREEN_WIDTH * 0.05, // 5% left/right padding
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+    gap: SCREEN_HEIGHT * 0.02, // 2% consistent spacing between elements
   },
 
   // Badge Section
   badgeContainer: {
     alignItems: 'center',
-    marginTop: SCREEN_HEIGHT * -0.01, // Move badge up by 1% of screen height
-    marginBottom: SCREEN_HEIGHT * 0.015, // 1.5% spacing below badge
   },
   badge: {
     backgroundColor: ArchivesTheme.colors.persianOrange,
@@ -244,8 +305,6 @@ const styles = StyleSheet.create({
   descriptionContainer: {
     alignItems: 'center',
     paddingHorizontal: SCREEN_WIDTH * 0.05, // 5% horizontal padding
-    marginTop: SCREEN_HEIGHT * -0.01, // Move description up by 1% of screen height
-    marginBottom: SCREEN_HEIGHT * 0.02, // 2% spacing below description
   },
   descriptionText: {
     fontFamily: 'DM Sans',
@@ -263,8 +322,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   characterImage: {
-    width: SCREEN_WIDTH * 0.64, // 64% of screen width
-    height: SCREEN_WIDTH * 0.64, // Keep aspect ratio square
+    width: SCREEN_WIDTH * 0.75, // 75% of screen width (increased from 64%)
+    height: SCREEN_WIDTH * 0.55, // Reduced height - crops top/bottom of video
   },
 
   // Stats Card
@@ -306,6 +365,8 @@ const styles = StyleSheet.create({
     height: SCREEN_HEIGHT * 0.054, // 5.4% → ~44.59px on standard screen
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 'auto', // Push button to bottom
+    marginBottom: SCREEN_HEIGHT * 0.03, // 3% spacing from bottom (moves button up)
     // Moss green shadow
     shadowColor: '#6E7300',
     shadowOffset: { width: 0, height: 4.179 },

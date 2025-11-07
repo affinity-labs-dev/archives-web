@@ -1317,9 +1317,6 @@ export default function ProfileTab() {
           <AdventureCompleteScreen
             adventure={roiAdventures[0]}
             totalBadges={3}
-            totalXP={150}
-            completedModules={3}
-            totalModules={3}
             onContinue={() => setShowAdventureTest(false)}
           />
         </Modal>

@@ -27,6 +27,7 @@ interface AdventureProgress {
 // Complete user data structure for JSONB storage
 interface UserData {
   selectedEra?: string;
+  totalXP?: number; // Stored total XP (calculated from all eras)
   adventures: AdventureProgress[]; // Standard progress (flat structure)
   modules: ModuleProgress[]; // Standard progress (flat structure)
   newProgress?: Array<{
@@ -116,15 +117,17 @@ class SimplifiedSyncService {
 
   // Get all local data for syncing (includes new progress system)
   private async getAllLocalData(): Promise<UserData> {
-    const [selectedEra, adventureData, moduleData, newProgressData] = await Promise.all([
+    const [selectedEra, adventureData, moduleData, newProgressData, totalXPData] = await Promise.all([
       AsyncStorage.getItem(STORAGE_KEYS.SELECTED_ERA),
       AsyncStorage.getItem(STORAGE_KEYS.ADVENTURE_PROGRESS),
       AsyncStorage.getItem(STORAGE_KEYS.MODULE_PROGRESS),
       AsyncStorage.getItem(STORAGE_KEYS.NEW_USER_PROGRESS),
+      AsyncStorage.getItem('totalXP'),
     ]);
 
     return {
       selectedEra: selectedEra || undefined,
+      totalXP: totalXPData ? JSON.parse(totalXPData) : undefined,
       adventures: adventureData ? JSON.parse(adventureData) : [],
       modules: moduleData ? JSON.parse(moduleData) : [],
       newProgress: newProgressData ? JSON.parse(newProgressData) : undefined,
@@ -139,6 +142,14 @@ class SimplifiedSyncService {
       promises.push(
         AsyncStorage.setItem(STORAGE_KEYS.SELECTED_ERA, userData.selectedEra)
       );
+    }
+
+    // Save totalXP if available
+    if (userData.totalXP !== undefined) {
+      promises.push(
+        AsyncStorage.setItem('totalXP', JSON.stringify(userData.totalXP))
+      );
+      console.log(`✅ Restored totalXP from cloud: ${userData.totalXP}`);
     }
 
     // Era 1 data

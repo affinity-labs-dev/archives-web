@@ -903,18 +903,18 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   aboveDotsHintImage: {
-    width: 180,  // Match reel hint width
-    height: 81,  // Match 176:79 SVG aspect ratio
+    width: 176,  // 1X original size
+    height: 79,  // Match 176:79 SVG aspect ratio (1X)
   },
   continueHintContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 70,
-    right: 70,
+    top: Platform.OS === 'ios' ? 64 : 74,
+    right: 66,  // 16 (button margin) + 40 (button width) + 10 (spacing)
     zIndex: 25,
     pointerEvents: 'none',
   },
   continueHintImage: {
-    width: 150,  // 1.5X (was 100)
-    height: 60,  // Match 120:48 SVG aspect ratio
+    width: 120,  // 1.2X size
+    height: 48,  // Match 120:48 SVG aspect ratio (1.2X)
   },
 });

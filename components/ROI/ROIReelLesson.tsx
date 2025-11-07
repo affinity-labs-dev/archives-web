@@ -511,7 +511,7 @@ export default function ROIReelLesson({
         )}
 
         {showContinueHint && (
-          <View style={[styles.continueHintContainer, { top: insets.top + 8 }]}>
+          <View style={[styles.continueHintContainer, { top: insets.top + 12 }]}>
             <Image
               source={require('@/assets/images/walkthrough/continue.svg')}
               style={styles.continueHintImage}
@@ -703,7 +703,7 @@ const styles = StyleSheet.create({
   // Walkthrough hints
   readHintContainer: {
     position: 'absolute',
-    bottom: COLLAPSED_HEIGHT - (SCREEN_HEIGHT * 0.01),  // Overlap by 1% (responsive)
+    bottom: COLLAPSED_HEIGHT - (SCREEN_HEIGHT * 0.01),  // 1% overlap
     alignSelf: 'center',
     zIndex: 15,
     pointerEvents: 'none',
@@ -714,13 +714,13 @@ const styles = StyleSheet.create({
   },
   continueHintContainer: {
     position: 'absolute',
-    top: 0,  // Will be set inline with insets.top + 8
+    top: 0,  // Will be set inline with insets.top + 12
     right: 16 + BUTTON_SIZE + 10,  // Relative to button position
     zIndex: 25,
     pointerEvents: 'none',
   },
   continueHintImage: {
-    width: 150,  // 1.5X (was 100)
-    height: 60,  // Match 120:48 SVG aspect ratio
+    width: 120,  // 1.2X size
+    height: 48,  // Match 120:48 SVG aspect ratio (1.2X)
   },
 });

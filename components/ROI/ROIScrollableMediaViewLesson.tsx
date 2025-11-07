@@ -5,10 +5,10 @@
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { Ionicons } from "@expo/vector-icons";
+import { ResizeMode, Video } from 'expo-av';
 import * as Haptics from "expo-haptics";
-import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   ScrollView,
@@ -17,9 +17,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
+import RenderHtml from 'react-native-render-html';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { ContentItem, ContentBlock } from "./types";
+import type { ContentBlock, ContentItem } from "./types";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -32,7 +34,7 @@ const LAYOUT_CONSTANTS = {
   videoHorizontalPadding: 20,
   videoHeight: 250,
   videoBorderRadius: 12,
-  textFontSize: 18,
+  textFontSize: 16,
   textLineHeight: 24,
   textHorizontalPadding: 20,
   continueButtonBottom: 50,
@@ -65,6 +67,7 @@ export default function ROIScrollableMediaViewLesson({
   onBack,
 }: ROIScrollableMediaViewLessonProps) {
   const insets = useSafeAreaInsets();
+  const { width: contentWidth } = useWindowDimensions();
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
 
   // Extract and sort content blocks by order
@@ -152,7 +155,69 @@ export default function ROIScrollableMediaViewLesson({
         return (
           <View key={key} style={styles.textSection}>
             <View style={styles.textContainer}>
-              <Text style={styles.lessonText}>{block.content || ''}</Text>
+              <RenderHtml
+                contentWidth={contentWidth - (LAYOUT_CONSTANTS.textHorizontalPadding * 2)}
+                source={{ html: block.content || '' }}
+                tagsStyles={{
+                  body: {
+                    color: ArchivesTheme.colors.shoeBrown,
+                    fontFamily: 'DM Sans',
+                    fontSize: LAYOUT_CONSTANTS.textFontSize,
+                    lineHeight: LAYOUT_CONSTANTS.textLineHeight
+                  },
+                  h1: {
+                    color: ArchivesTheme.colors.shoeBrown,
+                    fontFamily: 'DM Sans',
+                    fontSize: 24,
+                    fontWeight: '700',
+                    marginBottom: 12
+                  },
+                  h2: {
+                    color: ArchivesTheme.colors.mutedNavy,
+                    fontFamily: 'DM Sans',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    marginBottom: 10
+                  },
+                  h3: {
+                    color: ArchivesTheme.colors.shoeBrown,
+                    fontFamily: 'DM Sans',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
+                    marginBottom: 8
+                  },
+                  p: {
+                    color: ArchivesTheme.colors.shoeBrown,
+                    fontFamily: 'DM Sans',
+                    fontSize: LAYOUT_CONSTANTS.textFontSize,
+                    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
+                    marginBottom: 12
+                  },
+                  strong: { fontWeight: '600', color: ArchivesTheme.colors.shoeBrown },
+                  em: { fontStyle: 'italic', color: ArchivesTheme.colors.shoeBrown },
+                  ul: { marginBottom: 12 },
+                  li: {
+                    color: ArchivesTheme.colors.shoeBrown,
+                    fontFamily: 'DM Sans',
+                    fontSize: LAYOUT_CONSTANTS.textFontSize,
+                    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
+                    marginBottom: 6
+                  },
+                  blockquote: {
+                    borderLeftWidth: 3,
+                    borderLeftColor: ArchivesTheme.colors.persianOrange,
+                    paddingLeft: 12,
+                    marginBottom: 12,
+                    fontStyle: 'italic'
+                  },
+                  hr: {
+                    borderBottomWidth: 1,
+                    borderBottomColor: ArchivesTheme.colors.shoeBrown + '33',
+                    marginVertical: 16
+                  },
+                }}
+              />
             </View>
           </View>
         );

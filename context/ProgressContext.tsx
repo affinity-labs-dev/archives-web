@@ -75,6 +75,7 @@ interface ProgressContextType {
   calculateTotalXP: (legacyModules: any[], newModules: any[]) => number
   calculateModulesCompleted: (legacyModules: any[], newModules: any[]) => number
   checkIfCrossed50XPBoundary: (oldXP: number, newXP: number) => number | null
+  getROIAdventureStats: (adventureId: string) => Promise<{ xp: number; completedModules: number }>
 
   // Legacy functions (backwards compatibility)
   canRetakeModule: (adventureId: number, moduleId: number) => boolean
@@ -169,17 +170,30 @@ export const calculateModulesCompleted = (legacyModules: any[], newModules: any[
   return totalModules;
 };
 
-// Check if user crossed a 50 XP boundary (50, 100, 150, etc.)
+// Check if user crossed a custom XP milestone (50, 100, 200, 400, 750)
 // Returns the milestone number if crossed, null otherwise
 export const checkIfCrossed50XPBoundary = (oldXP: number, newXP: number): number | null => {
-  const oldMilestone = Math.floor(oldXP / 50);
-  const newMilestone = Math.floor(newXP / 50);
+  const milestones = [50, 100, 200, 400, 750];
 
-  if (newMilestone > oldMilestone) {
-    return newMilestone * 50;
+  // Find which milestone was just crossed
+  for (const milestone of milestones) {
+    if (oldXP < milestone && newXP >= milestone) {
+      return milestone;
+    }
   }
 
   return null;
+};
+
+// Calculate adventure-specific stats (XP + completed modules) for Rise of Islam
+// Used by AdventureCompleteScreen to show stats for a specific adventure
+export const getROIAdventureStats = (newModules: any[], adventureId: string): { xp: number; completedModules: number } => {
+  const adventureModules = newModules.filter(m => m.adventureId === adventureId);
+
+  return {
+    xp: adventureModules.reduce((sum, m) => sum + ((m.quizCorrectAnswers || 0) * 10), 0),
+    completedModules: adventureModules.filter(m => m.isCompleted && m.quizCompleted).length
+  };
 };
 
 // Initial data for Umayyad Dynasty Era (Adventure IDs 1-5)
@@ -351,6 +365,10 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       // Calculate total XP using centralized deduplication logic
       const totalXP = calculateTotalXP(moduleProgress, progressData);
       console.log(`📊 [NEW] Total XP calculated: ${totalXP}`);
+
+      // Store totalXP in AsyncStorage for quick access and Supabase sync
+      await WebCompatibleStorage.setItem('totalXP', JSON.stringify(totalXP));
+      console.log(`💾 Total XP stored: ${totalXP}`);
 
       // Check and unlock badges/avatars (same as Era 1)
       // Build user data structure for reward checking
@@ -706,6 +724,10 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         const totalXP = calculateTotalXP(updatedModules, newModules);
         console.log(`📊 Total XP calculated (all eras): ${totalXP}`);
 
+        // Store totalXP in AsyncStorage for quick access and Supabase sync
+        await WebCompatibleStorage.setItem('totalXP', JSON.stringify(totalXP));
+        console.log(`💾 Total XP stored: ${totalXP}`);
+
         // Build user data for reward checking
         const userData: any = { data: {} };
         updatedModules.forEach(m => {
@@ -791,6 +813,25 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     // Adventure unlocking should happen automatically through module completion
   }
 
+  // Get adventure stats (XP + completed modules) for a specific ROI adventure
+  const getROIAdventureStatsWrapper = async (adventureId: string): Promise<{ xp: number; completedModules: number }> => {
+    try {
+      const existingData = await WebCompatibleStorage.getItem('new_user_progress');
+      if (!existingData) {
+        console.log(`⚠️ No ROI progress data found for adventure ${adventureId}`);
+        return { xp: 0, completedModules: 0 };
+      }
+
+      const progressData = JSON.parse(existingData);
+      const stats = getROIAdventureStats(progressData, adventureId);
+      console.log(`📊 Adventure ${adventureId} stats:`, stats);
+      return stats;
+    } catch (error) {
+      console.error('❌ Error calculating ROI adventure stats:', error);
+      return { xp: 0, completedModules: 0 };
+    }
+  }
+
   const contextValue: ProgressContextType = {
     selectedEra,
     setSelectedEra,
@@ -807,6 +848,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     calculateTotalXP,
     calculateModulesCompleted,
     checkIfCrossed50XPBoundary,
+    getROIAdventureStats: getROIAdventureStatsWrapper,
 
     // Legacy functions (backwards compatibility)
     canRetakeModule,

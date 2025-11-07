@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   // Header Section (exact match - 120px height)
   headerSection: {
     height: 120,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
     paddingHorizontal: 0, // Remove padding from container
   },
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'center',
     gap: 4,
-    maxWidth: '100%',
+    width: '100%',
   },
   headerTitle: {
     ...ArchivesTheme.typography.h2,

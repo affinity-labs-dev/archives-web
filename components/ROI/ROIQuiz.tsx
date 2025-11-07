@@ -23,6 +23,9 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useQuizSounds } from '@/hooks/useQuizSounds';
 import type { ContentItem } from './types';
 import ROIQuizResults from './ROIQuizResults';
+import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
+import XPMilestoneScreen from './XPMilestoneScreen';
+import { Modal } from 'react-native';
 
 interface ROIQuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
@@ -282,6 +285,23 @@ export default function ROIQuiz({
   const [randomImageIndex, setRandomImageIndex] = useState(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
   const [showResults, setShowResults] = useState(false);
 
+  // Mid-quiz milestone detection
+  const [initialXP, setInitialXP] = useState(0);
+  const [showMilestone, setShowMilestone] = useState(false);
+  const [milestoneData, setMilestoneData] = useState<{milestoneXP: number; totalXP: number} | null>(null);
+
+  // Load initial XP when quiz starts
+  useEffect(() => {
+    const loadInitialXP = async () => {
+      const xpData = await AsyncStorage.getItem('totalXP');
+      const currentXP = xpData ? JSON.parse(xpData) : 0;
+      setInitialXP(currentXP);
+      console.log(`📊 [ROIQuiz] Quiz started with ${currentXP} XP`);
+    };
+
+    loadInitialXP();
+  }, []);
+
   // Extract quiz data from contentItem
   const questions = contentItem.questions || [];
   const quizTitle = contentItem.thumbnail_title || 'Quiz';
@@ -310,14 +330,46 @@ export default function ROIQuiz({
   };
 
   // Handle submit
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (selectedAnswer === null) return;
 
     const isCorrect = selectedAnswer === correctAnswerIndex;
 
     if (isCorrect) {
+      const newCorrectAnswers = correctAnswers + 1;
       setScore(score + pointsPerQuestion);
-      setCorrectAnswers(correctAnswers + 1);
+      setCorrectAnswers(newCorrectAnswers);
+
+      // Calculate real-time XP
+      const oldXP = initialXP + (correctAnswers * 10); // Before this answer
+      const newXP = initialXP + (newCorrectAnswers * 10); // After this answer
+
+      console.log(`📊 [ROIQuiz] Correct answer! XP: ${oldXP} → ${newXP}`);
+
+      // Check if we crossed a milestone
+      const milestone = checkIfCrossed50XPBoundary(oldXP, newXP);
+
+      if (milestone) {
+        console.log(`🎉 [ROIQuiz] MID-QUIZ Milestone crossed: ${milestone} XP`);
+
+        // Check if user already saw this milestone
+        const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestone);
+        const hasSeenMilestone = await AsyncStorage.getItem(milestoneKey);
+
+        if (hasSeenMilestone !== 'true') {
+          // Show milestone modal (pauses quiz)
+          setMilestoneData({ milestoneXP: milestone, totalXP: newXP });
+          setShowMilestone(true);
+
+          // Play correct sound + haptics for celebration
+          playCorrect();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+          return; // Don't show feedback yet - milestone takes priority
+        }
+      }
+
+      // Normal correct answer flow (if no milestone)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       playCorrect();
     } else {
@@ -347,9 +399,10 @@ export default function ROIQuiz({
   const handleQuizCompletion = async () => {
     console.log('🚀 Quiz completion: ROI Quiz');
 
-    // New progress system scoring: quizScore = correctAnswers + 1
-    // 0 correct = 1 star, 1 correct = 2 stars, 2 correct = 3 stars
-    const quizScore = correctAnswers + 1;
+    // Percentage-based star calculation (database-agnostic)
+    // 0-49% = 1★, 50-99% = 2★, 100% = 3★ (perfect score only)
+    const percentage = (correctAnswers / totalQuestions) * 100;
+    const quizScore = percentage === 100 ? 3 : percentage >= 50 ? 2 : 1;
 
     // Load Era 2 progress to calculate old XP (BEFORE saving)
     const newModulesData = await AsyncStorage.getItem('new_user_progress');
@@ -380,16 +433,19 @@ export default function ROIQuiz({
     const newXP = calculateTotalXP([], updatedNewModules); // Only Era 2 XP
     console.log(`📊 New XP (Era 2 after quiz): ${newXP}`);
 
-    // Check if user crossed 50 XP boundary (50, 100, 150, etc.) - Era 2 only
+    // Check if user crossed 50 XP boundary (50, 100, 200, 400, 750) - Era 2 only
     const milestone = checkIfCrossed50XPBoundary(oldXP, newXP);
+    console.log(`📊 [ROIQuiz] Milestone check result:`, { oldXP, newXP, milestone, hasCallback: !!onMilestoneReached });
 
     if (milestone && onMilestoneReached) {
-      console.log(`🎉 50 XP Milestone reached: ${milestone}`);
+      console.log(`🎉 [ROIQuiz] Milestone ${milestone} crossed! Calling onMilestoneReached`);
       onMilestoneReached(milestone, newXP);
       return; // Don't call onContinue - let milestone modal handle it
     }
 
-    console.log(`✅ Quiz completed - Correct: ${correctAnswers}/${totalQuestions}, Score: ${quizScore}`);
+    console.log(`✅ [ROIQuiz] No milestone reached, calling onContinue`);
+
+    console.log(`✅ Quiz completed - Correct: ${correctAnswers}/${totalQuestions} (${percentage.toFixed(0)}%), Stars: ${quizScore}★`);
     onContinue();
   };
 
@@ -545,6 +601,23 @@ export default function ROIQuiz({
         explanation={currentQuestion.explanation || 'Good job!'}
         bottomInset={insets.bottom}
       />
+
+      {/* Mid-Quiz Milestone Modal */}
+      {showMilestone && milestoneData && (
+        <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
+          <XPMilestoneScreen
+            milestoneXP={milestoneData.milestoneXP}
+            totalXP={milestoneData.totalXP}
+            onContinue={() => {
+              // Video finished, close modal and show feedback
+              console.log('🎬 [ROIQuiz] Milestone video finished, resuming quiz');
+              setShowMilestone(false);
+              setMilestoneData(null);
+              setShowFeedback(true);
+            }}
+          />
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }

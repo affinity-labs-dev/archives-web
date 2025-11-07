@@ -855,12 +855,12 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     zIndex: 25,
-    paddingTop: 8,
+    paddingTop: 12,
     paddingRight: 76, // 16 (padding) + 40 (button width) + 20 (spacing)
     pointerEvents: "none",
   },
   continueHintImage: {
-    width: 150,
-    height: 60, // Match 120:48 SVG aspect ratio
+    width: 120,
+    height: 48, // Match 120:48 SVG aspect ratio (1.2X)
   },
 });

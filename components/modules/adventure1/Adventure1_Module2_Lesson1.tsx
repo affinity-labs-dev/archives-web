@@ -888,20 +888,20 @@ const styles = StyleSheet.create({
     pointerEvents: "none",
   },
   aboveDotsHintImage: {
-    width: 180,
-    height: 81, // Match SVG aspect ratio
+    width: 176,
+    height: 79, // Match 176:79 SVG aspect ratio (1X)
   },
   continueHintContainer: {
     position: "absolute",
     top: 0,
     right: 0,
     zIndex: 25,
-    paddingTop: 8,
+    paddingTop: 12,
     paddingRight: 76, // 16 (padding) + 40 (button width) + 20 (spacing)
     pointerEvents: "none",
   },
   continueHintImage: {
-    width: 150,
-    height: 60, // Match 120:48 SVG aspect ratio
+    width: 120,
+    height: 48, // Match 120:48 SVG aspect ratio (1.2X)
   },
 });
