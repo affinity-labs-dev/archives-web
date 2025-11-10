@@ -33,6 +33,7 @@ import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image as ExpoImage } from "expo-image";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 
 // Static dimensions (module-level) - Umayyad Dynasty pattern
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
@@ -45,6 +46,7 @@ const EXPANDED_HEIGHT = SCREEN_HEIGHT * ROI_LESSON_CONSTANTS.READING_CARD.EXPAND
 
 interface ROIImageCarouselLessonProps {
   contentItem: ContentItem;  // Data from adventures.content_list
+  adventureId: string;       // e.g., "roi_adventure_1"
   moduleId: string;          // e.g., "ROI_Adv1_M1"
   lessonId: string;          // e.g., "lesson2"
   onContinue: () => void;
@@ -54,6 +56,7 @@ interface ROIImageCarouselLessonProps {
 
 export default function ROIImageCarouselLesson({
   contentItem,
+  adventureId,
   moduleId,
   lessonId,
   onContinue,
@@ -62,6 +65,19 @@ export default function ROIImageCarouselLesson({
 }: ROIImageCarouselLessonProps) {
   // Safe area insets for proper button positioning
   const insets = useSafeAreaInsets();
+
+  // Analytics tracking
+  const {
+    trackCardExpanded,
+    trackLessonComplete,
+  } = useLessonTracking({
+    adventureId,
+    moduleId,
+    lessonId,
+    lessonType: "image_carousel",
+    lessonTitle: contentItem.top_content?.title || "Unknown",
+    screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
+  });
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showReadContent, setShowReadContent] = useState(false);
@@ -219,6 +235,9 @@ export default function ROIImageCarouselLesson({
     setIsCardExpanded(true);
     setShowReadContent(true);
 
+    // Track reading card expansion
+    trackCardExpanded();
+
     setIsCardGestureActive(false);
     console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
 
@@ -270,6 +289,9 @@ export default function ROIImageCarouselLesson({
   // Handle continue
   const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Track lesson completion
+    trackLessonComplete();
 
     // Save walkthrough flag when user completes lesson
     try {

@@ -339,6 +339,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
                 {selectedLesson.contentItem.content_type === 'reel' && (
                   <ROIReelLesson
                     contentItem={selectedLesson.contentItem}
+                    adventureId={selectedLesson.adventureId}
                     moduleId={selectedLesson.moduleId}
                     lessonId={selectedLesson.lessonId}
                     onContinue={handleLessonContinue}
@@ -357,6 +358,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
                 {selectedLesson.contentItem.content_type === 'image_carousel' && (
                   <ROIImageCarouselLesson
                     contentItem={selectedLesson.contentItem}
+                    adventureId={selectedLesson.adventureId}
                     moduleId={selectedLesson.moduleId}
                     lessonId={selectedLesson.lessonId}
                     onContinue={handleLessonContinue}

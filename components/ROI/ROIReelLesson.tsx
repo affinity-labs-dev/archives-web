@@ -32,6 +32,7 @@ import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image } from "expo-image";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -54,6 +55,7 @@ const CARD_HANDLE_HEIGHT = 5;
 
 interface ROIReelLessonProps {
   contentItem: ContentItem;  // Data from adventures.content_list
+  adventureId: string;       // e.g., "roi_adventure_1"
   moduleId: string;          // e.g., "ROI_Adv1_M1"
   lessonId: string;          // e.g., "lesson1"
   onContinue: () => void;
@@ -62,6 +64,7 @@ interface ROIReelLessonProps {
 
 export default function ROIReelLesson({
   contentItem,
+  adventureId,
   moduleId,
   lessonId,
   onContinue,
@@ -69,6 +72,22 @@ export default function ROIReelLesson({
 }: ROIReelLessonProps) {
   // Safe area insets for proper button positioning
   const insets = useSafeAreaInsets();
+
+  // Analytics tracking
+  const {
+    trackVideoPlay,
+    trackVideoPause,
+    trackVideoComplete,
+    trackCardExpanded,
+    trackLessonComplete,
+  } = useLessonTracking({
+    adventureId,
+    moduleId,
+    lessonId,
+    lessonType: "video_reading",
+    lessonTitle: contentItem.top_content?.title || "Unknown",
+    screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
+  });
 
   // Video-related states
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
@@ -190,6 +209,10 @@ export default function ROIReelLesson({
 
         if (progress >= VIDEO_COMPLETION_THRESHOLD && !hasVideoCompleted) {
           setHasVideoCompleted(true);
+          // Track video completion
+          if (status.durationMillis) {
+            trackVideoComplete(Math.floor(status.durationMillis / 1000));
+          }
           triggerCardPopAnimation();
         }
       }
@@ -219,6 +242,9 @@ export default function ROIReelLesson({
   // Lesson Completion Logic
   const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Track lesson completion
+    trackLessonComplete();
 
     // Save walkthrough flag when user completes lesson
     try {
@@ -294,6 +320,9 @@ export default function ROIReelLesson({
   // Card Expansion Logic
   const expandCard = () => {
     setIsCardExpanded(true);
+
+    // Track reading card expansion
+    trackCardExpanded();
 
     if (!hasFinishedReading) {
       setHasFinishedReading(true);
