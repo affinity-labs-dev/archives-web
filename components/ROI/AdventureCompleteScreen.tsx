@@ -1,7 +1,7 @@
 // Adventure Complete Screen - Celebration screen for completing an adventure
 // Figma design: https://www.figma.com/design/rQCyFdW0CFzpUoegFfew7u/Archives_Raw_File?node-id=693-1885
 // Features:
-// - Blurred background image (25% height) with two-line title overlay
+// - Blurred background image (25% height) with title overlay (respects Supabase newlines)
 // - Badge "ADVENTURE COMPLETED!" with description text
 // - Character illustration
 // - Stats card (Badges, Total XP, Modules as "X/Y" format) with Persian Orange text
@@ -101,12 +101,12 @@ export default function AdventureCompleteScreen({
   const displayXP = totalXP || calculatedStats.xp;
   const displayCompletedModules = completedModules || calculatedStats.completedModules;
 
-  // Split title into two lines if it contains multiple words
+  // Split title on newline character if present in Supabase adventure_title
   // Line 1: 35px, Line 2: 40px
-  const titleParts = fullTitle.split(' ');
-  const hasMultipleWords = titleParts.length > 1;
-  const titleLine1 = hasMultipleWords ? titleParts.slice(0, Math.ceil(titleParts.length / 2)).join(' ') : '';
-  const titleLine2 = hasMultipleWords ? titleParts.slice(Math.ceil(titleParts.length / 2)).join(' ') : fullTitle;
+  const titleLines = fullTitle.split('\n');
+  const hasMultipleLines = titleLines.length > 1;
+  const titleLine1 = hasMultipleLines ? titleLines[0] : '';
+  const titleLine2 = hasMultipleLines ? titleLines[1] : fullTitle;
 
   const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -148,13 +148,13 @@ export default function AdventureCompleteScreen({
 
         {/* Title over image */}
         <View style={styles.titleContainer}>
-          {hasMultipleWords && titleLine1 ? (
+          {hasMultipleLines && titleLine1 ? (
             <>
-              <Text style={styles.titleLine1} numberOfLines={1}>{titleLine1}</Text>
-              <Text style={styles.titleLine2} numberOfLines={1}>{titleLine2}</Text>
+              <Text style={styles.titleLine1}>{titleLine1}</Text>
+              <Text style={styles.titleLine2}>{titleLine2}</Text>
             </>
           ) : (
-            <Text style={styles.titleLine2} numberOfLines={1}>{titleLine2}</Text>
+            <Text style={styles.titleLine2}>{titleLine2}</Text>
           )}
         </View>
       </View>
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     alignItems: 'center',
-    paddingHorizontal: SCREEN_WIDTH * 0.05,
+    paddingHorizontal: SCREEN_WIDTH * 0.08, // Increased from 0.05 to prevent truncation
     marginTop: SCREEN_HEIGHT * 0.16, // Move text down by 16% of screen height
   },
   titleLine1: {
