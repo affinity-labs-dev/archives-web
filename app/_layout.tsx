@@ -11,7 +11,7 @@ import React from "react";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ClerkProvider } from "@clerk/clerk-expo";
+import { ClerkProvider, useUser } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { PostHogProvider } from 'posthog-react-native';
 
@@ -54,6 +54,7 @@ SplashScreen.setOptions({
 // Analytics initialization wrapper that must be inside PostHogProvider
 function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const posthog = usePostHog();
+  const { user, isSignedIn } = useUser(); // Get Clerk user
 
   // Initialize analytics service when PostHog becomes available
   React.useEffect(() => {
@@ -63,6 +64,21 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       // Note: Session replay starts automatically via enableSessionReplay: true config (line 193)
     }
   }, [posthog]);
+
+  // Identify user when BOTH PostHog AND Clerk are ready
+  React.useEffect(() => {
+    if (posthog && isSignedIn && user) {
+      console.log('🔑 [Analytics] Identifying user with PostHog:', user.id);
+      analyticsService.identifyUser(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+      });
+    } else if (posthog && !isSignedIn) {
+      console.log('👋 [Analytics] User signed out, using anonymous tracking');
+    }
+  }, [posthog, isSignedIn, user]);
 
   // App lifecycle tracking - foreground/background/close
   React.useEffect(() => {
