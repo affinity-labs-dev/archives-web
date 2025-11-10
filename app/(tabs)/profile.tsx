@@ -2081,7 +2081,7 @@ const styles = StyleSheet.create({
 
   // Temporary Test Button Styles
   testButton: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -2096,6 +2096,6 @@ const styles = StyleSheet.create({
     fontFamily: 'DM Sans',
     fontSize: 12,
     fontWeight: '700',
-    color: 'white',
+    color: ArchivesTheme.colors.creamWhite,
   },
 })
