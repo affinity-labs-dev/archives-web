@@ -5,6 +5,7 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import analyticsService from '@/services/AnalyticsService';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import React, { useEffect } from 'react';
@@ -28,10 +29,30 @@ export default function XPMilestoneScreen({ milestoneXP, onContinue }: XPMilesto
     player.play();
   });
 
+  // Track milestone reached on mount
+  useEffect(() => {
+    if (milestoneXP) {
+      analyticsService.captureEvent('xp_milestone_reached', {
+        milestone_xp: milestoneXP,
+        screen_url: '/roi/xp-milestone',
+      });
+      console.log(`📊 [Analytics] XP Milestone Reached: ${milestoneXP} XP`);
+    }
+  }, [milestoneXP]);
+
   // Listen for video end - Auto-dismiss screen when video finishes
   useEffect(() => {
     const playbackSubscription = player.addListener('playToEnd', () => {
       console.log('🎬 [XPMilestoneScreen] Video finished, auto-dismissing...');
+
+      // Track milestone dismissed
+      if (milestoneXP) {
+        analyticsService.captureEvent('xp_milestone_dismissed', {
+          milestone_xp: milestoneXP,
+          screen_url: '/roi/xp-milestone',
+        });
+        console.log(`📊 [Analytics] XP Milestone Dismissed: ${milestoneXP} XP`);
+      }
 
       // Save flag to mark this XP milestone as seen
       if (milestoneXP) {

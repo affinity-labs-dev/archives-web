@@ -18,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useProgress } from '@/context/ProgressContext';
+import { useQuizTracking } from '@/hooks/useQuizTracking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useQuizSounds } from '@/hooks/useQuizSounds';
@@ -277,6 +278,18 @@ export default function ROIQuiz({
   const insets = useSafeAreaInsets();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
 
+  // Analytics tracking
+  const {
+    trackQuestionAnswered,
+    trackQuizComplete,
+  } = useQuizTracking({
+    adventureId,
+    moduleId,
+    quizId: contentItem.id || moduleId,
+    quizTitle: contentItem.thumbnail_title || "Unknown",
+    screenUrl: `/roi/${adventureId}/${moduleId}/quiz`,
+  });
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -334,6 +347,14 @@ export default function ROIQuiz({
     if (selectedAnswer === null) return;
 
     const isCorrect = selectedAnswer === correctAnswerIndex;
+
+    // Track answer submission
+    trackQuestionAnswered(
+      currentQuestionIndex,
+      isCorrect,
+      options[selectedAnswer],
+      currentQuestion.question_text
+    );
 
     if (isCorrect) {
       const newCorrectAnswers = correctAnswers + 1;
@@ -403,6 +424,9 @@ export default function ROIQuiz({
     // 0-49% = 1★, 50-99% = 2★, 100% = 3★ (perfect score only)
     const percentage = (correctAnswers / totalQuestions) * 100;
     const quizScore = percentage === 100 ? 3 : percentage >= 50 ? 2 : 1;
+
+    // Track quiz completion
+    trackQuizComplete(correctAnswers, totalQuestions, score);
 
     // Load Era 2 progress to calculate old XP (BEFORE saving)
     const newModulesData = await AsyncStorage.getItem('new_user_progress');

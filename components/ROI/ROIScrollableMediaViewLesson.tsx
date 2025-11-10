@@ -4,6 +4,7 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 import { Ionicons } from "@expo/vector-icons";
 import { ResizeMode, Video } from 'expo-av';
 import * as Haptics from "expo-haptics";
@@ -51,6 +52,7 @@ const LAYOUT_CONSTANTS = {
 
 interface ROIScrollableMediaViewLessonProps {
   contentItem: ContentItem;
+  adventureId: string;
   moduleId: string;
   lessonId: string;
   onContinue: () => void;
@@ -60,6 +62,7 @@ interface ROIScrollableMediaViewLessonProps {
 
 export default function ROIScrollableMediaViewLesson({
   contentItem,
+  adventureId,
   moduleId,
   lessonId,
   onContinue,
@@ -82,6 +85,16 @@ export default function ROIScrollableMediaViewLesson({
     contentItem.background_music_url ? { uri: contentItem.background_music_url } : null,
     { volume: 0.5, shouldLoop: true }
   );
+
+  // Analytics tracking
+  const { trackLessonComplete } = useLessonTracking({
+    adventureId,
+    moduleId,
+    lessonId,
+    lessonType: "scrollable_media",
+    lessonTitle: contentItem.top_content?.title || "Unknown",
+    screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
+  });
 
   // Setup video players on mount
   useEffect(() => {
@@ -229,6 +242,8 @@ export default function ROIScrollableMediaViewLesson({
 
   const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Track lesson completion
+    trackLessonComplete();
     onContinue();
   };
 

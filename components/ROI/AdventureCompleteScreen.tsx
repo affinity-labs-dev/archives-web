@@ -12,6 +12,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import { useProgress } from '@/context/ProgressContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import analyticsService from '@/services/AnalyticsService';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -71,6 +72,21 @@ export default function AdventureCompleteScreen({
     loadStats();
   }, [adventure?.readable_id, getROIAdventureStats]);
 
+  // Track adventure completion on mount
+  useEffect(() => {
+    if (adventure?.readable_id) {
+      analyticsService.captureEvent('adventure_completed', {
+        adventure_id: adventure.readable_id,
+        adventure_title: adventure.adventure_title,
+        total_xp: displayXP,
+        completed_modules: displayCompletedModules,
+        total_modules: totalModulesCount,
+        screen_url: `/roi/${adventure.readable_id}/complete`,
+      });
+      console.log(`📊 [Analytics] Adventure Completed: ${adventure.readable_id}`);
+    }
+  }, [adventure?.readable_id]);
+
   // Set up video player for character animation
   const videoSource = require('@/assets/videos/advend.mp4');
   const player = useVideoPlayer(videoSource, (player) => {
@@ -110,6 +126,16 @@ export default function AdventureCompleteScreen({
 
   const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Track continue button click
+    if (adventure?.readable_id) {
+      analyticsService.captureEvent('adventure_complete_continue', {
+        adventure_id: adventure.readable_id,
+        adventure_title: adventure.adventure_title,
+        screen_url: `/roi/${adventure.readable_id}/complete`,
+      });
+      console.log(`📊 [Analytics] Adventure Complete Continue: ${adventure.readable_id}`);
+    }
 
     // Save flag to mark this adventure complete screen as seen
     if (adventure?.readable_id) {
