@@ -1,5 +1,5 @@
 // ROIQuizResults.tsx - Percentage-based quiz results screen for Rise of Islam
-// Shows 3 different screens based on score percentage: <30%, 30-70%, >=70%
+// Shows 3 different screens based on score percentage: <34%, 34-70%, >=70%
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -36,11 +36,11 @@ function getRewardVideo(percentage: number) {
   if (percentage >= 70) {
     return require('@/assets/videos/quiz_reward/quiz-reward3.mp4');
   }
-  // 30-69% = quiz-reward2
-  if (percentage >= 30) {
+  // 34-69% = quiz-reward2
+  if (percentage >= 34) {
     return require('@/assets/videos/quiz_reward/quiz-reward2.mp4');
   }
-  // Below 30% = quiz-reward1
+  // Below 34% = quiz-reward1
   return require('@/assets/videos/quiz_reward/quiz-reward1.mp4');
 }
 
