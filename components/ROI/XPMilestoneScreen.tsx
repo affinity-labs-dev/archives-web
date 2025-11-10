@@ -28,39 +28,26 @@ export default function XPMilestoneScreen({ milestoneXP, onContinue }: XPMilesto
     player.play();
   });
 
-  // Handle video end - auto-dismiss screen
-  const handleVideoDismiss = async () => {
-    console.log('🎬 [XPMilestoneScreen] Video finished, auto-dismissing...');
-
-    // Save flag to mark this XP milestone as seen
-    if (milestoneXP) {
-      try {
-        const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP);
-        await AsyncStorage.setItem(milestoneKey, 'true');
-        console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP`);
-      } catch (error) {
-        console.error('❌ Error saving XP milestone flag:', error);
-      }
-    }
-
-    // Dismiss screen
-    if (onContinue) {
-      onContinue();
-    }
-  };
-
-  // Listen for video end
+  // Listen for video end - Auto-dismiss screen when video finishes
   useEffect(() => {
-    const checkVideoStatus = setInterval(() => {
-      if (player.status === 'idle' && player.currentTime > 0) {
-        // Video finished playing
-        clearInterval(checkVideoStatus);
-        handleVideoDismiss();
-      }
-    }, 100); // Check every 100ms
+    const playbackSubscription = player.addListener('playToEnd', () => {
+      console.log('🎬 [XPMilestoneScreen] Video finished, auto-dismissing...');
 
-    return () => clearInterval(checkVideoStatus);
-  }, [player]);
+      // Save flag to mark this XP milestone as seen
+      if (milestoneXP) {
+        AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP), 'true')
+          .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP`))
+          .catch((error) => console.error('❌ Error saving XP milestone flag:', error));
+      }
+
+      // Dismiss screen
+      if (onContinue) {
+        onContinue();
+      }
+    });
+
+    return () => playbackSubscription?.remove();
+  }, [player, milestoneXP, onContinue]);
 
   return (
     <View style={styles.container}>
