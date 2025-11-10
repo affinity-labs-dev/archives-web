@@ -731,7 +731,10 @@ class AnalyticsService {
       ...sanitizedProperties,
     };
 
-    this.posthog.setPersonProperties(allProperties);
+    // Use $set event to set person properties without changing distinct ID
+    this.posthog.capture('$set', {
+      $set: allProperties,
+    });
     console.log('📊 [Analytics] User Properties Set:', allProperties);
   }
 
