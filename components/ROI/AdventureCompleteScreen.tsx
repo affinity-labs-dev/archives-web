@@ -59,6 +59,7 @@ export default function AdventureCompleteScreen({
 
   // State for calculated stats
   const [calculatedStats, setCalculatedStats] = useState({ xp: 0, completedModules: 0 });
+  const [hasTrackedCompletion, setHasTrackedCompletion] = useState(false);
 
   // Calculate stats from adventure progress data
   useEffect(() => {
@@ -72,9 +73,21 @@ export default function AdventureCompleteScreen({
     loadStats();
   }, [adventure?.readable_id, getROIAdventureStats]);
 
-  // Track adventure completion on mount
+  // Calculate total modules from adventure content_list
+  const totalModulesCount = totalModules || adventure?.content_list?.length || 5;
+
+  // Use calculated stats (with fallback to props for backwards compatibility)
+  const displayXP = totalXP || calculatedStats.xp;
+  const displayCompletedModules = completedModules || calculatedStats.completedModules;
+
+  // Track adventure completion once when stats are ready
   useEffect(() => {
-    if (adventure?.readable_id) {
+    // Only track once, and only when we have valid data
+    if (
+      !hasTrackedCompletion &&
+      adventure?.readable_id &&
+      (totalXP > 0 || calculatedStats.xp > 0) // Ensure we have loaded stats
+    ) {
       analyticsService.captureEvent('adventure_completed', {
         adventure_id: adventure.readable_id,
         adventure_title: adventure.adventure_title,
@@ -83,9 +96,10 @@ export default function AdventureCompleteScreen({
         total_modules: totalModulesCount,
         screen_url: `/roi/${adventure.readable_id}/complete`,
       });
-      console.log(`📊 [Analytics] Adventure Completed: ${adventure.readable_id}`);
+      console.log(`📊 [Analytics] Adventure Completed: ${adventure.readable_id} (XP: ${displayXP}, Modules: ${displayCompletedModules}/${totalModulesCount})`);
+      setHasTrackedCompletion(true);
     }
-  }, [adventure?.readable_id]);
+  }, [adventure?.readable_id, adventure?.adventure_title, calculatedStats, totalXP, hasTrackedCompletion, displayXP, displayCompletedModules, totalModulesCount]);
 
   // Set up video player for character animation
   const videoSource = require('@/assets/videos/advend.mp4');
@@ -109,13 +123,6 @@ export default function AdventureCompleteScreen({
   const fullTitle = propTitle || adventure?.adventure_title || 'Complete';
   const description = propDescription || `You've discovered the rich history of ${adventure?.adventure_title || 'this era'}!`;
   const bgImage = propBackgroundImage || adventure?.card_content?.background_image || '';
-
-  // Calculate total modules from adventure content_list
-  const totalModulesCount = totalModules || adventure?.content_list?.length || 5;
-
-  // Use calculated stats (with fallback to props for backwards compatibility)
-  const displayXP = totalXP || calculatedStats.xp;
-  const displayCompletedModules = completedModules || calculatedStats.completedModules;
 
   // Split title on newline character if present in Supabase adventure_title
   // Line 1: 35px, Line 2: 40px

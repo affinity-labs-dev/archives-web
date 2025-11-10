@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import analyticsService from '@/services/AnalyticsService';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 
 const { width } = Dimensions.get('window');
@@ -120,11 +121,33 @@ export default function ROIQuizResults({
 
   const handleRetake = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Track retake button click
+    analyticsService.captureEvent('quiz_results_retake_clicked', {
+      percentage,
+      correct_answers: correctAnswers,
+      total_questions: totalQuestions,
+      total_points: totalPoints,
+      screen_url: '/roi/quiz-results',
+    });
+    console.log(`📊 [Analytics] Quiz Results Retake Clicked: ${percentage}%`);
+
     onRetake();
   };
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Track continue button click
+    analyticsService.captureEvent('quiz_results_continue_clicked', {
+      percentage,
+      correct_answers: correctAnswers,
+      total_questions: totalQuestions,
+      total_points: totalPoints,
+      screen_url: '/roi/quiz-results',
+    });
+    console.log(`📊 [Analytics] Quiz Results Continue Clicked: ${percentage}%`);
+
     onContinue();
   };
 
