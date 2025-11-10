@@ -379,6 +379,20 @@ export default function ProfileTab() {
   const handleSignOut = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     try {
+      console.log('👋 User logging out - clearing all local data...')
+
+      // Clear all user-specific AsyncStorage keys to prevent data leakage between accounts
+      await AsyncStorage.multiRemove([
+        'selected_era',
+        'adventure_progress',
+        'module_progress',
+        'new_user_progress',
+        'totalXP',
+        'user_preferences',
+        'user_unlockables_data',
+      ])
+      console.log('✅ Local data cleared')
+
       await signOut()
       router.replace('/onboarding-video')
     } catch (error) {
