@@ -10,6 +10,7 @@ import { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs'
 import { Tabs } from 'expo-router'
 import React from 'react'
 import { Platform } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // Use native bottom tabs only on iOS, fallback to Expo Router tabs on other platforms
 const useNativeTabs = Platform.OS === 'ios'
@@ -27,14 +28,17 @@ if (useNativeTabs) {
 }
 
 // Common screen options for both native and standard tabs
-const getScreenOptions = (): BottomTabNavigationOptions => ({
+// Now accepts insets parameter for dynamic safe area handling
+const getScreenOptions = (bottomInset: number): BottomTabNavigationOptions => ({
   tabBarActiveTintColor: ArchivesTheme.colors.persianOrange,
   tabBarInactiveTintColor: ArchivesTheme.colors.mutedNavy + '99', // 60% opacity
   tabBarStyle: {
     backgroundColor: ArchivesTheme.colors.creamWhite,
     borderTopWidth: 0,
-    height: Platform.OS === 'ios' ? 88 : Platform.OS === 'web' ? 75 : 75,
-    paddingBottom: Platform.OS === 'ios' ? 34 : Platform.OS === 'web' ? 15 : 15,
+    // Dynamic height: 56px base + safe area bottom inset
+    height: 56 + Math.max(bottomInset, 8),
+    // Use actual safe area inset for bottom padding (minimum 8px fallback)
+    paddingBottom: Math.max(bottomInset, 8),
     paddingTop: 8,
     // Subtle shadow matching SwiftUI (native tabs handle this automatically)
     ...(!useNativeTabs && {
@@ -62,12 +66,15 @@ const getScreenOptions = (): BottomTabNavigationOptions => ({
 })
 
 export default function TabLayout() {
+  // Get safe area insets for dynamic tab bar padding
+  const insets = useSafeAreaInsets()
+
   // Use native tabs on iOS for automatic floating behavior, standard tabs elsewhere
   const TabComponent = useNativeTabs && NativeBottomTabs ? NativeBottomTabs : Tabs
 
   return (
     <TabComponent
-      screenOptions={getScreenOptions}
+      screenOptions={getScreenOptions(insets.bottom)}
       // Native tabs specific options
       {...(useNativeTabs && {
         tabBarStyle: 'automatic', // Enables iOS 18+ floating behavior
