@@ -10,6 +10,7 @@ import { View, Text, Platform } from "react-native";
 import React from "react";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { PostHogProvider } from 'posthog-react-native';
@@ -305,11 +306,12 @@ export default function RootLayout() {
   };
 
   return (
-    <GestureHandlerRootView style={{
-      flex: 1,
-      backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined
-    }}>
-      <PostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{
+        flex: 1,
+        backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined
+      }}>
+        <PostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
         <AnalyticsWrapper>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
               <BackgroundSyncProvider>
@@ -344,7 +346,8 @@ export default function RootLayout() {
             </BackgroundSyncProvider>
           </ClerkProvider>
         </AnalyticsWrapper>
-      </PostHogProvider>
-    </GestureHandlerRootView>
+        </PostHogProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
