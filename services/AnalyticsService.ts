@@ -709,6 +709,33 @@ class AnalyticsService {
   }
 
   /**
+   * Set user properties (adds Clerk user ID as property without changing PostHog ID)
+   */
+  setUserProperties(clerkUserId: string, properties?: Record<string, any>) {
+    if (!this.posthog) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Skipping setUserProperties (PostHog not ready)');
+      }
+      return;
+    }
+
+    // Sanitize properties to ensure consistent types (remove null/undefined)
+    const sanitizedProperties = properties ?
+      Object.fromEntries(
+        Object.entries(properties).filter(([_, value]) => value != null)
+      ) : {};
+
+    // Add Clerk user ID as a property (not as the PostHog user ID)
+    const allProperties = {
+      clerk_user_id: clerkUserId,
+      ...sanitizedProperties,
+    };
+
+    this.posthog.setPersonProperties(allProperties);
+    console.log('📊 [Analytics] User Properties Set:', allProperties);
+  }
+
+  /**
    * Reset analytics (call on logout)
    */
   reset() {

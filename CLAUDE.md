@@ -564,7 +564,7 @@ console.log('🔔 Notification')    // Push notifications
 - Bundle ID: `ai.affinitylabs.archivesexpo`
 - Team ID: `LQ9LP2WW94`
 - App Store ID: `6751173663`
-- Build number: Auto-increments via EAS (currently 78)
+- Build number: Auto-increments via EAS (currently 83)
 - Status: **LIVE on App Store**
 - Requires physical device for: notifications, Apple Sign-In
 - Background modes: remote-notification
@@ -572,7 +572,7 @@ console.log('🔔 Notification')    // Push notifications
 
 **Android:**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code auto-increments (currently 17)
+- Version code auto-increments (currently 18)
 - Status: **LIVE on Google Play Store**
 - Edge-to-edge: Disabled
 - App Links: SHA-256 fingerprint in `assetlinks.json` must match Google Play Console

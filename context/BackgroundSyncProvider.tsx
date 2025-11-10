@@ -60,8 +60,8 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
       // Set the user ID in the simplified sync service
       simplifiedSyncService.setCurrentUserId(user.id);
 
-      // Track user session and identify user
-      analyticsService.identifyUser(user.id, {
+      // Set user properties (adds Clerk user ID as property in PostHog without changing PostHog ID)
+      analyticsService.setUserProperties(user.id, {
         email: user.primaryEmailAddress?.emailAddress,
         firstName: user.firstName,
         lastName: user.lastName,
