@@ -23,7 +23,7 @@ import { analyticsService } from '@/services/AnalyticsService'
 import Svg, { Path } from 'react-native-svg'
 
 export default function OnboardingResultsScreen() {
-  const [recommendedEra, setRecommendedEra] = useState('Umayyad Dynasty')
+  const [recommendedEra, setRecommendedEra] = useState('Rise of Islam')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { requestPermission } = useAppTrackingTransparency()
@@ -91,11 +91,11 @@ export default function OnboardingResultsScreen() {
       console.log('🎯 [OnboardingResults] Quiz answers:', answers)
 
       // Based on answers, we could recommend different eras
-      // For now, always recommend Umayyad Dynasty as it's the main era
-      setRecommendedEra('Umayyad Dynasty')
+      // For now, always recommend Rise of Islam
+      setRecommendedEra('Rise of Islam')
     } catch (error) {
       console.error('🎯 [OnboardingResults] Error loading answers:', error)
-      setRecommendedEra('Umayyad Dynasty')
+      setRecommendedEra('Rise of Islam')
     }
   }
 
@@ -190,7 +190,7 @@ export default function OnboardingResultsScreen() {
           {/* Era Recommendation Card */}
           <View style={styles.eraCard}>
             <Image
-              source={require('@/assets/images/eras/era1-bg.jpg')}
+              source={require('@/assets/images/eras/era2-bg.jpg')}
               style={styles.eraImage}
               resizeMode="cover"
             />
@@ -209,10 +209,10 @@ export default function OnboardingResultsScreen() {
 
             <View style={styles.eraOverlay}>
               <Text style={styles.eraTitle} selectable={false}>
-                Umayyad Dynasty
+                Rise of Islam
               </Text>
               <Text style={styles.eraSubtitle} selectable={false}>
-                (661-750 CE)
+                (570–632 CE)
               </Text>
             </View>
           </View>
