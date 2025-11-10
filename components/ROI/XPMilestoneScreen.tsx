@@ -24,7 +24,7 @@ export default function XPMilestoneScreen({ milestoneXP, onContinue }: XPMilesto
   const videoSource = require('@/assets/videos/xp1.mp4');
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = false; // Play once only
-    player.muted = true;
+    player.muted = false; // Enable audio for celebration
     player.play();
   });
 
