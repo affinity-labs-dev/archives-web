@@ -16,7 +16,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
-import analyticsService from '@/services/AnalyticsService';
+import { analyticsService } from '@/services/AnalyticsService';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import type { Adventure } from './types';
 
@@ -115,7 +115,7 @@ export default function ROIAdventureSummary({
   useEffect(() => {
     if (isVisible && !hasTrackedView) {
       if (mode === SummaryMode.ADVENTURE_COMPLETE) {
-        analyticsService.captureEvent('adventure_summary_viewed', {
+        analyticsService.trackCustomEvent('adventure_summary_viewed', {
           adventure_id: adventure?.readable_id,
           adventure_title: adventure?.adventure_title,
           total_xp: totalXP,
@@ -125,7 +125,7 @@ export default function ROIAdventureSummary({
         });
         console.log(`📊 [Analytics] Adventure Summary Viewed: ${adventure?.readable_id}`);
       } else {
-        analyticsService.captureEvent('streak_milestone_viewed', {
+        analyticsService.trackCustomEvent('streak_milestone_viewed', {
           milestone_xp: milestoneXP,
           total_xp: totalXP,
           screen_url: '/roi/streak-milestone',
@@ -146,14 +146,14 @@ export default function ROIAdventureSummary({
 
     // Track modal dismiss
     if (mode === SummaryMode.ADVENTURE_COMPLETE) {
-      analyticsService.captureEvent('adventure_summary_dismissed', {
+      analyticsService.trackCustomEvent('adventure_summary_dismissed', {
         adventure_id: adventure?.readable_id,
         adventure_title: adventure?.adventure_title,
         screen_url: `/roi/${adventure?.readable_id}/summary`,
       });
       console.log(`📊 [Analytics] Adventure Summary Dismissed: ${adventure?.readable_id}`);
     } else {
-      analyticsService.captureEvent('streak_milestone_dismissed', {
+      analyticsService.trackCustomEvent('streak_milestone_dismissed', {
         milestone_xp: milestoneXP,
         screen_url: '/roi/streak-milestone',
       });

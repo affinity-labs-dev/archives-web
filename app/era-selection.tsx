@@ -17,11 +17,12 @@ import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '@clerk/clerk-expo'
+import { useAuth, useUser } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
+import { analyticsService } from '@/services/AnalyticsService'
 
 // Development flag - set to false when ready for production subscription system
 const DEVELOPMENT_UNLOCK_ERA2 = true
@@ -109,7 +110,21 @@ export default function EraSelection() {
   const [selectedEraIndex, setSelectedEraIndex] = useState(-1)
   const router = useRouter()
   const { isSignedIn } = useAuth()
+  const { user } = useUser()
   const { setSelectedEra } = useProgress()
+
+  // Fallback: Ensure Clerk user ID is set in PostHog (production safety)
+  React.useEffect(() => {
+    if (isSignedIn && user) {
+      analyticsService.setUserProperties(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+      });
+      console.log('✅ [EraSelection] User properties set for Clerk ID:', user.id);
+    }
+  }, [isSignedIn, user]);
 
   // const handleBack = () => {
   //   router.back()

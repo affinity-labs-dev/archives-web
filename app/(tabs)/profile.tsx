@@ -193,9 +193,22 @@ interface NewUserProgress {
 
 export default function ProfileTab() {
   const { signOut } = useAuth()
-  const { user } = useUser()
+  const { user, isSignedIn } = useUser()
   const router = useRouter()
   const { moduleProgress, calculateTotalXP, calculateModulesCompleted } = useProgress()
+
+  // Fallback: Ensure Clerk user ID is set in PostHog (production safety)
+  React.useEffect(() => {
+    if (isSignedIn && user) {
+      analyticsService.setUserProperties(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+      });
+      console.log('✅ [ProfileTab] User properties set for Clerk ID:', user.id);
+    }
+  }, [isSignedIn, user]);
   const {
     avatars,
     badges,
@@ -413,7 +426,10 @@ export default function ProfileTab() {
         'selected_era',
         'adventure_progress',
         'module_progress',
-        'user_preferences'
+        'new_user_progress',      // Rise of Islam progress
+        'totalXP',                 // XP cache
+        'user_preferences',
+        'user_unlockables_data',   // Rewards/badges
       ])
     } catch (error) {
       console.error('Error clearing user data:', error)

@@ -5,7 +5,7 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import analyticsService from '@/services/AnalyticsService';
+import { analyticsService } from '@/services/AnalyticsService';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import React, { useEffect } from 'react';
@@ -32,7 +32,7 @@ export default function XPMilestoneScreen({ milestoneXP, onContinue }: XPMilesto
   // Track milestone reached on mount
   useEffect(() => {
     if (milestoneXP) {
-      analyticsService.captureEvent('xp_milestone_reached', {
+      analyticsService.trackCustomEvent('xp_milestone_reached', {
         milestone_xp: milestoneXP,
         screen_url: '/roi/xp-milestone',
       });
@@ -47,7 +47,7 @@ export default function XPMilestoneScreen({ milestoneXP, onContinue }: XPMilesto
 
       // Track milestone dismissed
       if (milestoneXP) {
-        analyticsService.captureEvent('xp_milestone_dismissed', {
+        analyticsService.trackCustomEvent('xp_milestone_dismissed', {
           milestone_xp: milestoneXP,
           screen_url: '/roi/xp-milestone',
         });

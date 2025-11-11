@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
 import { useRouter } from 'expo-router'
-import { useAuth } from '@clerk/clerk-expo'
+import { useAuth, useUser } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
 import UmmayadDynastyEra from '@/components/eras/UmmayadDynastyEra'
 import ComingSoonView from '@/components/eras/ComingSoonView'
@@ -15,9 +15,23 @@ import { useFocusEffect } from '@react-navigation/native'
 
 export default function HomeTab() {
   const { isSignedIn } = useAuth()
+  const { user } = useUser()
   const { selectedEra, isLoading } = useProgress()
   const router = useRouter()
   const [onboardingChecked, setOnboardingChecked] = useState(false)
+
+  // Fallback: Ensure Clerk user ID is set in PostHog (production safety)
+  useEffect(() => {
+    if (isSignedIn && user) {
+      analyticsService.setUserProperties(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+      });
+      console.log('✅ [HomeTab] User properties set for Clerk ID:', user.id);
+    }
+  }, [isSignedIn, user]);
 
   // Check onboarding status and navigation logic
   useEffect(() => {

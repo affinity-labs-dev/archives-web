@@ -7,6 +7,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider';
 import { useUser } from '@clerk/clerk-expo';
+import { analyticsService } from '@/services/AnalyticsService';
 
 // User progress type for Era 2+
 interface UserProgress {
@@ -75,6 +76,19 @@ export default function ROIBentoScreen() {
 
     loadData();
   }, [isSignedIn, user?.id, syncInitialized, loadProgress]);
+
+  // Fallback: Ensure Clerk user ID is set in PostHog (production safety)
+  useEffect(() => {
+    if (isSignedIn && user) {
+      analyticsService.setUserProperties(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+      });
+      console.log('✅ [ROIBento] User properties set for Clerk ID:', user.id);
+    }
+  }, [isSignedIn, user]);
 
   // Reload progress whenever screen comes into focus (e.g., after quiz completion)
   useFocusEffect(

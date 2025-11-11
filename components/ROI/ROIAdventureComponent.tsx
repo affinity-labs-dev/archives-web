@@ -166,7 +166,7 @@ interface ROIAdventureComponentProps {
   onTitlePress?: () => void;
 }
 
-const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = React.memo(({ adventure, userProgress, onCardPress, onTitlePress }) => {
+const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = React.memo(function ROIAdventureComponent({ adventure, userProgress, onCardPress, onTitlePress }) {
   // Sort by order_by and take first 5 items
   const sortedContent = [...(adventure.content_list || [])]
     .sort((a, b) => a.order_by - b.order_by)

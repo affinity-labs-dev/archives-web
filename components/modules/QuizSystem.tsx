@@ -582,6 +582,7 @@ const styles = StyleSheet.create({
     borderRadius: 15, // EXACT SwiftUI: RoundedRectangle(cornerRadius: 15)
     top: iOSLayout.imageBackgroundOffsetY, // EXACT iOS: .offset(y: 40)
     alignSelf: 'center',
+    zIndex: 1, // Base layer - ensures proper stacking on Android
     // EXACT SwiftUI shadow: .shadow(radius: 2)
     shadowColor: 'black',
     shadowOpacity: 0.1,
@@ -593,6 +594,8 @@ const styles = StyleSheet.create({
     width: iOSLayout.imageWidth, // EXACT iOS: .frame(width: 180, height: 180)
     height: iOSLayout.imageHeight,
     top: iOSLayout.imageOffsetY, // EXACT iOS: .offset(y: -20)
+    zIndex: 2, // Above background - ensures image visible on Android
+    elevation: 3, // Android: Must be higher than imageBackground (elevation: 2) to appear above it
   },
   questionText: {
     fontFamily: 'DM Sans',

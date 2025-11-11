@@ -23,7 +23,7 @@ import {
   PanGestureHandler,
   State,
 } from "react-native-gesture-handler";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as ExpoImage } from "expo-image";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -79,6 +79,7 @@ export default function Adventure1_Module2_Lesson1({
   onDismiss,
   onBack,
 }: Adventure1_Module2_Lesson1Props) {
+  const insets = useSafeAreaInsets();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showReadContent, setShowReadContent] = useState(false);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
@@ -585,13 +586,13 @@ export default function Adventure1_Module2_Lesson1({
 
         {/* Continue hint - Shows on last image */}
         {showContinueHint && (
-          <SafeAreaView style={styles.continueHintContainer}>
+          <View style={[styles.continueHintContainer, { top: insets.top + 4 }]}>
             <ExpoImage
               source={require("@/assets/images/walkthrough/continue.svg")}
               style={styles.continueHintImage}
               contentFit="contain"
             />
-          </SafeAreaView>
+          </View>
         )}
       </View>
     </>
@@ -893,11 +894,8 @@ const styles = StyleSheet.create({
   },
   continueHintContainer: {
     position: "absolute",
-    top: 0,
-    right: 0,
+    right: 66, // 16 (button margin) + 40 (button width) + 10 (spacing)
     zIndex: 25,
-    paddingTop: 12,
-    paddingRight: 76, // 16 (padding) + 40 (button width) + 20 (spacing)
     pointerEvents: "none",
   },
   continueHintImage: {

@@ -11,7 +11,7 @@ import React from "react";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ClerkProvider } from "@clerk/clerk-expo";
+import { ClerkProvider, useUser } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { PostHogProvider } from 'posthog-react-native';
 
@@ -54,15 +54,37 @@ SplashScreen.setOptions({
 // Analytics initialization wrapper that must be inside PostHogProvider
 function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const posthog = usePostHog();
+  const { user, isSignedIn } = useUser();
 
-  // Initialize analytics service when PostHog becomes available
+  // Initialize analytics service + set user properties when both PostHog and Clerk user are ready
   React.useEffect(() => {
+    // Production logging - Track initialization timing for debugging
+    console.log('🔍 [Analytics] Effect triggered - PostHog ready:', !!posthog);
+    console.log('🔍 [Analytics] Effect triggered - User signed in:', isSignedIn);
+    console.log('🔍 [Analytics] Effect triggered - User ID:', user?.id || 'none');
+
     if (posthog) {
       analyticsService.initialize(posthog);
       console.log('✅ [Analytics] Service initialized with PostHog instance');
-      // Note: Session replay starts automatically via enableSessionReplay: true config (line 193)
+      // Note: Session replay starts automatically via enableSessionReplay: true config
+
+      // Set user properties if user is signed in (PostHog guaranteed ready here)
+      if (isSignedIn && user) {
+        analyticsService.setUserProperties(user.id, {
+          email: user.primaryEmailAddress?.emailAddress,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          username: user.username,
+        });
+        console.log('✅ [Analytics] User properties SET for Clerk ID:', user.id);
+        console.log('✅ [Analytics] Email:', user.primaryEmailAddress?.emailAddress);
+      } else {
+        console.log('⏳ [Analytics] Waiting for user sign-in to set properties');
+      }
+    } else {
+      console.log('⏳ [Analytics] Waiting for PostHog initialization');
     }
-  }, [posthog]);
+  }, [posthog, isSignedIn, user]);
 
   // App lifecycle tracking - foreground/background/close
   React.useEffect(() => {
@@ -280,11 +302,6 @@ export default function RootLayout() {
     host: posthogHost,
     // Enable session recording for mobile (disabled on web to prevent compatibility issues)
     enableSessionReplay: Platform.OS !== 'web',
-    // Person profiles configuration - set to 'always' to avoid type conflicts
-    // PostHog will consistently process person profiles for all events
-    personProfiles: 'always' as const,
-    // Capture all events including $set properties
-    captureMode: 'full' as const,
     ...(Platform.OS !== 'web' && {
       sessionReplayConfig: {
         // Mask text inputs to protect user privacy (quiz answers, personal info)
@@ -312,8 +329,8 @@ export default function RootLayout() {
         backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined
       }}>
         <PostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
-        <AnalyticsWrapper>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+            <AnalyticsWrapper>
               <BackgroundSyncProvider>
                 <AdventuresContentProvider>
                   <RewardsProvider>
@@ -344,8 +361,8 @@ export default function RootLayout() {
                 </RewardsProvider>
               </AdventuresContentProvider>
             </BackgroundSyncProvider>
+          </AnalyticsWrapper>
           </ClerkProvider>
-        </AnalyticsWrapper>
         </PostHogProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>

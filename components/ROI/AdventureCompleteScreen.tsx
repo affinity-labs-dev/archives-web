@@ -12,7 +12,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import { useProgress } from '@/context/ProgressContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import analyticsService from '@/services/AnalyticsService';
+import { analyticsService } from '@/services/AnalyticsService';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -88,7 +88,7 @@ export default function AdventureCompleteScreen({
       adventure?.readable_id &&
       (totalXP > 0 || calculatedStats.xp > 0) // Ensure we have loaded stats
     ) {
-      analyticsService.captureEvent('adventure_completed', {
+      analyticsService.trackCustomEvent('adventure_completed', {
         adventure_id: adventure.readable_id,
         adventure_title: adventure.adventure_title,
         total_xp: displayXP,
@@ -136,7 +136,7 @@ export default function AdventureCompleteScreen({
 
     // Track continue button click
     if (adventure?.readable_id) {
-      analyticsService.captureEvent('adventure_complete_continue', {
+      analyticsService.trackCustomEvent('adventure_complete_continue', {
         adventure_id: adventure.readable_id,
         adventure_title: adventure.adventure_title,
         screen_url: `/roi/${adventure.readable_id}/complete`,

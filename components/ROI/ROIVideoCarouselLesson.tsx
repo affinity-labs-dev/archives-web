@@ -464,7 +464,7 @@ export default function ROIVideoCarouselLesson({
         )}
 
         {walkthroughEnabled && showContinueHint && (
-          <View style={styles.continueHintContainer}>
+          <View style={[styles.continueHintContainer, { top: insets.top + 4 }]}>
             <ExpoImage
               source={require('@/assets/images/walkthrough/continue.svg')}
               style={styles.continueHintImage}
@@ -931,7 +931,6 @@ const styles = StyleSheet.create({
   },
   continueHintContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 64 : 74,
     right: 66,  // 16 (button margin) + 40 (button width) + 10 (spacing)
     zIndex: 25,
     pointerEvents: 'none',

@@ -60,15 +60,8 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
       // Set the user ID in the simplified sync service
       simplifiedSyncService.setCurrentUserId(user.id);
 
-      // Set user properties (adds Clerk user ID as property in PostHog without changing PostHog ID)
-      analyticsService.setUserProperties(user.id, {
-        email: user.primaryEmailAddress?.emailAddress,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-      });
-
       // Track session start (default to 'email', update in auth screens for specific method)
+      // Note: User properties are now set in AnalyticsWrapper (_layout.tsx) where PostHog is guaranteed ready
       analyticsService.trackUserSessionIn('email');
 
       initializeSync();

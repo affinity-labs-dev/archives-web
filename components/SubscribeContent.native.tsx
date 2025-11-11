@@ -574,6 +574,7 @@ const styles = StyleSheet.create({
     height: 140, // Taller to create overlap effect
     resizeMode: "contain",
     zIndex: 1, // Ensure image is above background
+    elevation: 5, // Android: Must be higher than characterBackground (elevation: 4) to appear above it
   },
   unlockMessage: {
     fontFamily: "DM Sans", // DM Sans as requested

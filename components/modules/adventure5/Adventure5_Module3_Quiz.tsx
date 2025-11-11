@@ -1,33 +1,31 @@
 // Adventure5_Module3_Quiz.tsx - EXACT replica following QuizSystem.md documentation
 // 5-question quiz about Abbasid Revolution and Baghdad foundation with MCQ, True/False + explanations and results
 
-import React, { useState, useRef, useEffect } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  StatusBar,
-  Animated,
-  Dimensions,
-  Platform,
-} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
-import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
 import { useQuizSounds } from '@/hooks/useQuizSounds'
+import { Ionicons } from '@expo/vector-icons'
+import * as Haptics from 'expo-haptics'
+import React, { useEffect, useRef, useState } from 'react'
 import {
-  QuizQuestion,
-  MCQOptionButton,
-  TrueFalseOptionButton,
-  FillBlankOption,
+  Animated,
+  Dimensions,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import {
   ExplanationPopup,
+  MCQOptionButton,
+  QuizQuestion,
+  TrueFalseOptionButton,
   VideoRewardPlayer,
-  getQuizResultMessages,
+  getQuizResultMessages
 } from '../QuizSystem'
 
 const { width } = Dimensions.get('window')
@@ -538,7 +536,7 @@ const styles = StyleSheet.create({
 
   // True/False Options - EXACT SwiftUI styling
   trueFalseOptionsContainer: {
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 80,
     gap: 30,
