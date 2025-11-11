@@ -540,7 +540,7 @@ export default function ROIReelLesson({
         )}
 
         {showContinueHint && (
-          <View style={[styles.continueHintContainer, { top: insets.top + 12 }]}>
+          <View style={[styles.continueHintContainer, { top: insets.top + 4 }]}>
             <Image
               source={require('@/assets/images/walkthrough/continue.svg')}
               style={styles.continueHintImage}
