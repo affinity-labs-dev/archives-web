@@ -121,7 +121,7 @@ export default function AdventureCompleteScreen({
 
   // Extract data from adventure object or use provided props
   const fullTitle = propTitle || adventure?.adventure_title || 'Complete';
-  const description = propDescription || `You've discovered the rich history of ${adventure?.adventure_title || 'this era'}!`;
+  const description = propDescription || adventure?.adventure_description;
   const bgImage = propBackgroundImage || adventure?.card_content?.background_image || '';
 
   // Split title on newline character if present in Supabase adventure_title
@@ -183,11 +183,11 @@ export default function AdventureCompleteScreen({
         <View style={styles.titleContainer}>
           {hasMultipleLines && titleLine1 ? (
             <>
-              <Text style={styles.titleLine1}>{titleLine1}</Text>
-              <Text style={styles.titleLine2}>{titleLine2}</Text>
+              <Text style={styles.titleLine1} numberOfLines={1}>{titleLine1}</Text>
+              <Text style={styles.titleLine2} numberOfLines={1}>{titleLine2}</Text>
             </>
           ) : (
-            <Text style={styles.titleLine2}>{titleLine2}</Text>
+            <Text style={styles.titleLine2} numberOfLines={1}>{titleLine2}</Text>
           )}
         </View>
       </View>

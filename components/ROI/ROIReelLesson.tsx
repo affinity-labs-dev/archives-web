@@ -26,6 +26,7 @@ import {
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LessonPlayer from "../modules/LessonPlayer";
+import LoadingOverlay from "./LoadingOverlay";
 import type { ContentItem } from "./types";
 import RenderHtml from 'react-native-render-html';
 import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
@@ -478,13 +479,17 @@ export default function ROIReelLesson({
         waitFor={panGestureRef}
       >
         <View style={styles.container}>
-        {/* Full-screen Video Player */}
-        <LessonPlayer
-          videoSource={{ uri: videoUrl }}
-          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          autoPlay={true}
-          shouldLoop={true}
-        />
+        {/* Full-screen Video Player with inline loading */}
+        <View style={{ position: 'relative', flex: 1 }}>
+          <LessonPlayer
+            videoSource={{ uri: videoUrl }}
+            onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+            autoPlay={true}
+            shouldLoop={true}
+          />
+
+          <LoadingOverlay visible={!isVideoLoaded} />
+        </View>
 
         {/* Video Progress Bar */}
         <View style={styles.progressBarContainer}>
@@ -637,6 +642,7 @@ const styles = StyleSheet.create({
     bottom: -40,
     left: 0,
     right: 0,
+    zIndex: 30,  // Above loading overlay and all other UI
   },
 
   // Main reading card

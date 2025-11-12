@@ -27,6 +27,7 @@ import {
   State,
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import LoadingOverlay from "./LoadingOverlay";
 import type { ContentItem } from "./types";
 import RenderHtml from 'react-native-render-html';
 import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
@@ -93,6 +94,9 @@ export default function ROIImageCarouselLesson({
   // Walkthrough hint states
   const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
   const [showContinueHint, setShowContinueHint] = useState(false);
+
+  // Loading state for first image
+  const [isFirstImageLoaded, setIsFirstImageLoaded] = useState(false);
 
   // Animation values
   const cardHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
@@ -346,31 +350,39 @@ export default function ROIImageCarouselLesson({
             Platform.OS === 'android' && { width: SCREEN_WIDTH, height: SCREEN_HEIGHT }
           ]}>
         {/* Main carousel - full screen */}
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={handleScroll}
-          scrollEnabled={!isCardGestureActive}
-          style={styles.carousel}
-        >
-          {images.map((imageUrl, index) => (
-            <View key={index} style={styles.imageContainer}>
-              {/* Full screen image */}
-              <Image
-                source={{ uri: imageUrl }}
-                style={styles.carouselImage}
-                resizeMode="cover"
-              />
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handleScroll}
+            scrollEnabled={!isCardGestureActive}
+            style={styles.carousel}
+          >
+            {images.map((imageUrl, index) => (
+              <View key={index} style={styles.imageContainer}>
+                {/* Full screen image */}
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={styles.carouselImage}
+                  resizeMode="cover"
+                  onLoad={index === 0 ? () => {
+                    setIsFirstImageLoaded(true);
+                    console.log('🖼️ First image loaded');
+                  } : undefined}
+                />
 
-              {/* Text overlay with caption */}
-              <View style={styles.textOverlay}>
-                <Text style={styles.captionText}>{captions[index] || ''}</Text>
+                {/* Text overlay with caption */}
+                <View style={styles.textOverlay}>
+                  <Text style={styles.captionText}>{captions[index] || ''}</Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </ScrollView>
+
+          <LoadingOverlay visible={!isFirstImageLoaded} />
+        </View>
 
         {/* Back Button */}
         <View style={[styles.backButtonContainer, { top: insets.top + 8 }]}>

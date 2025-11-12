@@ -27,6 +27,7 @@ import {
   State,
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import LoadingOverlay from "./LoadingOverlay";
 import type { ContentItem } from "./types";
 import RenderHtml from 'react-native-render-html';
 import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
@@ -60,9 +61,10 @@ interface VideoItemProps {
   caption: string;
   index: number;
   isActive: boolean;
+  onReady?: () => void;  // Callback when video is ready to play
 }
 
-const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActive }) => {
+const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActive, onReady }) => {
   // PERFORMANCE: Enable video caching for 50-90% faster loading on repeated views
   const videoSource: VideoSource = useMemo(() => ({
     uri: videoUrl,
@@ -85,6 +87,14 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
       player.pause();
     }
   }, [isActive, player]);
+
+  // Notify parent when video is ready (call once)
+  useEffect(() => {
+    if (player && onReady) {
+      onReady();
+      console.log('📹 Video player ready');
+    }
+  }, [player, onReady]);
 
   return (
     <View style={styles.videoContainer}>
@@ -144,6 +154,9 @@ export default function ROIVideoCarouselLesson({
   // Walkthrough hint states
   const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
   const [showContinueHint, setShowContinueHint] = useState(false);
+
+  // Loading state for first video
+  const [isFirstVideoReady, setIsFirstVideoReady] = useState(false);
 
   // Animation values
   const cardHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
@@ -397,25 +410,30 @@ export default function ROIVideoCarouselLesson({
             Platform.OS === 'android' && { width: SCREEN_WIDTH, height: SCREEN_HEIGHT }
           ]}>
         {/* Main carousel - full screen */}
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={handleScroll}
-          scrollEnabled={!isCardGestureActive}
-          style={styles.carousel}
-        >
-          {videos.map((videoUrl, index) => (
-            <VideoCarouselItem
-              key={index}
-              videoUrl={videoUrl}
-              caption={captions[index] || ''}
-              index={index}
-              isActive={currentVideoIndex === index}
-            />
-          ))}
-        </ScrollView>
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handleScroll}
+            scrollEnabled={!isCardGestureActive}
+            style={styles.carousel}
+          >
+            {videos.map((videoUrl, index) => (
+              <VideoCarouselItem
+                key={index}
+                videoUrl={videoUrl}
+                caption={captions[index] || ''}
+                index={index}
+                isActive={currentVideoIndex === index}
+                onReady={index === 0 ? () => setIsFirstVideoReady(true) : undefined}
+              />
+            ))}
+          </ScrollView>
+
+          <LoadingOverlay visible={!isFirstVideoReady} />
+        </View>
 
         {/* Back Button */}
         <View style={[styles.backButtonContainer, { top: insets.top + 8 }]}>

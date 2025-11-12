@@ -51,6 +51,7 @@ export interface Adventure {
   readable_id: string;
   era_id: number;
   adventure_title: string;
+  adventure_description?: string;
   order_by: number;
   timeline: string;
   icon_url: string | null;
