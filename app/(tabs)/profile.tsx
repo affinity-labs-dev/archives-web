@@ -11,12 +11,19 @@ import ArchivesTheme from '@/constants/ArchivesTheme'
 import * as Haptics from 'expo-haptics'
 import { analyticsService } from '@/services/AnalyticsService'
 import { useFocusEffect } from '@react-navigation/native'
-import { useBadges } from '@/context/BadgeContext'
 import { useProgress } from '@/context/ProgressContext'
-import { useAvatars } from '@/context/AvatarContext'
 import { usePreferences } from '@/context/PreferencesContext'
+import { useRewards } from '@/context/RewardsContext'
 
 const { width: screenWidth } = Dimensions.get('window')
+
+// Helper to convert 24-hour time to 12-hour format with lowercase am/pm
+const formatTime24To12Hour = (time24: string): string => {
+  const [hours, minutes] = time24.split(':').map(Number)
+  const period = hours >= 12 ? 'pm' : 'am'
+  const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+  return `${hour12} ${period}`
+}
 
 // Helper to get avatar image - static mapping (database image_url → actual file)
 const AVATAR_IMAGE_MAP: Record<string, any> = {
@@ -173,8 +180,18 @@ export default function ProfileTab() {
   const { signOut } = useAuth()
   const { user } = useUser()
   const router = useRouter()
-  const { badges, userBadges, calculateTotalXP, loading: badgesLoading } = useBadges()
   const { moduleProgress } = useProgress()
+  const {
+    avatars,
+    badges,
+    unlockedAvatars,
+    unlockedBadges,
+    selectedAvatar,
+    setSelectedAvatar,
+    isUnlocked,
+    loading: rewardsLoading
+  } = useRewards()
+  const { dailyGoal, reminderTime, setReminderTime, loading: preferencesLoading } = usePreferences()
 
   // Calculate totalXP from module progress (each correct answer = 10 XP)
   const totalXP = React.useMemo(() => {
@@ -192,18 +209,17 @@ export default function ProfileTab() {
     console.log('✅ [Profile] Total XP calculated:', calculated)
     return calculated
   }, [moduleProgress])
-  const { avatarTypes, selectedAvatar: dbSelectedAvatar, setSelectedAvatar: setDbSelectedAvatar, isAvatarUnlocked, loading: avatarsLoading } = useAvatars()
-  const { dailyGoal, reminderTime, setReminderTime, loading: preferencesLoading } = usePreferences()
 
-  // Debug: Log badges data
-  console.log('📊 Badges loaded:', badges.length)
-  console.log('📊 User badges:', userBadges.length)
-  console.log('📊 Total XP:', totalXP)
-  console.log('🎭 Avatar types loaded:', avatarTypes.length)
-  console.log('🎭 Current selected avatar:', dbSelectedAvatar?.name)
+  // Debug: Log rewards data
+  console.log('🎁 Avatars loaded:', avatars.length)
+  console.log('🎁 Badges loaded:', badges.length)
+  console.log('🎁 Unlocked avatars:', unlockedAvatars.length)
+  console.log('🎁 Unlocked badges:', unlockedBadges.length)
+  console.log('🎁 Total XP:', totalXP)
+  console.log('🎁 Current selected avatar:', selectedAvatar?.display_text)
 
   // Get current avatar (use first avatar as default if none selected)
-  const currentAvatar = dbSelectedAvatar || avatarTypes[0]
+  const currentAvatar = selectedAvatar || avatars[0]
 
   // Calculate modules finished (ONLY unique modules with quizScore)
   const uniqueModules = new Map<string, any>()
@@ -224,31 +240,77 @@ export default function ProfileTab() {
   // Get joined year from Clerk
   const joinedYear = user?.createdAt ? new Date(user.createdAt).getFullYear() : new Date().getFullYear()
 
-  // Get XP badges from database (ACH_EarnedXP) with images
+  // Get XP badges from database - Calculate earned status locally based on totalXP
+  console.log('🎁 [Profile] ALL badges from RewardsContext:', badges.map(b => `${b.name}: ${b.display_text} (threshold: ${b.unlock_threshold})`))
+
+  // Get ALL XP badges - filter by unlock_metric (dynamic, works with any number of badges)
   const xpBadges = badges
-    .filter(b => b.name === 'ACH_EarnedXP')
-    .sort((a, b) => a.level - b.level)
-    .map(b => ({
-      ...b,
-      earned: userBadges.some(ub => ub.badge?.name === b.name && ub.badge?.level === b.level),
-      imagePath: `${b.name}_${b.level}.png`
-    }))
+    .filter(b => b.unlock_metric === 'xp')
+    .map(b => {
+      // Calculate earned status locally based on totalXP (single source of truth)
+      const earned = totalXP >= (b.unlock_threshold || 0)
 
-  // Get monthly badges from database (ACH_MonthlyActive) with images
+      console.log(`🎁 [Profile] Badge: ${b.display_text} | Threshold: ${b.unlock_threshold} | Image: ${b.image_url} | Earned: ${earned}`)
+
+      return {
+        ...b,
+        earned: earned,
+        imagePath: b.image_url
+      }
+    })
+    .sort((a, b) => (a.unlock_threshold || 0) - (b.unlock_threshold || 0)) // Sort by THRESHOLD (dynamic!)
+
+  console.log('🎁 [Profile] XP Badges Summary:', xpBadges.map(b => `${b.display_text} (${b.unlock_threshold}): ${b.earned ? 'EARNED ✅' : 'LOCKED ❌'}`).join(', '))
+
+  // Calculate XP progress - show position on FULL scale (matches node positioning)
+  const maxThreshold = xpBadges[xpBadges.length - 1]?.unlock_threshold || 1
+  const xpProgress = Math.min((totalXP / maxThreshold) * 100, 100)
+
+  console.log('🎁 [Profile] XP Progress:', {
+    totalXP,
+    maxThreshold,
+    progress: xpProgress.toFixed(1) + '%'
+  })
+
+  // Get monthly badges - Filter by unlock_metric (dynamic)
   const monthlyBadges = badges
-    .filter(b => b.name === 'ACH_MonthlyActive')
-    .sort((a, b) => b.level - a.level) // Descending order so October (highest level) appears first
-    .map(b => ({
-      ...b,
-      earned: userBadges.some(ub => ub.badge?.name === b.name && ub.badge?.level === b.level),
-      imagePath: `${b.name}_${b.level}.png`
-    }))
+    .filter(b => b.unlock_metric === 'months_active')
+    .map(b => {
+      // Extract level from name (e.g., 'ACH_MonthlyActive_1' → 1)
+      const level = parseInt(b.name.split('_').pop() || '0')
+      // Threshold IS the month number (1-12)
+      const monthNumber = b.unlock_threshold || 0
 
-  console.log('📊 [Profile] Monthly badges:', monthlyBadges.map(b => `${b.displayName} (L${b.level}) - earned: ${b.earned}`))
+      console.log(`\n🎁 [Profile] Checking Monthly Badge: ${b.display_text} (Month ${monthNumber})`)
 
-  // Calculate XP progress to next badge
-  const nextXPBadge = xpBadges.find(b => !b.earned)
-  const xpProgress = nextXPBadge ? Math.min((totalXP / nextXPBadge.threshold) * 100, 100) : 100
+      // Check if user unlocked any modules in this specific month (any year)
+      const earned = moduleProgress.some(m => {
+        // Check if module has required data: quizScore and unlockedAt
+        if (!m.quizScore || !m.unlockedAt) {
+          return false
+        }
+
+        // Extract month from ISO string (format: "2025-11-09T..." -> month = "11")
+        const monthString = m.unlockedAt.substring(5, 7)
+        const completionMonth = parseInt(monthString, 10)
+
+        const isMatch = completionMonth === monthNumber
+
+        console.log(`   📅 Module ${m.adventureId}-${m.moduleId}: unlockedAt=${m.unlockedAt}, Month=${completionMonth} - ${isMatch ? '✅ MATCH' : '❌'}`)
+
+        return isMatch
+      })
+
+      console.log(`   🏆 Badge ${b.display_text}: ${earned ? 'EARNED ✅' : 'LOCKED ❌'}`)
+
+      return {
+        ...b,
+        level,
+        earned: earned,
+        imagePath: b.image_url
+      }
+    })
+    .sort((a, b) => b.level - a.level) // Descending order (October appears first)
 
   // Profile state - EXACT SwiftUI values
   const [showAvatarModal, setShowAvatarModal] = useState(false)
@@ -288,8 +350,8 @@ export default function ProfileTab() {
 
   const handleAvatarSelection = (avatar: any) => {
     Haptics.selectionAsync()
-    console.log('🎭 Avatar selected:', avatar.name, avatar.id)
-    setDbSelectedAvatar(avatar)
+    console.log('🎁 Avatar selected:', avatar.display_text, avatar.id)
+    setSelectedAvatar(avatar)
     setShowAvatarModal(false)
   }
 
@@ -516,14 +578,14 @@ export default function ProfileTab() {
         {/* Header with Profile Title and Settings Button */}
         <View style={styles.header}>
           <Text style={styles.profileTitle}>Profile</Text>
-          <TouchableOpacity 
-            style={styles.settingsButton} 
+          <TouchableOpacity
+            style={styles.settingsButton}
             onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             setShowSettingsModal(true)
           }}
           >
-            <MaterialIcons name="settings" size={24} color={ArchivesTheme.colors.mutedNavy} />
+            <Ionicons name="settings-outline" size={28} color={ArchivesTheme.colors.persianOrange} />
           </TouchableOpacity>
         </View>
         
@@ -544,7 +606,7 @@ export default function ProfileTab() {
           </TouchableOpacity>
 
           <Text style={styles.userName}>{displayName}</Text>
-          <Text style={styles.avatarSubtitle}>{currentAvatar?.name} • {currentAvatar?.role}</Text>
+          <Text style={styles.avatarSubtitle}>{currentAvatar?.display_text} • {currentAvatar?.subtitle}</Text>
           <Text style={styles.joinedText}>Joined {joinedYear}</Text>
 
         </View>
@@ -567,22 +629,20 @@ export default function ProfileTab() {
           <Text style={styles.sectionTitle}>Monthly Badges</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesScroll}>
             {monthlyBadges.map((badge) => {
-              console.log('🎖️ Badge:', badge.displayName, 'Earned:', badge.earned, 'Level:', badge.level)
               return (
                 <View key={badge.id} style={styles.badgeContainer}>
                   <View style={styles.badgeImageContainer}>
                     <Image
                       source={getBadgeImage(badge.imagePath)}
-                      style={styles.badgeImage}
+                      style={[
+                        styles.badgeImage,
+                        !badge.earned && styles.badgeImageGrey
+                      ]}
                     />
                   </View>
-                  {badge.earned ? (
-                    <View style={styles.badgeLabelContainerEarned}>
-                      <Text style={styles.badgeLabelEarned}>{badge.displayName}</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.badgeLabel}>{badge.displayName}</Text>
-                  )}
+                  <View style={badge.earned ? styles.badgeLabelContainerEarned : styles.badgeLabelContainerLocked}>
+                    <Text style={badge.earned ? styles.badgeLabelEarned : styles.badgeLabel}>{badge.display_text}</Text>
+                  </View>
                 </View>
               )
             })}
@@ -593,50 +653,68 @@ export default function ProfileTab() {
         <View style={styles.achievementsTimelineSection}>
           <Text style={styles.sectionTitle}>Achievements</Text>
 
-          {/* Progress Bar with Nodes */}
-          <View style={styles.timelineProgressContainer}>
-            <View style={styles.timelineProgressBar}>
-              <View style={[styles.timelineProgressFill, { width: `${Math.min((totalXP / 550) * 100, 100)}%` }]} />
+          {/* Horizontal ScrollView containing both Progress Bar and Badges */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.timelineBadgesScroll}
+            contentContainerStyle={styles.timelineScrollContent}
+          >
+            <View style={styles.timelineContainer}>
+              {/* Progress Bar with Nodes */}
+              <View style={styles.timelineProgressContainer}>
+                <View style={[styles.timelineProgressBar, { width: xpBadges.length * 136 - 16 }]}>
+                  <View style={[styles.timelineProgressFill, { width: `${xpProgress}%` }]} />
 
-              {/* Nodes on progress bar */}
-              {xpBadges.map((badge, index) => {
-                const position = (badge.threshold / 550) * 100
-                return (
+                  {/* Nodes on progress bar - positioned to align with badge centers */}
+                  {xpBadges.map((badge, index) => {
+                    const badgeWidth = 120 // Badge image width
+                    const badgeMargin = 16 // Margin between badges
+                    const totalBadgeWidth = badgeWidth + badgeMargin // 136px
+                    const progressBarWidth = xpBadges.length * totalBadgeWidth - badgeMargin
+
+                    // Center of each badge: half badge width + (index * total badge width)
+                    const badgeCenterPosition = (badgeWidth / 2) + (index * totalBadgeWidth)
+                    const positionPercentage = (badgeCenterPosition / progressBarWidth) * 100
+
+                    return (
+                      <View
+                        key={badge.id}
+                        style={[
+                          styles.timelineNode,
+                          { left: `${positionPercentage}%` },
+                          badge.earned && styles.timelineNodeEarned
+                        ]}
+                      />
+                    )
+                  })}
+                </View>
+              </View>
+
+              {/* Badge Images Below Timeline */}
+              <View style={styles.timelineBadgesRow}>
+                {xpBadges.map((badge) => (
                   <View
                     key={badge.id}
-                    style={[
-                      styles.timelineNode,
-                      { left: `${position}%` },
-                      badge.earned && styles.timelineNodeEarned
-                    ]}
-                  />
-                )
-              })}
-            </View>
-          </View>
-
-          {/* Badge Cards Below Timeline */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timelineBadgesScroll}>
-            {xpBadges.map((badge) => (
-              <View
-                key={badge.id}
-                style={[
-                  styles.timelineBadgeCard,
-                  !badge.earned && styles.timelineBadgeCardLocked
-                ]}
-              >
-                <Image
-                  source={getBadgeImage(badge.imagePath)}
-                  style={styles.timelineBadgeImage}
-                />
-                <Text style={[
-                  styles.timelineBadgeText,
-                  !badge.earned && styles.timelineBadgeTextLocked
-                ]}>
-                  {badge.threshold} XP
-                </Text>
+                    style={styles.timelineBadgeContainer}
+                  >
+                    <Image
+                      source={getBadgeImage(badge.imagePath)}
+                      style={[
+                        styles.timelineBadgeImage,
+                        !badge.earned && styles.timelineBadgeImageLocked
+                      ]}
+                    />
+                    <Text style={[
+                      styles.timelineBadgeText,
+                      !badge.earned && styles.timelineBadgeTextLocked
+                    ]}>
+                      {badge.display_text}
+                    </Text>
+                  </View>
+                ))}
               </View>
-            ))}
+            </View>
           </ScrollView>
         </View>
 
@@ -670,7 +748,7 @@ export default function ProfileTab() {
               <Text style={styles.preferenceLabel}>Reminders</Text>
             </View>
             <View style={styles.preferenceRight}>
-              <Text style={styles.preferenceValue}>{reminderTime}</Text>
+              <Text style={styles.preferenceValue}>{formatTime24To12Hour(reminderTime)}</Text>
               <MaterialIcons name="chevron-right" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.3} />
             </View>
           </TouchableOpacity>
@@ -695,24 +773,24 @@ export default function ProfileTab() {
           <View style={styles.modalContainer}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <TouchableOpacity 
-                style={styles.closeButton}
+              <TouchableOpacity
+                style={styles.backButton}
                 onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 setShowAvatarModal(false)
               }}
               >
-                <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
+                <Ionicons name="chevron-back" size={28} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Choose Your Avatar</Text>
+              <Text style={styles.modalTitle}>Profile</Text>
               <View style={styles.closeButtonPlaceholder} />
             </View>
 
             {/* Avatar Grid */}
             <ScrollView style={styles.avatarGrid} showsVerticalScrollIndicator={false}>
               <View style={styles.avatarGridContainer}>
-                {avatarTypes.map((avatar) => {
-                  const isLocked = !isAvatarUnlocked(avatar.id)
+                {avatars.map((avatar) => {
+                  const isLocked = !isUnlocked(avatar.id)
 
                   return (
                     <TouchableOpacity
@@ -729,7 +807,7 @@ export default function ProfileTab() {
                     >
                       {/* Unlock message above avatar */}
                       {isLocked && (
-                        <Text style={styles.unlockMessage}>{avatar.unlock_message}</Text>
+                        <Text style={styles.unlockMessage}>{avatar.unlock_condition}</Text>
                       )}
 
                       <View style={[
@@ -756,11 +834,11 @@ export default function ProfileTab() {
                       <Text style={[
                         styles.avatarGridName,
                         isLocked && styles.avatarGridNameLocked
-                      ]}>{avatar.name}</Text>
+                      ]}>{avatar.display_text}</Text>
                       <Text style={[
                         styles.avatarGridTitle,
                         isLocked && styles.avatarGridTitleLocked
-                      ]}>{avatar.role}</Text>
+                      ]}>{avatar.subtitle}</Text>
                     </TouchableOpacity>
                   )
                 })}
@@ -1191,16 +1269,11 @@ const styles = StyleSheet.create({
     paddingBottom: 10, // Added bottom padding
   },
   profileTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 24,
-    fontWeight: '600', // SemiBold
-    color: '#41425E', // Exact color from gradient
+    fontFamily: 'Cormorant-Bold',
+    fontSize: 36,
+    fontWeight: '700',
+    color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'left',
-    lineHeight: 28, // Increased to 117% line height (24px * 1.17) to prevent clipping
-    letterSpacing: 0, // 0% letter spacing
-    marginBottom: 4,
-    paddingVertical: 2, // Added vertical padding to ensure text isn't clipped
-    paddingLeft: 8, // Added left padding like subscription text
   },
   settingsButton: {
     width: 44,
@@ -1271,7 +1344,7 @@ const styles = StyleSheet.create({
   },
   avatarSubtitle: {
     fontFamily: 'DM Sans',
-    fontSize: 14,
+    fontSize: 18,
     color: ArchivesTheme.colors.persianOrange,
     textAlign: 'center',
     marginBottom: 4,
@@ -1322,7 +1395,6 @@ const styles = StyleSheet.create({
   badgeImageContainer: {
     width: 140,
     height: 140,
-    borderRadius: 70,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -1342,11 +1414,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignSelf: 'center',
   },
+  badgeLabelContainerLocked: {
+    backgroundColor: ArchivesTheme.colors.mutedNavy,
+    opacity: 0.3,
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    alignSelf: 'center',
+  },
   badgeLabel: {
     fontFamily: 'DM Sans',
     fontSize: 11,
-    color: ArchivesTheme.colors.mutedNavy,
-    opacity: 0.7,
+    color: ArchivesTheme.colors.creamWhite,
+    fontWeight: '600',
     textAlign: 'center',
   },
   badgeLabelEarned: {
@@ -1419,29 +1499,35 @@ const styles = StyleSheet.create({
   },
   timelineProgressContainer: {
     marginBottom: 24,
-    paddingHorizontal: 10,
+    paddingVertical: 8, // Add vertical padding for node space
+    overflow: 'visible', // Ensure nodes aren't clipped
   },
   timelineProgressBar: {
-    height: 6,
+    height: 8,
     backgroundColor: ArchivesTheme.colors.mutedNavy + '30',
-    borderRadius: 3,
+    borderRadius: 4,
     position: 'relative',
+    zIndex: 1,
+    overflow: 'visible', // Ensure nodes aren't clipped
   },
   timelineProgressFill: {
     height: '100%',
     backgroundColor: ArchivesTheme.colors.mossGreen,
-    borderRadius: 3,
+    borderRadius: 4,
+    zIndex: 1,
   },
   timelineNode: {
     position: 'absolute',
-    top: -5,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    top: '50%',
+    marginTop: -12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: ArchivesTheme.colors.mutedNavy + '30',
     borderWidth: 3,
     borderColor: ArchivesTheme.colors.creamWhite,
-    marginLeft: -8, // Center the node
+    marginLeft: -12,
+    zIndex: 2,
   },
   timelineNodeEarned: {
     backgroundColor: ArchivesTheme.colors.mossGreen,
@@ -1450,34 +1536,33 @@ const styles = StyleSheet.create({
     marginHorizontal: -20,
     paddingHorizontal: 20,
   },
-  timelineBadgeCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
+  timelineScrollContent: {
+    paddingRight: 20,
+    paddingVertical: 8, // Add vertical padding for nodes
+  },
+  timelineContainer: {
+    flexDirection: 'column',
+    overflow: 'visible', // Ensure nodes aren't clipped
+  },
+  timelineBadgesRow: {
+    flexDirection: 'row',
+  },
+  timelineBadgeContainer: {
     marginRight: 16,
     alignItems: 'center',
-    minWidth: 120,
-    borderWidth: 2,
-    borderColor: ArchivesTheme.colors.persianOrange,
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  timelineBadgeCardLocked: {
-    opacity: 0.4,
-    borderColor: ArchivesTheme.colors.mutedNavy + '40',
   },
   timelineBadgeImage: {
-    width: 80,
-    height: 80,
+    width: 120,
+    height: 120,
     resizeMode: 'contain',
     marginBottom: 8,
   },
+  timelineBadgeImageLocked: {
+    opacity: 0.3,
+  },
   timelineBadgeText: {
     fontFamily: 'DM Sans Bold',
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     color: ArchivesTheme.colors.persianOrange,
     textAlign: 'center',
@@ -1581,9 +1666,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   closeButtonPlaceholder: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
   },
   modalTitle: {
     fontFamily: 'Cormorant-Bold',
@@ -1621,7 +1712,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   avatarGridSelected: {
-    // Removed border - only one green circle indicator needed
     shadowColor: ArchivesTheme.colors.mossGreen,
     shadowOpacity: 0.3,
   },
