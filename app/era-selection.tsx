@@ -149,9 +149,18 @@ export default function EraSelection() {
       }
       
       const eraId = eraIdMap[selectedEra.title] || 'umayyad' // Default to umayyad
-      
+
       // Store selected era in context
       await setSelectedEra(eraId)
+
+      // Track era selection
+      analyticsService.trackEraSelected({
+        era_name: selectedEra.title,
+        era_id: eraId,
+        screen: 'era_selection',
+        context: 'onboarding',
+        selection_order: selectedEraIndex,
+      })
 
       // Mark onboarding as completed for returning users
       await AsyncStorage.setItem('onboarding_completed', 'true')

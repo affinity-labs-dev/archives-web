@@ -26,7 +26,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { analyticsService } from "@/services/AnalyticsService";
 import { usePostHog } from 'posthog-react-native';
-import { AppState } from 'react-native';
 import AvatarUnlockAnimation from "@/components/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
 import ConfettiEffect from "@/components/ConfettiEffect";
@@ -86,38 +85,14 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [posthog, isSignedIn, user]);
 
-  // App lifecycle tracking - foreground/background/close
-  React.useEffect(() => {
-    console.log('📊 [AppLifecycle] Setting up app state listener');
-
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      console.log('📊 [AppLifecycle] App state changed to:', nextAppState);
-
-      if (nextAppState === 'active') {
-        analyticsService.trackCustomEvent('app_foregrounded', {
-          previous_state: 'background',
-        });
-      } else if (nextAppState === 'background') {
-        analyticsService.trackCustomEvent('app_backgrounded', {
-          previous_state: 'active',
-        });
-      } else if (nextAppState === 'inactive') {
-        console.log('📊 [AppLifecycle] App transitioning to inactive state');
-      }
-    });
-
-    // Track initial app open
-    analyticsService.trackCustomEvent('app_opened', {
-      platform: Platform.OS,
-    });
-
-    return () => {
-      subscription?.remove();
-      analyticsService.trackCustomEvent('app_closed', {
-        platform: Platform.OS,
-      });
-    };
-  }, []);
+  // App lifecycle tracking is now handled by PostHog autocapture
+  // (captureAppLifecycleEvents: true in PostHog configuration)
+  // PostHog automatically captures:
+  // - Application Opened
+  // - Application Became Active
+  // - Application Backgrounded
+  // - Application Installed
+  // - Application Updated
 
   // Listen for notifications (both received and tapped)
   React.useEffect(() => {
@@ -300,6 +275,12 @@ export default function RootLayout() {
   // Create PostHog options with platform-specific configuration
   const posthogOptions = {
     host: posthogHost,
+    // Enable autocapture for automatic event tracking
+    autocapture: {
+      captureAppLifecycleEvents: true,  // Auto-track app open/foreground/background
+      captureTouches: false,             // Disable touch tracking (too noisy for educational app)
+      captureScreens: false,             // React Navigation v7 requires manual screen tracking
+    },
     // Enable session recording for mobile (disabled on web to prevent compatibility issues)
     enableSessionReplay: Platform.OS !== 'web',
     ...(Platform.OS !== 'web' && {

@@ -67,6 +67,10 @@ export default function ROIImageCarouselLesson({
   // Safe area insets for proper button positioning
   const insets = useSafeAreaInsets();
 
+  // Extract adventure number from adventureId (e.g., "roi_adventure_1" → 1)
+  const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
+  const moduleNumber = contentItem.order_by || 0;
+
   // Analytics tracking
   const {
     trackCardExpanded,
@@ -78,6 +82,10 @@ export default function ROIImageCarouselLesson({
     lessonType: "image_carousel",
     lessonTitle: contentItem.top_content?.title || "Unknown",
     screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
+    eraId: 2,
+    eraName: "riseOfIslam",
+    adventureNumber,
+    moduleNumber,
   });
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -202,7 +210,6 @@ export default function ROIImageCarouselLesson({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS,
       });
 
       if (state === State.END) {

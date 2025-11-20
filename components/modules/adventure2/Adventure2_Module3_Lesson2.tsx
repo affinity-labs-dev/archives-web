@@ -152,13 +152,13 @@ export default function Adventure2_Module3_Lesson2({
     
     if (event.nativeEvent.state === State.END) {
       const { translationY, velocityY } = event.nativeEvent;
-      console.log("📱 iOS PanGesture detected", { translationY, velocityY, isCardExpanded, platform: Platform.OS });
+      console.log("📱 iOS PanGesture detected", { translationY, velocityY, isCardExpanded });
       const minDistance = 20, minVelocity = 300;
       if (!isCardExpanded && (translationY < -minDistance || velocityY < -minVelocity)) {
-        console.log("📱 iOS PanGesture swipe up detected - expanding card", { translationY, velocityY, platform: Platform.OS });
+        console.log("📱 iOS PanGesture swipe up detected - expanding card", { translationY, velocityY });
         expandCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else if (isCardExpanded && (translationY > minDistance || velocityY > minVelocity)) {
-        console.log("📱 iOS PanGesture swipe down detected - collapsing card", { translationY, velocityY, platform: Platform.OS });
+        console.log("📱 iOS PanGesture swipe down detected - collapsing card", { translationY, velocityY });
         collapseCard(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }

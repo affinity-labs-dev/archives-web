@@ -24,6 +24,8 @@ import Svg, { Path } from 'react-native-svg'
 
 export default function OnboardingResultsScreen() {
   const [recommendedEra, setRecommendedEra] = useState('Rise of Islam')
+  const [screenStartTime] = useState(Date.now())
+  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { requestPermission } = useAppTrackingTransparency()
@@ -35,7 +37,17 @@ export default function OnboardingResultsScreen() {
     trackScreenView('Onboarding Results')
     loadRecommendation()
     trackOnboardingCompletion()
-  }, [trackScreenView])
+
+    // Track screen exit on unmount
+    return () => {
+      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
+      analyticsService.trackOnboardingScreenExited({
+        screen: 'onboarding_results',
+        exit_action: exitAction,
+        duration_seconds,
+      })
+    }
+  }, [trackScreenView, screenStartTime, exitAction])
 
   // Track onboarding completion with all answers
   const trackOnboardingCompletion = async () => {
@@ -57,11 +69,13 @@ export default function OnboardingResultsScreen() {
 
       // Track the completion
       analyticsService.trackOnboardingCompleted({
+        screen: 'onboarding_results',
+        context: 'onboarding',
         time_to_complete_seconds: timeToComplete,
-        q1_answer: q1,
-        q2_answer: q2,
-        q3_answer: q3,
-        q4_answer: q4,
+        onboarding_q1: q1,
+        onboarding_q2: q2,
+        onboarding_q3: q3,
+        onboarding_q4: q4,
       })
 
       console.log('🎯 [OnboardingResults] Onboarding completion tracked:', {
@@ -109,13 +123,23 @@ export default function OnboardingResultsScreen() {
       const attStatus = await requestPermission()
       console.log('🎯 [OnboardingResults] ATT permission result:', attStatus)
 
+      // Track ATT permission request
+      analyticsService.trackPermissionRequested({
+        permission_type: 'app_tracking_transparency',
+        screen: 'onboarding_results',
+        result: attStatus,
+        platform: Platform.OS,
+      })
+
       // Navigate to authentication page after ATT response
       // Note: The authentication screen will handle routing to appropriate tab after successful auth
       console.log('🎯 [OnboardingResults] Navigating to authentication page')
+      setExitAction('continued')
       router.push('/(auth)/archives-auth')
     } catch (error) {
       console.error('🎯 [OnboardingResults] Error during ATT request or navigation:', error)
       // Even if ATT fails, continue to authentication
+      setExitAction('continued')
       router.push('/(auth)/archives-auth')
     }
   }

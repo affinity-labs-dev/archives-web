@@ -136,6 +136,15 @@ export default function EraSelection() {
       // Store selected era in context
       await setSelectedEra(eraId)
 
+      // Track era selection
+      analyticsService.trackEraSelected({
+        era_name: selectedEra.title,
+        era_id: eraId,
+        screen: 'eras_tab',
+        context: 'era_switch',
+        selection_order: selectedEraIndex,
+      })
+
       // Navigate to home tab for both eras (content rendered in Home based on selectedEra)
       router.push('/(tabs)/')
     }

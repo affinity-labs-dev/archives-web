@@ -23,6 +23,7 @@ import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import Constants from 'expo-constants'
 import { notificationTokenSync } from '@/services/NotificationTokenSync'
+import { analyticsService } from '@/services/AnalyticsService'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -34,6 +35,8 @@ const questionOptions = [
 
 export default function OnboardingQuestion3Screen() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
+  const [screenStartTime] = useState(Date.now())
+  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
 
@@ -42,7 +45,17 @@ export default function OnboardingQuestion3Screen() {
   // Track screen view when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Question 3')
-  }, [trackScreenView])
+
+    // Track screen exit on unmount
+    return () => {
+      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
+      analyticsService.trackOnboardingScreenExited({
+        screen: 'onboarding_question_3',
+        exit_action: exitAction,
+        duration_seconds,
+      })
+    }
+  }, [trackScreenView, screenStartTime, exitAction])
 
   // Handle option selection
   const handleOptionSelect = async (optionIndex: number) => {
@@ -50,6 +63,15 @@ export default function OnboardingQuestion3Screen() {
       await Haptics.selectionAsync()
       setSelectedOption(optionIndex)
       console.log('🔥 [OnboardingQ3] Selected option:', questionOptions[optionIndex])
+
+      // Track question answer
+      analyticsService.trackOnboardingQuestionAnswered({
+        screen: 'onboarding_question_3',
+        question_number: 3,
+        question_text: "What's your daily learning goal?",
+        answer: questionOptions[optionIndex],
+        answer_index: optionIndex,
+      })
     } catch (error) {
       console.error('🔥 [OnboardingQ3] Error selecting option:', error)
       setSelectedOption(optionIndex)
@@ -69,6 +91,14 @@ export default function OnboardingQuestion3Screen() {
       // Request permission - this shows the iOS system modal
       const { status } = await Notifications.requestPermissionsAsync()
       console.log('🔔 Permission status:', status)
+
+      // Track notification permission request
+      analyticsService.trackPermissionRequested({
+        permission_type: 'push_notifications',
+        screen: 'onboarding_question_3',
+        result: status,
+        platform: Platform.OS,
+      })
 
       if (status === 'granted') {
         // Get Expo push token
@@ -146,10 +176,12 @@ export default function OnboardingQuestion3Screen() {
       }
 
       // Navigate to next question
+      setExitAction('continued')
       router.push('/onboarding-question-4')
     } catch (error) {
       console.error('🔥 [OnboardingQ3] Error saving answer:', error)
       // Continue anyway
+      setExitAction('continued')
       router.push('/onboarding-question-4')
     }
   }
@@ -158,9 +190,11 @@ export default function OnboardingQuestion3Screen() {
   const handleBack = async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      setExitAction('back_button')
       router.back()
     } catch (error) {
       console.error('🔥 [OnboardingQ3] Error going back:', error)
+      setExitAction('back_button')
       router.back()
     }
   }

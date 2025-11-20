@@ -22,13 +22,17 @@ import {
 import { VideoView, useVideoPlayer } from 'expo-video'
 import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { useAnalytics } from '@/hooks/useAnalytics'
+import { analyticsService } from '@/services/AnalyticsService'
 
 export default function ArchivesAuthScreen() {
   // Get route parameters
   const { mode } = useLocalSearchParams()
-  
+
   // State management (exact replica of SwiftUI)
   const [isSignInMode, setIsSignInMode] = useState(mode === 'signin') // Set based on route parameter
+  const [screenStartTime] = useState(Date.now())
+  const [exitAction, setExitAction] = useState<'authenticated' | 'back_button' | 'app_closed'>('app_closed')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -44,6 +48,7 @@ export default function ArchivesAuthScreen() {
   const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn()
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp()
   const router = useRouter()
+  const { trackScreenView } = useAnalytics()
 
   // Video player for waving animation
   const videoSource = require('@/assets/videos/wavinganimation.mp4')
@@ -52,6 +57,27 @@ export default function ArchivesAuthScreen() {
     player.muted = true
     player.play()
   })
+
+  // Track screen view on mount
+  React.useEffect(() => {
+    const currentMode = isSignInMode ? 'signin' : 'signup'
+    trackScreenView('Auth')
+    analyticsService.trackAuthScreenViewed({
+      screen: 'archives_auth',
+      mode: currentMode,
+    })
+
+    // Track screen exit on unmount
+    return () => {
+      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
+      analyticsService.trackAuthScreenExited({
+        screen: 'archives_auth',
+        exit_action: exitAction,
+        duration_seconds,
+        mode: currentMode,
+      })
+    }
+  }, [trackScreenView, screenStartTime, exitAction, isSignInMode])
 
   // Debug: Log video player status
   React.useEffect(() => {
@@ -62,6 +88,7 @@ export default function ArchivesAuthScreen() {
   // Navigation handlers
   const onBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    setExitAction('back_button')
     router.back()
   }
 
@@ -233,7 +260,7 @@ export default function ArchivesAuthScreen() {
               </TouchableOpacity>
 
               <View style={styles.titleContainer}>
-                <Text style={styles.titleText}>Let's get you started</Text>
+                <Text style={styles.titleText}>Let&apos;s get you started</Text>
               </View>
 
               <View style={styles.spacer} />
@@ -270,14 +297,41 @@ export default function ArchivesAuthScreen() {
             {/* Social Sign In Buttons */}
             <View style={styles.socialButtonsContainer}>
               <AppleSignInButton
-                onSuccess={async () => {
+                onPress={() => {
+                  // Track method selection
+                  analyticsService.trackAuthMethodSelected({
+                    screen: 'archives_auth',
+                    auth_method: 'apple',
+                    mode: isSignInMode ? 'signin' : 'signup',
+                  })
+                }}
+                onSuccess={async (isNewUser: boolean) => {
                   setIsLoading(false)
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+
+                  // Track success
+                  analyticsService.trackAuthSucceeded({
+                    screen: 'archives_auth',
+                    auth_method: 'apple',
+                    mode: isSignInMode ? 'signin' : 'signup',
+                    is_new_user: isNewUser,
+                  })
+
+                  setExitAction('authenticated')
                   await onContinue()
                 }}
                 onError={(error) => {
                   setIsLoading(false)
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+
+                  // Track failure
+                  analyticsService.trackAuthFailed({
+                    screen: 'archives_auth',
+                    auth_method: 'apple',
+                    mode: isSignInMode ? 'signin' : 'signup',
+                    error_message: error.message || 'Apple Sign In failed',
+                  })
+
                   setErrorMessage('Apple Sign In failed. Please try again.')
                   setShowError(true)
                   console.error('Apple Sign In Error:', error)
@@ -285,14 +339,41 @@ export default function ArchivesAuthScreen() {
               />
 
               <GoogleSignInButton
-                onSuccess={async () => {
+                onPress={() => {
+                  // Track method selection
+                  analyticsService.trackAuthMethodSelected({
+                    screen: 'archives_auth',
+                    auth_method: 'google',
+                    mode: isSignInMode ? 'signin' : 'signup',
+                  })
+                }}
+                onSuccess={async (isNewUser: boolean) => {
                   setIsLoading(false)
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+
+                  // Track success
+                  analyticsService.trackAuthSucceeded({
+                    screen: 'archives_auth',
+                    auth_method: 'google',
+                    mode: isSignInMode ? 'signin' : 'signup',
+                    is_new_user: isNewUser,
+                  })
+
+                  setExitAction('authenticated')
                   await onContinue()
                 }}
                 onError={(error) => {
                   setIsLoading(false)
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+
+                  // Track failure
+                  analyticsService.trackAuthFailed({
+                    screen: 'archives_auth',
+                    auth_method: 'google',
+                    mode: isSignInMode ? 'signin' : 'signup',
+                    error_message: error.message || 'Google Sign In failed',
+                  })
+
                   setErrorMessage('Google Sign In failed. Please try again.')
                   setShowError(true)
                   console.error('Google Sign In Error:', error)
@@ -304,6 +385,15 @@ export default function ArchivesAuthScreen() {
                 style={styles.emailButton}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+
+                  // Track method selection
+                  analyticsService.trackAuthMethodSelected({
+                    screen: 'archives_auth',
+                    auth_method: 'email',
+                    mode: isSignInMode ? 'signin' : 'signup',
+                  })
+
+                  setExitAction('authenticated') // User continuing auth flow
                   router.push({
                     pathname: '/(auth)/email-details',
                     params: { mode: isSignInMode ? 'signin' : 'signup' }

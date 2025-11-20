@@ -142,7 +142,6 @@ export default function Adventure1_Module3_Lesson2({
       isLoaded: backgroundMusic.isLoaded,
       isPlaying: backgroundMusic.isPlaying,
       isLoading: backgroundMusic.isLoading || false, // Android may not have isLoading
-      platform: Platform.OS
     });
     
     // Additional debugging for audio file loading (AWS CloudFront)
@@ -253,7 +252,6 @@ export default function Adventure1_Module3_Lesson2({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS
       });
 
       if (state === State.END) {

@@ -128,7 +128,6 @@ export default function ROIQuizResults({
       correct_answers: correctAnswers,
       total_questions: totalQuestions,
       total_points: totalPoints,
-      screen_url: '/roi/quiz-results',
     });
     console.log(`📊 [Analytics] Quiz Results Retake Clicked: ${percentage}%`);
 
@@ -144,7 +143,6 @@ export default function ROIQuizResults({
       correct_answers: correctAnswers,
       total_questions: totalQuestions,
       total_points: totalPoints,
-      screen_url: '/roi/quiz-results',
     });
     console.log(`📊 [Analytics] Quiz Results Continue Clicked: ${percentage}%`);
 

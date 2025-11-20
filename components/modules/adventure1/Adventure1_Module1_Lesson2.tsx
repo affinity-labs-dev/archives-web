@@ -249,7 +249,6 @@ export default function Adventure1_Module1_Lesson2({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS
       });
 
       // iOS-optimized swipe detection with improved sensitivity
@@ -261,7 +260,6 @@ export default function Adventure1_Module1_Lesson2({
         console.log("📱 iOS PanGesture swipe up detected - expanding card", {
           translationY,
           velocityY,
-          platform: Platform.OS
         });
         expandCard();
       } else if (isCardExpanded &&
@@ -269,7 +267,6 @@ export default function Adventure1_Module1_Lesson2({
         console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
           translationY,
           velocityY,
-          platform: Platform.OS
         });
         collapseCard();
       }

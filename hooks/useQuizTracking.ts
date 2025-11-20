@@ -3,15 +3,30 @@ import { useEffect, useRef, useCallback } from 'react';
 import { analyticsService } from '@/services/AnalyticsService';
 
 interface UseQuizTrackingProps {
-  adventureId: number;
-  moduleId: number;
+  adventureId: number | string; // Support both Era 1 (number) and Era 2 (string)
+  moduleId: number | string;    // Support both Era 1 (number) and Era 2 (UUID string)
   totalQuestions: number;
+  // Era context for funnel analysis
+  eraId?: number;              // 1 = Umayyad, 2 = Rise of Islam
+  eraName?: string;            // "umayyad" | "riseOfIslam"
+  adventureNumber?: number;    // 1-5 for cross-era comparison
+  moduleNumber?: number;       // 1-3 for cross-era comparison
+  quizId?: string;             // Quiz identifier (optional)
+  quizTitle?: string;          // Quiz title for tracking (optional)
+  screenUrl?: string;          // Screen URL for PostHog activity tracking
 }
 
 export function useQuizTracking({
   adventureId,
   moduleId,
-  totalQuestions
+  totalQuestions,
+  eraId,
+  eraName,
+  adventureNumber,
+  moduleNumber,
+  quizId,
+  quizTitle,
+  screenUrl
 }: UseQuizTrackingProps) {
   const startTimeRef = useRef<number>(Date.now());
   const hasStartedRef = useRef(false);
@@ -25,6 +40,13 @@ export function useQuizTracking({
         adventure_id: adventureId,
         module_id: moduleId,
         total_questions: totalQuestions,
+        era_id: eraId,
+        era_name: eraName,
+        adventure_number: adventureNumber,
+        module_number: moduleNumber,
+        quiz_id: quizId,
+        quiz_title: quizTitle,
+        $current_url: screenUrl,
       });
       hasStartedRef.current = true;
     }
@@ -38,7 +60,7 @@ export function useQuizTracking({
         console.log(`📊 [QuizTracking] Quiz abandoned: ${adventureId}-${moduleId} after ${questionsAnswered}/${totalQuestions} questions`);
       }
     };
-  }, [adventureId, moduleId, totalQuestions]);
+  }, [adventureId, moduleId, totalQuestions, eraId, eraName, adventureNumber, moduleNumber, quizId, quizTitle, screenUrl]);
 
   // Track individual question answered
   const trackQuestionAnswered = useCallback((questionNumber: number, isCorrect: boolean, timeTaken: number) => {
@@ -51,8 +73,14 @@ export function useQuizTracking({
       question_number: questionNumber,
       is_correct: isCorrect,
       time_taken_seconds: timeTaken,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
+      quiz_id: quizId,
+      $current_url: screenUrl,
     });
-  }, [adventureId, moduleId]);
+  }, [adventureId, moduleId, eraId, eraName, adventureNumber, moduleNumber, quizId, screenUrl]);
 
   // Track quiz completion
   const trackQuizComplete = useCallback((score: number, correctAnswers: number, isRetake: boolean = false) => {
@@ -67,8 +95,15 @@ export function useQuizTracking({
       total_questions: totalQuestions,
       time_spent_seconds: timeSpent,
       is_retake: isRetake,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
+      quiz_id: quizId,
+      quiz_title: quizTitle,
+      $current_url: screenUrl,
     });
-  }, [adventureId, moduleId, totalQuestions]);
+  }, [adventureId, moduleId, totalQuestions, eraId, eraName, adventureNumber, moduleNumber, quizId, quizTitle, screenUrl]);
 
   // Track quiz retake
   const trackQuizRetake = useCallback((previousScore: number) => {
@@ -82,8 +117,14 @@ export function useQuizTracking({
       adventure_id: adventureId,
       module_id: moduleId,
       previous_score: previousScore,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
+      quiz_id: quizId,
+      $current_url: screenUrl,
     });
-  }, [adventureId, moduleId]);
+  }, [adventureId, moduleId, eraId, eraName, adventureNumber, moduleNumber, quizId, screenUrl]);
 
   return {
     trackQuestionAnswered,

@@ -27,6 +27,7 @@ import ROIQuizResults from './ROIQuizResults';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import XPMilestoneScreen from './XPMilestoneScreen';
 import { Modal } from 'react-native';
+import { analyticsService } from '@/services/AnalyticsService';
 
 interface ROIQuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
@@ -278,6 +279,10 @@ export default function ROIQuiz({
   const insets = useSafeAreaInsets();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
 
+  // Extract adventure number from adventureId (e.g., "roi_adventure_1" → 1)
+  const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
+  const moduleNumber = contentItem.order_by || 0;
+
   // Analytics tracking
   const {
     trackQuestionAnswered,
@@ -285,9 +290,14 @@ export default function ROIQuiz({
   } = useQuizTracking({
     adventureId,
     moduleId,
+    totalQuestions: questions.length,
     quizId: contentItem.id || moduleId,
     quizTitle: contentItem.thumbnail_title || "Unknown",
     screenUrl: `/roi/${adventureId}/${moduleId}/quiz`,
+    eraId: 2,
+    eraName: "riseOfIslam",
+    adventureNumber,
+    moduleNumber,
   });
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -449,6 +459,21 @@ export default function ROIQuiz({
 
     console.log('💾 [NEW] Saving quiz completion:', moduleData);
     await saveNewProgressData(moduleData);
+
+    // Track module completed event (critical for funnel analysis)
+    analyticsService.trackCustomEvent('module_completed', {
+      adventure_id: adventureId,
+      module_id: moduleId,
+      quiz_score: quizScore,
+      correct_answers: correctAnswers,
+      total_questions: totalQuestions,
+      era_id: 2,
+      era_name: "riseOfIslam",
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
+      $current_url: `/roi/${adventureId}/${moduleId}/quiz`,
+    });
+    console.log('📊 [Analytics] Module completed event tracked');
 
     // Load updated Era 2 progress to calculate new XP (AFTER saving)
     const updatedNewModulesData = await AsyncStorage.getItem('new_user_progress');

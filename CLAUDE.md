@@ -4,25 +4,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Quick Start
 
-**Essential commands for immediate development:**
+**Essential commands:**
 ```bash
-npm install                           # Install dependencies
-npx expo start                        # Start dev server (i=iOS, a=Android, w=web)
-npm run start                         # Alternative: start dev server
-npm run lint                          # Run linting (REQUIRED before commits)
-npx expo start --clear                # Clear Metro cache (fixes module resolution)
-npm run android                       # Run on Android device/emulator
-npm run ios                           # Run on iOS simulator/device
-npm run web                           # Run on web browser
-eas build --platform ios --profile development  # Create development build
-eas update --branch [channel]         # Push OTA update to specified channel
+npm install                           # Install dependencies (requires Node 20.19.4)
+npx expo start                        # Dev server (i=iOS, a=Android, w=web)
+npm run lint                          # REQUIRED before commits
+npx expo start --clear                # Clear Metro cache
+eas build --platform ios --profile development  # Dev build
+eas update --branch production        # Push OTA update
 ```
 
-**First files to understand:**
-- `app/_layout.tsx` - Provider hierarchy (PostHog → Clerk → BackgroundSync → Progress)
-- `context/ProgressContext.tsx` - Atomic progress tracking (NEVER access AsyncStorage directly)
-- `constants/ArchivesTheme.ts` - Design system (ALWAYS use these constants)
+**Architecture entry points:**
+- `app/_layout.tsx` - Provider hierarchy, initialization order critical
+- `context/ProgressContext.tsx` - Atomic progress updates, XP calculation (NEVER use AsyncStorage directly)
+- `constants/ArchivesTheme.ts` - Design system colors/spacing (ALWAYS use)
 - `services/SimplifiedSyncService.ts` - Cloud sync with Supabase JSONB
+- `Adventure1_Module1_Lesson1.tsx` - Best lesson implementation reference
+
+**Common code patterns:**
+```typescript
+// Progress updates (CORRECT)
+await atomicProgressUpdate(adventureId, moduleId, {
+  type: 'LESSON_COMPLETED',
+  lessonId: 'lesson1'
+})
+
+// Design system (CORRECT)
+import ArchivesTheme from '@/constants/ArchivesTheme';
+color: ArchivesTheme.colors.persianOrange
+
+// WRONG - Never do these
+await AsyncStorage.setItem(...)  // ❌ Use ProgressContext
+color: '#C99151'                 // ❌ Use ArchivesTheme
+```
 
 ## Critical Rules
 
@@ -35,6 +49,7 @@ eas update --branch [channel]         # Push OTA update to specified channel
 6. **Component naming**: `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
 7. **Clean commits**: Run `rm -f *.ipa *.apk build-*.ipa` before committing
 8. **Cross-platform impact analysis** - Before answering ANY questions about layout, styling, positioning, or UI changes, ALWAYS analyze how the change will affect BOTH iOS and Android. Check platform-specific component behavior (SafeAreaView, StatusBar, etc.), different layout structures, and margin/padding/positioning differences. Include both iOS and Android impact analysis in your response.
+9. **JSX text content** - ALWAYS use curly quotes or escape apostrophes in JSX text. Use `'` or `'` for apostrophes, `"` and `"` for quotes. Never use straight quotes (`'` or `"`) in user-facing text as they trigger `react/no-unescaped-entities` lint errors.
 
 ## Architecture Overview
 
@@ -51,7 +66,18 @@ PostHogProvider (analytics from app launch)
                             └── Stack Navigation (routing)
 ```
 
-**Critical flow:** BackgroundSync waits for Clerk auth, then syncs cloud data BEFORE ProgressContext loads AsyncStorage (prevents data overwrite).
+**Critical initialization sequence:**
+1. PostHog initializes (conditional on iOS ATT permission)
+2. Clerk authenticates user
+3. BackgroundSync fetches cloud data (waits for Clerk)
+4. ProgressContext loads local AsyncStorage AFTER cloud sync completes
+5. This order prevents cloud data from being overwritten by stale local data
+
+**Key architectural patterns:**
+- **Web-compatible storage wrapper** in ProgressContext prevents SSR issues on web platform
+- **Centralized XP calculation** in ProgressContext (`calculateXPForEra`, `calculateTotalXP`) with era-specific rules
+- **Dual era system**: Legacy (Umayyad) vs New (ROI) with separate contexts but shared provider hierarchy
+- **Font loading critical path**: DM Sans + Cormorant must load before splash screen hides (prevents flash)
 
 ### Progress System Architecture
 
@@ -127,14 +153,17 @@ components/
 
 ## Environment Configuration
 
-**Required in `eas.json` for builds (local dev uses `.env`):**
-```bash
-EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY      # Authentication
-EXPO_PUBLIC_SUPABASE_URL                # Database
-EXPO_PUBLIC_SUPABASE_ANON_KEY          # Database (public)
-EXPO_PUBLIC_POSTHOG_API_KEY            # Analytics
-EXPO_PUBLIC_REVENUECAT_IOS_API_KEY     # Subscriptions
-```
+**Development setup:**
+- Local dev: Create `.env` file with required keys (not in repo)
+- EAS builds: All env vars configured in `eas.json` under `build.base.env`
+- Required variables for all environments:
+  - `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` - Authentication
+  - `EXPO_PUBLIC_SUPABASE_URL` - Database
+  - `EXPO_PUBLIC_SUPABASE_ANON_KEY` - Database (public)
+  - `EXPO_PUBLIC_POSTHOG_API_KEY` - Analytics
+  - `EXPO_PUBLIC_POSTHOG_HOST` - Analytics host
+  - `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` - iOS subscriptions
+  - `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` - Android subscriptions
 
 ## Common Development Tasks
 
@@ -171,13 +200,20 @@ eas update --branch production --message "Your update message"
 - All profiles inherit from `base` (includes all env vars)
 - Each profile has its own update channel for OTA updates
 
-### Debug device-specific features
+### Testing requirements
+**Always test on both iOS AND Android** - This is a production app with real users on both platforms.
+
+**Simulator/Emulator testing:**
+- Most features work on simulators
+- Quick iteration during development
+
 **Physical device required for:**
-- Push notifications
-- Apple Sign-In
-- Background audio
-- Haptic feedback
-- Subscription flows
+- Push notifications (cannot test on simulator)
+- Apple Sign-In (requires device with Face ID/Touch ID)
+- Background audio (simulator has limitations)
+- Haptic feedback (no haptics on simulator)
+- Subscription flows (RevenueCat requires real device)
+- Full Universal Links / App Links testing
 
 ### Working with Progress System
 
@@ -207,267 +243,44 @@ await atomicProgressUpdate(adventureId, moduleId, {
 
 ## Lesson Types & Content Development
 
-**6 lesson types with comprehensive docs in `/docs/lesson-types/`:**
-1. **Video + Reading** - Primary format (see `Adventure1_Module1_Lesson1.tsx`)
-2. **Image Carousel** - Swipeable galleries (see `Adventure1_Module2_Lesson1.tsx`)
-3. **Video Carousel** - Video series
-4. **Static Image Reading** - Hero image + text
-5. **Scrollable Media View** - Mixed media storytelling
-6. **Quiz System** - MCQ, True/False, drag-and-drop with sound effects (correct/incorrect/reward)
+**6 lesson types - detailed docs in `/docs/lesson-types/`:**
+
+| Type | Best Reference | Key Features |
+|------|---------------|-------------|
+| **Video + Reading** | `Adventure1_Module1_Lesson1.tsx` | expo-video player, expandable card, ultra-smooth progress animations |
+| **Image Carousel** | `Adventure1_Module2_Lesson1.tsx` | Swipeable gallery, background music, caption overlays |
+| **Video Carousel** | `components/ROI/ROIVideoCarouselLesson.tsx` | Multiple videos, modern useVideoPlayer hooks |
+| **Static Image Reading** | See lesson docs | Hero image + scrollable text |
+| **Scrollable Media View** | See lesson docs | Mixed media storytelling |
+| **Quiz System** | `QuizSystem.tsx` | MCQ/True-False/Drag-drop, sound effects, star ratings |
+
+**Best reference lesson:** `Adventure1_Module1_Lesson1.tsx` has complete animation system, cross-platform gestures, video completion detection, progress tracking integration.
 
 **Content status:**
-- **Umayyad Dynasty**: Complete (5 adventures, 15 modules, 30 lessons, 15 quizzes)
-- **Rise of Islam**: Adventure 1 Module 1 complete (rest in development)
+- **Umayyad Dynasty (Era 1)**: Complete (5 adventures, 15 modules, 30 lessons, 15 quizzes)
+- **Rise of Islam (Era 2)**: Adventure 1 Module 1 complete, reusable components created
 
 ## Walkthrough Hints System
 
-**Implementation:** First-time-only conditional timing-based hints with AsyncStorage persistence
+**First-time-only hints** with AsyncStorage persistence (flags in `constants/WalkthroughKeys.ts`)
 
-**Current scope:**
-- ✅ Umayyad Dynasty: Adventure 1, Module 1, Lessons 1 & 2 (reel format)
-- ✅ Umayyad Dynasty: Adventure 1, Module 2, Lesson 1 (image carousel format)
-- ✅ Rise of Islam: ROIReelLesson, ROIImageCarouselLesson, ROIVideoCarouselLesson
+**Behavior:**
+- Two global flags: `REEL` and `CAROUSEL` (shared across all eras)
+- Shows once per lesson type across entire app lifetime
+- **Reel lessons:** Percentage-based hints at 20-30%, 50-60%, 95%+ (read) and 30-40%, 60-70%, 100%+ (continue)
+- **Carousel lessons:** "abovedots" hint always visible, "continue" appears on last slide
+- Hints disappear instantly if user expands reading card
 
-**First-time detection:**
-- Uses AsyncStorage flags in `constants/WalkthroughKeys.ts`
-- Two flags: `REEL` (for reel lessons) and `CAROUSEL` (for carousel lessons)
-- Flags are shared across both Umayyad Dynasty and Rise of Islam eras
-- User sees walkthrough hints only the FIRST time they open ANY reel or carousel lesson
-- Once marked as "seen", hints never appear again (persists across app sessions)
-- Flag saved to AsyncStorage when user taps continue button (completes lesson)
+**Key implementation details:**
+- Assets: `/assets/images/walkthrough/` (read.svg, continue.svg, abovedots.svg)
+- Styling: `pointerEvents: 'none'`, `zIndex: 15-25`, responsive positioning via `SCREEN_HEIGHT` percentages
+- SVG aspect ratios: read (180×73), continue (150×60), abovedots (180×81)
+- Save flag on lesson completion via `AsyncStorage.setItem(WALKTHROUGH_KEYS.REEL/CAROUSEL, 'true')`
 
-**Timeline for reel lessons (when walkthroughEnabled):**
-- **Percentage-based timing** tied to video progress (not wall-clock time)
-- **Read hint triggers:** Shows at 20-30%, 50-60%, 95%+ of video progress (10% duration each)
-- **Continue hint triggers:** Shows at 30-40%, 60-70%, 100%+ of video progress (10% duration each)
-- **Logic:** Hints appear/disappear based on video playback percentage for consistent UX across different video lengths
-
-**Exception:** If user expands reading card → Both hints disappear immediately and never show again for that lesson.
-
-**Timeline for carousel lessons (when walkthroughEnabled):**
-- **"abovedots" hint:** Always visible while walkthrough enabled
-- **"continue" hint:** Appears ONLY when user reaches last image/video, then stays visible
-- **Logic:** User swipes through carousel → reaches last slide → continue hint appears
-
-**Assets:** Located in `/assets/images/walkthrough/`
-- `read.svg` - Points to reading card (reel lessons: shows at 3s and video end)
-- `continue.svg` - Points to Next button (shows after read hint at video end / on last carousel item)
-- `abovedots.svg` - Points above carousel dots (carousel lessons only, always visible when walkthroughEnabled)
-
-**AsyncStorage constants:**
-```typescript
-// constants/WalkthroughKeys.ts
-export const WALKTHROUGH_KEYS = {
-  REEL: 'hasSeenReelWalkthrough',
-  CAROUSEL: 'hasSeenCarouselWalkthrough',
-} as const;
-```
-
-**Technical implementation for reel lessons:**
-```typescript
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
-
-// State variables
-const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
-const [showReadHint, setShowReadHint] = useState(false);
-const [showContinueHint, setShowContinueHint] = useState(false);
-const [hasEverExpandedCard, setHasEverExpandedCard] = useState(false);
-
-// Check if user has seen reel walkthrough before
-useEffect(() => {
-  const checkWalkthrough = async () => {
-    try {
-      const hasSeenReel = await AsyncStorage.getItem(WALKTHROUGH_KEYS.REEL);
-      if (hasSeenReel !== 'true') {
-        setWalkthroughEnabled(true);
-        console.log('👁️ Reel walkthrough enabled - first time');
-      } else {
-        console.log('👁️ Reel walkthrough disabled - already seen');
-      }
-    } catch (error) {
-      console.error('❌ Error checking reel walkthrough:', error);
-    }
-  };
-  checkWalkthrough();
-}, []);
-
-// Percentage-based hint timing
-useEffect(() => {
-  if (!walkthroughEnabled || hasEverExpandedCard) return;
-
-  // Read hint triggers: 20-30%, 50-60%, 95%+ (10% duration)
-  if ((videoProgress >= 0.20 && videoProgress < 0.30) ||
-      (videoProgress >= 0.50 && videoProgress < 0.60) ||
-      (videoProgress >= 0.95)) {
-    if (!showReadHint) {
-      setShowReadHint(true);
-      console.log(`👁️ Read hint shown at ${Math.round(videoProgress * 100)}%`);
-    }
-  } else {
-    if (showReadHint) {
-      setShowReadHint(false);
-      console.log(`👁️ Read hint hidden at ${Math.round(videoProgress * 100)}%`);
-    }
-  }
-
-  // Continue hint triggers: 30-40%, 60-70%, 100%+ (10% duration)
-  if ((videoProgress >= 0.30 && videoProgress < 0.40) ||
-      (videoProgress >= 0.60 && videoProgress < 0.70) ||
-      (videoProgress >= 1.0)) {
-    if (!showContinueHint) {
-      setShowContinueHint(true);
-      console.log(`👁️ Continue hint shown at ${Math.round(videoProgress * 100)}%`);
-    }
-  } else {
-    if (showContinueHint && videoProgress < 1.0) {
-      setShowContinueHint(false);
-      console.log(`👁️ Continue hint hidden at ${Math.round(videoProgress * 100)}%`);
-    }
-  }
-}, [videoProgress, walkthroughEnabled, hasEverExpandedCard, showReadHint, showContinueHint]);
-
-// Hide both hints when card expands
-useEffect(() => {
-  if (isCardExpanded && !hasEverExpandedCard) {
-    setShowReadHint(false);
-    setShowContinueHint(false);
-    setHasEverExpandedCard(true);
-    console.log('👁️ Both hints hidden - card expanded');
-  }
-}, [isCardExpanded, hasEverExpandedCard]);
-
-// Save flag when user completes lesson
-const handleContinue = async () => {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-  try {
-    await AsyncStorage.setItem(WALKTHROUGH_KEYS.REEL, 'true');
-    console.log('✅ Reel walkthrough marked as seen');
-  } catch (error) {
-    console.error('❌ Error saving reel walkthrough flag:', error);
-  }
-
-  onContinue();
-};
-
-// JSX rendering
-{showReadHint && (
-  <View style={styles.readHintContainer}>
-    <Image
-      source={require('@/assets/images/walkthrough/read.svg')}
-      style={styles.readHintImage}
-      contentFit="contain"
-    />
-  </View>
-)}
-
-{showContinueHint && (
-  <View style={[styles.continueHintContainer, { top: insets.top + 8 }]}>
-    <Image
-      source={require('@/assets/images/walkthrough/continue.svg')}
-      style={styles.continueHintImage}
-      contentFit="contain"
-    />
-  </View>
-)}
-```
-
-**Technical implementation for carousel lessons:**
-```typescript
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
-
-// State variables
-const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
-const [showContinueHint, setShowContinueHint] = useState(false);
-
-// Check if user has seen carousel walkthrough before
-useEffect(() => {
-  const checkWalkthrough = async () => {
-    try {
-      const hasSeenCarousel = await AsyncStorage.getItem(WALKTHROUGH_KEYS.CAROUSEL);
-      if (hasSeenCarousel !== 'true') {
-        setWalkthroughEnabled(true);
-        console.log('👁️ Carousel walkthrough enabled - first time');
-      } else {
-        console.log('👁️ Carousel walkthrough disabled - already seen');
-      }
-    } catch (error) {
-      console.error('❌ Error checking carousel walkthrough:', error);
-    }
-  };
-  checkWalkthrough();
-}, []);
-
-// Show continue hint when on last image/video (only if walkthrough enabled)
-useEffect(() => {
-  if (walkthroughEnabled && currentImageIndex === images.length - 1) {
-    setShowContinueHint(true);
-    console.log('👁️ Continue hint shown - last image reached');
-  } else {
-    setShowContinueHint(false);
-  }
-}, [walkthroughEnabled, currentImageIndex, images.length]);
-
-// Save flag when user completes lesson
-const handleContinue = async () => {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-  try {
-    await AsyncStorage.setItem(WALKTHROUGH_KEYS.CAROUSEL, 'true');
-    console.log('✅ Carousel walkthrough marked as seen');
-  } catch (error) {
-    console.error('❌ Error saving carousel walkthrough flag:', error);
-  }
-
-  onContinue();
-};
-
-// JSX rendering
-{walkthroughEnabled && (
-  <View style={styles.aboveDotsHintContainer}>
-    <Image
-      source={require('@/assets/images/walkthrough/abovedots.svg')}
-      style={styles.aboveDotsHintImage}
-      contentFit="contain"
-    />
-  </View>
-)}
-
-{walkthroughEnabled && showContinueHint && (
-  <View style={styles.continueHintContainer}>
-    <Image
-      source={require('@/assets/images/walkthrough/continue.svg')}
-      style={styles.continueHintImage}
-      contentFit="contain"
-    />
-  </View>
-)}
-```
-
-**Styling:**
-- `pointerEvents: 'none'` - Hints don't block interactions
-- `zIndex: 15-25` - Below expanded cards, above other content
-- No animations - instant show/hide
-- Positioned absolutely over lesson content
-- **SVG aspect ratios MUST match source files** to prevent whitespace:
-  - `read.svg` (198×80): Use width 180, height 73
-  - `continue.svg` (120×48): Use width 150, height 60
-  - `abovedots.svg` (176×79): Use width 180, height 81
-- **Responsive positioning** using `SCREEN_HEIGHT` percentages (not hardcoded pixels):
-  - Carousel dots: `bottom: SCREEN_HEIGHT * 0.22`
-  - Above dots hint: `bottom: SCREEN_HEIGHT * 0.25`
-  - Read hint: `bottom: COLLAPSED_HEIGHT - (SCREEN_HEIGHT * 0.01)`
-  - Continue hint: `top: insets.top + 8` with `right: 16 + BUTTON_SIZE + 10`
-
-**Files implementing walkthrough:**
-- `components/modules/adventure1/Adventure1_Module1_Lesson1.tsx` (Umayyad reel)
-- `components/modules/adventure1/Adventure1_Module1_Lesson2.tsx` (Umayyad reel)
-- `components/modules/adventure1/Adventure1_Module2_Lesson1.tsx` (Umayyad image carousel)
-- `components/ROI/ROIReelLesson.tsx` (ROI reel - reusable)
-- `components/ROI/ROIImageCarouselLesson.tsx` (ROI image carousel - reusable)
-- `components/ROI/ROIVideoCarouselLesson.tsx` (ROI video carousel - reusable)
+**Reference implementations:**
+- `components/modules/adventure1/Adventure1_Module1_Lesson1.tsx` (reel with percentage timing)
+- `components/modules/adventure1/Adventure1_Module2_Lesson1.tsx` (image carousel)
+- `components/ROI/ROIReelLesson.tsx`, `ROIImageCarouselLesson.tsx`, `ROIVideoCarouselLesson.tsx` (reusable)
 
 ### Specialized Claude Code Agents
 
@@ -555,53 +368,31 @@ console.log('🔔 Notification')    // Push notifications
 
 ## Platform-Specific Notes
 
-**🚀 PRODUCTION STATUS: Both iOS and Android are LIVE in production**
-- **CRITICAL**: All features, UI changes, and functionality MUST work on BOTH platforms
-- Test on both iOS and Android before committing any changes
-- Cross-platform compatibility is mandatory - no platform-specific bugs allowed
+**🚀 PRODUCTION STATUS: Both iOS and Android are LIVE**
+- Test ALL changes on both platforms before committing
+- Physical device required for: notifications, Apple Sign-In, background audio, haptics, subscriptions
 
-**iOS:**
-- Bundle ID: `ai.affinitylabs.archivesexpo`
-- Team ID: `LQ9LP2WW94`
-- App Store ID: `6751173663`
-- Build number: Auto-increments via EAS (currently 83)
-- Status: **LIVE on App Store**
-- Requires physical device for: notifications, Apple Sign-In
-- Background modes: remote-notification
-- Universal Links: Configured via `link.archiveszone.app` (deep linking support)
+**iOS (App Store):**
+- Bundle: `ai.affinitylabs.archivesexpo` | Team: `LQ9LP2WW94` | App ID: `6751173663`
+- Build number auto-increments on production builds (check app.json for current)
+- Universal Links via `link.archiveszone.app`
 
-**Android:**
+**Android (Play Store):**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code auto-increments (currently 18)
-- Status: **LIVE on Google Play Store**
-- Edge-to-edge: Disabled
-- App Links: SHA-256 fingerprint in `assetlinks.json` must match Google Play Console
+- Version code auto-increments on production builds (check app.json for current)
+- Edge-to-edge disabled
+- App Links SHA-256: Must match console fingerprint
 
-**Cross-platform:**
-- EAS Project ID: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `2.2.7` (from app.json)
-- Runtime version: `1.0.0`
-- New Architecture: Enabled
-- Fonts: DM Sans, Cormorant (loaded in _layout.tsx - MUST load before splash screen hides)
-- **Development requirement**: ALL code must be tested on both iOS and Android simulators/devices before deployment
+**Shared:**
+- EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
+- App version: `2.2.7` (check app.json for current)
+- Runtime: `1.0.0` | Expo SDK: 54
+- New Architecture: Enabled (React Native 0.81.5)
 
-## Current Development Status
+## Important Patterns & Development Context
 
-**Git branch:** master
-**Production Status:** 🚀 **LIVE on App Store and Google Play Store**
-**Recent focus:** Walkthrough hints timing logic (reel lessons), Universal Links/deep linking, RevenueCat intro offers, quiz sound effects, era selection UI, cross-platform compatibility
-
-**Known limitations:**
-- Push notifications require physical device
-- Video preloading can be slow initially
-- Background sync may delay in poor network
-
-**Development priorities:**
-- Maintain cross-platform compatibility (iOS and Android)
-- Ensure all features work identically on both platforms
-- Test thoroughly on both iOS and Android before deployment
-
-## Important Patterns
+**Current status:** Branch `master` | Both platforms LIVE in production
+(Check git log for recent work and current development focus)
 
 ### Local-First with Transparent Sync
 ```
@@ -628,57 +419,32 @@ iOS requires ATT permission before analytics initialization - PostHog wrapped co
 Push notification tokens automatically synced to Supabase on registration and app launch.
 
 ### Universal Links & App Links (Deep Linking)
-**Domain:** `link.archiveszone.app` configured for both iOS and Android
+**Domain:** `link.archiveszone.app` - OS intercepts HTTPS links before browser, app opens directly
 
-**How it works:**
-- User clicks `https://link.archiveszone.app/anything`
-- iOS/Android OS intercepts HTTPS link (before browser opens)
-- App opens directly with seamless UX (Duolingo-style)
-- Expo Router automatically handles routing to correct screen
+**Configuration:**
+- iOS: `public/.well-known/apple-app-site-association` + `associatedDomains` in app.json (20min verification)
+- Android: `public/.well-known/assetlinks.json` + `intentFilters` with `autoVerify: true` + SHA-256 fingerprint
+- Expo Router handles routing automatically
 
-**iOS Universal Links (Configured):**
-- Verification file: `public/.well-known/apple-app-site-association`
-- App config: `associatedDomains` in app.json
-- Works automatically after app install (~20 min verification)
-
-**Android App Links (Configured):**
-- Verification file: `public/.well-known/assetlinks.json`
-- App config: `intentFilters` in app.json with `autoVerify: true`
-- Native manifest: HTTPS intent filter with `android:autoVerify="true"`
-- SHA-256 fingerprint: `DB:00:7D:4D:EB:F5:75:79:D9:73:AD:F7:C1:0E:63:65:BC:B9:3F:72:D2:A2:33:DF:2B:FA:8A:C6:FC:89:29:B3`
-
-**Testing deep links:**
+**Testing:**
 ```bash
-# Verify files are accessible
+# Verify files accessible
 curl https://link.archiveszone.app/.well-known/apple-app-site-association
-curl https://link.archiveszone.app/.well-known/assetlinks.json
-
-# Check Android verification status
-adb shell dumpsys package domain-preferred-apps | grep -A 5 archivesexpo
-
-# Real test: Send link via Messages/WhatsApp/Email and click it
-# Expected: App opens directly (no browser)
+# Test: Send link via Messages, click should open app (not browser)
 ```
 
-**Troubleshooting:**
-- Wait ~20 minutes after app install for verification
-- Some apps (Facebook, WhatsApp) block Universal Links for security
-- If app not installed → Interstitial page shows with download button
-- Android verification issues → Check SHA-256 matches in Google Play Console
+**Troubleshooting:** Wait 20min post-install | Some apps block links | Check SHA-256 in Play Console
 
 ### Subscription Intro Offers
 RevenueCat integration checks intro offer eligibility (iOS only) and displays "1 MONTH FREE" banner for eligible users dynamically.
 
 ## Testing Checklist
 
-Before submitting code:
-- [ ] Run `npm run lint` and report any errors to user (don't auto-fix)
-- [ ] **CRITICAL: Test on BOTH iOS and Android simulators** (production requirement)
-- [ ] **Verify feature works identically on both platforms**
-- [ ] Test critical features on physical device (if applicable)
+Before committing:
+- [ ] `npm run lint` - Report errors (don't auto-fix)
+- [ ] Test on iOS AND Android simulators
+- [ ] Physical device testing if using: notifications, auth, audio, haptics, subscriptions
+- [ ] Verify progress persists after restart
+- [ ] AsyncStorage only via ProgressContext (never direct)
 - [ ] Remove build artifacts (`rm -f *.ipa *.apk`)
-- [ ] Verify progress persists after app restart
-- [ ] Check AsyncStorage usage (must use ProgressContext)
-- [ ] Ensure commit messages don't include Claude attribution
-- [ ] Verify cross-platform UI consistency (layout, spacing, colors)
-- [ ] Test on different screen sizes (iOS and Android)
+- [ ] No Claude attribution in commit messages

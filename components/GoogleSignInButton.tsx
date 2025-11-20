@@ -20,16 +20,18 @@ export const useWarmUpBrowser = () => {
 }
 
 interface GoogleSignInButtonProps {
-  onSuccess?: () => void
-  onError?: (error: string) => void
+  onPress?: () => void
+  onSuccess?: (isNewUser: boolean) => void
+  onError?: (error: { message: string }) => void
 }
 
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
+  onPress: onPressCallback = () => {},
   onSuccess = () => {},
   onError = () => {},
 }) => {
   useWarmUpBrowser()
-  
+
   const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' })
   const { setActive } = useSessionList()
   const { signUp, setActive: setActiveSignUp } = useSignUp()
@@ -40,6 +42,10 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
   const onPress = React.useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Call onPress callback for tracking
+    onPressCallback()
+
     try {
       setIsLoading(true)
 
@@ -63,7 +69,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         // Track session login
         analyticsService.trackUserSessionIn('google')
 
-        onSuccess()
+        onSuccess(false) // Existing session = not a new user
       } else {
         // Handle additional steps like MFA if needed
         if (signIn?.status === 'complete') {
@@ -75,7 +81,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           // Track session login
           analyticsService.trackUserSessionIn('google')
 
-          onSuccess()
+          onSuccess(false) // Sign in = not a new user
         } else if (signUp?.status === 'complete') {
           console.log('Sign up complete, setting session')
           if (setActive && typeof setActive === 'function' && signUp.createdSessionId) {
@@ -90,12 +96,12 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
             })
           }
 
-          onSuccess()
+          onSuccess(true) // Sign up = new user
         } else if (signUp?.status === 'missing_requirements') {
           // Handle missing name requirements from Google Sign In
           console.log('Sign up missing requirements - showing name collection modal')
           console.log('SignUp object:', signUp)
-          
+
           // Extract user email from sign up attempt
           const email = signUp?.emailAddress || signUp?.primaryEmailAddress?.emailAddress
           setUserEmail(email)
@@ -106,7 +112,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         } else {
           console.log('OAuth incomplete:', { signIn: signIn?.status, signUp: signUp?.status })
           const errorMsg = 'Authentication incomplete. Please try again.'
-          onError(errorMsg)
+          onError({ message: errorMsg })
           Alert.alert('Authentication Error', errorMsg)
         }
       }
@@ -120,42 +126,42 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         
         if (clerkError.code === 'oauth_access_denied') {
           const errorMsg = 'Google sign-in was cancelled.'
-          onError(errorMsg)
+          onError({ message: errorMsg })
           // Don't show alert for user cancellation
         } else if (clerkError.code === 'session_exists') {
           console.log('User already authenticated - calling onSuccess')
-          onSuccess() // User is already signed in, treat as success
+          onSuccess(false) // User is already signed in, treat as success
           return // Don't show error alert
         } else if (clerkError.code === 'strategy_for_user_invalid') {
           const errorMsg = 'Google sign-in is not available for this account. Try signing in with email and password instead.'
-          onError(errorMsg)
+          onError({ message: errorMsg })
           Alert.alert('Sign In Error', errorMsg)
         } else if (clerkError.code === 'oauth_invalid_request') {
           const errorMsg = 'There was a problem with Google sign-in configuration. Please try again or use email sign-in.'
-          onError(errorMsg)
+          onError({ message: errorMsg })
           Alert.alert('Configuration Error', errorMsg)
         } else if (clerkError.code === 'identifier_already_signed_up') {
           const errorMsg = 'An account with this Google email already exists. Please sign in instead.'
-          onError(errorMsg)
+          onError({ message: errorMsg })
           Alert.alert('Account Exists', errorMsg)
         } else if (clerkError.message?.includes('missing_requirements')) {
           const errorMsg = 'Additional information needed to complete sign-up.'
-          onError(errorMsg)
+          onError({ message: errorMsg })
           // This should be handled above, but just in case
         } else {
           const errorMsg = clerkError.longMessage || clerkError.message || 'Google sign-in failed'
-          onError(errorMsg)
+          onError({ message: errorMsg })
           Alert.alert('Google Sign In Error', errorMsg)
         }
       } else {
         const errorMsg = 'Failed to sign in with Google. Please try again or use email sign-in.'
-        onError(errorMsg)
+        onError({ message: errorMsg })
         Alert.alert('Sign In Error', errorMsg)
       }
     } finally {
       setIsLoading(false)
     }
-  }, [startOAuthFlow, setActive, onSuccess, onError])
+  }, [startOAuthFlow, setActive, onSuccess, onError, onPressCallback])
 
   // Handle name collection submission
   const handleNameSubmission = React.useCallback(async (firstName: string, lastName: string) => {
@@ -191,7 +197,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         setShowNameCollection(false)
         setIncompleteSignUp(null)
         setUserEmail(undefined)
-        onSuccess()
+        onSuccess(true) // Name collection completion = new user
       } else {
         console.log('Sign up still incomplete after name update:', result.status)
         throw new Error('Unable to complete sign up. Please try again.')
@@ -207,7 +213,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     setShowNameCollection(false)
     setIncompleteSignUp(null)
     setUserEmail(undefined)
-    onError('Sign up cancelled')
+    onError({ message: 'Sign up cancelled' })
   }, [onError])
 
   return (

@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
+import { analyticsService } from '@/services/AnalyticsService'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -32,6 +33,8 @@ const questionOptions = [
 
 export default function OnboardingQuestion2Screen() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
+  const [screenStartTime] = useState(Date.now())
+  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
 
@@ -40,7 +43,17 @@ export default function OnboardingQuestion2Screen() {
   // Track screen view when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Question 2')
-  }, [trackScreenView])
+
+    // Track screen exit on unmount
+    return () => {
+      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
+      analyticsService.trackOnboardingScreenExited({
+        screen: 'onboarding_question_2',
+        exit_action: exitAction,
+        duration_seconds,
+      })
+    }
+  }, [trackScreenView, screenStartTime, exitAction])
 
   // Handle option selection
   const handleOptionSelect = async (optionIndex: number) => {
@@ -48,6 +61,15 @@ export default function OnboardingQuestion2Screen() {
       await Haptics.selectionAsync()
       setSelectedOption(optionIndex)
       console.log('🔥 [OnboardingQ2] Selected option:', questionOptions[optionIndex])
+
+      // Track question answer
+      analyticsService.trackOnboardingQuestionAnswered({
+        screen: 'onboarding_question_2',
+        question_number: 2,
+        question_text: "How did you learn about Archives?",
+        answer: questionOptions[optionIndex],
+        answer_index: optionIndex,
+      })
     } catch (error) {
       console.error('🔥 [OnboardingQ2] Error selecting option:', error)
       setSelectedOption(optionIndex)
@@ -72,10 +94,12 @@ export default function OnboardingQuestion2Screen() {
       console.log('🔥 [OnboardingQ2] Answer saved:', answerData)
 
       // Navigate to next question
+      setExitAction('continued')
       router.push('/onboarding-question-3')
     } catch (error) {
       console.error('🔥 [OnboardingQ2] Error saving answer:', error)
       // Continue anyway
+      setExitAction('continued')
       router.push('/onboarding-question-3')
     }
   }
@@ -84,9 +108,11 @@ export default function OnboardingQuestion2Screen() {
   const handleBack = async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      setExitAction('back_button')
       router.back()
     } catch (error) {
       console.error('🔥 [OnboardingQ2] Error going back:', error)
+      setExitAction('back_button')
       router.back()
     }
   }

@@ -94,7 +94,10 @@ export default function AdventureCompleteScreen({
         total_xp: displayXP,
         completed_modules: displayCompletedModules,
         total_modules: totalModulesCount,
-        screen_url: `/roi/${adventure.readable_id}/complete`,
+        era_id: 2,
+        era_name: "riseOfIslam",
+        adventure_number: adventure.order_by || parseInt(adventure.readable_id.split('_')[2] || '0', 10),
+        // $current_url auto-captured by PostHog
       });
       console.log(`📊 [Analytics] Adventure Completed: ${adventure.readable_id} (XP: ${displayXP}, Modules: ${displayCompletedModules}/${totalModulesCount})`);
       setHasTrackedCompletion(true);
@@ -139,7 +142,10 @@ export default function AdventureCompleteScreen({
       analyticsService.trackCustomEvent('adventure_complete_continue', {
         adventure_id: adventure.readable_id,
         adventure_title: adventure.adventure_title,
-        screen_url: `/roi/${adventure.readable_id}/complete`,
+        era_id: 2,
+        era_name: "riseOfIslam",
+        adventure_number: adventure.order_by || parseInt(adventure.readable_id.split('_')[2] || '0', 10),
+        // $current_url auto-captured by PostHog
       });
       console.log(`📊 [Analytics] Adventure Complete Continue: ${adventure.readable_id}`);
     }

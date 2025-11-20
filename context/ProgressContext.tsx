@@ -197,12 +197,13 @@ export const getROIAdventureStats = (newModules: any[], adventureId: string): { 
 };
 
 // Initial data for Umayyad Dynasty Era (Adventure IDs 1-5)
+// All adventures unlocked by default (no progressive unlock system)
 const INITIAL_ADVENTURE_DATA: AdventureProgress[] = [
-  { adventureId: 1, isUnlocked: true, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 1 (unlocked by default)
-  { adventureId: 2, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 2
-  { adventureId: 3, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 3
-  { adventureId: 4, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 4
-  { adventureId: 5, isUnlocked: false, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 5
+  { adventureId: 1, isUnlocked: true, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 1
+  { adventureId: 2, isUnlocked: true, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 2
+  { adventureId: 3, isUnlocked: true, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 3
+  { adventureId: 4, isUnlocked: true, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 4
+  { adventureId: 5, isUnlocked: true, modulesCompleted: 0, totalModules: 3 }, // Umayyad Adventure 5
 ]
 
 export function ProgressProvider({ children }: { children: React.ReactNode }) {
@@ -509,8 +510,16 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     return score <= 2 ? 1 : score <= 4 ? 2 : 3
   }, [getModuleProgress])
 
-  // Validate module unlocking based on sequential completion - PERFORMANCE: Memoized
+  // Validate module unlocking - PERFORMANCE: Memoized
+  // For Umayyad Dynasty: All modules unlocked (no progressive unlock)
+  // For other eras: Sequential completion required
   const isModuleUnlocked = useCallback((adventureId: number, moduleId: number): boolean => {
+    // For Umayyad Dynasty (adventures 1-5): All modules are unlocked
+    if (adventureId >= 1 && adventureId <= 5) {
+      return true
+    }
+
+    // For other eras: Use sequential unlock logic
     const adventure = getAdventureProgress(adventureId)
 
     if (!adventure?.isUnlocked) return false

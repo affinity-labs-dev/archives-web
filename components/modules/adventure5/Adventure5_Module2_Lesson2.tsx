@@ -135,7 +135,6 @@ export default function Adventure5_Module2_Lesson2({
         isLoaded: backgroundMusic.isLoaded,
         isPlaying: backgroundMusic.isPlaying,
         isLoading: backgroundMusic.isLoading || false,
-        platform: Platform.OS,
         error: backgroundMusic.error || "No error",
       }
     );
@@ -265,7 +264,6 @@ export default function Adventure5_Module2_Lesson2({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS,
       });
 
       if (state === State.END) {

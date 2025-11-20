@@ -19,7 +19,7 @@ export default function Index() {
       // Identify session start point
       posthog.capture('app_entry_point', {
         screen: 'index',
-        timestamp: Date.now(),
+        // $timestamp auto-captured by PostHog
         is_signed_in: isSignedIn,
         is_loaded: isLoaded,
       })

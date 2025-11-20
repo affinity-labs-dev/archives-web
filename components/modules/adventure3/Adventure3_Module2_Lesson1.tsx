@@ -252,7 +252,6 @@ export default function Adventure3_Module2_Lesson1({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS,
       });
 
       // Only process swipe if gesture completed successfully

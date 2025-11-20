@@ -174,7 +174,7 @@ export default function Adventure2_Module2_Lesson1({
     }
 
     if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      console.log("📱 Gesture state:", state, {translationY, velocityY, isCardExpanded, platform: Platform.OS});
+      console.log("📱 Gesture state:", state, {translationY, velocityY, isCardExpanded});
 
       if (state === State.END) {
         const minDistance = 20;

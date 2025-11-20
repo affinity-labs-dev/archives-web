@@ -95,7 +95,6 @@ export default function Adventure4_Module3_Lesson2({
       isLoaded: backgroundMusic.isLoaded,
       isPlaying: backgroundMusic.isPlaying,
       isLoading: backgroundMusic.isLoading || false,
-      platform: Platform.OS
     });
 
     if (!backgroundMusic.isLoaded && !(backgroundMusic.isLoading)) {
@@ -176,7 +175,6 @@ export default function Adventure4_Module3_Lesson2({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS,
       });
 
       // Only process swipe if gesture completed successfully

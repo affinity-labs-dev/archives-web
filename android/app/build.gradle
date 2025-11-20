@@ -92,7 +92,7 @@ android {
         applicationId 'ai.affinitylabs.archivesexpo'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 17
+        versionCode 18
         versionName "2.2.7"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
@@ -154,6 +154,7 @@ android {
 
 dependencies {
     implementation "io.github.hyochan.openiap:openiap-google:1.2.10"
+
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

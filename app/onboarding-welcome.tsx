@@ -3,9 +3,10 @@
 
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { analyticsService } from '@/services/AnalyticsService'
 import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Image,
   Platform,
@@ -21,13 +22,25 @@ import Svg, { Path } from 'react-native-svg'
 export default function OnboardingWelcomeScreen() {
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
+  const [screenStartTime] = useState(Date.now())
+  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   console.log('📱 [OnboardingWelcome] Component initializing...')
 
   // Track screen view when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Welcome')
-  }, [trackScreenView])
+
+    // Track screen exit on unmount
+    return () => {
+      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
+      analyticsService.trackOnboardingScreenExited({
+        screen: 'onboarding_welcome',
+        exit_action: exitAction,
+        duration_seconds,
+      })
+    }
+  }, [trackScreenView, screenStartTime, exitAction])
 
   // Continue to first question
   const handleContinue = async () => {
@@ -37,9 +50,11 @@ export default function OnboardingWelcomeScreen() {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
       }
       console.log('📱 [OnboardingWelcome] Continuing to first question')
+      setExitAction('continued')
       router.replace('/onboarding-question-1')
     } catch (error) {
       console.error('📱 [OnboardingWelcome] Error navigating:', error)
+      setExitAction('continued')
       router.replace('/onboarding-question-1')
     }
   }

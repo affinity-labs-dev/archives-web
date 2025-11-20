@@ -121,14 +121,12 @@ export default function ROIAdventureSummary({
           total_xp: totalXP,
           total_modules: totalModules,
           total_stars: totalStars,
-          screen_url: `/roi/${adventure?.readable_id}/summary`,
         });
         console.log(`📊 [Analytics] Adventure Summary Viewed: ${adventure?.readable_id}`);
       } else {
         analyticsService.trackCustomEvent('streak_milestone_viewed', {
           milestone_xp: milestoneXP,
           total_xp: totalXP,
-          screen_url: '/roi/streak-milestone',
         });
         console.log(`📊 [Analytics] Streak Milestone Viewed: ${milestoneXP} XP`);
       }
@@ -149,13 +147,11 @@ export default function ROIAdventureSummary({
       analyticsService.trackCustomEvent('adventure_summary_dismissed', {
         adventure_id: adventure?.readable_id,
         adventure_title: adventure?.adventure_title,
-        screen_url: `/roi/${adventure?.readable_id}/summary`,
       });
       console.log(`📊 [Analytics] Adventure Summary Dismissed: ${adventure?.readable_id}`);
     } else {
       analyticsService.trackCustomEvent('streak_milestone_dismissed', {
         milestone_xp: milestoneXP,
-        screen_url: '/roi/streak-milestone',
       });
       console.log(`📊 [Analytics] Streak Milestone Dismissed: ${milestoneXP} XP`);
     }

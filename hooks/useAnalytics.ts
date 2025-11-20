@@ -139,15 +139,6 @@ export function useAnalytics() {
     }, `screen_view_${screenName.toLowerCase().replace(/\s+/g, '_')}`);
   };
 
-  // Era and content tracking
-  const trackEraSelected = (eraName: string) => {
-    safeTrack(() => {
-      posthog.capture('era_selected', {
-        era_name: eraName,
-      });
-    }, 'era_selected');
-  };
-
   // Audio tracking
   const trackAudioPlayed = (audioUrl: string, adventureId?: number, moduleId?: number) => {
     safeTrack(() => {
@@ -199,11 +190,10 @@ export function useAnalytics() {
     trackVideoPlayed,
     trackVideoCompleted,
     trackAudioPlayed,
-    
+
     // Navigation
     trackScreenView,
-    trackEraSelected,
-    
+
     // Error handling
     trackError,
     

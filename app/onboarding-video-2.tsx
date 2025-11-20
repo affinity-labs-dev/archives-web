@@ -18,12 +18,15 @@ import { useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { analyticsService } from '@/services/AnalyticsService'
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
 export default function OnboardingVideo2Screen() {
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoCompleted, setVideoCompleted] = useState(false)
+  const [screenStartTime] = useState(Date.now())
+  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView, trackVideoPlayed } = useAnalytics()
 
@@ -57,7 +60,17 @@ export default function OnboardingVideo2Screen() {
   // Track screen view when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Video 2')
-  }, [trackScreenView])
+
+    // Track screen exit on unmount
+    return () => {
+      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
+      analyticsService.trackOnboardingScreenExited({
+        screen: 'onboarding_video_2',
+        exit_action: exitAction,
+        duration_seconds,
+      })
+    }
+  }, [trackScreenView, screenStartTime, exitAction])
 
   // Handle video loading state and events
   useEffect(() => {
@@ -98,6 +111,7 @@ export default function OnboardingVideo2Screen() {
   // Navigate to sign in
   const handleSignIn = () => {
     console.log('🎬 [OnboardingVideo2] Navigating to sign in')
+    setExitAction('continued')
     router.push('/(auth)/archives-auth?mode=signin')
   }
 
@@ -108,10 +122,12 @@ export default function OnboardingVideo2Screen() {
       await AsyncStorage.setItem('onboarding_videos_viewed', 'true')
 
       console.log('🎬 [OnboardingVideo2] Continuing onboarding journey to welcome screen')
+      setExitAction('continued')
       router.replace('/onboarding-welcome')
     } catch (error) {
       console.error('🎬 [OnboardingVideo2] Error saving video completion:', error)
       // Continue anyway to avoid blocking user
+      setExitAction('continued')
       router.replace('/onboarding-welcome')
     }
   }

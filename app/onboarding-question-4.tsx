@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
+import { analyticsService } from '@/services/AnalyticsService'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -31,6 +32,8 @@ const questionOptions = [
 
 export default function OnboardingQuestion4Screen() {
   const [selectedOptions, setSelectedOptions] = useState<number[]>([])
+  const [screenStartTime] = useState(Date.now())
+  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
 
@@ -39,7 +42,17 @@ export default function OnboardingQuestion4Screen() {
   // Track screen view when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Question 4')
-  }, [trackScreenView])
+
+    // Track screen exit on unmount
+    return () => {
+      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
+      analyticsService.trackOnboardingScreenExited({
+        screen: 'onboarding_question_4',
+        exit_action: exitAction,
+        duration_seconds,
+      })
+    }
+  }, [trackScreenView, screenStartTime, exitAction])
 
   // Handle option selection (multi-select)
   const handleOptionSelect = async (optionIndex: number) => {
@@ -51,11 +64,29 @@ export default function OnboardingQuestion4Screen() {
           // Remove if already selected
           const newSelection = prev.filter(index => index !== optionIndex)
           console.log('🔥 [OnboardingQ4] Deselected option:', questionOptions[optionIndex])
+
+          // Track deselection
+          analyticsService.trackOnboardingQuestionAnswered({
+            screen: 'onboarding_question_4',
+            question_number: 4,
+            question_text: "Why are you learning about Middle Eastern history?",
+            answer: newSelection.map(i => questionOptions[i]),
+          })
+
           return newSelection
         } else {
           // Add if not selected
           const newSelection = [...prev, optionIndex]
           console.log('🔥 [OnboardingQ4] Selected option:', questionOptions[optionIndex])
+
+          // Track selection
+          analyticsService.trackOnboardingQuestionAnswered({
+            screen: 'onboarding_question_4',
+            question_number: 4,
+            question_text: "Why are you learning about Middle Eastern history?",
+            answer: newSelection.map(i => questionOptions[i]),
+          })
+
           return newSelection
         }
       })
@@ -95,11 +126,13 @@ export default function OnboardingQuestion4Screen() {
       console.log('🔥 [OnboardingQ4] Onboarding completed!')
 
       // Navigate to results screen
+      setExitAction('continued')
       router.push('/onboarding-results')
     } catch (error) {
       console.error('🔥 [OnboardingQ4] Error in handleContinue:', error)
       // Navigate anyway
       await AsyncStorage.setItem('onboarding_completed', 'true')
+      setExitAction('continued')
       router.push('/onboarding-results')
     }
   }
@@ -108,9 +141,11 @@ export default function OnboardingQuestion4Screen() {
   const handleBack = async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      setExitAction('back_button')
       router.back()
     } catch (error) {
       console.error('🔥 [OnboardingQ4] Error going back:', error)
+      setExitAction('back_button')
       router.back()
     }
   }

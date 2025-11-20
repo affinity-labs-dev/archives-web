@@ -140,7 +140,6 @@ export default function Adventure5_Module1_Lesson2({
         isLoaded: backgroundMusic.isLoaded,
         isPlaying: backgroundMusic.isPlaying,
         isLoading: backgroundMusic.isLoading || false,
-        platform: Platform.OS,
       }
     );
 
@@ -245,7 +244,6 @@ export default function Adventure5_Module1_Lesson2({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS,
       });
 
       // iOS-optimized swipe detection with precise thresholds
@@ -260,7 +258,6 @@ export default function Adventure5_Module1_Lesson2({
         console.log("📱 iOS PanGesture swipe up detected - expanding card", {
           translationY,
           velocityY,
-          platform: Platform.OS,
         });
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -273,7 +270,6 @@ export default function Adventure5_Module1_Lesson2({
         console.log("📱 iOS PanGesture swipe down detected - collapsing card", {
           translationY,
           velocityY,
-          platform: Platform.OS,
         });
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

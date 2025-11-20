@@ -2,7 +2,7 @@
   "expo": {
     "name": "Archives",
     "slug": "archives",
-    "version": "2.2.7",
+    "version": "2.2.8",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
     "scheme": "archives",
@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "85",
+      "buildNumber": "91",
       "associatedDomains": [
         "applinks:link.archiveszone.app",
         "applinks:link.archiveszone.app"
@@ -40,7 +40,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 18,
+      "versionCode": 20,
       "intentFilters": [
         {
           "action": "VIEW",

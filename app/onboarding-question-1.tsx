@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
+import { analyticsService } from '@/services/AnalyticsService'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -31,6 +32,8 @@ const questionOptions = [
 
 export default function OnboardingQuestion1Screen() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
+  const [screenStartTime] = useState(Date.now())
+  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
 
@@ -39,7 +42,17 @@ export default function OnboardingQuestion1Screen() {
   // Track screen view when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Question 1')
-  }, [trackScreenView])
+
+    // Track screen exit on unmount
+    return () => {
+      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
+      analyticsService.trackOnboardingScreenExited({
+        screen: 'onboarding_question_1',
+        exit_action: exitAction,
+        duration_seconds,
+      })
+    }
+  }, [trackScreenView, screenStartTime, exitAction])
 
   // Handle option selection
   const handleOptionSelect = async (optionIndex: number) => {
@@ -47,6 +60,15 @@ export default function OnboardingQuestion1Screen() {
       await Haptics.selectionAsync()
       setSelectedOption(optionIndex)
       console.log('🔥 [OnboardingQ1] Selected option:', questionOptions[optionIndex])
+
+      // Track question answer
+      analyticsService.trackOnboardingQuestionAnswered({
+        screen: 'onboarding_question_1',
+        question_number: 1,
+        question_text: "How much Middle Eastern history do you already know?",
+        answer: questionOptions[optionIndex],
+        answer_index: optionIndex,
+      })
     } catch (error) {
       console.error('🔥 [OnboardingQ1] Error selecting option:', error)
       setSelectedOption(optionIndex)
@@ -71,10 +93,12 @@ export default function OnboardingQuestion1Screen() {
       console.log('🔥 [OnboardingQ1] Answer saved:', answerData)
 
       // Navigate to next question
+      setExitAction('continued')
       router.push('/onboarding-question-2')
     } catch (error) {
       console.error('🔥 [OnboardingQ1] Error saving answer:', error)
       // Continue anyway
+      setExitAction('continued')
       router.push('/onboarding-question-2')
     }
   }

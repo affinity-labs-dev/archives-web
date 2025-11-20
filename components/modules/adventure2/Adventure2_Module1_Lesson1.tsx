@@ -212,7 +212,6 @@ export default function Adventure2_Module1_Lesson1({
         translationY,
         velocityY,
         isCardExpanded,
-        platform: Platform.OS
       });
 
       if (state === State.END) {

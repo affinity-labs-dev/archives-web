@@ -34,7 +34,6 @@ export default function XPMilestoneScreen({ milestoneXP, onContinue }: XPMilesto
     if (milestoneXP) {
       analyticsService.trackCustomEvent('xp_milestone_reached', {
         milestone_xp: milestoneXP,
-        screen_url: '/roi/xp-milestone',
       });
       console.log(`📊 [Analytics] XP Milestone Reached: ${milestoneXP} XP`);
     }
@@ -49,7 +48,6 @@ export default function XPMilestoneScreen({ milestoneXP, onContinue }: XPMilesto
       if (milestoneXP) {
         analyticsService.trackCustomEvent('xp_milestone_dismissed', {
           milestone_xp: milestoneXP,
-          screen_url: '/roi/xp-milestone',
         });
         console.log(`📊 [Analytics] XP Milestone Dismissed: ${milestoneXP} XP`);
       }

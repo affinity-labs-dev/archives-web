@@ -7,6 +7,7 @@
     <key>com.apple.developer.associated-domains</key>
     <array>
       <string>applinks:link.archiveszone.app</string>
+      <string>applinks:link.archiveszone.app</string>
     </array>
   </dict>
 </plist>

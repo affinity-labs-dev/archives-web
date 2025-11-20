@@ -19,12 +19,15 @@ import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { analyticsService } from '@/services/AnalyticsService'
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
 export default function OnboardingVideoScreen() {
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoCompleted, setVideoCompleted] = useState(false)
+  const [screenStartTime] = useState(Date.now())
+  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView, trackVideoPlayed } = useAnalytics()
 
@@ -63,7 +66,17 @@ export default function OnboardingVideoScreen() {
     }
 
     storeStartTime()
-  }, [trackScreenView])
+
+    // Track screen exit on unmount
+    return () => {
+      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
+      analyticsService.trackOnboardingScreenExited({
+        screen: 'onboarding_video',
+        exit_action: exitAction,
+        duration_seconds,
+      })
+    }
+  }, [trackScreenView, screenStartTime, exitAction])
 
   // Handle video loading state and events
   useEffect(() => {
@@ -97,7 +110,7 @@ export default function OnboardingVideoScreen() {
         }
       })
 
-      // Backup listener for playback status (for progress tracking)
+      // Backup listener for playback status (for completion check)
       const statusSubscription2 = player.addListener('playbackStatusChange', (status) => {
         // Fallback completion check
         if (status.isLoaded && status.positionMillis && status.durationMillis) {
@@ -140,10 +153,12 @@ export default function OnboardingVideoScreen() {
   // Continue to second video (archives_intro.mp4)
   const handleContinue = async () => {
     try {
+      setExitAction('continued')
       router.replace('/onboarding-video-2')
     } catch (error) {
       console.error('Error navigating:', error)
       // Continue anyway to avoid blocking user
+      setExitAction('continued')
       router.replace('/onboarding-video-2')
     }
   }

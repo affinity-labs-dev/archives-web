@@ -3,10 +3,15 @@ import { useEffect, useRef, useCallback } from 'react';
 import { analyticsService } from '@/services/AnalyticsService';
 
 interface UseLessonTrackingProps {
-  adventureId: number;
-  moduleId: number;
+  adventureId: number | string; // Support both Era 1 (number) and Era 2 (string)
+  moduleId: number | string;    // Support both Era 1 (number) and Era 2 (UUID string)
   lessonId: string;
-  lessonType: 'video_reading' | 'image_carousel' | 'video_carousel' | 'static_image' | 'scrollable_media';
+  lessonType: 'video_reading' | 'image_carousel' | 'video_carousel' | 'static_image' | 'scrollable_media' | 'reel'; // Add 'reel' for ROI
+  // Era context for funnel analysis
+  eraId?: number;              // 1 = Umayyad, 2 = Rise of Islam (optional for backward compatibility)
+  eraName?: string;            // "umayyad" | "riseOfIslam" (optional for backward compatibility)
+  adventureNumber?: number;    // 1-5 for cross-era comparison (optional)
+  moduleNumber?: number;       // 1-3 for cross-era comparison (optional)
   // Enhanced video metadata for detailed analytics
   lessonTitle?: string;
   chapterNumber?: number;
@@ -18,6 +23,10 @@ export function useLessonTracking({
   moduleId,
   lessonId,
   lessonType,
+  eraId,
+  eraName,
+  adventureNumber,
+  moduleNumber,
   lessonTitle,
   chapterNumber,
   screenUrl
@@ -35,6 +44,10 @@ export function useLessonTracking({
         module_id: moduleId,
         lesson_id: lessonId,
         lesson_type: lessonType,
+        era_id: eraId,
+        era_name: eraName,
+        adventure_number: adventureNumber,
+        module_number: moduleNumber,
       });
       hasStartedRef.current = true;
     }
@@ -46,7 +59,7 @@ export function useLessonTracking({
 
       // Note: Lesson completion is tracked separately via completeLesson call in component
     };
-  }, [adventureId, moduleId, lessonId, lessonType]);
+  }, [adventureId, moduleId, lessonId, lessonType, eraId, eraName, adventureNumber, moduleNumber]);
 
   // Track video play event with enhanced metadata
   const trackVideoPlay = useCallback((videoDuration?: number) => {
@@ -64,8 +77,12 @@ export function useLessonTracking({
       chapter_number: chapterNumber,
       video_duration_seconds: videoDuration ? Math.floor(videoDuration / 1000) : undefined,
       $current_url: screenUrl,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
     });
-  }, [adventureId, moduleId, lessonId, lessonTitle, chapterNumber, screenUrl]);
+  }, [adventureId, moduleId, lessonId, lessonTitle, chapterNumber, screenUrl, eraId, eraName, adventureNumber, moduleNumber]);
 
   // Track video pause event with enhanced metadata
   const trackVideoPause = useCallback((position: number, duration: number) => {
@@ -81,8 +98,12 @@ export function useLessonTracking({
       position_seconds: Math.floor(position / 1000),
       duration_seconds: Math.floor(duration / 1000),
       $current_url: screenUrl,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
     });
-  }, [adventureId, moduleId, lessonId, lessonTitle, chapterNumber, screenUrl]);
+  }, [adventureId, moduleId, lessonId, lessonTitle, chapterNumber, screenUrl, eraId, eraName, adventureNumber, moduleNumber]);
 
   // Track video completion with enhanced metadata
   const trackVideoComplete = useCallback((videoDuration?: number) => {
@@ -101,11 +122,15 @@ export function useLessonTracking({
       video_duration_seconds: videoDuration ? Math.floor(videoDuration / 1000) : undefined,
       completion_time_seconds: completionTime,
       $current_url: screenUrl,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
     });
 
     // Reset video start time after completion
     videoStartTimeRef.current = null;
-  }, [adventureId, moduleId, lessonId, lessonTitle, chapterNumber, screenUrl]);
+  }, [adventureId, moduleId, lessonId, lessonTitle, chapterNumber, screenUrl, eraId, eraName, adventureNumber, moduleNumber]);
 
   // Track reading card expansion
   const trackCardExpanded = useCallback(() => {
@@ -114,8 +139,12 @@ export function useLessonTracking({
       adventure_id: adventureId,
       module_id: moduleId,
       lesson_id: lessonId,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
     });
-  }, [adventureId, moduleId, lessonId]);
+  }, [adventureId, moduleId, lessonId, eraId, eraName, adventureNumber, moduleNumber]);
 
   // Track lesson completion
   const trackLessonComplete = useCallback(() => {
@@ -126,8 +155,12 @@ export function useLessonTracking({
       module_id: moduleId,
       lesson_id: lessonId,
       time_spent_seconds: timeSpent,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
     });
-  }, [adventureId, moduleId, lessonId]);
+  }, [adventureId, moduleId, lessonId, eraId, eraName, adventureNumber, moduleNumber]);
 
   // Track carousel image view time
   const trackCarouselImageView = useCallback((imageIndex: number, timeSpentSeconds: number, totalImages: number) => {
@@ -139,8 +172,12 @@ export function useLessonTracking({
       image_index: imageIndex,
       time_spent_seconds: timeSpentSeconds,
       total_images: totalImages,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
     });
-  }, [adventureId, moduleId, lessonId]);
+  }, [adventureId, moduleId, lessonId, eraId, eraName, adventureNumber, moduleNumber]);
 
   // Track screen press/interaction
   const trackScreenPress = useCallback((interactionType: 'tap' | 'swipe' | 'card_expand' | 'card_collapse' | 'button_press', target?: string) => {
@@ -151,8 +188,12 @@ export function useLessonTracking({
       lesson_id: lessonId,
       interaction_type: interactionType,
       target,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
     });
-  }, [adventureId, moduleId, lessonId]);
+  }, [adventureId, moduleId, lessonId, eraId, eraName, adventureNumber, moduleNumber]);
 
   // Track video buffering
   const trackVideoBuffering = useCallback((bufferTimeMs: number, videoUrl: string) => {
@@ -163,8 +204,12 @@ export function useLessonTracking({
       lesson_id: lessonId,
       buffer_time_ms: bufferTimeMs,
       video_url: videoUrl,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
     });
-  }, [adventureId, moduleId, lessonId]);
+  }, [adventureId, moduleId, lessonId, eraId, eraName, adventureNumber, moduleNumber]);
 
   return {
     trackVideoPlay,

@@ -18,30 +18,100 @@ export type SubscriptionType = 'monthly' | 'yearly' | 'lifetime';
 interface UserSignedUpEvent {
   sign_up_method: SignUpMethod;
   referral_code?: string;
-  device_type: DeviceType;
-  location?: string;
-  timestamp: string;
+  // device_type removed - PostHog auto-captures $os
+  // location removed - PostHog auto-captures $geoip_country_name, $geoip_city_name
+  // timestamp removed - PostHog auto-captures $timestamp
 }
 
 interface UserSessionInEvent {
-  device_type: DeviceType;
   login_method: LoginMethod;
-  timestamp: string;
+  // device_type removed - PostHog auto-captures $os
+  // timestamp removed - PostHog auto-captures $timestamp
 }
 
 interface OnboardingCompletedEvent {
+  screen: string;
+  context: string;
   time_to_complete_seconds: number;
-  q1_answer: string; // Learning goals
-  q2_answer: string[]; // Interest areas (array)
-  q3_answer: string; // Learning style
-  q4_answer: string; // Time commitment
-  timestamp: string;
+  onboarding_q1: string; // Learning goals
+  onboarding_q2: string[]; // Interest areas (array)
+  onboarding_q3: string; // Learning style
+  onboarding_q4: string; // Time commitment
+  // timestamp removed - PostHog auto-captures $timestamp
+}
+
+interface EraSelectedEvent {
+  era_name: string;
+  era_id: string;
+  screen: string;
+  context: 'onboarding' | 'era_switch';
+  selection_order: number;
+}
+
+interface PermissionRequestedEvent {
+  permission_type: 'app_tracking_transparency' | 'push_notifications';
+  screen: string;
+  result: 'granted' | 'denied' | 'undetermined' | 'restricted';
+  platform: string;
+}
+
+interface OnboardingQuestionAnsweredEvent {
+  screen: string;
+  question_number: number;
+  question_text: string;
+  answer: string | string[];
+  answer_index?: number;
+}
+
+interface OnboardingScreenExitedEvent {
+  screen: string;
+  exit_action: 'back_button' | 'continued' | 'app_closed';
+  duration_seconds: number;
+}
+
+interface AuthScreenViewedEvent {
+  screen: string;
+  mode: 'signin' | 'signup';
+}
+
+interface AuthMethodSelectedEvent {
+  screen: string;
+  auth_method: 'apple' | 'google' | 'email';
+  mode: 'signin' | 'signup';
+}
+
+interface AuthSucceededEvent {
+  screen: string;
+  auth_method: 'apple' | 'google' | 'email';
+  mode: 'signin' | 'signup';
+  is_new_user: boolean;
+}
+
+interface AuthFailedEvent {
+  screen: string;
+  auth_method: 'apple' | 'google' | 'email';
+  mode: 'signin' | 'signup';
+  error_message: string;
+}
+
+interface AuthScreenExitedEvent {
+  screen: string;
+  exit_action: 'authenticated' | 'back_button' | 'app_closed';
+  duration_seconds: number;
+  mode: 'signin' | 'signup';
+}
+
+interface VideoProgressEvent {
+  video_name: string;
+  screen: string;
+  progress_percent: number;
+  duration_seconds?: number;
 }
 
 interface FirstLessonEvent {
   first_era_number: number;
   first_module_number: number;
-  timestamp: string;
+  // timestamp removed - PostHog auto-captures $timestamp
 }
 
 interface ModuleTrackingEvent {
@@ -67,7 +137,7 @@ interface ModuleTrackingEvent {
   // Video performance
   video_buffer_time_ms?: number;
 
-  timestamp: string;
+  // timestamp removed - PostHog auto-captures $timestamp
 }
 
 interface DropOffEvent {
@@ -76,32 +146,32 @@ interface DropOffEvent {
   adventure_number?: number;
   module_number?: number;
   session_duration_seconds: number;
-  timestamp: string;
+  // timestamp removed - PostHog auto-captures $timestamp
 }
 
 interface PageViewEvent {
   page_name: 'profile' | 'subscription' | 'era' | 'home';
   time_spent_seconds: number;
   clicks: number;
-  timestamp: string;
+  // timestamp removed - PostHog auto-captures $timestamp
 }
 
 interface NotificationSentEvent {
   notification_type: 'daily_reminder' | 'weekly_reminder';
   message_id: string;
-  timestamp: string;
+  // timestamp removed - PostHog auto-captures $timestamp
 }
 
 interface NotificationClickedEvent {
   message_id: string;
-  timestamp: string;
+  // timestamp removed - PostHog auto-captures $timestamp
 }
 
 interface SubscriptionEvent {
   subscription_type: SubscriptionType;
   price?: string;
   currency?: string;
-  timestamp: string;
+  // timestamp removed - PostHog auto-captures $timestamp
 }
 
 // ==================== ANALYTICS SERVICE ====================
@@ -163,7 +233,7 @@ class AnalyticsService {
       user_id: this.currentUserId, // null for anonymous users
       anonymous_id: this.anonymousId, // always present
       is_authenticated: !!this.currentUserId,
-      timestamp: this.getTimestamp(),
+      // PostHog auto-captures $timestamp on every event
     };
   }
 
@@ -174,20 +244,14 @@ class AnalyticsService {
     return new Date().toISOString();
   }
 
-  /**
-   * Get device type
-   */
-  private getDeviceType(): DeviceType {
-    const Platform = require('react-native').Platform;
-    return Platform.OS as DeviceType;
-  }
+  // getDeviceType() removed - PostHog auto-captures $os property
 
   // ==================== USER AUTHENTICATION EVENTS ====================
 
   /**
    * Track user sign up
    */
-  trackUserSignedUp(userId: string, data: Omit<UserSignedUpEvent, 'timestamp' | 'device_type'>) {
+  trackUserSignedUp(userId: string, data: UserSignedUpEvent) {
     // Connect anonymous activity to this new user account
     if (this.anonymousId) {
       this.posthog?.alias(userId, this.anonymousId);
@@ -201,7 +265,7 @@ class AnalyticsService {
       ...data,
       ...this.getBaseProperties(),
       user_id: userId, // Override with the new user ID
-      device_type: this.getDeviceType(),
+      // PostHog auto-captures $os (device type)
     };
 
     this.posthog?.capture('user_signed_up', event);
@@ -216,8 +280,8 @@ class AnalyticsService {
 
     const event = {
       ...this.getBaseProperties(),
-      device_type: this.getDeviceType(),
       login_method: loginMethod,
+      // PostHog auto-captures $os (device type)
     };
 
     this.posthog?.capture('user_session_in', event);
@@ -229,7 +293,7 @@ class AnalyticsService {
   /**
    * Track onboarding completion
    */
-  trackOnboardingCompleted(data: Omit<OnboardingCompletedEvent, 'timestamp'>) {
+  trackOnboardingCompleted(data: OnboardingCompletedEvent) {
     const event = {
       ...data,
       ...this.getBaseProperties(),
@@ -237,6 +301,138 @@ class AnalyticsService {
 
     this.posthog?.capture('onboarding_completed', event);
     console.log('📊 [Analytics] Onboarding Completed:', event);
+  }
+
+  /**
+   * Track era selection
+   */
+  trackEraSelected(data: EraSelectedEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('era_selected', event);
+    console.log('📊 [Analytics] Era Selected:', event);
+  }
+
+  /**
+   * Track permission requests (ATT, notifications, etc.)
+   */
+  trackPermissionRequested(data: PermissionRequestedEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('permission_requested', event);
+    console.log('📊 [Analytics] Permission Requested:', event);
+  }
+
+  /**
+   * Track onboarding question answers as they're selected
+   */
+  trackOnboardingQuestionAnswered(data: OnboardingQuestionAnsweredEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('onboarding_question_answered', event);
+    console.log('📊 [Analytics] Onboarding Question Answered:', event);
+  }
+
+  /**
+   * Track when user exits onboarding screen
+   */
+  trackOnboardingScreenExited(data: OnboardingScreenExitedEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('onboarding_screen_exited', event);
+    console.log('📊 [Analytics] Onboarding Screen Exited:', event);
+  }
+
+  /**
+   * Track video progress milestones
+   */
+  trackVideoProgress(data: VideoProgressEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('video_progress', event);
+    console.log('📊 [Analytics] Video Progress:', event);
+  }
+
+  // ==================== AUTH EVENTS ====================
+
+  /**
+   * Track auth screen viewed
+   */
+  trackAuthScreenViewed(data: AuthScreenViewedEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('auth_screen_viewed', event);
+    console.log('📊 [Analytics] Auth Screen Viewed:', event);
+  }
+
+  /**
+   * Track auth method selection (Apple/Google/Email button press)
+   */
+  trackAuthMethodSelected(data: AuthMethodSelectedEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('auth_method_selected', event);
+    console.log('📊 [Analytics] Auth Method Selected:', event);
+  }
+
+  /**
+   * Track successful authentication
+   */
+  trackAuthSucceeded(data: AuthSucceededEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('auth_succeeded', event);
+    console.log('📊 [Analytics] Auth Succeeded:', event);
+  }
+
+  /**
+   * Track authentication failure
+   */
+  trackAuthFailed(data: AuthFailedEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('auth_failed', event);
+    console.log('📊 [Analytics] Auth Failed:', event);
+  }
+
+  /**
+   * Track when user exits auth screen
+   */
+  trackAuthScreenExited(data: AuthScreenExitedEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('auth_screen_exited', event);
+    console.log('📊 [Analytics] Auth Screen Exited:', event);
   }
 
   // ==================== LESSON EVENTS ====================
@@ -259,10 +455,14 @@ class AnalyticsService {
    * Track lesson started
    */
   trackLessonStarted(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     lesson_id: string;
     lesson_type: string;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
   }) {
     const event = {
       ...data,
@@ -277,10 +477,14 @@ class AnalyticsService {
    * Track lesson completed
    */
   trackLessonCompleted(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     lesson_id: string;
     time_spent_seconds: number;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
   }) {
     const event = {
       ...data,
@@ -295,13 +499,17 @@ class AnalyticsService {
    * Track video played - Enhanced with chapter/lesson details
    */
   trackVideoPlayed(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     lesson_id: string;
     lesson_title?: string;
     chapter_number?: number;
     video_duration_seconds?: number;
     $current_url?: string; // Lesson screen URL for activity tracking
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
   }) {
     const event = {
       ...data,
@@ -318,8 +526,8 @@ class AnalyticsService {
    * Track video paused - Enhanced with detailed progress tracking
    */
   trackVideoPaused(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     lesson_id: string;
     lesson_title?: string;
     chapter_number?: number;
@@ -327,6 +535,10 @@ class AnalyticsService {
     position_seconds: number;
     duration_seconds?: number;
     $current_url?: string;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
   }) {
     const event = {
       ...data,
@@ -344,14 +556,18 @@ class AnalyticsService {
    * Track video completed - Enhanced with completion metrics
    */
   trackVideoCompleted(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     lesson_id: string;
     lesson_title?: string;
     chapter_number?: number;
     video_duration_seconds?: number;
     completion_time_seconds?: number; // How long it took user to complete
     $current_url?: string;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
   }) {
     const event = {
       ...data,
@@ -367,9 +583,13 @@ class AnalyticsService {
    * Track reading card expanded
    */
   trackReadingCardExpanded(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     lesson_id: string;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
   }) {
     const event = {
       ...data,
@@ -384,11 +604,15 @@ class AnalyticsService {
    * Track video buffer/loading time
    */
   trackVideoBuffering(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     lesson_id: string;
     buffer_time_ms: number;
     video_url: string;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
   }) {
     const event = {
       ...data,
@@ -404,12 +628,16 @@ class AnalyticsService {
    * Track carousel image view time
    */
   trackCarouselImageView(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     lesson_id: string;
     image_index: number;
     time_spent_seconds: number;
     total_images: number;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
   }) {
     const event = {
       ...data,
@@ -425,11 +653,15 @@ class AnalyticsService {
    * Track screen press/interaction
    */
   trackScreenPress(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     lesson_id: string;
     interaction_type: 'tap' | 'swipe' | 'card_expand' | 'card_collapse' | 'button_press';
     target?: string; // What was tapped/swiped (optional description)
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
   }) {
     const event = {
       ...data,
@@ -443,7 +675,7 @@ class AnalyticsService {
   /**
    * Track module engagement (lessons and quizzes)
    */
-  trackModuleEngagement(data: Omit<ModuleTrackingEvent, 'timestamp'>) {
+  trackModuleEngagement(data: ModuleTrackingEvent) {
     const event = {
       ...data,
       ...this.getBaseProperties(),
@@ -459,9 +691,16 @@ class AnalyticsService {
    * Track quiz started
    */
   trackQuizStarted(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     total_questions: number;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
+    quiz_id?: string;
+    quiz_title?: string;
+    $current_url?: string;
   }) {
     const event = {
       ...data,
@@ -476,19 +715,25 @@ class AnalyticsService {
    * Track individual quiz question answered
    */
   trackQuizQuestionAnswered(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     question_number: number;
-    user_answer: string; // The answer the user selected
-    correct_answer: string; // The correct answer
+    user_answer?: string; // The answer the user selected (optional for compatibility)
+    correct_answer?: string; // The correct answer (optional for compatibility)
     is_correct: boolean;
     time_taken_seconds: number;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
+    quiz_id?: string;
+    $current_url?: string;
   }) {
     const event = {
       ...data,
       ...this.getBaseProperties(),
       // Dynamic property naming for filtering (e.g., q1_answer, q2_answer)
-      [`q${data.question_number}_answer`]: data.user_answer,
+      ...(data.user_answer ? { [`q${data.question_number}_answer`]: data.user_answer } : {}),
       [`q${data.question_number}_correct`]: data.is_correct,
     };
 
@@ -500,13 +745,20 @@ class AnalyticsService {
    * Track quiz completed
    */
   trackQuizCompleted(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     quiz_score: number;
     correct_answers: number;
     total_questions: number;
     time_spent_seconds: number;
     is_retake: boolean;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
+    quiz_id?: string;
+    quiz_title?: string;
+    $current_url?: string;
   }) {
     const event = {
       ...data,
@@ -521,9 +773,15 @@ class AnalyticsService {
    * Track quiz retake
    */
   trackQuizRetake(data: {
-    adventure_id: number;
-    module_id: number;
+    adventure_id: number | string;
+    module_id: number | string;
     previous_score: number;
+    era_id?: number;
+    era_name?: string;
+    adventure_number?: number;
+    module_number?: number;
+    quiz_id?: string;
+    $current_url?: string;
   }) {
     const event = {
       ...data,
@@ -655,7 +913,7 @@ class AnalyticsService {
   /**
    * Track subscription purchase
    */
-  trackSubscription(data: Omit<SubscriptionEvent, 'timestamp'>) {
+  trackSubscription(data: SubscriptionEvent) {
     const event = {
       ...data,
       ...this.getBaseProperties(),
@@ -678,10 +936,8 @@ class AnalyticsService {
       return;
     }
 
-    this.posthog.capture(eventName, {
-      ...properties,
-      timestamp: this.getTimestamp(),
-    });
+    this.posthog.capture(eventName, properties);
+    // PostHog auto-captures $timestamp on every event
     console.log(`📊 [Analytics] Custom Event (${eventName}):`, properties);
   }
 
