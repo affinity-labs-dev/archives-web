@@ -122,8 +122,22 @@ export default function Adventure1_Module3_Quiz({
   );
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
 
-  const { updateModuleProgress, completeLesson } = useProgress();
+  const { updateModuleProgress, completeLesson, calculateTotalXP } = useProgress();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
+
+  // Track quiz start (on mount)
+  const [quizStartTime] = useState(Date.now());
+  useEffect(() => {
+    analyticsService.trackQuizStarted({
+      adventure_id: 1,
+      module_id: 3,
+      total_questions: quizQuestions.length,
+      era_id: 1,
+      era_name: 'umayyad',
+      adventure_number: 1,
+      module_number: 3,
+    });
+  }, []);
 
   // Track when each new question is shown
   useEffect(() => {
@@ -183,6 +197,12 @@ export default function Adventure1_Module3_Quiz({
       correct_answer: correctAnswer,
       is_correct: isCorrect,
       time_taken_seconds: timeTaken,
+      xp_earned: isCorrect ? 10 : 0,
+      current_total_xp: calculateTotalXP([], []),
+      era_id: 1,
+      era_name: 'umayyad',
+      adventure_number: 1,
+      module_number: 3,
     });
 
     setShowExplanation(true);
@@ -222,9 +242,33 @@ export default function Adventure1_Module3_Quiz({
       setShowExplanation(false);
       resetCurrentQuestion();
     } else {
-      // Quiz completed - check minimum score requirement (need at least 1 out of 5)
-      if (correctAnswers >= 1) {
-        celebrateQuizCompletion(correctAnswers)
+      // Quiz completed - track quiz_completed event
+      const finalCorrectAnswers = correctAnswers + (checkAnswer(currentQuestionIndex, userAnswers[currentQuestionIndex]) ? 1 : 0);
+      const xpEarned = finalCorrectAnswers * 10;
+      const xpBefore = calculateTotalXP([], []);
+      const quizTimeSpent = Math.floor((Date.now() - quizStartTime) / 1000);
+      const quizScore = finalCorrectAnswers >= 5 ? 3 : finalCorrectAnswers >= 3 ? 2 : 1; // 1-3 star rating
+
+      analyticsService.trackQuizCompleted({
+        adventure_id: 1,
+        module_id: 3,
+        quiz_score: quizScore,
+        correct_answers: finalCorrectAnswers,
+        total_questions: quizQuestions.length,
+        time_spent_seconds: quizTimeSpent,
+        is_retake: false, // Adventure 1 Module 3 uses updateModuleProgress, not atomic
+        xp_earned: xpEarned,
+        total_xp_before: xpBefore,
+        total_xp_after: xpBefore + xpEarned,
+        era_id: 1,
+        era_name: 'umayyad',
+        adventure_number: 1,
+        module_number: 3,
+      });
+
+      // Check minimum score requirement (need at least 1 out of 5)
+      if (finalCorrectAnswers >= 1) {
+        celebrateQuizCompletion(finalCorrectAnswers)
         setShowResults(true);
         setShowExplanation(false);
       } else {
@@ -421,9 +465,50 @@ function QuizResultsView({
   onGoToAdventure,
   onBack,
 }: QuizResultsViewProps) {
+  const { calculateTotalXP } = useProgress()
+  const [moduleProgress] = useState<any[]>([])
+  const [newUserProgress, setNewUserProgress] = useState<any[]>([])
+
+  useEffect(() => {
+    const loadNewProgress = async () => {
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default
+        const data = await AsyncStorage.getItem('newUserProgress')
+        if (data) {
+          setNewUserProgress(JSON.parse(data))
+        }
+      } catch (error) {
+        console.error('Failed to load new progress:', error)
+      }
+    }
+    loadNewProgress()
+  }, [])
+
   const percentage = Math.round((correctAnswers * 100) / totalQuestions); // EXACT SwiftUI calculation
   const passed = percentage >= 70; // EXACT SwiftUI: private var passed: Bool
   const canAccessAdventure = correctAnswers >= 1; // EXACT SwiftUI: private var canAccessAdventure: Bool - Need at least 1/5
+
+  const totalXP = calculateTotalXP(moduleProgress, newUserProgress)
+  const performanceTier = percentage >= 70 ? 'high' : percentage >= 34 ? 'medium' : 'low'
+
+  useEffect(() => {
+    analyticsService.trackCustomEvent('quiz_results_viewed', {
+      adventure_id: 1,
+      module_id: 3,
+      quiz_score: Math.round(percentage),
+      correct_answers: correctAnswers,
+      total_questions: totalQuestions,
+      performance_tier: performanceTier,
+      total_points: totalPoints,
+      total_xp_after: totalXP,
+      passed: passed,
+      can_access_adventure: canAccessAdventure,
+      era_id: 1,
+      era_name: 'umayyad',
+      adventure_number: 1,
+      module_number: 3,
+    })
+  }, [])
 
   // Get dynamic messages based on score
   const messages = getQuizResultMessages(correctAnswers, totalQuestions);
@@ -515,7 +600,23 @@ function QuizResultsView({
           {/* Action buttons - EXACT SwiftUI structure */}
           <View style={styles.actionButtons}>
             {/* Retake Quiz button */}
-            <TouchableOpacity style={styles.retakeButton} onPress={onRetake}>
+            <TouchableOpacity style={styles.retakeButton} onPress={() => {
+              analyticsService.trackCustomEvent('quiz_results_retake_clicked', {
+                adventure_id: 1,
+                module_id: 3,
+                quiz_score: Math.round(percentage),
+                correct_answers: correctAnswers,
+                total_questions: totalQuestions,
+                performance_tier: performanceTier,
+                total_points: totalPoints,
+                total_xp_after: totalXP,
+                era_id: 1,
+                era_name: 'umayyad',
+                adventure_number: 1,
+                module_number: 3,
+              })
+              onRetake()
+            }}>
               <View style={styles.retakeButtonContent}>
                 <Ionicons
                   name="refresh-circle"
@@ -530,7 +631,23 @@ function QuizResultsView({
             {canAccessAdventure ? (
               <TouchableOpacity
                 style={styles.adventureButton}
-                onPress={onGoToAdventure}
+                onPress={() => {
+                  analyticsService.trackCustomEvent('quiz_results_continue_clicked', {
+                    adventure_id: 1,
+                    module_id: 3,
+                    quiz_score: Math.round(percentage),
+                    correct_answers: correctAnswers,
+                    total_questions: totalQuestions,
+                    performance_tier: performanceTier,
+                    total_points: totalPoints,
+                    total_xp_after: totalXP,
+                    era_id: 1,
+                    era_name: 'umayyad',
+                    adventure_number: 1,
+                    module_number: 3,
+                  })
+                  onGoToAdventure()
+                }}
               >
                 <View style={styles.adventureButtonContent}>
                   <Ionicons name="map" size={24} color="white" />

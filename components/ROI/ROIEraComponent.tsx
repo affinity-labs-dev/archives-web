@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { WALKTHROUGH_KEYS, ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
+import { analyticsService } from '@/services/AnalyticsService';
 import ROIAdventureComponent from './ROIAdventureComponent';
 import ROIAdventureCardComponent from './ROIAdventureCardComponent';
 import XPMilestoneScreen from './XPMilestoneScreen';
@@ -264,6 +265,27 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
     });
   };
 
+  // Handle adventure started (when adventure card/summary is opened)
+  const handleAdventureStarted = (adventure: Adventure) => {
+    // Extract adventure number from readable_id (e.g., "roi_adventure_1" → 1)
+    const adventureNumber = parseInt(adventure.readable_id.split('_')[2] || '0', 10);
+
+    // Track adventure_started event
+    analyticsService.trackAdventureStarted({
+      era_id: 2,
+      era_name: 'riseOfIslam',
+      adventure_id: adventure.readable_id,
+      adventure_number: adventureNumber,
+      adventure_title: adventure.adventure_title || 'Unknown',
+      screen: 'roi_home',
+    });
+
+    console.log(`📊 [Analytics] Adventure Started: ${adventure.readable_id}`);
+
+    // Open adventure card modal
+    setSelectedAdventureCard(adventure);
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -309,7 +331,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
             adventure={adventure}
             userProgress={userProgress}
             onCardPress={(contentItem) => handleCardPress(contentItem, adventure.readable_id)}
-            onTitlePress={() => setSelectedAdventureCard(adventure)}
+            onTitlePress={() => handleAdventureStarted(adventure)}
           />
         ))}
       </ScrollView>

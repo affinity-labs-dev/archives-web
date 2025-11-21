@@ -174,6 +174,77 @@ interface SubscriptionEvent {
   // timestamp removed - PostHog auto-captures $timestamp
 }
 
+interface AdventureStartedEvent {
+  era_id: number;
+  era_name: string;
+  adventure_id: string | number;
+  adventure_number: number;
+  adventure_title: string;
+  screen: string;
+}
+
+interface AdventureCompleteContinueEvent {
+  adventure_id: string | number;
+  adventure_number: number;
+  adventure_title: string;
+  screen: string;
+  era_id: number;
+  era_name: string;
+  total_xp_earned: number;
+}
+
+interface PushNotificationPermissionEvent {
+  permission_type: 'push_notifications';
+  screen: string;
+  result: 'granted' | 'denied' | 'undetermined';
+  platform: string;
+}
+
+interface UserAccountDeletedEvent {
+  deletion_reason?: string;
+  account_age_days?: number;
+  total_xp?: number;
+  adventures_completed?: number;
+}
+
+interface QuizResultsViewedEvent {
+  adventure_id: string | number;
+  module_id: string | number;
+  quiz_id?: string;
+  correct_answers: number;
+  total_questions: number;
+  percentage: number;
+  total_points: number;
+  performance_tier: 'high' | 'medium' | 'low';
+  era_id: number;
+  era_name: string;
+  adventure_number?: number;
+  module_number?: number;
+}
+
+interface ModuleStartedEvent {
+  era_id: number;
+  era_name: string;
+  adventure_id: number;
+  adventure_number: number;
+  module_id: number;
+  module_number: number;
+}
+
+interface ModuleCompletedEvent {
+  era_id: number;
+  era_name: string;
+  adventure_id: number;
+  adventure_number: number;
+  module_id: number;
+  module_number: number;
+  lessons_completed: number;
+  quiz_score: number;
+  xp_earned?: number; // XP earned from module (quiz_score * 10)
+  total_xp_after?: number; // User's total XP after module completion
+  total_time_seconds?: number;
+}
+
 // ==================== ANALYTICS SERVICE ====================
 
 class AnalyticsService {
@@ -722,6 +793,8 @@ class AnalyticsService {
     correct_answer?: string; // The correct answer (optional for compatibility)
     is_correct: boolean;
     time_taken_seconds: number;
+    xp_earned?: number; // 10 if correct, 0 if incorrect
+    current_total_xp?: number; // User's current total XP
     era_id?: number;
     era_name?: string;
     adventure_number?: number;
@@ -752,6 +825,9 @@ class AnalyticsService {
     total_questions: number;
     time_spent_seconds: number;
     is_retake: boolean;
+    xp_earned?: number; // XP earned from this quiz (correct_answers * 10)
+    total_xp_before?: number; // User's total XP before quiz
+    total_xp_after?: number; // User's total XP after quiz
     era_id?: number;
     era_name?: string;
     adventure_number?: number;
@@ -940,6 +1016,72 @@ class AnalyticsService {
     // PostHog auto-captures $timestamp on every event
     console.log(`📊 [Analytics] Custom Event (${eventName}):`, properties);
   }
+
+  // ==================== NEW TRACKING EVENTS ====================
+
+  /**
+   * Track adventure started
+   */
+  trackAdventureStarted(properties: AdventureStartedEvent) {
+    this.trackCustomEvent('adventure_started', properties);
+  }
+
+  /**
+   * Track adventure complete continue button
+   */
+  trackAdventureCompleteContinue(properties: AdventureCompleteContinueEvent) {
+    this.trackCustomEvent('adventure_complete_continue', properties);
+  }
+
+  /**
+   * Track push notification permission enabled
+   */
+  trackPushNotificationsEnabled(properties: PushNotificationPermissionEvent) {
+    this.trackCustomEvent('push_notifications_enabled', properties);
+  }
+
+  /**
+   * Track push notification permission declined
+   */
+  trackPushNotificationsDeclined(properties: PushNotificationPermissionEvent) {
+    this.trackCustomEvent('push_notifications_declined', properties);
+  }
+
+  /**
+   * Track user account deleted
+   */
+  trackUserAccountDeleted(properties: UserAccountDeletedEvent) {
+    this.trackCustomEvent('user_account_deleted', properties);
+  }
+
+  /**
+   * Track quiz results viewed
+   */
+  trackQuizResultsViewed(properties: QuizResultsViewedEvent) {
+    this.trackCustomEvent('quiz_results_viewed', properties);
+  }
+
+  /**
+   * Track module started (Umayyad only)
+   */
+  trackModuleStarted(properties: ModuleStartedEvent) {
+    // Only track for Umayyad (era_id = 1)
+    if (properties.era_id === 1) {
+      this.trackCustomEvent('module_started', properties);
+    }
+  }
+
+  /**
+   * Track module completed (Umayyad only)
+   */
+  trackModuleCompleted(properties: ModuleCompletedEvent) {
+    // Only track for Umayyad (era_id = 1)
+    if (properties.era_id === 1) {
+      this.trackCustomEvent('module_completed', properties);
+    }
+  }
+
+  // ==================== END NEW TRACKING EVENTS ====================
 
   /**
    * Identify user (call after login)

@@ -100,6 +100,23 @@ export default function OnboardingQuestion3Screen() {
         platform: Platform.OS,
       })
 
+      // Track specific permission result
+      if (status === 'granted') {
+        analyticsService.trackPushNotificationsEnabled({
+          permission_type: 'push_notifications',
+          screen: 'onboarding_question_3',
+          result: 'granted',
+          platform: Platform.OS,
+        })
+      } else if (status === 'denied') {
+        analyticsService.trackPushNotificationsDeclined({
+          permission_type: 'push_notifications',
+          screen: 'onboarding_question_3',
+          result: 'denied',
+          platform: Platform.OS,
+        })
+      }
+
       if (status === 'granted') {
         // Get Expo push token
         const projectId = Constants.expoConfig?.extra?.eas?.projectId

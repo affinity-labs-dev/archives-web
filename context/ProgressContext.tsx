@@ -10,6 +10,7 @@ import { useUser } from '@clerk/clerk-expo'
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
 import { useRewards } from '@/context/RewardsContext'
 import { simplifiedSyncService } from '@/services/SimplifiedSyncService'
+import { analyticsService } from '@/services/AnalyticsService'
 import { EraType, ModuleState } from '@/types/progress'
 import type {
   ProgressUpdateAction,
@@ -616,6 +617,41 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
             // Haptic feedback for module completion
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+
+            // Calculate XP earned from module (based on quiz score)
+            // Quiz score is 1-3 stars: 1★ = 2 correct (20 XP), 2★ = 3-4 correct (30-40 XP), 3★ = 5 correct (50 XP)
+            const xpEarned = action.type === 'QUIZ_COMPLETED' && action.quizCorrectAnswers !== undefined
+              ? action.quizCorrectAnswers * 10
+              : updatedModule.quizCorrectAnswers ? updatedModule.quizCorrectAnswers * 10 : 0;
+
+            // Calculate total XP after this module completion (needs updated modules array)
+            const tempUpdatedModules = existingModule && moduleProgress.some(m => m.adventureId === adventureId && m.moduleId === moduleId)
+              ? moduleProgress.map(m =>
+                  m.adventureId === adventureId && m.moduleId === moduleId ? updatedModule : m
+                )
+              : [...moduleProgress, updatedModule];
+
+            // Load new era progress to calculate total XP across ALL eras
+            const newProgressData = await WebCompatibleStorage.getItem('new_user_progress');
+            const newModules = newProgressData ? JSON.parse(newProgressData) : [];
+            const totalXPAfter = calculateTotalXP(tempUpdatedModules, newModules);
+
+            // Track module_completed event (Umayyad Dynasty only - Era 1)
+            analyticsService.trackModuleCompleted({
+              era_id: 1,
+              era_name: 'umayyad',
+              adventure_id: adventureId,
+              adventure_number: adventureId,
+              module_id: moduleId,
+              module_number: moduleId,
+              lessons_completed: 2, // All Umayyad modules have 2 lessons
+              quiz_score: updatedModule.quizScore,
+              xp_earned: xpEarned,
+              total_xp_after: totalXPAfter,
+              // total_time_seconds could be added in future if we track start time
+            });
+
+            console.log(`📊 [Analytics] Module Completed: Adv${adventureId} Mod${moduleId}, XP: ${xpEarned}, Total: ${totalXPAfter}`);
 
             // TODO: Avatar awarding disabled for now
             // Award random locked avatar on module completion

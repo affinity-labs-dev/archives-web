@@ -100,8 +100,8 @@ export default function SubscribeContent() {
     return match ? match[1] : '$';
   };
 
-  const monthlyPricing = formatPrice(monthlyPackage?.storeProduct?.priceString, '£4.99');
-  const yearlyPricing = formatPrice(yearlyPackage?.storeProduct?.priceString, '£49.99');
+  const monthlyPricing = formatPrice(monthlyPackage?.storeProduct?.priceString, '$4.99');
+  const yearlyPricing = formatPrice(yearlyPackage?.storeProduct?.priceString, '$49.99');
 
   // Get currency symbol for crossed-out prices
   const currencySymbol = getCurrencySymbol(monthlyPackage?.storeProduct?.priceString);

@@ -11,6 +11,7 @@ import ModuleModal from '@/components/modules/ModuleModal'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
 import { useProgress } from '@/context/ProgressContext'
+import { analyticsService } from '@/services/AnalyticsService'
 import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
@@ -246,6 +247,22 @@ const UmmayadDynastyEra = React.memo(function UmmayadDynastyEra({ onBackToEra }:
   }
 
   const handleAdventurePress = (adventureId: number) => {
+    // Get adventure details for tracking
+    const adventure = UMAYYAD_ADVENTURES.find(a => a.id === adventureId);
+    const adventureTitle = adventure?.title || 'Unknown';
+
+    // Track adventure_started event
+    analyticsService.trackAdventureStarted({
+      era_id: 1,
+      era_name: 'umayyad',
+      adventure_id: adventureId,
+      adventure_number: adventureId,
+      adventure_title: adventureTitle,
+      screen: 'umayyad_home',
+    });
+
+    console.log(`📊 [Analytics] Adventure Started: ${adventureId} - ${adventureTitle}`);
+
     setSelectedAdventureId(adventureId)
     setShowAdventureModal(true)
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
@@ -269,7 +286,19 @@ const UmmayadDynastyEra = React.memo(function UmmayadDynastyEra({ onBackToEra }:
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
       return
     }
-    
+
+    // Track module_started event (Umayyad only)
+    analyticsService.trackModuleStarted({
+      era_id: 1,
+      era_name: 'umayyad',
+      adventure_id: adventureId,
+      adventure_number: adventureId,
+      module_id: modId,
+      module_number: modId,
+    });
+
+    console.log(`📊 [Analytics] Module Started: Adv${adventureId} Mod${modId}`);
+
     // Open module modal - EXACT SwiftUI: selectedModuleID = moduleID
     setSelectedModuleId(moduleId)
     setShowModuleModal(true)

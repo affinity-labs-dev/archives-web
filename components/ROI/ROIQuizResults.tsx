@@ -18,6 +18,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { analyticsService } from '@/services/AnalyticsService';
+import { useProgress } from '@/context/ProgressContext';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 
 const { width } = Dimensions.get('window');
@@ -29,6 +30,13 @@ interface ROIQuizResultsProps {
   onRetake: () => void;
   onContinue: () => void;
   onBack?: () => void;
+  // Context for analytics
+  adventureId: string;
+  moduleId: string;
+  eraId: number;
+  eraName: string;
+  adventureNumber: number;
+  moduleNumber: number;
 }
 
 // Video Reward Player - Score-based celebration videos (3-tier system)
@@ -114,22 +122,87 @@ export default function ROIQuizResults({
   onRetake,
   onContinue,
   onBack,
+  adventureId,
+  moduleId,
+  eraId,
+  eraName,
+  adventureNumber,
+  moduleNumber,
 }: ROIQuizResultsProps) {
   // Calculate percentage
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
   const messages = getResultMessages(percentage);
 
+  // Access progress context for XP calculations
+  const { calculateTotalXP, moduleProgress } = useProgress();
+  const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
+
+  // Load new user progress data for XP calculations
+  useEffect(() => {
+    const loadNewProgress = async () => {
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        const data = await AsyncStorage.getItem('new_user_progress');
+        if (data) {
+          setNewUserProgress(JSON.parse(data));
+        }
+      } catch (error) {
+        console.error('📊 [ROIQuizResults] Error loading new user progress:', error);
+      }
+    };
+    loadNewProgress();
+  }, []);
+
+  // Calculate total XP after quiz
+  const totalXP = calculateTotalXP(moduleProgress, newUserProgress);
+
+  // Determine performance tier based on percentage
+  const getPerformanceTier = (pct: number): 'high' | 'medium' | 'low' => {
+    if (pct >= 70) return 'high';
+    if (pct >= 34) return 'medium';
+    return 'low';
+  };
+
+  // Track quiz results viewed when component mounts
+  React.useEffect(() => {
+    // Only track once totalXP is calculated
+    if (totalXP > 0 || newUserProgress.length > 0 || moduleProgress.length > 0) {
+      analyticsService.trackQuizResultsViewed({
+        adventure_id: adventureId,
+        module_id: moduleId,
+        quiz_id: moduleId, // Using moduleId as quiz_id since they're the same in ROI
+        correct_answers: correctAnswers,
+        total_questions: totalQuestions,
+        percentage,
+        total_points: totalPoints,
+        performance_tier: getPerformanceTier(percentage),
+        era_id: eraId,
+        era_name: eraName,
+        adventure_number: adventureNumber,
+        module_number: moduleNumber,
+      });
+      console.log(`📊 [Analytics] Quiz Results Viewed: ${adventureId}, ${percentage}%, ${getPerformanceTier(percentage)}, Total XP: ${totalXP}`);
+    }
+  }, [totalXP, newUserProgress, moduleProgress]);
+
   const handleRetake = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Track retake button click
+    // Track retake button click with full context
     analyticsService.trackCustomEvent('quiz_results_retake_clicked', {
+      adventure_id: adventureId,
+      module_id: moduleId,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
       percentage,
       correct_answers: correctAnswers,
       total_questions: totalQuestions,
       total_points: totalPoints,
+      total_xp_after: totalXP,
     });
-    console.log(`📊 [Analytics] Quiz Results Retake Clicked: ${percentage}%`);
+    console.log(`📊 [Analytics] Quiz Results Retake Clicked: ${adventureId}, ${percentage}%, Total XP: ${totalXP}`);
 
     onRetake();
   };
@@ -137,14 +210,21 @@ export default function ROIQuizResults({
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Track continue button click
+    // Track continue button click with full context
     analyticsService.trackCustomEvent('quiz_results_continue_clicked', {
+      adventure_id: adventureId,
+      module_id: moduleId,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
       percentage,
       correct_answers: correctAnswers,
       total_questions: totalQuestions,
       total_points: totalPoints,
+      total_xp_after: totalXP,
     });
-    console.log(`📊 [Analytics] Quiz Results Continue Clicked: ${percentage}%`);
+    console.log(`📊 [Analytics] Quiz Results Continue Clicked: ${adventureId}, ${percentage}%, Total XP: ${totalXP}`);
 
     onContinue();
   };

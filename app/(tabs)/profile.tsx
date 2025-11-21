@@ -461,6 +461,36 @@ export default function ProfileTab() {
             setShowSettingsModal(false) // Close settings modal
 
             try {
+              // Calculate account age in days
+              const accountAgeDays = user.createdAt
+                ? Math.floor((Date.now() - user.createdAt) / (1000 * 60 * 60 * 24))
+                : undefined
+
+              // Calculate total adventures completed
+              // Umayyad Dynasty: Adventure is complete when all 3 modules are done
+              const umayyedAdventuresComplete = [1, 2, 3, 4, 5].filter(advId => {
+                const modulesForAdventure = moduleProgress.filter(m => m.adventureId === advId)
+                return modulesForAdventure.length === 3 && modulesForAdventure.every(m => m.isCompleted)
+              }).length
+
+              // ROI: Adventure is complete when module is completed
+              const roiAdventuresComplete = newUserProgress.filter(m => m.isCompleted).length
+
+              const totalAdventuresCompleted = umayyedAdventuresComplete + roiAdventuresComplete
+
+              // Track account deletion event BEFORE clearing data
+              analyticsService.trackUserAccountDeleted({
+                account_age_days: accountAgeDays,
+                total_xp: totalXP,
+                adventures_completed: totalAdventuresCompleted,
+              })
+
+              console.log('📊 [Analytics] User Account Deleted:', {
+                account_age_days: accountAgeDays,
+                total_xp: totalXP,
+                adventures_completed: totalAdventuresCompleted,
+              })
+
               // Clear local user data first
               await clearUserData()
               

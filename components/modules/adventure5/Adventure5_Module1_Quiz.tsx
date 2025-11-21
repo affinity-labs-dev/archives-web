@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
 import { useQuizSounds } from '@/hooks/useQuizSounds'
+import { analyticsService } from "@/services/AnalyticsService"
 import {
   QuizQuestion,
   MCQOptionButton,
@@ -96,8 +97,29 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
   const [selectedMCQOption, setSelectedMCQOption] = useState<number | null>(null)
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<number | null>(null)
 
-  const { atomicProgressUpdate, canRetakeModule } = useProgress()
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+
+  const { atomicProgressUpdate, canRetakeModule, calculateTotalXP } = useProgress()
   const { playTap, playCorrect, playIncorrect } = useQuizSounds()
+
+  // Track quiz start (on mount)
+  const [quizStartTime] = useState(Date.now());
+  useEffect(() => {
+    analyticsService.trackQuizStarted({
+      adventure_id: 5,
+      module_id: 1,
+      total_questions: quizQuestions.length,
+      era_id: 1,
+      era_name: 'umayyad',
+      adventure_number: 5,
+      module_number: 1,
+    });
+  }, []);
+
+  // Track when each new question is shown
+  useEffect(() => {
+    setQuestionStartTime(Date.now());
+  }, [currentQuestionIndex]);
 
   // Handle submit - EXACT SwiftUI: handleSubmit()
   const handleSubmit = () => {
@@ -126,6 +148,34 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
       playIncorrect()
     }
 
+    // Track quiz question answer in analytics
+    const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000);
+    let userAnswer = '';
+    let correctAnswer = '';
+
+    if (currentQuestion.type === 'mcq') {
+      userAnswer = currentQuestion.options?.[selectedMCQOption!] || '';
+      correctAnswer = currentQuestion.options?.[currentQuestion.correctAnswer] || '';
+    } else if (currentQuestion.type === 'trueFalse') {
+      userAnswer = selectedTrueFalse === 0 ? 'True' : 'False';
+      correctAnswer = currentQuestion.correctAnswer === 0 ? 'True' : 'False';
+    }
+
+    analyticsService.trackQuizQuestionAnswered({
+      adventure_id: 5,
+      module_id: 1,
+      question_number: currentQuestionIndex + 1,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer,
+      is_correct: isCorrect,
+      time_taken_seconds: timeTaken,
+      xp_earned: isCorrect ? 10 : 0,
+      current_total_xp: calculateTotalXP([], []),
+      era_id: 1,
+      era_name: 'umayyad',
+      adventure_number: 5,
+      module_number: 1,
+    });
 
     setShowExplanation(true)
   }
@@ -163,8 +213,32 @@ export default function Adventure5_Module1_Quiz({ onDismiss, onBack }: Adventure
       setShowExplanation(false)
       resetCurrentQuestion()
     } else {
-      // Quiz completed - check minimum score requirement (need at least 2 out of 5 - 40%)
-      if (correctAnswers >= 2) {
+      // Quiz completed - track quiz_completed event
+      const finalCorrectAnswers = correctAnswers + (checkAnswer(currentQuestionIndex, userAnswers[currentQuestionIndex]) ? 1 : 0);
+      const xpEarned = finalCorrectAnswers * 10;
+      const xpBefore = calculateTotalXP([], []);
+      const quizTimeSpent = Math.floor((Date.now() - quizStartTime) / 1000);
+      const quizScore = finalCorrectAnswers >= 5 ? 3 : finalCorrectAnswers >= 3 ? 2 : 1;
+
+      analyticsService.trackQuizCompleted({
+        adventure_id: 5,
+        module_id: 1,
+        quiz_score: quizScore,
+        correct_answers: finalCorrectAnswers,
+        total_questions: quizQuestions.length,
+        time_spent_seconds: quizTimeSpent,
+        is_retake: canRetakeModule(5, 1),
+        xp_earned: xpEarned,
+        total_xp_before: xpBefore,
+        total_xp_after: xpBefore + xpEarned,
+        era_id: 1,
+        era_name: 'umayyad',
+        adventure_number: 5,
+        module_number: 1,
+      });
+
+      // Check minimum score requirement (need at least 2 out of 5 - 40%)
+      if (finalCorrectAnswers >= 2) {
         celebrateQuizCompletion(correctAnswers)
         setShowResults(true)
         setShowExplanation(false)
@@ -362,6 +436,47 @@ function QuizResultsView({
   // Get dynamic messages based on score
   const messages = getQuizResultMessages(correctAnswers, totalQuestions);
 
+  const { calculateTotalXP } = useProgress();
+  const [moduleProgress] = useState<any[]>([]);
+  const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadNewProgress = async () => {
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        const data = await AsyncStorage.getItem('newUserProgress');
+        if (data) {
+          setNewUserProgress(JSON.parse(data));
+        }
+      } catch (error) {
+        console.error('Failed to load new progress:', error);
+      }
+    };
+    loadNewProgress();
+  }, []);
+
+  const totalXP = calculateTotalXP(moduleProgress, newUserProgress);
+  const performanceTier = percentage >= 70 ? 'high' : percentage >= 34 ? 'medium' : 'low';
+
+  useEffect(() => {
+    analyticsService.trackCustomEvent('quiz_results_viewed', {
+      adventure_id: 5,
+      module_id: 1,
+      quiz_score: Math.round(percentage),
+      correct_answers: correctAnswers,
+      total_questions: totalQuestions,
+      performance_tier: performanceTier,
+      total_points: totalPoints,
+      total_xp_after: totalXP,
+      passed: passed,
+      can_access_adventure: canAccessAdventure,
+      era_id: 1,
+      era_name: 'umayyad',
+      adventure_number: 5,
+      module_number: 1,
+    });
+  }, []);
+
   return (
     <View style={styles.resultsContainer}>
       {/* Back button for results */}
@@ -428,7 +543,23 @@ function QuizResultsView({
           {/* Action buttons - EXACT SwiftUI structure */}
           <View style={styles.actionButtons}>
             {/* Retake Quiz button */}
-            <TouchableOpacity style={styles.retakeButton} onPress={onRetake}>
+            <TouchableOpacity style={styles.retakeButton} onPress={() => {
+              analyticsService.trackCustomEvent('quiz_results_retake_clicked', {
+                adventure_id: 5,
+                module_id: 1,
+                quiz_score: Math.round(percentage),
+                correct_answers: correctAnswers,
+                total_questions: totalQuestions,
+                performance_tier: performanceTier,
+                total_points: totalPoints,
+                total_xp_after: totalXP,
+                era_id: 1,
+                era_name: 'umayyad',
+                adventure_number: 5,
+                module_number: 1,
+              });
+              onRetake();
+            }}>
               <View style={styles.retakeButtonContent}>
                 <Ionicons name="refresh-circle" size={24} color={ArchivesTheme.colors.mossGreen} />
                 <Text style={styles.retakeButtonText}>Retake Quiz</Text>
@@ -437,7 +568,23 @@ function QuizResultsView({
 
             {/* Go to Adventure button or locked message */}
             {canAccessAdventure ? (
-              <TouchableOpacity style={styles.adventureButton} onPress={onGoToAdventure}>
+              <TouchableOpacity style={styles.adventureButton} onPress={() => {
+                analyticsService.trackCustomEvent('quiz_results_continue_clicked', {
+                  adventure_id: 5,
+                  module_id: 1,
+                  quiz_score: Math.round(percentage),
+                  correct_answers: correctAnswers,
+                  total_questions: totalQuestions,
+                  performance_tier: performanceTier,
+                  total_points: totalPoints,
+                  total_xp_after: totalXP,
+                  era_id: 1,
+                  era_name: 'umayyad',
+                  adventure_number: 5,
+                  module_number: 1,
+                });
+                onGoToAdventure();
+              }}>
                 <View style={styles.adventureButtonContent}>
                   <Ionicons name="map" size={24} color="white" />
                   <Text style={styles.adventureButtonText}>Go to Adventure</Text>

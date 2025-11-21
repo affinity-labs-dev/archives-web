@@ -307,6 +307,7 @@ export default function ROIQuiz({
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [randomImageIndex, setRandomImageIndex] = useState(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
   const [showResults, setShowResults] = useState(false);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
   // Mid-quiz milestone detection
   const [initialXP, setInitialXP] = useState(0);
@@ -357,13 +358,13 @@ export default function ROIQuiz({
     if (selectedAnswer === null) return;
 
     const isCorrect = selectedAnswer === correctAnswerIndex;
+    const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000);
 
     // Track answer submission
     trackQuestionAnswered(
       currentQuestionIndex,
       isCorrect,
-      options[selectedAnswer],
-      currentQuestion.question_text
+      timeTaken
     );
 
     if (isCorrect) {
@@ -419,6 +420,7 @@ export default function ROIQuiz({
       setSelectedAnswer(null);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
+      setQuestionStartTime(Date.now()); // Reset timer for next question
     } else {
       // Last question - show results screen
       setShowFeedback(false);
@@ -521,6 +523,12 @@ export default function ROIQuiz({
         onRetake={handleRetakeQuiz}
         onContinue={handleQuizCompletion}
         onBack={onBack}
+        adventureId={adventureId}
+        moduleId={moduleId}
+        eraId={2}
+        eraName="riseOfIslam"
+        adventureNumber={adventureNumber}
+        moduleNumber={moduleNumber}
       />
     );
   }
