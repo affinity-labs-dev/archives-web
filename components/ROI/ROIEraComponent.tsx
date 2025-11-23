@@ -85,7 +85,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
   // Create dynamic progress bar data
   const progressBarData = {
     title: 'Exploring Rise of Islam',
-    subtitle: '500 - 632 CE',
+    subtitle: '600 - 632 CE',
     currentStep: completedAdventuresCount,
     totalSteps: adventures.length,
   };
