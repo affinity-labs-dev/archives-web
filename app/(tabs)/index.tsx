@@ -2,7 +2,7 @@
 // Exact replica of SwiftUI MainTabView Home functionality
 
 import React, { useEffect, useState } from 'react'
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
@@ -109,12 +109,16 @@ export default function HomeTab() {
               <Text style={styles.subtitle}>
                 Please select an era to begin your journey
               </Text>
-              
-              <View style={styles.selectEraContainer}>
-                <Text style={styles.selectEraText}>
-                  Go to Eras tab to choose your adventure
+
+              <TouchableOpacity
+                style={styles.selectEraButton}
+                onPress={() => router.push('/(tabs)/eras')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.selectEraButtonText}>
+                  Choose Your Era
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
         </SafeAreaView>
@@ -177,18 +181,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 40,
   },
-  selectEraContainer: {
-    backgroundColor: ArchivesTheme.colors.persianOrange + '20', // 20% opacity
-    paddingHorizontal: 24,
+  selectEraButton: {
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    paddingHorizontal: 32,
     paddingVertical: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: ArchivesTheme.colors.persianOrange + '40',
+    borderRadius: 27,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  selectEraText: {
-    ...ArchivesTheme.typography.bodyLarge,
-    color: ArchivesTheme.colors.mutedNavy,
+  selectEraButtonText: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
     fontWeight: '600',
+    color: 'white',
     textAlign: 'center',
   },
 })

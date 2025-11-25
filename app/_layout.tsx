@@ -67,15 +67,15 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       console.log('✅ [Analytics] Service initialized with PostHog instance');
       // Note: Session replay starts automatically via enableSessionReplay: true config
 
-      // Set user properties if user is signed in (PostHog guaranteed ready here)
+      // Identify user if signed in - this merges all anonymous events to the authenticated user
       if (isSignedIn && user) {
-        analyticsService.setUserProperties(user.id, {
+        analyticsService.identifyUser(user.id, {
           email: user.primaryEmailAddress?.emailAddress,
           firstName: user.firstName,
           lastName: user.lastName,
           username: user.username,
         });
-        console.log('✅ [Analytics] User properties SET for Clerk ID:', user.id);
+        console.log('✅ [Analytics] User IDENTIFIED for Clerk ID:', user.id);
         console.log('✅ [Analytics] Email:', user.primaryEmailAddress?.emailAddress);
       } else {
         console.log('⏳ [Analytics] Waiting for user sign-in to set properties');

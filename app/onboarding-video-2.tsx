@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import { useRouter } from 'expo-router'
+import { useAuth } from '@clerk/clerk-expo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
@@ -28,6 +29,7 @@ export default function OnboardingVideo2Screen() {
   const [screenStartTime] = useState(Date.now())
   const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
+  const { isSignedIn, signOut } = useAuth()
   const { trackScreenView, trackVideoPlayed } = useAnalytics()
 
   console.log('🎬 [OnboardingVideo2] Component initializing...')
@@ -118,6 +120,13 @@ export default function OnboardingVideo2Screen() {
   // Navigate to get started (continue onboarding)
   const handleGetStarted = async () => {
     try {
+      // Sign out if user has a stale session (e.g., reinstalled app but Keychain persisted)
+      // This ensures users go through proper auth flow after onboarding
+      if (isSignedIn) {
+        console.log('🎬 [OnboardingVideo2] User has stale session, signing out before onboarding')
+        await signOut()
+      }
+
       // Mark both videos as viewed
       await AsyncStorage.setItem('onboarding_videos_viewed', 'true')
 
@@ -125,7 +134,7 @@ export default function OnboardingVideo2Screen() {
       setExitAction('continued')
       router.replace('/onboarding-welcome')
     } catch (error) {
-      console.error('🎬 [OnboardingVideo2] Error saving video completion:', error)
+      console.error('🎬 [OnboardingVideo2] Error during get started:', error)
       // Continue anyway to avoid blocking user
       setExitAction('continued')
       router.replace('/onboarding-welcome')
