@@ -1,7 +1,7 @@
 // OnboardingQuestion1Screen - First questionnaire screen
 // "How much Middle Eastern history do you already know?"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -33,9 +33,11 @@ const questionOptions = [
 export default function OnboardingQuestion1Screen() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
+
+  // Use ref to avoid re-running useEffect when exit action changes
+  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   console.log('🔥 [OnboardingQ1] Component initializing...')
 
@@ -43,32 +45,23 @@ export default function OnboardingQuestion1Screen() {
   useEffect(() => {
     trackScreenView('Onboarding Question 1')
 
-    // Track screen exit on unmount
+    // Track screen exit on unmount only (use ref to avoid duplicate cleanup calls)
     return () => {
       const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
       analyticsService.trackOnboardingScreenExited({
         screen: 'onboarding_question_1',
-        exit_action: exitAction,
+        exit_action: exitActionRef.current,
         duration_seconds,
       })
     }
-  }, [trackScreenView, screenStartTime, exitAction])
+  }, [trackScreenView, screenStartTime])
 
-  // Handle option selection
+  // Handle option selection (UI only - tracking happens on Continue)
   const handleOptionSelect = async (optionIndex: number) => {
     try {
       await Haptics.selectionAsync()
       setSelectedOption(optionIndex)
       console.log('🔥 [OnboardingQ1] Selected option:', questionOptions[optionIndex])
-
-      // Track question answer
-      analyticsService.trackOnboardingQuestionAnswered({
-        screen: 'onboarding_question_1',
-        question_number: 1,
-        question_text: "How much Middle Eastern history do you already know?",
-        answer: questionOptions[optionIndex],
-        answer_index: optionIndex,
-      })
     } catch (error) {
       console.error('🔥 [OnboardingQ1] Error selecting option:', error)
       setSelectedOption(optionIndex)
@@ -82,6 +75,15 @@ export default function OnboardingQuestion1Screen() {
     try {
       await Haptics.impactAsync()
 
+      // Track final answer (only track once on Continue, not on every selection)
+      analyticsService.trackOnboardingQuestionAnswered({
+        screen: 'onboarding_question_1',
+        question_number: 1,
+        question_text: "How much Middle Eastern history do you already know?",
+        answer: questionOptions[selectedOption],
+        answer_index: selectedOption,
+      })
+
       // Save answer to storage
       const answerData = {
         question: "How much Islamic history do you already know?",
@@ -93,12 +95,12 @@ export default function OnboardingQuestion1Screen() {
       console.log('🔥 [OnboardingQ1] Answer saved:', answerData)
 
       // Navigate to next question
-      setExitAction('continued')
+      exitActionRef.current = 'continued'
       router.push('/onboarding-question-2')
     } catch (error) {
       console.error('🔥 [OnboardingQ1] Error saving answer:', error)
       // Continue anyway
-      setExitAction('continued')
+      exitActionRef.current = 'continued'
       router.push('/onboarding-question-2')
     }
   }

@@ -16,6 +16,7 @@ interface UseQuizTrackingProps {
   quizId?: string;             // Quiz identifier (optional)
   quizTitle?: string;          // Quiz title for tracking (optional)
   screenUrl?: string;          // Screen URL for PostHog activity tracking
+  screen?: string;             // Custom screen name for PostHog (e.g., "ROI Quiz - roi_adventure_1 Module 1")
 }
 
 export function useQuizTracking({
@@ -28,7 +29,8 @@ export function useQuizTracking({
   moduleNumber,
   quizId,
   quizTitle,
-  screenUrl
+  screenUrl,
+  screen
 }: UseQuizTrackingProps) {
   const startTimeRef = useRef<number>(Date.now());
   const hasStartedRef = useRef(false);
@@ -68,6 +70,7 @@ export function useQuizTracking({
         quiz_id: quizId,
         quiz_title: quizTitle,
         $current_url: screenUrl,
+        $screen_name: screen,
       });
       hasStartedRef.current = true;
     }
@@ -81,7 +84,7 @@ export function useQuizTracking({
         console.log(`📊 [QuizTracking] Quiz abandoned: ${adventureId}-${moduleId} after ${questionsAnswered}/${totalQuestions} questions`);
       }
     };
-  }, [adventureId, moduleId, totalQuestions, eraId, eraName, adventureNumber, moduleNumber, quizId, quizTitle, screenUrl]);
+  }, [adventureId, moduleId, totalQuestions, eraId, eraName, adventureNumber, moduleNumber, quizId, quizTitle, screenUrl, screen]);
 
   // Track individual question answered
   const trackQuestionAnswered = useCallback((questionNumber: number, isCorrect: boolean, timeTaken: number) => {
@@ -106,10 +109,11 @@ export function useQuizTracking({
       module_number: moduleNumber,
       quiz_id: quizId,
       $current_url: screenUrl,
+      $screen_name: screen,
     });
 
     console.log(`📊 [QuizTracking] XP tracking - Earned: ${xpEarned}, Total: ${currentTotalXP}`);
-  }, [adventureId, moduleId, eraId, eraName, adventureNumber, moduleNumber, quizId, screenUrl, calculateTotalXP, moduleProgress, newUserProgress]);
+  }, [adventureId, moduleId, eraId, eraName, adventureNumber, moduleNumber, quizId, screenUrl, screen, calculateTotalXP, moduleProgress, newUserProgress]);
 
   // Track quiz completion
   const trackQuizComplete = useCallback((score: number, correctAnswers: number, isRetake: boolean = false) => {
@@ -139,10 +143,11 @@ export function useQuizTracking({
       quiz_id: quizId,
       quiz_title: quizTitle,
       $current_url: screenUrl,
+      $screen_name: screen,
     });
 
     console.log(`📊 [QuizTracking] XP tracking - Before: ${totalXPBefore}, Earned: ${xpEarned}, After: ${totalXPAfter}`);
-  }, [adventureId, moduleId, totalQuestions, eraId, eraName, adventureNumber, moduleNumber, quizId, quizTitle, screenUrl, calculateTotalXP, moduleProgress, newUserProgress]);
+  }, [adventureId, moduleId, totalQuestions, eraId, eraName, adventureNumber, moduleNumber, quizId, quizTitle, screenUrl, screen, calculateTotalXP, moduleProgress, newUserProgress]);
 
   // Track quiz retake
   const trackQuizRetake = useCallback((previousScore: number) => {
@@ -162,8 +167,9 @@ export function useQuizTracking({
       module_number: moduleNumber,
       quiz_id: quizId,
       $current_url: screenUrl,
+      $screen_name: screen,
     });
-  }, [adventureId, moduleId, eraId, eraName, adventureNumber, moduleNumber, quizId, screenUrl]);
+  }, [adventureId, moduleId, eraId, eraName, adventureNumber, moduleNumber, quizId, screenUrl, screen]);
 
   return {
     trackQuestionAnswered,

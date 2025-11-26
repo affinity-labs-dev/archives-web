@@ -123,6 +123,7 @@ await AsyncStorage.setItem(...)  // ❌ NEVER
 | `rive-react-native` | Animated illustrations | Used for Start Here speech bubble animation |
 | `react-native-bottom-tabs` | Native tab bar | Custom iOS-style tabs (not React Navigation tabs) |
 | `expo-tracking-transparency` | iOS ATT | Required before PostHog initialization on iOS |
+| `imagekit-javascript` | ROI media CDN | URLs stored in Supabase, no client-side init needed |
 
 ## File Structure
 
@@ -385,7 +386,7 @@ console.log('🔔 Notification')    // Push notifications
 
 **Shared:**
 - EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `2.2.7` (check app.json for current)
+- App version: `2.2.8` (check app.json for current)
 - Runtime: `1.0.0` | Expo SDK: 54
 - New Architecture: Enabled (React Native 0.81.5)
 

@@ -283,6 +283,10 @@ export default function ROIQuiz({
   const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
   const moduleNumber = contentItem.order_by || 0;
 
+  // Extract quiz data from contentItem (must be before hooks that use questions)
+  const questions = contentItem.questions || [];
+  const quizTitle = contentItem.thumbnail_title || 'Quiz';
+
   // Analytics tracking
   const {
     trackQuestionAnswered,
@@ -298,6 +302,7 @@ export default function ROIQuiz({
     eraName: "riseOfIslam",
     adventureNumber,
     moduleNumber,
+    screen: `ROI Quiz - ${adventureId} Module ${moduleNumber}`,
   });
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -326,10 +331,7 @@ export default function ROIQuiz({
     loadInitialXP();
   }, []);
 
-  // Extract quiz data from contentItem
-  const questions = contentItem.questions || [];
-  const quizTitle = contentItem.thumbnail_title || 'Quiz';
-
+  // Early return if no questions
   if (questions.length === 0) {
     console.error('❌ No questions found in contentItem');
     return null;

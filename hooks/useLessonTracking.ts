@@ -16,6 +16,7 @@ interface UseLessonTrackingProps {
   lessonTitle?: string;
   chapterNumber?: number;
   screenUrl?: string; // For PostHog activity tracking ($current_url)
+  screen?: string;    // Custom screen name for PostHog (e.g., "ROI Lesson - roi_adventure_1 lesson1")
 }
 
 export function useLessonTracking({
@@ -29,7 +30,8 @@ export function useLessonTracking({
   moduleNumber,
   lessonTitle,
   chapterNumber,
-  screenUrl
+  screenUrl,
+  screen
 }: UseLessonTrackingProps) {
   const startTimeRef = useRef<number>(Date.now());
   const videoStartTimeRef = useRef<number | null>(null); // Track when video playback starts
@@ -48,6 +50,7 @@ export function useLessonTracking({
         era_name: eraName,
         adventure_number: adventureNumber,
         module_number: moduleNumber,
+        $screen_name: screen,
       });
       hasStartedRef.current = true;
     }
@@ -59,7 +62,7 @@ export function useLessonTracking({
 
       // Note: Lesson completion is tracked separately via completeLesson call in component
     };
-  }, [adventureId, moduleId, lessonId, lessonType, eraId, eraName, adventureNumber, moduleNumber]);
+  }, [adventureId, moduleId, lessonId, lessonType, eraId, eraName, adventureNumber, moduleNumber, screen]);
 
   // Track video play event with enhanced metadata
   const trackVideoPlay = useCallback((videoDuration?: number) => {
@@ -159,8 +162,9 @@ export function useLessonTracking({
       era_name: eraName,
       adventure_number: adventureNumber,
       module_number: moduleNumber,
+      $screen_name: screen,
     });
-  }, [adventureId, moduleId, lessonId, eraId, eraName, adventureNumber, moduleNumber]);
+  }, [adventureId, moduleId, lessonId, eraId, eraName, adventureNumber, moduleNumber, screen]);
 
   // Track carousel image view time
   const trackCarouselImageView = useCallback((imageIndex: number, timeSpentSeconds: number, totalImages: number) => {

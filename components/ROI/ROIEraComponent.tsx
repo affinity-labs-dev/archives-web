@@ -33,7 +33,7 @@ interface UserProgress {
 interface ROIEraComponentProps {
   adventures: Adventure[];
   userProgress: UserProgress[];
-  onProgressUpdate?: () => void;
+  onProgressUpdate?: () => Promise<void> | void;
   refreshing?: boolean;
   onRefresh?: () => void;
 }
@@ -142,9 +142,9 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
   const handleQuizContinue = async () => {
     console.log('✅ Quiz completed, checking if adventure complete');
 
-    // Reload progress to show stars immediately in UI
+    // Reload progress to show stars immediately in UI (await to prevent race condition)
     if (onProgressUpdate) {
-      onProgressUpdate();
+      await onProgressUpdate();
     }
 
     // Read FRESH progress data from AsyncStorage to avoid race condition
@@ -249,9 +249,9 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
 
     console.log(`🎉 Showing XP milestone screen for ${milestoneXP} XP (FIRST TIME)`);
 
-    // Reload progress to show stars immediately
+    // Reload progress to show stars immediately (await to prevent race condition)
     if (onProgressUpdate) {
-      onProgressUpdate();
+      await onProgressUpdate();
     }
 
     // Close lesson/quiz modal first

@@ -1,7 +1,7 @@
 // OnboardingQuestion2Screen - Second questionnaire screen
 // "How did you learn about Archives?"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -34,9 +34,11 @@ const questionOptions = [
 export default function OnboardingQuestion2Screen() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
+
+  // Use ref to avoid re-running useEffect when exit action changes
+  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   console.log('🔥 [OnboardingQ2] Component initializing...')
 
@@ -44,32 +46,23 @@ export default function OnboardingQuestion2Screen() {
   useEffect(() => {
     trackScreenView('Onboarding Question 2')
 
-    // Track screen exit on unmount
+    // Track screen exit on unmount only (use ref to avoid duplicate cleanup calls)
     return () => {
       const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
       analyticsService.trackOnboardingScreenExited({
         screen: 'onboarding_question_2',
-        exit_action: exitAction,
+        exit_action: exitActionRef.current,
         duration_seconds,
       })
     }
-  }, [trackScreenView, screenStartTime, exitAction])
+  }, [trackScreenView, screenStartTime])
 
-  // Handle option selection
+  // Handle option selection (UI only - tracking happens on Continue)
   const handleOptionSelect = async (optionIndex: number) => {
     try {
       await Haptics.selectionAsync()
       setSelectedOption(optionIndex)
       console.log('🔥 [OnboardingQ2] Selected option:', questionOptions[optionIndex])
-
-      // Track question answer
-      analyticsService.trackOnboardingQuestionAnswered({
-        screen: 'onboarding_question_2',
-        question_number: 2,
-        question_text: "How did you learn about Archives?",
-        answer: questionOptions[optionIndex],
-        answer_index: optionIndex,
-      })
     } catch (error) {
       console.error('🔥 [OnboardingQ2] Error selecting option:', error)
       setSelectedOption(optionIndex)
@@ -83,6 +76,15 @@ export default function OnboardingQuestion2Screen() {
     try {
       await Haptics.impactAsync()
 
+      // Track final answer (only track once on Continue, not on every selection)
+      analyticsService.trackOnboardingQuestionAnswered({
+        screen: 'onboarding_question_2',
+        question_number: 2,
+        question_text: "How did you learn about Archives?",
+        answer: questionOptions[selectedOption],
+        answer_index: selectedOption,
+      })
+
       // Save answer to storage
       const answerData = {
         question: "How did you learn about Archives?",
@@ -94,12 +96,12 @@ export default function OnboardingQuestion2Screen() {
       console.log('🔥 [OnboardingQ2] Answer saved:', answerData)
 
       // Navigate to next question
-      setExitAction('continued')
+      exitActionRef.current = 'continued'
       router.push('/onboarding-question-3')
     } catch (error) {
       console.error('🔥 [OnboardingQ2] Error saving answer:', error)
       // Continue anyway
-      setExitAction('continued')
+      exitActionRef.current = 'continued'
       router.push('/onboarding-question-3')
     }
   }
@@ -108,11 +110,11 @@ export default function OnboardingQuestion2Screen() {
   const handleBack = async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      setExitAction('back_button')
+      exitActionRef.current = 'back_button'
       router.back()
     } catch (error) {
       console.error('🔥 [OnboardingQ2] Error going back:', error)
-      setExitAction('back_button')
+      exitActionRef.current = 'back_button'
       router.back()
     }
   }

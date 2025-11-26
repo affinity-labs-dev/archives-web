@@ -1,7 +1,7 @@
 // OnboardingResultsScreen - Shows recommended era based on quiz answers
 // Displays suggested learning path and prompts account creation
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -25,29 +25,37 @@ import Svg, { Path } from 'react-native-svg'
 export default function OnboardingResultsScreen() {
   const [recommendedEra, setRecommendedEra] = useState('Rise of Islam')
   const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { requestPermission } = useAppTrackingTransparency()
 
+  // Use refs to prevent duplicate tracking and avoid useEffect dependency issues
+  const hasTrackedCompletionRef = useRef(false)
+  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
+
   console.log('🎯 [OnboardingResults] Component initializing...')
 
-  // Track screen view and onboarding completion when component mounts
+  // Track screen view and onboarding completion when component mounts (ONCE only)
   useEffect(() => {
     trackScreenView('Onboarding Results')
     loadRecommendation()
-    trackOnboardingCompletion()
 
-    // Track screen exit on unmount
+    // Only track completion once (prevent duplicates from re-renders)
+    if (!hasTrackedCompletionRef.current) {
+      hasTrackedCompletionRef.current = true
+      trackOnboardingCompletion()
+    }
+
+    // Track screen exit on unmount only (use ref to avoid re-running effect)
     return () => {
       const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
       analyticsService.trackOnboardingScreenExited({
         screen: 'onboarding_results',
-        exit_action: exitAction,
+        exit_action: exitActionRef.current,
         duration_seconds,
       })
     }
-  }, [trackScreenView, screenStartTime, exitAction])
+  }, [trackScreenView, screenStartTime])
 
   // Track onboarding completion with all answers
   const trackOnboardingCompletion = async () => {
@@ -134,12 +142,12 @@ export default function OnboardingResultsScreen() {
       // Navigate to authentication page after ATT response
       // Note: The authentication screen will handle routing to appropriate tab after successful auth
       console.log('🎯 [OnboardingResults] Navigating to authentication page')
-      setExitAction('continued')
+      exitActionRef.current = 'continued'
       router.push('/(auth)/archives-auth')
     } catch (error) {
       console.error('🎯 [OnboardingResults] Error during ATT request or navigation:', error)
       // Even if ATT fails, continue to authentication
-      setExitAction('continued')
+      exitActionRef.current = 'continued'
       router.push('/(auth)/archives-auth')
     }
   }

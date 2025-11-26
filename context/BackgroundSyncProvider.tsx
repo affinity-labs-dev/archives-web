@@ -1,7 +1,7 @@
 // Background Sync Provider - Wraps ProgressProvider with cloud sync
 // Maintains local-first architecture while providing transparent backup
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { useUser } from '@clerk/clerk-expo';
 import { simplifiedSyncService } from '@/services/SimplifiedSyncService';
@@ -32,6 +32,9 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
     queuedOperations: 0,
   });
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Track if user was previously signed in (to detect actual sign-out vs fresh install)
+  const wasSignedInRef = useRef(false);
 
   // Update sync status from service
   const updateSyncStatus = () => {
@@ -64,13 +67,22 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
       // Note: User properties are now set in AnalyticsWrapper (_layout.tsx) where PostHog is guaranteed ready
       analyticsService.trackUserSessionIn('email');
 
+      // Mark that user has been signed in (for detecting actual sign-out later)
+      wasSignedInRef.current = true;
+
       initializeSync();
-    } else if (!isSignedIn) {
+    } else if (!isSignedIn && wasSignedInRef.current) {
+      // Only reset analytics if user was PREVIOUSLY signed in (actual sign-out)
+      // This prevents creating a new anonymous ID on fresh app install
       console.log('👋 User signed out, clearing sync data...');
-      // Clear user ID when user signs out
       simplifiedSyncService.setCurrentUserId(null);
       analyticsService.reset();
       setIsInitialized(false);
+      wasSignedInRef.current = false;
+    } else if (!isSignedIn && !wasSignedInRef.current) {
+      // Fresh install or app restart without prior sign-in - don't reset analytics
+      // This preserves the original anonymous ID for proper merging on sign-in
+      console.log('📱 App loaded without prior sign-in, preserving anonymous ID');
     }
   }, [isSignedIn, user, isInitialized]);
 

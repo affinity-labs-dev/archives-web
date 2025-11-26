@@ -534,6 +534,7 @@ class AnalyticsService {
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
+    $screen_name?: string; // Custom screen name for PostHog activity view
   }) {
     const event = {
       ...data,
@@ -556,6 +557,7 @@ class AnalyticsService {
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
+    $screen_name?: string; // Custom screen name for PostHog activity view
   }) {
     const event = {
       ...data,
@@ -772,6 +774,7 @@ class AnalyticsService {
     quiz_id?: string;
     quiz_title?: string;
     $current_url?: string;
+    $screen_name?: string; // Custom screen name for PostHog activity view
   }) {
     const event = {
       ...data,
@@ -801,6 +804,7 @@ class AnalyticsService {
     module_number?: number;
     quiz_id?: string;
     $current_url?: string;
+    $screen_name?: string; // Custom screen name for PostHog activity view
   }) {
     const event = {
       ...data,
@@ -835,6 +839,7 @@ class AnalyticsService {
     quiz_id?: string;
     quiz_title?: string;
     $current_url?: string;
+    $screen_name?: string; // Custom screen name for PostHog activity view
   }) {
     const event = {
       ...data,
@@ -858,6 +863,7 @@ class AnalyticsService {
     module_number?: number;
     quiz_id?: string;
     $current_url?: string;
+    $screen_name?: string; // Custom screen name for PostHog activity view
   }) {
     const event = {
       ...data,

@@ -140,12 +140,13 @@ export default function ROIVideoCarouselLesson({
     moduleId,
     lessonId,
     lessonType: "video_carousel",
-    lessonTitle: contentItem.top_content?.title || "Unknown",
+    lessonTitle: contentItem.thumbnail_title || "Unknown",
     screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
     eraId: 2,
     eraName: "riseOfIslam",
     adventureNumber,
     moduleNumber,
+    screen: `ROI Lesson - ${adventureId} ${lessonId}`,
   });
 
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);

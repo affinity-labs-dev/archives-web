@@ -86,14 +86,23 @@ export default function ROIScrollableMediaViewLesson({
     { volume: 0.5, shouldLoop: true }
   );
 
+  // Extract adventure/module numbers for analytics
+  const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
+  const moduleNumber = contentItem.order_by || 0;
+
   // Analytics tracking
   const { trackLessonComplete } = useLessonTracking({
     adventureId,
     moduleId,
     lessonId,
     lessonType: "scrollable_media",
-    lessonTitle: contentItem.top_content?.title || "Unknown",
+    lessonTitle: contentItem.thumbnail_title || "Unknown",
     screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
+    eraId: 2,
+    eraName: "riseOfIslam",
+    adventureNumber,
+    moduleNumber,
+    screen: `ROI Lesson - ${adventureId} ${lessonId}`,
   });
 
   // Setup video players on mount

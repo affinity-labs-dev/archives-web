@@ -1,7 +1,7 @@
 // OnboardingQuestion4Screen - Fourth questionnaire screen
 // "Why are you learning about Middle Eastern history?" - Multi-select
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -33,9 +33,11 @@ const questionOptions = [
 export default function OnboardingQuestion4Screen() {
   const [selectedOptions, setSelectedOptions] = useState<number[]>([])
   const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
+
+  // Use ref to avoid re-running useEffect when exit action changes
+  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   console.log('🔥 [OnboardingQ4] Component initializing...')
 
@@ -43,18 +45,18 @@ export default function OnboardingQuestion4Screen() {
   useEffect(() => {
     trackScreenView('Onboarding Question 4')
 
-    // Track screen exit on unmount
+    // Track screen exit on unmount only (use ref to avoid duplicate cleanup calls)
     return () => {
       const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
       analyticsService.trackOnboardingScreenExited({
         screen: 'onboarding_question_4',
-        exit_action: exitAction,
+        exit_action: exitActionRef.current,
         duration_seconds,
       })
     }
-  }, [trackScreenView, screenStartTime, exitAction])
+  }, [trackScreenView, screenStartTime])
 
-  // Handle option selection (multi-select)
+  // Handle option selection (multi-select, UI only - tracking happens on Continue)
   const handleOptionSelect = async (optionIndex: number) => {
     try {
       await Haptics.selectionAsync()
@@ -64,29 +66,11 @@ export default function OnboardingQuestion4Screen() {
           // Remove if already selected
           const newSelection = prev.filter(index => index !== optionIndex)
           console.log('🔥 [OnboardingQ4] Deselected option:', questionOptions[optionIndex])
-
-          // Track deselection
-          analyticsService.trackOnboardingQuestionAnswered({
-            screen: 'onboarding_question_4',
-            question_number: 4,
-            question_text: "Why are you learning about Middle Eastern history?",
-            answer: newSelection.map(i => questionOptions[i]),
-          })
-
           return newSelection
         } else {
           // Add if not selected
           const newSelection = [...prev, optionIndex]
           console.log('🔥 [OnboardingQ4] Selected option:', questionOptions[optionIndex])
-
-          // Track selection
-          analyticsService.trackOnboardingQuestionAnswered({
-            screen: 'onboarding_question_4',
-            question_number: 4,
-            question_text: "Why are you learning about Middle Eastern history?",
-            answer: newSelection.map(i => questionOptions[i]),
-          })
-
           return newSelection
         }
       })
@@ -110,8 +94,16 @@ export default function OnboardingQuestion4Screen() {
     try {
       await Haptics.impactAsync()
 
-      // Save answer to storage
+      // Track final answer (only track once on Continue with all selected options)
       const selectedAnswers = selectedOptions.map(index => questionOptions[index])
+      analyticsService.trackOnboardingQuestionAnswered({
+        screen: 'onboarding_question_4',
+        question_number: 4,
+        question_text: "Why are you learning about Middle Eastern history?",
+        answer: selectedAnswers,
+      })
+
+      // Save answer to storage
       const answerData = {
         question: "Why are you learning about Islamic history?",
         answers: selectedAnswers,
@@ -126,13 +118,13 @@ export default function OnboardingQuestion4Screen() {
       console.log('🔥 [OnboardingQ4] Onboarding completed!')
 
       // Navigate to results screen
-      setExitAction('continued')
+      exitActionRef.current = 'continued'
       router.push('/onboarding-results')
     } catch (error) {
       console.error('🔥 [OnboardingQ4] Error in handleContinue:', error)
       // Navigate anyway
       await AsyncStorage.setItem('onboarding_completed', 'true')
-      setExitAction('continued')
+      exitActionRef.current = 'continued'
       router.push('/onboarding-results')
     }
   }
@@ -141,11 +133,11 @@ export default function OnboardingQuestion4Screen() {
   const handleBack = async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      setExitAction('back_button')
+      exitActionRef.current = 'back_button'
       router.back()
     } catch (error) {
       console.error('🔥 [OnboardingQ4] Error going back:', error)
-      setExitAction('back_button')
+      exitActionRef.current = 'back_button'
       router.back()
     }
   }
