@@ -110,6 +110,9 @@ export default function OnboardingQuestion3Screen() {
         })
       }
 
+      // Update PostHog person property for push notification status
+      analyticsService.updatePushStatus(status === 'granted')
+
       if (status === 'granted') {
         // Get Expo push token
         const projectId = Constants.expoConfig?.extra?.eas?.projectId

@@ -68,30 +68,44 @@ export default function OnboardingResultsScreen() {
         ? Math.floor((Date.now() - parseInt(startTime)) / 1000) // Convert to seconds
         : 0
 
-      // Get all question answers
-      const q1 = await AsyncStorage.getItem('onboarding_q1_answer') || 'Not answered'
-      const q2Raw = await AsyncStorage.getItem('onboarding_q2_answer') || '[]'
-      const q2 = JSON.parse(q2Raw) // Array of interests
-      const q3 = await AsyncStorage.getItem('onboarding_q3_answer') || 'Not answered'
-      const q4 = await AsyncStorage.getItem('onboarding_q4_answer') || 'Not answered'
+      // Get all question answers (stored as JSON objects)
+      const q1Raw = await AsyncStorage.getItem('onboarding_q1_answer') || '{}'
+      const q2Raw = await AsyncStorage.getItem('onboarding_q2_answer') || '{}'
+      const q3Raw = await AsyncStorage.getItem('onboarding_q3_answer') || '{}'
+      const q4Raw = await AsyncStorage.getItem('onboarding_q4_answer') || '{}'
 
-      // Track the completion
+      // Parse JSON to extract answer values
+      const q1Data = JSON.parse(q1Raw)
+      const q2Data = JSON.parse(q2Raw)  // Q2: "How did you learn about Archives?" (awareness channel)
+      const q3Data = JSON.parse(q3Raw)
+      const q4Data = JSON.parse(q4Raw)  // Q4: "Why are you learning?" (multi-select motivation)
+
+      // Track the completion event
       analyticsService.trackOnboardingCompleted({
         screen: 'onboarding_results',
         context: 'onboarding',
         time_to_complete_seconds: timeToComplete,
-        onboarding_q1: q1,
-        onboarding_q2: q2,
-        onboarding_q3: q3,
-        onboarding_q4: q4,
+        onboarding_q1: q1Data.answer || 'Not answered',
+        onboarding_q2: q2Data.answer || 'Not answered',
+        onboarding_q3: q3Data.answer || 'Not answered',
+        onboarding_q4: q4Data.answers || [],
+      })
+
+      // Update PostHog person properties with onboarding data
+      analyticsService.updateOnboardingProperties({
+        knowledge_level: q1Data.answer || null,           // Q1: "How much do you know?"
+        awareness_channel: q2Data.answer || null,         // Q2: "How did you learn about Archives?"
+        daily_learning_goal: q3Data.answer || null,       // Q3: "What's your daily learning goal?"
+        learning_motivation: q4Data.answers || null,      // Q4: "Why are you learning?" (multi-select)
+        onboarding_result: 'Rise of Islam',               // Recommended era
       })
 
       console.log('🎯 [OnboardingResults] Onboarding completion tracked:', {
         timeToComplete,
-        q1,
-        q2,
-        q3,
-        q4,
+        q1: q1Data.answer,
+        q2: q2Data.answer,
+        q3: q3Data.answer,
+        q4: q4Data.answers,
       })
     } catch (error) {
       console.error('🎯 [OnboardingResults] Error tracking onboarding completion:', error)

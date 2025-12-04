@@ -491,7 +491,7 @@ export default function ROIReelLesson({
         {/* Full-screen Video Player with inline loading */}
         <View style={{ position: 'relative', flex: 1 }}>
           <LessonPlayer
-            videoSource={{ uri: videoUrl }}
+            videoSource={{ uri: videoUrl, useCaching: true }}
             onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
             autoPlay={true}
             shouldLoop={true}

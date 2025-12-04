@@ -99,10 +99,10 @@ await AsyncStorage.setItem(...)  // ❌ NEVER
 3. Write AsyncStorage (local-first, <50ms)
 4. Trigger cloud sync (debounced, async)
 
-**Dual-era system:**
-- **Umayyad Dynasty**: Adventures 1-5 (use `atomicProgressUpdate()` in `ProgressContext`)
-- **Rise of Islam**: Separate Adventures 1-5 (use `roiAtomicProgressUpdate()` in `ROIProgressContext`)
-- Each era has its own progress tracking, unlock logic, and context
+**Dual-era system (unified ProgressContext):**
+- **Umayyad Dynasty (Era 1)**: Adventures 1-5 - uses `atomicProgressUpdate()`
+- **Rise of Islam (Era 2)**: Adventures 1-5 - uses same `atomicProgressUpdate()`, stats via `getROIAdventureStats()`
+- Both eras share the same `ProgressContext` with era-specific XP calculation and progress tracking
 
 ### Module Completion Logic
 - **Unlock chain**: Adventure 1 unlocked by default → Complete all 3 modules → Unlock Adventure 2
@@ -375,19 +375,18 @@ console.log('🔔 Notification')    // Push notifications
 
 **iOS (App Store):**
 - Bundle: `ai.affinitylabs.archivesexpo` | Team: `LQ9LP2WW94` | App ID: `6751173663`
-- Build number auto-increments on production builds (check app.json for current)
+- Build number: `102` (auto-increments on production builds)
 - Universal Links via `link.archiveszone.app`
 
 **Android (Play Store):**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code auto-increments on production builds (check app.json for current)
+- Version code: `23` (auto-increments on production builds)
 - Edge-to-edge disabled
 - App Links SHA-256: Must match console fingerprint
 
 **Shared:**
 - EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `2.2.8` (check app.json for current)
-- Runtime: `1.0.0` | Expo SDK: 54
+- App version: `2.2.8` | Runtime: `1.0.0` | Expo SDK: 54
 - New Architecture: Enabled (React Native 0.81.5)
 
 ## Important Patterns & Development Context

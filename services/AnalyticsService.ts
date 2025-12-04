@@ -1089,6 +1089,161 @@ class AnalyticsService {
 
   // ==================== END NEW TRACKING EVENTS ====================
 
+  // ==================== PERSON PROPERTIES ====================
+
+  /**
+   * Initialize all person properties with null at auth time
+   * Called once when user first signs in to establish the property schema
+   * Properties will be updated with actual values as user progresses through app
+   */
+  initializePersonProperties() {
+    if (!this.posthog) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Skipping initializePersonProperties (PostHog not ready)');
+      }
+      return;
+    }
+
+    const nullProperties = {
+      // Onboarding properties
+      knowledge_level: null,
+      daily_learning_goal: null,
+      learning_motivation: null,
+      awareness_channel: null,
+      onboarding_result: null,
+      // Push notification status
+      is_push_enabled: null,
+      // Progress/streak properties (streak tracking not yet implemented)
+      current_streak: null,
+      current_streak_date: null,
+      longest_streak: null,
+      longest_streak_date: null,
+      lessons_completed: null,
+      modules_completed: null,
+      adventures_completed: null,
+      eras_completed: null,
+      // Subscription properties
+      subscription_product_id: null,
+      subscription_billing_cycle: null,
+      rc_subscription_status: null,
+    };
+
+    this.posthog.capture('$set', {
+      $set: nullProperties,
+    });
+    console.log('📊 [Analytics] Initialized all 17 person properties with null');
+  }
+
+  /**
+   * Update onboarding-related person properties
+   */
+  updateOnboardingProperties(data: {
+    knowledge_level?: string;
+    daily_learning_goal?: string;  // String like "5 min / day • Casual"
+    learning_motivation?: string[];
+    awareness_channel?: string;
+    onboarding_result?: string;
+  }) {
+    if (!this.posthog) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Skipping updateOnboardingProperties (PostHog not ready)');
+      }
+      return;
+    }
+
+    // Filter out undefined values, keep null as valid
+    const properties = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    );
+
+    if (Object.keys(properties).length === 0) return;
+
+    this.posthog.capture('$set', {
+      $set: properties,
+    });
+    console.log('📊 [Analytics] Updated onboarding properties:', properties);
+  }
+
+  /**
+   * Update push notification status
+   */
+  updatePushStatus(isEnabled: boolean) {
+    if (!this.posthog) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Skipping updatePushStatus (PostHog not ready)');
+      }
+      return;
+    }
+
+    this.posthog.capture('$set', {
+      $set: { is_push_enabled: isEnabled },
+    });
+    console.log('📊 [Analytics] Updated push status:', isEnabled);
+  }
+
+  /**
+   * Update progress-related person properties
+   */
+  updateProgressProperties(data: {
+    current_streak?: number;
+    current_streak_date?: string;
+    longest_streak?: number;
+    longest_streak_date?: string;
+    lessons_completed?: number;
+    modules_completed?: number;
+    adventures_completed?: number;
+    eras_completed?: number;
+  }) {
+    if (!this.posthog) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Skipping updateProgressProperties (PostHog not ready)');
+      }
+      return;
+    }
+
+    // Filter out undefined values, keep null as valid
+    const properties = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    );
+
+    if (Object.keys(properties).length === 0) return;
+
+    this.posthog.capture('$set', {
+      $set: properties,
+    });
+    console.log('📊 [Analytics] Updated progress properties:', properties);
+  }
+
+  /**
+   * Update subscription-related person properties
+   */
+  updateSubscriptionProperties(data: {
+    subscription_product_id?: string | null;
+    subscription_billing_cycle?: string | null;
+    rc_subscription_status?: string | null;
+  }) {
+    if (!this.posthog) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Skipping updateSubscriptionProperties (PostHog not ready)');
+      }
+      return;
+    }
+
+    // Filter out undefined values, keep null as valid
+    const properties = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    );
+
+    if (Object.keys(properties).length === 0) return;
+
+    this.posthog.capture('$set', {
+      $set: properties,
+    });
+    console.log('📊 [Analytics] Updated subscription properties:', properties);
+  }
+
+  // ==================== USER IDENTIFICATION ====================
+
   /**
    * Identify user (call after login)
    */

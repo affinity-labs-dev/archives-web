@@ -9,6 +9,7 @@ import { StatusBar } from "expo-status-bar";
 import { View, Text, Platform } from "react-native";
 import React from "react";
 import "react-native-reanimated";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider, useUser } from "@clerk/clerk-expo";
@@ -77,6 +78,27 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         });
         console.log('✅ [Analytics] User IDENTIFIED for Clerk ID:', user.id);
         console.log('✅ [Analytics] Email:', user.primaryEmailAddress?.emailAddress);
+
+        // Initialize all 17 person properties with null (only once per user)
+        // This establishes the property schema in PostHog for cohort analysis
+        const initPersonProperties = async () => {
+          try {
+            const initKey = `posthog_props_init_${user.id}`;
+            const alreadyInitialized = await AsyncStorage.getItem(initKey);
+
+            if (!alreadyInitialized) {
+              analyticsService.initializePersonProperties();
+              await AsyncStorage.setItem(initKey, 'true');
+              console.log('✅ [Analytics] Person properties initialized for user:', user.id);
+            } else {
+              console.log('ℹ️ [Analytics] Person properties already initialized for user:', user.id);
+            }
+          } catch (error) {
+            console.error('❌ [Analytics] Error initializing person properties:', error);
+            // Don't block app - this is non-critical
+          }
+        };
+        initPersonProperties();
       } else {
         console.log('⏳ [Analytics] Waiting for user sign-in to set properties');
       }
