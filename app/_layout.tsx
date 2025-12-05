@@ -351,7 +351,6 @@ export default function RootLayout() {
                             <Stack.Screen name="onboarding-question-3" options={{ headerShown: false }} />
                             <Stack.Screen name="onboarding-question-4" options={{ headerShown: false }} />
                             <Stack.Screen name="onboarding-results" options={{ headerShown: false }} />
-                            <Stack.Screen name="era-selection" options={{ headerShown: false, title: '' }} />
                             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                             <Stack.Screen name="+not-found" />

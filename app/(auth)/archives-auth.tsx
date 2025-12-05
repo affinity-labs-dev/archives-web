@@ -104,12 +104,12 @@ export default function ArchivesAuthScreen() {
       } else {
         // New user - go to era selection for onboarding
         console.log('👋 New user after auth - routing to era selection')
-        router.replace('/era-selection')
+        router.replace('/(tabs)/eras?mode=onboarding')
       }
     } catch (error) {
       console.error('Error checking onboarding status:', error)
       // Default to era selection on error
-      router.replace('/era-selection')
+      router.replace('/(tabs)/eras?mode=onboarding')
     }
   }
 

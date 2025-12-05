@@ -92,7 +92,7 @@ export default function LandingPage() {
   useEffect(() => {
     if (isSignedIn) {
       console.log("LandingPage - User signed in, redirecting to era selection");
-      router.replace("/era-selection");
+      router.replace("/(tabs)/eras?mode=onboarding");
     }
   }, [isSignedIn, router]);
 

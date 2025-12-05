@@ -1,181 +1,158 @@
-// Exact replica of Archives Affinity Labs SwiftUI EraSelection
-// Pixel-perfect conversion with immersive era cards and selection states
+// Unified Era Selection Screen
+// Handles both onboarding (first-time) and switching (returning user) modes
+// Data fetched from Supabase via useEras hook
 
-import React, { useState, memo } from 'react'
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   Pressable,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
   StatusBar,
   SafeAreaView,
-  Image,
   Platform,
-} from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import { MaterialIcons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
-import { useAuth } from '@clerk/clerk-expo'
-import { useProgress } from '@/context/ProgressContext'
-import ArchivesTheme from '@/constants/ArchivesTheme'
-import * as Haptics from 'expo-haptics'
-import { analyticsService } from '@/services/AnalyticsService'
-import { useFocusEffect } from '@react-navigation/native'
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 
-// const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
+import { useProgress } from '@/context/ProgressContext';
+import { useEras, Era, isEraAccessible } from '@/hooks/useEras';
+import { EraCard, EraSelectionSkeleton } from '@/components/EraSelection';
+import ArchivesTheme from '@/constants/ArchivesTheme';
+import { analyticsService } from '@/services/AnalyticsService';
 
-// Era data structure (exact replica of SwiftUI)
-interface Era {
-  id: string
-  title: string
-  subtitle: string
-  imageName: any
-  adventuresCompleted: number
-  totalAdventures: number
-}
-
-const eras: Era[] = [
-  {
-    id: '2',
-    title: 'Rise of Islam (570–632 CE)',
-    subtitle: 'The life of Prophet Muhammad and the birth of Islam',
-    imageName: require('@/assets/images/eras/era2-bg.jpg'),
-    adventuresCompleted: 0,
-    totalAdventures: 5,
-  },
-  {
-    id: '1',
-    title: 'Umayyad Dynasty (661–750 CE)',
-    subtitle: 'The first Islamic empire, expanding its reach from Damascus',
-    imageName: require('@/assets/images/eras/era1-bg.jpg'),
-    adventuresCompleted: 0,
-    totalAdventures: 5,
-  },
-  {
-    id: '3',
-    title: 'Abbasid Golden Age (750–1258 CE)',
-    subtitle: 'An age of science, literature, and innovation centered in Baghdad',
-    imageName: require('@/assets/images/eras/era3-bg.jpg'),
-    adventuresCompleted: 0,
-    totalAdventures: 3,
-  },
-  {
-    id: '4',
-    title: 'Rashidun Caliphate (632-661 CE)',
-    subtitle: 'The first four caliphs who succeeded Prophet Muhammad',
-    imageName: require('@/assets/images/eras/era4-bg.jpg'),
-    adventuresCompleted: 0,
-    totalAdventures: 4,
-  },
-  {
-    id: '5',
-    title: 'Al-Andalus (711-1492 CE)',
-    subtitle: 'Islamic civilization in medieval Iberian Peninsula',
-    imageName: require('@/assets/images/eras/era5-bg.jpg'),
-    adventuresCompleted: 0,
-    totalAdventures: 4,
-  },
-  {
-    id: '6',
-    title: 'Women of Islam',
-    subtitle: 'Influential women throughout Islamic history',
-    imageName: require('@/assets/images/eras/era6-bg.jpg'),
-    adventuresCompleted: 0,
-    totalAdventures: 5,
-  },
-  {
-    id: '7',
-    title: 'Prophets Series',
-    subtitle: 'Stories and teachings of the Islamic prophets',
-    imageName: require('@/assets/images/eras/era7-bg.jpg'),
-    adventuresCompleted: 0,
-    totalAdventures: 3,
-  },
-  {
-    id: '8',
-    title: 'Mongol Invasions (1219–1312 CE)',
-    subtitle: 'The Mongol conquests and their impact on Islamic lands',
-    imageName: require('@/assets/images/eras/era8-bg.jpg'),
-    adventuresCompleted: 0,
-    totalAdventures: 6,
-  },
-]
+// Map era_id to context era IDs
+const ERA_CONTEXT_MAP: Record<string, string> = {
+  'rise_of_islam': 'riseOfIslam',
+  'umayyad': 'umayyad',
+  'abbasid': 'abbasid',
+  'rashidun': 'rashidun',
+  'andalus': 'andalus',
+  'women_of_islam': 'womenOfIslam',
+  'prophets': 'prophets',
+  'mongol': 'mongol',
+};
 
 export default function EraSelection() {
-  const [selectedEraIndex, setSelectedEraIndex] = useState(-1)
-  const router = useRouter()
-  const { isSignedIn } = useAuth()
-  const { setSelectedEra } = useProgress()
+  const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: 'onboarding' }>();
+  const isOnboarding = mode === 'onboarding';
 
-  // const handleBack = () => {
-  //   router.back()
-  // }
+  const { isSignedIn } = useAuth();
+  const { user } = useUser();
+  const { setSelectedEra } = useProgress();
+  const { eras, loading, error } = useEras();
 
-  const handleContinue = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    if (selectedEraIndex === 0 || selectedEraIndex === 1) {
-      const selectedEra = eras[selectedEraIndex]
-      console.log('Selected era:', selectedEra)
+  const [selectedEraId, setSelectedEraId] = useState<string | null>(null);
 
-      // Map era titles to era IDs for the progress context
-      const eraIdMap: Record<string, string> = {
-        'Umayyad Dynasty (661–750 CE)': 'umayyad',
-        'Rise of Islam (570–632 CE)': 'riseOfIslam',
-        'Abbasid Golden Age (750–1258 CE)': 'abbasid',
-        'Rashidun Caliphate (632-661 CE)': 'rashidun',
-        'Al-Andalus (711-1492 CE)': 'andalus',
-        'Women of Islam': 'womenOfIslam',
-        'Prophets Series': 'prophets',
-        'Mongol Invasions (1219–1312 CE)': 'mongol',
-      }
+  // TODO: Get these from RevenueCat
+  const hasSubscription = false;
+  const isFoundingMember = false;
 
-      const eraId = eraIdMap[selectedEra.title] || 'umayyad' // Default to umayyad
-
-      // Store selected era in context
-      await setSelectedEra(eraId)
-
-      // Track era selection
-      analyticsService.trackEraSelected({
-        era_name: selectedEra.title,
-        era_id: eraId,
-        screen: 'eras_tab',
-        context: 'era_switch',
-        selection_order: selectedEraIndex,
-      })
-
-      // Navigate to home tab for both eras (content rendered in Home based on selectedEra)
-      router.push('/(tabs)/')
+  // Set user properties for analytics (fallback for onboarding)
+  React.useEffect(() => {
+    if (isSignedIn && user) {
+      analyticsService.setUserProperties(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+      });
+      console.log('✅ [EraSelection] User properties set for Clerk ID:', user.id);
     }
-  }
+  }, [isSignedIn, user]);
 
-  const handleEraSelect = (index: number) => {
-    Haptics.selectionAsync()
-    setSelectedEraIndex(index)
-  }
-
-  // Track page views with focus/blur
+  // Track page views
   useFocusEffect(
-    React.useCallback(() => {
-      console.log('📊 [EraSelection] Screen focused - starting page view tracking')
-      analyticsService.startPageView('era', '/eras')
+    useCallback(() => {
+      const screenName = isOnboarding ? 'era_selection_onboarding' : 'era';
+      console.log(`📊 [EraSelection] Screen focused - ${screenName}`);
+      analyticsService.startPageView(screenName, isOnboarding ? '/era-selection' : '/eras');
 
       return () => {
-        console.log('📊 [EraSelection] Screen blurred - ending page view tracking')
-        analyticsService.endPageView('era')
-      }
-    }, [])
-  )
+        console.log(`📊 [EraSelection] Screen blurred - ${screenName}`);
+        analyticsService.endPageView(screenName);
+      };
+    }, [isOnboarding])
+  );
+
+  const handleEraSelect = (era: Era) => {
+    const canSelect = isEraAccessible(era.status, hasSubscription, isFoundingMember);
+    if (!canSelect) {
+      // TODO: Show subscription/upgrade modal
+      return;
+    }
+
+    Haptics.selectionAsync();
+    setSelectedEraId(era.era_id);
+  };
+
+  const handleContinue = async () => {
+    if (!selectedEraId) return;
+
+    const selectedEra = eras.find((e) => e.era_id === selectedEraId);
+    if (!selectedEra) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Map to context era ID
+    const contextEraId = ERA_CONTEXT_MAP[selectedEra.era_id] || 'umayyad';
+
+    // Store selected era in context
+    await setSelectedEra(contextEraId);
+
+    // Track era selection
+    analyticsService.trackEraSelected({
+      era_name: selectedEra.title,
+      era_id: selectedEra.era_id,
+      screen: isOnboarding ? 'era_selection' : 'eras_tab',
+      context: isOnboarding ? 'onboarding' : 'era_switch',
+      selection_order: eras.findIndex((e) => e.era_id === selectedEraId),
+    });
+
+    if (isOnboarding) {
+      // Mark onboarding as completed
+      await AsyncStorage.setItem('onboarding_completed', 'true');
+      console.log('✅ Onboarding completed - user can now return directly to home');
+      router.replace('/(tabs)');
+    } else {
+      // Just navigate to home tab
+      router.push('/(tabs)/');
+    }
+  };
+
+  // Check if selected era is accessible
+  const selectedEra = eras.find((e) => e.era_id === selectedEraId);
+  const canContinue =
+    selectedEraId !== null &&
+    selectedEra &&
+    isEraAccessible(selectedEra.status, hasSubscription, isFoundingMember);
+
+  // Group eras by layout
+  const fullWidthEras = eras.filter((e) => e.card_layout === 'full_width');
+  const gridEras = eras.filter((e) => e.card_layout === 'grid');
+
+  // Split grid eras into rows of 2
+  const gridRows: Era[][] = [];
+  for (let i = 0; i < gridEras.length; i += 2) {
+    gridRows.push(gridEras.slice(i, i + 2));
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
-      <StatusBar barStyle="dark-content" translucent={false} backgroundColor={ArchivesTheme.colors.creamWhite} />
+      <StatusBar
+        barStyle="dark-content"
+        translucent={false}
+        backgroundColor={ArchivesTheme.colors.creamWhite}
+      />
       <View style={styles.container}>
-        {/* Background - CreamWhite */}
         <View style={styles.background} />
 
-        {/* Header Section - Fixed Height 120px */}
+        {/* Header */}
         <View style={styles.headerSection}>
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>Choose Your Era</Text>
@@ -185,308 +162,67 @@ export default function EraSelection() {
           </View>
         </View>
 
-        {/* Scrollable Content Section */}
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Era 1 - Rise of Islam (Inline Hardcoded) */}
-          <TouchableOpacity
-            style={[
-              styles.horizontalEraCard,
-              0 === selectedEraIndex && styles.horizontalEraCardSelected,
-            ]}
-            onPress={() => handleEraSelect(0)}
-            activeOpacity={0.7}
+        {/* Content */}
+        {loading ? (
+          <EraSelectionSkeleton />
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Failed to load eras</Text>
+            <Text style={styles.errorSubtext}>{error}</Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Image
-              source={require('@/assets/images/eras/era2-bg.jpg')}
-              style={styles.horizontalEraCardImage}
-              pointerEvents="none"
-            />
-            <LinearGradient
-              colors={[
-                'rgba(0,0,0,0)',
-                'rgba(0,0,0,0.3)',
-                'rgba(0,0,0,0.6)',
-                'rgba(0,0,0,0.8)',
-              ]}
-              locations={[0, 0.24, 0.64, 1.0]}
-              style={styles.horizontalGradientOverlay}
-            />
-            <View style={styles.horizontalEraCardContent}>
-              <View style={styles.horizontalEraTextSection}>
-                <Text style={styles.horizontalEraTitle} numberOfLines={2}>
-                  Rise of Islam <Text style={styles.horizontalEraDateRange}>(570–632 CE)</Text>
-                </Text>
+            {/* Full width cards */}
+            {fullWidthEras.map((era) => (
+              <EraCard
+                key={era.era_id}
+                era={era}
+                isSelected={selectedEraId === era.era_id}
+                onSelect={() => handleEraSelect(era)}
+                hasSubscription={hasSubscription}
+                isFoundingMember={isFoundingMember}
+              />
+            ))}
+
+            {/* Grid cards */}
+            {gridRows.map((row, rowIndex) => (
+              <View key={`row-${rowIndex}`} style={styles.gridContainer}>
+                <View style={styles.gridRow}>
+                  {row.map((era) => (
+                    <EraCard
+                      key={era.era_id}
+                      era={era}
+                      isSelected={selectedEraId === era.era_id}
+                      onSelect={() => handleEraSelect(era)}
+                      hasSubscription={hasSubscription}
+                      isFoundingMember={isFoundingMember}
+                    />
+                  ))}
+                </View>
               </View>
-            </View>
-            <View style={[
-              styles.selectedIndicatorTopRight,
-              { opacity: 0 === selectedEraIndex ? 1 : 0 }
-            ]}>
-              <MaterialIcons name="check-circle" size={14} color="white" />
-              <Text style={styles.selectedText}>Selected</Text>
-            </View>
-          </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
-          {/* Era 2 - Umayyad Dynasty (Inline Hardcoded) */}
-          <TouchableOpacity
-            style={[
-              styles.horizontalEraCard,
-              1 === selectedEraIndex && styles.horizontalEraCardSelected,
-            ]}
-            onPress={() => handleEraSelect(1)}
-            activeOpacity={0.7}
-          >
-            <Image
-              source={require('@/assets/images/eras/era1-bg.jpg')}
-              style={styles.horizontalEraCardImage}
-              pointerEvents="none"
-            />
-            <LinearGradient
-              colors={[
-                'rgba(0,0,0,0)',
-                'rgba(0,0,0,0.3)',
-                'rgba(0,0,0,0.6)',
-                'rgba(0,0,0,0.8)',
-              ]}
-              locations={[0, 0.24, 0.64, 1.0]}
-              style={styles.horizontalGradientOverlay}
-            />
-            <View style={styles.horizontalEraCardContent}>
-              <View style={styles.horizontalEraTextSection}>
-                <Text style={styles.horizontalEraTitle} numberOfLines={2}>
-                  Umayyad Dynasty <Text style={styles.horizontalEraDateRange}>(661–750 CE)</Text>
-                </Text>
-              </View>
-            </View>
-            <View style={[
-              styles.selectedIndicatorTopRight,
-              { opacity: 1 === selectedEraIndex ? 1 : 0 }
-            ]}>
-              <MaterialIcons name="check-circle" size={14} color="white" />
-              <Text style={styles.selectedText}>Selected</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Eras 3-4 - 2x2 Grid */}
-          <View style={styles.gridContainer}>
-            <View style={styles.gridRow}>
-              <GridEraCard
-                era={eras[2]}
-                isSelected={2 === selectedEraIndex}
-                onSelect={() => handleEraSelect(2)}
-                showLock={true}
-              />
-              <GridEraCard
-                era={eras[3]}
-                isSelected={3 === selectedEraIndex}
-                onSelect={() => handleEraSelect(3)}
-                showLock={true}
-              />
-            </View>
-          </View>
-
-          {/* Eras 5-6 - 2x2 Grid */}
-          <View style={styles.gridContainer}>
-            <View style={styles.gridRow}>
-              <GridEraCard
-                era={eras[4]}
-                isSelected={4 === selectedEraIndex}
-                onSelect={() => handleEraSelect(4)}
-                showLock={true}
-              />
-              <GridEraCard
-                era={eras[5]}
-                isSelected={5 === selectedEraIndex}
-                onSelect={() => handleEraSelect(5)}
-                showLock={true}
-              />
-            </View>
-          </View>
-
-          {/* Eras 7-8 - 2x2 Grid (partial) */}
-          <View style={styles.gridContainer}>
-            <View style={styles.gridRow}>
-              <GridEraCard
-                era={eras[6]}
-                isSelected={6 === selectedEraIndex}
-                onSelect={() => handleEraSelect(6)}
-                showLock={true}
-              />
-              <GridEraCard
-                era={eras[7]}
-                isSelected={7 === selectedEraIndex}
-                onSelect={() => handleEraSelect(7)}
-                showLock={true}
-              />
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Floating Enter Era Button - Overlaid on top */}
+        {/* Floating button */}
         <View style={styles.floatingButtonContainer}>
           <Pressable
-            style={[
-              styles.enterEraButton,
-              (selectedEraIndex === 0 || selectedEraIndex === 1) && styles.enterEraButtonActive
-            ]}
+            style={[styles.enterEraButton, canContinue && styles.enterEraButtonActive]}
             onPress={handleContinue}
-            disabled={selectedEraIndex !== 0 && selectedEraIndex !== 1}
+            disabled={!canContinue}
           >
             <Text style={styles.enterEraButtonText}>ENTER ERA</Text>
           </Pressable>
         </View>
       </View>
     </SafeAreaView>
-  )
+  );
 }
 
-// Horizontal Era Card Component - Full width
-interface HorizontalEraCardProps {
-  era: Era
-  isSelected: boolean
-  onSelect: () => void
-  showLock?: boolean
-}
-
-const HorizontalEraCard = memo(function HorizontalEraCard({ era, isSelected, onSelect, showLock = false }: HorizontalEraCardProps) {
-  return (
-    <TouchableOpacity
-      style={[
-        styles.horizontalEraCard,
-        isSelected && !showLock && styles.horizontalEraCardSelected,
-        showLock && styles.horizontalEraCardNoEffects
-      ]}
-      onPress={onSelect}
-      activeOpacity={0.7}
-    >
-      {/* Background Image */}
-      <Image
-        source={era.imageName}
-        style={styles.horizontalEraCardImage}
-        pointerEvents="none"
-      />
-
-      {/* Maximum Contrast Dark Overlay - Only for unlocked */}
-      {!showLock && (
-        <LinearGradient
-          colors={[
-            'rgba(0,0,0,0)',      // Completely clear - 0%
-            'rgba(0,0,0,0.3)',    // Light start - 30%
-            'rgba(0,0,0,0.6)',    // Medium - 60%
-            'rgba(0,0,0,0.8)',    // Bottom - 80%
-          ]}
-          locations={[0, 0.24, 0.64, 1.0]}
-          style={styles.horizontalGradientOverlay}
-        />
-      )}
-
-      {/* Simple Lock Overlay */}
-      {showLock && (
-        <View style={styles.simpleLockOverlay}>
-          <MaterialIcons name="lock" size={28} color={ArchivesTheme.colors.creamWhite} />
-          <Text style={styles.comingSoonOverlayText}>Coming soon</Text>
-        </View>
-      )}
-
-      {/* Bottom Content Area */}
-      <View style={styles.horizontalEraCardContent}>
-        {/* Title */}
-        <View style={styles.horizontalEraTextSection}>
-          <Text style={[
-            styles.horizontalEraTitle,
-            showLock && styles.horizontalEraTitleNoEffects
-          ]} numberOfLines={2}>
-            {era.title.includes(' (') ? era.title.split(' (')[0] : era.title}
-            {era.title.includes(' (') && (
-              <Text style={styles.horizontalEraDateRange}> ({era.title.split(' (')[1]}</Text>
-            )}
-          </Text>
-        </View>
-
-      </View>
-
-      {/* Selected Indicator - Top Right */}
-      {isSelected && !showLock && (
-        <View style={styles.selectedIndicatorTopRight}>
-          <MaterialIcons name="check-circle" size={14} color="white" />
-          <Text style={styles.selectedText}>Selected</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  )
-})
-
-// Grid Era Card Component - Smaller for 2x2 layout
-interface GridEraCardProps {
-  era: Era
-  isSelected: boolean
-  onSelect: () => void
-  showLock?: boolean
-}
-
-function GridEraCard({ era, isSelected, onSelect, showLock = false }: GridEraCardProps) {
-  return (
-    <Pressable
-      style={[
-        styles.gridEraCard,
-        isSelected && !showLock && styles.gridEraCardSelected,
-        showLock && styles.gridEraCardNoEffects
-      ]}
-      onPress={onSelect}
-    >
-      {/* Background Image */}
-      <Image
-        source={era.imageName}
-        style={styles.gridEraCardImage}
-      />
-
-      {/* Maximum Contrast Dark Overlay - Only for unlocked */}
-      {!showLock && (
-        <LinearGradient
-          colors={[
-            'rgba(0,0,0,0)',      // Completely clear - 0%
-            'rgba(0,0,0,0.4)',    // Strong start - 40%
-            'rgba(0,0,0,0.8)',    // Very strong - 80%
-            'rgba(0,0,0,0.95)',   // Nearly solid black - 95%
-          ]}
-          locations={[0, 0.24, 0.64, 1.0]}
-          style={styles.gridGradientOverlay}
-        />
-      )}
-
-      {/* Simple Lock Overlay */}
-      {showLock && (
-        <View style={styles.gridSimpleLockOverlay}>
-          <MaterialIcons name="lock" size={24} color={ArchivesTheme.colors.creamWhite} />
-          <Text style={styles.comingSoonOverlayText}>Coming soon</Text>
-        </View>
-      )}
-
-      {/* Bottom Content Area */}
-      <View style={styles.gridEraCardContent}>
-        {/* Title */}
-        <View style={styles.gridEraTextSection}>
-          <Text style={[
-            styles.gridEraTitle,
-            showLock && styles.gridEraTitleNoEffects
-          ]} numberOfLines={2}>
-            {era.title.includes(' (') ? era.title.split(' (')[0] : era.title}
-            {era.title.includes(' (') && (
-              <Text style={styles.gridEraDateRange}> ({era.title.split(' (')[1]}</Text>
-            )}
-          </Text>
-        </View>
-
-      </View>
-    </Pressable>
-  )
-}
-
-// EXACT REPLICA STYLES - Pixel-perfect match to SwiftUI
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -504,12 +240,11 @@ const styles = StyleSheet.create({
     backgroundColor: ArchivesTheme.colors.creamWhite,
   },
 
-  // Header Section (exact match - 120px height)
+  // Header
   headerSection: {
     height: 120,
     alignItems: 'flex-start',
     justifyContent: 'center',
-    paddingHorizontal: 0, // Remove padding from container
   },
   headerContent: {
     alignItems: 'flex-start',
@@ -537,18 +272,18 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
 
-  // Scrollable Content
+  // Scroll content
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 15,
-    paddingBottom: 100, // Space for floating button
+    paddingBottom: 100,
     gap: 15,
   },
 
-  // Grid Container
+  // Grid layout
   gridContainer: {
     marginVertical: 5,
   },
@@ -558,171 +293,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  // Horizontal Era Card (full width)
-  horizontalEraCard: {
-    height: 250,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginBottom: 8,
-    borderWidth: 3,
-    borderColor: 'transparent',
-    shadowColor: 'black',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+  // Error state
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
   },
-  horizontalEraCardSelected: {
-    borderColor: ArchivesTheme.colors.mossGreen,
-    shadowColor: ArchivesTheme.colors.mossGreen,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  
-  horizontalEraCardNoEffects: {
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  horizontalEraCardImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: 250,
-    resizeMode: 'cover',
-  },
-  horizontalGradientOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 150,
-  },
-  horizontalEraCardContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    paddingBottom: 24,
-  },
-  horizontalEraTextSection: {
-    marginBottom: 8,
-  },
-  horizontalEraTitle: {
-    ...ArchivesTheme.typography.bodyLarge,
+  errorText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    fontFamily: 'DM Sans',
-    color: 'white',
-    marginBottom: 0,
-    lineHeight: 24,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 3,
-  },
-  
-  horizontalEraTitleNoEffects: {
-    textShadowColor: 'transparent',
-    textShadowOffset: {width: 0, height: 0},
-    textShadowRadius: 0,
-  },
-
-  horizontalEraDateRange: {
-    fontWeight: 'normal', // Regular weight for date ranges in horizontal cards
-  },
-  
-
-  // Grid Era Card (2x2 layout)
-  gridEraCard: {
-    width: '48%', // Two cards per row with some spacing
-    height: 200,
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: 'black',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  gridEraCardSelected: {
-    borderWidth: 2,
-    borderColor: ArchivesTheme.colors.mossGreen,
-    shadowColor: ArchivesTheme.colors.mossGreen,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  
-  gridEraCardNoEffects: {
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  gridEraCardImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: 200,
-    resizeMode: 'cover',
-  },
-  gridGradientOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-  },
-  gridEraCardContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 14,
-    paddingBottom: 16,
-  },
-  gridEraTextSection: {
+    fontWeight: '600',
+    color: ArchivesTheme.colors.mutedNavy,
     marginBottom: 8,
   },
-  gridEraTitle: {
-    ...ArchivesTheme.typography.body,
+  errorSubtext: {
     fontSize: 14,
-    fontWeight: 'bold',
-    fontFamily: 'DM Sans',
-    color: 'white',
-    marginBottom: 0,
-    lineHeight: 18,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 3,
-  },
-  
-  gridEraTitleNoEffects: {
-    textShadowColor: 'transparent',
-    textShadowOffset: {width: 0, height: 0},
-    textShadowRadius: 0,
+    color: ArchivesTheme.colors.shoeBrown,
+    textAlign: 'center',
   },
 
-  gridEraDateRange: {
-    fontWeight: 'normal', // Regular weight for date ranges in grid cards
-  },
-  
-
-
-  // Floating Enter Era Button
+  // Floating button
   floatingButtonContainer: {
     position: 'absolute',
     bottom: 40,
@@ -742,11 +332,9 @@ const styles = StyleSheet.create({
   },
   enterEraButtonActive: {
     backgroundColor: ArchivesTheme.colors.mossGreen,
+    borderColor: ArchivesTheme.colors.mossGreen,
     shadowColor: ArchivesTheme.colors.mossGreen,
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
+    shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 8,
@@ -757,76 +345,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: ArchivesTheme.colors.creamWhite,
   },
-
-  // Coming Soon overlay text
-  comingSoonOverlayText: {
-    fontFamily: 'DM-Sans-SemiBold',
-    fontSize: 14,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.creamWhite,
-    textAlign: 'left',
-    marginTop: 6,
-  },
-
-  // Simple Lock Overlay Styles
-  simpleLockOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 24,
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-    paddingTop: 16,
-    paddingLeft: 16,
-    gap: 8,
-  },
-
-  gridSimpleLockOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 18,
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-    paddingTop: 12,
-    paddingLeft: 12,
-    gap: 6,
-  },
-
-  // Selected Indicator Styles - Top Right
-  selectedIndicatorTopRight: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: ArchivesTheme.colors.mossGreen,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  
-  selectedText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'DM Sans',
-    marginLeft: 3,
-  },
-})
+});

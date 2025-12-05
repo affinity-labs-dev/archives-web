@@ -52,7 +52,7 @@ export default function EmailDetailsScreen() {
 
   const onContinue = async () => {
     // After authentication, go to era selection page
-    router.replace('/era-selection')
+    router.replace('/(tabs)/eras?mode=onboarding')
   }
 
   // Sign Up function

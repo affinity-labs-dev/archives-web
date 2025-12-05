@@ -405,7 +405,7 @@ export default function SubscribeContent() {
           >
             <View style={styles.eraCard}>
               <Image
-                source={require("@/assets/images/eras/umayyad-bg.png")}
+                source={require("@/assets/images/eras/era2-bg.jpg")}
                 style={styles.eraCardImage}
               />
               <LinearGradient

@@ -7,7 +7,7 @@ import ProfileIcon from '@/components/icons/ProfileIcon'
 import SubscribeIcon from '@/components/icons/SubscribeIcon'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs'
-import { Tabs } from 'expo-router'
+import { Tabs, useLocalSearchParams } from 'expo-router'
 import React from 'react'
 import { Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -69,12 +69,24 @@ export default function TabLayout() {
   // Get safe area insets for dynamic tab bar padding
   const insets = useSafeAreaInsets()
 
+  // Check if we're in onboarding mode (hide tab bar)
+  const { mode } = useLocalSearchParams<{ mode?: string }>()
+  const isOnboarding = mode === 'onboarding'
+
   // Use native tabs on iOS for automatic floating behavior, standard tabs elsewhere
   const TabComponent = useNativeTabs && NativeBottomTabs ? NativeBottomTabs : Tabs
 
+  // Get screen options with optional tab bar hiding
+  const screenOptions = {
+    ...getScreenOptions(insets.bottom),
+    ...(isOnboarding && {
+      tabBarStyle: { display: 'none' as const },
+    }),
+  }
+
   return (
     <TabComponent
-      screenOptions={getScreenOptions(insets.bottom)}
+      screenOptions={screenOptions}
       // Native tabs specific options
       {...(useNativeTabs && {
         tabBarStyle: 'automatic', // Enables iOS 18+ floating behavior

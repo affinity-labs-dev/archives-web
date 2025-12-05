@@ -92,7 +92,7 @@ export default function ResetPasswordScreen() {
 
         setIsLoading(false)
         // Navigate to era selection after successful reset
-        router.replace('/era-selection')
+        router.replace('/(tabs)/eras?mode=onboarding')
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
         setIsLoading(false)
