@@ -13,7 +13,8 @@
         "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com",
         "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ2loYWlubG5udHNodXBpenR1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDY4MzM3MywiZXhwIjoyMDcwMjU5MzczfQ.uKZEHB93aQPpb-uDtdYsWJ_0_DGPhECx1ZAUYOzCzhE",
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_oxMRgfHsashdXXOSrczqvnYYIxg",
-        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_aJrTsOTWwhjzorwbmCTJADKObSG"
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_aJrTsOTWwhjzorwbmCTJADKObSG",
+        "SENTRY_AUTH_TOKEN": "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"
       },
       "channel": "base"
     },
