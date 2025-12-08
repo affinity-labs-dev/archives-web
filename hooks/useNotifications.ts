@@ -49,6 +49,12 @@ export function useNotifications() {
 
   const getPushToken = async (): Promise<string> => {
     try {
+      // Skip push token on Android until Firebase is configured
+      if (Platform.OS === 'android') {
+        console.log('⚠️ [Notifications] Push notifications disabled on Android (Firebase not configured)');
+        return '';
+      }
+
       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
       const token = await Notifications.getExpoPushTokenAsync({ projectId });
       return token.data;
