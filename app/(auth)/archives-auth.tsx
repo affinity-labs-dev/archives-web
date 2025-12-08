@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import {
+  Dimensions,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -24,6 +25,8 @@ import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
+
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ArchivesAuthScreen() {
   // Get route parameters
@@ -277,8 +280,8 @@ export default function ArchivesAuthScreen() {
               />
             </View>
 
-            {/* Spacer to push content down */}
-            <View style={{ height: '65%' }} />
+            {/* Spacer to push content down - responsive based on screen height */}
+            <View style={{ height: SCREEN_HEIGHT * 0.42 }} />
 
             {/* Auth Toggle - Shared Component */}
             <AuthToggle
@@ -499,10 +502,10 @@ const styles = StyleSheet.create({
     width: 40,
   },
 
-  // Video container
+  // Video container - responsive positioning
   videoContainer: {
     position: 'absolute',
-    top: -125,
+    top: -SCREEN_HEIGHT * 0.15, // Responsive offset (~15% of screen height)
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -511,8 +514,8 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   video: {
-    width: 700,
-    height: 700,
+    width: SCREEN_WIDTH * 1.8,   // Scale with screen width
+    height: SCREEN_WIDTH * 1.8,  // Keep square aspect ratio
     backgroundColor: 'transparent',
   },
 

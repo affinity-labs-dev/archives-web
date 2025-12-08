@@ -103,9 +103,32 @@ const StarBadge = ({ starCount, isLarge }: { starCount: number; isLarge: boolean
 interface ThumbnailProps {
   thumbnailUrl: string;
   isVideo: boolean;
+  cardWidth: number;
 }
 
-const Thumbnail: React.FC<ThumbnailProps> = ({ thumbnailUrl, isVideo }) => {
+const Thumbnail: React.FC<ThumbnailProps> = ({ thumbnailUrl, isVideo, cardWidth }) => {
+  // Generate optimized image URL with ImageKit resize parameter
+  // Only applies to ImageKit URLs - reduces memory usage and improves load time
+  const getOptimizedImageUrl = (url: string, width: number): string => {
+    if (!url || isVideo) return url;
+
+    // Only optimize ImageKit URLs (ik.imagekit.io)
+    if (!url.includes('ik.imagekit.io')) return url;
+
+    // Request 2x for retina displays
+    const pixelDensity = 2;
+    const roundedWidth = Math.round(width * pixelDensity);
+
+    // Check if URL already has query parameters
+    const hasQueryParams = url.includes('?');
+    const separator = hasQueryParams ? '&' : '?';
+
+    // Append ImageKit resize parameter
+    return `${url}${separator}tr=w-${roundedWidth}`;
+  };
+
+  const optimizedUrl = getOptimizedImageUrl(thumbnailUrl, cardWidth);
+
   const player = useVideoPlayer(isVideo ? thumbnailUrl : '', (player) => {
     if (isVideo) {
       player.pause();
@@ -140,7 +163,7 @@ const Thumbnail: React.FC<ThumbnailProps> = ({ thumbnailUrl, isVideo }) => {
 
   return (
     <Image
-      source={{ uri: thumbnailUrl }}
+      source={{ uri: optimizedUrl }}
       style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
       contentFit="cover"
     />
@@ -250,6 +273,7 @@ const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = React.memo(f
           <Thumbnail
             thumbnailUrl={item.thumbnail_url || item.media_url?.[0] || ''}
             isVideo={!!isVideoThumbnail}
+            cardWidth={cardStyle.width}
           />
 
           {/* Number Badge - top right (under overlay) */}

@@ -49,6 +49,11 @@ export default function LessonPlayer({
 
   // Create video player with expo-video API and optimized source
   const player = useVideoPlayer(optimizedVideoSource, player => {
+    // ANDROID OOM FIX: Limit buffer to reduce memory usage
+    // ExoPlayer pre-parses all HLS variants which can cause OOM on lower-end devices
+    player.bufferOptions = {
+      preferredForwardBufferDuration: 10,  // Only buffer 10 seconds ahead
+    };
     player.loop = shouldLoop
     if (autoPlay) {
       player.play()

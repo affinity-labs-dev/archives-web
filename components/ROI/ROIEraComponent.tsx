@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { Dimensions, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { WALKTHROUGH_KEYS, ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
+import { ADVENTURE_KEYS, WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { analyticsService } from '@/services/AnalyticsService';
 import ROIAdventureComponent from './ROIAdventureComponent';
 import ROIAdventureCardComponent from './ROIAdventureCardComponent';
@@ -82,13 +82,13 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
     }).length;
   }, [adventures, userProgress]);
 
-  // Create dynamic progress bar data
-  const progressBarData = {
+  // Create dynamic progress bar data (memoized to prevent unnecessary re-renders)
+  const progressBarData = useMemo(() => ({
     title: 'Exploring Rise of Islam',
     subtitle: '600 - 632 CE',
     currentStep: completedAdventuresCount,
     totalSteps: adventures.length,
-  };
+  }), [completedAdventuresCount, adventures.length]);
 
   // Handle card press - open lesson modal
   const handleCardPress = (contentItem: ContentItem, adventureId: string) => {
@@ -286,12 +286,58 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
     setSelectedAdventureCard(adventure);
   };
 
+  // Render function for FlatList items (memoized for performance)
+  const renderAdventureItem = useCallback(({ item: adventure }: { item: Adventure }) => {
+    return (
+      <ROIAdventureComponent
+        adventure={adventure}
+        userProgress={userProgress}
+        onCardPress={(contentItem) => handleCardPress(contentItem, adventure.readable_id)}
+        onTitlePress={() => handleAdventureStarted(adventure)}
+      />
+    );
+  }, [userProgress]);
+
+  // Key extractor for FlatList (memoized)
+  const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);
+
+  // Progress Card Header Component (for sticky header)
+  const renderProgressHeader = useCallback(() => {
+    return (
+      <View style={[styles.progressWrapper, { paddingLeft: containerPadding, paddingRight: containerPadding }]}>
+        <View style={styles.progressCard}>
+          <View style={styles.progressTextContainer}>
+            <Text style={styles.progressTitle}>{progressBarData.title}</Text>
+            <View style={styles.progressSubtitleRow}>
+              <Text style={styles.progressSubtitle}>{progressBarData.subtitle}</Text>
+              {/* Progress Bar */}
+              <View style={styles.progressBarContainer}>
+                <Svg width={192} height={8} viewBox="0 0 192 8">
+                  <Path d="M5 4L187 4" stroke="#D7C5B6" strokeWidth={2} strokeLinecap="round" />
+                  <Circle cx={4} cy={4} r={4} fill={progressBarData.currentStep > 0 ? "white" : "#D7C5B6"} />
+                  <Circle cx={50} cy={4} r={4} fill={progressBarData.currentStep > 1 ? "white" : "#D7C5B6"} />
+                  <Circle cx={96} cy={4} r={4} fill={progressBarData.currentStep > 2 ? "white" : "#D7C5B6"} />
+                  <Circle cx={142} cy={4} r={4} fill={progressBarData.currentStep > 3 ? "white" : "#D7C5B6"} />
+                  <Circle cx={188} cy={4} r={4} fill={progressBarData.currentStep > 4 ? "white" : "#D7C5B6"} />
+                </Svg>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }, [containerPadding, progressBarData]);
+
   return (
     <View style={styles.container}>
-      <ScrollView
+      <FlatList
+        data={adventures}
+        renderItem={renderAdventureItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={renderProgressHeader}
+        stickyHeaderIndices={[0]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        stickyHeaderIndices={[0]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing || false}
@@ -300,41 +346,13 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
             colors={[ArchivesTheme.colors.persianOrange]}
           />
         }
-      >
-        {/* Progress Card */}
-        <View style={[styles.progressWrapper, { paddingLeft: containerPadding, paddingRight: containerPadding }]}>
-          <View style={styles.progressCard}>
-            <View style={styles.progressTextContainer}>
-              <Text style={styles.progressTitle}>{progressBarData.title}</Text>
-              <View style={styles.progressSubtitleRow}>
-                <Text style={styles.progressSubtitle}>{progressBarData.subtitle}</Text>
-                {/* Progress Bar */}
-                <View style={styles.progressBarContainer}>
-                  <Svg width={192} height={8} viewBox="0 0 192 8">
-                    <Path d="M5 4L187 4" stroke="#D7C5B6" strokeWidth={2} strokeLinecap="round" />
-                    <Circle cx={4} cy={4} r={4} fill={progressBarData.currentStep > 0 ? "white" : "#D7C5B6"} />
-                    <Circle cx={50} cy={4} r={4} fill={progressBarData.currentStep > 1 ? "white" : "#D7C5B6"} />
-                    <Circle cx={96} cy={4} r={4} fill={progressBarData.currentStep > 2 ? "white" : "#D7C5B6"} />
-                    <Circle cx={142} cy={4} r={4} fill={progressBarData.currentStep > 3 ? "white" : "#D7C5B6"} />
-                    <Circle cx={188} cy={4} r={4} fill={progressBarData.currentStep > 4 ? "white" : "#D7C5B6"} />
-                  </Svg>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Render Adventures */}
-        {adventures.map((adventure) => (
-          <ROIAdventureComponent
-            key={adventure.readable_id}
-            adventure={adventure}
-            userProgress={userProgress}
-            onCardPress={(contentItem) => handleCardPress(contentItem, adventure.readable_id)}
-            onTitlePress={() => handleAdventureStarted(adventure)}
-          />
-        ))}
-      </ScrollView>
+        // Performance optimizations - reduces memory usage
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={2}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={2}
+        windowSize={3}
+      />
 
       {/* Lesson/Quiz Modal */}
       {selectedLesson && (

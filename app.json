@@ -2,7 +2,7 @@
   "expo": {
     "name": "Archives",
     "slug": "archives",
-    "version": "2.2.8",
+    "version": "3.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
     "scheme": "archives",
@@ -40,7 +40,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 20,
+      "versionCode": 21,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -120,13 +120,24 @@
         {
           "ios": {
             "useFrameworks": "static"
+          },
+          "android": {
+            "largeHeap": true
           }
         }
       ],
       "expo-iap",
       "expo-web-browser",
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "affinity-labs-0i"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

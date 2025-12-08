@@ -132,6 +132,15 @@ export default function ROIReelLesson({
   // Extract video URL from media_url array (first item)
   const videoUrl = contentItem.media_url?.[0] || '';
 
+  // Detect content type based on URL (HLS vs progressive MP4)
+  const getContentType = (url: string): 'hls' | 'progressive' => {
+    if (url?.includes('.m3u8') || url?.includes('/hls/') || url?.includes('format=m3u8')) {
+      return 'hls';
+    }
+    return 'progressive'; // MP4 and other formats
+  };
+  const videoContentType = getContentType(videoUrl);
+
   // Check if user has seen reel walkthrough before
   useEffect(() => {
     const checkWalkthrough = async () => {
@@ -491,7 +500,7 @@ export default function ROIReelLesson({
         {/* Full-screen Video Player with inline loading */}
         <View style={{ position: 'relative', flex: 1 }}>
           <LessonPlayer
-            videoSource={{ uri: videoUrl }}
+            videoSource={{ uri: videoUrl, contentType: videoContentType }}
             onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
             autoPlay={true}
             shouldLoop={true}
