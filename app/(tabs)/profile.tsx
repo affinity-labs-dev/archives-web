@@ -17,7 +17,6 @@ import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, Scrol
 import XPMilestoneScreen from '@/components/ROI/XPMilestoneScreen'
 import AdventureCompleteScreen from '@/components/ROI/AdventureCompleteScreen'
 import { useROIAdventures } from '@/hooks/useROIAdventures'
-import * as Sentry from '@sentry/react-native'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -690,16 +689,6 @@ export default function ProfileTab() {
               disabled={roiLoading}
             >
               <Text style={styles.testButtonText}>ADV</Text>
-            </TouchableOpacity>
-            {/* TEMPORARY: Sentry Test Button - Remove after testing */}
-            <TouchableOpacity
-              style={[styles.testButton, { backgroundColor: '#362D59' }]}
-              onPress={() => {
-                Sentry.captureMessage('Test from Profile - Sentry is working!')
-                Alert.alert('Sentry Test', 'Test event sent! Check sentry.io dashboard.')
-              }}
-            >
-              <Text style={styles.testButtonText}>SNT</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.settingsButton}
