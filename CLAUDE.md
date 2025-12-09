@@ -391,8 +391,14 @@ console.log('🔔 Notification')    // Push notifications
 
 ## Important Patterns & Development Context
 
-**Current status:** Branch `master` | Both platforms LIVE in production
-(Check git log for recent work and current development focus)
+**Current status:** Branch `merge-eras` | Both platforms LIVE in production
+(Check `git log --oneline -10` for recent work and current development focus)
+
+### Recent Development Focus
+- **Unified Supabase-driven era selection** - Eras now loaded from Supabase `content_list` table
+- **TWO ERAS system** - Umayyad Dynasty (Era 1) and Rise of Islam (Era 2) with separate content
+- **PostHog analytics improvements** - Custom screen names for ROI, user identity fixes, comprehensive quiz XP tracking
+- **Walkthrough hints fixes** - Proper z-index layering, centered continue hints
 
 ### Local-First with Transparent Sync
 ```
@@ -448,3 +454,11 @@ Before committing:
 - [ ] AsyncStorage only via ProgressContext (never direct)
 - [ ] Remove build artifacts (`rm -f *.ipa *.apk`)
 - [ ] No Claude attribution in commit messages
+
+## Types System
+
+Progress types are centralized in `/types/progress.ts`:
+- `EraType` - LEGACY (Era 1) vs NEW (Era 2+)
+- `ModuleState` - LOCKED, LESSON1_AVAILABLE, LESSON1_COMPLETED, etc.
+- `ProgressUpdateAction` - LESSON_COMPLETED, QUIZ_COMPLETED, QUIZ_RETAKEN, MODULE_RESET
+- `ModuleProgress`, `AdventureProgress` - Core data structures

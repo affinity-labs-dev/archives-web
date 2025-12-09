@@ -132,15 +132,8 @@ export default function EraSelection() {
     selectedEra &&
     isEraAccessible(selectedEra.status, hasSubscription, isFoundingMember);
 
-  // Group eras by layout
-  const fullWidthEras = eras.filter((e) => e.card_layout === 'full_width');
-  const gridEras = eras.filter((e) => e.card_layout === 'grid');
-
-  // Split grid eras into rows of 2
-  const gridRows: Era[][] = [];
-  for (let i = 0; i < gridEras.length; i += 2) {
-    gridRows.push(gridEras.slice(i, i + 2));
-  }
+  // Sort all eras by order_by
+  const sortedEras = [...eras].sort((a, b) => a.order_by - b.order_by);
 
   return (
     <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
@@ -176,35 +169,53 @@ export default function EraSelection() {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Full width cards */}
-            {fullWidthEras.map((era) => (
-              <EraCard
-                key={era.era_id}
-                era={era}
-                isSelected={selectedEraId === era.era_id}
-                onSelect={() => handleEraSelect(era)}
-                hasSubscription={hasSubscription}
-                isFoundingMember={isFoundingMember}
-              />
-            ))}
+            {/* Render eras in order_by sequence, handling grid pairs */}
+            {sortedEras.map((era, index) => {
+              // Full width cards render directly
+              if (era.card_layout === 'full_width') {
+                return (
+                  <EraCard
+                    key={era.era_id}
+                    era={era}
+                    isSelected={selectedEraId === era.era_id}
+                    onSelect={() => handleEraSelect(era)}
+                    hasSubscription={hasSubscription}
+                    isFoundingMember={isFoundingMember}
+                  />
+                );
+              }
 
-            {/* Grid cards */}
-            {gridRows.map((row, rowIndex) => (
-              <View key={`row-${rowIndex}`} style={styles.gridContainer}>
-                <View style={styles.gridRow}>
-                  {row.map((era) => (
-                    <EraCard
-                      key={era.era_id}
-                      era={era}
-                      isSelected={selectedEraId === era.era_id}
-                      onSelect={() => handleEraSelect(era)}
-                      hasSubscription={hasSubscription}
-                      isFoundingMember={isFoundingMember}
-                    />
-                  ))}
+              // Grid cards: only render on first of consecutive grid pair
+              const prevEra = sortedEras[index - 1];
+              const nextEra = sortedEras[index + 1];
+              const isPrevGrid = prevEra?.card_layout === 'grid';
+
+              // Skip if previous was grid (already rendered as pair)
+              if (isPrevGrid) return null;
+
+              // Render grid row (1 or 2 cards)
+              const gridPair = [era];
+              if (nextEra?.card_layout === 'grid') {
+                gridPair.push(nextEra);
+              }
+
+              return (
+                <View key={`grid-${era.era_id}`} style={styles.gridContainer}>
+                  <View style={styles.gridRow}>
+                    {gridPair.map((gridEra) => (
+                      <EraCard
+                        key={gridEra.era_id}
+                        era={gridEra}
+                        isSelected={selectedEraId === gridEra.era_id}
+                        onSelect={() => handleEraSelect(gridEra)}
+                        hasSubscription={hasSubscription}
+                        isFoundingMember={isFoundingMember}
+                      />
+                    ))}
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
         )}
 
