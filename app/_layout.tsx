@@ -40,6 +40,10 @@ Sentry.init({
   // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
 
+  // Enable performance tracing - captures 100% of transactions
+  // Reduce in production to lower costs (e.g., 0.2 for 20%)
+  tracesSampleRate: 1.0,
+
   // Enable Logs
   enableLogs: true,
 
