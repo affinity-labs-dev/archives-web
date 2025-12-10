@@ -1,4 +1,4 @@
-// ROIVideoCarouselLesson.tsx - Reusable Video Carousel lesson for Rise of Islam
+// VideoCarouselLesson.tsx - Reusable Video Carousel lesson for all eras
 // Accepts data from adventures.content_list and injects dynamically
 // Full-screen TabView carousel showing video series
 
@@ -27,10 +27,10 @@ import {
   State,
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import LoadingOverlay from "./LoadingOverlay";
-import type { ContentItem } from "./types";
+import LoadingOverlay from "@/components/shared/LoadingOverlay";
+import type { ContentItem } from "@/components/shared/types";
 import RenderHtml from 'react-native-render-html';
-import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
+import { LESSON_CONSTANTS } from "./LessonConstants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image as ExpoImage } from "expo-image";
@@ -42,10 +42,10 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
 );
 
 // Responsive card heights (module-level)
-const COLLAPSED_HEIGHT = SCREEN_HEIGHT * ROI_LESSON_CONSTANTS.READING_CARD.COLLAPSED_HEIGHT_RATIO;
-const EXPANDED_HEIGHT = SCREEN_HEIGHT * ROI_LESSON_CONSTANTS.READING_CARD.EXPANDED_HEIGHT_RATIO;
+const COLLAPSED_HEIGHT = SCREEN_HEIGHT * LESSON_CONSTANTS.READING_CARD.COLLAPSED_HEIGHT_RATIO;
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * LESSON_CONSTANTS.READING_CARD.EXPANDED_HEIGHT_RATIO;
 
-interface ROIVideoCarouselLessonProps {
+interface VideoCarouselLessonProps {
   contentItem: ContentItem;  // Data from adventures.content_list
   adventureId: string;       // e.g., "roi_adventure_1"
   moduleId: string;          // e.g., "ROI_Adv1_M1"
@@ -129,7 +129,7 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
   );
 };
 
-export default function ROIVideoCarouselLesson({
+export default function VideoCarouselLesson({
   contentItem,
   adventureId,
   moduleId,
@@ -137,7 +137,7 @@ export default function ROIVideoCarouselLesson({
   onContinue,
   onDismiss,
   onBack,
-}: ROIVideoCarouselLessonProps) {
+}: VideoCarouselLessonProps) {
   // Safe area insets for proper button positioning
   const insets = useSafeAreaInsets();
 
@@ -331,8 +331,8 @@ export default function ROIVideoCarouselLesson({
       Animated.spring(cardHeight, {
         toValue: EXPANDED_HEIGHT,
         useNativeDriver: false,
-        tension: ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_TENSION,
-        friction: ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_FRICTION,
+        tension: LESSON_CONSTANTS.READING_CARD.ANIMATION_TENSION,
+        friction: LESSON_CONSTANTS.READING_CARD.ANIMATION_FRICTION,
       }),
       Animated.timing(cardOpacity, {
         toValue: 0,
@@ -355,8 +355,8 @@ export default function ROIVideoCarouselLesson({
       Animated.spring(cardHeight, {
         toValue: COLLAPSED_HEIGHT,
         useNativeDriver: false,
-        tension: ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_TENSION,
-        friction: ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_FRICTION,
+        tension: LESSON_CONSTANTS.READING_CARD.ANIMATION_TENSION,
+        friction: LESSON_CONSTANTS.READING_CARD.ANIMATION_FRICTION,
       }),
       Animated.timing(cardOpacity, {
         toValue: 1,
@@ -538,8 +538,8 @@ export default function ROIVideoCarouselLesson({
               ref={panGestureRef}
               onGestureEvent={handleSwipeGesture}
               onHandlerStateChange={handleSwipeGesture}
-              activeOffsetY={[-ROI_LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y, ROI_LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y]}
-              failOffsetX={[-ROI_LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X, ROI_LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X]}
+              activeOffsetY={[-LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y, LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y]}
+              failOffsetX={[-LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X, LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X]}
               minPointers={1}
               maxPointers={1}
               simultaneousHandlers={tapGestureRef}

@@ -14,9 +14,9 @@ import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import XPMilestoneScreen from '@/components/ROI/XPMilestoneScreen'
-import AdventureCompleteScreen from '@/components/ROI/AdventureCompleteScreen'
-import { useROIAdventures } from '@/hooks/useROIAdventures'
+import XPMilestoneScreen from '@/components/quiz/XPMilestoneScreen'
+import AdventureCompleteScreen from '@/components/adventure/shared/AdventureCompleteScreen'
+import { useAdventures } from '@/hooks/useAdventures'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -374,7 +374,7 @@ export default function ProfileTab() {
   const [showAdventureTest, setShowAdventureTest] = useState(false)
 
   // Fetch ROI adventures for test button (Era 2)
-  const { adventures: roiAdventures, loading: roiLoading } = useROIAdventures(2)
+  const { adventures: roiAdventures, loading: roiLoading } = useAdventures(2)
 
   // Track page views with focus/blur
   useFocusEffect(

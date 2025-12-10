@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, Text, View, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useROIAdventures } from '@/hooks/useROIAdventures';
-import ROIEraComponent from '@/components/ROI/ROIEraComponent';
+import { useAdventures } from '@/hooks/useAdventures';
+import BentoGridScreen from '@/components/adventure/types/bento-grid/BentoGridScreen';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider';
@@ -23,7 +23,7 @@ interface UserProgress {
 
 export default function ROIBentoScreen() {
   // Fetch adventures for Era 2 (Rise of Islam)
-  const { adventures, loading, error, refreshAdventures } = useROIAdventures(2);
+  const { adventures, loading, error, refreshAdventures } = useAdventures(2);
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -132,7 +132,7 @@ export default function ROIBentoScreen() {
   }
 
   return (
-    <ROIEraComponent
+    <BentoGridScreen
       adventures={adventures}
       userProgress={userProgress}
       onProgressUpdate={loadProgress}

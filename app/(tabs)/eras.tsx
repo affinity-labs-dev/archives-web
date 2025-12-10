@@ -185,15 +185,22 @@ export default function EraSelection() {
                 );
               }
 
-              // Grid cards: only render on first of consecutive grid pair
-              const prevEra = sortedEras[index - 1];
-              const nextEra = sortedEras[index + 1];
-              const isPrevGrid = prevEra?.card_layout === 'grid';
+              // Grid cards: render in pairs (odd-positioned grids start a new row)
+              // Count how many grid cards came before this one in the current grid sequence
+              let gridPositionInSequence = 0;
+              for (let i = index - 1; i >= 0; i--) {
+                if (sortedEras[i].card_layout === 'grid') {
+                  gridPositionInSequence++;
+                } else {
+                  break; // Stop at first non-grid
+                }
+              }
 
-              // Skip if previous was grid (already rendered as pair)
-              if (isPrevGrid) return null;
+              // Skip if this is the second card in a pair (odd position = 1, 3, 5...)
+              if (gridPositionInSequence % 2 === 1) return null;
 
               // Render grid row (1 or 2 cards)
+              const nextEra = sortedEras[index + 1];
               const gridPair = [era];
               if (nextEra?.card_layout === 'grid') {
                 gridPair.push(nextEra);

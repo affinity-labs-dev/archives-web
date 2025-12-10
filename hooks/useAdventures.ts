@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAdventuresContent } from '@/context/AdventuresContentProvider';
-import type { Adventure } from '@/components/ROI/types';
+import type { Adventure } from '@/components/shared/types';
 
-export function useROIAdventures(eraId: number) {
+export function useAdventures(eraId: number) {
   const { getAdventures, refreshAdventures, adventures: contextAdventures } = useAdventuresContent();
   const [adventures, setAdventures] = useState<Adventure[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +17,7 @@ export function useROIAdventures(eraId: number) {
         setAdventures(data);
         setError(null);
       } catch (err) {
-        console.error('❌ Error loading ROI adventures:', err);
+        console.error('❌ Error loading adventures:', err);
         setError(err instanceof Error ? err : new Error('Failed to load adventures'));
       } finally {
         setLoading(false);
@@ -42,7 +42,7 @@ export function useROIAdventures(eraId: number) {
   return { adventures, loading, error, refreshAdventures: handleRefresh };
 }
 
-export function useROIAdventure(readableId: string) {
+export function useAdventure(readableId: string) {
   const { adventures } = useAdventuresContent();
   const [adventure, setAdventure] = useState<Adventure | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +54,7 @@ export function useROIAdventure(readableId: string) {
       return;
     }
 
-    console.log(`📊 Looking for ROI adventure: ${readableId} in cached content...`);
+    console.log(`📊 Looking for adventure: ${readableId} in cached content...`);
 
     // Search all cached eras for this adventure
     let found: Adventure | null = null;

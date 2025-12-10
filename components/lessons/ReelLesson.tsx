@@ -1,4 +1,4 @@
-// ROIReelLesson.tsx - Reusable Reel lesson component for Rise of Islam
+// ReelLesson.tsx - Reusable Reel lesson component for all eras
 // Accepts data from adventures.content_list and injects dynamically
 // Full-screen video lesson with ultra-smooth progress tracking
 
@@ -25,11 +25,11 @@ import {
   GestureHandlerRootView
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import LessonPlayer from "../modules/LessonPlayer";
-import LoadingOverlay from "./LoadingOverlay";
-import type { ContentItem } from "./types";
+import LessonPlayer from "@/components/modules/LessonPlayer";
+import LoadingOverlay from "@/components/shared/LoadingOverlay";
+import type { ContentItem } from "@/components/shared/types";
 import RenderHtml from 'react-native-render-html';
-import { ROI_LESSON_CONSTANTS } from "./ROILessonConstants";
+import { LESSON_CONSTANTS } from "./LessonConstants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image } from "expo-image";
@@ -38,13 +38,13 @@ import { useLessonTracking } from "@/hooks/useLessonTracking";
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Card Height Constants (responsive to screen size)
-const COLLAPSED_HEIGHT = SCREEN_HEIGHT * ROI_LESSON_CONSTANTS.READING_CARD.COLLAPSED_HEIGHT_RATIO;
-const EXPANDED_HEIGHT = SCREEN_HEIGHT * ROI_LESSON_CONSTANTS.READING_CARD.EXPANDED_HEIGHT_RATIO;
+const COLLAPSED_HEIGHT = SCREEN_HEIGHT * LESSON_CONSTANTS.READING_CARD.COLLAPSED_HEIGHT_RATIO;
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * LESSON_CONSTANTS.READING_CARD.EXPANDED_HEIGHT_RATIO;
 
 // Animation Constants
 const PROGRESS_ANIMATION_DURATION = 50;
-const CARD_ANIMATION_TENSION = ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_TENSION;
-const CARD_ANIMATION_FRICTION = ROI_LESSON_CONSTANTS.READING_CARD.ANIMATION_FRICTION;
+const CARD_ANIMATION_TENSION = LESSON_CONSTANTS.READING_CARD.ANIMATION_TENSION;
+const CARD_ANIMATION_FRICTION = LESSON_CONSTANTS.READING_CARD.ANIMATION_FRICTION;
 const VIDEO_COMPLETION_THRESHOLD = 0.95;
 const PROGRESS_SENSITIVITY = 0.0005;
 
@@ -54,7 +54,7 @@ const BUTTON_RADIUS = 20;
 const CARD_HANDLE_WIDTH = 70;
 const CARD_HANDLE_HEIGHT = 5;
 
-interface ROIReelLessonProps {
+interface ReelLessonProps {
   contentItem: ContentItem;  // Data from adventures.content_list
   adventureId: string;       // e.g., "roi_adventure_1"
   moduleId: string;          // e.g., "ROI_Adv1_M1"
@@ -63,14 +63,14 @@ interface ROIReelLessonProps {
   onDismiss: () => void;
 }
 
-export default function ROIReelLesson({
+export default function ReelLesson({
   contentItem,
   adventureId,
   moduleId,
   lessonId,
   onContinue,
   onDismiss,
-}: ROIReelLessonProps) {
+}: ReelLessonProps) {
   // Safe area insets for proper button positioning
   const insets = useSafeAreaInsets();
 
@@ -295,8 +295,8 @@ export default function ROIReelLesson({
     if (event.nativeEvent.state === State.END) {
       const { translationY, velocityY } = event.nativeEvent;
 
-      const minDistance = ROI_LESSON_CONSTANTS.GESTURES.MIN_SWIPE_DISTANCE;
-      const minVelocity = ROI_LESSON_CONSTANTS.GESTURES.MIN_SWIPE_VELOCITY;
+      const minDistance = LESSON_CONSTANTS.GESTURES.MIN_SWIPE_DISTANCE;
+      const minVelocity = LESSON_CONSTANTS.GESTURES.MIN_SWIPE_VELOCITY;
 
       if (!isCardExpanded &&
           (translationY < -minDistance || velocityY < -minVelocity)) {
@@ -582,8 +582,8 @@ export default function ROIReelLesson({
               ref={panGestureRef}
               onGestureEvent={handleSwipeGesture}
               onHandlerStateChange={handleSwipeGesture}
-              activeOffsetY={[-ROI_LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y, ROI_LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y]}
-              failOffsetX={[-ROI_LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X, ROI_LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X]}
+              activeOffsetY={[-LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y, LESSON_CONSTANTS.GESTURES.ACTIVE_OFFSET_Y]}
+              failOffsetX={[-LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X, LESSON_CONSTANTS.GESTURES.FAIL_OFFSET_X]}
               simultaneousHandlers={tapGestureRef}
             >
               {renderReadingCard()}

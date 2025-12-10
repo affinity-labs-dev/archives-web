@@ -1,4 +1,4 @@
-// ROIAdventureSummary.tsx - Adventure completion modal for Rise of Islam
+// AdventureSummary.tsx - Adventure completion modal for all eras
 // Shows when user completes all modules in an adventure OR reaches 50 XP milestone
 
 import React, { useState, useEffect } from 'react';
@@ -18,7 +18,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 import { analyticsService } from '@/services/AnalyticsService';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import type { Adventure } from './types';
+import type { Adventure } from '@/components/shared/types';
 
 const { width } = Dimensions.get('window');
 
@@ -85,7 +85,7 @@ function VideoRewardPlayer({ totalStars }: VideoRewardPlayerProps) {
   );
 }
 
-interface ROIAdventureSummaryProps {
+interface AdventureSummaryProps {
   isVisible: boolean;
   mode: SummaryMode;
   // Adventure completion mode props
@@ -99,7 +99,7 @@ interface ROIAdventureSummaryProps {
   onContinue: () => void;
 }
 
-export default function ROIAdventureSummary({
+export default function AdventureSummary({
   isVisible,
   mode,
   adventure,
@@ -108,7 +108,7 @@ export default function ROIAdventureSummary({
   totalStars,
   milestoneXP,
   onContinue,
-}: ROIAdventureSummaryProps) {
+}: AdventureSummaryProps) {
   const [hasTrackedView, setHasTrackedView] = useState(false);
 
   // Track modal view when it becomes visible

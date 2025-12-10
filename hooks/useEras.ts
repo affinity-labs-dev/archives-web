@@ -117,6 +117,28 @@ export function useEras(): UseErasReturn {
 
   useEffect(() => {
     fetchEras(true);
+
+    // Subscribe to realtime changes on eras table
+    const channel = supabase
+      .channel('eras-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'eras' },
+        (payload) => {
+          console.log('🔄 [useEras] Realtime update received:', payload.eventType);
+          // Refetch all eras when any change occurs
+          fetchEras(false);
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 [useEras] Realtime subscription status:', status);
+      });
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('🔌 [useEras] Unsubscribing from realtime');
+      supabase.removeChannel(channel);
+    };
   }, [fetchEras]);
 
   return { eras, loading, error, refetch };

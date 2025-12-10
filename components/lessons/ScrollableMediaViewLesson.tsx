@@ -1,4 +1,4 @@
-// ROIScrollableMediaViewLesson.tsx - Reusable Scrollable Media View lesson for Rise of Islam
+// ScrollableMediaViewLesson.tsx - Reusable Scrollable Media View lesson for all eras
 // Supports flexible content blocks (video, image, text) in any order
 // Videos auto-play and loop, dynamically rendered from content_blocks array
 
@@ -22,7 +22,7 @@ import {
 } from "react-native";
 import RenderHtml from 'react-native-render-html';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { ContentBlock, ContentItem } from "./types";
+import type { ContentBlock, ContentItem } from "@/components/shared/types";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -50,7 +50,7 @@ const LAYOUT_CONSTANTS = {
   videoInitializationDelay: 500,
 };
 
-interface ROIScrollableMediaViewLessonProps {
+interface ScrollableMediaViewLessonProps {
   contentItem: ContentItem;
   adventureId: string;
   moduleId: string;
@@ -60,7 +60,7 @@ interface ROIScrollableMediaViewLessonProps {
   onBack?: () => void;
 }
 
-export default function ROIScrollableMediaViewLesson({
+export default function ScrollableMediaViewLesson({
   contentItem,
   adventureId,
   moduleId,
@@ -68,7 +68,7 @@ export default function ROIScrollableMediaViewLesson({
   onContinue,
   onDismiss,
   onBack,
-}: ROIScrollableMediaViewLessonProps) {
+}: ScrollableMediaViewLessonProps) {
   const insets = useSafeAreaInsets();
   const { width: contentWidth } = useWindowDimensions();
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);

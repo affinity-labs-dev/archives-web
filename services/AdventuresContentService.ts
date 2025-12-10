@@ -3,7 +3,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/hooks/lib/supabase';
-import type { Adventure } from '@/components/ROI/types';
+import type { Adventure } from '@/components/shared/types';
 
 type UpdateCallback = (eventType: string, data: Adventure) => void;
 

@@ -1,6 +1,6 @@
-// ROIQuiz.tsx - Universal Rise of Islam Quiz Component
+// Quiz.tsx - Universal Quiz Component for all eras
 // Accepts dynamic quiz data from adventures.content_list
-// Clean, modern design matching ROI theme with bottom sheet feedback
+// Clean, modern design with bottom sheet feedback
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -22,14 +22,14 @@ import { useQuizTracking } from '@/hooks/useQuizTracking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useQuizSounds } from '@/hooks/useQuizSounds';
-import type { ContentItem } from './types';
-import ROIQuizResults from './ROIQuizResults';
+import type { ContentItem } from '@/components/shared/types';
+import QuizResults from './QuizResults';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import XPMilestoneScreen from './XPMilestoneScreen';
 import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
 
-interface ROIQuizProps {
+interface QuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
   adventureId: string;       // Database adventure readable_id (e.g., "roi_adventure_1")
   moduleId: string;          // Database content_list.id (media_id)
@@ -39,8 +39,8 @@ interface ROIQuizProps {
   onMilestoneReached?: (milestoneXP: number, totalXP: number) => void; // 50 XP milestone callback
 }
 
-// MCQ Option Button - ROI Design
-interface ROIMCQOptionButtonProps {
+// MCQ Option Button Design
+interface MCQOptionButtonProps {
   letter: string;
   text: string;
   isSelected: boolean;
@@ -50,7 +50,7 @@ interface ROIMCQOptionButtonProps {
   onPress: () => void;
 }
 
-function ROIMCQOptionButton({
+function MCQOptionButton({
   letter,
   text,
   isSelected,
@@ -58,7 +58,7 @@ function ROIMCQOptionButton({
   isWrong,
   showResult,
   onPress,
-}: ROIMCQOptionButtonProps) {
+}: MCQOptionButtonProps) {
   // Determine colors based on state - match Umayyad design
   const getShadowColor = () => {
     if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
@@ -266,7 +266,7 @@ const QUIZ_IMAGES: { [key: string]: any } = {
 
 const QUIZ_IMAGE_KEYS = Object.keys(QUIZ_IMAGES);
 
-export default function ROIQuiz({
+export default function Quiz({
   contentItem,
   adventureId,
   moduleId,
@@ -274,7 +274,7 @@ export default function ROIQuiz({
   onDismiss,
   onBack,
   onMilestoneReached,
-}: ROIQuizProps) {
+}: QuizProps) {
   const { saveNewProgressData, calculateTotalXP, checkIfCrossed50XPBoundary } = useProgress();
   const insets = useSafeAreaInsets();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
@@ -325,7 +325,7 @@ export default function ROIQuiz({
       const xpData = await AsyncStorage.getItem('totalXP');
       const currentXP = xpData ? JSON.parse(xpData) : 0;
       setInitialXP(currentXP);
-      console.log(`📊 [ROIQuiz] Quiz started with ${currentXP} XP`);
+      console.log(`📊 [Quiz] Quiz started with ${currentXP} XP`);
     };
 
     loadInitialXP();
@@ -378,13 +378,13 @@ export default function ROIQuiz({
       const oldXP = initialXP + (correctAnswers * 10); // Before this answer
       const newXP = initialXP + (newCorrectAnswers * 10); // After this answer
 
-      console.log(`📊 [ROIQuiz] Correct answer! XP: ${oldXP} → ${newXP}`);
+      console.log(`📊 [Quiz] Correct answer! XP: ${oldXP} → ${newXP}`);
 
       // Check if we crossed a milestone
       const milestone = checkIfCrossed50XPBoundary(oldXP, newXP);
 
       if (milestone) {
-        console.log(`🎉 [ROIQuiz] MID-QUIZ Milestone crossed: ${milestone} XP`);
+        console.log(`🎉 [Quiz] MID-QUIZ Milestone crossed: ${milestone} XP`);
 
         // Check if user already saw this milestone
         const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestone);
@@ -488,15 +488,15 @@ export default function ROIQuiz({
 
     // Check if user crossed 50 XP boundary (50, 100, 200, 400, 750) - Era 2 only
     const milestone = checkIfCrossed50XPBoundary(oldXP, newXP);
-    console.log(`📊 [ROIQuiz] Milestone check result:`, { oldXP, newXP, milestone, hasCallback: !!onMilestoneReached });
+    console.log(`📊 [Quiz] Milestone check result:`, { oldXP, newXP, milestone, hasCallback: !!onMilestoneReached });
 
     if (milestone && onMilestoneReached) {
-      console.log(`🎉 [ROIQuiz] Milestone ${milestone} crossed! Calling onMilestoneReached`);
+      console.log(`🎉 [Quiz] Milestone ${milestone} crossed! Calling onMilestoneReached`);
       onMilestoneReached(milestone, newXP);
       return; // Don't call onContinue - let milestone modal handle it
     }
 
-    console.log(`✅ [ROIQuiz] No milestone reached, calling onContinue`);
+    console.log(`✅ [Quiz] No milestone reached, calling onContinue`);
 
     console.log(`✅ Quiz completed - Correct: ${correctAnswers}/${totalQuestions} (${percentage.toFixed(0)}%), Stars: ${quizScore}★`);
     onContinue();
@@ -518,7 +518,7 @@ export default function ROIQuiz({
   // Show results screen if quiz is complete
   if (showResults) {
     return (
-      <ROIQuizResults
+      <QuizResults
         correctAnswers={correctAnswers}
         totalQuestions={totalQuestions}
         totalPoints={score}
@@ -600,7 +600,7 @@ export default function ROIQuiz({
             {options.map((option, index) => {
               const letter = String.fromCharCode(65 + index); // A, B, C, D
               return (
-                <ROIMCQOptionButton
+                <MCQOptionButton
                   key={index}
                   letter={letter}
                   text={option}
@@ -669,7 +669,7 @@ export default function ROIQuiz({
             totalXP={milestoneData.totalXP}
             onContinue={() => {
               // Video finished, close modal and show feedback
-              console.log('🎬 [ROIQuiz] Milestone video finished, resuming quiz');
+              console.log('🎬 [Quiz] Milestone video finished, resuming quiz');
               setShowMilestone(false);
               setMilestoneData(null);
               setShowFeedback(true);

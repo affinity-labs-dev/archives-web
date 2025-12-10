@@ -1,4 +1,4 @@
-// ROIAdventureCardComponent.tsx - Adventure detail modal for Rise of Islam (Era 2)
+// AdventureCard.tsx - Adventure detail modal for all eras
 // Displays adventure info from card_content JSONB field (static) + calculated values (dynamic)
 
 import React from 'react'
@@ -17,19 +17,19 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
-import type { Adventure } from './types'
+import type { Adventure } from '@/components/shared/types'
 
-interface ROIAdventureCardComponentProps {
+interface AdventureCardProps {
   isVisible: boolean
   adventure: Adventure | null
   onDismiss: () => void
 }
 
-export default function ROIAdventureCardComponent({
+export default function AdventureCard({
   isVisible,
   adventure,
   onDismiss
-}: ROIAdventureCardComponentProps) {
+}: AdventureCardProps) {
   if (!adventure || !adventure.card_content) {
     return null
   }

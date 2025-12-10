@@ -7,16 +7,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS, WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { analyticsService } from '@/services/AnalyticsService';
-import ROIAdventureComponent from './ROIAdventureComponent';
-import ROIAdventureCardComponent from './ROIAdventureCardComponent';
-import XPMilestoneScreen from './XPMilestoneScreen';
-import AdventureCompleteScreen from './AdventureCompleteScreen';
-import ROIReelLesson from './ROIReelLesson';
-import ROIVideoCarouselLesson from './ROIVideoCarouselLesson';
-import ROIImageCarouselLesson from './ROIImageCarouselLesson';
-import ROIScrollableMediaViewLesson from './ROIScrollableMediaViewLesson';
-import ROIQuiz from './ROIQuiz';
-import type { Adventure, ContentItem } from './types';
+import AdventureComponent from '@/components/adventure/shared/AdventureComponent';
+import AdventureCard from './AdventureCard';
+import XPMilestoneScreen from '@/components/quiz/XPMilestoneScreen';
+import AdventureCompleteScreen from '@/components/adventure/shared/AdventureCompleteScreen';
+import ReelLesson from '@/components/lessons/ReelLesson';
+import VideoCarouselLesson from '@/components/lessons/VideoCarouselLesson';
+import ImageCarouselLesson from '@/components/lessons/ImageCarouselLesson';
+import ScrollableMediaViewLesson from '@/components/lessons/ScrollableMediaViewLesson';
+import Quiz from '@/components/quiz/Quiz';
+import type { Adventure, ContentItem } from '@/components/shared/types';
 
 // TypeScript interfaces
 interface UserProgress {
@@ -30,7 +30,7 @@ interface UserProgress {
   era_id: number;
 }
 
-interface ROIEraComponentProps {
+interface BentoGridScreenProps {
   adventures: Adventure[];
   userProgress: UserProgress[];
   onProgressUpdate?: () => Promise<void> | void;
@@ -38,7 +38,7 @@ interface ROIEraComponentProps {
   onRefresh?: () => void;
 }
 
-const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh }) => {
+const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh }) => {
   const [selectedLesson, setSelectedLesson] = useState<{
     contentItem: ContentItem;
     adventureId: string;
@@ -157,7 +157,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
       const adventure = adventures.find(a => a.readable_id === selectedLesson.adventureId);
 
       if (adventure && adventure.content_list) {
-        // Get displayed content (must match ROIAdventureComponent display logic)
+        // Get displayed content (must match AdventureComponent display logic)
         const sortedContent = [...adventure.content_list]
           .sort((a, b) => a.order_by - b.order_by)
           .slice(0, 5);  // Match UI - only first 5 modules count
@@ -289,7 +289,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
   // Render function for FlatList items (memoized for performance)
   const renderAdventureItem = useCallback(({ item: adventure }: { item: Adventure }) => {
     return (
-      <ROIAdventureComponent
+      <AdventureComponent
         adventure={adventure}
         userProgress={userProgress}
         onCardPress={(contentItem) => handleCardPress(contentItem, adventure.readable_id)}
@@ -364,7 +364,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
           <SafeAreaProvider initialMetrics={initialWindowMetrics}>
             {/* Show quiz if flag is set */}
             {showQuiz ? (
-              <ROIQuiz
+              <Quiz
                 contentItem={selectedLesson.contentItem}
                 adventureId={selectedLesson.adventureId}
                 moduleId={selectedLesson.moduleId}
@@ -377,7 +377,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
               <>
                 {/* Render lesson based on content_type */}
                 {selectedLesson.contentItem.content_type === 'reel' && (
-                  <ROIReelLesson
+                  <ReelLesson
                     contentItem={selectedLesson.contentItem}
                     adventureId={selectedLesson.adventureId}
                     moduleId={selectedLesson.moduleId}
@@ -387,7 +387,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
                   />
                 )}
                 {selectedLesson.contentItem.content_type === 'video_carousel' && (
-                  <ROIVideoCarouselLesson
+                  <VideoCarouselLesson
                     contentItem={selectedLesson.contentItem}
                     adventureId={selectedLesson.adventureId}
                     moduleId={selectedLesson.moduleId}
@@ -397,7 +397,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
                   />
                 )}
                 {selectedLesson.contentItem.content_type === 'image_carousel' && (
-                  <ROIImageCarouselLesson
+                  <ImageCarouselLesson
                     contentItem={selectedLesson.contentItem}
                     adventureId={selectedLesson.adventureId}
                     moduleId={selectedLesson.moduleId}
@@ -407,7 +407,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
                   />
                 )}
                 {selectedLesson.contentItem.content_type === 'scrollable_media_view' && (
-                  <ROIScrollableMediaViewLesson
+                  <ScrollableMediaViewLesson
                     contentItem={selectedLesson.contentItem}
                     adventureId={selectedLesson.adventureId}
                     moduleId={selectedLesson.moduleId}
@@ -423,7 +423,7 @@ const ROIEraComponent: React.FC<ROIEraComponentProps> = ({ adventures, userProgr
       )}
 
       {/* Adventure Card Modal */}
-      <ROIAdventureCardComponent
+      <AdventureCard
         isVisible={selectedAdventureCard !== null}
         adventure={selectedAdventureCard}
         onDismiss={() => setSelectedAdventureCard(null)}
@@ -559,4 +559,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ROIEraComponent;
+export default BentoGridScreen;

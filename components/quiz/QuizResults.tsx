@@ -1,4 +1,4 @@
-// ROIQuizResults.tsx - Percentage-based quiz results screen for Rise of Islam
+// QuizResults.tsx - Percentage-based quiz results screen for all eras
 // Shows 3 different screens based on score percentage: <34%, 34-70%, >=70%
 
 import React, { useState, useEffect } from 'react';
@@ -23,7 +23,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 
 const { width } = Dimensions.get('window');
 
-interface ROIQuizResultsProps {
+interface QuizResultsProps {
   correctAnswers: number;
   totalQuestions: number;
   totalPoints: number;
@@ -115,7 +115,7 @@ function getResultMessages(percentage: number): {
   };
 }
 
-export default function ROIQuizResults({
+export default function QuizResults({
   correctAnswers,
   totalQuestions,
   totalPoints,
@@ -128,7 +128,7 @@ export default function ROIQuizResults({
   eraName,
   adventureNumber,
   moduleNumber,
-}: ROIQuizResultsProps) {
+}: QuizResultsProps) {
   // Calculate percentage
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
   const messages = getResultMessages(percentage);
@@ -147,7 +147,7 @@ export default function ROIQuizResults({
           setNewUserProgress(JSON.parse(data));
         }
       } catch (error) {
-        console.error('📊 [ROIQuizResults] Error loading new user progress:', error);
+        console.error('📊 [QuizResults] Error loading new user progress:', error);
       }
     };
     loadNewProgress();

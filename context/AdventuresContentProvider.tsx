@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { adventuresContentService } from '@/services/AdventuresContentService';
-import type { Adventure } from '@/components/ROI/types';
+import type { Adventure } from '@/components/shared/types';
 
 interface AdventuresContentContextType {
   getAdventures: (eraId: number) => Promise<Adventure[]>;

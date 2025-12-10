@@ -13,7 +13,7 @@ import {
   View
 } from 'react-native';
 import Svg, { G, Mask, Path, Rect } from 'react-native-svg';
-import type { Adventure, ContentItem } from './types';
+import type { Adventure, ContentItem } from '@/components/shared/types';
 
 // SVG Icon Components - Original correct version
 const PlayArrowIcon = () => (
@@ -183,14 +183,14 @@ interface UserProgress {
 }
 
 // TypeScript interfaces
-interface ROIAdventureComponentProps {
+interface AdventureComponentProps {
   adventure: Adventure;
   userProgress: UserProgress[];
   onCardPress?: (contentItem: ContentItem) => void;
   onTitlePress?: () => void;
 }
 
-const ROIAdventureComponent: React.FC<ROIAdventureComponentProps> = React.memo(function ROIAdventureComponent({ adventure, userProgress, onCardPress, onTitlePress }) {
+const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(function AdventureComponent({ adventure, userProgress, onCardPress, onTitlePress }) {
   // Sort by order_by and take first 5 items
   const sortedContent = [...(adventure.content_list || [])]
     .sort((a, b) => a.order_by - b.order_by)
@@ -666,4 +666,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ROIAdventureComponent;
+export default AdventureComponent;

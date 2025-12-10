@@ -1,7 +1,7 @@
-// ROILessonConstants.ts - Shared constants for Rise of Islam lesson components
+// LessonConstants.ts - Shared constants for lesson components across all eras
 // Ensures consistent reading card behavior across all lesson types
 
-export const ROI_LESSON_CONSTANTS = {
+export const LESSON_CONSTANTS = {
   // Reading Card Dimensions (responsive to screen size)
   READING_CARD: {
     COLLAPSED_HEIGHT_RATIO: 0.20,  // 20% of screen height (~160px on medium phones)
