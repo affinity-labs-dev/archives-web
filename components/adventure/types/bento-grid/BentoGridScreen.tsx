@@ -11,10 +11,7 @@ import AdventureComponent from '@/components/adventure/shared/AdventureComponent
 import AdventureCard from './AdventureCard';
 import XPMilestoneScreen from '@/components/quiz/XPMilestoneScreen';
 import AdventureCompleteScreen from '@/components/adventure/shared/AdventureCompleteScreen';
-import ReelLesson from '@/components/lessons/ReelLesson';
-import VideoCarouselLesson from '@/components/lessons/VideoCarouselLesson';
-import ImageCarouselLesson from '@/components/lessons/ImageCarouselLesson';
-import ScrollableMediaViewLesson from '@/components/lessons/ScrollableMediaViewLesson';
+import LessonPlayer from '@/components/lessons/LessonPlayer';
 import Quiz from '@/components/quiz/Quiz';
 import type { Adventure, ContentItem } from '@/components/shared/types';
 
@@ -374,49 +371,14 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
                 onMilestoneReached={handleMilestoneReached}
               />
             ) : (
-              <>
-                {/* Render lesson based on content_type */}
-                {selectedLesson.contentItem.content_type === 'reel' && (
-                  <ReelLesson
-                    contentItem={selectedLesson.contentItem}
-                    adventureId={selectedLesson.adventureId}
-                    moduleId={selectedLesson.moduleId}
-                    lessonId={selectedLesson.lessonId}
-                    onContinue={handleLessonContinue}
-                    onDismiss={handleLessonDismiss}
-                  />
-                )}
-                {selectedLesson.contentItem.content_type === 'video_carousel' && (
-                  <VideoCarouselLesson
-                    contentItem={selectedLesson.contentItem}
-                    adventureId={selectedLesson.adventureId}
-                    moduleId={selectedLesson.moduleId}
-                    lessonId={selectedLesson.lessonId}
-                    onContinue={handleLessonContinue}
-                    onDismiss={handleLessonDismiss}
-                  />
-                )}
-                {selectedLesson.contentItem.content_type === 'image_carousel' && (
-                  <ImageCarouselLesson
-                    contentItem={selectedLesson.contentItem}
-                    adventureId={selectedLesson.adventureId}
-                    moduleId={selectedLesson.moduleId}
-                    lessonId={selectedLesson.lessonId}
-                    onContinue={handleLessonContinue}
-                    onDismiss={handleLessonDismiss}
-                  />
-                )}
-                {selectedLesson.contentItem.content_type === 'scrollable_media_view' && (
-                  <ScrollableMediaViewLesson
-                    contentItem={selectedLesson.contentItem}
-                    adventureId={selectedLesson.adventureId}
-                    moduleId={selectedLesson.moduleId}
-                    lessonId={selectedLesson.lessonId}
-                    onContinue={handleLessonContinue}
-                    onDismiss={handleLessonDismiss}
-                  />
-                )}
-              </>
+              <LessonPlayer
+                contentItem={selectedLesson.contentItem}
+                adventureId={selectedLesson.adventureId}
+                moduleId={selectedLesson.moduleId}
+                lessonId={selectedLesson.lessonId}
+                onContinue={handleLessonContinue}
+                onDismiss={handleLessonDismiss}
+              />
             )}
           </SafeAreaProvider>
         </Modal>

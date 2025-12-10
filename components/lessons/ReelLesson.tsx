@@ -25,7 +25,7 @@ import {
   GestureHandlerRootView
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import LessonPlayer from "@/components/modules/LessonPlayer";
+import VideoPlayer from "./VideoPlayer";
 import LoadingOverlay from "@/components/shared/LoadingOverlay";
 import type { ContentItem } from "@/components/shared/types";
 import RenderHtml from 'react-native-render-html';
@@ -499,7 +499,7 @@ export default function ReelLesson({
         <View style={styles.container}>
         {/* Full-screen Video Player with inline loading */}
         <View style={{ position: 'relative', flex: 1 }}>
-          <LessonPlayer
+          <VideoPlayer
             videoSource={{ uri: videoUrl, useCaching: true, contentType: videoContentType }}
             onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
             autoPlay={true}
