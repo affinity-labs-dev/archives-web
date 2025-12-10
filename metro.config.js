@@ -1,8 +1,9 @@
-// Learn more https://docs.expo.io/guides/customizing-metro
-const { getDefaultConfig } = require('expo/metro-config')
+const {
+  getSentryExpoConfig
+} = require("@sentry/react-native/metro");
 
 /** @type {import('expo/metro-config').MetroConfig} */
-const config = getDefaultConfig(__dirname)
+const config = getSentryExpoConfig(__dirname)
 
 // Add platform-specific extensions to ensure proper resolution
 config.resolver.platforms = ['ios', 'android', 'native', 'web']

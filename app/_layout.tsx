@@ -31,6 +31,26 @@ import AvatarUnlockAnimation from "@/components/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
 import ConfettiEffect from "@/components/ConfettiEffect";
 import LoadingScreen from "@/components/LoadingScreen";
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://87a73fd4ec7ba02d87dccedcce85a9fa@o4510499177889792.ingest.de.sentry.io/4510499179790416',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -79,6 +99,14 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         console.log('✅ [Analytics] User IDENTIFIED for Clerk ID:', user.id);
         console.log('✅ [Analytics] Email:', user.primaryEmailAddress?.emailAddress);
 
+        // Set Sentry user for crash reporting - links crashes to specific users
+        Sentry.setUser({
+          id: user.id,
+          email: user.primaryEmailAddress?.emailAddress || undefined,
+          username: user.username || undefined,
+        });
+        console.log('✅ [Sentry] User set for crash tracking:', user.id);
+
         // Initialize all 17 person properties with null (only once per user)
         // This establishes the property schema in PostHog for cohort analysis
         const initPersonProperties = async () => {
@@ -100,6 +128,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         };
         initPersonProperties();
       } else {
+        // Clear Sentry user when signed out
+        Sentry.setUser(null);
         console.log('⏳ [Analytics] Waiting for user sign-in to set properties');
       }
     } else {
@@ -139,6 +169,54 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       responseListener.remove();
     };
   }, []);
+
+  // PostHog $exception capture - backup to Sentry for crash tracking
+  React.useEffect(() => {
+    if (!posthog) return;
+
+    // Capture unhandled JS errors
+    const originalHandler = ErrorUtils.getGlobalHandler();
+    ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+      posthog.capture('$exception', {
+        $exception_message: error.message,
+        $exception_type: error.name,
+        $exception_stack_trace_raw: error.stack,
+        $exception_is_fatal: isFatal,
+        $exception_source: 'global_error_handler',
+      });
+      console.log('🚨 [PostHog] Exception captured:', error.message);
+
+      // Call original handler (Sentry also hooks into this)
+      if (originalHandler) {
+        originalHandler(error, isFatal);
+      }
+    });
+
+    // Capture unhandled promise rejections
+    const rejectionHandler = (event: PromiseRejectionEvent) => {
+      const error = event.reason;
+      posthog.capture('$exception', {
+        $exception_message: error?.message || String(error),
+        $exception_type: error?.name || 'UnhandledPromiseRejection',
+        $exception_stack_trace_raw: error?.stack,
+        $exception_is_fatal: false,
+        $exception_source: 'promise_rejection',
+      });
+      console.log('🚨 [PostHog] Promise rejection captured:', error?.message || error);
+    };
+
+    // @ts-ignore - React Native global
+    if (global.HermesInternal) {
+      // Hermes engine
+      global.addEventListener?.('unhandledrejection', rejectionHandler);
+    }
+
+    return () => {
+      ErrorUtils.setGlobalHandler(originalHandler);
+      // @ts-ignore
+      global.removeEventListener?.('unhandledrejection', rejectionHandler);
+    };
+  }, [posthog]);
 
   return <>{children}</>;
 }
@@ -226,7 +304,7 @@ function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
@@ -362,4 +440,4 @@ export default function RootLayout() {
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );
-}
+});

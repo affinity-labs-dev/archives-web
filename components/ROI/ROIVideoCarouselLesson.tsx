@@ -64,14 +64,28 @@ interface VideoItemProps {
   onReady?: () => void;  // Callback when video is ready to play
 }
 
+// Helper to detect content type based on URL (HLS vs progressive MP4)
+const getContentType = (url: string): 'hls' | 'progressive' => {
+  if (url?.includes('.m3u8') || url?.includes('/hls/') || url?.includes('format=m3u8')) {
+    return 'hls';
+  }
+  return 'progressive'; // MP4 and other formats
+};
+
 const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActive, onReady }) => {
   // PERFORMANCE: Enable video caching for 50-90% faster loading on repeated views
+  // ANDROID FIX: Add contentType to help ExoPlayer handle streams properly
   const videoSource: VideoSource = useMemo(() => ({
     uri: videoUrl,
+    contentType: getContentType(videoUrl),  // Detect HLS vs MP4
     useCaching: true  // Enable 1GB default cache
   }), [videoUrl]);
 
   const player = useVideoPlayer(videoSource, (player) => {
+    // ANDROID OOM FIX: Limit buffer to reduce memory usage
+    player.bufferOptions = {
+      preferredForwardBufferDuration: 10,  // Only buffer 10 seconds ahead
+    };
     if (isActive) {
       player.play();
       player.loop = true;

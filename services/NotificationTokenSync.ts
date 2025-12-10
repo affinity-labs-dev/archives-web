@@ -4,6 +4,7 @@
 
 import { supabase } from "@/hooks/lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 class NotificationTokenSyncService {
   /**
@@ -65,6 +66,12 @@ class NotificationTokenSyncService {
       // Check if running on physical device
       if (!Device.default.isDevice) {
         console.log('⚠️ [NotificationSync] Simulator detected - skipping token sync');
+        return false;
+      }
+
+      // Skip push token on Android until Firebase is configured
+      if (Platform.OS === 'android') {
+        console.log('⚠️ [NotificationSync] Push notifications disabled on Android (Firebase not configured)');
         return false;
       }
 
