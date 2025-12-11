@@ -6,7 +6,6 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-na
 import { useRouter } from 'expo-router'
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { useProgress } from '@/context/ProgressContext'
-import UmmayadDynastyEra from '@/components/eras/UmmayadDynastyEra'
 import ComingSoonView from '@/components/eras/ComingSoonView'
 import ROIBentoScreen from './roi-bento'
 import ArchivesTheme from '@/constants/ArchivesTheme'
@@ -84,7 +83,8 @@ export default function HomeTab() {
   // Show era-specific content based on selection
   switch (selectedEra) {
     case 'umayyad':
-      return <UmmayadDynastyEra onBackToEra={handleBackToEra} />
+      // TODO: Replace with BentoGridScreen once Umayyad content is in Supabase
+      return <ComingSoonView era="umayyad" onBack={handleBackToEra} />
 
     case 'riseOfIslam':
       // Render ROI content directly in Home tab
