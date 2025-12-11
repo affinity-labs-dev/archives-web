@@ -9,7 +9,7 @@ import {
   TouchableWithoutFeedback,
   Dimensions,
 } from 'react-native'
-import { useVideoPlayer, VideoView, VideoSource } from 'expo-video'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import { useEvent } from 'expo'
 import * as Haptics from 'expo-haptics'
 

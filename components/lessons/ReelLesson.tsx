@@ -33,7 +33,7 @@ import { LESSON_CONSTANTS } from "./LessonConstants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image } from "expo-image";
-import { useLessonTracking } from "@/hooks/useLessonTracking";
+import { useLessonBase } from "@/hooks/useLessonBase";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -74,29 +74,18 @@ export default function ReelLesson({
   // Safe area insets for proper button positioning
   const insets = useSafeAreaInsets();
 
-  // Extract adventure number from adventureId (e.g., "roi_adventure_1" → 1)
-  const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
-  const moduleNumber = contentItem.order_by || 0;
-
-  // Analytics tracking
+  // Shared lesson setup (analytics, walkthrough check, completion handler)
   const {
-    trackVideoPlay,
-    trackVideoPause,
-    trackVideoComplete,
-    trackCardExpanded,
-    trackLessonComplete,
-  } = useLessonTracking({
+    walkthroughEnabled,
+    tracking: { trackVideoPlay, trackVideoPause, trackVideoComplete, trackCardExpanded },
+    handleLessonComplete,
+  } = useLessonBase({
+    contentItem,
     adventureId,
     moduleId,
     lessonId,
-    lessonType: "reel",
-    lessonTitle: contentItem.thumbnail_title || "Unknown",
-    screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
-    eraId: 2,
-    eraName: "riseOfIslam",
-    adventureNumber,
-    moduleNumber,
-    screen: `ROI Lesson - ${adventureId} ${lessonId}`,
+    lessonType: 'reel',
+    onContinue,
   });
 
   // Video-related states
@@ -108,8 +97,7 @@ export default function ReelLesson({
   const [hasFinishedReading, setHasFinishedReading] = useState(true);
   const [isCardExpanded, setIsCardExpanded] = useState(false);
 
-  // Walkthrough hint states
-  const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
+  // Walkthrough hint states (walkthroughEnabled comes from useLessonBase)
   const [showReadHint, setShowReadHint] = useState(false);
   const [showContinueHint, setShowContinueHint] = useState(false);
   const [hasEverExpandedCard, setHasEverExpandedCard] = useState(false);
@@ -141,25 +129,7 @@ export default function ReelLesson({
   };
   const videoContentType = getContentType(videoUrl);
 
-  // Check if user has seen reel walkthrough before
-  useEffect(() => {
-    const checkWalkthrough = async () => {
-      try {
-        const hasSeenReel = await AsyncStorage.getItem(WALKTHROUGH_KEYS.REEL);
-        if (hasSeenReel !== 'true') {
-          setWalkthroughEnabled(true);
-          console.log('👁️ Reel walkthrough enabled - first time');
-        } else {
-          console.log('👁️ Reel walkthrough disabled - already seen');
-        }
-      } catch (error) {
-        console.error('❌ Error checking reel walkthrough:', error);
-      }
-    };
-    checkWalkthrough();
-  }, []);
-
-  // Percentage-based hint timing
+  // Percentage-based hint timing (walkthrough check handled by useLessonBase)
   useEffect(() => {
     if (!walkthroughEnabled || hasEverExpandedCard) return;
 
@@ -258,24 +228,7 @@ export default function ReelLesson({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Lesson Completion Logic
-  const handleContinue = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    // Track lesson completion
-    trackLessonComplete();
-
-    // Save walkthrough flag when user completes lesson
-    try {
-      await AsyncStorage.setItem(WALKTHROUGH_KEYS.REEL, 'true');
-      console.log('✅ Reel walkthrough marked as seen');
-    } catch (error) {
-      console.error('❌ Error saving reel walkthrough flag:', error);
-    }
-
-    console.log(`🔄 Continue button pressed - ${moduleId} ${lessonId}`);
-    onContinue();
-  };
+  // Lesson Completion Logic (handled by useLessonBase)
 
   // Tap Gesture Handler (cross-platform)
   const handleTapGesture = (event: any) => {
@@ -325,7 +278,7 @@ export default function ReelLesson({
       if (hasFinishedReading && translationX > minDistance && velocityX > minVelocity) {
         console.log('👉 Swipe right detected - continuing to next');
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        handleContinue();
+        handleLessonComplete();
       }
       // Swipe left -> Go back (dismiss)
       else if (translationX < -minDistance && velocityX < -minVelocity) {
@@ -540,7 +493,7 @@ export default function ReelLesson({
               styles.nextButton,
               !hasFinishedReading && styles.nextButtonDisabled
             ]}
-            onPress={hasFinishedReading ? handleContinue : undefined}
+            onPress={hasFinishedReading ? handleLessonComplete : undefined}
             disabled={!hasFinishedReading}
           >
             <Ionicons

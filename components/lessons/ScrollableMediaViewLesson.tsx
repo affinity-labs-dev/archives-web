@@ -4,7 +4,7 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
-import { useLessonTracking } from "@/hooks/useLessonTracking";
+import { useLessonBase } from "@/hooks/useLessonBase";
 import { Ionicons } from "@expo/vector-icons";
 import { ResizeMode, Video } from 'expo-av';
 import * as Haptics from "expo-haptics";
@@ -86,23 +86,14 @@ export default function ScrollableMediaViewLesson({
     { volume: 0.5, shouldLoop: true }
   );
 
-  // Extract adventure/module numbers for analytics
-  const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
-  const moduleNumber = contentItem.order_by || 0;
-
-  // Analytics tracking
-  const { trackLessonComplete } = useLessonTracking({
+  // Shared lesson setup (analytics, completion handler - no walkthrough for scrollable)
+  const { handleLessonComplete } = useLessonBase({
+    contentItem,
     adventureId,
     moduleId,
     lessonId,
-    lessonType: "scrollable_media",
-    lessonTitle: contentItem.thumbnail_title || "Unknown",
-    screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
-    eraId: 2,
-    eraName: "riseOfIslam",
-    adventureNumber,
-    moduleNumber,
-    screen: `ROI Lesson - ${adventureId} ${lessonId}`,
+    lessonType: 'scrollable_media',
+    onContinue,
   });
 
   // Setup video players on mount
@@ -249,12 +240,7 @@ export default function ScrollableMediaViewLesson({
     }
   };
 
-  const handleContinue = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // Track lesson completion
-    trackLessonComplete();
-    onContinue();
-  };
+  // Lesson Completion Logic (handled by useLessonBase)
 
   return (
     <View style={styles.container}>
@@ -281,7 +267,7 @@ export default function ScrollableMediaViewLesson({
       {/* Floating continue button */}
       {hasScrolledToBottom && (
         <View style={styles.continueButtonContainer}>
-          <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
+          <TouchableOpacity style={styles.continueButton} onPress={handleLessonComplete}>
             <Text style={styles.continueButtonText}>Continue</Text>
             <Ionicons name="arrow-forward" size={16} color="white" />
           </TouchableOpacity>

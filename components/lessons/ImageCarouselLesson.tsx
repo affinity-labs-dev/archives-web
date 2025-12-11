@@ -34,7 +34,7 @@ import { LESSON_CONSTANTS } from "./LessonConstants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image as ExpoImage } from "expo-image";
-import { useLessonTracking } from "@/hooks/useLessonTracking";
+import { useLessonBase } from "@/hooks/useLessonBase";
 
 // Static dimensions (module-level) - Umayyad Dynasty pattern
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
@@ -67,26 +67,18 @@ export default function ImageCarouselLesson({
   // Safe area insets for proper button positioning
   const insets = useSafeAreaInsets();
 
-  // Extract adventure number from adventureId (e.g., "roi_adventure_1" → 1)
-  const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
-  const moduleNumber = contentItem.order_by || 0;
-
-  // Analytics tracking
+  // Shared lesson setup (analytics, walkthrough check, completion handler)
   const {
-    trackCardExpanded,
-    trackLessonComplete,
-  } = useLessonTracking({
+    walkthroughEnabled,
+    tracking: { trackCardExpanded },
+    handleLessonComplete,
+  } = useLessonBase({
+    contentItem,
     adventureId,
     moduleId,
     lessonId,
-    lessonType: "image_carousel",
-    lessonTitle: contentItem.thumbnail_title || "Unknown",
-    screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
-    eraId: 2,
-    eraName: "riseOfIslam",
-    adventureNumber,
-    moduleNumber,
-    screen: `ROI Lesson - ${adventureId} ${lessonId}`,
+    lessonType: 'image_carousel',
+    onContinue,
   });
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -100,8 +92,7 @@ export default function ImageCarouselLesson({
   const horizontalSwipeRef = useRef(null);
   const [isCardGestureActive, setIsCardGestureActive] = useState(false);
 
-  // Walkthrough hint states
-  const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
+  // Walkthrough hint states (walkthroughEnabled comes from useLessonBase)
   const [showContinueHint, setShowContinueHint] = useState(false);
 
   // Loading state for first image
@@ -122,25 +113,7 @@ export default function ImageCarouselLesson({
   const images = contentItem.media_url || [];
   const captions = contentItem.bottom_content?.carousel_captions || [];
 
-  // Check if user has seen carousel walkthrough before
-  useEffect(() => {
-    const checkWalkthrough = async () => {
-      try {
-        const hasSeenCarousel = await AsyncStorage.getItem(WALKTHROUGH_KEYS.CAROUSEL);
-        if (hasSeenCarousel !== 'true') {
-          setWalkthroughEnabled(true);
-          console.log('👁️ Carousel walkthrough enabled - first time');
-        } else {
-          console.log('👁️ Carousel walkthrough disabled - already seen');
-        }
-      } catch (error) {
-        console.error('❌ Error checking carousel walkthrough:', error);
-      }
-    };
-    checkWalkthrough();
-  }, []);
-
-  // Show continue hint when on last image (only if walkthrough enabled)
+  // Show continue hint when on last image (walkthrough check handled by useLessonBase)
   useEffect(() => {
     if (walkthroughEnabled && currentImageIndex === images.length - 1) {
       setShowContinueHint(true);
@@ -298,24 +271,7 @@ export default function ImageCarouselLesson({
     setScrollY(contentOffset.y);
   };
 
-  // Handle continue
-  const handleContinue = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    // Track lesson completion
-    trackLessonComplete();
-
-    // Save walkthrough flag when user completes lesson
-    try {
-      await AsyncStorage.setItem(WALKTHROUGH_KEYS.CAROUSEL, 'true');
-      console.log('✅ Carousel walkthrough marked as seen');
-    } catch (error) {
-      console.error('❌ Error saving carousel walkthrough flag:', error);
-    }
-
-    console.log(`🔄 ${moduleId} ${lessonId}`);
-    onContinue();
-  };
+  // Lesson Completion Logic (handled by useLessonBase)
 
   // Horizontal Swipe Gesture Handler (for navigation)
   const handleHorizontalSwipe = (event: any) => {
@@ -329,7 +285,7 @@ export default function ImageCarouselLesson({
       if (currentImageIndex === images.length - 1 && translationX > minDistance && velocityX > minVelocity) {
         console.log('👉 Swipe right detected - continuing to next');
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        handleContinue();
+        handleLessonComplete();
       }
       // Swipe left -> Go back (dismiss)
       else if (translationX < -minDistance && velocityX < -minVelocity) {
@@ -412,7 +368,7 @@ export default function ImageCarouselLesson({
             ]}
             onPress={
               currentImageIndex === images.length - 1
-                ? handleContinue
+                ? handleLessonComplete
                 : undefined
             }
             disabled={currentImageIndex !== images.length - 1}
