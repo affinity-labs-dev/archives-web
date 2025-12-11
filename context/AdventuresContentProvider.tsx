@@ -6,24 +6,24 @@ import { adventuresContentService } from '@/services/AdventuresContentService';
 import type { Adventure } from '@/components/shared/types';
 
 interface AdventuresContentContextType {
-  getAdventures: (eraId: number) => Promise<Adventure[]>;
-  adventures: Record<number, Adventure[]>;
+  getAdventures: (eraId: string) => Promise<Adventure[]>;
+  adventures: Record<string, Adventure[]>;
   isLoading: boolean;
   error: string | null;
-  refreshAdventures: (eraId: number) => Promise<void>;
+  refreshAdventures: (eraId: string) => Promise<void>;
 }
 
 const AdventuresContentContext = createContext<AdventuresContentContextType | undefined>(undefined);
 
 export function AdventuresContentProvider({ children }: { children: React.ReactNode }) {
-  const [adventures, setAdventures] = useState<Record<number, Adventure[]>>({});
+  const [adventures, setAdventures] = useState<Record<string, Adventure[]>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
    * Load adventures for an era (cache-first)
    */
-  const getAdventures = useCallback(async (eraId: number): Promise<Adventure[]> => {
+  const getAdventures = useCallback(async (eraId: string): Promise<Adventure[]> => {
     try {
       setIsLoading(true);
       setError(null);
@@ -48,13 +48,13 @@ export function AdventuresContentProvider({ children }: { children: React.ReactN
   /**
    * Force refresh from Supabase (ignores cache)
    */
-  const refreshAdventures = useCallback(async (eraId: number) => {
+  const refreshAdventures = useCallback(async (eraId: string) => {
     try {
-      console.log(`🔄 Force refresh for era ${eraId}`);
+      console.log(`🔄 Force refresh for era: ${eraId}`);
       const fresh = await adventuresContentService.fetchFromSupabase(eraId);
       adventuresContentService.saveToCache(eraId, fresh);
       setAdventures(prev => ({ ...prev, [eraId]: fresh }));
-      console.log(`✅ Refresh complete for era ${eraId}`);
+      console.log(`✅ Refresh complete for era: ${eraId}`);
     } catch (err) {
       console.error('❌ Refresh error:', err);
     }

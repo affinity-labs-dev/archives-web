@@ -16,14 +16,14 @@ class AdventuresContentService {
   /**
    * Load adventures from AsyncStorage cache
    */
-  async loadFromCache(eraId: number): Promise<Adventure[] | null> {
+  async loadFromCache(eraId: string): Promise<Adventure[] | null> {
     try {
-      const cached = await AsyncStorage.getItem(`adventures_era_${eraId}`);
+      const cached = await AsyncStorage.getItem(`content_era_${eraId}`);
       if (cached) {
-        console.log(`⚡ Loaded ${JSON.parse(cached).length} adventures from AsyncStorage cache (era ${eraId})`);
+        console.log(`⚡ Loaded ${JSON.parse(cached).length} adventures from cache (era: ${eraId})`);
         return JSON.parse(cached);
       }
-      console.log(`📭 No cache found for era ${eraId}`);
+      console.log(`📭 No cache found for era: ${eraId}`);
       return null;
     } catch (error) {
       console.error('❌ Error loading from cache:', error);
@@ -34,10 +34,10 @@ class AdventuresContentService {
   /**
    * Save adventures to AsyncStorage cache
    */
-  async saveToCache(eraId: number, adventures: Adventure[]) {
+  async saveToCache(eraId: string, adventures: Adventure[]) {
     try {
-      await AsyncStorage.setItem(`adventures_era_${eraId}`, JSON.stringify(adventures));
-      console.log(`💾 Saved ${adventures.length} adventures to AsyncStorage cache (era ${eraId})`);
+      await AsyncStorage.setItem(`content_era_${eraId}`, JSON.stringify(adventures));
+      console.log(`💾 Saved ${adventures.length} adventures to cache (era: ${eraId})`);
     } catch (error) {
       console.error('❌ Error saving to cache:', error);
     }
@@ -46,9 +46,9 @@ class AdventuresContentService {
   /**
    * Check if cache exists for an era
    */
-  async hasCache(eraId: number): Promise<boolean> {
+  async hasCache(eraId: string): Promise<boolean> {
     try {
-      const cached = await AsyncStorage.getItem(`adventures_era_${eraId}`);
+      const cached = await AsyncStorage.getItem(`content_era_${eraId}`);
       return cached !== null;
     } catch (error) {
       console.error('❌ Error checking cache:', error);
@@ -59,10 +59,10 @@ class AdventuresContentService {
   /**
    * Clear cache for an era
    */
-  async clearCache(eraId: number) {
+  async clearCache(eraId: string) {
     try {
-      await AsyncStorage.removeItem(`adventures_era_${eraId}`);
-      console.log(`🗑️ Cleared cache for era ${eraId}`);
+      await AsyncStorage.removeItem(`content_era_${eraId}`);
+      console.log(`🗑️ Cleared cache for era: ${eraId}`);
     } catch (error) {
       console.error('❌ Error clearing cache:', error);
     }
@@ -74,9 +74,9 @@ class AdventuresContentService {
   async clearAllCaches() {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      const adventureKeys = keys.filter(key => key.startsWith('adventures_era_'));
-      await AsyncStorage.multiRemove(adventureKeys);
-      console.log('🗑️ Cleared all adventure caches');
+      const contentKeys = keys.filter(key => key.startsWith('content_era_'));
+      await AsyncStorage.multiRemove(contentKeys);
+      console.log('🗑️ Cleared all content caches');
     } catch (error) {
       console.error('❌ Error clearing all caches:', error);
     }
@@ -85,13 +85,13 @@ class AdventuresContentService {
   // ============= SUPABASE OPERATIONS =============
 
   /**
-   * Fetch adventures from Supabase
+   * Fetch adventures from Supabase content table
    */
-  async fetchFromSupabase(eraId: number): Promise<Adventure[]> {
-    console.log(`📥 Fetching adventures from Supabase (era ${eraId})...`);
+  async fetchFromSupabase(eraId: string): Promise<Adventure[]> {
+    console.log(`📥 Fetching adventures from Supabase (era: ${eraId})...`);
 
     const { data, error } = await supabase
-      .from('adventures')
+      .from('content')
       .select('*')
       .eq('era_id', eraId)
       .order('order_by', { ascending: true });
@@ -110,7 +110,7 @@ class AdventuresContentService {
   /**
    * Load adventures (cache-first, then Supabase if needed)
    */
-  async loadAdventures(eraId: number): Promise<Adventure[]> {
+  async loadAdventures(eraId: string): Promise<Adventure[]> {
     // Try cache first
     const cached = await this.loadFromCache(eraId);
 
@@ -137,13 +137,13 @@ class AdventuresContentService {
       return;
     }
 
-    console.log('🔄 Starting real-time subscription...');
+    console.log('🔄 Starting real-time subscription for content table...');
 
     this.realtimeSubscription = supabase
-      .channel('adventures_changes')
+      .channel('content_changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'adventures' },
+        { event: '*', schema: 'public', table: 'content' },
         (payload) => {
           console.log('🔔 Real-time update received:', payload.eventType);
           this.handleRealtimeUpdate(payload);

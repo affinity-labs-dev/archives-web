@@ -18,12 +18,12 @@ interface UserProgress {
   isCompleted: boolean;
   quizCompleted: boolean;
   completedAt: string;
-  era_id: number;
+  era_id: string;
 }
 
 export default function ROIBentoScreen() {
-  // Fetch adventures for Era 2 (Rise of Islam)
-  const { adventures, loading, error, refreshAdventures } = useAdventures(2);
+  // Fetch adventures for Rise of Islam era
+  const { adventures, loading, error, refreshAdventures } = useAdventures('rise_of_islam');
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

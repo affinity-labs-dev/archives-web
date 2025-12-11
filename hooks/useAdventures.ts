@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAdventuresContent } from '@/context/AdventuresContentProvider';
 import type { Adventure } from '@/components/shared/types';
 
-export function useAdventures(eraId: number) {
+export function useAdventures(eraId: string) {
   const { getAdventures, refreshAdventures, adventures: contextAdventures } = useAdventuresContent();
   const [adventures, setAdventures] = useState<Adventure[]>([]);
   const [loading, setLoading] = useState(true);

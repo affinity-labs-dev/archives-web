@@ -42,6 +42,7 @@ export interface ContentItem {
 export interface CardContent {
   era_name: string;
   background_image: string;
+  map_image?: string;
   overview_text: string;
   adventure_story: string;
   estimated_time: string;
@@ -49,11 +50,12 @@ export interface CardContent {
 
 export interface Adventure {
   readable_id: string;
-  era_id: number;
+  era_id: string;  // String FK to eras.era_id (e.g., "rise_of_islam")
   adventure_title: string;
   adventure_description?: string;
   order_by: number;
   timeline: string;
+  adv_design: string;  // "standard_6" for bento grid
   icon_url: string | null;
   content_list: ContentItem[];
   card_content?: CardContent | null;
