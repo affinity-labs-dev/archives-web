@@ -29,7 +29,6 @@ import { analyticsService } from "@/services/AnalyticsService";
 import { usePostHog } from 'posthog-react-native';
 import AvatarUnlockAnimation from "@/components/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
-import ConfettiEffect from "@/components/ConfettiEffect";
 import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
 
@@ -211,7 +210,6 @@ function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
   const { newlyUnlockedItem, clearNewlyUnlockedItem } = useRewards();
   const [showNotification, setShowNotification] = React.useState(false);
   const [notificationAvatar, setNotificationAvatar] = React.useState<{ image: any; name: string } | null>(null);
-  const [showConfetti, setShowConfetti] = React.useState(false);
 
   // Only show animations for avatars (not badges)
   const newlyUnlockedAvatar = newlyUnlockedItem?.type === 'avatar' ? newlyUnlockedItem : null;
@@ -259,16 +257,9 @@ function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
     setNotificationAvatar(null);
   };
 
-  // When confetti completes
-  const handleConfettiComplete = () => {
-    setShowConfetti(false);
-  };
-
   return (
     <>
       {children}
-      {/* TODO: Confetti disabled for now */}
-      {/* <ConfettiEffect visible={showConfetti} onComplete={handleConfettiComplete} /> */}
       {newlyUnlockedAvatar && (
         <AvatarUnlockAnimation
           visible={true}
