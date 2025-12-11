@@ -64,7 +64,7 @@ class NotificationTokenSyncService {
       const Device = await import('expo-device');
 
       // Check if running on physical device
-      if (!Device.default.isDevice) {
+      if (!Device.isDevice) {
         console.log('⚠️ [NotificationSync] Simulator detected - skipping token sync');
         return false;
       }
@@ -75,7 +75,7 @@ class NotificationTokenSyncService {
         return false;
       }
 
-      const projectId = Constants.default?.expoConfig?.extra?.eas?.projectId;
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
       const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
       const pushToken = tokenData.data;
 

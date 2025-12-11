@@ -94,8 +94,8 @@ export default function AdventureCompleteScreen({
         total_xp: displayXP,
         completed_modules: displayCompletedModules,
         total_modules: totalModulesCount,
-        era_id: 2,
-        era_name: "riseOfIslam",
+        era_id: adventure.era_id,
+        era_name: adventure.card_content?.era_name || adventure.era_id,
         adventure_number: adventure.order_by || parseInt(adventure.readable_id.split('_')[2] || '0', 10),
         // $current_url auto-captured by PostHog
       });
@@ -142,8 +142,8 @@ export default function AdventureCompleteScreen({
       analyticsService.trackCustomEvent('adventure_complete_continue', {
         adventure_id: adventure.readable_id,
         adventure_title: adventure.adventure_title,
-        era_id: 2,
-        era_name: "riseOfIslam",
+        era_id: adventure.era_id,
+        era_name: adventure.card_content?.era_name || adventure.era_id,
         adventure_number: adventure.order_by || parseInt(adventure.readable_id.split('_')[2] || '0', 10),
         // $current_url auto-captured by PostHog
       });

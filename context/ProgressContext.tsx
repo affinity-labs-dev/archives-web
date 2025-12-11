@@ -858,12 +858,12 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     // Adventure unlocking should happen automatically through module completion
   }
 
-  // Get adventure stats (XP + completed modules) for a specific ROI adventure
+  // Get adventure stats (XP + completed modules) for a specific adventure
   const getROIAdventureStatsWrapper = async (adventureId: string): Promise<{ xp: number; completedModules: number }> => {
     try {
       const existingData = await WebCompatibleStorage.getItem('new_user_progress');
       if (!existingData) {
-        console.log(`⚠️ No ROI progress data found for adventure ${adventureId}`);
+        console.log(`⚠️ No progress data found for adventure ${adventureId}`);
         return { xp: 0, completedModules: 0 };
       }
 
@@ -872,7 +872,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       console.log(`📊 Adventure ${adventureId} stats:`, stats);
       return stats;
     } catch (error) {
-      console.error('❌ Error calculating ROI adventure stats:', error);
+      console.error('❌ Error calculating adventure stats:', error);
       return { xp: 0, completedModules: 0 };
     }
   }

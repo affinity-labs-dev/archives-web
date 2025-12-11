@@ -27,6 +27,8 @@ export interface LessonPlayerProps {
   adventureId: string;
   moduleId: string;
   lessonId: string;
+  eraId: string;             // Era ID (e.g., "rise_of_islam", "umayyad")
+  eraName: string;           // Era display name
 
   // Callbacks
   onContinue: () => void;
@@ -60,6 +62,8 @@ export default function LessonPlayer({
   adventureId,
   moduleId,
   lessonId,
+  eraId,
+  eraName,
   onContinue,
   onDismiss,
   onBack,
@@ -70,6 +74,8 @@ export default function LessonPlayer({
     adventureId,
     moduleId,
     lessonId,
+    eraId,
+    eraName,
     onContinue,
     onDismiss,
     onBack,

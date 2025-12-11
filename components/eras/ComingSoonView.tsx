@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 // Era types that show "coming soon"
-type EraType = 'riseOfIslam' | 'abbasid' | 'ottoman' | 'fatimid'
+type EraType = 'umayyad' | 'riseOfIslam' | 'abbasid' | 'ottoman' | 'fatimid'
 
 interface EraInfo {
   title: string
@@ -28,6 +28,12 @@ interface EraInfo {
 
 // Era-specific data matching SwiftUI SelectedEra enum
 const ERA_INFO: Record<EraType, EraInfo> = {
+  umayyad: {
+    title: 'Umayyad Dynasty',
+    subtitle: 'The first hereditary Islamic caliphate (661-750 CE)',
+    expectedRelease: 'Coming Soon',
+    description: 'Explore the golden age of Islamic expansion from Damascus to the gates of Constantinople and across North Africa to Spain.',
+  },
   riseOfIslam: {
     title: 'Rise of Islam',
     subtitle: 'The life of Prophet Muhammad ﷺ and the birth of Islam',

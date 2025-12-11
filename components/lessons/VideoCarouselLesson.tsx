@@ -50,6 +50,8 @@ interface VideoCarouselLessonProps {
   adventureId: string;       // e.g., "roi_adventure_1"
   moduleId: string;          // e.g., "ROI_Adv1_M1"
   lessonId: string;          // e.g., "lesson2"
+  eraId: string;             // Era ID (e.g., "rise_of_islam", "umayyad")
+  eraName: string;           // Era display name
   onContinue: () => void;
   onDismiss: () => void;
   onBack?: () => void;
@@ -134,6 +136,8 @@ export default function VideoCarouselLesson({
   adventureId,
   moduleId,
   lessonId,
+  eraId,
+  eraName,
   onContinue,
   onDismiss,
   onBack,
@@ -152,6 +156,8 @@ export default function VideoCarouselLesson({
     moduleId,
     lessonId,
     lessonType: 'video_carousel',
+    eraId,
+    eraName,
     onContinue,
   });
 

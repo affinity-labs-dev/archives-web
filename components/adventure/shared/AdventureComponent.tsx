@@ -209,43 +209,55 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
   const gap = screenWidth * 0.021; // ~8px gap between columns
   const cardWidth = (screenWidth - containerPadding * 2 - gap) / 2;
 
-  const cardPositions = [
-    // Card 1 - Large left
-    {
-      left: containerPadding,
-      top: cardWidth * 0.36,
-      width: cardWidth,
-      height: cardWidth * 1.15
-    },
-    // Card 2 - Small left bottom
-    {
-      left: containerPadding,
-      top: cardWidth * 1.54,
-      width: cardWidth,
-      height: cardWidth * 0.55
-    },
-    // Card 3 - Small right top
-    {
-      left: containerPadding + cardWidth + gap,
-      top: 0,
-      width: cardWidth,
-      height: cardWidth * 0.55
-    },
-    // Card 4 - Small right middle
-    {
-      left: containerPadding + cardWidth + gap,
-      top: cardWidth * 0.58,
-      width: cardWidth,
-      height: cardWidth * 0.55
-    },
-    // Card 5 - Large right bottom
-    {
-      left: containerPadding + cardWidth + gap,
-      top: cardWidth * 1.16,
-      width: cardWidth,
-      height: cardWidth * 1.15
-    },
-  ];
+  // Layout configurations based on adv_design from Supabase
+  // Add new layouts here as needed (list, grid_2x3, etc.)
+  const getCardPositions = (advDesign: string) => {
+    switch (advDesign) {
+      case 'bento_grid':
+      default:
+        // 5-card asymmetric bento grid layout
+        return [
+          // Card 1 - Large left
+          {
+            left: containerPadding,
+            top: cardWidth * 0.36,
+            width: cardWidth,
+            height: cardWidth * 1.15
+          },
+          // Card 2 - Small left bottom
+          {
+            left: containerPadding,
+            top: cardWidth * 1.54,
+            width: cardWidth,
+            height: cardWidth * 0.55
+          },
+          // Card 3 - Small right top
+          {
+            left: containerPadding + cardWidth + gap,
+            top: 0,
+            width: cardWidth,
+            height: cardWidth * 0.55
+          },
+          // Card 4 - Small right middle
+          {
+            left: containerPadding + cardWidth + gap,
+            top: cardWidth * 0.58,
+            width: cardWidth,
+            height: cardWidth * 0.55
+          },
+          // Card 5 - Large right bottom
+          {
+            left: containerPadding + cardWidth + gap,
+            top: cardWidth * 1.16,
+            width: cardWidth,
+            height: cardWidth * 1.15
+          },
+        ];
+    }
+  };
+
+  // Get positions based on adventure's adv_design from Supabase
+  const cardPositions = getCardPositions(adventure.adv_design || 'bento_grid');
 
   // Calculate container height based on card dimensions
   const containerHeight = cardWidth * 2.08;

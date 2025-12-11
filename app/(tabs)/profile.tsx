@@ -195,7 +195,7 @@ export default function ProfileTab() {
   const { signOut } = useAuth()
   const { user, isSignedIn } = useUser()
   const router = useRouter()
-  const { moduleProgress, calculateTotalXP, calculateModulesCompleted } = useProgress()
+  const { moduleProgress, calculateTotalXP, calculateModulesCompleted, selectedEra } = useProgress()
 
   // Fallback: Ensure Clerk user ID is set in PostHog (production safety)
   React.useEffect(() => {
@@ -373,8 +373,18 @@ export default function ProfileTab() {
   const [showXPTest, setShowXPTest] = useState(false)
   const [showAdventureTest, setShowAdventureTest] = useState(false)
 
-  // Fetch ROI adventures for test button (Era 2)
-  const { adventures: roiAdventures, loading: roiLoading } = useAdventures(2)
+  // Map context era to Supabase era_id format for test button
+  const ERA_ID_MAP: Record<string, string> = {
+    'riseOfIslam': 'rise_of_islam',
+    'umayyad': 'umayyad',
+    'abbasid': 'abbasid',
+    'ottoman': 'ottoman',
+    'fatimid': 'fatimid',
+  }
+  const supabaseEraId = selectedEra ? (ERA_ID_MAP[selectedEra] || selectedEra) : ''
+
+  // Fetch adventures for test button (era-agnostic)
+  const { adventures: testAdventures, loading: adventuresLoading } = useAdventures(supabaseEraId)
 
   // Track page views with focus/blur
   useFocusEffect(
@@ -684,9 +694,9 @@ export default function ProfileTab() {
               <Text style={styles.testButtonText}>XP</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.testButton, roiLoading && styles.testButtonDisabled]}
+              style={[styles.testButton, adventuresLoading && styles.testButtonDisabled]}
               onPress={() => setShowAdventureTest(true)}
-              disabled={roiLoading}
+              disabled={adventuresLoading}
             >
               <Text style={styles.testButtonText}>ADV</Text>
             </TouchableOpacity>
@@ -1372,10 +1382,10 @@ export default function ProfileTab() {
         </Modal>
       )}
 
-      {showAdventureTest && roiAdventures.length > 0 && (
+      {showAdventureTest && testAdventures.length > 0 && (
         <Modal visible={showAdventureTest} animationType="slide" presentationStyle="fullScreen">
           <AdventureCompleteScreen
-            adventure={roiAdventures[0]}
+            adventure={testAdventures[0]}
             totalBadges={3}
             onContinue={() => setShowAdventureTest(false)}
           />

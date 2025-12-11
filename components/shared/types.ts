@@ -1,4 +1,5 @@
-// Shared TypeScript interfaces for ROI (Rise of Islam) components
+// Shared TypeScript interfaces for all era components (era-agnostic)
+// Used by: Adventures, Lessons, Quizzes, Progress tracking
 
 export interface Answer {
   text: string;
@@ -21,9 +22,15 @@ export interface ContentBlock {
   loop?: boolean;  // For video blocks
 }
 
+export interface KeyTerm {
+  term: string;
+  definition: string;
+}
+
 export interface BottomContent {
   reading_text: string; // HTML content string (supports h1-h6, p, strong, em, ul, li, blockquote, hr, etc.)
   carousel_captions?: string[]; // Plain text captions for video carousel items
+  key_terms?: KeyTerm[]; // Optional glossary terms for the lesson
 }
 
 export interface ContentItem {
@@ -55,7 +62,7 @@ export interface Adventure {
   adventure_description?: string;
   order_by: number;
   timeline: string;
-  adv_design: string;  // "standard_6" for bento grid
+  adv_design: string;  // "bento_grid" for 5-module bento layout
   icon_url: string | null;
   content_list: ContentItem[];
   card_content?: CardContent | null;

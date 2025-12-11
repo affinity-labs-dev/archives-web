@@ -25,6 +25,8 @@ interface UseLessonBaseProps {
   moduleId: string;
   lessonId: string;
   lessonType: LessonType;
+  eraId: string;      // Era ID from adventure (e.g., "rise_of_islam", "umayyad")
+  eraName: string;    // Era display name (from card_content.era_name)
   onContinue: () => void;
 }
 
@@ -76,6 +78,8 @@ export function useLessonBase({
   moduleId,
   lessonId,
   lessonType,
+  eraId,
+  eraName,
   onContinue,
 }: UseLessonBaseProps): UseLessonBaseReturn {
 
@@ -114,19 +118,19 @@ export function useLessonBase({
     checkWalkthrough();
   }, [walkthroughKey, lessonType]);
 
-  // Analytics tracking
+  // Analytics tracking (era-agnostic)
   const tracking = useLessonTracking({
     adventureId,
     moduleId,
     lessonId,
     lessonType,
     lessonTitle: contentItem.thumbnail_title || 'Unknown',
-    screenUrl: `/roi/${adventureId}/${moduleId}/${lessonId}`,
-    eraId: 2,
-    eraName: 'riseOfIslam',
+    screenUrl: `/${eraId}/${adventureId}/${moduleId}/${lessonId}`,
+    eraId,
+    eraName,
     adventureNumber,
     moduleNumber,
-    screen: `ROI Lesson - ${adventureId} ${lessonId}`,
+    screen: `Lesson - ${adventureId} ${lessonId}`,
   });
 
   // Handle lesson completion

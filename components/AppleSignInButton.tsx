@@ -30,7 +30,6 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
   onSuccess = () => {},
   onError = () => {},
 }) => {
-  console.log('🍎 AppleSignInButton: Component is rendering!')
   useWarmUpBrowser()
   
   const { startOAuthFlow } = useOAuth({ strategy: 'oauth_apple' })
@@ -50,19 +49,12 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
     try {
       setIsLoading(true)
 
-      console.log('Starting Apple OAuth flow...')
-
       const redirectUrl = Linking.createURL('sso-callback');
-      console.log('🔍 DEBUG: Redirect URL being sent:', redirectUrl);
-
       const { createdSessionId, signIn, signUp } = await startOAuthFlow({
         redirectUrl: redirectUrl,
       })
 
-      console.log('Apple OAuth result:', { createdSessionId, signIn, signUp })
-
       if (createdSessionId) {
-        console.log('Setting active session:', createdSessionId)
         if (setActive && typeof setActive === 'function') {
           await setActive({ session: createdSessionId })
         }
@@ -74,7 +66,6 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
       } else {
         // Handle additional steps like MFA if needed
         if (signIn?.status === 'complete') {
-          console.log('Sign in complete, setting session')
           if (setActive && typeof setActive === 'function' && signIn.createdSessionId) {
             await setActive({ session: signIn.createdSessionId })
           }
@@ -84,7 +75,6 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
 
           onSuccess(false) // Sign in = not a new user
         } else if (signUp?.status === 'complete') {
-          console.log('Sign up complete, setting session')
           if (setActive && typeof setActive === 'function' && signUp.createdSessionId) {
             await setActive({ session: signUp.createdSessionId })
           }
@@ -100,9 +90,6 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
           onSuccess(true) // Sign up = new user
         } else if (signUp?.status === 'missing_requirements') {
           // Handle missing name requirements from Apple Sign In
-          console.log('Sign up missing requirements - showing name collection modal')
-          console.log('SignUp object:', signUp)
-          
           // Extract user email from sign up attempt
           const email = signUp?.emailAddress || signUp?.primaryEmailAddress?.emailAddress
           setUserEmail(email)
@@ -111,26 +98,21 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
           setIsLoading(false) // Stop loading state to show modal
           return // Don't proceed with error handling
         } else {
-          console.log('OAuth incomplete:', { signIn: signIn?.status, signUp: signUp?.status })
           const errorMsg = 'Authentication incomplete. Please try again.'
           onError({ message: errorMsg })
           Alert.alert('Authentication Error', errorMsg)
         }
       }
     } catch (err: any) {
-      console.error('Apple OAuth error:', err)
-      
       // Handle specific Clerk errors with improved messages
       if (err.errors && err.errors[0]) {
         const clerkError = err.errors[0]
-        console.log('Clerk error details:', clerkError)
-        
+
         if (clerkError.code === 'oauth_access_denied') {
           const errorMsg = 'Apple sign-in was cancelled.'
           onError({ message: errorMsg })
           // Don't show alert for user cancellation
         } else if (clerkError.code === 'session_exists') {
-          console.log('User already authenticated - calling onSuccess')
           onSuccess(false) // User is already signed in, treat as success
           return // Don't show error alert
         } else if (clerkError.code === 'strategy_for_user_invalid') {
@@ -167,8 +149,6 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
   // Handle name collection submission
   const handleNameSubmission = React.useCallback(async (firstName: string, lastName: string) => {
     try {
-      console.log('Completing sign up with name data:', { firstName, lastName })
-      
       if (!incompleteSignUp) {
         throw new Error('No incomplete sign up found')
       }
@@ -179,10 +159,7 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
         lastName,
       })
 
-      console.log('Sign up update result:', result)
-
       if (result.status === 'complete' && result.createdSessionId) {
-        console.log('Sign up completed successfully with provided names')
         if (setActive && typeof setActive === 'function') {
           await setActive({ session: result.createdSessionId })
         }
@@ -200,11 +177,9 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
         setUserEmail(undefined)
         onSuccess(true) // Name collection completion = new user
       } else {
-        console.log('Sign up still incomplete after name update:', result.status)
         throw new Error('Unable to complete sign up. Please try again.')
       }
     } catch (error: any) {
-      console.error('Name submission error:', error)
       throw new Error(error.message || 'Failed to complete sign up')
     }
   }, [incompleteSignUp, setActive, onSuccess])

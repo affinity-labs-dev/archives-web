@@ -55,6 +55,8 @@ interface ScrollableMediaViewLessonProps {
   adventureId: string;
   moduleId: string;
   lessonId: string;
+  eraId: string;             // Era ID (e.g., "rise_of_islam", "umayyad")
+  eraName: string;           // Era display name
   onContinue: () => void;
   onDismiss: () => void;
   onBack?: () => void;
@@ -65,6 +67,8 @@ export default function ScrollableMediaViewLesson({
   adventureId,
   moduleId,
   lessonId,
+  eraId,
+  eraName,
   onContinue,
   onDismiss,
   onBack,
@@ -93,6 +97,8 @@ export default function ScrollableMediaViewLesson({
     moduleId,
     lessonId,
     lessonType: 'scrollable_media',
+    eraId,
+    eraName,
     onContinue,
   });
 

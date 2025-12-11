@@ -59,6 +59,8 @@ interface ReelLessonProps {
   adventureId: string;       // e.g., "roi_adventure_1"
   moduleId: string;          // e.g., "ROI_Adv1_M1"
   lessonId: string;          // e.g., "lesson1"
+  eraId: string;             // Era ID (e.g., "rise_of_islam", "umayyad")
+  eraName: string;           // Era display name
   onContinue: () => void;
   onDismiss: () => void;
 }
@@ -68,6 +70,8 @@ export default function ReelLesson({
   adventureId,
   moduleId,
   lessonId,
+  eraId,
+  eraName,
   onContinue,
   onDismiss,
 }: ReelLessonProps) {
@@ -85,6 +89,8 @@ export default function ReelLesson({
     moduleId,
     lessonId,
     lessonType: 'reel',
+    eraId,
+    eraName,
     onContinue,
   });
 

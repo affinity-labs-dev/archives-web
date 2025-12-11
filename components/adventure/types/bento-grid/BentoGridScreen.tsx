@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
-import Svg, { Circle, Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -13,6 +12,7 @@ import XPMilestoneScreen from '@/components/quiz/XPMilestoneScreen';
 import AdventureCompleteScreen from '@/components/adventure/shared/AdventureCompleteScreen';
 import LessonPlayer from '@/components/lessons/LessonPlayer';
 import Quiz from '@/components/quiz/Quiz';
+import EraProgressHeader from '@/components/shared/EraProgressHeader';
 import type { Adventure, ContentItem } from '@/components/shared/types';
 
 // TypeScript interfaces
@@ -41,6 +41,8 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     adventureId: string;
     moduleId: string;
     lessonId: string;
+    eraId: string;
+    eraName: string;
   } | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [selectedAdventureCard, setSelectedAdventureCard] = useState<Adventure | null>(null);
@@ -55,16 +57,12 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     totalXP: number;
   } | null>(null);
 
-  // Responsive padding to match bento grid
-  const { width: screenWidth } = Dimensions.get('window');
-  const containerPadding = screenWidth * 0.034; // ~13px on 375px screen
-
   // Calculate completed adventures count dynamically (recalculates when userProgress changes)
   const completedAdventuresCount = useMemo(() => {
     return adventures.filter(adventure => {
-      // Get all modules for this adventure from userProgress
+      // Get all modules for this adventure from userProgress (era-agnostic)
       const adventureModules = userProgress.filter(
-        p => p.adventureId === adventure.readable_id && p.era_id === 2
+        p => p.adventureId === adventure.readable_id
       );
 
       // Get total modules for this adventure from content_list
@@ -79,13 +77,23 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     }).length;
   }, [adventures, userProgress]);
 
-  // Create dynamic progress bar data (memoized to prevent unnecessary re-renders)
-  const progressBarData = useMemo(() => ({
-    title: 'Exploring Rise of Islam',
-    subtitle: '600 - 632 CE',
-    currentStep: completedAdventuresCount,
-    totalSteps: adventures.length,
-  }), [completedAdventuresCount, adventures.length]);
+  // Create dynamic progress bar data from adventure/era content (era-agnostic)
+  const progressBarData = useMemo(() => {
+    // Get era name from first adventure's card_content, or derive from era_id
+    const firstAdventure = adventures[0];
+    const eraName = firstAdventure?.card_content?.era_name ||
+                    firstAdventure?.era_id?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) ||
+                    'Selected Era';
+    // Get timeline from first adventure
+    const timeline = firstAdventure?.timeline || '';
+
+    return {
+      title: `Exploring ${eraName}`,
+      subtitle: timeline,
+      currentStep: completedAdventuresCount,
+      totalSteps: adventures.length,
+    };
+  }, [completedAdventuresCount, adventures]);
 
   // Handle card press - open lesson modal
   const handleCardPress = (contentItem: ContentItem, adventureId: string) => {
@@ -93,10 +101,16 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     const moduleId = contentItem.id; // Use media_id from content_list
     const lessonId = `lesson${contentItem.order_by}`;
 
+    // Find adventure to get era info (era-agnostic)
+    const adventure = adventures.find(a => a.readable_id === adventureId);
+    const eraId = adventure?.era_id || '';
+    const eraName = adventure?.card_content?.era_name || adventure?.era_id || '';
+
     console.log('🎬 Opening lesson:', {
       adventureId,
       moduleId,
       lessonId,
+      eraId,
       contentType: contentItem.content_type,
       title: contentItem.thumbnail_title,
       hasQuestions: contentItem.questions?.length > 0
@@ -107,6 +121,8 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
       adventureId,
       moduleId,
       lessonId,
+      eraId,
+      eraName,
     });
     setShowQuiz(false);
   };
@@ -267,14 +283,14 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     // Extract adventure number from readable_id (e.g., "roi_adventure_1" → 1)
     const adventureNumber = parseInt(adventure.readable_id.split('_')[2] || '0', 10);
 
-    // Track adventure_started event
+    // Track adventure_started event (era-agnostic)
     analyticsService.trackAdventureStarted({
-      era_id: 2,
-      era_name: 'riseOfIslam',
+      era_id: adventure.era_id,
+      era_name: adventure.card_content?.era_name || adventure.era_id,
       adventure_id: adventure.readable_id,
       adventure_number: adventureNumber,
       adventure_title: adventure.adventure_title || 'Unknown',
-      screen: 'roi_home',
+      screen: 'home',
     });
 
     console.log(`📊 [Analytics] Adventure Started: ${adventure.readable_id}`);
@@ -299,31 +315,17 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);
 
   // Progress Card Header Component (for sticky header)
+  // Uses reusable EraProgressHeader component with dynamic dot count
   const renderProgressHeader = useCallback(() => {
     return (
-      <View style={[styles.progressWrapper, { paddingLeft: containerPadding, paddingRight: containerPadding }]}>
-        <View style={styles.progressCard}>
-          <View style={styles.progressTextContainer}>
-            <Text style={styles.progressTitle}>{progressBarData.title}</Text>
-            <View style={styles.progressSubtitleRow}>
-              <Text style={styles.progressSubtitle}>{progressBarData.subtitle}</Text>
-              {/* Progress Bar */}
-              <View style={styles.progressBarContainer}>
-                <Svg width={192} height={8} viewBox="0 0 192 8">
-                  <Path d="M5 4L187 4" stroke="#D7C5B6" strokeWidth={2} strokeLinecap="round" />
-                  <Circle cx={4} cy={4} r={4} fill={progressBarData.currentStep > 0 ? "white" : "#D7C5B6"} />
-                  <Circle cx={50} cy={4} r={4} fill={progressBarData.currentStep > 1 ? "white" : "#D7C5B6"} />
-                  <Circle cx={96} cy={4} r={4} fill={progressBarData.currentStep > 2 ? "white" : "#D7C5B6"} />
-                  <Circle cx={142} cy={4} r={4} fill={progressBarData.currentStep > 3 ? "white" : "#D7C5B6"} />
-                  <Circle cx={188} cy={4} r={4} fill={progressBarData.currentStep > 4 ? "white" : "#D7C5B6"} />
-                </Svg>
-              </View>
-            </View>
-          </View>
-        </View>
-      </View>
+      <EraProgressHeader
+        title={progressBarData.title}
+        subtitle={progressBarData.subtitle}
+        currentStep={progressBarData.currentStep}
+        totalSteps={progressBarData.totalSteps}
+      />
     );
-  }, [containerPadding, progressBarData]);
+  }, [progressBarData]);
 
   return (
     <View style={styles.container}>
@@ -365,6 +367,8 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
                 contentItem={selectedLesson.contentItem}
                 adventureId={selectedLesson.adventureId}
                 moduleId={selectedLesson.moduleId}
+                eraId={selectedLesson.eraId}
+                eraName={selectedLesson.eraName}
                 onContinue={handleQuizContinue}
                 onDismiss={handleLessonDismiss}
                 onBack={handleLessonDismiss}
@@ -376,6 +380,8 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
                 adventureId={selectedLesson.adventureId}
                 moduleId={selectedLesson.moduleId}
                 lessonId={selectedLesson.lessonId}
+                eraId={selectedLesson.eraId}
+                eraName={selectedLesson.eraName}
                 onContinue={handleLessonContinue}
                 onDismiss={handleLessonDismiss}
               />
@@ -449,48 +455,7 @@ const styles = StyleSheet.create({
     paddingBottom: 120, // Account for tab bar height
   },
 
-  // Progress Card (sticky header)
-  progressWrapper: {
-    marginBottom: 40,
-    paddingTop: 77, // Status bar space when sticky
-    backgroundColor: '#F4EBDB', // Match container background
-    // paddingLeft and paddingRight applied inline to match bento grid (screenWidth * 0.034)
-  },
-  progressCard: {
-    height: 53,
-    backgroundColor: '#C99151',
-    borderRadius: 11,
-    paddingLeft: 24,
-    paddingRight: 24,
-    justifyContent: 'center',
-  },
-  progressTextContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  progressTitle: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'DM Sans',
-  },
-  progressSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 3,
-  },
-  progressSubtitle: {
-    color: '#F4EBDB',
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'DM Sans',
-    letterSpacing: 0.14,
-    marginRight: 12,
-  },
-  progressBarContainer: {
-    width: 192,
-    height: 8,
-  },
+  // Progress Card styles moved to EraProgressHeader component
 
   // Development Only: Reset Button
   devButtonContainer: {

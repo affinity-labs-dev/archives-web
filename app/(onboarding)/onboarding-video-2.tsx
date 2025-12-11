@@ -32,30 +32,23 @@ export default function OnboardingVideo2Screen() {
   const { isSignedIn, signOut } = useAuth()
   const { trackScreenView, trackVideoPlayed } = useAnalytics()
 
-  console.log('🎬 [OnboardingVideo2] Component initializing...')
-
   // Create video player for second intro video
   const player = useVideoPlayer(require("@/assets/videos/archives_intro.mp4"), player => {
-    console.log('🎬 [OnboardingVideo2] Video player initialization callback')
-
     try {
-      player.loop = true // Loop the video
-      player.muted = false // Allow audio
-      console.log('🎬 [OnboardingVideo2] Player configured - loop: true, muted: false')
+      player.loop = true
+      player.muted = false
 
       // Try to play immediately
       setTimeout(() => {
         try {
-          console.log('🎬 [OnboardingVideo2] Attempting to start playback...')
           player.play()
-          console.log('🎬 [OnboardingVideo2] Play command sent')
         } catch (playError) {
-          console.error('🎬 [OnboardingVideo2] Error calling play():', playError)
+          console.error('Video play error:', playError)
         }
-      }, 100) // Small delay to ensure player is ready
+      }, 100)
 
     } catch (error) {
-      console.error('🎬 [OnboardingVideo2] Error during player setup:', error)
+      console.error('Video player setup error:', error)
     }
   })
 
@@ -80,23 +73,16 @@ export default function OnboardingVideo2Screen() {
 
     try {
       const statusSubscription = player.addListener('statusChange', (status) => {
-        console.log('🎬 [OnboardingVideo2] Video status changed:', status.status)
-
         if (status.status === 'readyToPlay' && !videoLoaded) {
-          console.log('🎬 [OnboardingVideo2] Video ready to play - setting videoLoaded to true')
           trackVideoPlayed('archives_intro.mp4')
           setVideoLoaded(true)
 
           // Auto-play when ready
           try {
-            console.log('🎬 [OnboardingVideo2] Calling player.play() from statusChange')
             player.play()
-            console.log('🎬 [OnboardingVideo2] Auto-play started successfully')
           } catch (error) {
-            console.error('🎬 [OnboardingVideo2] Auto-play failed:', error)
+            // Auto-play failed silently
           }
-        } else if (status.status === 'error') {
-          console.error('🎬 [OnboardingVideo2] Video player error:', status.error)
         }
       })
 
@@ -104,7 +90,7 @@ export default function OnboardingVideo2Screen() {
         statusSubscription?.remove()
       }
     } catch (error) {
-      console.warn('🎬 [OnboardingVideo2] Video listener error:', error)
+      // Video listener setup failed
     }
   }, [player, videoLoaded, videoCompleted, trackVideoPlayed])
 
@@ -112,7 +98,6 @@ export default function OnboardingVideo2Screen() {
 
   // Navigate to sign in
   const handleSignIn = () => {
-    console.log('🎬 [OnboardingVideo2] Navigating to sign in')
     setExitAction('continued')
     router.push('/(auth)/archives-auth?mode=signin')
   }
@@ -123,18 +108,15 @@ export default function OnboardingVideo2Screen() {
       // Sign out if user has a stale session (e.g., reinstalled app but Keychain persisted)
       // This ensures users go through proper auth flow after onboarding
       if (isSignedIn) {
-        console.log('🎬 [OnboardingVideo2] User has stale session, signing out before onboarding')
         await signOut()
       }
 
       // Mark both videos as viewed
       await AsyncStorage.setItem('onboarding_videos_viewed', 'true')
 
-      console.log('🎬 [OnboardingVideo2] Continuing onboarding journey to welcome screen')
       setExitAction('continued')
       router.replace('/onboarding-welcome')
     } catch (error) {
-      console.error('🎬 [OnboardingVideo2] Error during get started:', error)
       // Continue anyway to avoid blocking user
       setExitAction('continued')
       router.replace('/onboarding-welcome')

@@ -82,14 +82,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Initialize analytics service + set user properties when both PostHog and Clerk user are ready
   React.useEffect(() => {
-    // Production logging - Track initialization timing for debugging
-    console.log('🔍 [Analytics] Effect triggered - PostHog ready:', !!posthog);
-    console.log('🔍 [Analytics] Effect triggered - User signed in:', isSignedIn);
-    console.log('🔍 [Analytics] Effect triggered - User ID:', user?.id || 'none');
-
     if (posthog) {
       analyticsService.initialize(posthog);
-      console.log('✅ [Analytics] Service initialized with PostHog instance');
       // Note: Session replay starts automatically via enableSessionReplay: true config
 
       // Identify user if signed in - this merges all anonymous events to the authenticated user
@@ -100,8 +94,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           lastName: user.lastName,
           username: user.username,
         });
-        console.log('✅ [Analytics] User IDENTIFIED for Clerk ID:', user.id);
-        console.log('✅ [Analytics] Email:', user.primaryEmailAddress?.emailAddress);
 
         // Set Sentry user for crash reporting - links crashes to specific users
         Sentry.setUser({
@@ -109,7 +101,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           email: user.primaryEmailAddress?.emailAddress || undefined,
           username: user.username || undefined,
         });
-        console.log('✅ [Sentry] User set for crash tracking:', user.id);
 
         // Initialize all 17 person properties with null (only once per user)
         // This establishes the property schema in PostHog for cohort analysis
@@ -121,9 +112,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
             if (!alreadyInitialized) {
               analyticsService.initializePersonProperties();
               await AsyncStorage.setItem(initKey, 'true');
-              console.log('✅ [Analytics] Person properties initialized for user:', user.id);
-            } else {
-              console.log('ℹ️ [Analytics] Person properties already initialized for user:', user.id);
             }
           } catch (error) {
             console.error('❌ [Analytics] Error initializing person properties:', error);
@@ -134,10 +122,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       } else {
         // Clear Sentry user when signed out
         Sentry.setUser(null);
-        console.log('⏳ [Analytics] Waiting for user sign-in to set properties');
       }
-    } else {
-      console.log('⏳ [Analytics] Waiting for PostHog initialization');
     }
   }, [posthog, isSignedIn, user]);
 
@@ -153,7 +138,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Listen for notifications (both received and tapped)
   React.useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('🔔 Notification received while app open:', notification);
       const messageId = notification.request.identifier || `notif_${Date.now()}`;
       analyticsService.trackCustomEvent('notification_received', {
         message_id: messageId,
@@ -163,7 +147,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('👆 Notification tapped:', response);
       const messageId = response.notification.request.identifier || `notif_${Date.now()}`;
       analyticsService.trackNotificationClicked(messageId);
     });
@@ -188,7 +171,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         $exception_is_fatal: isFatal,
         $exception_source: 'global_error_handler',
       });
-      console.log('🚨 [PostHog] Exception captured:', error.message);
 
       // Call original handler (Sentry also hooks into this)
       if (originalHandler) {
@@ -206,7 +188,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         $exception_is_fatal: false,
         $exception_source: 'promise_rejection',
       });
-      console.log('🚨 [PostHog] Promise rejection captured:', error?.message || error);
     };
 
     // @ts-ignore - React Native global
@@ -321,20 +302,9 @@ export default Sentry.wrap(function RootLayout() {
     "Cormorant-Bold": require("../assets/fonts/Cormorant-Bold.ttf"),
   });
 
-  console.log('RootLayout - Fonts loaded:', loaded);
-  console.log('RootLayout - Platform:', Platform.OS);
-  console.log('RootLayout - Available fonts:', {
-    'SpaceMono': '✓',
-    'DM Sans': '✓',
-    'DM Sans-Bold': '✓',
-    'Cormorant': '✓',
-    'Cormorant-Bold': '✓'
-  });
-
   // Hide splash screen when fonts are loaded
   React.useEffect(() => {
     if (loaded) {
-      console.log('RootLayout - Fonts loaded, hiding splash screen');
       SplashScreen.hideAsync();
     }
   }, [loaded]);
@@ -348,7 +318,6 @@ export default Sentry.wrap(function RootLayout() {
 
   if (!loaded) {
     // Show branded loading screen while fonts load
-    console.log('RootLayout - Fonts not loaded, showing branded loading screen');
     return <LoadingScreen />;
   }
 
@@ -372,9 +341,6 @@ export default Sentry.wrap(function RootLayout() {
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
   const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY!;
   const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST!;
-
-  console.log('RootLayout - Clerk publishable key exists:', !!publishableKey);
-  console.log('RootLayout - PostHog API key exists:', !!posthogApiKey);
 
   // Create PostHog options with platform-specific configuration
   const posthogOptions = {

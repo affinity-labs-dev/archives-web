@@ -33,6 +33,8 @@ interface QuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
   adventureId: string;       // Database adventure readable_id (e.g., "roi_adventure_1")
   moduleId: string;          // Database content_list.id (media_id)
+  eraId: string;             // Era ID from adventure (e.g., "rise_of_islam", "umayyad")
+  eraName: string;           // Era display name (from card_content.era_name)
   onContinue: () => void;    // Called when quiz is completed
   onDismiss: () => void;     // Called to close quiz
   onBack?: () => void;       // Optional back button
@@ -270,6 +272,8 @@ export default function Quiz({
   contentItem,
   adventureId,
   moduleId,
+  eraId,
+  eraName,
   onContinue,
   onDismiss,
   onBack,
@@ -297,12 +301,12 @@ export default function Quiz({
     totalQuestions: questions.length,
     quizId: contentItem.id || moduleId,
     quizTitle: contentItem.thumbnail_title || "Unknown",
-    screenUrl: `/roi/${adventureId}/${moduleId}/quiz`,
-    eraId: 2,
-    eraName: "riseOfIslam",
+    screenUrl: `/${eraId}/${adventureId}/${moduleId}/quiz`,
+    eraId,
+    eraName,
     adventureNumber,
     moduleNumber,
-    screen: `ROI Quiz - ${adventureId} Module ${moduleNumber}`,
+    screen: `Quiz - ${adventureId} Module ${moduleNumber}`,
   });
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -432,7 +436,7 @@ export default function Quiz({
 
   // Handle quiz completion from results screen
   const handleQuizCompletion = async () => {
-    console.log('🚀 Quiz completion: ROI Quiz');
+    console.log(`🚀 Quiz completion: ${eraName} - ${adventureId}`);
 
     // Percentage-based star calculation (database-agnostic)
     // 0-49% = 1★, 50-99% = 2★, 100% = 3★ (perfect score only)
@@ -458,24 +462,24 @@ export default function Quiz({
       isCompleted: true,
       quizCompleted: true,
       completedAt: new Date().toISOString(),
-      era_id: 2
+      era_id: eraId    // Era-agnostic: use prop instead of hardcoded value
     };
 
     console.log('💾 [NEW] Saving quiz completion:', moduleData);
     await saveNewProgressData(moduleData);
 
-    // Track module completed event (critical for funnel analysis)
+    // Track module completed event (critical for funnel analysis, era-agnostic)
     analyticsService.trackCustomEvent('module_completed', {
       adventure_id: adventureId,
       module_id: moduleId,
       quiz_score: quizScore,
       correct_answers: correctAnswers,
       total_questions: totalQuestions,
-      era_id: 2,
-      era_name: "riseOfIslam",
+      era_id: eraId,
+      era_name: eraName,
       adventure_number: adventureNumber,
       module_number: moduleNumber,
-      $current_url: `/roi/${adventureId}/${moduleId}/quiz`,
+      $current_url: `/${eraId}/${adventureId}/${moduleId}/quiz`,
     });
     console.log('📊 [Analytics] Module completed event tracked');
 
@@ -527,8 +531,8 @@ export default function Quiz({
         onBack={onBack}
         adventureId={adventureId}
         moduleId={moduleId}
-        eraId={2}
-        eraName="riseOfIslam"
+        eraId={eraId}
+        eraName={eraName}
         adventureNumber={adventureNumber}
         moduleNumber={moduleNumber}
       />
