@@ -75,12 +75,9 @@ const getContentType = (url: string): 'hls' | 'progressive' => {
 };
 
 const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActive, onReady }) => {
-  // PERFORMANCE: Enable video caching for 50-90% faster loading on repeated views
-  // ANDROID FIX: Add contentType to help ExoPlayer handle streams properly
+  // Simplified video source - caching/contentType can cause issues in Expo Go
   const videoSource: VideoSource = useMemo(() => ({
     uri: videoUrl,
-    contentType: getContentType(videoUrl),  // Detect HLS vs MP4
-    useCaching: true  // Enable 1GB default cache
   }), [videoUrl]);
 
   const player = useVideoPlayer(videoSource, (player) => {

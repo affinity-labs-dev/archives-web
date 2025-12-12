@@ -459,7 +459,7 @@ export default function ReelLesson({
         {/* Full-screen Video Player with inline loading */}
         <View style={{ position: 'relative', flex: 1 }}>
           <VideoPlayer
-            videoSource={{ uri: videoUrl, useCaching: true, contentType: videoContentType }}
+            videoSource={{ uri: videoUrl }}
             onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
             autoPlay={true}
             shouldLoop={true}

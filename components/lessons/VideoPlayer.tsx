@@ -61,8 +61,8 @@ export default function VideoPlayer({
   })
 
   // Use proper expo-video event handling for playing state
-  const { isPlaying } = useEvent(player, 'playingChange', { 
-    isPlaying: player.playing, 
+  const { isPlaying } = useEvent(player, 'playingChange', {
+    isPlaying: player.playing,
   })
 
   // Clean implementation: Use expo-video's proper progress tracking
@@ -122,7 +122,7 @@ export default function VideoPlayer({
   const handleVideoTap = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      
+
       if (isPlaying) {
         player.pause()
       } else {

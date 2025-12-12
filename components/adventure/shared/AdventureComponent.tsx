@@ -373,7 +373,7 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
     <View style={styles.adventureContainer}>
       {/* ERA Badge */}
       <View style={styles.eraBadge}>
-        <Text style={styles.eraText}>ERA {adventure.era_id}  </Text>
+        <Text style={styles.eraText}>{adventure.card_content?.era_name || adventure.era_id}  </Text>
         <Text style={styles.adventureText}>ADVENTURE {adventure.order_by}</Text>
       </View>
 
