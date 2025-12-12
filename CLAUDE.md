@@ -50,6 +50,14 @@ color: '#C99151'                 // ❌ Use ArchivesTheme
 7. **Clean commits**: Run `rm -f *.ipa *.apk build-*.ipa` before committing
 8. **Cross-platform impact analysis** - Before answering ANY questions about layout, styling, positioning, or UI changes, ALWAYS analyze how the change will affect BOTH iOS and Android. Check platform-specific component behavior (SafeAreaView, StatusBar, etc.), different layout structures, and margin/padding/positioning differences. Include both iOS and Android impact analysis in your response.
 9. **JSX text content** - ALWAYS use curly quotes or escape apostrophes in JSX text. Use `'` or `'` for apostrophes, `"` and `"` for quotes. Never use straight quotes (`'` or `"`) in user-facing text as they trigger `react/no-unescaped-entities` lint errors.
+10. **NEVER ASSUME - ALWAYS VERIFY** - Do NOT make assumptions about how code works based on naming conventions, column names, or logical guesses. ALWAYS:
+    - **Read the actual code** before answering questions about data flow, component behavior, or architecture
+    - **Run grep/search** to verify if a variable/column/prop is actually used in code (e.g., `grep -r "era.timeline" --include="*.tsx"`)
+    - **Query Supabase directly** to verify actual data structure and values - use the PostHog MCP or Supabase dashboard to check what data exists
+    - **Trace the full data path**: Supabase Table → Hook/Query → Component Props → Render function
+    - **If uncertain, ASK** the user for clarification instead of guessing
+    - **Column exists ≠ Column is used** - Always verify usage in consuming components AND check actual data in Supabase
+    - Example: Before saying "timeline column shows X", BOTH run `grep -r "timeline" components/` to confirm it's rendered AND check Supabase to see actual column values
 
 ## Architecture Overview
 

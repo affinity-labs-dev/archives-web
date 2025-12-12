@@ -55,16 +55,9 @@ function EraCardComponent({
     return ERA_IMAGE_MAP[era.era_id] || DEFAULT_IMAGE;
   };
 
-  // Parse title to separate name and date range
-  const parseTitle = () => {
-    const match = era.title.match(/^(.+?)\s*\(([^)]+)\)$/);
-    if (match) {
-      return { name: match[1], dateRange: `(${match[2]})` };
-    }
-    return { name: era.title, dateRange: '' };
-  };
-
-  const { name, dateRange } = parseTitle();
+  // Use title and timeline from Supabase directly
+  const name = era.title;
+  const dateRange = era.timeline ? `(${era.timeline})` : '';
 
   if (isFullWidth) {
     return (

@@ -20,8 +20,9 @@ class AdventuresContentService {
     try {
       const cached = await AsyncStorage.getItem(`content_era_${eraId}`);
       if (cached) {
-        console.log(`⚡ Loaded ${JSON.parse(cached).length} adventures from cache (era: ${eraId})`);
-        return JSON.parse(cached);
+        const data = JSON.parse(cached);
+        console.log(`⚡ Loaded ${data.length} adventures from cache (era: ${eraId})`);
+        return data;
       }
       console.log(`📭 No cache found for era: ${eraId}`);
       return null;

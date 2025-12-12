@@ -1,9 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { ActivityIndicator, Text, View, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAdventures } from '@/hooks/useAdventures';
+import { useEras } from '@/hooks/useEras';
 import { useProgress } from '@/context/ProgressContext';
 import BentoGridScreen from '@/components/adventure/types/bento-grid/BentoGridScreen';
+import EraProgressHeader from '@/components/shared/EraProgressHeader';
 import ComingSoonView from '@/components/eras/ComingSoonView';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,9 +43,31 @@ export default function AdventuresScreen() {
 
   // Fetch adventures for selected era (dynamic, not hardcoded)
   const { adventures, loading, error, refreshAdventures } = useAdventures(supabaseEraId);
+  const { eras } = useEras();
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Get selected era data from eras table
+  const selectedEraData = useMemo(() => {
+    return eras.find(era => era.era_id === supabaseEraId);
+  }, [eras, supabaseEraId]);
+
+  // Calculate completed adventures count
+  const completedAdventuresCount = useMemo(() => {
+    if (!adventures || adventures.length === 0) return 0;
+
+    return adventures.filter(adventure => {
+      const adventureModules = adventure.content_list || [];
+      const completedModules = adventureModules.filter(module => {
+        const moduleProgress = userProgress.find(
+          p => p.adventureId === adventure.readable_id && p.moduleId === module.id
+        );
+        return moduleProgress?.isCompleted && moduleProgress?.quizCompleted;
+      });
+      return adventureModules.length > 0 && completedModules.length === adventureModules.length;
+    }).length;
+  }, [adventures, userProgress]);
 
   // User sign-in detection for data reload
   const { user, isSignedIn } = useUser();
@@ -181,17 +205,29 @@ export default function AdventuresScreen() {
 
   // Show adventures (era-agnostic)
   return (
-    <BentoGridScreen
-      adventures={adventures}
-      userProgress={userProgress}
-      onProgressUpdate={loadProgress}
-      refreshing={refreshing}
-      onRefresh={handleRefresh}
-    />
+    <View style={styles.container}>
+      <EraProgressHeader
+        title={selectedEraData?.title || ''}
+        subtitle={selectedEraData?.timeline || ''}
+        currentStep={completedAdventuresCount}
+        totalSteps={adventures.length}
+      />
+      <BentoGridScreen
+        adventures={adventures}
+        userProgress={userProgress}
+        onProgressUpdate={loadProgress}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
+  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',

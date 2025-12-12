@@ -146,7 +146,7 @@ export default function TabLayout() {
         }}
       />
       <TabComponent.Screen
-        name="roi-bento"
+        name="era-view"
         options={{
           href: null, // Hide from tab bar
           headerShown: false,

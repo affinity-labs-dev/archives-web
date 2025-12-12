@@ -12,7 +12,6 @@ import XPMilestoneScreen from '@/components/quiz/XPMilestoneScreen';
 import AdventureCompleteScreen from '@/components/adventure/shared/AdventureCompleteScreen';
 import LessonPlayer from '@/components/lessons/LessonPlayer';
 import Quiz from '@/components/quiz/Quiz';
-import EraProgressHeader from '@/components/shared/EraProgressHeader';
 import type { Adventure, ContentItem } from '@/components/shared/types';
 
 // TypeScript interfaces
@@ -56,44 +55,6 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     milestoneXP: number;
     totalXP: number;
   } | null>(null);
-
-  // Calculate completed adventures count dynamically (recalculates when userProgress changes)
-  const completedAdventuresCount = useMemo(() => {
-    return adventures.filter(adventure => {
-      // Get all modules for this adventure from userProgress (era-agnostic)
-      const adventureModules = userProgress.filter(
-        p => p.adventureId === adventure.readable_id
-      );
-
-      // Get total modules for this adventure from content_list
-      const totalModulesForAdventure = adventure.content_list?.length || 0;
-
-      // Adventure is complete if all modules are completed and quizzes passed
-      const completedModulesForAdventure = adventureModules.filter(
-        p => p.isCompleted && p.quizCompleted
-      ).length;
-
-      return totalModulesForAdventure > 0 && completedModulesForAdventure === totalModulesForAdventure;
-    }).length;
-  }, [adventures, userProgress]);
-
-  // Create dynamic progress bar data from adventure/era content (era-agnostic)
-  const progressBarData = useMemo(() => {
-    // Get era name from first adventure's card_content, or derive from era_id
-    const firstAdventure = adventures[0];
-    const eraName = firstAdventure?.card_content?.era_name ||
-                    firstAdventure?.era_id?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) ||
-                    'Selected Era';
-    // Get timeline from first adventure
-    const timeline = firstAdventure?.timeline || '';
-
-    return {
-      title: `Exploring ${eraName}`,
-      subtitle: timeline,
-      currentStep: completedAdventuresCount,
-      totalSteps: adventures.length,
-    };
-  }, [completedAdventuresCount, adventures]);
 
   // Handle card press - open lesson modal
   const handleCardPress = (contentItem: ContentItem, adventureId: string) => {
@@ -314,27 +275,12 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   // Key extractor for FlatList (memoized)
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);
 
-  // Progress Card Header Component (for sticky header)
-  // Uses reusable EraProgressHeader component with dynamic dot count
-  const renderProgressHeader = useCallback(() => {
-    return (
-      <EraProgressHeader
-        title={progressBarData.title}
-        subtitle={progressBarData.subtitle}
-        currentStep={progressBarData.currentStep}
-        totalSteps={progressBarData.totalSteps}
-      />
-    );
-  }, [progressBarData]);
-
   return (
     <View style={styles.container}>
       <FlatList
         data={adventures}
         renderItem={renderAdventureItem}
         keyExtractor={keyExtractor}
-        ListHeaderComponent={renderProgressHeader}
-        stickyHeaderIndices={[0]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -454,8 +400,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 120, // Account for tab bar height
   },
-
-  // Progress Card styles moved to EraProgressHeader component
 
   // Development Only: Reset Button
   devButtonContainer: {
