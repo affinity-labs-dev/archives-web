@@ -401,16 +401,31 @@ export default function VideoCarouselLesson({
             scrollEnabled={!isCardGestureActive}
             style={styles.carousel}
           >
-            {videos.map((videoUrl, index) => (
-              <VideoCarouselItem
-                key={index}
-                videoUrl={videoUrl}
-                caption={captions[index] || ''}
-                index={index}
-                isActive={currentVideoIndex === index}
-                onReady={index === 0 ? () => setIsFirstVideoReady(true) : undefined}
-              />
-            ))}
+            {videos.map((videoUrl, index) => {
+              // LAZY LOADING: Only create players for current and next video
+              // This prevents iOS from choking on multiple simultaneous HLS streams
+              const shouldRenderPlayer = index === currentVideoIndex || index === currentVideoIndex + 1;
+
+              if (!shouldRenderPlayer) {
+                // Placeholder for videos not near current - maintains scroll position
+                return (
+                  <View key={index} style={styles.videoContainer}>
+                    <View style={styles.videoPlaceholder} />
+                  </View>
+                );
+              }
+
+              return (
+                <VideoCarouselItem
+                  key={index}
+                  videoUrl={videoUrl}
+                  caption={captions[index] || ''}
+                  index={index}
+                  isActive={currentVideoIndex === index}
+                  onReady={index === 0 ? () => setIsFirstVideoReady(true) : undefined}
+                />
+              );
+            })}
           </ScrollView>
 
           <LoadingOverlay visible={!isFirstVideoReady} />
@@ -740,6 +755,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  videoPlaceholder: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    backgroundColor: "black",
   },
 
   textOverlay: {

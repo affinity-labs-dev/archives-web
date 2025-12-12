@@ -8,8 +8,8 @@ import { ADVENTURE_KEYS, WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { analyticsService } from '@/services/AnalyticsService';
 import AdventureComponent from '@/components/adventure/shared/AdventureComponent';
 import AdventureCard from './AdventureCard';
-import XPMilestoneScreen from '@/components/quiz/XPMilestoneScreen';
-import AdventureCompleteScreen from '@/components/adventure/shared/AdventureCompleteScreen';
+import XPMilestoneScreen from '@/components/gamified/XPMilestoneScreen';
+import AdventureCompleteScreen from '@/components/gamified/AdventureCompleteScreen';
 import LessonPlayer from '@/components/lessons/LessonPlayer';
 import Quiz from '@/components/quiz/Quiz';
 import type { Adventure, ContentItem } from '@/components/shared/types';
@@ -362,7 +362,10 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
           <XPMilestoneScreen
             totalXP={streakMilestone.totalXP}
             milestoneXP={streakMilestone.milestoneXP}
-            onContinue={() => setStreakMilestone(null)}
+            onContinue={() => {
+              setStreakMilestone(null);
+              handleQuizContinue(); // Check if adventure is complete
+            }}
           />
         </Modal>
       )}

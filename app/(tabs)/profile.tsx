@@ -14,8 +14,8 @@ import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import XPMilestoneScreen from '@/components/quiz/XPMilestoneScreen'
-import AdventureCompleteScreen from '@/components/adventure/shared/AdventureCompleteScreen'
+import XPMilestoneScreen from '@/components/gamified/XPMilestoneScreen'
+import AdventureCompleteScreen from '@/components/gamified/AdventureCompleteScreen'
 import { useAdventures } from '@/hooks/useAdventures'
 
 const { width: screenWidth } = Dimensions.get('window')
