@@ -20,6 +20,8 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useProgress } from '@/context/ProgressContext';
 import ArchivesTheme from '@/constants/ArchivesTheme';
+import AIQuizExplanation from './AIQuizExplanation';
+import type { Question } from '@/components/shared/types';
 
 const { width } = Dimensions.get('window');
 
@@ -37,6 +39,9 @@ interface QuizResultsProps {
   eraName: string;
   adventureNumber: number;
   moduleNumber: number;
+  // AI Explanation data
+  questions?: Question[];
+  userAnswers?: number[];
 }
 
 // Video Reward Player - Score-based celebration videos (3-tier system)
@@ -128,6 +133,8 @@ export default function QuizResults({
   eraName,
   adventureNumber,
   moduleNumber,
+  questions = [],
+  userAnswers = [],
 }: QuizResultsProps) {
   // Calculate percentage
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
@@ -295,6 +302,18 @@ export default function QuizResults({
                 />
               </View>
             </View>
+
+            {/* AI Quiz Explanation (only if questions data available) */}
+            {questions.length > 0 && userAnswers.length > 0 && (
+              <AIQuizExplanation
+                questions={questions}
+                userAnswers={userAnswers}
+                eraName={eraName}
+                adventureName={`Adventure ${adventureNumber}`}
+                adventureId={adventureId}
+                moduleId={moduleId}
+              />
+            )}
 
             {/* Action buttons */}
             <View style={styles.actionButtons}>

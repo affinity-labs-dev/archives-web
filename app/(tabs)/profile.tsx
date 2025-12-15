@@ -17,6 +17,9 @@ import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, Scrol
 import XPMilestoneScreen from '@/components/gamified/XPMilestoneScreen'
 import AdventureCompleteScreen from '@/components/gamified/AdventureCompleteScreen'
 import { useAdventures } from '@/hooks/useAdventures'
+import { useAchievements } from '@/hooks/useAchievements'
+import AchievementUnlockAnimation from '@/components/gamification/AchievementUnlockAnimation'
+import AchievementDetailModal from '@/components/gamification/AchievementDetailModal'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -220,29 +223,45 @@ export default function ProfileTab() {
     loading: rewardsLoading
   } = useRewards()
   const { dailyGoal, reminderTime, setReminderTime, loading: preferencesLoading } = usePreferences()
+  const {
+    achievements,
+    unlockedCount,
+    totalCount,
+    newlyUnlocked,
+    getProgress,
+    clearNewlyUnlocked,
+    checkAchievements,
+  } = useAchievements()
+
+  // Achievement detail modal state
+  const [selectedAchievement, setSelectedAchievement] = React.useState<(typeof achievements)[0] | null>(null)
 
   // Load Era 2+ progress from AsyncStorage
   const [newUserProgress, setNewUserProgress] = React.useState<NewUserProgress[]>([])
 
-  React.useEffect(() => {
-    const loadNewProgress = async () => {
-      try {
-        const data = await AsyncStorage.getItem('new_user_progress')
-        if (data) {
-          const parsed: NewUserProgress[] = JSON.parse(data)
-          setNewUserProgress(parsed)
-          console.log('📊 [Profile] Loaded Era 2+ progress:', parsed.length, 'modules')
+  // Reload progress every time screen is focused (to reflect debug panel changes)
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadNewProgress = async () => {
+        try {
+          const data = await AsyncStorage.getItem('new_user_progress')
+          if (data) {
+            const parsed: NewUserProgress[] = JSON.parse(data)
+            setNewUserProgress(parsed)
+            console.log('📊 [Profile] Loaded Era 2+ progress:', parsed.length, 'modules')
+          }
+        } catch (error) {
+          console.error('❌ [Profile] Error loading Era 2+ progress:', error)
         }
-      } catch (error) {
-        console.error('❌ [Profile] Error loading Era 2+ progress:', error)
       }
-    }
-    loadNewProgress()
-  }, [])
+      loadNewProgress()
+    }, [])
+  )
 
   // Load stored totalXP from AsyncStorage (optimized to avoid recalculation)
   const [storedTotalXP, setStoredTotalXP] = React.useState<number | null>(null)
 
+  // Reload totalXP when screen is focused or progress changes
   React.useEffect(() => {
     async function loadTotalXP() {
       try {
@@ -386,17 +405,20 @@ export default function ProfileTab() {
   // Fetch adventures for test button (era-agnostic)
   const { adventures: testAdventures, loading: adventuresLoading } = useAdventures(supabaseEraId)
 
-  // Track page views with focus/blur
+  // Track page views with focus/blur + check achievements
   useFocusEffect(
     React.useCallback(() => {
       console.log('📊 [ProfileTab] Screen focused - starting page view tracking')
       analyticsService.startPageView('profile', '/profile')
 
+      // Check achievements when profile opens
+      checkAchievements();
+
       return () => {
         console.log('📊 [ProfileTab] Screen blurred - ending page view tracking')
         analyticsService.endPageView('profile')
       }
-    }, [])
+    }, [checkAchievements])
   )
 
   const handleSignOut = async () => {
@@ -841,6 +863,63 @@ export default function ProfileTab() {
           </ScrollView>
         </View>
 
+        {/* Achievements Section */}
+        <View style={styles.achievementsSection}>
+          <View style={styles.achievementsHeader}>
+            <Text style={styles.sectionTitle}>Achievements</Text>
+            <Text style={styles.achievementsCount}>{unlockedCount}/{totalCount}</Text>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.achievementsScroll}
+            contentContainerStyle={styles.achievementsScrollContent}
+          >
+            {achievements.map((achievement) => (
+              <TouchableOpacity
+                key={achievement.id}
+                style={styles.achievementCard}
+                activeOpacity={0.7}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedAchievement(achievement);
+                }}
+              >
+                <View style={[
+                  styles.achievementIconContainer,
+                  { backgroundColor: achievement.unlocked ? achievement.color : '#E0E0E0' }
+                ]}>
+                  <Ionicons
+                    name={achievement.icon as any}
+                    size={32}
+                    color={achievement.unlocked ? 'white' : '#95A5A6'}
+                  />
+                </View>
+                <Text style={[
+                  styles.achievementName,
+                  !achievement.unlocked && styles.achievementNameLocked
+                ]}>
+                  {achievement.name}
+                </Text>
+                {achievement.unlocked ? (
+                  <View style={[styles.achievementUnlockedBadge, { backgroundColor: achievement.color }]}>
+                    <Ionicons name="checkmark" size={12} color="white" />
+                  </View>
+                ) : (
+                  <View style={styles.achievementProgressContainer}>
+                    <View style={styles.achievementProgressBar}>
+                      <View style={[
+                        styles.achievementProgressFill,
+                        { width: `${getProgress(achievement.id)}%`, backgroundColor: achievement.color }
+                      ]} />
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
         {/* Learning Preferences */}
         <View style={styles.preferencesSection}>
@@ -1368,6 +1447,23 @@ export default function ProfileTab() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Achievement Unlock Animation */}
+      {newlyUnlocked && (
+        <AchievementUnlockAnimation
+          visible={true}
+          achievement={newlyUnlocked}
+          onDismiss={clearNewlyUnlocked}
+        />
+      )}
+
+      {/* Achievement Detail Modal */}
+      <AchievementDetailModal
+        visible={selectedAchievement !== null}
+        achievement={selectedAchievement}
+        progress={selectedAchievement ? getProgress(selectedAchievement.id) : 0}
+        onClose={() => setSelectedAchievement(null)}
+      />
 
       {/* Temporary Test Screens */}
       {showXPTest && (
@@ -2153,5 +2249,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: ArchivesTheme.colors.creamWhite,
+  },
+
+  // Achievements Section Styles
+  achievementsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+  },
+  achievementsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  achievementsCount: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.persianOrange,
+  },
+  achievementsScroll: {
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+  },
+  achievementsScrollContent: {
+    paddingRight: 20,
+  },
+  achievementCard: {
+    width: 110,
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  achievementIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: 'black',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  achievementName: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  achievementNameLocked: {
+    color: '#95A5A6',
+  },
+  achievementUnlockedBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  achievementProgressContainer: {
+    width: '100%',
+    paddingHorizontal: 8,
+  },
+  achievementProgressBar: {
+    width: '100%',
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  achievementProgressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
 })
