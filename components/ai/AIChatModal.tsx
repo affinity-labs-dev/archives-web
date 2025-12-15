@@ -1,8 +1,9 @@
-// AIChatModal.tsx - AI chat interface
+// AIChatModal.tsx - AI chat interface (Ibu - AI Assistant)
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useAI } from '@/context/AIContext';
 import { aiService } from '@/services/AIService';
 import { analyticsService } from '@/services/AnalyticsService';
+import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
@@ -23,7 +24,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
+
+// Character image for welcome screen
+const HelloCharacter = require('@/assets/images/ai-images/hellocharacter.png');
+// AI avatar for chat messages
+const AIChatIcon = require('@/assets/images/ai-images/sayhi.png');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -60,6 +67,7 @@ export default function AIChatModal({
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Image viewer state
@@ -68,6 +76,11 @@ export default function AIChatModal({
 
   const scrollViewRef = useRef<ScrollView>(null);
   const { getUserProgressSummary } = useAI();
+  const { user } = useUser();
+  const insets = useSafeAreaInsets();
+
+  // Get user's first name for personalized greeting
+  const userName = user?.firstName || 'Explorer';
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -102,7 +115,11 @@ export default function AIChatModal({
 
       // Create a temporary file
       const filename = `archives_ai_${Date.now()}.png`;
-      const fileUri = FileSystem.cacheDirectory + filename;
+      const cacheDir = FileSystem.cacheDirectory;
+      if (!cacheDir) {
+        throw new Error('Cache directory not available');
+      }
+      const fileUri = cacheDir + filename;
 
       // Write base64 to file
       await FileSystem.writeAsStringAsync(fileUri, selectedImage.base64, {
@@ -129,10 +146,10 @@ export default function AIChatModal({
     }
   };
 
-  const handleSend = async () => {
-    if (!inputText.trim() || isLoading) return;
+  const handleSend = async (messageToSend?: string) => {
+    const userMessage = (messageToSend || inputText).trim();
+    if (!userMessage || isLoading) return;
 
-    const userMessage = inputText.trim();
     setInputText('');
     setError(null);
 
@@ -153,6 +170,7 @@ export default function AIChatModal({
 
       if (isImageRequest) {
         // Generate image
+        setIsGeneratingImage(true);
         console.log('🎨 [AIChatModal] Image request detected');
         const imageResult = await aiService.generateImage({
           prompt: userMessage,
@@ -217,6 +235,7 @@ export default function AIChatModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsLoading(false);
+      setIsGeneratingImage(false);
     }
   };
 
@@ -235,49 +254,118 @@ export default function AIChatModal({
     setSelectedImage(image);
   };
 
+  // Handle suggestion button press
+  const handleSuggestionPress = (suggestion: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    handleSend(suggestion);
+  };
+
+  // Suggestion buttons for welcome screen
+  const suggestions = [
+    'What should I learn next?',
+    'Explain this era to me',
+    "Quiz me on what I've learned",
+  ];
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={handleClose}>
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={handleClose} activeOpacity={0.6}>
-            <Ionicons name="close-circle" size={36} color={ArchivesTheme.colors.shoeBrown} />
+          <TouchableOpacity style={styles.backButton} onPress={handleClose} activeOpacity={0.6}>
+            <Ionicons name="chevron-back" size={28} color={ArchivesTheme.colors.shoeBrown} />
           </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>AI Learning Assistant</Text>
-            <Text style={styles.headerSubtitle}>Ask me about {context.eraName || 'Islamic history'}</Text>
+
+          {/* Title with avatar and pill */}
+          <View style={styles.titleContainer}>
+            <Image source={AIChatIcon} style={styles.titleAvatar} contentFit="cover" />
+            <View style={styles.titlePill}>
+              <Text style={styles.titleText}>
+                <Text style={styles.titleTextBold}>Ibu, </Text>
+                your AI learning buddy
+              </Text>
+            </View>
           </View>
-          <View style={styles.headerSpacer} />
         </View>
 
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
         >
           <ScrollView
             ref={scrollViewRef}
             style={styles.messagesContainer}
             contentContainerStyle={styles.messagesContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {messages.length === 0 ? (
               <View style={styles.welcomeContainer}>
-                <View style={styles.aiAvatar}>
-                  <Ionicons name="sparkles" size={20} color="white" />
+                {/* Speech Bubble */}
+                <View style={styles.speechBubble}>
+                  <Text style={styles.speechText}>
+                    Hi {userName}, I&apos;m Ibu, your{' '}
+                    <Text style={styles.speechTextBold}>AI learning buddy</Text>
+                    . I know Islamic history &amp; your progress. Ask me anything!
+                  </Text>
+                  {/* Speech bubble pointer with border - SVG arrow */}
+                  <View style={styles.speechPointer}>
+                    <Svg width="36" height="18" viewBox="0 0 36 18" style={{ position: 'absolute' }}>
+                      {/* White filled triangle (no stroke) */}
+                      <Path
+                        d="M18 18 L0 0 L36 0 Z"
+                        fill="white"
+                      />
+                      {/* Green line on left diagonal edge */}
+                      <Path
+                        d="M18 18 L0 0"
+                        stroke={ArchivesTheme.colors.mossGreen}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        fill="none"
+                      />
+                      {/* Green line on right diagonal edge */}
+                      <Path
+                        d="M18 18 L36 0"
+                        stroke={ArchivesTheme.colors.mossGreen}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        fill="none"
+                      />
+                      {/* White line on horizontal base (top) - blends with background */}
+                      <Path
+                        d="M0 0 L36 0"
+                        stroke="white"
+                        strokeWidth="1"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        fill="none"
+                      />
+                    </Svg>
+                  </View>
                 </View>
-                <Text style={styles.welcomeText}>
-                  Hi! I&apos;m your AI learning companion. I know about {context.eraName || 'Islamic history'} and your progress. Ask me anything!
-                </Text>
+
+                {/* Character Image */}
+                <View style={styles.characterContainer}>
+                  <Image source={HelloCharacter} style={styles.characterImage} contentFit="contain" />
+                </View>
+
+                {/* Suggestion Buttons */}
                 <View style={styles.suggestionsContainer}>
-                  {['What should I learn next?', 'Explain this era to me', 'Quiz me on what I learned'].map((q) => (
+                  {suggestions.map((suggestion) => (
                     <TouchableOpacity
-                      key={q}
-                      style={styles.suggestionChip}
-                      onPress={() => {
-                        setInputText(q);
-                        handleSend();
-                      }}
+                      key={suggestion}
+                      style={styles.suggestionButton}
+                      onPress={() => handleSuggestionPress(suggestion)}
+                      activeOpacity={0.8}
                     >
-                      <Text style={styles.suggestionText}>{q}</Text>
+                      <View style={styles.suggestionShadow} />
+                      <View style={styles.suggestionInner}>
+                        <Text style={styles.suggestionText}>{suggestion}</Text>
+                      </View>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -288,45 +376,46 @@ export default function AIChatModal({
                   key={message.id}
                   style={[styles.messageBubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}
                 >
-                  {message.role === 'assistant' && (
-                    <View style={styles.aiAvatar}>
-                      <Ionicons name="sparkles" size={16} color="white" />
+                  {message.role === 'user' ? (
+                    <View style={styles.userContent}>
+                      <Text style={styles.userText}>{message.content}</Text>
                     </View>
+                  ) : (
+                    <>
+                      <View style={styles.assistantContent}>
+                        <Text style={styles.assistantText}>{message.content}</Text>
+                      </View>
+                      {/* Render generated image if present - full width, tappable for full view */}
+                      {message.image && (
+                        <TouchableOpacity
+                          onPress={() => handleImagePress(message.image!)}
+                          activeOpacity={0.9}
+                          style={styles.generatedImageContainer}
+                        >
+                          <Image
+                            source={{ uri: `data:${message.image.mimeType};base64,${message.image.base64}` }}
+                            style={styles.generatedImage}
+                            contentFit="cover"
+                          />
+                          <View style={styles.tapToViewHint}>
+                            <Ionicons name="expand-outline" size={14} color="white" />
+                            <Text style={styles.tapToViewText}>Tap to expand</Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </>
                   )}
-                  <View style={[styles.messageContent, message.role === 'user' ? styles.userContent : styles.assistantContent]}>
-                    <Text style={[styles.messageText, message.role === 'user' ? styles.userText : styles.assistantText]}>
-                      {message.content}
-                    </Text>
-                    {/* Render generated image if present - tappable for full view */}
-                    {message.image && (
-                      <TouchableOpacity
-                        onPress={() => handleImagePress(message.image!)}
-                        activeOpacity={0.8}
-                      >
-                        <Image
-                          source={{ uri: `data:${message.image.mimeType};base64,${message.image.base64}` }}
-                          style={styles.generatedImage}
-                          contentFit="contain"
-                        />
-                        <View style={styles.tapToViewHint}>
-                          <Ionicons name="expand-outline" size={14} color="white" />
-                          <Text style={styles.tapToViewText}>Tap to view</Text>
-                        </View>
-                      </TouchableOpacity>
-                    )}
-                  </View>
                 </View>
               ))
             )}
 
             {isLoading && (
               <View style={[styles.messageBubble, styles.assistantBubble]}>
-                <View style={styles.aiAvatar}>
-                  <Ionicons name="sparkles" size={16} color="white" />
-                </View>
-                <View style={styles.loadingBubble}>
+                <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={ArchivesTheme.colors.persianOrange} />
-                  <Text style={styles.loadingText}>Thinking...</Text>
+                  <Text style={styles.loadingText}>
+                    {isGeneratingImage ? 'Generating image...' : 'Thinking...'}
+                  </Text>
                 </View>
               </View>
             )}
@@ -339,31 +428,47 @@ export default function AIChatModal({
             )}
           </ScrollView>
 
-          <View style={styles.inputContainer}>
+          {/* Input Bar */}
+          <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            {/* Plus button for image generation */}
+            <TouchableOpacity
+              style={styles.plusButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setInputText('Generate an image of ');
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add" size={24} color="#9A8B7A" />
+            </TouchableOpacity>
+
+            {/* Text Input with Send Button inside */}
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Ask me anything..."
-                placeholderTextColor="#999"
+                placeholder="What are you curious about?"
+                placeholderTextColor="#9A8B7A"
                 multiline
                 maxLength={500}
-                onSubmitEditing={handleSend}
+                onSubmitEditing={() => handleSend()}
                 returnKeyType="send"
                 blurOnSubmit={false}
               />
+              {/* Send button inside input */}
               <TouchableOpacity
-                style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-                onPress={handleSend}
+                style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
+                onPress={() => handleSend()}
                 disabled={!inputText.trim() || isLoading}
+                activeOpacity={0.7}
               >
-                <Ionicons name="send" size={20} color={inputText.trim() ? 'white' : '#CCC'} />
+                <Ionicons name="arrow-up" size={20} color="white" />
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
 
       {/* Full-screen Image Viewer Modal */}
       <Modal
@@ -422,37 +527,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 16,
-    paddingTop: Platform.OS === 'ios' ? 50 : 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-    backgroundColor: 'white',
+    paddingVertical: 4,
   },
-  closeButton: {
-    width: 60,
-    height: 60,
+  backButton: {
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: -8,
   },
-  headerContent: {
-    flex: 1,
+  titleContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 4,
   },
-  headerTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.mutedNavy,
+  titleAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 8,
   },
-  headerSubtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 12,
-    color: ArchivesTheme.colors.shoeBrown,
-    marginTop: 2,
+  titlePill: {
+    backgroundColor: ArchivesTheme.colors.mossGreen,
+    borderRadius: 55,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
-  headerSpacer: {
-    width: 44,
+  titleText: {
+    fontFamily: 'DM Sans SemiBold',
+    fontSize: 14,
+    color: 'white',
+    letterSpacing: -0.16,
+  },
+  titleTextBold: {
+    fontFamily: 'DM Sans Bold',
+    fontWeight: '700',
   },
   keyboardView: {
     flex: 1,
@@ -464,80 +572,146 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 8,
   },
+
+  // Welcome Screen Styles
   welcomeContainer: {
-    paddingVertical: 40,
+    flex: 1,
+    paddingTop: 0,
     alignItems: 'center',
   },
-  welcomeText: {
+  speechBubble: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: ArchivesTheme.colors.mossGreen,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    marginBottom: 8,
+    width: SCREEN_WIDTH - 80,
+    maxWidth: 300,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1,
+  },
+  speechPointer: {
+    position: 'absolute',
+    bottom: -17.5,
+    left: 40,
+    width: 36,
+    height: 18,
+  },
+  speechText: {
     fontFamily: 'DM Sans',
     fontSize: 16,
+    fontWeight: '400',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-    lineHeight: 24,
-    paddingHorizontal: 20,
+    lineHeight: 22,
   },
+  speechTextBold: {
+    fontWeight: '700',
+  },
+  characterContainer: {
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  characterImage: {
+    width: 140,
+    height: 200,
+  },
+
+  // Suggestion Buttons
   suggestionsContainer: {
     width: '100%',
-    gap: 8,
-  },
-  suggestionChip: {
-    backgroundColor: 'white',
-    paddingVertical: 12,
+    gap: 12,
     paddingHorizontal: 16,
-    borderRadius: 20,
+    marginTop: 30,
+  },
+  suggestionButton: {
+    position: 'relative',
+    height: 48,
+  },
+  suggestionShadow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 7,
+    height: 41,
+    backgroundColor: ArchivesTheme.colors.shoeBrown,
+    borderRadius: 27,
+  },
+  suggestionInner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 45,
+    backgroundColor: 'white',
+    borderRadius: 26.5,
     borderWidth: 1,
-    borderColor: ArchivesTheme.colors.persianOrange,
+    borderColor: ArchivesTheme.colors.shoeBrown,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   suggestionText: {
-    fontFamily: 'DM Sans',
+    fontFamily: 'DM Sans SemiBold',
     fontSize: 14,
-    color: ArchivesTheme.colors.persianOrange,
+    color: ArchivesTheme.colors.shoeBrown,
     textAlign: 'center',
+    letterSpacing: -0.14,
   },
+
+  // Message Bubbles
   messageBubble: {
-    flexDirection: 'row',
     marginBottom: 16,
-    alignItems: 'flex-end',
   },
   userBubble: {
-    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
   },
   assistantBubble: {
-    justifyContent: 'flex-start',
-  },
-  messageContent: {
-    maxWidth: '80%',
-    padding: 12,
-    borderRadius: 16,
+    alignItems: 'flex-start',
   },
   userContent: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
+    maxWidth: '75%',
+    backgroundColor: 'white',
+    borderRadius: 20,
     borderBottomRightRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E0D5C5',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   assistantContent: {
-    backgroundColor: 'white',
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+    maxWidth: '85%',
   },
-  messageText: {
+  userText: {
     fontFamily: 'DM Sans',
     fontSize: 15,
     lineHeight: 22,
-  },
-  userText: {
-    color: 'white',
+    color: ArchivesTheme.colors.mutedNavy,
   },
   assistantText: {
+    fontFamily: 'DM Sans',
+    fontSize: 15,
+    lineHeight: 22,
     color: ArchivesTheme.colors.mutedNavy,
+  },
+  generatedImageContainer: {
+    width: '100%',
+    marginTop: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   generatedImage: {
     width: '100%',
-    height: 200,
-    marginTop: 12,
-    borderRadius: 12,
+    height: 220,
     backgroundColor: ArchivesTheme.colors.creamWhite,
   },
   tapToViewHint: {
@@ -558,29 +732,14 @@ const styles = StyleSheet.create({
     color: 'white',
     marginLeft: 4,
   },
-  aiAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  loadingBubble: {
+  loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 16,
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
   },
   loadingText: {
     fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
+    fontSize: 15,
+    color: ArchivesTheme.colors.mutedNavy,
     marginLeft: 8,
   },
   errorContainer: {
@@ -598,42 +757,55 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
+
+  // Input Bar
   inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    // paddingBottom is set dynamically using insets.bottom
+    gap: 8,
+  },
+  plusButton: {
+    width: 47,
+    height: 47,
+    borderRadius: 23.5,
     backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   inputWrapper: {
+    flex: 1,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    minHeight: 48,
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 25,
+    paddingLeft: 16,
+    paddingRight: 6,
+    paddingVertical: 6,
+    minHeight: 47,
   },
   input: {
     flex: 1,
-    fontFamily: 'DM Sans',
-    fontSize: 16,
+    fontFamily: 'DM Sans Medium',
+    fontSize: 14,
     color: ArchivesTheme.colors.mutedNavy,
     maxHeight: 100,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 0,
+    paddingBottom: 0,
+    marginRight: 8,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: ArchivesTheme.colors.persianOrange,
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    backgroundColor: ArchivesTheme.colors.mossGreen,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
   },
   sendButtonDisabled: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#C5C5C5',
   },
 
   // Full-screen image viewer styles

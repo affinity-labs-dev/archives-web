@@ -129,6 +129,8 @@ await AsyncStorage.setItem(...)  // ❌ NEVER
 | `posthog-react-native` | Analytics | Conditional init based on iOS ATT, session replay enabled |
 | `@sentry/react-native` | Error tracking | Performance tracing enabled (tracesSampleRate: 1.0) |
 | `expo-notifications` | Push notifications | Physical device required |
+| `customerio-reactnative` | Push notifications | Customer.io SDK for targeted campaigns |
+| `@google/genai` | AI features | Gemini API for AI chat and image generation |
 | `rive-react-native` | Animated illustrations | Used for Start Here speech bubble animation |
 | `react-native-bottom-tabs` | Native tab bar | Custom iOS-style tabs (not React Navigation tabs) |
 | `expo-tracking-transparency` | iOS ATT | Required before PostHog initialization on iOS |
@@ -174,6 +176,9 @@ components/
   - `EXPO_PUBLIC_POSTHOG_HOST` - Analytics host
   - `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` - iOS subscriptions
   - `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` - Android subscriptions
+  - `EXPO_PUBLIC_GEMINI_API_KEY` - Gemini AI features
+  - `EXPO_PUBLIC_CUSTOMERIO_CDP_API_KEY` - Customer.io analytics
+  - `EXPO_PUBLIC_CUSTOMERIO_SITE_ID` - Customer.io site identifier
 
 ## Common Development Tasks
 
@@ -253,7 +258,7 @@ await atomicProgressUpdate(adventureId, moduleId, {
 
 ## Lesson Types & Content Development
 
-**6 lesson types - detailed docs in `/docs/lesson-types/`:**
+**6 lesson types:**
 
 | Type | Best Reference | Key Features |
 |------|---------------|-------------|
@@ -389,18 +394,18 @@ console.log('🔔 Notification')    // Push notifications
 
 **iOS (App Store):**
 - Bundle: `ai.affinitylabs.archivesexpo` | Team: `LQ9LP2WW94` | App ID: `6751173663`
-- Build number: `104` (auto-increments on production builds)
+- Build number: `105` (auto-increments on production builds)
 - Universal Links via `link.archiveszone.app`
 
 **Android (Play Store):**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code: `25` (auto-increments on production builds)
+- Version code: `27` (auto-increments on production builds)
 - Edge-to-edge disabled, largeHeap enabled (Android OOM fixes)
 - App Links SHA-256: Must match console fingerprint
 
 **Shared:**
 - EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `3.0.1` | Runtime: `1.0.0` | Expo SDK: 54
+- App version: `3.1.0` | Runtime: `1.0.0` | Expo SDK: 54
 - New Architecture: Enabled (React Native 0.81.5)
 
 ## Important Patterns & Development Context
@@ -409,6 +414,8 @@ console.log('🔔 Notification')    // Push notifications
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus
+- **Customer.io integration** - Push notification campaigns with unified analytics tracking via `CustomerIOService.ts`
+- **Gemini AI features** - AI chat modal (`AIChatModal.tsx`), image generation and viewing capabilities
 - **Unified Supabase-driven era selection** - Eras loaded from Supabase `eras` table, content from `content` table with string `era_id`
 - **Generic era architecture** - ROI components renamed to reusable era structure (`useLessonBase` hook, unified `LessonPlayer` orchestrator)
 - **TWO ERAS system** - Umayyad Dynasty (Era 1) and Rise of Islam (Era 2) with separate content

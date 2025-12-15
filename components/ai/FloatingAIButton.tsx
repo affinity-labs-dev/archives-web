@@ -1,10 +1,12 @@
-// FloatingAIButton.tsx - Draggable floating AI button
+// FloatingAIButton.tsx - Draggable floating AI button (Batuta - AI Assistant)
 import React, { useRef } from 'react';
-import { StyleSheet, Animated, Dimensions, Platform } from 'react-native';
+import { StyleSheet, Animated, Dimensions } from 'react-native';
 import { PanGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import ArchivesTheme from '@/constants/ArchivesTheme';
+
+// Ibn Battuta avatar image
+const IbnIcon = require('@/assets/images/ai-images/Ibn.png');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MARGIN = 20;
@@ -68,7 +70,11 @@ export default function FloatingAIButton({ onPress }: FloatingAIButtonProps) {
       <Animated.View style={[styles.container, { transform: [{ translateX }, { translateY }, { scale }] }]}>
         <TapGestureHandler onHandlerStateChange={handleTapStateChange}>
           <Animated.View style={styles.button}>
-            <Ionicons name="chatbubble-ellipses" size={28} color="white" />
+            <Image
+              source={IbnIcon}
+              style={styles.icon}
+              contentFit="contain"
+            />
           </Animated.View>
         </TapGestureHandler>
       </Animated.View>
@@ -86,22 +92,11 @@ const styles = StyleSheet.create({
   button: {
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
-    borderRadius: BUTTON_SIZE / 2,
-    backgroundColor: ArchivesTheme.colors.persianOrange,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'white',
-    ...Platform.select({
-      ios: {
-        shadowColor: 'black',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+  },
+  icon: {
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
   },
 });

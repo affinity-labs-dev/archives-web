@@ -1,16 +1,47 @@
 // CustomerIOService.ts - Customer.io SDK initialization and management
-import { CustomerIO, CioLogLevel, CioRegion } from 'customerio-reactnative';
+// Note: Customer.io requires native modules - only works in dev builds, not Expo Go
+
+import Constants from 'expo-constants';
 
 const CDP_API_KEY = process.env.EXPO_PUBLIC_CUSTOMERIO_CDP_API_KEY || '';
 const SITE_ID = process.env.EXPO_PUBLIC_CUSTOMERIO_SITE_ID || '';
 
+let CustomerIOModule: any = null;
 let isInitialized = false;
+
+// Check if running in Expo Go (no native modules available)
+const isExpoGo = Constants.appOwnership === 'expo';
+
+/**
+ * Get Customer.io module lazily (only when needed)
+ */
+const getCustomerIO = () => {
+  if (isExpoGo) {
+    return null;
+  }
+
+  if (!CustomerIOModule) {
+    try {
+      CustomerIOModule = require('customerio-reactnative');
+    } catch (error) {
+      console.log('📧 [CustomerIO] Native module not available');
+      return null;
+    }
+  }
+
+  return CustomerIOModule;
+};
 
 /**
  * Initialize Customer.io SDK
  * Should be called early in app lifecycle (e.g., in _layout.tsx)
  */
 export const initializeCustomerIO = () => {
+  if (isExpoGo) {
+    console.log('📧 [CustomerIO] Skipping init - running in Expo Go');
+    return;
+  }
+
   if (isInitialized) {
     console.log('📧 [CustomerIO] Already initialized');
     return;
@@ -21,7 +52,12 @@ export const initializeCustomerIO = () => {
     return;
   }
 
+  const module = getCustomerIO();
+  if (!module) return;
+
   try {
+    const { CustomerIO, CioLogLevel, CioRegion } = module;
+
     const config = {
       cdpApiKey: CDP_API_KEY,
       region: CioRegion.EU,
@@ -44,13 +80,18 @@ export const initializeCustomerIO = () => {
  * Call this after user signs in
  */
 export const identifyUser = (userId: string, traits?: Record<string, unknown>) => {
-  if (!isInitialized) {
-    console.warn('⚠️ [CustomerIO] SDK not initialized, cannot identify user');
+  if (isExpoGo || !isInitialized) {
+    if (__DEV__) {
+      console.log('📧 [CustomerIO] Skipping identify - not available');
+    }
     return;
   }
 
+  const module = getCustomerIO();
+  if (!module) return;
+
   try {
-    CustomerIO.identify(userId, traits);
+    module.CustomerIO.identify(userId, traits);
     console.log('✅ [CustomerIO] User identified:', userId);
   } catch (error) {
     console.error('❌ [CustomerIO] Failed to identify user:', error);
@@ -61,10 +102,13 @@ export const identifyUser = (userId: string, traits?: Record<string, unknown>) =
  * Clear user identity (on sign out)
  */
 export const clearIdentity = () => {
-  if (!isInitialized) return;
+  if (isExpoGo || !isInitialized) return;
+
+  const module = getCustomerIO();
+  if (!module) return;
 
   try {
-    CustomerIO.clearIdentify();
+    module.CustomerIO.clearIdentify();
     console.log('✅ [CustomerIO] Identity cleared');
   } catch (error) {
     console.error('❌ [CustomerIO] Failed to clear identity:', error);
@@ -75,10 +119,18 @@ export const clearIdentity = () => {
  * Track a custom event
  */
 export const trackEvent = (name: string, properties?: Record<string, unknown>) => {
-  if (!isInitialized) return;
+  if (isExpoGo || !isInitialized) {
+    if (__DEV__) {
+      console.log(`📧 [CustomerIO] Skipping track "${name}" - not available`);
+    }
+    return;
+  }
+
+  const module = getCustomerIO();
+  if (!module) return;
 
   try {
-    CustomerIO.track(name, properties);
+    module.CustomerIO.track(name, properties);
     console.log('📊 [CustomerIO] Event tracked:', name);
   } catch (error) {
     console.error('❌ [CustomerIO] Failed to track event:', error);
@@ -89,10 +141,13 @@ export const trackEvent = (name: string, properties?: Record<string, unknown>) =
  * Register device token for push notifications
  */
 export const registerPushToken = (token: string) => {
-  if (!isInitialized) return;
+  if (isExpoGo || !isInitialized) return;
+
+  const module = getCustomerIO();
+  if (!module) return;
 
   try {
-    CustomerIO.registerDeviceToken(token);
+    module.CustomerIO.registerDeviceToken(token);
     console.log('🔔 [CustomerIO] Push token registered');
   } catch (error) {
     console.error('❌ [CustomerIO] Failed to register push token:', error);

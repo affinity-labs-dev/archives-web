@@ -85,6 +85,34 @@ export default function AdventuresScreen() {
     }).length;
   }, [adventures, userProgress]);
 
+  // Calculate quiz-based progress (for progress bar)
+  const quizProgress = useMemo(() => {
+    if (!adventures || adventures.length === 0) {
+      return { correctAnswers: 0, totalQuestions: 0, totalXP: 0 };
+    }
+
+    // Count total modules across all adventures (each module has 1 quiz with 5 questions)
+    const totalModules = adventures.reduce((sum, adventure) => {
+      return sum + (adventure.content_list?.length || 0);
+    }, 0);
+    const totalQuestions = totalModules * 5; // 5 questions per quiz
+
+    // Sum up correct answers and XP from user progress
+    let correctAnswers = 0;
+    let totalXP = 0;
+
+    userProgress.forEach(progress => {
+      if (progress.quizCorrectAnswers !== undefined) {
+        correctAnswers += progress.quizCorrectAnswers;
+        totalXP += progress.quizCorrectAnswers * 10; // 10 XP per correct answer
+      }
+    });
+
+    console.log(`📊 [Adventures] Quiz progress: ${correctAnswers}/${totalQuestions} (${Math.round((correctAnswers / totalQuestions) * 100)}%)`);
+
+    return { correctAnswers, totalQuestions, totalXP };
+  }, [adventures, userProgress]);
+
   // User sign-in detection for data reload
   const { user, isSignedIn } = useUser();
 
@@ -224,9 +252,9 @@ export default function AdventuresScreen() {
     <View style={styles.container}>
       <EraProgressHeader
         title={selectedEraData?.title || ''}
-        subtitle={selectedEraData?.timeline || ''}
-        currentStep={completedAdventuresCount}
-        totalSteps={adventures.length}
+        correctAnswers={quizProgress.correctAnswers}
+        totalQuestions={quizProgress.totalQuestions}
+        totalXP={quizProgress.totalXP}
       />
       <BentoGridScreen
         adventures={adventures}
