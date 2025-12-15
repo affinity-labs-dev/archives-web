@@ -1,7 +1,7 @@
 // AIContext.tsx - Global AI chat state management
 // Manages floating button, chat modal, message history, and context awareness
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChatMessage } from '@/components/ai/AIChatModal';
 import { useProgress } from './ProgressContext';
@@ -141,14 +141,14 @@ export function AIProvider({ children }: AIProviderProps) {
     }
   };
 
-  // Update context
-  const updateContext = (newContext: Partial<AIContextType['currentContext']>) => {
+  // Update context (memoized to prevent infinite loops in useEffect dependencies)
+  const updateContext = useCallback((newContext: Partial<AIContextType['currentContext']>) => {
     setCurrentContext((prev) => ({
       ...prev,
       ...newContext,
     }));
     console.log('📍 [AIContext] Context updated:', newContext);
-  };
+  }, []);
 
   // Get user progress summary for AI personalization
   const getUserProgressSummary = () => {

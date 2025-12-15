@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAdventures } from '@/hooks/useAdventures';
 import { useEras } from '@/hooks/useEras';
 import { useProgress } from '@/context/ProgressContext';
+import { useAI } from '@/context/AIContext';
 import BentoGridScreen from '@/components/adventure/types/bento-grid/BentoGridScreen';
 import EraProgressHeader from '@/components/shared/EraProgressHeader';
 import ComingSoonView from '@/components/eras/ComingSoonView';
@@ -38,6 +39,9 @@ export default function AdventuresScreen() {
   // Get selected era from context (data-driven)
   const { selectedEra } = useProgress();
 
+  // Get AI context for updating era awareness
+  const { updateContext } = useAI();
+
   // Map context era to Supabase era_id format
   const supabaseEraId = selectedEra ? (ERA_ID_MAP[selectedEra] || selectedEra) : '';
 
@@ -52,6 +56,18 @@ export default function AdventuresScreen() {
   const selectedEraData = useMemo(() => {
     return eras.find(era => era.era_id === supabaseEraId);
   }, [eras, supabaseEraId]);
+
+  // Update AI context when era changes (for AI chat awareness)
+  useEffect(() => {
+    if (selectedEraData) {
+      updateContext({
+        eraId: supabaseEraId,
+        eraName: selectedEraData.title || supabaseEraId,
+        currentScreen: 'era-view',
+      });
+      console.log('🤖 [Adventures] Updated AI context for era:', selectedEraData.title);
+    }
+  }, [selectedEraData, supabaseEraId, updateContext]);
 
   // Calculate completed adventures count
   const completedAdventuresCount = useMemo(() => {

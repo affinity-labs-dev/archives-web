@@ -63,23 +63,52 @@ class AIService {
       console.log('📝 Question:', request.questionText);
 
       // Call Gemini API using SDK (text model for explanations)
+      // Note: Gemini 3 uses dynamic thinking by default (high), which consumes tokens
+      // Setting thinkingLevel to "low" ensures tokens are used for output, not internal reasoning
       const response = await this.ai.models.generateContent({
         model: this.textModel,
         contents: [{ text: prompt }],
         config: {
-          maxOutputTokens: 150,
-          temperature: 0.7,
+          maxOutputTokens: 1024,
+          temperature: 1.0, // Gemini 3 recommends keeping temperature at 1.0
+          thinkingConfig: {
+            thinkingLevel: 'low', // Minimize internal reasoning to preserve output tokens
+          },
         }
       });
 
       console.log('📦 [AIService] Full response:', JSON.stringify(response, null, 2));
 
-      // Extract text from response
+      // Extract text from response (with safety handling)
       let aiResponse = '';
-      if (response.candidates && response.candidates[0] && response.candidates[0].content) {
-        for (const part of response.candidates[0].content.parts) {
+      const candidate = response.candidates?.[0];
+      const finishReason = candidate?.finishReason;
+
+      // 1. Capture whatever text was generated (even if incomplete)
+      if (candidate?.content?.parts) {
+        for (const part of candidate.content.parts) {
           if (part.text) {
             aiResponse += part.text;
+          }
+        }
+      }
+
+      // 2. Handle the Finish Reason smartly
+      if (finishReason && finishReason !== 'STOP') {
+        if (finishReason === 'MAX_TOKENS') {
+          // MAX_TOKENS is just truncation - we still accept the partial response
+          console.warn('⚠️ [AIService] Response truncated (MAX_TOKENS). Using partial text.');
+        } else {
+          // This is a REAL block (Safety, Recitation, etc.) where we likely have no text
+          console.warn(`⛔ [AIService] Response blocked. Reason: ${finishReason}`);
+          if (!aiResponse) {
+            if (finishReason === 'SAFETY') {
+              aiResponse = '{"explanation": "I cannot answer that due to safety guidelines.", "encouragement": "Try a different question!"}';
+            } else if (finishReason === 'RECITATION') {
+              aiResponse = '{"explanation": "I cannot reproduce that specific content directly.", "encouragement": "Ask in a different way!"}';
+            } else {
+              aiResponse = '{"explanation": "I\'m having trouble generating a response right now.", "encouragement": "Please try again!"}';
+            }
           }
         }
       }
@@ -250,26 +279,58 @@ Respond as JSON:
       ].join('\n');
 
       // Call Gemini API using SDK (text model for chat)
+      // Note: Gemini 3 uses dynamic thinking by default (high), which consumes tokens
+      // Setting thinkingLevel to "low" ensures tokens are used for output, not internal reasoning
       const response = await this.ai!.models.generateContent({
         model: this.textModel,
         contents: [{ text: conversationText }],
         config: {
-          maxOutputTokens: 200,
-          temperature: 0.8,
+          maxOutputTokens: 2048,
+          temperature: 1.0, // Gemini 3 recommends keeping temperature at 1.0
+          thinkingConfig: {
+            thinkingLevel: 'low', // Minimize internal reasoning to preserve output tokens
+          },
         }
       });
 
-      // Extract text from response
+      // Extract text from response (with safety handling)
       let aiResponse = '';
-      if (response.candidates && response.candidates[0] && response.candidates[0].content) {
-        for (const part of response.candidates[0].content.parts) {
+      const candidate = response.candidates?.[0];
+      const finishReason = candidate?.finishReason;
+
+      // Debug: Log raw candidate structure for chat responses
+      console.log('🔍 [AIService] RAW CHAT CANDIDATE:', JSON.stringify(candidate, null, 2));
+
+      // 1. Capture whatever text was generated (even if incomplete)
+      if (candidate?.content?.parts) {
+        for (const part of candidate.content.parts) {
           if (part.text) {
             aiResponse += part.text;
           }
         }
       }
 
-      console.log('✅ [AIService] Chat response received');
+      // 2. Handle the Finish Reason smartly
+      if (finishReason && finishReason !== 'STOP') {
+        if (finishReason === 'MAX_TOKENS') {
+          // MAX_TOKENS is just truncation - we still accept the partial response
+          console.warn('⚠️ [AIService] Chat response truncated (MAX_TOKENS). Using partial text.');
+        } else {
+          // This is a REAL block (Safety, Recitation, etc.) where we likely have no text
+          console.warn(`⛔ [AIService] Chat response blocked. Reason: ${finishReason}`);
+          if (!aiResponse) {
+            if (finishReason === 'SAFETY') {
+              aiResponse = 'I cannot answer that due to safety guidelines. Please try a different question.';
+            } else if (finishReason === 'RECITATION') {
+              aiResponse = 'I cannot reproduce that specific content directly. Could you ask in a different way?';
+            } else {
+              aiResponse = 'I\'m having trouble generating a response right now. Please try again.';
+            }
+          }
+        }
+      }
+
+      console.log('✅ [AIService] Chat response received, length:', aiResponse.length);
 
       return aiResponse;
     } catch (error) {
@@ -379,27 +440,40 @@ RESPONSE STYLE:
       // Build enhanced prompt for historical imagery
       const enhancedPrompt = this.buildImagePrompt(prompt, context);
 
-      // Call Gemini Image API
+      // Call Gemini Image API (per official Gemini 3 docs)
       const response = await this.ai.models.generateContent({
         model: this.imageModel,
         contents: [{ text: enhancedPrompt }],
         config: {
-          // Image generation config
-          responseModalities: ['image', 'text'],
+          // Image generation config per official docs
+          imageConfig: {
+            aspectRatio: '16:9',
+            imageSize: '2K', // Options: 2K, 4K
+          },
         }
       });
 
       console.log('📦 [AIService] Image response received');
 
-      // Extract image from response
-      if (response.candidates && response.candidates[0] && response.candidates[0].content) {
-        for (const part of response.candidates[0].content.parts) {
+      // Extract image from response (with safety handling)
+      const candidate = response.candidates?.[0];
+      const content = candidate?.content;
+
+      // Handle cases where response is blocked
+      if (!content?.parts && candidate?.finishReason) {
+        console.warn(`⚠️ [AIService] Image generation blocked. Reason: ${candidate.finishReason}`);
+        throw new Error(`Image generation blocked: ${candidate.finishReason}`);
+      }
+
+      // Check if we have valid content parts to iterate over
+      if (content?.parts) {
+        for (const part of content.parts) {
           if (part.inlineData) {
             console.log('✅ [AIService] Image generated successfully');
             return {
               imageBase64: part.inlineData.data,
               mimeType: part.inlineData.mimeType || 'image/png',
-              caption: response.candidates[0].content.parts.find(p => p.text)?.text,
+              caption: content.parts.find((p: any) => p.text)?.text,
             };
           }
         }
@@ -436,23 +510,40 @@ Generate a single high-quality image.`;
 
   /**
    * Check if a message is requesting image generation
+   * More flexible matching to handle variations like "generate an image", "create the image", etc.
    */
   isImageRequest(message: string): boolean {
-    const imageKeywords = [
-      'generate image',
-      'create image',
-      'draw',
-      'show me',
+    const lowerMessage = message.toLowerCase();
+
+    // Check for action + image combinations (handles "generate an image", "create the picture", etc.)
+    const actionWords = ['generate', 'create', 'make', 'draw', 'show', 'visualize', 'produce'];
+    const imageWords = ['image', 'picture', 'illustration', 'visual', 'artwork', 'scene'];
+
+    // If message contains both an action word AND an image word, it's likely an image request
+    const hasAction = actionWords.some(word => lowerMessage.includes(word));
+    const hasImageWord = imageWords.some(word => lowerMessage.includes(word));
+
+    if (hasAction && hasImageWord) {
+      console.log('🎨 [AIService] Image request detected via action+image pattern');
+      return true;
+    }
+
+    // Also check for direct phrases
+    const directPhrases = [
       'picture of',
       'illustration of',
-      'visualize',
       'image of',
-      'make an image',
-      'create a picture',
+      'draw me',
+      'show me what',
     ];
 
-    const lowerMessage = message.toLowerCase();
-    return imageKeywords.some(keyword => lowerMessage.includes(keyword));
+    const hasDirectPhrase = directPhrases.some(phrase => lowerMessage.includes(phrase));
+    if (hasDirectPhrase) {
+      console.log('🎨 [AIService] Image request detected via direct phrase');
+      return true;
+    }
+
+    return false;
   }
 }
 

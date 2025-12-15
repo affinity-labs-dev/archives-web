@@ -4,11 +4,15 @@ import { useAI } from '@/context/AIContext';
 import { aiService } from '@/services/AIService';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
+import * as MediaLibrary from 'expo-media-library';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,6 +24,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export interface ChatMessage {
   id: string;
@@ -56,6 +62,10 @@ export default function AIChatModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Image viewer state
+  const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
   const scrollViewRef = useRef<ScrollView>(null);
   const { getUserProgressSummary } = useAI();
 
@@ -68,11 +78,56 @@ export default function AIChatModal({
   useEffect(() => {
     if (visible) {
       analyticsService.trackCustomEvent('ai_chat_opened', {
-        era_id: context.eraId,
+        era_id: context?.eraId || 'unknown_era',
         message_count: messages.length,
       });
     }
   }, [visible]);
+
+  // Save image to device photos
+  const handleSaveToPhotos = async () => {
+    if (!selectedImage) return;
+
+    setIsSaving(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      // Request permission
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to save images to your photo library.');
+        setIsSaving(false);
+        return;
+      }
+
+      // Create a temporary file
+      const filename = `archives_ai_${Date.now()}.png`;
+      const fileUri = FileSystem.cacheDirectory + filename;
+
+      // Write base64 to file
+      await FileSystem.writeAsStringAsync(fileUri, selectedImage.base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Save to media library
+      await MediaLibrary.saveToLibraryAsync(fileUri);
+
+      // Clean up temp file
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Saved!', 'Image saved to your photo library.');
+      analyticsService.trackCustomEvent('ai_image_saved', {
+        era_id: context?.eraId || 'unknown_era',
+      });
+    } catch (err) {
+      console.error('❌ [AIChatModal] Error saving image:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Error', 'Failed to save image. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
@@ -121,7 +176,7 @@ export default function AIChatModal({
 
           setMessages((prev) => [...prev, aiMsg]);
           analyticsService.trackCustomEvent('ai_image_generated', {
-            era_id: context.eraId,
+            era_id: context?.eraId || 'unknown_era',
           });
         } else {
           throw new Error('Failed to generate image');
@@ -149,7 +204,7 @@ export default function AIChatModal({
 
         setMessages((prev) => [...prev, aiMsg]);
         analyticsService.trackCustomEvent('ai_chat_response_received', {
-          era_id: context.eraId,
+          era_id: context?.eraId || 'unknown_era',
           response_length: response.length,
         });
       }
@@ -158,7 +213,7 @@ export default function AIChatModal({
     } catch (err) {
       console.error('❌ [AIChatModal] Error:', err);
       setError('Sorry, I could not process that. Please try again.');
-      analyticsService.trackCustomEvent('ai_chat_error', { era_id: context.eraId });
+      analyticsService.trackCustomEvent('ai_chat_error', { era_id: context?.eraId || 'unknown_era' });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsLoading(false);
@@ -168,10 +223,16 @@ export default function AIChatModal({
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     analyticsService.trackCustomEvent('ai_chat_closed', {
-      era_id: context.eraId,
+      era_id: context?.eraId || 'unknown_era',
       message_count: messages.length,
     });
     onClose();
+  };
+
+  // Open image in full screen viewer
+  const handleImagePress = (image: { base64: string; mimeType: string }) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedImage(image);
   };
 
   return (
@@ -236,13 +297,22 @@ export default function AIChatModal({
                     <Text style={[styles.messageText, message.role === 'user' ? styles.userText : styles.assistantText]}>
                       {message.content}
                     </Text>
-                    {/* Render generated image if present */}
+                    {/* Render generated image if present - tappable for full view */}
                     {message.image && (
-                      <Image
-                        source={{ uri: `data:${message.image.mimeType};base64,${message.image.base64}` }}
-                        style={styles.generatedImage}
-                        contentFit="contain"
-                      />
+                      <TouchableOpacity
+                        onPress={() => handleImagePress(message.image!)}
+                        activeOpacity={0.8}
+                      >
+                        <Image
+                          source={{ uri: `data:${message.image.mimeType};base64,${message.image.base64}` }}
+                          style={styles.generatedImage}
+                          contentFit="contain"
+                        />
+                        <View style={styles.tapToViewHint}>
+                          <Ionicons name="expand-outline" size={14} color="white" />
+                          <Text style={styles.tapToViewText}>Tap to view</Text>
+                        </View>
+                      </TouchableOpacity>
                     )}
                   </View>
                 </View>
@@ -294,6 +364,51 @@ export default function AIChatModal({
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* Full-screen Image Viewer Modal */}
+      <Modal
+        visible={selectedImage !== null}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setSelectedImage(null)}
+      >
+        <View style={styles.imageViewerContainer}>
+          {/* Close button */}
+          <TouchableOpacity
+            style={styles.imageViewerCloseButton}
+            onPress={() => setSelectedImage(null)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close-circle" size={40} color="white" />
+          </TouchableOpacity>
+
+          {/* Full-screen image */}
+          {selectedImage && (
+            <Image
+              source={{ uri: `data:${selectedImage.mimeType};base64,${selectedImage.base64}` }}
+              style={styles.fullScreenImage}
+              contentFit="contain"
+            />
+          )}
+
+          {/* Save to Photos button */}
+          <TouchableOpacity
+            style={styles.saveToPhotosButton}
+            onPress={handleSaveToPhotos}
+            disabled={isSaving}
+            activeOpacity={0.8}
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={24} color="white" />
+                <Text style={styles.saveToPhotosText}>Save to Photos</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -425,6 +540,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: ArchivesTheme.colors.creamWhite,
   },
+  tapToViewHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+  },
+  tapToViewText: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: 'white',
+    marginLeft: 4,
+  },
   aiAvatar: {
     width: 32,
     height: 32,
@@ -501,5 +634,40 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#E0E0E0',
+  },
+
+  // Full-screen image viewer styles
+  imageViewerContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageViewerCloseButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 30,
+    right: 20,
+    zIndex: 10,
+  },
+  fullScreenImage: {
+    width: SCREEN_WIDTH - 32,
+    height: SCREEN_HEIGHT * 0.7,
+  },
+  saveToPhotosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 50 : 30,
+  },
+  saveToPhotosText: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    marginLeft: 8,
   },
 });
