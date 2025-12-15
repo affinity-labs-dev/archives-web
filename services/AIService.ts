@@ -24,7 +24,10 @@ interface QuizExplanationRequest {
 
 class AIService {
   private ai: GoogleGenAI | null = null;
-  private model = 'gemini-3-pro-image-preview';
+  // Text model for chat and quiz explanations
+  private textModel = 'gemini-3-pro-preview';
+  // Image model for generating historical images
+  private imageModel = 'gemini-3-pro-image-preview';
 
   constructor() {
     // Get Gemini API key from environment
@@ -59,9 +62,9 @@ class AIService {
       console.log('🤖 [AIService] Requesting explanation from Gemini...');
       console.log('📝 Question:', request.questionText);
 
-      // Call Gemini API using SDK
+      // Call Gemini API using SDK (text model for explanations)
       const response = await this.ai.models.generateContent({
-        model: this.model,
+        model: this.textModel,
         contents: [{ text: prompt }],
         config: {
           maxOutputTokens: 150,
@@ -246,9 +249,9 @@ Respond as JSON:
         'Assistant:'
       ].join('\n');
 
-      // Call Gemini API using SDK
+      // Call Gemini API using SDK (text model for chat)
       const response = await this.ai!.models.generateContent({
-        model: this.model,
+        model: this.textModel,
         contents: [{ text: conversationText }],
         config: {
           maxOutputTokens: 200,
@@ -350,6 +353,106 @@ RESPONSE STYLE:
 - Warm and encouraging
 - Factual and scholarly
 - Concise but thorough`;
+  }
+
+  /**
+   * Generate a historical image based on user prompt
+   * Uses Gemini 3 Pro Image model (Nano Banana Pro)
+   */
+  async generateImage(params: {
+    prompt: string;
+    context?: {
+      eraName?: string;
+      adventureId?: string;
+    };
+  }): Promise<{ imageBase64: string; mimeType: string; caption?: string } | null> {
+    if (!this.isAvailable() || !this.ai) {
+      throw new Error('AI Service is not available. Please configure EXPO_PUBLIC_GEMINI_API_KEY.');
+    }
+
+    const { prompt, context = {} } = params;
+
+    try {
+      console.log('🎨 [AIService] Generating image with Gemini...');
+      console.log('📝 Prompt:', prompt);
+
+      // Build enhanced prompt for historical imagery
+      const enhancedPrompt = this.buildImagePrompt(prompt, context);
+
+      // Call Gemini Image API
+      const response = await this.ai.models.generateContent({
+        model: this.imageModel,
+        contents: [{ text: enhancedPrompt }],
+        config: {
+          // Image generation config
+          responseModalities: ['image', 'text'],
+        }
+      });
+
+      console.log('📦 [AIService] Image response received');
+
+      // Extract image from response
+      if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            console.log('✅ [AIService] Image generated successfully');
+            return {
+              imageBase64: part.inlineData.data,
+              mimeType: part.inlineData.mimeType || 'image/png',
+              caption: response.candidates[0].content.parts.find(p => p.text)?.text,
+            };
+          }
+        }
+      }
+
+      console.warn('⚠️ [AIService] No image in response');
+      return null;
+    } catch (error) {
+      console.error('❌ [AIService] Error generating image:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Build enhanced prompt for historical image generation
+   */
+  private buildImagePrompt(userPrompt: string, context: { eraName?: string; adventureId?: string }): string {
+    const { eraName = 'Islamic History' } = context;
+
+    return `Create a historically accurate, educational illustration for ${eraName}.
+
+User request: ${userPrompt}
+
+Style guidelines:
+- Artistic, educational illustration style (not photorealistic)
+- Historically accurate clothing, architecture, and setting
+- Respectful representation of Islamic history and culture
+- No faces of prophets or religious figures (show from behind or symbolic)
+- Rich colors and detailed backgrounds
+- Suitable for educational app (family-friendly)
+
+Generate a single high-quality image.`;
+  }
+
+  /**
+   * Check if a message is requesting image generation
+   */
+  isImageRequest(message: string): boolean {
+    const imageKeywords = [
+      'generate image',
+      'create image',
+      'draw',
+      'show me',
+      'picture of',
+      'illustration of',
+      'visualize',
+      'image of',
+      'make an image',
+      'create a picture',
+    ];
+
+    const lowerMessage = message.toLowerCase();
+    return imageKeywords.some(keyword => lowerMessage.includes(keyword));
   }
 }
 

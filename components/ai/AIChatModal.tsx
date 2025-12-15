@@ -5,6 +5,7 @@ import { aiService } from '@/services/AIService';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,6 +26,11 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  // Optional image data for generated images
+  image?: {
+    base64: string;
+    mimeType: string;
+  };
 }
 
 interface AIChatModalProps {
@@ -87,32 +93,70 @@ export default function AIChatModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      const progressSummary = getUserProgressSummary();
-      const response = await aiService.getChatResponse({
-        userMessage,
-        conversationHistory: messages,
-        context: {
-          eraName: context.eraName || 'Islamic History',
-          adventureId: context.adventureId,
-          currentScreen: context.currentScreen,
-        },
-        userProgress: progressSummary,
-      });
+      // Check if user is requesting an image
+      const isImageRequest = aiService.isImageRequest(userMessage);
 
-      const aiMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response,
-        timestamp: new Date(),
-      };
+      if (isImageRequest) {
+        // Generate image
+        console.log('🎨 [AIChatModal] Image request detected');
+        const imageResult = await aiService.generateImage({
+          prompt: userMessage,
+          context: {
+            eraName: context.eraName,
+            adventureId: context.adventureId,
+          },
+        });
 
-      setMessages((prev) => [...prev, aiMsg]);
-      analyticsService.trackCustomEvent('ai_chat_response_received', {
-        era_id: context.eraId,
-        response_length: response.length,
-      });
+        if (imageResult) {
+          const aiMsg: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: imageResult.caption || 'Here is the generated image:',
+            timestamp: new Date(),
+            image: {
+              base64: imageResult.imageBase64,
+              mimeType: imageResult.mimeType,
+            },
+          };
+
+          setMessages((prev) => [...prev, aiMsg]);
+          analyticsService.trackCustomEvent('ai_image_generated', {
+            era_id: context.eraId,
+          });
+        } else {
+          throw new Error('Failed to generate image');
+        }
+      } else {
+        // Regular text chat
+        const progressSummary = getUserProgressSummary();
+        const response = await aiService.getChatResponse({
+          userMessage,
+          conversationHistory: messages,
+          context: {
+            eraName: context.eraName || 'Islamic History',
+            adventureId: context.adventureId,
+            currentScreen: context.currentScreen,
+          },
+          userProgress: progressSummary,
+        });
+
+        const aiMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: response,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, aiMsg]);
+        analyticsService.trackCustomEvent('ai_chat_response_received', {
+          era_id: context.eraId,
+          response_length: response.length,
+        });
+      }
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
+      console.error('❌ [AIChatModal] Error:', err);
       setError('Sorry, I could not process that. Please try again.');
       analyticsService.trackCustomEvent('ai_chat_error', { era_id: context.eraId });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -160,7 +204,7 @@ export default function AIChatModal({
                   <Ionicons name="sparkles" size={20} color="white" />
                 </View>
                 <Text style={styles.welcomeText}>
-                  Hi! I'm your AI learning companion. I know about {context.eraName || 'Islamic history'} and your progress. Ask me anything!
+                  Hi! I&apos;m your AI learning companion. I know about {context.eraName || 'Islamic history'} and your progress. Ask me anything!
                 </Text>
                 <View style={styles.suggestionsContainer}>
                   {['What should I learn next?', 'Explain this era to me', 'Quiz me on what I learned'].map((q) => (
@@ -192,6 +236,14 @@ export default function AIChatModal({
                     <Text style={[styles.messageText, message.role === 'user' ? styles.userText : styles.assistantText]}>
                       {message.content}
                     </Text>
+                    {/* Render generated image if present */}
+                    {message.image && (
+                      <Image
+                        source={{ uri: `data:${message.image.mimeType};base64,${message.image.base64}` }}
+                        style={styles.generatedImage}
+                        contentFit="contain"
+                      />
+                    )}
                   </View>
                 </View>
               ))
@@ -365,6 +417,13 @@ const styles = StyleSheet.create({
   },
   assistantText: {
     color: ArchivesTheme.colors.mutedNavy,
+  },
+  generatedImage: {
+    width: '100%',
+    height: 200,
+    marginTop: 12,
+    borderRadius: 12,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
   },
   aiAvatar: {
     width: 32,
