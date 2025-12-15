@@ -127,6 +127,7 @@ await AsyncStorage.setItem(...)  // ❌ NEVER
 | `react-native-purchases` | Subscriptions | RevenueCat with intro offer eligibility checking (expo-iap installed but unused) |
 | `@supabase/supabase-js` | Cloud sync | Single table with JSONB column |
 | `posthog-react-native` | Analytics | Conditional init based on iOS ATT, session replay enabled |
+| `@sentry/react-native` | Error tracking | Performance tracing enabled (tracesSampleRate: 1.0) |
 | `expo-notifications` | Push notifications | Physical device required |
 | `rive-react-native` | Animated illustrations | Used for Start Here speech bubble animation |
 | `react-native-bottom-tabs` | Native tab bar | Custom iOS-style tabs (not React Navigation tabs) |
@@ -265,6 +266,11 @@ await atomicProgressUpdate(adventureId, moduleId, {
 
 **Best reference lesson:** `Adventure1_Module1_Lesson1.tsx` has complete animation system, cross-platform gestures, video completion detection, progress tracking integration.
 
+**Reusable lesson hooks and components:**
+- `hooks/useLessonBase.ts` - Shared lesson logic (video state, progress tracking, navigation)
+- `components/LessonPlayer.tsx` - Unified orchestrator for all lesson types
+- `components/eras/` - Generic era components (can be reused for new eras)
+
 **Content status:**
 - **Umayyad Dynasty (Era 1)**: Complete (5 adventures, 15 modules, 30 lessons, 15 quizzes)
 - **Rise of Islam (Era 2)**: Adventure 1 Module 1 complete, reusable components created
@@ -383,18 +389,18 @@ console.log('🔔 Notification')    // Push notifications
 
 **iOS (App Store):**
 - Bundle: `ai.affinitylabs.archivesexpo` | Team: `LQ9LP2WW94` | App ID: `6751173663`
-- Build number: `102` (auto-increments on production builds)
+- Build number: `104` (auto-increments on production builds)
 - Universal Links via `link.archiveszone.app`
 
 **Android (Play Store):**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code: `23` (auto-increments on production builds)
-- Edge-to-edge disabled
+- Version code: `25` (auto-increments on production builds)
+- Edge-to-edge disabled, largeHeap enabled (Android OOM fixes)
 - App Links SHA-256: Must match console fingerprint
 
 **Shared:**
 - EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `2.2.8` | Runtime: `1.0.0` | Expo SDK: 54
+- App version: `3.0.1` | Runtime: `1.0.0` | Expo SDK: 54
 - New Architecture: Enabled (React Native 0.81.5)
 
 ## Important Patterns & Development Context
@@ -403,10 +409,12 @@ console.log('🔔 Notification')    // Push notifications
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus
-- **Unified Supabase-driven era selection** - Eras now loaded from Supabase `content_list` table
+- **Unified Supabase-driven era selection** - Eras loaded from Supabase `eras` table, content from `content` table with string `era_id`
+- **Generic era architecture** - ROI components renamed to reusable era structure (`useLessonBase` hook, unified `LessonPlayer` orchestrator)
 - **TWO ERAS system** - Umayyad Dynasty (Era 1) and Rise of Islam (Era 2) with separate content
-- **PostHog analytics improvements** - Custom screen names for ROI, user identity fixes, comprehensive quiz XP tracking
-- **Walkthrough hints fixes** - Proper z-index layering, centered continue hints
+- **Sentry integration** - Error tracking and performance tracing enabled (tracesSampleRate: 1.0)
+- **Android OOM fixes** - largeHeap enabled, video source simplified for HLS compatibility
+- **Gamified components** - Milestone system, era progress headers moved to era-level
 
 ### Local-First with Transparent Sync
 ```

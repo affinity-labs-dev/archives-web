@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS, WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { analyticsService } from '@/services/AnalyticsService';
+import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
 import AdventureComponent from '@/components/adventure/shared/AdventureComponent';
 import AdventureCard from './AdventureCard';
 import XPMilestoneScreen from '@/components/gamified/XPMilestoneScreen';
@@ -260,17 +261,26 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     setSelectedAdventureCard(adventure);
   };
 
+  // Calculate unlock status for all adventures (memoized)
+  // Rules: Adv 1 = OPEN, Adv 2-5 = progressive unlock, Adv 6+ = OPEN (bonus)
+  const adventureUnlockStatus = useMemo(() => {
+    return getAdventureUnlockStatus(adventures, userProgress);
+  }, [adventures, userProgress]);
+
   // Render function for FlatList items (memoized for performance)
   const renderAdventureItem = useCallback(({ item: adventure }: { item: Adventure }) => {
+    const isLocked = !adventureUnlockStatus[adventure.readable_id];
+
     return (
       <AdventureComponent
         adventure={adventure}
         userProgress={userProgress}
         onCardPress={(contentItem) => handleCardPress(contentItem, adventure.readable_id)}
         onTitlePress={() => handleAdventureStarted(adventure)}
+        isLocked={isLocked}
       />
     );
-  }, [userProgress]);
+  }, [userProgress, adventureUnlockStatus]);
 
   // Key extractor for FlatList (memoized)
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);

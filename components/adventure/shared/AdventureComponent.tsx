@@ -188,9 +188,10 @@ interface AdventureComponentProps {
   userProgress: UserProgress[];
   onCardPress?: (contentItem: ContentItem) => void;
   onTitlePress?: () => void;
+  isLocked?: boolean;
 }
 
-const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(function AdventureComponent({ adventure, userProgress, onCardPress, onTitlePress }) {
+const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(function AdventureComponent({ adventure, userProgress, onCardPress, onTitlePress, isLocked = false }) {
   // Sort by order_by and take first 5 items
   const sortedContent = [...(adventure.content_list || [])]
     .sort((a, b) => a.order_by - b.order_by)
@@ -284,10 +285,13 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
       <View key={item.id} style={[styles.cardWrapper, cardStyle]}>
         <TouchableOpacity
           style={styles.card}
-          activeOpacity={0.9}
+          activeOpacity={isLocked ? 1 : 0.9}
+          disabled={isLocked}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onCardPress?.(item);
+            if (!isLocked) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onCardPress?.(item);
+            }
           }}
         >
           <Thumbnail
@@ -381,24 +385,26 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
       <View style={styles.titleSection}>
         <TouchableOpacity
           onPress={() => {
-            if (onTitlePress) {
+            if (onTitlePress && !isLocked) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onTitlePress();
             }
           }}
-          activeOpacity={0.7}
+          activeOpacity={isLocked ? 1 : 0.7}
+          disabled={isLocked}
         >
           <Text style={styles.mainTitle}>{adventure.adventure_title}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.shareButton}
           onPress={() => {
-            if (onTitlePress) {
+            if (onTitlePress && !isLocked) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onTitlePress();
             }
           }}
-          activeOpacity={0.7}
+          activeOpacity={isLocked ? 1 : 0.7}
+          disabled={isLocked}
         >
           <AdventureIcon iconUrl={adventure.icon_url} />
         </TouchableOpacity>
@@ -410,6 +416,15 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
       {/* Bento Grid - Responsive 5 cards layout */}
       <View style={[styles.bentoGridContainer, { height: containerHeight }]}>
         {sortedContent.map((item, index) => renderCard(item, index))}
+
+        {/* Lock Overlay - Shown when adventure is locked */}
+        {isLocked && (
+          <View style={styles.lockOverlay}>
+            <View style={styles.lockBanner}>
+              <Text style={styles.lockText}>Complete above modules to unlock this!</Text>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -675,6 +690,32 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingBottom: 12,
     paddingRight: 7,
+  },
+
+  // Lock Overlay - Matching Figma design
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+    borderRadius: 10.28,
+  },
+  lockBanner: {
+    backgroundColor: '#C99151', // Persian Orange
+    borderRadius: 11,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginHorizontal: 30,
+    maxWidth: 363,
+  },
+  lockText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '600',
+    fontFamily: 'DMSans-SemiBold',
+    textAlign: 'center',
+    lineHeight: 25,
   },
 });
 
