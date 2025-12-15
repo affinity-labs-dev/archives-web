@@ -34,7 +34,9 @@ export function useLevel() {
 
   const calculateLevel = async () => {
     try {
-      const totalXP = calculateTotalXP(moduleProgress, []);
+      // Defensive null check to prevent crashes on Android
+      const safeModuleProgress = moduleProgress || [];
+      const totalXP = calculateTotalXP(safeModuleProgress, []);
 
       // Find current level based on XP
       const level = LEVELS.find((l) => totalXP >= l.minXP && totalXP < l.maxXP) || LEVELS[LEVELS.length - 1];
@@ -64,7 +66,8 @@ export function useLevel() {
   };
 
   const getProgress = () => {
-    const totalXP = calculateTotalXP(moduleProgress, []);
+    const safeModuleProgress = moduleProgress || [];
+    const totalXP = calculateTotalXP(safeModuleProgress, []);
     const xpInCurrentLevel = totalXP - currentLevel.minXP;
     const xpNeededForNextLevel = currentLevel.maxXP - currentLevel.minXP;
 
@@ -80,7 +83,7 @@ export function useLevel() {
     return nextLevelIndex < LEVELS.length ? LEVELS[nextLevelIndex] : null;
   };
 
-  const getTotalXP = () => calculateTotalXP(moduleProgress, []);
+  const getTotalXP = () => calculateTotalXP(moduleProgress || [], []);
 
   const refresh = () => {
     calculateLevel();

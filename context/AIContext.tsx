@@ -152,14 +152,17 @@ export function AIProvider({ children }: AIProviderProps) {
 
   // Get user progress summary for AI personalization
   const getUserProgressSummary = () => {
+    // Defensive null check to prevent crashes on Android
+    const safeModuleProgress = moduleProgress || [];
+
     // Calculate total XP (works for both legacy and new eras)
-    const totalXP = calculateTotalXP(moduleProgress, []);
+    const totalXP = calculateTotalXP(safeModuleProgress, []);
 
     // Get completed modules count
-    const completedModules = moduleProgress.filter(m => m.isCompleted).length;
+    const completedModules = safeModuleProgress.filter(m => m.isCompleted).length;
 
     // Get quiz performance stats
-    const quizScores = moduleProgress
+    const quizScores = safeModuleProgress
       .filter(m => m.quizScore !== undefined)
       .map(m => m.quizScore || 0);
     const averageQuizScore = quizScores.length > 0
@@ -167,7 +170,7 @@ export function AIProvider({ children }: AIProviderProps) {
       : 0;
 
     // Get recent completions (last 5)
-    const recentCompletions = moduleProgress
+    const recentCompletions = safeModuleProgress
       .filter(m => m.isCompleted)
       .sort((a, b) => {
         const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
@@ -186,7 +189,7 @@ export function AIProvider({ children }: AIProviderProps) {
       completedModules,
       averageQuizScore: Math.round(averageQuizScore),
       recentCompletions,
-      totalModulesAttempted: moduleProgress.length,
+      totalModulesAttempted: safeModuleProgress.length,
     };
   };
 

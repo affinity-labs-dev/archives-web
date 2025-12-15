@@ -98,12 +98,14 @@ export function useAIRecommendations() {
 
   const generateSmartRecommendations = async (): Promise<AIRecommendation[]> => {
     const recs: AIRecommendation[] = [];
-    const totalXP = calculateTotalXP(moduleProgress, []);
-    const completedModules = moduleProgress.filter(m => m.isCompleted).length;
+    // Defensive null check to prevent crashes on Android
+    const safeModuleProgress = moduleProgress || [];
+    const totalXP = calculateTotalXP(safeModuleProgress, []);
+    const completedModules = safeModuleProgress.filter(m => m.isCompleted).length;
 
     // 1. Next Adventure
     if (completedModules > 0) {
-      const lastCompleted = moduleProgress.filter(m => m.isCompleted)[0];
+      const lastCompleted = safeModuleProgress.filter(m => m.isCompleted)[0];
 
       if (lastCompleted) {
         recs.push({
@@ -133,7 +135,7 @@ export function useAIRecommendations() {
     }
 
     // 2. Strengthen Knowledge
-    const weakModules = moduleProgress.filter(m => m.quizScore !== undefined && m.quizScore < 2);
+    const weakModules = safeModuleProgress.filter(m => m.quizScore !== undefined && m.quizScore < 2);
     if (weakModules.length > 0) {
       const weakest = weakModules[0];
       recs.push({
@@ -168,7 +170,8 @@ export function useAIRecommendations() {
   };
 
   const generateBasicRecommendations = (): AIRecommendation[] => {
-    const completedModules = moduleProgress.filter(m => m.isCompleted).length;
+    const safeModuleProgress = moduleProgress || [];
+    const completedModules = safeModuleProgress.filter(m => m.isCompleted).length;
 
     if (completedModules === 0) {
       return [{
