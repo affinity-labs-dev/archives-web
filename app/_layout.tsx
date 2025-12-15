@@ -22,6 +22,7 @@ import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
 import { RewardsProvider, useRewards } from "@/context/RewardsContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
+import { AIProvider } from "@/context/AIContext";
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
@@ -30,6 +31,7 @@ import { usePostHog } from 'posthog-react-native';
 import AvatarUnlockAnimation from "@/components/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
 import LoadingScreen from "@/components/LoadingScreen";
+import AIAssistant from "@/components/ai/AIAssistant";
 import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
@@ -307,6 +309,50 @@ export default Sentry.wrap(function RootLayout() {
     }
   }, []);
 
+  // Clean up test/debug data on app launch (only in DEV mode)
+  React.useEffect(() => {
+    const cleanupTestData = async () => {
+      if (!__DEV__) return; // Only clean in development mode
+
+      try {
+        // Remove fake XP modules (adventureId 999)
+        const progress = await AsyncStorage.getItem('new_user_progress');
+        if (progress) {
+          const parsed = JSON.parse(progress);
+          const cleaned = parsed.filter((m: any) => m.adventureId !== 999);
+          if (cleaned.length !== parsed.length) {
+            await AsyncStorage.setItem('new_user_progress', JSON.stringify(cleaned));
+            console.log('✅ [Startup] Cleaned test XP modules');
+          }
+        }
+
+        // Clear XP cache to force recalculation
+        await AsyncStorage.removeItem('totalXP');
+
+        // Reset level tracking to trigger fresh calculation
+        await AsyncStorage.removeItem('last_user_level');
+
+        // Check if streak was manually set via debug panel
+        const streakData = await AsyncStorage.getItem('daily_streak');
+        const lastActive = await AsyncStorage.getItem('last_active_date');
+
+        // If last active date is today (meaning it was just set via debug), reset it
+        const today = new Date().toDateString();
+        if (lastActive === today && streakData) {
+          await AsyncStorage.removeItem('daily_streak');
+          await AsyncStorage.removeItem('last_active_date');
+          console.log('✅ [Startup] Reset debug streak data');
+        }
+
+        console.log('✅ [Startup] Test data cleanup complete');
+      } catch (error) {
+        console.error('❌ [Startup] Error cleaning test data:', error);
+      }
+    };
+
+    cleanupTestData();
+  }, []);
+
   if (!loaded) {
     // Show branded loading screen while fonts load
     return <LoadingScreen />;
@@ -378,20 +424,23 @@ export default Sentry.wrap(function RootLayout() {
                   <RewardsProvider>
                     <ProgressProvider>
                       <PreferencesProvider>
-                        <AvatarAnimationWrapper>
-                        <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
-                          <Stack>
-                            <Stack.Screen name="index" options={{ headerShown: false }} />
-                            <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-                            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                            <Stack.Screen name="+not-found" />
-                          </Stack>
-                          <StatusBar style="auto" />
-                        </ThemeProvider>
-                      </AvatarAnimationWrapper>
-                    </PreferencesProvider>
-                  </ProgressProvider>
+                        <AIProvider>
+                          <AvatarAnimationWrapper>
+                            <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                              <Stack>
+                                <Stack.Screen name="index" options={{ headerShown: false }} />
+                                <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                <Stack.Screen name="+not-found" />
+                              </Stack>
+                              <AIAssistant />
+                              <StatusBar style="auto" />
+                            </ThemeProvider>
+                          </AvatarAnimationWrapper>
+                        </AIProvider>
+                      </PreferencesProvider>
+                    </ProgressProvider>
                 </RewardsProvider>
               </AdventuresContentProvider>
             </BackgroundSyncProvider>

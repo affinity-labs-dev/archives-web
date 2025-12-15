@@ -317,6 +317,7 @@ export default function Quiz({
   const [randomImageIndex, setRandomImageIndex] = useState(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
   const [showResults, setShowResults] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const [userAnswers, setUserAnswers] = useState<number[]>([]); // Track all user answers for AI explanations
 
   // Mid-quiz milestone detection
   const [initialXP, setInitialXP] = useState(0);
@@ -365,6 +366,9 @@ export default function Quiz({
 
     const isCorrect = selectedAnswer === correctAnswerIndex;
     const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000);
+
+    // Save user's answer for AI explanations
+    setUserAnswers(prev => [...prev, selectedAnswer]);
 
     // Track answer submission
     trackQuestionAnswered(
@@ -515,6 +519,7 @@ export default function Quiz({
     setCorrectAnswers(0);
     setShowResults(false);
     setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
+    setUserAnswers([]); // Reset user answers for fresh quiz attempt
   };
 
   const isCorrect = selectedAnswer === correctAnswerIndex;
@@ -535,6 +540,8 @@ export default function Quiz({
         eraName={eraName}
         adventureNumber={adventureNumber}
         moduleNumber={moduleNumber}
+        questions={questions}
+        userAnswers={userAnswers}
       />
     );
   }

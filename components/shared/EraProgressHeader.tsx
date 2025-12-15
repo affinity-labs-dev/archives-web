@@ -6,6 +6,11 @@ import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import ArchivesTheme from '@/constants/ArchivesTheme';
+import StreakBadge from '@/components/gamification/StreakBadge';
+import LevelBadge from '@/components/gamification/LevelBadge';
+import LevelUpAnimation from '@/components/gamification/LevelUpAnimation';
+import { useDailyStreak } from '@/hooks/useDailyStreak';
+import { useLevel } from '@/hooks/useLevel';
 
 interface EraProgressHeaderProps {
   title: string;           // e.g., "Exploring Rise of Islam"
@@ -20,6 +25,14 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
   currentStep,
   totalSteps,
 }) => {
+  const { streak, refresh: refreshStreak } = useDailyStreak();
+  const { currentLevel, didLevelUp, refresh: refreshLevel } = useLevel();
+
+  const handleRefresh = () => {
+    refreshStreak();
+    refreshLevel();
+  };
+
   // Responsive padding to match bento grid
   const { width: screenWidth } = Dimensions.get('window');
   const containerPadding = screenWidth * 0.034; // ~13px on 375px screen
@@ -48,6 +61,15 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
 
   return (
     <View style={[styles.progressWrapper, { paddingLeft: containerPadding, paddingRight: containerPadding }]}>
+      {/* Level Up Animation */}
+      <LevelUpAnimation visible={didLevelUp} level={currentLevel} onDismiss={() => {}} />
+
+      {/* Gamification Badges */}
+      <View style={styles.badgesContainer}>
+        <StreakBadge streak={streak} compact onRefresh={handleRefresh} />
+        <LevelBadge level={currentLevel} compact />
+      </View>
+
       <View style={styles.progressCard}>
         <View style={styles.progressTextContainer}>
           <Text style={styles.progressTitle}>{title}</Text>
@@ -88,6 +110,12 @@ const styles = StyleSheet.create({
     paddingTop: 77, // Status bar space when sticky
     backgroundColor: ArchivesTheme.colors.creamWhite,
     // paddingLeft and paddingRight applied inline to match bento grid
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    justifyContent: 'flex-end',
   },
   progressCard: {
     height: 53,
