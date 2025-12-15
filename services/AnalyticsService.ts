@@ -5,6 +5,7 @@
  */
 
 import { usePostHog } from 'posthog-react-native';
+import CustomerIOService from './CustomerIOService';
 
 // ==================== EVENT TYPES ====================
 
@@ -315,6 +316,32 @@ class AnalyticsService {
     return new Date().toISOString();
   }
 
+  /**
+   * Track event to Customer.io (for push notification campaigns)
+   * Only sends key events that are useful for segmentation/campaigns
+   */
+  private trackToCustomerIO(eventName: string, properties?: Record<string, unknown>) {
+    // Only track key events to Customer.io to avoid noise
+    const customerIOEvents = [
+      'user_signed_up',
+      'onboarding_completed',
+      'lesson_started',
+      'lesson_completed',
+      'quiz_started',
+      'quiz_completed',
+      'module_completed',
+      'adventure_started',
+      'adventure_complete_continue',
+      'subscription_details',
+      'push_notifications_enabled',
+      'push_notifications_declined',
+    ];
+
+    if (customerIOEvents.includes(eventName)) {
+      CustomerIOService.track(eventName, properties);
+    }
+  }
+
   // getDeviceType() removed - PostHog auto-captures $os property
 
   // ==================== USER AUTHENTICATION EVENTS ====================
@@ -340,6 +367,7 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('user_signed_up', event);
+    this.trackToCustomerIO('user_signed_up', event);
     console.log('📊 [Analytics] User Signed Up:', event);
   }
 
@@ -371,6 +399,7 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('onboarding_completed', event);
+    this.trackToCustomerIO('onboarding_completed', event);
     console.log('📊 [Analytics] Onboarding Completed:', event);
   }
 
@@ -542,6 +571,7 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('lesson_started', event);
+    this.trackToCustomerIO('lesson_started', event);
     console.log('📊 [Analytics] Lesson Started:', event);
   }
 
@@ -565,6 +595,7 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('lesson_completed', event);
+    this.trackToCustomerIO('lesson_completed', event);
     console.log('📊 [Analytics] Lesson Completed:', event);
   }
 
@@ -782,6 +813,7 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_started', event);
+    this.trackToCustomerIO('quiz_started', event);
     console.log('📊 [Analytics] Quiz Started:', event);
   }
 
@@ -847,6 +879,7 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_completed', event);
+    this.trackToCustomerIO('quiz_completed', event);
     console.log('📊 [Analytics] Quiz Completed:', event);
   }
 
@@ -1002,6 +1035,7 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('subscription_details', event);
+    this.trackToCustomerIO('subscription_details', event);
     console.log('📊 [Analytics] Subscription:', event);
   }
 
@@ -1019,6 +1053,7 @@ class AnalyticsService {
     }
 
     this.posthog.capture(eventName, properties);
+    this.trackToCustomerIO(eventName, properties);
     // PostHog auto-captures $timestamp on every event
     console.log(`📊 [Analytics] Custom Event (${eventName}):`, properties);
   }

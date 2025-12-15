@@ -147,9 +147,6 @@
       [
         "customerio-expo-plugin",
         {
-          "cdpApiKey": "YOUR_CDP_API_KEY",
-          "region": "us",
-          "siteId": "YOUR_SITE_ID",
           "ios": {
             "pushNotification": {
               "useRichPush": true,

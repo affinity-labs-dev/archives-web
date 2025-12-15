@@ -33,6 +33,7 @@ import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
 import LoadingScreen from "@/components/LoadingScreen";
 import AIAssistant from "@/components/ai/AIAssistant";
 import * as Sentry from '@sentry/react-native';
+import CustomerIOService from '@/services/CustomerIOService';
 
 Sentry.init({
   dsn: 'https://87a73fd4ec7ba02d87dccedcce85a9fa@o4510499177889792.ingest.de.sentry.io/4510499179790416',
@@ -96,6 +97,13 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           username: user.username,
         });
 
+        // Identify user to Customer.io for push notifications
+        CustomerIOService.identify(user.id, {
+          email: user.primaryEmailAddress?.emailAddress,
+          first_name: user.firstName,
+          last_name: user.lastName,
+        });
+
         // Set Sentry user for crash reporting - links crashes to specific users
         Sentry.setUser({
           id: user.id,
@@ -123,6 +131,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       } else {
         // Clear Sentry user when signed out
         Sentry.setUser(null);
+        // Clear Customer.io identity when signed out
+        CustomerIOService.clearIdentify();
       }
     }
   }, [posthog, isSignedIn, user]);
@@ -298,6 +308,8 @@ export default Sentry.wrap(function RootLayout() {
   // Hide splash screen when fonts are loaded
   React.useEffect(() => {
     if (loaded) {
+      // Initialize Customer.io SDK
+      CustomerIOService.initialize();
       SplashScreen.hideAsync();
     }
   }, [loaded]);

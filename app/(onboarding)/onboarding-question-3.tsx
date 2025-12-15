@@ -24,6 +24,7 @@ import * as Device from 'expo-device'
 import Constants from 'expo-constants'
 import { notificationTokenSync } from '@/services/NotificationTokenSync'
 import { analyticsService } from '@/services/AnalyticsService'
+import CustomerIOService from '@/services/CustomerIOService'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -136,6 +137,9 @@ export default function OnboardingQuestion3Screen() {
           await AsyncStorage.setItem('pending_push_token', pushToken)
           await AsyncStorage.setItem('pending_timezone', timezone)
         }
+
+        // Register token with Customer.io for push notifications
+        CustomerIOService.registerPushToken(pushToken)
 
         await AsyncStorage.setItem('notifications_permission_granted', 'true')
         await AsyncStorage.setItem('notification_permission_asked', 'true')
