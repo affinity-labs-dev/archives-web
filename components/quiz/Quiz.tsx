@@ -25,7 +25,7 @@ import { useQuizSounds } from '@/hooks/useQuizSounds';
 import type { ContentItem } from '@/components/shared/types';
 import QuizResults from './QuizResults';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
-import XPMilestoneScreen from '@/components/gamified/XPMilestoneScreen';
+import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen';
 import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
 
