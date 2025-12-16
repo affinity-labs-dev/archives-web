@@ -23,6 +23,11 @@
           "remote-notification",
           "remote-notification"
         ],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["archives"]
+          }
+        ],
         "NSUserTrackingUsageDescription": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -151,13 +156,23 @@
             "useFrameworks": "static",
             "pushNotification": {
               "useRichPush": true,
+              "showPushAppInForeground": true,
               "env": {
                 "cdpApiKey": "07236a20071e12b84ed5",
                 "region": "eu"
               }
             }
           },
-          "android": {}
+          "android": {
+            "pushClickBehavior": "ActivityPreventRestart",
+            "pushNotification": {
+              "channel": {
+                "id": "archives_notifications",
+                "name": "Archives Notifications",
+                "importance": 4
+              }
+            }
+          }
         }
       ]
     ],
