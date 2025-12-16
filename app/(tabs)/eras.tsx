@@ -25,18 +25,6 @@ import { EraCard, EraSelectionSkeleton } from '@/components/EraSelection';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { analyticsService } from '@/services/AnalyticsService';
 
-// Map era_id to context era IDs
-const ERA_CONTEXT_MAP: Record<string, string> = {
-  'rise_of_islam': 'riseOfIslam',
-  'umayyad': 'umayyad',
-  'abbasid': 'abbasid',
-  'rashidun': 'rashidun',
-  'andalus': 'andalus',
-  'women_of_islam': 'womenOfIslam',
-  'prophets': 'prophets',
-  'mongol': 'mongol',
-};
-
 export default function EraSelection() {
   const router = useRouter();
   const { mode } = useLocalSearchParams<{ mode?: 'onboarding' }>();
@@ -99,11 +87,8 @@ export default function EraSelection() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Map to context era ID
-    const contextEraId = ERA_CONTEXT_MAP[selectedEra.era_id] || 'umayyad';
-
-    // Store selected era in context
-    await setSelectedEra(contextEraId);
+    // Store selected era in context (using Supabase era_id directly)
+    await setSelectedEra(selectedEra.era_id);
 
     // Track era selection
     analyticsService.trackEraSelected({

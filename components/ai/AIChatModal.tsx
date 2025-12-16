@@ -2,6 +2,7 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useAI } from '@/context/AIContext';
 import { aiService } from '@/services/AIService';
+import { aiStorageService, StoredMessage } from '@/services/AIStorageService';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +51,8 @@ export interface ChatMessage {
     base64: string;
     mimeType: string;
   };
+  // URL for persisted images (loaded from storage)
+  imageUrl?: string;
   // Flag to indicate if this is an uploaded image (user) vs generated (assistant)
   isUploadedImage?: boolean;
 }
@@ -75,6 +78,7 @@ export default function AIChatModal({
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +91,9 @@ export default function AIChatModal({
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ base64: string; mimeType: string; uri: string } | null>(null);
 
+  // Header menu state
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+
   const scrollViewRef = useRef<ScrollView>(null);
   const { getUserProgressSummary } = useAI();
   const { user } = useUser();
@@ -94,11 +101,62 @@ export default function AIChatModal({
 
   // Get user's first name for personalized greeting
   const userName = user?.firstName || 'Explorer';
+  const userId = user?.id;
+
+  // Load persisted messages when modal opens
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!userId) return;
+
+      setIsLoadingHistory(true);
+      try {
+        const userData = await aiStorageService.loadUserData(userId);
+        if (userData?.messages && userData.messages.length > 0) {
+          const loadedMessages: ChatMessage[] = userData.messages.map((msg: StoredMessage) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          }));
+          setMessages(loadedMessages);
+          console.log('📚 [AIChatModal] Loaded', loadedMessages.length, 'messages from history');
+        }
+      } catch (err) {
+        console.error('❌ [AIChatModal] Failed to load history:', err);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    if (visible && userId && messages.length === 0) {
+      loadMessages();
+    }
+  }, [visible, userId, messages.length]);
+
+  // Save messages to storage
+  const saveMessages = async (updatedMessages: ChatMessage[]) => {
+    if (!userId || updatedMessages.length === 0) return;
+
+    // Convert to storage format (Date -> string, remove base64 if we have URL)
+    const storedMessages: StoredMessage[] = updatedMessages.map((msg) => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      timestamp: msg.timestamp.toISOString(),
+      imageUrl: msg.imageUrl,
+      isUploadedImage: msg.isUploadedImage,
+    }));
+
+    await aiStorageService.saveMessages(userId, storedMessages);
+  };
 
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+      // Auto-save messages when they change (skip initial load)
+      if (!isLoadingHistory) {
+        saveMessages(messages);
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   useEffect(() => {
@@ -246,6 +304,31 @@ export default function AIChatModal({
     setInputText('Generate an image of ');
   };
 
+  // Handle clear chat history
+  const handleClearHistory = () => {
+    setShowHeaderMenu(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    Alert.alert(
+      'Clear Chat History',
+      'Are you sure you want to clear all messages? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            setMessages([]);
+            if (userId) {
+              await aiStorageService.clearMessages(userId);
+            }
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
+  };
+
   const handleSend = async (messageToSend?: string) => {
     const userMessage = (messageToSend || inputText).trim();
     const hasImage = pendingImage !== null;
@@ -311,10 +394,25 @@ export default function AIChatModal({
               },
             };
 
+            // Show image immediately
             setMessages((prev) => [...prev, aiMsg]);
             analyticsService.trackCustomEvent('ai_image_edited', {
               era_id: context?.eraId || 'unknown_era',
             });
+
+            // Background: Upload image, save URL, and track usage
+            if (userId) {
+              const messageId = aiMsg.id;
+              aiStorageService.uploadImage(userId, editResult.imageBase64, 'edited').then((imageUrl) => {
+                if (imageUrl) {
+                  // Update message with URL so it persists
+                  setMessages((prev) => prev.map((m) =>
+                    m.id === messageId ? { ...m, imageUrl } : m
+                  ));
+                }
+              }).catch(console.error);
+              aiStorageService.trackUsage(userId, 'image_edit').catch(console.error);
+            }
           } else {
             throw new Error('Failed to edit image');
           }
@@ -340,11 +438,17 @@ export default function AIChatModal({
             timestamp: new Date(),
           };
 
+          // Show response immediately
           setMessages((prev) => [...prev, aiMsg]);
           analyticsService.trackCustomEvent('ai_image_analyzed', {
             era_id: context?.eraId || 'unknown_era',
             has_question: !!userMessage,
           });
+
+          // Background: Track usage (non-blocking)
+          if (userId) {
+            aiStorageService.trackUsage(userId, 'image_analyze').catch(console.error);
+          }
         }
       }
       // Check if user is requesting image generation
@@ -372,10 +476,25 @@ export default function AIChatModal({
             },
           };
 
+          // Show image immediately
           setMessages((prev) => [...prev, aiMsg]);
           analyticsService.trackCustomEvent('ai_image_generated', {
             era_id: context?.eraId || 'unknown_era',
           });
+
+          // Background: Upload image, save URL, and track usage
+          if (userId) {
+            const messageId = aiMsg.id;
+            aiStorageService.uploadImage(userId, imageResult.imageBase64, 'generated').then((imageUrl) => {
+              if (imageUrl) {
+                // Update message with URL so it persists
+                setMessages((prev) => prev.map((m) =>
+                  m.id === messageId ? { ...m, imageUrl } : m
+                ));
+              }
+            }).catch(console.error);
+            aiStorageService.trackUsage(userId, 'image_generate').catch(console.error);
+          }
         } else {
           throw new Error('Failed to generate image');
         }
@@ -393,6 +512,11 @@ export default function AIChatModal({
           },
           userProgress: progressSummary,
         });
+
+        // Track usage
+        if (userId) {
+          await aiStorageService.trackUsage(userId, 'chat');
+        }
 
         const aiMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -468,6 +592,20 @@ export default function AIChatModal({
               </Text>
             </View>
           </View>
+
+          {/* Menu button - only show if there are messages */}
+          {messages.length > 0 && (
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowHeaderMenu(true);
+              }}
+              activeOpacity={0.6}
+            >
+              <Ionicons name="ellipsis-horizontal" size={24} color={ArchivesTheme.colors.shoeBrown} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <KeyboardAvoidingView
@@ -482,7 +620,12 @@ export default function AIChatModal({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {messages.length === 0 ? (
+            {isLoadingHistory ? (
+              <View style={styles.loadingHistoryContainer}>
+                <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
+                <Text style={styles.loadingHistoryText}>Loading your chat history...</Text>
+              </View>
+            ) : messages.length === 0 ? (
               <View style={styles.welcomeContainer}>
                 {/* Speech Bubble */}
                 <View style={styles.speechBubble}>
@@ -561,14 +704,14 @@ export default function AIChatModal({
                   {message.role === 'user' ? (
                     <View style={styles.userContent}>
                       {/* Show uploaded image above text for user messages */}
-                      {message.image && message.isUploadedImage && (
+                      {(message.image || message.imageUrl) && message.isUploadedImage && (
                         <TouchableOpacity
-                          onPress={() => handleImagePress(message.image!)}
+                          onPress={() => message.image && handleImagePress(message.image)}
                           activeOpacity={0.9}
                           style={styles.uploadedImageContainer}
                         >
                           <Image
-                            source={{ uri: `data:${message.image.mimeType};base64,${message.image.base64}` }}
+                            source={{ uri: message.image ? `data:${message.image.mimeType};base64,${message.image.base64}` : message.imageUrl }}
                             style={styles.uploadedImage}
                             contentFit="cover"
                           />
@@ -582,14 +725,14 @@ export default function AIChatModal({
                         <Text style={styles.assistantText}>{message.content}</Text>
                       </View>
                       {/* Render generated image if present - full width, tappable for full view */}
-                      {message.image && (
+                      {(message.image || message.imageUrl) && (
                         <TouchableOpacity
-                          onPress={() => handleImagePress(message.image!)}
+                          onPress={() => message.image && handleImagePress(message.image)}
                           activeOpacity={0.9}
                           style={styles.generatedImageContainer}
                         >
                           <Image
-                            source={{ uri: `data:${message.image.mimeType};base64,${message.image.base64}` }}
+                            source={{ uri: message.image ? `data:${message.image.mimeType};base64,${message.image.base64}` : message.imageUrl }}
                             style={styles.generatedImage}
                             contentFit="cover"
                           />
@@ -795,6 +938,31 @@ export default function AIChatModal({
               activeOpacity={0.7}
             >
               <Text style={styles.actionMenuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Header Menu Modal */}
+      <Modal
+        visible={showHeaderMenu}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowHeaderMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.headerMenuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowHeaderMenu(false)}
+        >
+          <View style={[styles.headerMenuContainer, { marginTop: insets.top + 50 }]}>
+            <TouchableOpacity
+              style={styles.headerMenuItem}
+              onPress={handleClearHistory}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={20} color="#E74C3C" />
+              <Text style={styles.headerMenuItemText}>Clear Chat History</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -1235,5 +1403,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#9A8B7A',
+  },
+
+  // Menu button in header
+  menuButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+
+  // Loading history state
+  loadingHistoryContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  loadingHistoryText: {
+    fontFamily: 'DM Sans',
+    fontSize: 15,
+    color: ArchivesTheme.colors.mutedNavy,
+    marginTop: 16,
+  },
+
+  // Header menu styles
+  headerMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  headerMenuContainer: {
+    position: 'absolute',
+    right: 16,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    minWidth: 180,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  headerMenuItemText: {
+    fontFamily: 'DM Sans',
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#E74C3C',
+    marginLeft: 10,
   },
 });

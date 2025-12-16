@@ -26,15 +26,6 @@ interface UserProgress {
   era_id: string;
 }
 
-// Map context era IDs to Supabase era_id format
-const ERA_ID_MAP: Record<string, string> = {
-  'riseOfIslam': 'rise_of_islam',
-  'umayyad': 'umayyad',
-  'abbasid': 'abbasid',
-  'ottoman': 'ottoman',
-  'fatimid': 'fatimid',
-};
-
 export default function AdventuresScreen() {
   // Get selected era from context (data-driven)
   const { selectedEra } = useProgress();
@@ -42,8 +33,8 @@ export default function AdventuresScreen() {
   // Get AI context for updating era awareness
   const { updateContext } = useAI();
 
-  // Map context era to Supabase era_id format
-  const supabaseEraId = selectedEra ? (ERA_ID_MAP[selectedEra] || selectedEra) : '';
+  // Use selectedEra directly (already Supabase era_id format)
+  const supabaseEraId = selectedEra || '';
 
   // Fetch adventures for selected era (dynamic, not hardcoded)
   const { adventures, loading, error, refreshAdventures } = useAdventures(supabaseEraId);
@@ -236,12 +227,18 @@ export default function AdventuresScreen() {
     );
   }
 
-  // No adventures found - show coming soon (data-driven)
+  // No adventures found - show coming soon (data-driven from Supabase)
   if (!adventures || adventures.length === 0) {
-    const comingSoonEra = selectedEra as 'umayyad' | 'riseOfIslam' | 'abbasid' | 'ottoman' | 'fatimid';
+    if (!selectedEraData) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.loadingText}>Loading era...</Text>
+        </View>
+      );
+    }
     return (
       <ComingSoonView
-        era={comingSoonEra}
+        eraData={selectedEraData}
         onBack={() => {}}
       />
     );

@@ -164,6 +164,16 @@ function EraCardComponent({
           {dateRange && <Text style={styles.gridDateRange}> {dateRange}</Text>}
         </Text>
       </View>
+
+      {/* Selected indicator for grid cards */}
+      <View
+        style={[
+          styles.gridSelectedIndicator,
+          { opacity: isSelected && !showLock ? 1 : 0 },
+        ]}
+      >
+        <MaterialIcons name="check-circle" size={12} color="white" />
+      </View>
     </Pressable>
   );
 }
@@ -366,5 +376,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'DM Sans',
     marginLeft: 3,
+  },
+
+  // Grid selected indicator (smaller, just checkmark)
+  gridSelectedIndicator: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: ArchivesTheme.colors.mossGreen,
+    padding: 4,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
   },
 });

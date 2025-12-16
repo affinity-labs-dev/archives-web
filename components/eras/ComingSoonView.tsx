@@ -16,49 +16,8 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
-// Era types that show "coming soon"
-type EraType = 'umayyad' | 'riseOfIslam' | 'abbasid' | 'ottoman' | 'fatimid'
-
-interface EraInfo {
-  title: string
-  subtitle: string
-  expectedRelease: string
-  description: string
-}
-
-// Era-specific data matching SwiftUI SelectedEra enum
-const ERA_INFO: Record<EraType, EraInfo> = {
-  umayyad: {
-    title: 'Umayyad Dynasty',
-    subtitle: 'The first hereditary Islamic caliphate (661-750 CE)',
-    expectedRelease: 'Coming Soon',
-    description: 'Explore the golden age of Islamic expansion from Damascus to the gates of Constantinople and across North Africa to Spain.',
-  },
-  riseOfIslam: {
-    title: 'Rise of Islam',
-    subtitle: 'The life of Prophet Muhammad ﷺ and the birth of Islam',
-    expectedRelease: 'Q4 2025',
-    description: 'Journey through the life of Prophet Muhammad ﷺ and witness the birth of Islam that would transform the world.',
-  },
-  abbasid: {
-    title: 'Abbasid Caliphate',
-    subtitle: 'Golden age of Islamic civilization (750-1258 CE)',
-    expectedRelease: 'Q1 2026',
-    description: 'Explore the House of Wisdom and the scientific achievements that defined the Islamic Golden Age.',
-  },
-  ottoman: {
-    title: 'Ottoman Empire',
-    subtitle: 'One of the longest-lasting empires (1299-1922 CE)',
-    expectedRelease: 'Q2 2026',
-    description: 'Discover the rise and expansion of an empire that spanned three continents for over 600 years.',
-  },
-  fatimid: {
-    title: 'Fatimid Caliphate',
-    subtitle: 'Shia Islamic caliphate in North Africa (909-1171 CE)',
-    expectedRelease: 'Q3 2026',
-    description: 'Learn about the Shia caliphate that established Cairo as a center of learning and culture.',
-  },
-}
+// Era data comes from Supabase - no hardcoded values
+import { Era } from '@/hooks/useEras'
 
 // Feature list for upcoming eras
 const UPCOMING_FEATURES = [
@@ -69,15 +28,13 @@ const UPCOMING_FEATURES = [
 ]
 
 interface ComingSoonViewProps {
-  era: EraType
+  eraData: Era  // Era data from Supabase
   onBack: () => void
 }
 
-export default function ComingSoonView({ era, onBack }: ComingSoonViewProps) {
+export default function ComingSoonView({ eraData, onBack }: ComingSoonViewProps) {
   const [isNotifyPressed, setIsNotifyPressed] = useState(false)
   const scaleAnim = new Animated.Value(1)
-
-  const eraInfo = ERA_INFO[era]
 
   const handleNotifyPress = () => {
     setIsNotifyPressed(!isNotifyPressed)
@@ -125,14 +82,14 @@ export default function ComingSoonView({ era, onBack }: ComingSoonViewProps) {
 
         {/* Era Information */}
         <View style={styles.eraInfoSection}>
-          <Text style={styles.eraTitle}>{eraInfo.title}</Text>
-          
+          <Text style={styles.eraTitle}>{eraData.title}</Text>
+
           {/* Coming Soon Badge */}
           <View style={styles.comingSoonBadge}>
             <Text style={styles.comingSoonText}>Coming Soon</Text>
           </View>
-          
-          <Text style={styles.eraSubtitle}>{eraInfo.subtitle}</Text>
+
+          <Text style={styles.eraSubtitle}>{eraData.timeline}</Text>
         </View>
 
         {/* Welcome Message */}
@@ -141,7 +98,7 @@ export default function ComingSoonView({ era, onBack }: ComingSoonViewProps) {
             We&apos;re working hard to bring you this era!
           </Text>
           <Text style={styles.welcomeMessage}>
-            {eraInfo.description}
+            {eraData.description || 'Exciting content is being prepared for this era. Stay tuned!'}
           </Text>
         </View>
 
@@ -151,7 +108,7 @@ export default function ComingSoonView({ era, onBack }: ComingSoonViewProps) {
           <View style={styles.releaseContainer}>
             <View style={styles.releaseGradient}>
               <Ionicons name="calendar" size={20} color="white" />
-              <Text style={styles.releaseText}>{eraInfo.expectedRelease}</Text>
+              <Text style={styles.releaseText}>Coming Soon</Text>
             </View>
           </View>
         </View>
