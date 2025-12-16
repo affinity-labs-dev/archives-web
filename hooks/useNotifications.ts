@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 
 export function useNotifications() {
-  const [expoPushToken, setExpoPushToken] = useState<string>('');
+  const [devicePushToken, setDevicePushToken] = useState<string>('');
   const [permissionStatus, setPermissionStatus] = useState<string>('undetermined');
 
   useEffect(() => {
@@ -31,13 +30,12 @@ export function useNotifications() {
       setPermissionStatus(existingStatus);
       console.log('✅ Notification permission status:', existingStatus);
 
-      // Get push token if permission already granted
+      // Get native device push token if permission already granted
       if (existingStatus === 'granted' && Device.isDevice) {
         const token = await getPushToken();
         if (token) {
-          setExpoPushToken(token);
-          console.log('📱 Expo Push Token:', token);
-          console.log('💡 Send this token to your backend to test notifications');
+          setDevicePushToken(token);
+          console.log('📱 Native Device Push Token:', token);
         }
       } else if (!Device.isDevice) {
         console.warn('⚠️ Must use physical device for push notifications');
@@ -49,14 +47,9 @@ export function useNotifications() {
 
   const getPushToken = async (): Promise<string> => {
     try {
-      // Skip push token on Android until Firebase is configured
-      if (Platform.OS === 'android') {
-        console.log('⚠️ [Notifications] Push notifications disabled on Android (Firebase not configured)');
-        return '';
-      }
-
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      const token = await Notifications.getExpoPushTokenAsync({ projectId });
+      // Get native device token (APNs for iOS, FCM for Android)
+      // This is required for Customer.io - Expo push tokens won't work
+      const token = await Notifications.getDevicePushTokenAsync();
       return token.data;
     } catch (error: any) {
       // Handle specific APS entitlement error (iOS simulator or missing config)
@@ -72,7 +65,7 @@ export function useNotifications() {
   };
 
   return {
-    expoPushToken,
+    devicePushToken,
     permissionStatus,
   };
 }

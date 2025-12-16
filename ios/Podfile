@@ -51,6 +51,9 @@ target 'Archives' do
     :privacy_file_aggregation_enabled => podfile_properties['apple.privacyManifestAggregationEnabled'] != 'false',
   )
 
+# --- CustomerIO Host App START ---
+  pod 'customerio-reactnative/apn', :path => '../node_modules/customerio-reactnative'
+# --- CustomerIO Host App END ---
   post_install do |installer|
     react_native_post_install(
       installer,
@@ -60,10 +63,9 @@ target 'Archives' do
     )
   end
 end
-
-# Customer.io NotificationService extension - must use same framework settings as main app
+# --- CustomerIO Notification START ---
 target 'NotificationService' do
   use_frameworks! :linkage => :static
-
-  pod 'CustomerIOMessagingPushAPN', '~> 3.0'
+  pod 'customerio-reactnative-richpush/apn', :path => '../node_modules/customerio-reactnative'
 end
+# --- CustomerIO Notification END ---

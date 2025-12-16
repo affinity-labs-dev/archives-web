@@ -2,7 +2,6 @@
 // Matches the exact structure: historical avatars + stats + badges + achievements + settings
 
 import ArchivesTheme from '@/constants/ArchivesTheme'
-import { usePreferences } from '@/context/PreferencesContext'
 import { useProgress } from '@/context/ProgressContext'
 import { useRewards } from '@/context/RewardsContext'
 import { analyticsService } from '@/services/AnalyticsService'
@@ -22,14 +21,6 @@ import AchievementUnlockAnimation from '@/components/gamification/AchievementUnl
 import AchievementDetailModal from '@/components/gamification/AchievementDetailModal'
 
 const { width: screenWidth } = Dimensions.get('window')
-
-// Helper to convert 24-hour time to 12-hour format with lowercase am/pm
-const formatTime24To12Hour = (time24: string): string => {
-  const [hours, minutes] = time24.split(':').map(Number)
-  const period = hours >= 12 ? 'pm' : 'am'
-  const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
-  return `${hour12} ${period}`
-}
 
 // Helper to get avatar image - static mapping (database image_url → actual file)
 const AVATAR_IMAGE_MAP: Record<string, any> = {
@@ -222,7 +213,6 @@ export default function ProfileTab() {
     isUnlocked,
     loading: rewardsLoading
   } = useRewards()
-  const { dailyGoal, reminderTime, setReminderTime, loading: preferencesLoading } = usePreferences()
   const {
     achievements,
     unlockedCount,
@@ -384,10 +374,6 @@ export default function ProfileTab() {
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [isLoadingPortal, setIsLoadingPortal] = useState(false)
-  const [showTimePicker, setShowTimePicker] = useState(false)
-  const [tempHour, setTempHour] = useState(19)
-  const [tempMinute, setTempMinute] = useState(0)
-  const [tempPeriod, setTempPeriod] = useState<'AM' | 'PM'>('PM')
   // Temporary test screen states
   const [showXPTest, setShowXPTest] = useState(false)
   const [showAdventureTest, setShowAdventureTest] = useState(false)
@@ -665,41 +651,6 @@ export default function ProfileTab() {
     setExpandedFAQ(expandedFAQ === id ? null : id)
   }
 
-  const openTimePicker = () => {
-    // Parse current reminder time to set initial picker values
-    const [hours, minutes] = reminderTime.split(':').map(Number)
-
-    // Convert 24-hour to 12-hour format
-    const period: 'AM' | 'PM' = hours >= 12 ? 'PM' : 'AM'
-    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
-
-    setTempHour(hour12)
-    setTempMinute(minutes)
-    setTempPeriod(period)
-    setShowTimePicker(true)
-  }
-
-  const handleTimePickerSave = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-
-    // Convert 12-hour to 24-hour format
-    let hour24 = tempHour
-    if (tempPeriod === 'PM' && tempHour !== 12) {
-      hour24 = tempHour + 12
-    } else if (tempPeriod === 'AM' && tempHour === 12) {
-      hour24 = 0
-    }
-
-    const formattedTime = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`
-    setReminderTime(formattedTime)
-    setShowTimePicker(false)
-  }
-
-  const handleTimePickerCancel = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    setShowTimePicker(false)
-  }
-
   return (
     <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -932,28 +883,10 @@ export default function ProfileTab() {
               <Text style={styles.preferenceLabel}>Daily goal</Text>
             </View>
             <View style={styles.preferenceRight}>
-              <Text style={styles.preferenceValue}>{dailyGoal} mins</Text>
+              <Text style={styles.preferenceValue}>10 mins</Text>
               <MaterialIcons name="lock" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.3} />
             </View>
           </View>
-
-          {/* Reminders - Editable */}
-          <TouchableOpacity
-            style={styles.preferenceCard}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-              openTimePicker()
-            }}
-          >
-            <View style={styles.preferenceLeft}>
-              <MaterialIcons name="notifications" size={24} color={ArchivesTheme.colors.persianOrange} />
-              <Text style={styles.preferenceLabel}>Reminders</Text>
-            </View>
-            <View style={styles.preferenceRight}>
-              <Text style={styles.preferenceValue}>{formatTime24To12Hour(reminderTime)}</Text>
-              <MaterialIcons name="chevron-right" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.3} />
-            </View>
-          </TouchableOpacity>
         </View>
 
         {/* Sign Out Button */}
@@ -1303,151 +1236,6 @@ export default function ProfileTab() {
         </SafeAreaView>
       </Modal>
 
-      {/* Custom Time Picker Modal */}
-      <Modal
-        visible={showTimePicker}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={handleTimePickerCancel}
-      >
-        <SafeAreaView style={styles.modalSafeArea}>
-          <View style={styles.modalContainer}>
-            {/* Time Picker Header */}
-            <View style={styles.modalHeader}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleTimePickerCancel}
-              >
-                <Text style={styles.timePickerHeaderButton}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Set Reminder Time</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleTimePickerSave}
-              >
-                <Text style={[styles.timePickerHeaderButton, styles.timePickerSaveButton]}>Save</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Time Picker Content */}
-            <View style={styles.timePickerContainer}>
-              <View style={styles.timePickerRow}>
-                {/* Hour Picker */}
-                <View style={styles.timePickerColumn}>
-                  <ScrollView
-                    style={styles.timePickerScroll}
-                    contentContainerStyle={styles.timePickerScrollContent}
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((hour) => (
-                      <TouchableOpacity
-                        key={hour}
-                        style={[
-                          styles.timePickerItem,
-                          tempHour === hour && styles.timePickerItemSelected
-                        ]}
-                        onPress={() => {
-                          Haptics.selectionAsync()
-                          setTempHour(hour)
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.timePickerItemText,
-                            tempHour === hour && styles.timePickerItemTextSelected
-                          ]}
-                        >
-                          {hour.toString().padStart(2, '0')}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-
-                {/* Separator */}
-                <Text style={styles.timePickerSeparator}>:</Text>
-
-                {/* Minute Picker */}
-                <View style={styles.timePickerColumn}>
-                  <ScrollView
-                    style={styles.timePickerScroll}
-                    contentContainerStyle={styles.timePickerScrollContent}
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {Array.from({ length: 60 }, (_, i) => i).map((minute) => (
-                      <TouchableOpacity
-                        key={minute}
-                        style={[
-                          styles.timePickerItem,
-                          tempMinute === minute && styles.timePickerItemSelected
-                        ]}
-                        onPress={() => {
-                          Haptics.selectionAsync()
-                          setTempMinute(minute)
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.timePickerItemText,
-                            tempMinute === minute && styles.timePickerItemTextSelected
-                          ]}
-                        >
-                          {minute.toString().padStart(2, '0')}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-
-                {/* Period Picker (AM/PM) */}
-                <View style={styles.timePickerColumn}>
-                  <View style={styles.timePickerPeriodContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.timePickerItem,
-                        tempPeriod === 'AM' && styles.timePickerItemSelected
-                      ]}
-                      onPress={() => {
-                        Haptics.selectionAsync()
-                        setTempPeriod('AM')
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.timePickerItemText,
-                          tempPeriod === 'AM' && styles.timePickerItemTextSelected
-                        ]}
-                      >
-                        AM
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.timePickerItem,
-                        tempPeriod === 'PM' && styles.timePickerItemSelected
-                      ]}
-                      onPress={() => {
-                        Haptics.selectionAsync()
-                        setTempPeriod('PM')
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.timePickerItemText,
-                          tempPeriod === 'PM' && styles.timePickerItemTextSelected
-                        ]}
-                      >
-                        PM
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        </SafeAreaView>
-      </Modal>
-
       {/* Achievement Unlock Animation */}
       {newlyUnlocked && (
         <AchievementUnlockAnimation
@@ -1610,10 +1398,6 @@ const styles = StyleSheet.create({
   
   // Sections - EXACT SwiftUI
   badgesSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  achievementsSection: {
     paddingHorizontal: 20,
     marginBottom: 30,
   },
@@ -2161,74 +1945,6 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.persianOrange,
     fontWeight: '600',
     textDecorationLine: 'underline',
-  },
-
-  // Custom Time Picker Styles
-  timePickerHeaderButton: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  timePickerSaveButton: {
-    color: ArchivesTheme.colors.persianOrange,
-    fontWeight: '700',
-  },
-  timePickerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  timePickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  timePickerColumn: {
-    height: 240,
-  },
-  timePickerScroll: {
-    height: 240,
-    width: 80,
-  },
-  timePickerScrollContent: {
-    paddingVertical: 96, // Center the selected item
-  },
-  timePickerItem: {
-    height: 48,
-    width: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    marginVertical: 4,
-  },
-  timePickerItemSelected: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-  },
-  timePickerItemText: {
-    fontFamily: 'DM Sans',
-    fontSize: 24,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy,
-  },
-  timePickerItemTextSelected: {
-    color: 'white',
-  },
-  timePickerSeparator: {
-    fontFamily: 'DM Sans',
-    fontSize: 32,
-    fontWeight: '700',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginHorizontal: 8,
-  },
-  timePickerPeriodContainer: {
-    height: 240,
-    justifyContent: 'center',
-    gap: 8,
   },
 
   // Temporary Test Button Styles

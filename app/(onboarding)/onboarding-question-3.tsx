@@ -21,8 +21,6 @@ import { useAnalytics } from '@/hooks/useAnalytics'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
-import Constants from 'expo-constants'
-import { notificationTokenSync } from '@/services/NotificationTokenSync'
 import { analyticsService } from '@/services/AnalyticsService'
 import CustomerIOService from '@/services/CustomerIOService'
 import Svg, { Path } from 'react-native-svg'
@@ -115,28 +113,12 @@ export default function OnboardingQuestion3Screen() {
       analyticsService.updatePushStatus(status === 'granted')
 
       if (status === 'granted') {
-        // Get Expo push token
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId
-        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
+        // Get native device token (APNs for iOS, FCM for Android)
+        // Customer.io requires native tokens, not Expo push tokens
+        const tokenData = await Notifications.getDevicePushTokenAsync()
         const pushToken = tokenData.data
 
-        console.log('🔔 Expo push token:', pushToken)
-
-        // Get device timezone
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-        console.log('🌍 Device timezone:', timezone)
-
-        // Save to Supabase as anonymous device
-        const saved = await notificationTokenSync.saveAnonymousToken(pushToken, timezone)
-
-        if (saved) {
-          console.log('✅ Token saved to Supabase as anonymous device')
-        } else {
-          // Fallback: store locally if Supabase fails
-          console.log('⚠️ Supabase save failed, storing locally')
-          await AsyncStorage.setItem('pending_push_token', pushToken)
-          await AsyncStorage.setItem('pending_timezone', timezone)
-        }
+        console.log('🔔 Native device push token:', pushToken)
 
         // Register token with Customer.io for push notifications
         CustomerIOService.registerPushToken(pushToken)

@@ -21,7 +21,6 @@ import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
 import { RewardsProvider, useRewards } from "@/context/RewardsContext";
-import { PreferencesProvider } from "@/context/PreferencesContext";
 import { AIProvider } from "@/context/AIContext";
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
@@ -435,23 +434,21 @@ export default Sentry.wrap(function RootLayout() {
                 <AdventuresContentProvider>
                   <RewardsProvider>
                     <ProgressProvider>
-                      <PreferencesProvider>
-                        <AIProvider>
-                          <AvatarAnimationWrapper>
-                            <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
-                              <Stack>
-                                <Stack.Screen name="index" options={{ headerShown: false }} />
-                                <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                <Stack.Screen name="+not-found" />
-                              </Stack>
-                              <AIAssistant />
-                              <StatusBar style="auto" />
-                            </ThemeProvider>
-                          </AvatarAnimationWrapper>
-                        </AIProvider>
-                      </PreferencesProvider>
+                      <AIProvider>
+                        <AvatarAnimationWrapper>
+                          <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                            <Stack>
+                              <Stack.Screen name="index" options={{ headerShown: false }} />
+                              <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+                              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                              <Stack.Screen name="+not-found" />
+                            </Stack>
+                            <AIAssistant />
+                            <StatusBar style="auto" />
+                          </ThemeProvider>
+                        </AvatarAnimationWrapper>
+                      </AIProvider>
                     </ProgressProvider>
                 </RewardsProvider>
               </AdventuresContentProvider>
