@@ -63,15 +63,17 @@ color: '#C99151'                 // ❌ Use ArchivesTheme
 
 ### Provider Hierarchy (app/_layout.tsx)
 ```
-PostHogProvider (analytics from app launch)
-└── AnalyticsWrapper (PostHog initialization + app lifecycle tracking)
+SafeAreaProvider + GestureHandlerRootView
+└── PostHogProvider (analytics from app launch)
     └── ClerkProvider (authentication)
-        └── BackgroundSyncProvider (cloud sync)
-            └── RewardsProvider (badges + avatars system)
-                └── ProgressProvider (state management)
-                    └── PreferencesProvider (user settings)
-                        └── AvatarAnimationWrapper (unlock animations)
-                            └── Stack Navigation (routing)
+        └── AnalyticsWrapper (PostHog init + Customer.io + Sentry user linking)
+            └── BackgroundSyncProvider (cloud sync)
+                └── AdventuresContentProvider (Supabase content fetching)
+                    └── RewardsProvider (badges + avatars system)
+                        └── ProgressProvider (state management)
+                            └── AIProvider (Gemini AI features)
+                                └── AvatarAnimationWrapper (unlock animations)
+                                    └── ThemeProvider + Stack Navigation + AIAssistant
 ```
 
 **Critical initialization sequence:**
@@ -394,12 +396,12 @@ console.log('🔔 Notification')    // Push notifications
 
 **iOS (App Store):**
 - Bundle: `ai.affinitylabs.archivesexpo` | Team: `LQ9LP2WW94` | App ID: `6751173663`
-- Build number: `105` (auto-increments on production builds)
+- Build number: `111` (auto-increments on production builds)
 - Universal Links via `link.archiveszone.app`
 
 **Android (Play Store):**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code: `27` (auto-increments on production builds)
+- Version code: `30` (auto-increments on production builds)
 - Edge-to-edge disabled, largeHeap enabled (Android OOM fixes)
 - App Links SHA-256: Must match console fingerprint
 

@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "108",
+      "buildNumber": "111",
       "associatedDomains": [
         "applinks:link.archiveszone.app",
         "applinks:link.archiveszone.app"
@@ -25,7 +25,9 @@
         ],
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["archives"]
+            "CFBundleURLSchemes": [
+              "archives"
+            ]
           }
         ],
         "NSUserTrackingUsageDescription": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform.",
@@ -174,7 +176,8 @@
             }
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
