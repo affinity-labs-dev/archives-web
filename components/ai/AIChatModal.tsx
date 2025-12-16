@@ -5,7 +5,12 @@ import { aiService } from '@/services/AIService';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import {
+  cacheDirectory,
+  EncodingType,
+  writeAsStringAsync,
+  deleteAsync,
+} from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
@@ -101,6 +106,12 @@ export default function AIChatModal({
   const handleSaveToPhotos = async () => {
     if (!selectedImage) return;
 
+    // Saving to photos is only supported on iOS and Android
+    if (Platform.OS === 'web') {
+      Alert.alert('Not Supported', 'Saving images is only available on mobile devices.');
+      return;
+    }
+
     setIsSaving(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -113,24 +124,20 @@ export default function AIChatModal({
         return;
       }
 
-      // Create a temporary file
+      // Create a temporary file - cacheDirectory is guaranteed on iOS/Android
       const filename = `archives_ai_${Date.now()}.png`;
-      const cacheDir = FileSystem.cacheDirectory;
-      if (!cacheDir) {
-        throw new Error('Cache directory not available');
-      }
-      const fileUri = cacheDir + filename;
+      const fileUri = cacheDirectory + filename;
 
       // Write base64 to file
-      await FileSystem.writeAsStringAsync(fileUri, selectedImage.base64, {
-        encoding: FileSystem.EncodingType.Base64,
+      await writeAsStringAsync(fileUri, selectedImage.base64, {
+        encoding: EncodingType.Base64,
       });
 
       // Save to media library
       await MediaLibrary.saveToLibraryAsync(fileUri);
 
       // Clean up temp file
-      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      await deleteAsync(fileUri, { idempotent: true });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Saved!', 'Image saved to your photo library.');

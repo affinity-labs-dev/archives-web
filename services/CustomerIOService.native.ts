@@ -1,4 +1,4 @@
-// CustomerIOService.ts - Customer.io SDK initialization and management
+// CustomerIOService.native.ts - Customer.io SDK for iOS and Android
 // Note: Customer.io requires native modules - only works in dev builds, not Expo Go
 
 import Constants from 'expo-constants';

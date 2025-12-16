@@ -60,3 +60,10 @@ target 'Archives' do
     )
   end
 end
+
+# Customer.io NotificationService extension - must use same framework settings as main app
+target 'NotificationService' do
+  use_frameworks! :linkage => :static
+
+  pod 'CustomerIOMessagingPushAPN', '~> 3.0'
+end
