@@ -148,6 +148,7 @@
         "customerio-expo-plugin",
         {
           "ios": {
+            "useFrameworks": "static",
             "pushNotification": {
               "useRichPush": true,
               "env": "production"
