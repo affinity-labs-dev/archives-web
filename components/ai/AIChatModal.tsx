@@ -280,33 +280,72 @@ export default function AIChatModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      // If user uploaded an image, analyze it
+      // If user uploaded an image, check if they want editing or analysis
       if (imageToAnalyze) {
-        setIsAnalyzingImage(true);
-        console.log('🔍 [AIChatModal] Analyzing uploaded image...');
+        const isEditRequest = userMessage && aiService.isImageEditRequest(userMessage);
 
-        const response = await aiService.analyzeImage({
-          imageBase64: imageToAnalyze.base64,
-          mimeType: imageToAnalyze.mimeType,
-          userMessage: userMessage || undefined,
-          context: {
-            eraName: context.eraName,
-            adventureId: context.adventureId,
-          },
-        });
+        if (isEditRequest) {
+          // User wants to edit/transform their photo
+          setIsGeneratingImage(true);
+          console.log('✏️ [AIChatModal] Image edit request detected');
 
-        const aiMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: response,
-          timestamp: new Date(),
-        };
+          const editResult = await aiService.editImage({
+            imageBase64: imageToAnalyze.base64,
+            mimeType: imageToAnalyze.mimeType,
+            editPrompt: userMessage,
+            context: {
+              eraName: context.eraName,
+              adventureId: context.adventureId,
+            },
+          });
 
-        setMessages((prev) => [...prev, aiMsg]);
-        analyticsService.trackCustomEvent('ai_image_analyzed', {
-          era_id: context?.eraId || 'unknown_era',
-          has_question: !!userMessage,
-        });
+          if (editResult) {
+            const aiMsg: ChatMessage = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: editResult.caption || 'Here is your transformed image:',
+              timestamp: new Date(),
+              image: {
+                base64: editResult.imageBase64,
+                mimeType: editResult.mimeType,
+              },
+            };
+
+            setMessages((prev) => [...prev, aiMsg]);
+            analyticsService.trackCustomEvent('ai_image_edited', {
+              era_id: context?.eraId || 'unknown_era',
+            });
+          } else {
+            throw new Error('Failed to edit image');
+          }
+        } else {
+          // User wants to analyze/ask about the image
+          setIsAnalyzingImage(true);
+          console.log('🔍 [AIChatModal] Analyzing uploaded image...');
+
+          const response = await aiService.analyzeImage({
+            imageBase64: imageToAnalyze.base64,
+            mimeType: imageToAnalyze.mimeType,
+            userMessage: userMessage || undefined,
+            context: {
+              eraName: context.eraName,
+              adventureId: context.adventureId,
+            },
+          });
+
+          const aiMsg: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: response,
+            timestamp: new Date(),
+          };
+
+          setMessages((prev) => [...prev, aiMsg]);
+          analyticsService.trackCustomEvent('ai_image_analyzed', {
+            era_id: context?.eraId || 'unknown_era',
+            has_question: !!userMessage,
+          });
+        }
       }
       // Check if user is requesting image generation
       else if (aiService.isImageRequest(userMessage)) {

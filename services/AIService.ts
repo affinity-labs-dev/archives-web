@@ -509,6 +509,130 @@ Generate a single high-quality image.`;
   }
 
   /**
+   * Edit/transform an uploaded image based on user prompt
+   * Uses Gemini's image model with input image for editing
+   * Example: "Put me in historical Islamic clothing"
+   */
+  async editImage(params: {
+    imageBase64: string;
+    mimeType: string;
+    editPrompt: string;
+    context?: {
+      eraName?: string;
+      adventureId?: string;
+    };
+  }): Promise<{ imageBase64: string; mimeType: string; caption?: string } | null> {
+    if (!this.isAvailable() || !this.ai) {
+      throw new Error('AI Service is not available. Please configure EXPO_PUBLIC_GEMINI_API_KEY.');
+    }
+
+    const { imageBase64, mimeType, editPrompt, context = {} } = params;
+
+    try {
+      console.log('✏️ [AIService] Editing image with Gemini...');
+      console.log('📝 Edit prompt:', editPrompt);
+
+      // Build enhanced prompt for historical image editing
+      const enhancedPrompt = this.buildImageEditPrompt(editPrompt, context);
+
+      // Call Gemini Image API with input image for editing
+      const response = await this.ai.models.generateContent({
+        model: this.imageModel,
+        contents: [
+          {
+            parts: [
+              { text: enhancedPrompt },
+              {
+                inlineData: {
+                  data: imageBase64,
+                  mimeType: mimeType,
+                },
+              },
+            ],
+          },
+        ],
+        config: {
+          imageConfig: {
+            aspectRatio: '1:1', // Square for portrait-style edits
+            imageSize: '2K',
+          },
+        },
+      });
+
+      console.log('📦 [AIService] Image edit response received');
+
+      // Extract edited image from response
+      const candidate = response.candidates?.[0];
+      const content = candidate?.content;
+
+      if (!content?.parts && candidate?.finishReason) {
+        console.warn(`⚠️ [AIService] Image edit blocked. Reason: ${candidate.finishReason}`);
+        throw new Error(`Image editing blocked: ${candidate.finishReason}`);
+      }
+
+      if (content?.parts) {
+        for (const part of content.parts) {
+          if (part.inlineData) {
+            console.log('✅ [AIService] Image edited successfully');
+            return {
+              imageBase64: part.inlineData.data,
+              mimeType: part.inlineData.mimeType || 'image/png',
+              caption: content.parts.find((p: any) => p.text)?.text,
+            };
+          }
+        }
+      }
+
+      console.warn('⚠️ [AIService] No edited image in response');
+      return null;
+    } catch (error) {
+      console.error('❌ [AIService] Error editing image:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Build prompt for historical image editing
+   */
+  private buildImageEditPrompt(
+    userPrompt: string,
+    context: { eraName?: string; adventureId?: string }
+  ): string {
+    const { eraName = 'Islamic History' } = context;
+
+    return `Edit this photo to create a historically accurate, artistic transformation for ${eraName}.
+
+User request: ${userPrompt}
+
+Style guidelines:
+- Transform the person in the photo according to the request
+- Use historically accurate clothing, accessories, and settings from ${eraName}
+- Maintain the person's likeness and features
+- Artistic, painterly style (not photorealistic)
+- Respectful representation of Islamic history and culture
+- Rich colors and detailed backgrounds
+- Suitable for educational app (family-friendly)
+
+Generate the edited image.`;
+  }
+
+  /**
+   * Check if a message is requesting image editing (vs just analysis)
+   */
+  isImageEditRequest(message: string): boolean {
+    const lowerMessage = message.toLowerCase();
+
+    const editKeywords = [
+      'put me in', 'dress me', 'make me', 'transform me', 'show me as',
+      'imagine me', 'place me', 'edit', 'change my', 'add to my',
+      'make this', 'turn this into', 'convert', 'style me',
+      'historical clothes', 'old clothes', 'traditional', 'costume',
+    ];
+
+    return editKeywords.some(keyword => lowerMessage.includes(keyword));
+  }
+
+  /**
    * Analyze an uploaded image with optional text prompt
    * Uses Gemini's multimodal capabilities
    */
