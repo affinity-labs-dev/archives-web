@@ -170,7 +170,22 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4f1f4bc4-0ced-48f3-b712-178b54175088"
+        "projectId": "4f1f4bc4-0ced-48f3-b712-178b54175088",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "NotificationService",
+                  "bundleIdentifier": "ai.affinitylabs.archivesexpo.richpush",
+                  "entitlements": {
+                    "com.apple.developer.usernotifications.service": true
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     },
     "runtimeVersion": "1.0.0",
