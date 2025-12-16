@@ -1,19 +1,22 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AdventureComponent from '@/components/adventure/shared/AdventureComponent';
+import AdventureCompleteScreen from '@/components/gamification/AdventureCompleteScreen';
+import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen';
+import LessonPlayer from '@/components/lessons/LessonPlayer';
+import Quiz from '@/components/quiz/Quiz';
+import type { Adventure, ContentItem } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS, WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { analyticsService } from '@/services/AnalyticsService';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
-import AdventureComponent from '@/components/adventure/shared/AdventureComponent';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import AdventureCard from './AdventureCard';
-import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen';
-import AdventureCompleteScreen from '@/components/gamification/AdventureCompleteScreen';
-import LessonPlayer from '@/components/lessons/LessonPlayer';
-import Quiz from '@/components/quiz/Quiz';
-import type { Adventure, ContentItem } from '@/components/shared/types';
 
 // TypeScript interfaces
 interface UserProgress {
@@ -24,7 +27,7 @@ interface UserProgress {
   isCompleted: boolean;
   quizCompleted: boolean;
   completedAt: string;
-  era_id: number;
+  era_id: string;
 }
 
 interface BentoGridScreenProps {
@@ -56,6 +59,8 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     milestoneXP: number;
     totalXP: number;
   } | null>(null);
+
+  const flatListRef = useRef<FlatList>(null);
 
   // Handle card press - open lesson modal
   const handleCardPress = (contentItem: ContentItem, adventureId: string) => {
@@ -267,47 +272,102 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     return getAdventureUnlockStatus(adventures, userProgress);
   }, [adventures, userProgress]);
 
+  // Find first locked adventure ID (for rendering overlay in correct item)
+  const firstLockedAdventureId = useMemo(() => {
+    const firstLocked = adventures.find((adv) => !adventureUnlockStatus[adv.readable_id]);
+    return firstLocked?.readable_id || null;
+  }, [adventures, adventureUnlockStatus]);
+
+  // Calculate overlay height based on number of locked adventures
+  const overlayHeight = useMemo(() => {
+    if (!firstLockedAdventureId) return 0;
+
+    // Find index of first locked adventure
+    const firstLockedIndex = adventures.findIndex((adv) => adv.readable_id === firstLockedAdventureId);
+    if (firstLockedIndex === -1) return 0;
+
+    // Count remaining adventures (locked or not) after first locked
+    const remainingAdventures = adventures.length - firstLockedIndex;
+
+    // Estimate height per adventure (~500px) + buffer for safe coverage
+    const ADVENTURE_HEIGHT = 500;
+    const calculatedHeight = remainingAdventures * ADVENTURE_HEIGHT;
+
+    // Add screen height as buffer to ensure full coverage
+    const screenHeight = Dimensions.get('window').height;
+    return calculatedHeight + screenHeight;
+  }, [adventures, firstLockedAdventureId]);
+
   // Render function for FlatList items (memoized for performance)
   const renderAdventureItem = useCallback(({ item: adventure }: { item: Adventure }) => {
     const isLocked = !adventureUnlockStatus[adventure.readable_id];
+    const isFirstLocked = adventure.readable_id === firstLockedAdventureId;
 
     return (
-      <AdventureComponent
-        adventure={adventure}
-        userProgress={userProgress}
-        onCardPress={(contentItem) => handleCardPress(contentItem, adventure.readable_id)}
-        onTitlePress={() => handleAdventureStarted(adventure)}
-        isLocked={isLocked}
-      />
+      <View style={isFirstLocked ? styles.firstLockedContainer : undefined}>
+        <AdventureComponent
+          adventure={adventure}
+          userProgress={userProgress}
+          onCardPress={(contentItem) => handleCardPress(contentItem, adventure.readable_id)}
+          onTitlePress={() => handleAdventureStarted(adventure)}
+          isLocked={isLocked}
+        />
+
+        {/* Gradient overlay with blur - only render on first locked adventure */}
+        {isFirstLocked && (
+          <BlurView
+            intensity={3.3}
+            tint="dark"
+            style={[styles.gradientLockOverlay, { height: overlayHeight }]}
+            pointerEvents="box-none"
+          >
+            <LinearGradient
+              colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.6)', 'rgba(0, 0, 0, 0.6)']}
+              locations={[0, 0.02, 1]}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="box-none"
+            >
+              <View style={styles.lockBannerContainer} pointerEvents="box-none">
+                <View style={styles.lockBanner} pointerEvents="auto">
+                  <Ionicons name="lock-closed" size={24} color="white" style={styles.lockIcon} />
+                  <Text style={styles.lockText}>Complete above modules to unlock this!</Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </BlurView>
+        )}
+      </View>
     );
-  }, [userProgress, adventureUnlockStatus]);
+  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, overlayHeight]);
 
   // Key extractor for FlatList (memoized)
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={adventures}
-        renderItem={renderAdventureItem}
-        keyExtractor={keyExtractor}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing || false}
-            onRefresh={onRefresh}
-            tintColor={ArchivesTheme.colors.persianOrange}
-            colors={[ArchivesTheme.colors.persianOrange]}
-          />
-        }
-        // Performance optimizations - reduces memory usage
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={2}
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={2}
-        windowSize={3}
-      />
+      <View style={styles.contentWrapper}>
+        <FlatList
+          data={adventures}
+          renderItem={renderAdventureItem}
+          keyExtractor={keyExtractor}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing || false}
+              onRefresh={onRefresh}
+              tintColor={ArchivesTheme.colors.persianOrange}
+              colors={[ArchivesTheme.colors.persianOrange]}
+            />
+          }
+          // Performance optimizations - reduces memory usage
+          // removeClippedSubviews disabled to prevent clipping lock overlay
+          maxToRenderPerBatch={2}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={2}
+          windowSize={3}
+        />
+      </View>
 
       {/* Lesson/Quiz Modal */}
       {selectedLesson && (
@@ -409,9 +469,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F4EBDB',
+    overflow: 'visible', // Prevent clipping of lock overlay
+  },
+  contentWrapper: {
+    flex: 1,
+    position: 'relative',
+    overflow: 'visible', // Allow overlay to extend beyond container
   },
   scrollContent: {
-    paddingBottom: 120, // Account for tab bar height
+    paddingBottom: 0, // Removed to allow lock overlay to extend to bottom
+  },
+
+  // First locked adventure container - allows overlay to extend beyond bounds
+  firstLockedContainer: {
+    overflow: 'visible',
+    position: 'relative',
   },
 
   // Development Only: Reset Button
@@ -440,6 +512,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: 'DM Sans',
     letterSpacing: 0.5,
+  },
+
+  // Gradient Lock Overlay - extends downward to cover all locked adventures
+  gradientLockOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    // Height is calculated dynamically based on number of locked adventures
+    zIndex: 50,
+  },
+  lockBannerContainer: {
+    paddingTop: 200, // Position banner in middle of locked area
+    alignItems: 'center',
+  },
+  lockBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    width: 363,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 11,
+  },
+  lockIcon: {
+    marginRight: 12,
+  },
+  lockText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '600',
+    fontFamily: 'DM Sans',
+    textAlign: 'center',
+    lineHeight: 25,
+    flex: 1,
   },
 });
 

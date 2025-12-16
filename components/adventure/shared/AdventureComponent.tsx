@@ -179,7 +179,7 @@ interface UserProgress {
   isCompleted: boolean;
   quizCompleted: boolean;
   completedAt: string;
-  era_id: number;
+  era_id: string;
 }
 
 // TypeScript interfaces
@@ -416,15 +416,6 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
       {/* Bento Grid - Responsive 5 cards layout */}
       <View style={[styles.bentoGridContainer, { height: containerHeight }]}>
         {sortedContent.map((item, index) => renderCard(item, index))}
-
-        {/* Lock Overlay - Shown when adventure is locked */}
-        {isLocked && (
-          <View style={styles.lockOverlay}>
-            <View style={styles.lockBanner}>
-              <Text style={styles.lockText}>Complete above modules to unlock this!</Text>
-            </View>
-          </View>
-        )}
       </View>
     </View>
   );
@@ -433,6 +424,7 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
 const styles = StyleSheet.create({
   adventureContainer: {
     marginBottom: 24,
+    position: 'relative', // Enable absolute positioning for lock overlay
   },
 
   // ERA Badge
@@ -690,32 +682,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingBottom: 12,
     paddingRight: 7,
-  },
-
-  // Lock Overlay - Matching Figma design
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-    borderRadius: 10.28,
-  },
-  lockBanner: {
-    backgroundColor: '#C99151', // Persian Orange
-    borderRadius: 11,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    marginHorizontal: 30,
-    maxWidth: 363,
-  },
-  lockText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '600',
-    fontFamily: 'DMSans-SemiBold',
-    textAlign: 'center',
-    lineHeight: 25,
   },
 });
 
