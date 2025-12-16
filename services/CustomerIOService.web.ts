@@ -67,6 +67,14 @@ export const showPromptForPushNotifications = async (_options?: {
   return null;
 };
 
+/**
+ * Get push notification permission status - no-op on web
+ */
+export const getPushPermissionStatus = async (): Promise<'Granted' | 'Denied' | 'NotDetermined' | null> => {
+  // Customer.io is not available on web
+  return null;
+};
+
 export default {
   initialize: initializeCustomerIO,
   identify: identifyUser,
@@ -77,4 +85,5 @@ export default {
   setDeviceAttributes,
   screen: trackScreen,
   showPromptForPushNotifications,
+  getPushPermissionStatus,
 };

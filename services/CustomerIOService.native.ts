@@ -245,6 +245,31 @@ export const showPromptForPushNotifications = async (options?: {
   }
 };
 
+/**
+ * Get current push notification permission status
+ * Returns: 'Granted' | 'Denied' | 'NotDetermined'
+ */
+export const getPushPermissionStatus = async (): Promise<'Granted' | 'Denied' | 'NotDetermined' | null> => {
+  if (isExpoGo || !isInitialized) {
+    if (__DEV__) {
+      console.log('📧 [CustomerIO] Skipping getPushPermissionStatus - not available');
+    }
+    return null;
+  }
+
+  const module = getCustomerIO();
+  if (!module) return null;
+
+  try {
+    const status = await module.CustomerIO.getPushPermissionStatus();
+    console.log('🔔 [CustomerIO] Current push permission status:', status);
+    return status;
+  } catch (error) {
+    console.error('❌ [CustomerIO] Failed to get push permission status:', error);
+    return null;
+  }
+};
+
 export default {
   initialize: initializeCustomerIO,
   identify: identifyUser,
@@ -255,4 +280,5 @@ export default {
   setDeviceAttributes,
   screen: trackScreen,
   showPromptForPushNotifications,
+  getPushPermissionStatus,
 };
