@@ -2,6 +2,6 @@ import Foundation
 import CioInternalCommon
 
 class Env {
-    static var customerIOCdpApiKey: String = "{{CDP_API_KEY}}"
-    static var customerIORegion: Region = {{REGION}} // "us" or "eu"
+    static var customerIOCdpApiKey: String = "07236a20071e12b84ed5"
+    static var customerIORegion: Region = Region.EU // "us" or "eu"
 }

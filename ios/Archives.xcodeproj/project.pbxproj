@@ -8,33 +8,38 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		2072A5F834394D0DA88C57E7 /* Env.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66E27FBA7A77441D9A9BA1C6 /* Env.swift */; };
+		1918DE28DA8D4DF0ACA66EF7 /* CioSdkAppDelegateHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49C1182355ED474A96AE6A0A /* CioSdkAppDelegateHandler.swift */; };
+		24924CAF928543A9B5EBF3C8 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = E362A6247E8548A29040EDB1 /* NotificationService.m */; };
+		29E685E0043E40A5839C62F1 /* Env.swift in Sources */ = {isa = PBXBuildFile; fileRef = D92E1621D7F04B1495C0C10F /* Env.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		81690F75637C431BA46B12D4 /* CioSdkAppDelegateHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 421BED39CD9A40AFAF4531AB /* CioSdkAppDelegateHandler.swift */; };
-		84322FF44FF747F8A93A43E2 /* NotificationService.appex in Copy Files */ = {isa = PBXBuildFile; fileRef = 99585CA360D14F69BCE32CF0 /* NotificationService.appex */; };
+		4630B1BF5D45D7B9ADEBDC06 /* Pods_NotificationService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B45B0BA736FFF7247DC95276 /* Pods_NotificationService.framework */; };
+		5429210E5215493E98E78081 /* NotificationService.appex in Copy Files */ = {isa = PBXBuildFile; fileRef = 9E1F004943124BD3A823BF6B /* NotificationService.appex */; };
+		749AA2D14E94215FC60CF490 /* Pods_Archives.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 28741F10E53614AD7005A0A4 /* Pods_Archives.framework */; };
+		B9C6882727E70F639E78061D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9361A3F8021072198C82C3 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		CF7CC5D18F1146F7B23A70E2 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A061DC430A434706A542F96C /* NotificationService.swift */; };
+		C3A3DA73C074D1A5BF67B2E6 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6196596E904F963C0795C1ED /* ExpoModulesProvider.swift */; };
+		D53E40F290B9432B883D0CF8 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0630291149497A942801F0 /* NotificationService.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		C38E348B76F64A57B36F8DA8 /* PBXContainerItemProxy */ = {
+		D3F346956CE544DF8F4B3A42 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 52C73CA581944C3197AEB06D;
+			remoteGlobalIDString = 4BC4808932264D6AB69F6845;
 			remoteInfo = NotificationService;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		8F3FBA785D0D49C39A9B5DD8 /* Copy Files */ = {
+		BDB9113578334720A59C541E /* Copy Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				84322FF44FF747F8A93A43E2 /* NotificationService.appex in Copy Files */,
+				5429210E5215493E98E78081 /* NotificationService.appex in Copy Files */,
 			);
 			name = "Copy Files";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -42,39 +47,59 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		098BDC49FDBA77F517A77BA9 /* Pods-NotificationService.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NotificationService.debug.xcconfig"; path = "Target Support Files/Pods-NotificationService/Pods-NotificationService.debug.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Archives.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Archives.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Archives/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Archives/Info.plist; sourceTree = "<group>"; };
-		2E11B420A6F24DFD8E456A14 /* NotificationService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = "NotificationService-Info.plist"; sourceTree = "<group>"; };
-		421BED39CD9A40AFAF4531AB /* CioSdkAppDelegateHandler.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = CioSdkAppDelegateHandler.swift; path = Archives/CioSdkAppDelegateHandler.swift; sourceTree = "<group>"; };
-		66E27FBA7A77441D9A9BA1C6 /* Env.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = Env.swift; sourceTree = "<group>"; };
-		99585CA360D14F69BCE32CF0 /* NotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 9; includeInIndex = 0; path = NotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		A061DC430A434706A542F96C /* NotificationService.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		265E4466F245AB26940B1CFD /* Pods-Archives.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Archives.release.xcconfig"; path = "Target Support Files/Pods-Archives/Pods-Archives.release.xcconfig"; sourceTree = "<group>"; };
+		28741F10E53614AD7005A0A4 /* Pods_Archives.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Archives.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		28BA4738CB824CEEA25DCD90 /* NotificationService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "NotificationService-Info.plist"; path = "NotificationService-Info.plist"; sourceTree = "<group>"; };
+		49C1182355ED474A96AE6A0A /* CioSdkAppDelegateHandler.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = CioSdkAppDelegateHandler.swift; path = Archives/CioSdkAppDelegateHandler.swift; sourceTree = "<group>"; };
+		6196596E904F963C0795C1ED /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Archives/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		6F0AA548FCFAF371C515F612 /* Pods-NotificationService.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NotificationService.release.xcconfig"; path = "Target Support Files/Pods-NotificationService/Pods-NotificationService.release.xcconfig"; sourceTree = "<group>"; };
+		859006BBC7C4678126E1D3D6 /* Pods-Archives.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Archives.debug.xcconfig"; path = "Target Support Files/Pods-Archives/Pods-Archives.debug.xcconfig"; sourceTree = "<group>"; };
+		9E1F004943124BD3A823BF6B /* NotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = undefined; name = NotificationService.appex; path = NotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Archives/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B45B0BA736FFF7247DC95276 /* Pods_NotificationService.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_NotificationService.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		BD0630291149497A942801F0 /* NotificationService.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = NotificationService.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		BFFD1613E09449C7BFBD95C3 /* NotificationService.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = NotificationService.h; path = NotificationService.h; sourceTree = "<group>"; };
+		D92E1621D7F04B1495C0C10F /* Env.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = Env.swift; path = Env.swift; sourceTree = "<group>"; };
+		E362A6247E8548A29040EDB1 /* NotificationService.m */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = NotificationService.m; path = NotificationService.m; sourceTree = "<group>"; };
+		EA9361A3F8021072198C82C3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Archives/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Archives/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Archives-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Archives-Bridging-Header.h"; path = "Archives/Archives-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		06EA5ACE217B4B43A8BB713C /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				749AA2D14E94215FC60CF490 /* Pods_Archives.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A341970D1834401F84DE809F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4630B1BF5D45D7B9ADEBDC06 /* Pods_NotificationService.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0CD3484326DC4A1E976117F7 /* CustomerIO */ = {
+			isa = PBXGroup;
+			children = (
+				49C1182355ED474A96AE6A0A /* CioSdkAppDelegateHandler.swift */,
+			);
+			name = CustomerIO;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* Archives */ = {
 			isa = PBXGroup;
 			children = (
@@ -84,27 +109,32 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				CF511BB537EE40A58EC9D860 /* CustomerIO */,
+				0CD3484326DC4A1E976117F7 /* CustomerIO */,
+				EA9361A3F8021072198C82C3 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Archives;
-			sourceTree = "<group>";
-		};
-		1F585D60DCF74E148A5FDBD4 /* NotificationService */ = {
-			isa = PBXGroup;
-			children = (
-				A061DC430A434706A542F96C /* NotificationService.swift */,
-				2E11B420A6F24DFD8E456A14 /* NotificationService-Info.plist */,
-				66E27FBA7A77441D9A9BA1C6 /* Env.swift */,
-			);
-			path = NotificationService;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
+				28741F10E53614AD7005A0A4 /* Pods_Archives.framework */,
+				B45B0BA736FFF7247DC95276 /* Pods_NotificationService.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5EA1162795A3CEC6BCF7C245 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				859006BBC7C4678126E1D3D6 /* Pods-Archives.debug.xcconfig */,
+				265E4466F245AB26940B1CFD /* Pods-Archives.release.xcconfig */,
+				098BDC49FDBA77F517A77BA9 /* Pods-NotificationService.debug.xcconfig */,
+				6F0AA548FCFAF371C515F612 /* Pods-NotificationService.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -121,7 +151,9 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				1F585D60DCF74E148A5FDBD4 /* NotificationService */,
+				A6FD327CAC4A407F9E96ACC3 /* NotificationService */,
+				5EA1162795A3CEC6BCF7C245 /* Pods */,
+				CE858ADEED00B7876C6EAF5F /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -132,9 +164,30 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* Archives.app */,
-				99585CA360D14F69BCE32CF0 /* NotificationService.appex */,
+				9E1F004943124BD3A823BF6B /* NotificationService.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		840BFF1AB80E735310236513 /* Archives */ = {
+			isa = PBXGroup;
+			children = (
+				6196596E904F963C0795C1ED /* ExpoModulesProvider.swift */,
+			);
+			name = Archives;
+			sourceTree = "<group>";
+		};
+		A6FD327CAC4A407F9E96ACC3 /* NotificationService */ = {
+			isa = PBXGroup;
+			children = (
+				BD0630291149497A942801F0 /* NotificationService.swift */,
+				28BA4738CB824CEEA25DCD90 /* NotificationService-Info.plist */,
+				BFFD1613E09449C7BFBD95C3 /* NotificationService.h */,
+				E362A6247E8548A29040EDB1 /* NotificationService.m */,
+				D92E1621D7F04B1495C0C10F /* Env.swift */,
+			);
+			name = NotificationService;
+			path = NotificationService;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -146,12 +199,12 @@
 			path = Archives/Supporting;
 			sourceTree = "<group>";
 		};
-		CF511BB537EE40A58EC9D860 /* CustomerIO */ = {
+		CE858ADEED00B7876C6EAF5F /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				421BED39CD9A40AFAF4531AB /* CioSdkAppDelegateHandler.swift */,
+				840BFF1AB80E735310236513 /* Archives */,
 			);
-			name = CustomerIO;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -162,31 +215,35 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Archives" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
+				11B23A40E810CBA6DB6C4CCC /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				8F3FBA785D0D49C39A9B5DD8 /* Copy Files */,
-				BB8722E8B67841F399879758 /* Upload Debug Symbols to Sentry */,
+				BDB9113578334720A59C541E /* Copy Files */,
+				44443902D16F4C0E9136E6DA /* Upload Debug Symbols to Sentry */,
+				2DB0403B2AE98B068A014AAF /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				BC8370AB18B6485EAB7D51E9 /* PBXTargetDependency */,
+				D5D762B14A1B4563BD040BCA /* PBXTargetDependency */,
 			);
 			name = Archives;
 			productName = Archives;
 			productReference = 13B07F961A680F5B00A75B9A /* Archives.app */;
 			productType = "com.apple.product-type.application";
 		};
-		52C73CA581944C3197AEB06D /* NotificationService */ = {
+		4BC4808932264D6AB69F6845 /* NotificationService */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E9A329826B15483D88A43923 /* Build configuration list for PBXNativeTarget "NotificationService" */;
+			buildConfigurationList = 17DE23F90B4B447E92267D90 /* Build configuration list for PBXNativeTarget "NotificationService" */;
 			buildPhases = (
-				A3495ED976F447B8A79111DE /* Sources */,
-				6E846DFC930842F28248564B /* Resources */,
-				06EA5ACE217B4B43A8BB713C /* Frameworks */,
+				1A42C6B94AF265B923FBF9C6 /* [CP] Check Pods Manifest.lock */,
+				E18CB46016074A698C38E4AE /* Sources */,
+				7C74C55DA9FD43F8B2CD7DCC /* Resources */,
+				A341970D1834401F84DE809F /* Frameworks */,
+				0C636A919C8D10A1A6D7E4CB /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -194,7 +251,7 @@
 			);
 			name = NotificationService;
 			productName = NotificationService;
-			productReference = 99585CA360D14F69BCE32CF0 /* NotificationService.appex */;
+			productReference = 9E1F004943124BD3A823BF6B /* NotificationService.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -206,7 +263,11 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
+						DevelopmentTeam = undefined;
 						LastSwiftMigration = 1250;
+					};
+					4BC4808932264D6AB69F6845 = {
+						DevelopmentTeam = undefined;
 					};
 				};
 			};
@@ -224,7 +285,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* Archives */,
-				52C73CA581944C3197AEB06D /* NotificationService */,
+				4BC4808932264D6AB69F6845 /* NotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -237,10 +298,11 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
+				B9C6882727E70F639E78061D /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		6E846DFC930842F28248564B /* Resources */ = {
+		7C74C55DA9FD43F8B2CD7DCC /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -289,29 +351,95 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+		0C636A919C8D10A1A6D7E4CB /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Archives/Pods-Archives-resources.sh",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXUpdates/EXUpdates.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/RCTI18nStrings.bundle",
+				"${PODS_ROOT}/Target Support Files/Pods-NotificationService/Pods-NotificationService-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/CustomerIOMessagingPushAPN/CustomerIOMessagingPushAPN_Privacy.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXUpdates.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCTI18nStrings.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CustomerIOMessagingPushAPN_Privacy.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Archives/Pods-Archives-resources.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-NotificationService/Pods-NotificationService-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		BB8722E8B67841F399879758 /* Upload Debug Symbols to Sentry */ = {
+		11B23A40E810CBA6DB6C4CCC /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/Archives/Archives.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-Archives/expo-configure-project.sh",
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Pods/Target Support Files/Pods-Archives/ExpoModulesProvider.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Archives/expo-configure-project.sh\"\n";
+		};
+		1A42C6B94AF265B923FBF9C6 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-NotificationService-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		2DB0403B2AE98B068A014AAF /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Archives/Pods-Archives-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/RiveRuntime/RiveRuntime.framework/RiveRuntime",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RiveRuntime.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Archives/Pods-Archives-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		44443902D16F4C0E9136E6DA /* Upload Debug Symbols to Sentry */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -325,6 +453,78 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh `${NODE_BINARY:-node} --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode-debug-files.sh'\"`";
 		};
+		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Archives/Pods-Archives-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/AnalyticsSwiftCIO/Segment_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/CustomerIODataPipelines/CustomerIODataPipelines_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/CustomerIOMessagingInApp/CustomerIOMessagingInApp_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/CustomerIOMessagingPushAPN/CustomerIOMessagingPushAPN_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXNotifications/ExpoNotifications_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXUpdates/EXUpdates.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoDevice/ExpoDevice_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoLocalization/ExpoLocalization_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoMediaLibrary/ExpoMediaLibrary_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/PostHog/PostHog.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/PurchasesHybridCommon/PurchasesHybridCommon.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ReachabilitySwift/ReachabilitySwift.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCat/RevenueCat.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCatUI/RevenueCat_RevenueCatUI.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RiveRuntime/runtime_ios_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/SDWebImage/SDWebImage.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/Sentry/Sentry.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-launcher/EXDevLauncher.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-menu/EXDevMenu.bundle",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Segment_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CustomerIODataPipelines_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CustomerIOMessagingInApp_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CustomerIOMessagingPushAPN_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXUpdates.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoDevice_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoLocalization_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoMediaLibrary_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PostHog.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PurchasesHybridCommon.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ReachabilitySwift.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat_RevenueCatUI.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/runtime_ios_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SDWebImage.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Sentry.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevLauncher.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevMenu.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Archives/Pods-Archives-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -333,52 +533,35 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				81690F75637C431BA46B12D4 /* CioSdkAppDelegateHandler.swift in Sources */,
+				1918DE28DA8D4DF0ACA66EF7 /* CioSdkAppDelegateHandler.swift in Sources */,
+				C3A3DA73C074D1A5BF67B2E6 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A3495ED976F447B8A79111DE /* Sources */ = {
+		E18CB46016074A698C38E4AE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CF7CC5D18F1146F7B23A70E2 /* NotificationService.swift in Sources */,
-				2072A5F834394D0DA88C57E7 /* Env.swift in Sources */,
+				24924CAF928543A9B5EBF3C8 /* NotificationService.m in Sources */,
+				D53E40F290B9432B883D0CF8 /* NotificationService.swift in Sources */,
+				29E685E0043E40A5839C62F1 /* Env.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		BC8370AB18B6485EAB7D51E9 /* PBXTargetDependency */ = {
+		D5D762B14A1B4563BD040BCA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 52C73CA581944C3197AEB06D /* NotificationService */;
-			targetProxy = C38E348B76F64A57B36F8DA8 /* PBXContainerItemProxy */;
+			target = 4BC4808932264D6AB69F6845 /* NotificationService */;
+			targetProxy = D3F346956CE544DF8F4B3A42 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		0F4B6B8166A64E29B1F1A527 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = LQ9LP2WW94;
-				INFOPLIST_FILE = "NotificationService/NotificationService-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.affinitylabs.archivesexpo.richpush;
-				PRODUCT_NAME = NotificationService;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 4.2;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 859006BBC7C4678126E1D3D6 /* Pods-Archives.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -402,6 +585,7 @@
 					"-ObjC",
 					"-lc++",
 				);
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = ai.affinitylabs.archivesexpo;
 				PRODUCT_NAME = Archives;
 				SWIFT_OBJC_BRIDGING_HEADER = "Archives/Archives-Bridging-Header.h";
@@ -414,6 +598,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 265E4466F245AB26940B1CFD /* Pods-Archives.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -432,6 +617,7 @@
 					"-ObjC",
 					"-lc++",
 				);
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = ai.affinitylabs.archivesexpo;
 				PRODUCT_NAME = Archives;
 				SWIFT_OBJC_BRIDGING_HEADER = "Archives/Archives-Bridging-Header.h";
@@ -440,6 +626,54 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		3520E7F9E6DC4A5D92F2DD14 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6F0AA548FCFAF371C515F612 /* Pods-NotificationService.release.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = undefined;
+				INFOPLIST_FILE = "NotificationService/NotificationService-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = ai.affinitylabs.archivesexpo.richpush;
+				PRODUCT_NAME = NotificationService;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 4.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		4B9EC02E8DB6479EAC593C9D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 098BDC49FDBA77F517A77BA9 /* Pods-NotificationService.debug.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = undefined;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				INFOPLIST_FILE = "NotificationService/NotificationService-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = ai.affinitylabs.archivesexpo.richpush;
+				PRODUCT_NAME = NotificationService;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 4.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -488,15 +722,32 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"${PODS_ROOT}/ReactCommon",
+					"${PODS_ROOT}/ReactCommon/react/nativemodule/core",
+					"${PODS_ROOT}/React-runtimeexecutor",
+					"${PODS_ROOT}/React-runtimeexecutor/platform/ios",
+					"${PODS_ROOT}/ReactCommon-Samples",
+					"${PODS_ROOT}/ReactCommon-Samples/platform/ios",
+					"${PODS_ROOT}/React-Fabric/react/renderer/components/view/platform/cxx",
+					"${PODS_ROOT}/React-NativeModulesApple",
+					"${PODS_ROOT}/React-graphics",
+					"${PODS_ROOT}/React-graphics/react/renderer/graphics/platform/ios",
+				);
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
 				);
-				LIBRARY_SEARCH_PATHS = "\"$(inherited)\"";
+				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -540,41 +791,33 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"${PODS_ROOT}/ReactCommon",
+					"${PODS_ROOT}/ReactCommon/react/nativemodule/core",
+					"${PODS_ROOT}/React-runtimeexecutor",
+					"${PODS_ROOT}/React-runtimeexecutor/platform/ios",
+					"${PODS_ROOT}/ReactCommon-Samples",
+					"${PODS_ROOT}/ReactCommon-Samples/platform/ios",
+					"${PODS_ROOT}/React-Fabric/react/renderer/components/view/platform/cxx",
+					"${PODS_ROOT}/React-NativeModulesApple",
+					"${PODS_ROOT}/React-graphics",
+					"${PODS_ROOT}/React-graphics/react/renderer/graphics/platform/ios",
+				);
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
 				);
-				LIBRARY_SEARCH_PATHS = "\"$(inherited)\"";
+				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
-		};
-		9FFCE1187EE747118A67EAB5 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = LQ9LP2WW94;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				INFOPLIST_FILE = "NotificationService/NotificationService-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.affinitylabs.archivesexpo.richpush;
-				PRODUCT_NAME = NotificationService;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 4.2;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
 		};
 /* End XCBuildConfiguration section */
 
@@ -588,20 +831,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		17DE23F90B4B447E92267D90 /* Build configuration list for PBXNativeTarget "NotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4B9EC02E8DB6479EAC593C9D /* Debug */,
+				3520E7F9E6DC4A5D92F2DD14 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "Archives" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		E9A329826B15483D88A43923 /* Build configuration list for PBXNativeTarget "NotificationService" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				9FFCE1187EE747118A67EAB5 /* Debug */,
-				0F4B6B8166A64E29B1F1A527 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
