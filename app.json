@@ -153,9 +153,7 @@
               "env": "production"
             }
           },
-          "android": {
-            "googleServicesFile": "./google-services.json"
-          }
+          "android": {}
         }
       ]
     ],
