@@ -13,6 +13,7 @@ import {
 } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -44,11 +45,13 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  // Optional image data for generated images
+  // Optional image data for generated images (assistant) or uploaded images (user)
   image?: {
     base64: string;
     mimeType: string;
   };
+  // Flag to indicate if this is an uploaded image (user) vs generated (assistant)
+  isUploadedImage?: boolean;
 }
 
 interface AIChatModalProps {
@@ -73,11 +76,16 @@ export default function AIChatModal({
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Image viewer state
   const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Image upload state
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ base64: string; mimeType: string; uri: string } | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const { getUserProgressSummary } = useAI();
@@ -153,32 +161,158 @@ export default function AIChatModal({
     }
   };
 
+  // Pick image from library
+  const handlePickImage = async () => {
+    setShowActionMenu(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          setPendingImage({
+            base64: asset.base64,
+            mimeType: asset.mimeType || 'image/jpeg',
+            uri: asset.uri,
+          });
+          analyticsService.trackCustomEvent('ai_image_selected', {
+            era_id: context?.eraId || 'unknown_era',
+            source: 'library',
+          });
+        }
+      }
+    } catch (err) {
+      console.error('❌ [AIChatModal] Error picking image:', err);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
+
+  // Take photo with camera
+  const handleTakePhoto = async () => {
+    setShowActionMenu(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      // Request camera permission
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow camera access to take photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          setPendingImage({
+            base64: asset.base64,
+            mimeType: asset.mimeType || 'image/jpeg',
+            uri: asset.uri,
+          });
+          analyticsService.trackCustomEvent('ai_image_selected', {
+            era_id: context?.eraId || 'unknown_era',
+            source: 'camera',
+          });
+        }
+      }
+    } catch (err) {
+      console.error('❌ [AIChatModal] Error taking photo:', err);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
+    }
+  };
+
+  // Clear pending image
+  const handleClearPendingImage = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPendingImage(null);
+  };
+
+  // Handle generate image shortcut
+  const handleGenerateImageShortcut = () => {
+    setShowActionMenu(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setInputText('Generate an image of ');
+  };
+
   const handleSend = async (messageToSend?: string) => {
     const userMessage = (messageToSend || inputText).trim();
-    if (!userMessage || isLoading) return;
+    const hasImage = pendingImage !== null;
+
+    // Need either a message or an image to send
+    if ((!userMessage && !hasImage) || isLoading) return;
 
     setInputText('');
     setError(null);
 
+    // Create user message with optional image
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: userMessage,
+      content: userMessage || 'What can you tell me about this image?',
       timestamp: new Date(),
+      ...(hasImage && {
+        image: {
+          base64: pendingImage.base64,
+          mimeType: pendingImage.mimeType,
+        },
+        isUploadedImage: true,
+      }),
     };
+
+    // Clear pending image before async operations
+    const imageToAnalyze = pendingImage;
+    setPendingImage(null);
 
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      // Check if user is requesting an image
-      const isImageRequest = aiService.isImageRequest(userMessage);
+      // If user uploaded an image, analyze it
+      if (imageToAnalyze) {
+        setIsAnalyzingImage(true);
+        console.log('🔍 [AIChatModal] Analyzing uploaded image...');
 
-      if (isImageRequest) {
-        // Generate image
+        const response = await aiService.analyzeImage({
+          imageBase64: imageToAnalyze.base64,
+          mimeType: imageToAnalyze.mimeType,
+          userMessage: userMessage || undefined,
+          context: {
+            eraName: context.eraName,
+            adventureId: context.adventureId,
+          },
+        });
+
+        const aiMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: response,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, aiMsg]);
+        analyticsService.trackCustomEvent('ai_image_analyzed', {
+          era_id: context?.eraId || 'unknown_era',
+          has_question: !!userMessage,
+        });
+      }
+      // Check if user is requesting image generation
+      else if (aiService.isImageRequest(userMessage)) {
         setIsGeneratingImage(true);
-        console.log('🎨 [AIChatModal] Image request detected');
+        console.log('🎨 [AIChatModal] Image generation request detected');
+
         const imageResult = await aiService.generateImage({
           prompt: userMessage,
           context: {
@@ -206,8 +340,9 @@ export default function AIChatModal({
         } else {
           throw new Error('Failed to generate image');
         }
-      } else {
-        // Regular text chat
+      }
+      // Regular text chat
+      else {
         const progressSummary = getUserProgressSummary();
         const response = await aiService.getChatResponse({
           userMessage,
@@ -243,6 +378,7 @@ export default function AIChatModal({
     } finally {
       setIsLoading(false);
       setIsGeneratingImage(false);
+      setIsAnalyzingImage(false);
     }
   };
 
@@ -385,6 +521,20 @@ export default function AIChatModal({
                 >
                   {message.role === 'user' ? (
                     <View style={styles.userContent}>
+                      {/* Show uploaded image above text for user messages */}
+                      {message.image && message.isUploadedImage && (
+                        <TouchableOpacity
+                          onPress={() => handleImagePress(message.image!)}
+                          activeOpacity={0.9}
+                          style={styles.uploadedImageContainer}
+                        >
+                          <Image
+                            source={{ uri: `data:${message.image.mimeType};base64,${message.image.base64}` }}
+                            style={styles.uploadedImage}
+                            contentFit="cover"
+                          />
+                        </TouchableOpacity>
+                      )}
                       <Text style={styles.userText}>{message.content}</Text>
                     </View>
                   ) : (
@@ -421,7 +571,7 @@ export default function AIChatModal({
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={ArchivesTheme.colors.persianOrange} />
                   <Text style={styles.loadingText}>
-                    {isGeneratingImage ? 'Generating image...' : 'Thinking...'}
+                    {isAnalyzingImage ? 'Analyzing image...' : isGeneratingImage ? 'Generating image...' : 'Thinking...'}
                   </Text>
                 </View>
               </View>
@@ -435,14 +585,33 @@ export default function AIChatModal({
             )}
           </ScrollView>
 
+          {/* Pending Image Preview */}
+          {pendingImage && (
+            <View style={styles.pendingImageContainer}>
+              <Image
+                source={{ uri: pendingImage.uri }}
+                style={styles.pendingImagePreview}
+                contentFit="cover"
+              />
+              <TouchableOpacity
+                style={styles.pendingImageRemove}
+                onPress={handleClearPendingImage}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close-circle" size={24} color="white" />
+              </TouchableOpacity>
+              <Text style={styles.pendingImageHint}>Add a message or tap send</Text>
+            </View>
+          )}
+
           {/* Input Bar */}
           <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            {/* Plus button for image generation */}
+            {/* Plus button - opens action menu */}
             <TouchableOpacity
               style={styles.plusButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setInputText('Generate an image of ');
+                setShowActionMenu(true);
               }}
               activeOpacity={0.7}
             >
@@ -455,7 +624,7 @@ export default function AIChatModal({
                 style={styles.input}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="What are you curious about?"
+                placeholder={pendingImage ? 'Ask about this image...' : 'What are you curious about?'}
                 placeholderTextColor="#9A8B7A"
                 multiline
                 maxLength={500}
@@ -463,11 +632,11 @@ export default function AIChatModal({
                 returnKeyType="send"
                 blurOnSubmit={false}
               />
-              {/* Send button inside input */}
+              {/* Send button inside input - enabled if text OR pending image */}
               <TouchableOpacity
-                style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
+                style={[styles.sendButton, (!inputText.trim() && !pendingImage || isLoading) && styles.sendButtonDisabled]}
                 onPress={() => handleSend()}
-                disabled={!inputText.trim() || isLoading}
+                disabled={(!inputText.trim() && !pendingImage) || isLoading}
                 activeOpacity={0.7}
               >
                 <Ionicons name="arrow-up" size={20} color="white" />
@@ -520,6 +689,76 @@ export default function AIChatModal({
             )}
           </TouchableOpacity>
         </View>
+      </Modal>
+
+      {/* Action Menu Modal */}
+      <Modal
+        visible={showActionMenu}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowActionMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.actionMenuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowActionMenu(false)}
+        >
+          <View style={[styles.actionMenuContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={styles.actionMenuHandle} />
+
+            <TouchableOpacity
+              style={styles.actionMenuItem}
+              onPress={handlePickImage}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionMenuIconContainer}>
+                <Ionicons name="images-outline" size={24} color={ArchivesTheme.colors.persianOrange} />
+              </View>
+              <View style={styles.actionMenuTextContainer}>
+                <Text style={styles.actionMenuTitle}>Upload Image</Text>
+                <Text style={styles.actionMenuSubtitle}>Choose from your photo library</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionMenuItem}
+              onPress={handleTakePhoto}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionMenuIconContainer}>
+                <Ionicons name="camera-outline" size={24} color={ArchivesTheme.colors.persianOrange} />
+              </View>
+              <View style={styles.actionMenuTextContainer}>
+                <Text style={styles.actionMenuTitle}>Take Photo</Text>
+                <Text style={styles.actionMenuSubtitle}>Use your camera to capture</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.actionMenuDivider} />
+
+            <TouchableOpacity
+              style={styles.actionMenuItem}
+              onPress={handleGenerateImageShortcut}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionMenuIconContainer}>
+                <Ionicons name="sparkles-outline" size={24} color={ArchivesTheme.colors.mossGreen} />
+              </View>
+              <View style={styles.actionMenuTextContainer}>
+                <Text style={styles.actionMenuTitle}>Generate Image</Text>
+                <Text style={styles.actionMenuSubtitle}>Create AI-generated historical art</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionMenuCancel}
+              onPress={() => setShowActionMenu(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionMenuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </Modal>
   );
@@ -848,5 +1087,114 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
     marginLeft: 8,
+  },
+
+  // Uploaded image in user messages
+  uploadedImageContainer: {
+    width: '100%',
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  uploadedImage: {
+    width: '100%',
+    height: 150,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
+  },
+
+  // Pending image preview above input
+  pendingImageContainer: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: 'white',
+    position: 'relative',
+  },
+  pendingImagePreview: {
+    width: '100%',
+    height: 120,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
+  },
+  pendingImageRemove: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+  },
+  pendingImageHint: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: '#9A8B7A',
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+
+  // Action menu styles
+  actionMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  actionMenuContainer: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+  },
+  actionMenuHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E0D5C5',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  actionMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  actionMenuIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  actionMenuTextContainer: {
+    flex: 1,
+  },
+  actionMenuTitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.mutedNavy,
+    marginBottom: 2,
+  },
+  actionMenuSubtitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 13,
+    color: '#9A8B7A',
+  },
+  actionMenuDivider: {
+    height: 1,
+    backgroundColor: '#E0D5C5',
+    marginVertical: 8,
+  },
+  actionMenuCancel: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  actionMenuCancelText: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#9A8B7A',
   },
 });

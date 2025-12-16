@@ -509,6 +509,113 @@ Generate a single high-quality image.`;
   }
 
   /**
+   * Analyze an uploaded image with optional text prompt
+   * Uses Gemini's multimodal capabilities
+   */
+  async analyzeImage(params: {
+    imageBase64: string;
+    mimeType: string;
+    userMessage?: string;
+    context?: {
+      eraName?: string;
+      adventureId?: string;
+    };
+  }): Promise<string> {
+    if (!this.isAvailable() || !this.ai) {
+      throw new Error('AI Service is not available. Please configure EXPO_PUBLIC_GEMINI_API_KEY.');
+    }
+
+    const { imageBase64, mimeType, userMessage, context = {} } = params;
+
+    try {
+      console.log('🔍 [AIService] Analyzing image with Gemini...');
+      console.log('💬 User message:', userMessage || '(no message)');
+
+      // Build prompt for image analysis
+      const analysisPrompt = this.buildImageAnalysisPrompt(userMessage, context);
+
+      // Call Gemini API with multimodal input (text + image)
+      const response = await this.ai.models.generateContent({
+        model: this.textModel, // Text model supports vision
+        contents: [
+          {
+            parts: [
+              { text: analysisPrompt },
+              {
+                inlineData: {
+                  data: imageBase64,
+                  mimeType: mimeType,
+                },
+              },
+            ],
+          },
+        ],
+        config: {
+          maxOutputTokens: 1024,
+          temperature: 1.0,
+          thinkingConfig: {
+            thinkingLevel: 'low',
+          },
+        },
+      });
+
+      // Extract text from response
+      let aiResponse = '';
+      const candidate = response.candidates?.[0];
+      const finishReason = candidate?.finishReason;
+
+      if (candidate?.content?.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.text) {
+            aiResponse += part.text;
+          }
+        }
+      }
+
+      // Handle blocked responses
+      if (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS') {
+        console.warn(`⛔ [AIService] Image analysis blocked. Reason: ${finishReason}`);
+        if (!aiResponse) {
+          aiResponse = 'I cannot analyze this image due to content restrictions. Please try a different image.';
+        }
+      }
+
+      console.log('✅ [AIService] Image analysis complete, length:', aiResponse.length);
+      return aiResponse;
+    } catch (error) {
+      console.error('❌ [AIService] Error analyzing image:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Build prompt for image analysis
+   */
+  private buildImageAnalysisPrompt(
+    userMessage?: string,
+    context?: { eraName?: string; adventureId?: string }
+  ): string {
+    const { eraName = 'Islamic History' } = context || {};
+
+    const basePrompt = `You are a knowledgeable Islamic history tutor. Analyze this image and provide helpful, educational information.
+
+CONTEXT:
+- The user is learning about ${eraName}
+- Focus on historical accuracy and educational value
+- Be respectful of Islamic traditions and culture
+
+${userMessage ? `USER'S QUESTION: ${userMessage}` : 'Please describe what you see in this image and provide any relevant historical context.'}
+
+RESPONSE GUIDELINES:
+- Keep response concise (2-4 sentences)
+- If the image relates to Islamic history, provide historical context
+- If the image is unrelated, politely explain and offer to help with Islamic history topics
+- Be warm and encouraging`;
+
+    return basePrompt;
+  }
+
+  /**
    * Check if a message is requesting image generation
    * More flexible matching to handle variations like "generate an image", "create the image", etc.
    */
