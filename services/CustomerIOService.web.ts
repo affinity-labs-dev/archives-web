@@ -75,6 +75,14 @@ export const getPushPermissionStatus = async (): Promise<'Granted' | 'Denied' | 
   return null;
 };
 
+/**
+ * Get registered device token - no-op on web
+ */
+export const getRegisteredDeviceToken = async (): Promise<string | null> => {
+  // Customer.io is not available on web
+  return null;
+};
+
 export default {
   initialize: initializeCustomerIO,
   identify: identifyUser,
@@ -86,4 +94,5 @@ export default {
   screen: trackScreen,
   showPromptForPushNotifications,
   getPushPermissionStatus,
+  getRegisteredDeviceToken,
 };

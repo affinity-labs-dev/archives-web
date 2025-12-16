@@ -270,6 +270,34 @@ export const getPushPermissionStatus = async (): Promise<'Granted' | 'Denied' | 
   }
 };
 
+/**
+ * Get the currently registered device token (APNs/FCM)
+ * Returns the token string or null if not available
+ */
+export const getRegisteredDeviceToken = async (): Promise<string | null> => {
+  if (isExpoGo || !isInitialized) {
+    if (__DEV__) {
+      console.log('📧 [CustomerIO] Skipping getRegisteredDeviceToken - not available');
+    }
+    return null;
+  }
+
+  const module = getCustomerIO();
+  if (!module) return null;
+
+  try {
+    const token = await module.CustomerIO.pushMessaging.getRegisteredDeviceToken();
+    if (token) {
+      console.log('🔔 [CustomerIO] Retrieved device token');
+      return token;
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ [CustomerIO] Failed to get device token:', error);
+    return null;
+  }
+};
+
 export default {
   initialize: initializeCustomerIO,
   identify: identifyUser,
@@ -281,4 +309,5 @@ export default {
   screen: trackScreen,
   showPromptForPushNotifications,
   getPushPermissionStatus,
+  getRegisteredDeviceToken,
 };
