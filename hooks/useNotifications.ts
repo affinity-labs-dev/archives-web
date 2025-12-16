@@ -3,6 +3,8 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
+// Note: Notification handler and deep link handling are in app/_layout.tsx
+
 export function useNotifications() {
   const [devicePushToken, setDevicePushToken] = useState<string>('');
   const [permissionStatus, setPermissionStatus] = useState<string>('undetermined');

@@ -4,9 +4,9 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, Text, Platform } from "react-native";
+import { View, Text, Platform, Linking } from "react-native";
 import React from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -66,6 +66,54 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
+
+/**
+ * Handle deep links from push notification taps
+ * Supports: archives:// scheme, https://link.archiveszone.app, and direct paths
+ */
+const handleNotificationDeepLink = (response: Notifications.NotificationResponse) => {
+  try {
+    const data = response.notification.request.content.data;
+    console.log('🔔 [DeepLink] Notification data:', data);
+
+    // Customer.io deep link can be in 'link', 'url', or 'deep_link' field
+    const deepLink = data?.link || data?.url || data?.deep_link;
+
+    if (deepLink && typeof deepLink === 'string') {
+      console.log('🔗 [DeepLink] Found:', deepLink);
+
+      // Handle different URL formats
+      if (deepLink.startsWith('archives://')) {
+        // Custom scheme - extract path and navigate
+        const path = deepLink.replace('archives://', '/');
+        console.log('🔗 [DeepLink] Custom scheme path:', path);
+        router.push(path as any);
+      } else if (deepLink.startsWith('https://link.archiveszone.app')) {
+        // Universal link - extract path
+        try {
+          const url = new URL(deepLink);
+          const path = url.pathname;
+          console.log('🔗 [DeepLink] Universal link path:', path);
+          if (path && path !== '/') {
+            router.push(path as any);
+          }
+        } catch {
+          console.error('🔗 [DeepLink] Invalid URL:', deepLink);
+        }
+      } else if (deepLink.startsWith('/')) {
+        // Direct path - navigate directly
+        console.log('🔗 [DeepLink] Direct path:', deepLink);
+        router.push(deepLink as any);
+      } else {
+        // External URL - open in browser
+        console.log('🔗 [DeepLink] Opening external URL:', deepLink);
+        Linking.openURL(deepLink);
+      }
+    }
+  } catch (error) {
+    console.error('❌ [DeepLink] Error handling:', error);
+  }
+};
 
 // Prevent native splash screen from auto-hiding (GLOBAL SCOPE - must be called before component renders)
 SplashScreen.preventAutoHideAsync();
@@ -145,7 +193,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // - Application Installed
   // - Application Updated
 
-  // Listen for notifications (both received and tapped)
+  // Listen for notifications (both received and tapped) with deep link support
   React.useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
       const messageId = notification.request.identifier || `notif_${Date.now()}`;
@@ -159,6 +207,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
       const messageId = response.notification.request.identifier || `notif_${Date.now()}`;
       analyticsService.trackNotificationClicked(messageId);
+
+      // Handle deep links from Customer.io push notifications
+      handleNotificationDeepLink(response);
     });
 
     return () => {
