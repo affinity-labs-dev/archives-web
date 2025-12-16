@@ -70,7 +70,7 @@ export default function OnboardingQuestion3Screen() {
     }
   }
 
-  // Request notification permissions directly
+  // Request notification permissions using Customer.io's recommended method
   const requestNotificationPermission = async () => {
     try {
       // Check if physical device
@@ -80,55 +80,50 @@ export default function OnboardingQuestion3Screen() {
         return
       }
 
-      // Request permission - this shows the iOS system modal
-      const { status } = await Notifications.requestPermissionsAsync()
-      console.log('🔔 Permission status:', status)
+      // Use Customer.io's showPromptForPushNotifications
+      // This shows the native prompt AND automatically registers the device token
+      const status = await CustomerIOService.showPromptForPushNotifications({
+        ios: { sound: true, badge: true }
+      })
+
+      console.log('🔔 Customer.io push permission status:', status)
+
+      // Map Customer.io status to our tracking format
+      const trackingStatus = status === 'Granted' ? 'granted' : status === 'Denied' ? 'denied' : 'undetermined'
 
       // Track notification permission request
       analyticsService.trackPermissionRequested({
         permission_type: 'push_notifications',
         screen: 'onboarding_question_3',
-        result: status,
+        result: trackingStatus,
         platform: Platform.OS,
       })
 
       // Track specific permission result
-      if (status === 'granted') {
+      if (status === 'Granted') {
         analyticsService.trackPushNotificationsEnabled({
           permission_type: 'push_notifications',
           screen: 'onboarding_question_3',
           result: 'granted',
           platform: Platform.OS,
         })
-      } else if (status === 'denied') {
+        await AsyncStorage.setItem('notifications_permission_granted', 'true')
+      } else if (status === 'Denied') {
         analyticsService.trackPushNotificationsDeclined({
           permission_type: 'push_notifications',
           screen: 'onboarding_question_3',
           result: 'denied',
           platform: Platform.OS,
         })
+        await AsyncStorage.setItem('notifications_permission_granted', 'false')
+      } else {
+        await AsyncStorage.setItem('notifications_permission_granted', 'false')
       }
 
       // Update PostHog person property for push notification status
-      analyticsService.updatePushStatus(status === 'granted')
+      analyticsService.updatePushStatus(status === 'Granted')
 
-      if (status === 'granted') {
-        // Get native device token (APNs for iOS, FCM for Android)
-        // Customer.io requires native tokens, not Expo push tokens
-        const tokenData = await Notifications.getDevicePushTokenAsync()
-        const pushToken = tokenData.data
-
-        console.log('🔔 Native device push token:', pushToken)
-
-        // Register token with Customer.io for push notifications
-        CustomerIOService.registerPushToken(pushToken)
-
-        await AsyncStorage.setItem('notifications_permission_granted', 'true')
-        await AsyncStorage.setItem('notification_permission_asked', 'true')
-      } else {
-        await AsyncStorage.setItem('notifications_permission_granted', 'false')
-        await AsyncStorage.setItem('notification_permission_asked', 'true')
-      }
+      await AsyncStorage.setItem('notification_permission_asked', 'true')
     } catch (error: any) {
       // Handle specific APS entitlement error (iOS simulator or missing config)
       if (error?.message?.includes('aps-environment')) {

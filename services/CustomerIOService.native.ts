@@ -214,6 +214,37 @@ export const trackScreen = (screenName: string) => {
   }
 };
 
+/**
+ * Show push notification permission prompt (Customer.io recommended method)
+ * This handles the native prompt AND automatically registers the device token
+ * Returns: 'Granted' | 'Denied' | 'NotDetermined'
+ */
+export const showPromptForPushNotifications = async (options?: {
+  ios?: { sound?: boolean; badge?: boolean };
+}): Promise<'Granted' | 'Denied' | 'NotDetermined' | null> => {
+  if (isExpoGo || !isInitialized) {
+    if (__DEV__) {
+      console.log('📧 [CustomerIO] Skipping push prompt - not available');
+    }
+    return null;
+  }
+
+  const module = getCustomerIO();
+  if (!module) return null;
+
+  try {
+    // Default options: enable sound and badge on iOS
+    const promptOptions = options || { ios: { sound: true, badge: true } };
+
+    const status = await module.CustomerIO.showPromptForPushNotifications(promptOptions);
+    console.log('🔔 [CustomerIO] Push permission status:', status);
+    return status;
+  } catch (error) {
+    console.error('❌ [CustomerIO] Failed to show push prompt:', error);
+    return null;
+  }
+};
+
 export default {
   initialize: initializeCustomerIO,
   identify: identifyUser,
@@ -223,4 +254,5 @@ export default {
   setProfileAttributes,
   setDeviceAttributes,
   screen: trackScreen,
+  showPromptForPushNotifications,
 };

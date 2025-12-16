@@ -57,6 +57,16 @@ export const trackScreen = (_screenName: string) => {
   // Customer.io is not available on web
 };
 
+/**
+ * Show push notification permission prompt - no-op on web
+ */
+export const showPromptForPushNotifications = async (_options?: {
+  ios?: { sound?: boolean; badge?: boolean };
+}): Promise<'Granted' | 'Denied' | 'NotDetermined' | null> => {
+  // Customer.io is not available on web
+  return null;
+};
+
 export default {
   initialize: initializeCustomerIO,
   identify: identifyUser,
@@ -66,4 +76,5 @@ export default {
   setProfileAttributes,
   setDeviceAttributes,
   screen: trackScreen,
+  showPromptForPushNotifications,
 };
