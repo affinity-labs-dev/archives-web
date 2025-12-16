@@ -8,6 +8,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS, WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { analyticsService } from '@/services/AnalyticsService';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
+import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
@@ -271,6 +272,19 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   const adventureUnlockStatus = useMemo(() => {
     return getAdventureUnlockStatus(adventures, userProgress);
   }, [adventures, userProgress]);
+
+  // Adaptive content preloading based on device capabilities and progress
+  // Preloads next adventure when user is 60%+ through current adventure
+  const { state: preloadState, refresh: refreshPreloading } = useAdventurePreloader(
+    adventures,
+    userProgress,
+    true // enabled
+  );
+
+  // Log preload stats in development
+  if (__DEV__ && preloadState.stats.preloadedImages > 0) {
+    console.log('📦 [Preload] Stats:', preloadState.stats);
+  }
 
   // Find first locked adventure ID (for rendering overlay in correct item)
   const firstLockedAdventureId = useMemo(() => {
