@@ -91,7 +91,8 @@ export const identifyUser = (userId: string, traits?: Record<string, unknown>) =
   if (!module) return;
 
   try {
-    module.CustomerIO.identify(userId, traits);
+    // Customer.io SDK expects a single object with userId and traits
+    module.CustomerIO.identify({ userId, traits });
     console.log('✅ [CustomerIO] User identified:', userId);
   } catch (error) {
     console.error('❌ [CustomerIO] Failed to identify user:', error);
@@ -154,10 +155,72 @@ export const registerPushToken = (token: string) => {
   }
 };
 
+/**
+ * Update profile attributes without re-identifying
+ * Use this when a user updates their preferences or profile info
+ */
+export const setProfileAttributes = (attributes: Record<string, unknown>) => {
+  if (isExpoGo || !isInitialized) return;
+
+  const module = getCustomerIO();
+  if (!module) return;
+
+  try {
+    module.CustomerIO.setProfileAttributes(attributes);
+    console.log('✅ [CustomerIO] Profile attributes updated');
+  } catch (error) {
+    console.error('❌ [CustomerIO] Failed to set profile attributes:', error);
+  }
+};
+
+/**
+ * Set custom device attributes
+ * Use for device-specific preferences (e.g., app preferences, timezone)
+ */
+export const setDeviceAttributes = (attributes: Record<string, unknown>) => {
+  if (isExpoGo || !isInitialized) return;
+
+  const module = getCustomerIO();
+  if (!module) return;
+
+  try {
+    module.CustomerIO.setDeviceAttributes(attributes);
+    console.log('✅ [CustomerIO] Device attributes updated');
+  } catch (error) {
+    console.error('❌ [CustomerIO] Failed to set device attributes:', error);
+  }
+};
+
+/**
+ * Track screen view
+ * Use to trigger in-app messages associated with specific screens
+ */
+export const trackScreen = (screenName: string) => {
+  if (isExpoGo || !isInitialized) {
+    if (__DEV__) {
+      console.log(`📧 [CustomerIO] Skipping screen "${screenName}" - not available`);
+    }
+    return;
+  }
+
+  const module = getCustomerIO();
+  if (!module) return;
+
+  try {
+    module.CustomerIO.screen(screenName);
+    console.log('📱 [CustomerIO] Screen tracked:', screenName);
+  } catch (error) {
+    console.error('❌ [CustomerIO] Failed to track screen:', error);
+  }
+};
+
 export default {
   initialize: initializeCustomerIO,
   identify: identifyUser,
   clearIdentify: clearIdentity,
   track: trackEvent,
   registerPushToken,
+  setProfileAttributes,
+  setDeviceAttributes,
+  screen: trackScreen,
 };

@@ -36,10 +36,34 @@ export const registerPushToken = (_token: string) => {
   // Customer.io is not available on web
 };
 
+/**
+ * Update profile attributes - no-op on web
+ */
+export const setProfileAttributes = (_attributes: Record<string, unknown>) => {
+  // Customer.io is not available on web
+};
+
+/**
+ * Set custom device attributes - no-op on web
+ */
+export const setDeviceAttributes = (_attributes: Record<string, unknown>) => {
+  // Customer.io is not available on web
+};
+
+/**
+ * Track screen view - no-op on web
+ */
+export const trackScreen = (_screenName: string) => {
+  // Customer.io is not available on web
+};
+
 export default {
   initialize: initializeCustomerIO,
   identify: identifyUser,
   clearIdentify: clearIdentity,
   track: trackEvent,
   registerPushToken,
+  setProfileAttributes,
+  setDeviceAttributes,
+  screen: trackScreen,
 };
