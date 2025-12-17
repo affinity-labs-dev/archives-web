@@ -1,16 +1,16 @@
 // EraCard.tsx - Reusable era card component for both layouts and all states
-import ArchivesTheme from '@/constants/ArchivesTheme';
-import { Era, getEraLockMessage, isEraAccessible } from '@/hooks/useEras';
-import { MaterialIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo } from 'react';
 import {
+  View,
+  Text,
   Pressable,
   StyleSheet,
-  Text,
-  View,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
+import ArchivesTheme from '@/constants/ArchivesTheme';
+import { Era, EraStatus, EraCardLayout, isEraAccessible, getEraLockMessage } from '@/hooks/useEras';
 
 // Local image mapping (until remote URLs are set up)
 const ERA_IMAGE_MAP: Record<string, any> = {
@@ -89,6 +89,13 @@ function EraCardComponent({
           />
         )}
 
+        {showLock && (
+          <View style={styles.lockOverlay}>
+            <MaterialIcons name="lock" size={28} color={ArchivesTheme.colors.creamWhite} />
+            <Text style={styles.lockText}>{lockMessage}</Text>
+          </View>
+        )}
+
         <View style={styles.horizontalContent}>
           <Text
             style={[styles.horizontalTitle, showLock && styles.titleNoEffects]}
@@ -107,14 +114,6 @@ function EraCardComponent({
           <MaterialIcons name="check-circle" size={14} color="white" />
           <Text style={styles.selectedText}>Selected</Text>
         </View>
-
-        {/* Lock overlay renders LAST so it covers everything */}
-        {showLock && (
-          <View style={styles.lockOverlay}>
-            <MaterialIcons name="lock" size={28} color={ArchivesTheme.colors.creamWhite} />
-            <Text style={styles.lockText}>{lockMessage}</Text>
-          </View>
-        )}
       </Pressable>
     );
   }
@@ -149,6 +148,13 @@ function EraCardComponent({
         />
       )}
 
+      {showLock && (
+        <View style={styles.gridLockOverlay}>
+          <MaterialIcons name="lock" size={24} color={ArchivesTheme.colors.creamWhite} />
+          <Text style={styles.lockText}>{lockMessage}</Text>
+        </View>
+      )}
+
       <View style={styles.gridContent}>
         <Text
           style={[styles.gridTitle, showLock && styles.titleNoEffects]}
@@ -168,14 +174,6 @@ function EraCardComponent({
       >
         <MaterialIcons name="check-circle" size={12} color="white" />
       </View>
-
-      {/* Lock overlay renders LAST so it covers everything */}
-      {showLock && (
-        <View style={styles.gridLockOverlay}>
-          <MaterialIcons name="lock" size={24} color={ArchivesTheme.colors.creamWhite} />
-          <Text style={styles.lockText}>{lockMessage}</Text>
-        </View>
-      )}
     </Pressable>
   );
 }
