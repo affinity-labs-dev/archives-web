@@ -219,7 +219,7 @@ export function AIProvider({ children }: AIProviderProps) {
         moduleId: String(m.moduleId),
         quizScore: m.quizScore,
         unlockedAt: m.completedAt || m.unlockedAt,
-        era: m.era_id || 'riseOfIslam',
+        era: m.era_id || 'unknown', // era_id should always be present in new era progress
       }));
 
     const recentCompletions = [...legacyCompletions, ...newEraCompletions]
@@ -277,7 +277,7 @@ export function AIProvider({ children }: AIProviderProps) {
       const newEraProgressItems = freshNewEraProgress.map(m => ({
         adventureId: String(m.adventureId),
         moduleId: String(m.moduleId),
-        era_id: m.era_id || 'riseOfIslam', // Era 2 default
+        era_id: m.era_id || 'unknown', // era_id should always be present in stored progress
         isCompleted: m.isCompleted || false,
         quizCompleted: m.quizCompleted || false,
         quizScore: m.quizScore,

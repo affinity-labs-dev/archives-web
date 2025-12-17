@@ -390,6 +390,18 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
       await checkAndUnlockItems(userData, totalXP);
 
+      // Update PostHog person properties with latest progress data
+      const quizzesCompleted = moduleProgress.filter(m => m.quizCompleted).length +
+        progressData.filter((m: any) => m.quizCompleted).length;
+      const totalModulesCompleted = calculateModulesCompleted(moduleProgress, progressData);
+
+      analyticsService.updateProgressProperties({
+        total_xp: totalXP,
+        quizzes_completed: quizzesCompleted,
+        modules_completed: totalModulesCompleted,
+      });
+      console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}`);
+
       // Trigger real-time cloud sync (awaits immediately, no debounce)
       await syncModule()
     } catch (error) {
@@ -432,11 +444,10 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
       console.log(`🆕 First-time initialization for era: ${eraId}`)
 
-      if (eraId === 'riseOfIslam') {
-        // NEW PROGRESS SYSTEM: No state initialization needed
-        // Data is loaded from database and saved directly via saveNewProgressData()
-        console.log('✅ Rise of Islam uses new progress system - no state initialization needed')
-      } else if (eraId === 'umayyad') {
+      // DYNAMIC ERA HANDLING:
+      // - 'umayyad' is the only legacy era (uses local state with numeric IDs)
+      // - All other eras (current and future) use the new progress system (Supabase-driven)
+      if (eraId === 'umayyad') {
         // Ensure Umayyad Adventure 1 (Internal ID: 1) is unlocked (should already be from INITIAL_ADVENTURE_DATA)
         const currentAdventures = [...adventureProgress]
         const umayyadAdv1 = currentAdventures.find(a => a.adventureId === 1)
@@ -476,6 +487,10 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
           await WebCompatibleStorage.setItem(STORAGE_KEYS.MODULE_PROGRESS, JSON.stringify(updatedModules))
           console.log('✅ Umayyad Adventure 1 Module 1 created and saved')
         }
+      } else {
+        // NEW PROGRESS SYSTEM: All non-legacy eras use Supabase-driven progress
+        // No local state initialization needed - data is loaded/saved via saveNewProgressData()
+        console.log(`✅ Era "${eraId}" uses new progress system - no state initialization needed`)
       }
     } catch (error) {
       console.error(`❌ Error initializing era data for ${eraId}:`, error)
@@ -790,6 +805,18 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         });
 
         await checkAndUnlockItems(userData, totalXP);
+
+        // Update PostHog person properties with latest progress data
+        const quizzesCompleted = updatedModules.filter(m => m.quizCompleted).length +
+          newModules.filter((m: any) => m.quizCompleted).length;
+        const totalModulesCompleted = calculateModulesCompleted(updatedModules, newModules);
+
+        analyticsService.updateProgressProperties({
+          total_xp: totalXP,
+          quizzes_completed: quizzesCompleted,
+          modules_completed: totalModulesCompleted,
+        });
+        console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}`);
       }
 
       // Trigger real-time cloud sync (awaits immediately, no debounce)
