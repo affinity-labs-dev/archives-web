@@ -160,8 +160,14 @@ Respond as JSON:
    */
   private parseAIResponse(aiResponse: string): AIExplanationResponse {
     try {
+      // Clean the response - remove markdown code fences and trim
+      let cleanedResponse = aiResponse.trim();
+
+      // Remove markdown code fences if present (```json ... ``` or ``` ... ```)
+      cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+
       // Try to parse as JSON
-      const parsed = JSON.parse(aiResponse);
+      const parsed = JSON.parse(cleanedResponse);
       return {
         explanation: parsed.explanation || '',
         encouragement: parsed.encouragement || 'Great effort! Keep learning.',
@@ -170,6 +176,7 @@ Respond as JSON:
     } catch (error) {
       // If JSON parsing fails, treat the whole response as explanation
       console.warn('⚠️ [AIService] Could not parse AI response as JSON, using raw text');
+      console.warn('Raw response:', aiResponse);
       return {
         explanation: aiResponse,
         encouragement: 'Keep up the great work!',

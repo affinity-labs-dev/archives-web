@@ -6,16 +6,16 @@ import Quiz from '@/components/quiz/Quiz';
 import type { Adventure, ContentItem } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS, WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
+import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
 import { analyticsService } from '@/services/AnalyticsService';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
-import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import AdventureCard from './AdventureCard';
 
@@ -286,31 +286,11 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     console.log('📦 [Preload] Stats:', preloadState.stats);
   }
 
-  // Find first locked adventure ID (for rendering overlay in correct item)
+  // Find first locked adventure ID (for showing lock banner only on first one)
   const firstLockedAdventureId = useMemo(() => {
     const firstLocked = adventures.find((adv) => !adventureUnlockStatus[adv.readable_id]);
     return firstLocked?.readable_id || null;
   }, [adventures, adventureUnlockStatus]);
-
-  // Calculate overlay height based on number of locked adventures
-  const overlayHeight = useMemo(() => {
-    if (!firstLockedAdventureId) return 0;
-
-    // Find index of first locked adventure
-    const firstLockedIndex = adventures.findIndex((adv) => adv.readable_id === firstLockedAdventureId);
-    if (firstLockedIndex === -1) return 0;
-
-    // Count remaining adventures (locked or not) after first locked
-    const remainingAdventures = adventures.length - firstLockedIndex;
-
-    // Estimate height per adventure (~500px) + buffer for safe coverage
-    const ADVENTURE_HEIGHT = 500;
-    const calculatedHeight = remainingAdventures * ADVENTURE_HEIGHT;
-
-    // Add screen height as buffer to ensure full coverage
-    const screenHeight = Dimensions.get('window').height;
-    return calculatedHeight + screenHeight;
-  }, [adventures, firstLockedAdventureId]);
 
   // Render function for FlatList items (memoized for performance)
   const renderAdventureItem = useCallback(({ item: adventure }: { item: Adventure }) => {
@@ -327,12 +307,12 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
           isLocked={isLocked}
         />
 
-        {/* Gradient overlay with blur - only render on first locked adventure */}
+        {/* Single continuous overlay - only on first locked adventure, extends to cover all */}
         {isFirstLocked && (
           <BlurView
-            intensity={3.3}
+            intensity={2.3}
             tint="dark"
-            style={[styles.gradientLockOverlay, { height: overlayHeight }]}
+            style={styles.continuousLockOverlay}
             pointerEvents="box-none"
           >
             <LinearGradient
@@ -352,7 +332,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
         )}
       </View>
     );
-  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, overlayHeight]);
+  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId]);
 
   // Key extractor for FlatList (memoized)
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);
@@ -374,12 +354,12 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
               colors={[ArchivesTheme.colors.persianOrange]}
             />
           }
-          // Performance optimizations - reduces memory usage
+          // Performance optimizations - reduced to ensure lock overlay renders correctly
           // removeClippedSubviews disabled to prevent clipping lock overlay
-          maxToRenderPerBatch={2}
+          maxToRenderPerBatch={10}
           updateCellsBatchingPeriod={50}
-          initialNumToRender={2}
-          windowSize={3}
+          initialNumToRender={10}
+          windowSize={21} // Large window to keep lock overlay in view
         />
       </View>
 
@@ -491,13 +471,14 @@ const styles = StyleSheet.create({
     overflow: 'visible', // Allow overlay to extend beyond container
   },
   scrollContent: {
-    paddingBottom: 0, // Removed to allow lock overlay to extend to bottom
+    paddingBottom: 120, // Account for tab bar height
+    overflow: 'visible', // Allow lock overlay to extend beyond scroll container
   },
 
-  // First locked adventure container - allows overlay to extend beyond bounds
+  // First locked adventure container - allows overlay to extend downward
   firstLockedContainer: {
-    overflow: 'visible',
     position: 'relative',
+    overflow: 'visible',
   },
 
   // Development Only: Reset Button
@@ -528,13 +509,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Gradient Lock Overlay - extends downward to cover all locked adventures
-  gradientLockOverlay: {
+  // Continuous Lock Overlay - single overlay extending down to cover all locked adventures
+  continuousLockOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    // Height is calculated dynamically based on number of locked adventures
+    height: 5000, // Extremely large height to guarantee coverage of all locked adventures
     zIndex: 50,
   },
   lockBannerContainer: {

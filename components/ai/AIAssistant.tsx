@@ -5,6 +5,7 @@ import React from 'react';
 import FloatingAIButton from './FloatingAIButton';
 import AIChatModal from './AIChatModal';
 import { useAI } from '@/context/AIContext';
+import { useUser } from '@clerk/clerk-expo';
 
 export default function AIAssistant() {
   const {
@@ -15,6 +16,14 @@ export default function AIAssistant() {
     currentContext,
     showFloatingButton,
   } = useAI();
+
+  // Get user authentication status
+  const { isSignedIn } = useUser();
+
+  // Don't render if user is not logged in
+  if (!isSignedIn) {
+    return null;
+  }
 
   // Don't render if floating button is hidden
   if (!showFloatingButton) {

@@ -1,22 +1,22 @@
 // AIQuizExplanation.tsx - AI-powered quiz explanation component
 // Shows personalized explanations for incorrect quiz answers
 
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  ScrollView,
-  Animated,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { Question } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { aiService } from '@/services/AIService';
-import { Question } from '@/components/shared/types';
 import { analyticsService } from '@/services/AnalyticsService';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 interface AIQuizExplanationProps {
   questions: Question[];
@@ -174,9 +174,9 @@ export default function AIQuizExplanation({
             </View>
             <View style={styles.promptTextContainer}>
               <Text style={styles.promptTitle}>Want to understand your mistakes?</Text>
-              <Text style={styles.promptSubtitle}>
+              {/* <Text style={styles.promptSubtitle}>
                 Get AI-powered explanations for {incorrectCount} incorrect {incorrectCount === 1 ? 'answer' : 'answers'}
-              </Text>
+              </Text> */}
             </View>
             <Ionicons name="chevron-forward" size={24} color={ArchivesTheme.colors.shoeBrown} />
           </View>

@@ -225,6 +225,7 @@ export default function ProfileTab() {
 
   // Achievement detail modal state
   const [selectedAchievement, setSelectedAchievement] = React.useState<(typeof achievements)[0] | null>(null)
+  const [showBadgesModal, setShowBadgesModal] = React.useState(false)
 
   // Load Era 2+ progress from AsyncStorage
   const [newUserProgress, setNewUserProgress] = React.useState<NewUserProgress[]>([])
@@ -818,7 +819,15 @@ export default function ProfileTab() {
         <View style={styles.achievementsSection}>
           <View style={styles.achievementsHeader}>
             <Text style={styles.sectionTitle}>Achievements</Text>
-            <Text style={styles.achievementsCount}>{unlockedCount}/{totalCount}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowBadgesModal(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.achievementsCount}>{unlockedCount}/{totalCount}</Text>
+            </TouchableOpacity>
           </View>
 
           <ScrollView
@@ -1230,6 +1239,97 @@ export default function ProfileTab() {
                     Contact us here
                   </Text>
                 </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* All Badges Modal */}
+      <Modal
+        visible={showBadgesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowBadgesModal(false)}
+      >
+        <SafeAreaView style={styles.modalSafeArea}>
+          <View style={styles.modalContainer}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowBadgesModal(false);
+                }}
+              >
+                <Ionicons name="chevron-back" size={28} color={ArchivesTheme.colors.mutedNavy} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>All Achievements</Text>
+              <View style={styles.closeButtonPlaceholder} />
+            </View>
+
+            {/* Badges Grid */}
+            <ScrollView style={styles.badgesModalGrid} showsVerticalScrollIndicator={false}>
+              <View style={styles.badgesModalContainer}>
+                {achievements
+                  .sort((a, b) => {
+                    // Sort: unlocked first, then by unlock order
+                    if (a.unlocked && !b.unlocked) return -1;
+                    if (!a.unlocked && b.unlocked) return 1;
+                    return 0;
+                  })
+                  .map((achievement) => (
+                  <TouchableOpacity
+                    key={achievement.id}
+                    style={styles.badgeModalItem}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedAchievement(achievement);
+                      setShowBadgesModal(false);
+                    }}
+                  >
+                    <View style={[
+                      styles.badgeModalIconContainer,
+                      { backgroundColor: achievement.unlocked ? achievement.color : '#E0E0E0' }
+                    ]}>
+                      <Ionicons
+                        name={achievement.icon as any}
+                        size={40}
+                        color={achievement.unlocked ? 'white' : '#95A5A6'}
+                      />
+                    </View>
+                    <Text style={[
+                      styles.badgeModalName,
+                      !achievement.unlocked && styles.badgeModalNameLocked
+                    ]}>
+                      {achievement.name}
+                    </Text>
+                    <Text style={[
+                      styles.badgeModalDescription,
+                      !achievement.unlocked && styles.badgeModalDescriptionLocked
+                    ]}>
+                      {achievement.description}
+                    </Text>
+                    {achievement.unlocked ? (
+                      <View style={[styles.badgeModalUnlockedBadge, { backgroundColor: achievement.color }]}>
+                        <Ionicons name="checkmark" size={16} color="white" />
+                        <Text style={styles.badgeModalUnlockedText}>Unlocked</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.badgeModalProgressContainer}>
+                        <View style={styles.badgeModalProgressBar}>
+                          <View style={[
+                            styles.badgeModalProgressFill,
+                            { width: `${getProgress(achievement.id)}%`, backgroundColor: achievement.color }
+                          ]} />
+                        </View>
+                        <Text style={styles.badgeModalProgressText}>{Math.round(getProgress(achievement.id))}%</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
               </View>
             </ScrollView>
           </View>
@@ -2041,5 +2141,97 @@ const styles = StyleSheet.create({
   achievementProgressFill: {
     height: '100%',
     borderRadius: 2,
+  },
+
+  // All Badges Modal Styles
+  badgesModalGrid: {
+    flex: 1,
+  },
+  badgesModalContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 16,
+    paddingBottom: 40,
+  },
+  badgeModalItem: {
+    width: (screenWidth - 60) / 2,
+    backgroundColor: 'white',
+    borderRadius: 12.5,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: 'white',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 4.5,
+    elevation: 3,
+  },
+  badgeModalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  badgeModalName: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  badgeModalNameLocked: {
+    color: '#95A5A6',
+  },
+  badgeModalDescription: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: ArchivesTheme.colors.mutedNavy,
+    opacity: 0.7,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  badgeModalDescriptionLocked: {
+    color: '#95A5A6',
+  },
+  badgeModalUnlockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  badgeModalUnlockedText: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
+  },
+  badgeModalProgressContainer: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 4,
+  },
+  badgeModalProgressBar: {
+    width: '100%',
+    height: 6,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12.5,
+    overflow: 'hidden',
+  },
+  badgeModalProgressFill: {
+    height: '100%',
+    borderRadius: 12.5,
+  },
+  badgeModalProgressText: {
+    fontFamily: 'DM Sans',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#95A5A6',
   },
 })
