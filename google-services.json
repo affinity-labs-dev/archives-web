@@ -1,0 +1,34 @@
+{
+  "project_info": {
+    "project_number": "103429937872",
+    "project_id": "archives-ae43e",
+    "storage_bucket": "archives-ae43e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:103429937872:android:4d21dbd8b11bafa14e5cd5",
+        "android_client_info": {
+          "package_name": "ai.affinitylabs.archivesexpo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2wUGi7kXDlCAkvGkHeQtCTMwj5uEmoQg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "103429937872-7fo7kt33mm33a59k4u5h04qtv3f75adh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

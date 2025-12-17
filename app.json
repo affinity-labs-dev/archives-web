@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "112",
+      "buildNumber": "113",
       "associatedDomains": [
         "applinks:link.archiveszone.app",
         "applinks:link.archiveszone.app"
@@ -47,7 +47,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 30,
+      "versionCode": 32,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -167,6 +167,7 @@
             }
           },
           "android": {
+            "googleServicesFile": "./google-services.json",
             "pushClickBehavior": "ActivityPreventRestart",
             "pushNotification": {
               "channel": {
