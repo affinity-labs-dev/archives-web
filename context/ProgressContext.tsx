@@ -444,54 +444,10 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
       console.log(`🆕 First-time initialization for era: ${eraId}`)
 
-      // DYNAMIC ERA HANDLING:
-      // - 'umayyad' is the only legacy era (uses local state with numeric IDs)
-      // - All other eras (current and future) use the new progress system (Supabase-driven)
-      if (eraId === 'umayyad') {
-        // Ensure Umayyad Adventure 1 (Internal ID: 1) is unlocked (should already be from INITIAL_ADVENTURE_DATA)
-        const currentAdventures = [...adventureProgress]
-        const umayyadAdv1 = currentAdventures.find(a => a.adventureId === 1)
-
-        if (umayyadAdv1 && !umayyadAdv1.isUnlocked) {
-          console.log('🔓 Ensuring Umayyad Adventure 1 (Internal ID: 1) is unlocked')
-
-          // Unlock Adventure 1 (should already be unlocked, but ensuring consistency)
-          const updatedAdventures = currentAdventures.map(a =>
-            a.adventureId === 1
-              ? { ...a, isUnlocked: true, unlockedAt: new Date().toISOString() }
-              : a
-          )
-          setAdventureProgress(updatedAdventures)
-          await WebCompatibleStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, JSON.stringify(updatedAdventures))
-        }
-
-        // Check if Umayyad Adventure 1 Module 1 exists (Internal ID: 1)
-        const existingModule = getModuleProgress(1, 1)
-        if (!existingModule) {
-          console.log('🆕 Creating Umayyad Adventure 1 Module 1 (Internal ID: 1)')
-
-          // Create Umayyad Adventure 1 Module 1 as unlocked by default
-          const umayyadAdv1Module1: ModuleProgress = {
-            adventureId: 1, // Internal ID for database consistency
-            moduleId: 1,
-            isCompleted: false,
-            lessonsCompleted: [],
-            quizCompleted: false,
-            unlockedAt: new Date().toISOString()
-          }
-
-          const updatedModules = [...moduleProgress, umayyadAdv1Module1]
-          setModuleProgress(updatedModules)
-
-          // Save to storage
-          await WebCompatibleStorage.setItem(STORAGE_KEYS.MODULE_PROGRESS, JSON.stringify(updatedModules))
-          console.log('✅ Umayyad Adventure 1 Module 1 created and saved')
-        }
-      } else {
-        // NEW PROGRESS SYSTEM: All non-legacy eras use Supabase-driven progress
-        // No local state initialization needed - data is loaded/saved via saveNewProgressData()
-        console.log(`✅ Era "${eraId}" uses new progress system - no state initialization needed`)
-      }
+      // ALL ERAS NOW USE UNIFIED PROGRESS SYSTEM (Supabase-driven)
+      // Progress is saved via saveNewProgressData() with era_id from Supabase
+      // No era-specific initialization needed - content and progress are fully dynamic
+      console.log(`✅ Era "${eraId}" initialized - using unified Supabase-driven progress system`)
     } catch (error) {
       console.error(`❌ Error initializing era data for ${eraId}:`, error)
     }
