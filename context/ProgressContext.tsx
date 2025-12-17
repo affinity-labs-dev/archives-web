@@ -171,6 +171,22 @@ export const calculateModulesCompleted = (legacyModules: any[], newModules: any[
   return totalModules;
 };
 
+// Calculate XP per era dynamically (for PostHog person properties)
+// Returns: { "umayyad": 200, "rise_of_islam": 80 } - keys are era_ids from Supabase
+export const calculateEraXP = (modules: any[]): Record<string, number> => {
+  const eraXP: Record<string, number> = {};
+
+  // Group modules by era_id and calculate XP for each
+  modules.forEach(m => {
+    if (m.era_id && m.quizCorrectAnswers !== undefined) {
+      const xp = m.quizCorrectAnswers * 10;
+      eraXP[m.era_id] = (eraXP[m.era_id] || 0) + xp;
+    }
+  });
+
+  return eraXP;
+};
+
 // Check if user crossed a custom XP milestone (50, 100, 200, 400, 750)
 // Returns the milestone number if crossed, null otherwise
 export const checkIfCrossed50XPBoundary = (oldXP: number, newXP: number): number | null => {
@@ -394,13 +410,15 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       const quizzesCompleted = moduleProgress.filter(m => m.quizCompleted).length +
         progressData.filter((m: any) => m.quizCompleted).length;
       const totalModulesCompleted = calculateModulesCompleted(moduleProgress, progressData);
+      const eraXP = calculateEraXP(progressData);
 
       analyticsService.updateProgressProperties({
         total_xp: totalXP,
         quizzes_completed: quizzesCompleted,
         modules_completed: totalModulesCompleted,
+        era_xp: eraXP,
       });
-      console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}`);
+      console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}, EraXP=`, eraXP);
 
       // Trigger real-time cloud sync (awaits immediately, no debounce)
       await syncModule()
@@ -766,13 +784,15 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         const quizzesCompleted = updatedModules.filter(m => m.quizCompleted).length +
           newModules.filter((m: any) => m.quizCompleted).length;
         const totalModulesCompleted = calculateModulesCompleted(updatedModules, newModules);
+        const eraXP = calculateEraXP(newModules);
 
         analyticsService.updateProgressProperties({
           total_xp: totalXP,
           quizzes_completed: quizzesCompleted,
           modules_completed: totalModulesCompleted,
+          era_xp: eraXP,
         });
-        console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}`);
+        console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}, EraXP=`, eraXP);
       }
 
       // Trigger real-time cloud sync (awaits immediately, no debounce)

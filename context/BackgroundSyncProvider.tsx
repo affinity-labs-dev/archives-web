@@ -85,6 +85,11 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
     }
   }, [isSignedIn, user, isInitialized]);
 
+  // Update last_active_at on initial app launch
+  useEffect(() => {
+    analyticsService.updateLastActiveAt();
+  }, []);
+
   // Monitor app state changes for sync triggers (with debouncing) - Native only
   useEffect(() => {
     // Skip AppState monitoring on web
@@ -95,15 +100,20 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
     let syncTimeout: ReturnType<typeof setTimeout>;
 
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active' && isSignedIn && isInitialized) {
-        // Debounce sync - only run after 5 seconds of app being active
-        clearTimeout(syncTimeout);
-        syncTimeout = setTimeout(() => {
-          console.log('📱 App sync check (debounced)');
-          simplifiedSyncService.syncToCloud().catch(error => {
-            console.warn('Background sync warning:', error.message);
-          });
-        }, 5000);
+      if (nextAppState === 'active') {
+        // Update last active timestamp (for all users, signed in or not)
+        analyticsService.updateLastActiveAt();
+
+        if (isSignedIn && isInitialized) {
+          // Debounce sync - only run after 5 seconds of app being active
+          clearTimeout(syncTimeout);
+          syncTimeout = setTimeout(() => {
+            console.log('📱 App sync check (debounced)');
+            simplifiedSyncService.syncToCloud().catch(error => {
+              console.warn('Background sync warning:', error.message);
+            });
+          }, 5000);
+        }
       }
     };
 

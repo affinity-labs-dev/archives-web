@@ -1148,7 +1148,9 @@ class AnalyticsService {
       onboarding_result: null,
       // Push notification status
       is_push_enabled: null,
-      // Progress/streak properties (streak tracking not yet implemented)
+      // Activity tracking
+      last_active_at: null,
+      // Progress/streak properties
       current_streak: null,
       current_streak_date: null,
       longest_streak: null,
@@ -1157,6 +1159,10 @@ class AnalyticsService {
       modules_completed: null,
       adventures_completed: null,
       eras_completed: null,
+      quizzes_completed: null,
+      // XP properties
+      total_xp: null,
+      era_xp: null, // Dynamic object: { "umayyad": 200, "rise_of_islam": 80 } - keys are era_ids from Supabase
       // Subscription properties
       subscription_product_id: null,
       subscription_billing_cycle: null,
@@ -1166,7 +1172,7 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: nullProperties,
     });
-    console.log('📊 [Analytics] Initialized all 17 person properties with null');
+    console.log('📊 [Analytics] Initialized all 21 person properties with null');
   }
 
   /**
@@ -1217,6 +1223,21 @@ class AnalyticsService {
   }
 
   /**
+   * Update last active timestamp (call on app open/foreground)
+   */
+  updateLastActiveAt() {
+    if (!this.posthog) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    this.posthog.capture('$set', {
+      $set: { last_active_at: timestamp },
+    });
+    console.log('📊 [Analytics] Updated last_active_at:', timestamp);
+  }
+
+  /**
    * Update progress-related person properties
    */
   updateProgressProperties(data: {
@@ -1228,6 +1249,9 @@ class AnalyticsService {
     modules_completed?: number;
     adventures_completed?: number;
     eras_completed?: number;
+    quizzes_completed?: number;
+    total_xp?: number;
+    era_xp?: Record<string, number>; // Dynamic: { "umayyad": 200, "rise_of_islam": 80 } - keys are era_ids from Supabase
   }) {
     if (!this.posthog) {
       if (__DEV__) {

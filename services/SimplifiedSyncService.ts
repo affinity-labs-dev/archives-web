@@ -4,6 +4,9 @@
 import { supabase } from "@/hooks/lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
+import { analyticsService } from "./AnalyticsService";
+import { calculateXPForEra, calculateModulesCompleted, calculateEraXP } from "@/context/ProgressContext";
+import { EraType } from "@/types/progress";
 
 // Types matching local AsyncStorage structure
 interface ModuleProgress {
@@ -24,6 +27,13 @@ interface AdventureProgress {
   unlockedAt?: string;
 }
 
+// Streak data structure
+interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDate: string;
+}
+
 // Complete user data structure for JSONB storage
 interface UserData {
   selectedEra?: string;
@@ -40,14 +50,17 @@ interface UserData {
     completedAt: string;
     era_id: number;
   }>;
+  streak?: StreakData; // Daily learning streak data
 }
 
-// Storage keys matching ProgressContext
+// Storage keys matching ProgressContext and useDailyStreak
 const STORAGE_KEYS = {
   SELECTED_ERA: "selected_era",
   ADVENTURE_PROGRESS: "adventure_progress",
   MODULE_PROGRESS: "module_progress",
   NEW_USER_PROGRESS: "new_user_progress", // New progress system (flat array, flows AS IS)
+  DAILY_STREAK: "daily_streak", // Streak data {currentStreak, longestStreak, lastActiveDate}
+  LAST_ACTIVE_DATE: "last_active_date", // Last active date string
 } as const;
 
 class SimplifiedSyncService {
@@ -115,15 +128,28 @@ class SimplifiedSyncService {
     }
   }
 
-  // Get all local data for syncing (includes new progress system)
+  // Get all local data for syncing (includes new progress system and streaks)
   private async getAllLocalData(): Promise<UserData> {
-    const [selectedEra, adventureData, moduleData, newProgressData, totalXPData] = await Promise.all([
+    const [selectedEra, adventureData, moduleData, newProgressData, totalXPData, streakData, lastActiveDate] = await Promise.all([
       AsyncStorage.getItem(STORAGE_KEYS.SELECTED_ERA),
       AsyncStorage.getItem(STORAGE_KEYS.ADVENTURE_PROGRESS),
       AsyncStorage.getItem(STORAGE_KEYS.MODULE_PROGRESS),
       AsyncStorage.getItem(STORAGE_KEYS.NEW_USER_PROGRESS),
       AsyncStorage.getItem('totalXP'),
+      AsyncStorage.getItem(STORAGE_KEYS.DAILY_STREAK),
+      AsyncStorage.getItem(STORAGE_KEYS.LAST_ACTIVE_DATE),
     ]);
+
+    // Parse streak data if available
+    let streak: StreakData | undefined;
+    if (streakData) {
+      const parsedStreak = JSON.parse(streakData);
+      streak = {
+        currentStreak: parsedStreak.currentStreak || 0,
+        longestStreak: parsedStreak.longestStreak || 0,
+        lastActiveDate: lastActiveDate || parsedStreak.lastActiveDate || '',
+      };
+    }
 
     return {
       selectedEra: selectedEra || undefined,
@@ -131,10 +157,11 @@ class SimplifiedSyncService {
       adventures: adventureData ? JSON.parse(adventureData) : [],
       modules: moduleData ? JSON.parse(moduleData) : [],
       newProgress: newProgressData ? JSON.parse(newProgressData) : undefined,
+      streak,
     };
   }
 
-  // Save all data to local storage (includes new progress system)
+  // Save all data to local storage (includes new progress system and streaks)
   private async saveAllLocalData(userData: UserData) {
     const promises = [];
 
@@ -182,7 +209,48 @@ class SimplifiedSyncService {
       console.log(`✅ Restored ${userData.newProgress.length} new system modules from cloud`);
     }
 
+    // Streak data
+    if (userData.streak) {
+      promises.push(
+        AsyncStorage.setItem(
+          STORAGE_KEYS.DAILY_STREAK,
+          JSON.stringify({
+            currentStreak: userData.streak.currentStreak,
+            longestStreak: userData.streak.longestStreak,
+            lastActiveDate: userData.streak.lastActiveDate,
+          })
+        )
+      );
+      promises.push(
+        AsyncStorage.setItem(
+          STORAGE_KEYS.LAST_ACTIVE_DATE,
+          userData.streak.lastActiveDate
+        )
+      );
+      console.log(`🔥 Restored streak from cloud: ${userData.streak.currentStreak} days (longest: ${userData.streak.longestStreak})`);
+    }
+
     await Promise.all(promises);
+
+    // Update PostHog person properties with restored data
+    const totalXP = (userData.totalXP !== undefined) ? userData.totalXP :
+      (calculateXPForEra(userData.modules || [], EraType.LEGACY) +
+       calculateXPForEra(userData.newProgress || [], EraType.NEW));
+    const quizzesCompleted = (userData.modules?.filter(m => m.quizCompleted).length || 0) +
+      (userData.newProgress?.filter(m => m.quizCompleted).length || 0);
+    const totalModulesCompleted = calculateModulesCompleted(userData.modules || [], userData.newProgress || []);
+    const eraXP = calculateEraXP(userData.newProgress || []);
+
+    analyticsService.updateProgressProperties({
+      total_xp: totalXP,
+      quizzes_completed: quizzesCompleted,
+      modules_completed: totalModulesCompleted,
+      era_xp: eraXP,
+      current_streak: userData.streak?.currentStreak,
+      longest_streak: userData.streak?.longestStreak,
+      current_streak_date: userData.streak?.lastActiveDate,
+    });
+    console.log(`📊 [PostHog] Updated person properties from cloud restore: XP=${totalXP}, Streak=${userData.streak?.currentStreak || 0}, EraXP=`, eraXP);
   }
 
   // SIMPLIFIED SYNC: One operation instead of three
@@ -203,7 +271,8 @@ class SimplifiedSyncService {
         selectedEra: userData.selectedEra,
         adventures: userData.adventures?.length || 0,
         modules: userData.modules?.length || 0,
-        newProgress: userData.newProgress?.length || 0
+        newProgress: userData.newProgress?.length || 0,
+        streak: userData.streak?.currentStreak || 0,
       });
 
       // Single upsert operation with all user data in JSONB
@@ -276,7 +345,9 @@ class SimplifiedSyncService {
         modules: userData.modules?.length || 0,
         completedModules: userData.modules?.filter(m => m.isCompleted).length || 0,
         newModules: userData.newProgress?.length || 0,
-        newCompleted: userData.newProgress?.filter(p => p.isCompleted).length || 0
+        newCompleted: userData.newProgress?.filter(p => p.isCompleted).length || 0,
+        streak: userData.streak?.currentStreak || 0,
+        longestStreak: userData.streak?.longestStreak || 0,
       });
 
       console.log('💾 [SYNC] Saving cloud data to AsyncStorage...');

@@ -1,6 +1,7 @@
 // useDailyStreak.ts - Track daily learning streaks
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { analyticsService } from '@/services/AnalyticsService';
 
 const STREAK_KEY = 'daily_streak';
 const LAST_ACTIVE_KEY = 'last_active_date';
@@ -58,6 +59,13 @@ export function useDailyStreak() {
           AsyncStorage.setItem(STREAK_KEY, JSON.stringify(data)),
           AsyncStorage.setItem(LAST_ACTIVE_KEY, today),
         ]);
+
+        // Update PostHog person properties with streak data
+        analyticsService.updateProgressProperties({
+          current_streak: data.currentStreak,
+          current_streak_date: today,
+          longest_streak: data.longestStreak,
+        });
 
         console.log('🔥 [useDailyStreak] Streak updated:', data.currentStreak);
       }
