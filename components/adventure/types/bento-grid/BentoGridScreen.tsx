@@ -9,7 +9,6 @@ import { ADVENTURE_KEYS, WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
 import { analyticsService } from '@/services/AnalyticsService';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -17,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import AdventureCard from './AdventureCard';
 
 // TypeScript interfaces
@@ -323,7 +323,9 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
             >
               <View style={styles.lockBannerContainer} pointerEvents="box-none">
                 <View style={styles.lockBanner} pointerEvents="auto">
-                  <Ionicons name="lock-closed" size={24} color="white" style={styles.lockIcon} />
+                  <Svg width={35} height={35} viewBox="0 -960 960 960" fill="#FFFFFF" style={styles.lockIcon}>
+                    <Path d="M226.67-80q-27.5 0-47.09-19.58Q160-119.17 160-146.67v-422.66q0-27.5 19.58-47.09Q199.17-636 226.67-636h60v-90.67q0-80.23 56.57-136.78T480.07-920q80.26 0 136.76 56.55 56.5 56.55 56.5 136.78V-636h60q27.5 0 47.09 19.58Q800-596.83 800-569.33v422.66q0 27.5-19.58 47.09Q760.83-80 733.33-80H226.67Zm253.44-200q32.22 0 55.06-22.52Q558-325.04 558-356.67q0-31-22.95-55.16Q512.11-436 479.89-436t-55.06 24.17Q402-387.67 402-356.33q0 31.33 22.95 53.83 22.94 22.5 55.16 22.5ZM353.33-636h253.34v-90.67q0-52.77-36.92-89.72-36.93-36.94-89.67-36.94-52.75 0-89.75 36.94-37 36.95-37 89.72V-636Z" />
+                  </Svg>
                   <Text style={styles.lockText}>Complete above modules to unlock this!</Text>
                 </View>
               </View>
@@ -520,29 +522,29 @@ const styles = StyleSheet.create({
   },
   lockBannerContainer: {
     paddingTop: 200, // Position banner in middle of locked area
+    paddingHorizontal: 20,
     alignItems: 'center',
   },
   lockBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    width: 363,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    borderRadius: 11,
+    backgroundColor: ArchivesTheme.colors.mutedNavy,
+    height: 57,
+    paddingLeft: 50,
+    paddingRight: 28,
+    borderRadius: 60,
+    gap: 10,
   },
   lockIcon: {
-    marginRight: 12,
+    flexShrink: 0,
   },
   lockText: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '600',
     fontFamily: 'DM Sans',
-    textAlign: 'center',
-    lineHeight: 25,
-    flex: 1,
+    flexShrink: 0,
   },
 });
 
