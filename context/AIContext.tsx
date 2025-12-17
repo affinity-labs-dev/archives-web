@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChatMessage } from '@/components/ai/AIChatModal';
 import { useProgress } from './ProgressContext';
+import { aiContextService, type AIKnowledgeContext } from '@/services/AIContextService';
 
 const CHAT_HISTORY_KEY = 'ai_chat_history';
 const MAX_STORED_MESSAGES = 50; // Limit stored messages to prevent storage bloat
@@ -46,6 +47,11 @@ interface AIContextType {
   // User progress
   getUserProgressSummary: () => UserProgressSummary;
 
+  // Knowledge context (lesson content the user has learned)
+  knowledgeContext: AIKnowledgeContext | null;
+  getKnowledgeContextForPrompt: () => string;
+  refreshKnowledgeContext: () => Promise<void>;
+
   // Floating button
   showFloatingButton: boolean;
   setShowFloatingButton: (show: boolean) => void;
@@ -62,6 +68,7 @@ export function AIProvider({ children }: AIProviderProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showFloatingButton, setShowFloatingButton] = useState(true);
   const [currentContext, setCurrentContext] = useState<AIContextType['currentContext']>({});
+  const [knowledgeContext, setKnowledgeContext] = useState<AIKnowledgeContext | null>(null);
 
   // Access user progress data
   const {
@@ -193,6 +200,50 @@ export function AIProvider({ children }: AIProviderProps) {
     };
   };
 
+  // Refresh knowledge context (fetches content for completed modules)
+  const refreshKnowledgeContext = useCallback(async () => {
+    try {
+      console.log('🧠 [AIContext] Refreshing knowledge context...');
+
+      // Convert moduleProgress to the format AIContextService expects
+      const userProgressItems = (moduleProgress || []).map(m => ({
+        adventureId: m.adventureId,
+        moduleId: m.moduleId,
+        era_id: m.eraId || currentContext.eraId || '',
+        isCompleted: m.isCompleted || false,
+        quizCompleted: m.quizCompleted || false,
+        quizScore: m.quizScore,
+        quizCorrectAnswers: m.quizCorrectAnswers,
+      }));
+
+      const context = await aiContextService.buildContext({
+        userProgress: userProgressItems,
+        currentEraId: currentContext.eraId,
+        currentEraName: currentContext.eraName,
+      });
+
+      setKnowledgeContext(context);
+      console.log('✅ [AIContext] Knowledge context refreshed');
+    } catch (error) {
+      console.error('❌ [AIContext] Error refreshing knowledge context:', error);
+    }
+  }, [moduleProgress, currentContext.eraId, currentContext.eraName]);
+
+  // Get formatted knowledge context for AI prompt
+  const getKnowledgeContextForPrompt = useCallback(() => {
+    if (!knowledgeContext) {
+      return '';
+    }
+    return aiContextService.formatForPrompt(knowledgeContext);
+  }, [knowledgeContext]);
+
+  // Refresh knowledge context when chat opens or progress changes
+  useEffect(() => {
+    if (isChatOpen && moduleProgress && moduleProgress.length > 0) {
+      refreshKnowledgeContext();
+    }
+  }, [isChatOpen, moduleProgress, refreshKnowledgeContext]);
+
   const value: AIContextType = {
     isChatOpen,
     openChat,
@@ -203,6 +254,9 @@ export function AIProvider({ children }: AIProviderProps) {
     currentContext,
     updateContext,
     getUserProgressSummary,
+    knowledgeContext,
+    getKnowledgeContextForPrompt,
+    refreshKnowledgeContext,
     showFloatingButton,
     setShowFloatingButton,
   };

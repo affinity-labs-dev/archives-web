@@ -258,19 +258,24 @@ Respond as JSON:
       }>;
       totalModulesAttempted: number;
     };
+    // Knowledge context - actual lesson content the user has learned
+    knowledgeContext?: string;
   }): Promise<string> {
     if (!this.isAvailable()) {
       throw new Error('AI Service is not available. Please configure EXPO_PUBLIC_GEMINI_API_KEY.');
     }
 
-    const { userMessage, conversationHistory = [], context = {}, userProgress } = params;
+    const { userMessage, conversationHistory = [], context = {}, userProgress, knowledgeContext } = params;
 
     try {
       console.log('🤖 [AIService] Getting chat response...');
       console.log('💬 User message:', userMessage);
+      if (knowledgeContext) {
+        console.log('📚 [AIService] Knowledge context provided, length:', knowledgeContext.length);
+      }
 
-      // Build system prompt with context and user progress
-      const systemPrompt = this.buildChatSystemPrompt(context, userProgress);
+      // Build system prompt with context, user progress, and knowledge context
+      const systemPrompt = this.buildChatSystemPrompt(context, userProgress, knowledgeContext);
 
       // Build conversation for Gemini (system prompt + history + user message)
       const conversationText = [
@@ -365,7 +370,8 @@ Respond as JSON:
         quizScore?: number;
       }>;
       totalModulesAttempted: number;
-    }
+    },
+    knowledgeContext?: string
   ): string {
     const { eraName = 'Islamic History', adventureId, currentScreen } = context;
 
@@ -387,6 +393,11 @@ ${userProgress.completedModules > 5 ? '- Experienced learner - reference their p
 `;
     }
 
+    // Build knowledge context section (actual lesson content user has learned)
+    const knowledgeSection = knowledgeContext ? `
+${knowledgeContext}
+` : '';
+
     return `You are a knowledgeable and patient Islamic history tutor and learning companion for the Archives app.
 
 CURRENT CONTEXT:
@@ -394,7 +405,7 @@ CURRENT CONTEXT:
 ${adventureId ? `- Current adventure: ${adventureId}` : ''}
 ${currentScreen ? `- Current screen: ${currentScreen}` : ''}
 ${progressSection}
-
+${knowledgeSection}
 YOUR ROLE:
 - Answer questions about Islamic history clearly and accurately
 - Provide historical context and explanations

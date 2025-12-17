@@ -96,7 +96,7 @@ export default function AIChatModal({
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const { getUserProgressSummary } = useAI();
+  const { getUserProgressSummary, getKnowledgeContextForPrompt } = useAI();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
 
@@ -503,6 +503,7 @@ export default function AIChatModal({
       // Regular text chat
       else {
         const progressSummary = getUserProgressSummary();
+        const knowledgeContext = getKnowledgeContextForPrompt();
         const response = await aiService.getChatResponse({
           userMessage,
           conversationHistory: messages,
@@ -512,6 +513,7 @@ export default function AIChatModal({
             currentScreen: context.currentScreen,
           },
           userProgress: progressSummary,
+          knowledgeContext,
         });
 
         // Track usage
