@@ -5,6 +5,7 @@ import { aiService } from '@/services/AIService';
 import { aiStorageService, StoredMessage } from '@/services/AIStorageService';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useUser } from '@clerk/clerk-expo';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { Ionicons } from '@expo/vector-icons';
 import {
   cacheDirectory,
@@ -98,6 +99,7 @@ export default function AIChatModal({
   const scrollViewRef = useRef<ScrollView>(null);
   const { getUserProgressSummary, getKnowledgeContextForPrompt } = useAI();
   const { user } = useUser();
+  const { isSubscribed } = useRevenueCat();
   const insets = useSafeAreaInsets();
 
   // Get user's first name for personalized greeting
@@ -330,6 +332,37 @@ export default function AIChatModal({
     );
   };
 
+  // Helper to check quota and show error if exceeded
+  const checkQuotaBeforeRequest = async (
+    requestType: 'chat' | 'image_generate' | 'image_edit' | 'image_analyze'
+  ): Promise<boolean> => {
+    if (!userId) return true; // Allow if no user (shouldn't happen)
+
+    const quotaCheck = await aiStorageService.checkQuota(userId, requestType, isSubscribed);
+
+    if (!quotaCheck.allowed) {
+      const typeLabel = requestType === 'chat' ? 'messages' :
+                        requestType === 'image_generate' ? 'image generations' :
+                        requestType === 'image_edit' ? 'image edits' : 'image analyses';
+
+      setError(
+        `You have reached your monthly limit of ${quotaCheck.limit} ${typeLabel}. ` +
+        `Your quota resets on ${quotaCheck.resetDate}. ` +
+        (isSubscribed ? '' : 'Upgrade to Premium for higher limits!')
+      );
+
+      analyticsService.trackCustomEvent('ai_quota_exceeded', {
+        request_type: requestType,
+        limit: quotaCheck.limit,
+        is_subscriber: isSubscribed,
+      });
+
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSend = async (messageToSend?: string) => {
     const userMessage = (messageToSend || inputText).trim();
     const hasImage = pendingImage !== null;
@@ -369,6 +402,12 @@ export default function AIChatModal({
         const isEditRequest = userMessage && aiService.isImageEditRequest(userMessage);
 
         if (isEditRequest) {
+          // Check quota before image edit
+          if (!await checkQuotaBeforeRequest('image_edit')) {
+            setIsLoading(false);
+            return;
+          }
+
           // User wants to edit/transform their photo
           setIsGeneratingImage(true);
           console.log('✏️ [AIChatModal] Image edit request detected');
@@ -418,6 +457,12 @@ export default function AIChatModal({
             throw new Error('Failed to edit image');
           }
         } else {
+          // Check quota before image analysis
+          if (!await checkQuotaBeforeRequest('image_analyze')) {
+            setIsLoading(false);
+            return;
+          }
+
           // User wants to analyze/ask about the image
           setIsAnalyzingImage(true);
           console.log('🔍 [AIChatModal] Analyzing uploaded image...');
@@ -454,6 +499,12 @@ export default function AIChatModal({
       }
       // Check if user is requesting image generation
       else if (aiService.isImageRequest(userMessage)) {
+        // Check quota before image generation
+        if (!await checkQuotaBeforeRequest('image_generate')) {
+          setIsLoading(false);
+          return;
+        }
+
         setIsGeneratingImage(true);
         console.log('🎨 [AIChatModal] Image generation request detected');
 
@@ -502,6 +553,12 @@ export default function AIChatModal({
       }
       // Regular text chat
       else {
+        // Check quota before chat
+        if (!await checkQuotaBeforeRequest('chat')) {
+          setIsLoading(false);
+          return;
+        }
+
         const progressSummary = getUserProgressSummary();
         const knowledgeContext = getKnowledgeContextForPrompt();
         const response = await aiService.getChatResponse({
