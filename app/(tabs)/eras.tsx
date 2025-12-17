@@ -27,7 +27,7 @@ import { analyticsService } from '@/services/AnalyticsService';
 
 export default function EraSelection() {
   const router = useRouter();
-  const { mode } = useLocalSearchParams<{ mode?: 'onboarding' }>();
+  const { mode, era } = useLocalSearchParams<{ mode?: 'onboarding'; era?: string }>();
   const isOnboarding = mode === 'onboarding';
 
   const { isSignedIn } = useAuth();
@@ -67,6 +67,28 @@ export default function EraSelection() {
       };
     }, [isOnboarding])
   );
+
+  // Deep link support: Auto-select era when era param is provided
+  // Works with any era_id from Supabase (e.g., ?era=women_of_islam)
+  React.useEffect(() => {
+    if (!era || loading || error || eras.length === 0) return;
+
+    // Find era matching the deep link param (by era_id)
+    const matchedEra = eras.find((e) => e.era_id === era);
+
+    if (matchedEra) {
+      const canSelect = isEraAccessible(matchedEra.status, hasSubscription, isFoundingMember);
+      if (canSelect) {
+        console.log(`🔗 [DeepLink] Auto-selecting era: ${matchedEra.title} (${era})`);
+        setSelectedEraId(matchedEra.era_id);
+        Haptics.selectionAsync();
+      } else {
+        console.log(`🔗 [DeepLink] Era not accessible: ${matchedEra.title} (${era})`);
+      }
+    } else {
+      console.log(`🔗 [DeepLink] Era not found: ${era}`);
+    }
+  }, [era, eras, loading, error, hasSubscription, isFoundingMember]);
 
   const handleEraSelect = (era: Era) => {
     const canSelect = isEraAccessible(era.status, hasSubscription, isFoundingMember);

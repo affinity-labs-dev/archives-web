@@ -22,6 +22,7 @@ import { MCQOptionButton } from '@/components/modules/QuizSystem'
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import { analyticsService } from '@/services/AnalyticsService'
+// eslint-disable-next-line import/no-unresolved
 import CustomerIOService from '@/services/CustomerIOService'
 import Svg, { Path } from 'react-native-svg'
 
