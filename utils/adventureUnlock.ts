@@ -6,8 +6,7 @@
  *
  * Unlock Rules:
  * - Adventure 1 (order_by: 1): Always OPEN (starting point)
- * - Adventures 2-5 (order_by: 2-5): LOCKED initially, unlock progressively
- * - Adventure 6+ (order_by: 6+): Always OPEN (bonus adventures)
+ * - Adventures 2+ (order_by: 2+): LOCKED initially, unlock progressively
  *
  * Progressive unlock: Complete all modules in Adventure N to unlock Adventure N+1
  *
@@ -82,19 +81,19 @@ export function isAdventureUnlocked(
     return true;
   }
 
-  // Adventure 6+: Always OPEN (bonus adventures)
-  if (orderBy >= 6) {
-    return true;
-  }
+  // Adventure 6+: Always OPEN (bonus adventures) - COMMENTED OUT FOR SEQUENTIAL LOCKING
+  // if (orderBy >= 6) {
+  //   return true;
+  // }
 
-  // Adventures 2-5: Check if previous adventure is complete
+  // Adventures 2+: Check if previous adventure is complete
   const previousOrderBy = orderBy - 1;
   const previousAdventure = allAdventures.find(a => a.order_by === previousOrderBy);
 
   if (!previousAdventure) {
-    // No previous adventure found - unlock by default
-    console.log(`⚠️ No previous adventure found for order_by ${orderBy}, unlocking by default`);
-    return true;
+    // No previous adventure found - lock by default for safety
+    console.log(`⚠️ No previous adventure found for order_by ${orderBy}, locking by default`);
+    return false;
   }
 
   // Check if previous adventure is complete
@@ -140,8 +139,8 @@ export function getNextLockedAdventure(
 ): Adventure | null {
   const nextOrderBy = currentAdventure.order_by + 1;
 
-  // Only adventures 2-5 can be "unlocked by completing previous"
-  if (nextOrderBy < 2 || nextOrderBy > 5) {
+  // All adventures 2+ can be "unlocked by completing previous"
+  if (nextOrderBy < 2) {
     return null;
   }
 
