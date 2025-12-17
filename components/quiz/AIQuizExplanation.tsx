@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { renderMarkdownText } from '@/utils/markdownText';
 
 interface AIQuizExplanationProps {
   questions: Question[];
@@ -239,7 +240,7 @@ export default function AIQuizExplanation({
                       <>
                         <View style={styles.aiExplanationContainer}>
                           <Ionicons name="bulb-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
-                          <Text style={styles.aiExplanationText}>{item.aiExplanation}</Text>
+                          {renderMarkdownText(item.aiExplanation, styles.aiExplanationText)}
                         </View>
                         {item.encouragement && (
                           <Text style={styles.encouragementText}>{item.encouragement}</Text>
@@ -265,7 +266,8 @@ const styles = StyleSheet.create({
   promptCard: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderWidth: 2,
     borderColor: ArchivesTheme.colors.persianOrange,
     shadowColor: 'black',
@@ -279,13 +281,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   aiIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(201, 145, 81, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   promptTextContainer: {
     flex: 1,

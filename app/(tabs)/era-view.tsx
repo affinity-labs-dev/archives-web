@@ -76,7 +76,7 @@ export default function AdventuresScreen() {
     }).length;
   }, [adventures, userProgress]);
 
-  // Calculate quiz-based progress (for progress bar)
+  // Calculate quiz-based progress (for progress bar) - ERA SPECIFIC
   const quizProgress = useMemo(() => {
     if (!adventures || adventures.length === 0) {
       return { correctAnswers: 0, totalQuestions: 0, totalXP: 0 };
@@ -88,21 +88,24 @@ export default function AdventuresScreen() {
     }, 0);
     const totalQuestions = totalModules * 5; // 5 questions per quiz
 
-    // Sum up correct answers and XP from user progress
+    // Sum up correct answers and XP from user progress - FILTERED BY CURRENT ERA
     let correctAnswers = 0;
     let totalXP = 0;
 
-    userProgress.forEach(progress => {
+    // Only count progress for the current era
+    const eraProgress = userProgress.filter(progress => progress.era_id === supabaseEraId);
+
+    eraProgress.forEach(progress => {
       if (progress.quizCorrectAnswers !== undefined) {
         correctAnswers += progress.quizCorrectAnswers;
         totalXP += progress.quizCorrectAnswers * 10; // 10 XP per correct answer
       }
     });
 
-    console.log(`📊 [Adventures] Quiz progress: ${correctAnswers}/${totalQuestions} (${Math.round((correctAnswers / totalQuestions) * 100)}%)`);
+    console.log(`📊 [Adventures] Quiz progress for ${supabaseEraId}: ${correctAnswers}/${totalQuestions} (${Math.round((correctAnswers / totalQuestions) * 100)}%)`);
 
     return { correctAnswers, totalQuestions, totalXP };
-  }, [adventures, userProgress]);
+  }, [adventures, userProgress, supabaseEraId]);
 
   // User sign-in detection for data reload
   const { user, isSignedIn } = useUser();

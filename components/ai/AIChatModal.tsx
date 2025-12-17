@@ -33,6 +33,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { renderMarkdownText } from '@/utils/markdownText';
 
 // Character image for welcome screen
 const HelloCharacter = require('@/assets/images/ai-images/hellocharacter.png');
@@ -722,7 +723,7 @@ export default function AIChatModal({
                   ) : (
                     <>
                       <View style={styles.assistantContent}>
-                        <Text style={styles.assistantText}>{message.content}</Text>
+                        {renderMarkdownText(message.content, styles.assistantText)}
                       </View>
                       {/* Render generated image if present - full width, tappable for full view */}
                       {(message.image || message.imageUrl) && (

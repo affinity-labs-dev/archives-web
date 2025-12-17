@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
 
   // Statistics Card
   statsCard: {
-    padding: 24,
+    padding: 16,
     backgroundColor: 'white',
     borderRadius: 16,
     marginBottom: 30,
@@ -425,10 +425,11 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   statsLeft: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginLeft: 4,
     marginRight: 40,
   },
   percentageText: {
