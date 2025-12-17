@@ -69,6 +69,7 @@ export function AIProvider({ children }: AIProviderProps) {
   const [showFloatingButton, setShowFloatingButton] = useState(true);
   const [currentContext, setCurrentContext] = useState<AIContextType['currentContext']>({});
   const [knowledgeContext, setKnowledgeContext] = useState<AIKnowledgeContext | null>(null);
+  const [newEraProgress, setNewEraProgress] = useState<any[]>([]);
 
   // Access user progress data
   const {
@@ -77,10 +78,25 @@ export function AIProvider({ children }: AIProviderProps) {
     getModuleProgress,
   } = useProgress();
 
-  // Load chat history from AsyncStorage on mount
+  // Load new era progress (Era 2+) from AsyncStorage
+  const loadNewEraProgress = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem('new_user_progress');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setNewEraProgress(parsed);
+        console.log('📚 [AIContext] Loaded new era progress:', parsed.length, 'modules');
+      }
+    } catch (error) {
+      console.error('❌ [AIContext] Error loading new era progress:', error);
+    }
+  }, []);
+
+  // Load chat history and new era progress from AsyncStorage on mount
   useEffect(() => {
     loadChatHistory();
-  }, []);
+    loadNewEraProgress();
+  }, [loadNewEraProgress]);
 
   // Save chat history to AsyncStorage when messages change
   useEffect(() => {
@@ -161,27 +177,55 @@ export function AIProvider({ children }: AIProviderProps) {
   const getUserProgressSummary = () => {
     // Defensive null check to prevent crashes on Android
     const safeModuleProgress = moduleProgress || [];
+    const safeNewEraProgress = newEraProgress || [];
 
     // Calculate total XP (works for both legacy and new eras)
-    const totalXP = calculateTotalXP(safeModuleProgress, []);
+    const totalXP = calculateTotalXP(safeModuleProgress, safeNewEraProgress);
 
-    // Get completed modules count
-    const completedModules = safeModuleProgress.filter(m => m.isCompleted).length;
+    // Get completed modules count from both eras
+    // Era 1 (legacy): quizScore >= 2 counts as completed
+    const legacyCompleted = safeModuleProgress.filter(m => m.quizScore && m.quizScore >= 2).length;
+    // Era 2+: isCompleted flag
+    const newEraCompleted = safeNewEraProgress.filter(m => m.isCompleted).length;
+    const completedModules = legacyCompleted + newEraCompleted;
 
-    // Get quiz performance stats
-    const quizScores = safeModuleProgress
+    // Get quiz performance stats from both eras
+    const legacyScores = safeModuleProgress
       .filter(m => m.quizScore !== undefined)
       .map(m => m.quizScore || 0);
-    const averageQuizScore = quizScores.length > 0
-      ? quizScores.reduce((a, b) => a + b, 0) / quizScores.length
+    const newEraScores = safeNewEraProgress
+      .filter(m => m.quizScore !== undefined)
+      .map(m => m.quizScore || 0);
+    const allQuizScores = [...legacyScores, ...newEraScores];
+    const averageQuizScore = allQuizScores.length > 0
+      ? allQuizScores.reduce((a, b) => a + b, 0) / allQuizScores.length
       : 0;
 
-    // Get recent completions (last 5)
-    const recentCompletions = safeModuleProgress
+    // Get recent completions from both eras (last 5)
+    const legacyCompletions = safeModuleProgress
+      .filter(m => m.quizScore && m.quizScore >= 2)
+      .map(m => ({
+        adventureId: String(m.adventureId),
+        moduleId: String(m.moduleId),
+        quizScore: m.quizScore,
+        unlockedAt: m.unlockedAt,
+        era: 'umayyad',
+      }));
+
+    const newEraCompletions = safeNewEraProgress
       .filter(m => m.isCompleted)
+      .map(m => ({
+        adventureId: String(m.adventureId),
+        moduleId: String(m.moduleId),
+        quizScore: m.quizScore,
+        unlockedAt: m.completedAt || m.unlockedAt,
+        era: m.era_id || 'riseOfIslam',
+      }));
+
+    const recentCompletions = [...legacyCompletions, ...newEraCompletions]
       .sort((a, b) => {
-        const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-        const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        const dateA = a.unlockedAt ? new Date(a.unlockedAt).getTime() : 0;
+        const dateB = b.unlockedAt ? new Date(b.unlockedAt).getTime() : 0;
         return dateB - dateA;
       })
       .slice(0, 5)
@@ -191,12 +235,14 @@ export function AIProvider({ children }: AIProviderProps) {
         quizScore: m.quizScore,
       }));
 
+    console.log(`📊 [AIContext] Progress summary: ${totalXP} XP, ${completedModules} modules (${legacyCompleted} legacy + ${newEraCompleted} new era)`);
+
     return {
       totalXP,
       completedModules,
       averageQuizScore: Math.round(averageQuizScore),
       recentCompletions,
-      totalModulesAttempted: safeModuleProgress.length,
+      totalModulesAttempted: safeModuleProgress.length + safeNewEraProgress.length,
     };
   };
 
@@ -205,16 +251,43 @@ export function AIProvider({ children }: AIProviderProps) {
     try {
       console.log('🧠 [AIContext] Refreshing knowledge context...');
 
-      // Convert moduleProgress to the format AIContextService expects
-      const userProgressItems = (moduleProgress || []).map(m => ({
-        adventureId: m.adventureId,
-        moduleId: m.moduleId,
-        era_id: m.eraId || currentContext.eraId || '',
+      // Reload new era progress before building context
+      let freshNewEraProgress: any[] = [];
+      try {
+        const stored = await AsyncStorage.getItem('new_user_progress');
+        if (stored) {
+          freshNewEraProgress = JSON.parse(stored);
+        }
+      } catch (e) {
+        console.error('❌ [AIContext] Error loading new era progress for context:', e);
+      }
+
+      // Convert legacy moduleProgress (Era 1 - Umayyad) to the format AIContextService expects
+      const legacyProgressItems = (moduleProgress || []).map(m => ({
+        adventureId: String(m.adventureId),
+        moduleId: String(m.moduleId),
+        era_id: 'umayyad', // All legacy modules are Era 1 (Umayyad)
+        isCompleted: m.quizScore !== undefined && m.quizScore >= 2, // Era 1 rule: quizScore >= 2
+        quizCompleted: m.quizCompleted || false,
+        quizScore: m.quizScore,
+        quizCorrectAnswers: m.quizScore, // In Era 1, quizScore IS the correct answers count
+      }));
+
+      // Convert new era progress (Era 2+) - these have proper era_id
+      const newEraProgressItems = freshNewEraProgress.map(m => ({
+        adventureId: String(m.adventureId),
+        moduleId: String(m.moduleId),
+        era_id: m.era_id || 'riseOfIslam', // Era 2 default
         isCompleted: m.isCompleted || false,
         quizCompleted: m.quizCompleted || false,
         quizScore: m.quizScore,
         quizCorrectAnswers: m.quizCorrectAnswers,
       }));
+
+      // Combine both era progress items
+      const userProgressItems = [...legacyProgressItems, ...newEraProgressItems];
+
+      console.log(`🧠 [AIContext] Building context with ${legacyProgressItems.length} legacy + ${newEraProgressItems.length} new era items`);
 
       const context = await aiContextService.buildContext({
         userProgress: userProgressItems,
@@ -239,10 +312,11 @@ export function AIProvider({ children }: AIProviderProps) {
 
   // Refresh knowledge context when chat opens or progress changes
   useEffect(() => {
-    if (isChatOpen && moduleProgress && moduleProgress.length > 0) {
+    const hasProgress = (moduleProgress && moduleProgress.length > 0) || (newEraProgress && newEraProgress.length > 0);
+    if (isChatOpen && hasProgress) {
       refreshKnowledgeContext();
     }
-  }, [isChatOpen, moduleProgress, refreshKnowledgeContext]);
+  }, [isChatOpen, moduleProgress, newEraProgress, refreshKnowledgeContext]);
 
   const value: AIContextType = {
     isChatOpen,
