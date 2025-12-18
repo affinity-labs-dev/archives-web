@@ -317,6 +317,14 @@ export default function QuizResults({
 
             {/* Action buttons */}
             <View style={styles.actionButtons}>
+              {/* Continue button */}
+              <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
+                <View style={styles.continueButtonContent}>
+                  <Text style={styles.continueButtonText}>Continue</Text>
+                  <Ionicons name="arrow-forward" size={20} color="white" />
+                </View>
+              </TouchableOpacity>
+
               {/* Retake Quiz button */}
               <TouchableOpacity style={styles.retakeButton} onPress={handleRetake}>
                 <View style={styles.retakeButtonContent}>
@@ -326,14 +334,6 @@ export default function QuizResults({
                     color={ArchivesTheme.colors.mossGreen}
                   />
                   <Text style={styles.retakeButtonText}>Retake Quiz</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Continue button */}
-              <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-                <View style={styles.continueButtonContent}>
-                  <Text style={styles.continueButtonText}>Continue</Text>
-                  <Ionicons name="arrow-forward" size={20} color="white" />
                 </View>
               </TouchableOpacity>
             </View>
@@ -498,7 +498,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderColor: ArchivesTheme.colors.mossGreen,
-    marginBottom: 16,
     shadowColor: 'black',
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -523,6 +522,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     backgroundColor: ArchivesTheme.colors.persianOrange,
     borderRadius: 16,
+    marginBottom: 16,
     shadowColor: 'black',
     shadowOpacity: 0.2,
     shadowRadius: 4,
