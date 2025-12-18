@@ -1,6 +1,6 @@
 // AchievementUnlockAnimation.tsx - Celebration animation for unlocking achievements
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, Animated } from 'react-native';
+import { View, Text, StyleSheet, Modal, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -20,6 +20,11 @@ export default function AchievementUnlockAnimation({
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+
+  const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onDismiss();
+  };
 
   useEffect(() => {
     if (visible) {
@@ -120,15 +125,26 @@ export default function AchievementUnlockAnimation({
         ))}
 
         <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
+          {/* Close Button */}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={handleClose}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
+          </TouchableOpacity>
+
           {/* Rarity badge */}
           <View style={[styles.rarityBadge, { backgroundColor: getRarityColor() }]}>
             <Text style={styles.rarityText}>{getRarityLabel()}</Text>
           </View>
 
           {/* Achievement icon with glow */}
-          <Animated.View style={[styles.iconGlow, { backgroundColor: achievement.color, opacity: glowOpacity }]} />
-          <View style={[styles.iconContainer, { backgroundColor: achievement.color }]}>
-            <Ionicons name={achievement.icon as any} size={48} color="white" />
+          <View style={styles.iconWrapper}>
+            <Animated.View style={[styles.iconGlow, { backgroundColor: achievement.color, opacity: glowOpacity }]} />
+            <View style={[styles.iconContainer, { backgroundColor: achievement.color }]}>
+              <Ionicons name={achievement.icon as any} size={48} color="white" />
+            </View>
           </View>
 
           <Text style={styles.title}>Achievement Unlocked!</Text>
@@ -146,6 +162,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   particle: {
     position: 'absolute',
@@ -174,12 +207,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  iconWrapper: {
+    position: 'relative',
+    width: 120,
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   iconGlow: {
     position: 'absolute',
     width: 120,
     height: 120,
     borderRadius: 60,
-    top: 50,
   },
   iconContainer: {
     width: 96,
@@ -187,9 +227,8 @@ const styles = StyleSheet.create({
     borderRadius: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
     shadowColor: 'black',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,

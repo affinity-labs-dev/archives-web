@@ -1,90 +1,134 @@
 // FloatingAIButton.tsx - Draggable floating AI button (Batuta - AI Assistant)
-import React, { useRef } from 'react';
-import { StyleSheet, Animated, Dimensions } from 'react-native';
-import { PanGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
-import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
+import React from 'react';
+import { Dimensions, StyleSheet } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
-// Ibn Battuta avatar image
 const IbnIcon = require('@/assets/images/ai-images/Ibn.png');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MARGIN = 20;
 const BUTTON_SIZE = 60;
 
+const INITIAL_X = SCREEN_WIDTH - BUTTON_SIZE - MARGIN;
+const INITIAL_Y = SCREEN_HEIGHT - BUTTON_SIZE - MARGIN - 100;
+
 interface FloatingAIButtonProps {
   onPress: () => void;
 }
 
 export default function FloatingAIButton({ onPress }: FloatingAIButtonProps) {
-  const translateX = useRef(new Animated.Value(SCREEN_WIDTH - BUTTON_SIZE - MARGIN)).current;
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT - BUTTON_SIZE - MARGIN - 100)).current;
-  const lastOffset = useRef({ x: SCREEN_WIDTH - BUTTON_SIZE - MARGIN, y: SCREEN_HEIGHT - BUTTON_SIZE - MARGIN - 100 });
-  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useSharedValue(INITIAL_X);
+  const translateY = useSharedValue(INITIAL_Y);
+  const scale = useSharedValue(1);
 
-  const handlePanGestureEvent = Animated.event(
-    [{ nativeEvent: { translationX: translateX, translationY: translateY } }],
-    { useNativeDriver: true }
-  );
+  // Store the starting position when drag begins
+  const startX = useSharedValue(INITIAL_X);
+  const startY = useSharedValue(INITIAL_Y);
 
-  const handlePanStateChange = ({ nativeEvent }: any) => {
-    if (nativeEvent.state === State.BEGAN) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+  const triggerHaptic = (style: Haptics.ImpactFeedbackStyle) => {
+    Haptics.impactAsync(style);
+  };
 
-    if (nativeEvent.state === State.END) {
-      let finalX = lastOffset.current.x + nativeEvent.translationX;
-      let finalY = lastOffset.current.y + nativeEvent.translationY;
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      console.log('🔵 [FloatingAIButton] Pan gesture started');
+      // Capture current position when drag starts
+      startX.value = translateX.value;
+      startY.value = translateY.value;
+      console.log('📍 [FloatingAIButton] Start position:', { x: startX.value, y: startY.value });
+      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onUpdate((event) => {
+      // Update position during drag
+      translateX.value = startX.value + event.translationX;
+      translateY.value = startY.value + event.translationY;
+      console.log('🔄 [FloatingAIButton] Dragging:', {
+        x: translateX.value,
+        y: translateY.value,
+        translationX: event.translationX,
+        translationY: event.translationY
+      });
+    })
+    .onEnd((event) => {
+      console.log('🔴 [FloatingAIButton] Pan gesture ended');
+      // Calculate final position
+      let finalX = startX.value + event.translationX;
+      let finalY = startY.value + event.translationY;
+      console.log('📍 [FloatingAIButton] Final position before clamp:', { x: finalX, y: finalY });
 
+      // Clamp within bounds
       finalX = Math.max(MARGIN, Math.min(SCREEN_WIDTH - BUTTON_SIZE - MARGIN, finalX));
       finalY = Math.max(MARGIN, Math.min(SCREEN_HEIGHT - BUTTON_SIZE - MARGIN - 100, finalY));
 
-      const snappedX = finalX > SCREEN_WIDTH / 2 ? SCREEN_WIDTH - BUTTON_SIZE - MARGIN : MARGIN;
+      // Snap to left or right edge
+      const snappedX = finalX > SCREEN_WIDTH / 2
+        ? SCREEN_WIDTH - BUTTON_SIZE - MARGIN
+        : MARGIN;
 
-      Animated.spring(translateX, { toValue: snappedX, useNativeDriver: true, tension: 100, friction: 10 }).start();
-      Animated.spring(translateY, { toValue: finalY, useNativeDriver: true, tension: 100, friction: 10 }).start();
+      console.log('📍 [FloatingAIButton] Snapping to:', { x: snappedX, y: finalY });
 
-      lastOffset.current = { x: snappedX, y: finalY };
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  };
+      // Animate to final snapped position
+      translateX.value = withSpring(snappedX, { damping: 15, stiffness: 150 });
+      translateY.value = withSpring(finalY, { damping: 15, stiffness: 150 });
 
-  const handleTapStateChange = ({ nativeEvent }: any) => {
-    if (nativeEvent.state === State.BEGAN) {
-      Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, tension: 300 }).start();
-    }
+      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
+    });
 
-    if (nativeEvent.state === State.END) {
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 300 }).start();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      onPress();
-    }
+  const tapGesture = Gesture.Tap()
+    .onBegin(() => {
+      console.log('👆 [FloatingAIButton] Tap gesture began');
+      scale.value = withSpring(0.9, { damping: 15, stiffness: 300 });
+    })
+    .onEnd(() => {
+      console.log('✅ [FloatingAIButton] Tap gesture ended - triggering onPress');
+      scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
+      runOnJS(onPress)();
+    })
+    .onFinalize(() => {
+      console.log('🏁 [FloatingAIButton] Tap gesture finalized');
+      scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+    });
 
-    if (nativeEvent.state === State.CANCELLED || nativeEvent.state === State.FAILED) {
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 300 }).start();
-    }
-  };
+  // Combine gestures - tap and pan can work together
+  const composedGesture = Gesture.Simultaneous(panGesture, tapGesture);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
 
   return (
-    <PanGestureHandler onGestureEvent={handlePanGestureEvent} onHandlerStateChange={handlePanStateChange}>
-      <Animated.View style={[styles.container, { transform: [{ translateX }, { translateY }, { scale }] }]}>
-        <TapGestureHandler onHandlerStateChange={handleTapStateChange}>
-          <Animated.View style={styles.button}>
-            <Image
-              source={IbnIcon}
-              style={styles.icon}
-              contentFit="contain"
-            />
-          </Animated.View>
-        </TapGestureHandler>
+    <GestureDetector gesture={composedGesture}>
+      <Animated.View style={[styles.container, animatedStyle]}>
+        <Animated.View style={styles.button}>
+          <Image
+            source={IbnIcon}
+            style={styles.icon}
+            contentFit="contain"
+          />
+        </Animated.View>
       </Animated.View>
-    </PanGestureHandler>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
+    top: 0,
+    left: 0,
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
     zIndex: 9999,
