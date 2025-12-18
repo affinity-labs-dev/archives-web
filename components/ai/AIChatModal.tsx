@@ -9,7 +9,6 @@ import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { Ionicons } from '@expo/vector-icons';
 import {
   cacheDirectory,
-  EncodingType,
   writeAsStringAsync,
   deleteAsync,
 } from 'expo-file-system';
@@ -200,7 +199,7 @@ export default function AIChatModal({
 
       // Write base64 to file
       await writeAsStringAsync(fileUri, selectedImage.base64, {
-        encoding: EncodingType.Base64,
+        encoding: 'base64',
       });
 
       // Save to media library
