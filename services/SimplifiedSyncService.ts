@@ -5,7 +5,7 @@ import { supabase } from "@/hooks/lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { analyticsService } from "./AnalyticsService";
-import { calculateXPForEra, calculateModulesCompleted, calculateEraXP } from "@/context/ProgressContext";
+import { calculateXPForEra, calculateModulesCompleted, calculateEraXP, calculateLessonsCompleted, calculateAdventuresCompleted, calculateErasCompleted } from "@/context/ProgressContext";
 import { EraType } from "@/types/progress";
 
 // Types matching local AsyncStorage structure
@@ -32,6 +32,7 @@ interface StreakData {
   currentStreak: number;
   longestStreak: number;
   lastActiveDate: string;
+  longestStreakDate?: string; // Date when longest streak was achieved
 }
 
 // Complete user data structure for JSONB storage
@@ -148,6 +149,7 @@ class SimplifiedSyncService {
         currentStreak: parsedStreak.currentStreak || 0,
         longestStreak: parsedStreak.longestStreak || 0,
         lastActiveDate: lastActiveDate || parsedStreak.lastActiveDate || '',
+        longestStreakDate: parsedStreak.longestStreakDate,
       };
     }
 
@@ -218,6 +220,7 @@ class SimplifiedSyncService {
             currentStreak: userData.streak.currentStreak,
             longestStreak: userData.streak.longestStreak,
             lastActiveDate: userData.streak.lastActiveDate,
+            longestStreakDate: userData.streak.longestStreakDate,
           })
         )
       );
@@ -227,7 +230,7 @@ class SimplifiedSyncService {
           userData.streak.lastActiveDate
         )
       );
-      console.log(`🔥 Restored streak from cloud: ${userData.streak.currentStreak} days (longest: ${userData.streak.longestStreak})`);
+      console.log(`🔥 Restored streak from cloud: ${userData.streak.currentStreak} days (longest: ${userData.streak.longestStreak}${userData.streak.longestStreakDate ? ` on ${userData.streak.longestStreakDate}` : ''})`);
     }
 
     await Promise.all(promises);
@@ -240,17 +243,24 @@ class SimplifiedSyncService {
       (userData.newProgress?.filter(m => m.quizCompleted).length || 0);
     const totalModulesCompleted = calculateModulesCompleted(userData.modules || [], userData.newProgress || []);
     const eraXP = calculateEraXP(userData.newProgress || []);
+    const lessonsCompleted = calculateLessonsCompleted(userData.modules || [], userData.newProgress || []);
+    const adventuresCompleted = calculateAdventuresCompleted(userData.modules || [], userData.newProgress || []);
+    const erasCompleted = calculateErasCompleted(userData.modules || [], userData.newProgress || []);
 
     analyticsService.updateProgressProperties({
       total_xp: totalXP,
       quizzes_completed: quizzesCompleted,
       modules_completed: totalModulesCompleted,
+      lessons_completed: lessonsCompleted,
+      adventures_completed: adventuresCompleted,
+      eras_completed: erasCompleted,
       era_xp: eraXP,
       current_streak: userData.streak?.currentStreak,
       longest_streak: userData.streak?.longestStreak,
       current_streak_date: userData.streak?.lastActiveDate,
+      longest_streak_date: userData.streak?.longestStreakDate,
     });
-    console.log(`📊 [PostHog] Updated person properties from cloud restore: XP=${totalXP}, Streak=${userData.streak?.currentStreak || 0}, EraXP=`, eraXP);
+    console.log(`📊 [PostHog] Updated person properties from cloud restore: XP=${totalXP}, Modules=${totalModulesCompleted}, Lessons=${lessonsCompleted}, Adventures=${adventuresCompleted}, Eras=${erasCompleted}, Streak=${userData.streak?.currentStreak || 0}, EraXP=`, eraXP);
   }
 
   // SIMPLIFIED SYNC: One operation instead of three

@@ -1,10 +1,16 @@
 // CustomerIOService.web.ts - Web stub (Customer.io is native-only)
 // This file is used on web platform to prevent bundling native modules
 
+// DEBUG: Log which file is loaded
+console.log('🔍 [CustomerIO DEBUG] ========================================');
+console.log('🔍 [CustomerIO DEBUG] WEB STUB LOADED (.web.ts) - THIS IS WRONG ON NATIVE!');
+console.log('🔍 [CustomerIO DEBUG] ========================================');
+
 /**
  * Initialize Customer.io SDK - no-op on web
  */
 export const initializeCustomerIO = () => {
+  console.log('🔍 [CustomerIO DEBUG] web stub initializeCustomerIO() called - no-op');
   // Customer.io is not available on web
 };
 
@@ -12,6 +18,7 @@ export const initializeCustomerIO = () => {
  * Identify a user - no-op on web
  */
 export const identifyUser = (_userId: string, _traits?: Record<string, unknown>) => {
+  console.log('🔍 [CustomerIO DEBUG] web stub identifyUser() called - no-op');
   // Customer.io is not available on web
 };
 
@@ -19,6 +26,7 @@ export const identifyUser = (_userId: string, _traits?: Record<string, unknown>)
  * Clear user identity - no-op on web
  */
 export const clearIdentity = () => {
+  console.log('🔍 [CustomerIO DEBUG] web stub clearIdentity() called - no-op');
   // Customer.io is not available on web
 };
 
@@ -26,6 +34,7 @@ export const clearIdentity = () => {
  * Track a custom event - no-op on web
  */
 export const trackEvent = (_name: string, _properties?: Record<string, unknown>) => {
+  console.log('🔍 [CustomerIO DEBUG] web stub trackEvent() called - no-op, event:', _name);
   // Customer.io is not available on web
 };
 

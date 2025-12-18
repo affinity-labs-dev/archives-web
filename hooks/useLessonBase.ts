@@ -82,7 +82,6 @@ export function useLessonBase({
   eraName,
   onContinue,
 }: UseLessonBaseProps): UseLessonBaseReturn {
-
   // Extract adventure number from adventureId (e.g., "roi_adventure_1" → 1)
   const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
   const moduleNumber = contentItem.order_by || 0;

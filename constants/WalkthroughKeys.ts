@@ -14,5 +14,7 @@ export const WALKTHROUGH_KEYS = {
 
 export const ADVENTURE_KEYS = {
   getAdventureCompleteKey: (adventureId: string) => `hasSeenAdventureComplete_${adventureId}`,
-  getXPMilestoneKey: (milestoneXP: number) => `hasSeenXPMilestone_${milestoneXP}`,
+  // Era-specific milestone keys: each era has its own milestone progression
+  getXPMilestoneKey: (milestoneXP: number, eraId?: string) =>
+    eraId ? `hasSeenXPMilestone_${eraId}_${milestoneXP}` : `hasSeenXPMilestone_${milestoneXP}`,
 } as const;

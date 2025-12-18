@@ -38,12 +38,10 @@ const getCustomerIO = () => {
  */
 export const initializeCustomerIO = () => {
   if (isExpoGo) {
-    console.log('📧 [CustomerIO] Skipping init - running in Expo Go');
     return;
   }
 
   if (isInitialized) {
-    console.log('📧 [CustomerIO] Already initialized');
     return;
   }
 
@@ -53,7 +51,9 @@ export const initializeCustomerIO = () => {
   }
 
   const module = getCustomerIO();
-  if (!module) return;
+  if (!module) {
+    return;
+  }
 
   try {
     const { CustomerIO, CioLogLevel, CioRegion } = module;
@@ -62,6 +62,8 @@ export const initializeCustomerIO = () => {
       cdpApiKey: CDP_API_KEY,
       region: CioRegion.EU,
       logLevel: __DEV__ ? CioLogLevel.Debug : CioLogLevel.Error,
+      flushAt: 1,        // Send events immediately (don't batch)
+      flushInterval: 1,  // Flush every 1 second
       inApp: {
         siteId: SITE_ID,
       },
@@ -69,7 +71,7 @@ export const initializeCustomerIO = () => {
 
     CustomerIO.initialize(config);
     isInitialized = true;
-    console.log('✅ [CustomerIO] SDK initialized successfully');
+    console.log('✅ [CustomerIO] SDK initialized');
   } catch (error) {
     console.error('❌ [CustomerIO] Initialization failed:', error);
   }
@@ -81,17 +83,15 @@ export const initializeCustomerIO = () => {
  */
 export const identifyUser = (userId: string, traits?: Record<string, unknown>) => {
   if (isExpoGo || !isInitialized) {
-    if (__DEV__) {
-      console.log('📧 [CustomerIO] Skipping identify - not available');
-    }
     return;
   }
 
   const module = getCustomerIO();
-  if (!module) return;
+  if (!module) {
+    return;
+  }
 
   try {
-    // Customer.io SDK expects a single object with userId and traits
     module.CustomerIO.identify({ userId, traits });
     console.log('✅ [CustomerIO] User identified:', userId);
   } catch (error) {
@@ -121,14 +121,13 @@ export const clearIdentity = () => {
  */
 export const trackEvent = (name: string, properties?: Record<string, unknown>) => {
   if (isExpoGo || !isInitialized) {
-    if (__DEV__) {
-      console.log(`📧 [CustomerIO] Skipping track "${name}" - not available`);
-    }
     return;
   }
 
   const module = getCustomerIO();
-  if (!module) return;
+  if (!module) {
+    return;
+  }
 
   try {
     module.CustomerIO.track(name, properties);

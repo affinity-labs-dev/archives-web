@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -185,9 +186,9 @@ export default function AIChatModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      // Request permission
+      // Request permission (accept both 'granted' and 'limited' on iOS 14+)
       const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
+      if (status !== 'granted' && status !== 'limited') {
         Alert.alert('Permission Required', 'Please allow access to save images to your photo library.');
         setIsSaving(false);
         return;
@@ -616,6 +617,7 @@ export default function AIChatModal({
 
   // Open image in full screen viewer
   const handleImagePress = (image: { base64: string; mimeType: string }) => {
+    Keyboard.dismiss(); // Dismiss keyboard before opening image viewer
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedImage(image);
   };

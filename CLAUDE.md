@@ -109,10 +109,12 @@ await AsyncStorage.setItem(...)  // ❌ NEVER
 3. Write AsyncStorage (local-first, <50ms)
 4. Trigger cloud sync (debounced, async)
 
-**Dual-era system (unified ProgressContext):**
-- **Umayyad Dynasty (Era 1)**: Adventures 1-5 - uses `atomicProgressUpdate()`
-- **Rise of Islam (Era 2)**: Adventures 1-5 - uses same `atomicProgressUpdate()`, stats via `getROIAdventureStats()`
-- Both eras share the same `ProgressContext` with era-specific XP calculation and progress tracking
+**Unified Supabase-driven era system:**
+- **ALL eras come from Supabase** - `eras` table for era definitions, `content` table for adventures/modules/lessons
+- **Progress storage**: `newProgress` array in ProgressContext stores all module progress with `era_id`, `adventureId`, `moduleId`
+- **Legacy compatibility**: Old `moduleProgress` array maintained for existing Era 1 user data (backward compat only)
+- **XP calculation**: `quizCorrectAnswers * 10` per module, tracked per-era via `era_xp` property
+- Both `atomicProgressUpdate()` (Era 1) and `saveNewProgressData()` (Era 2+) feed into same analytics
 
 ### Module Completion Logic
 - **Unlock chain**: Adventure 1 unlocked by default → Complete all 3 modules → Unlock Adventure 2
@@ -396,12 +398,12 @@ console.log('🔔 Notification')    // Push notifications
 
 **iOS (App Store):**
 - Bundle: `ai.affinitylabs.archivesexpo` | Team: `LQ9LP2WW94` | App ID: `6751173663`
-- Build number: `111` (auto-increments on production builds)
+- Build number: `114` (auto-increments on production builds)
 - Universal Links via `link.archiveszone.app`
 
 **Android (Play Store):**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code: `30` (auto-increments on production builds)
+- Version code: `33` (auto-increments on production builds)
 - Edge-to-edge disabled, largeHeap enabled (Android OOM fixes)
 - App Links SHA-256: Must match console fingerprint
 
@@ -416,14 +418,15 @@ console.log('🔔 Notification')    // Push notifications
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus
-- **Customer.io integration** - Push notification campaigns with unified analytics tracking via `CustomerIOService.ts`
-- **Gemini AI features** - AI chat modal (`AIChatModal.tsx`), image generation and viewing capabilities
-- **Unified Supabase-driven era selection** - Eras loaded from Supabase `eras` table, content from `content` table with string `era_id`
-- **Generic era architecture** - ROI components renamed to reusable era structure (`useLessonBase` hook, unified `LessonPlayer` orchestrator)
-- **TWO ERAS system** - Umayyad Dynasty (Era 1) and Rise of Islam (Era 2) with separate content
+- **Unified Supabase-driven era system** - ALL eras come from Supabase (`eras` table + `content` table). Legacy Era 1 initialization removed. System is fully dynamic for future eras.
+- **Current content** - Era 1 (Umayyad Dynasty) and Era 2 (Rise of Islam) with 5 adventures each, all content in Supabase
+- **PostHog person properties** - User progress tracking via person properties for analytics
+- **AI chat improvements** - Correctly shows XP and progress from all eras, monthly quota enforcement
+- **Customer.io integration** - Push notification campaigns with unified analytics tracking via `CustomerIOService.native.ts`
+- **Gemini AI features** - AI chat modal (`AIChatModal.tsx`), image generation, markdown rendering
+- **Generic era architecture** - Reusable lesson components (`ReelLesson`, `ImageCarouselLesson`, etc.) work for all eras
 - **Sentry integration** - Error tracking and performance tracing enabled (tracesSampleRate: 1.0)
 - **Android OOM fixes** - largeHeap enabled, video source simplified for HLS compatibility
-- **Gamified components** - Milestone system, era progress headers moved to era-level
 
 ### Local-First with Transparent Sync
 ```

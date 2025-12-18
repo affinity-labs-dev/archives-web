@@ -59,6 +59,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   const [streakMilestone, setStreakMilestone] = useState<{
     milestoneXP: number;
     totalXP: number;
+    eraId: string;
   } | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
@@ -213,22 +214,22 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     setShowQuiz(false);
   };
 
-  // Handle 50 XP milestone reached
-  const handleMilestoneReached = async (milestoneXP: number, totalXP: number) => {
-    console.log(`🎉 XP Milestone reached: ${milestoneXP}`);
+  // Handle XP milestone reached (era-specific)
+  const handleMilestoneReached = async (milestoneXP: number, totalXP: number, eraId: string) => {
+    console.log(`🎉 XP Milestone reached: ${milestoneXP} XP for era: ${eraId}`);
 
-    // Check if user has already seen this milestone screen
-    const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP);
+    // Check if user has already seen this milestone screen (era-specific)
+    const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP, eraId);
     const hasSeenMilestone = await AsyncStorage.getItem(milestoneKey);
 
     if (hasSeenMilestone === 'true') {
-      console.log(`✅ User already saw XP milestone screen for ${milestoneXP} XP - skipping`);
+      console.log(`✅ User already saw XP milestone screen for ${milestoneXP} XP (era: ${eraId}) - skipping`);
       setSelectedLesson(null);
       setShowQuiz(false);
       return; // Don't show modal again
     }
 
-    console.log(`🎉 Showing XP milestone screen for ${milestoneXP} XP (FIRST TIME)`);
+    console.log(`🎉 Showing XP milestone screen for ${milestoneXP} XP (era: ${eraId}) - FIRST TIME`);
 
     // Reload progress to show stars immediately (await to prevent race condition)
     if (onProgressUpdate) {
@@ -239,10 +240,11 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     setSelectedLesson(null);
     setShowQuiz(false);
 
-    // Show streak milestone modal
+    // Show streak milestone modal (with era info for saving)
     setStreakMilestone({
       milestoneXP,
       totalXP,
+      eraId,
     });
   };
 
@@ -281,10 +283,13 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     true // enabled
   );
 
-  // Log preload stats in development
-  if (__DEV__ && preloadState.stats.preloadedImages > 0) {
-    console.log('📦 [Preload] Stats:', preloadState.stats);
-  }
+  // Log preload stats in development (only when stats change, not every render)
+  // Commented out to reduce console noise - preloading works correctly
+  // useEffect(() => {
+  //   if (__DEV__ && preloadState.stats.preloadedImages > 0) {
+  //     console.log('📦 [Preload] Stats:', preloadState.stats);
+  //   }
+  // }, [preloadState.stats.preloadedImages, preloadState.stats.preloadedVideos]);
 
   // Find first locked adventure ID (for showing lock banner only on first one)
   const firstLockedAdventureId = useMemo(() => {
@@ -422,12 +427,13 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
         </Modal>
       )}
 
-      {/* Streak Milestone Modal (50 XP milestone) */}
+      {/* Streak Milestone Modal (XP milestones - era-specific) */}
       {streakMilestone && (
         <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
           <XPMilestoneScreen
             totalXP={streakMilestone.totalXP}
             milestoneXP={streakMilestone.milestoneXP}
+            eraId={streakMilestone.eraId}
             onContinue={() => {
               setStreakMilestone(null);
               handleQuizContinue(); // Check if adventure is complete

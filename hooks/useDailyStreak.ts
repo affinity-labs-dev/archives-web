@@ -10,6 +10,7 @@ interface StreakData {
   currentStreak: number;
   longestStreak: number;
   lastActiveDate: string;
+  longestStreakDate?: string; // Date when longest streak was achieved
 }
 
 export function useDailyStreak() {
@@ -49,9 +50,10 @@ export function useDailyStreak() {
           data.currentStreak = 1;
         }
 
-        // Update longest streak
+        // Update longest streak and track the date when it was achieved
         if (data.currentStreak > data.longestStreak) {
           data.longestStreak = data.currentStreak;
+          data.longestStreakDate = today; // Record when longest streak was achieved
         }
 
         // Save updated data
@@ -65,6 +67,7 @@ export function useDailyStreak() {
           current_streak: data.currentStreak,
           current_streak_date: today,
           longest_streak: data.longestStreak,
+          longest_streak_date: data.longestStreakDate,
         });
 
         console.log('🔥 [useDailyStreak] Streak updated:', data.currentStreak);

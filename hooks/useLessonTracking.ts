@@ -40,7 +40,6 @@ export function useLessonTracking({
   // Track lesson start on component mount
   useEffect(() => {
     if (!hasStartedRef.current) {
-      console.log(`📊 [LessonTracking] Lesson started: ${adventureId}-${moduleId}-${lessonId}`);
       analyticsService.trackLessonStarted({
         adventure_id: adventureId,
         module_id: moduleId,

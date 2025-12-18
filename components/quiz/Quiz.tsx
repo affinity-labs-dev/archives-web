@@ -38,7 +38,7 @@ interface QuizProps {
   onContinue: () => void;    // Called when quiz is completed
   onDismiss: () => void;     // Called to close quiz
   onBack?: () => void;       // Optional back button
-  onMilestoneReached?: (milestoneXP: number, totalXP: number) => void; // 50 XP milestone callback
+  onMilestoneReached?: (milestoneXP: number, totalXP: number, eraId: string) => void; // XP milestone callback (era-specific)
 }
 
 // MCQ Option Button Design
@@ -324,17 +324,32 @@ export default function Quiz({
   const [showMilestone, setShowMilestone] = useState(false);
   const [milestoneData, setMilestoneData] = useState<{milestoneXP: number; totalXP: number} | null>(null);
 
-  // Load initial XP when quiz starts
+  // Load initial XP when quiz starts (ERA-SPECIFIC)
   useEffect(() => {
     const loadInitialXP = async () => {
-      const xpData = await AsyncStorage.getItem('totalXP');
-      const currentXP = xpData ? JSON.parse(xpData) : 0;
-      setInitialXP(currentXP);
-      console.log(`📊 [Quiz] Quiz started with ${currentXP} XP`);
+      try {
+        // Load era-specific XP from new_user_progress
+        const progressData = await AsyncStorage.getItem('new_user_progress');
+        if (progressData) {
+          const allProgress = JSON.parse(progressData);
+          // Filter by current era and sum up XP
+          const eraXP = allProgress
+            .filter((p: any) => p.era_id === eraId)
+            .reduce((sum: number, p: any) => sum + ((p.quizCorrectAnswers || 0) * 10), 0);
+          setInitialXP(eraXP);
+          console.log(`📊 [Quiz] Quiz started with ${eraXP} XP for era: ${eraId}`);
+        } else {
+          setInitialXP(0);
+          console.log(`📊 [Quiz] Quiz started with 0 XP for era: ${eraId} (no progress data)`);
+        }
+      } catch (error) {
+        console.error('❌ [Quiz] Error loading era XP:', error);
+        setInitialXP(0);
+      }
     };
 
     loadInitialXP();
-  }, []);
+  }, [eraId]);
 
   // Early return if no questions
   if (questions.length === 0) {
@@ -392,10 +407,10 @@ export default function Quiz({
       const milestone = checkIfCrossed50XPBoundary(oldXP, newXP);
 
       if (milestone) {
-        console.log(`🎉 [Quiz] MID-QUIZ Milestone crossed: ${milestone} XP`);
+        console.log(`🎉 [Quiz] MID-QUIZ Milestone crossed: ${milestone} XP for era: ${eraId}`);
 
-        // Check if user already saw this milestone
-        const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestone);
+        // Check if user already saw this milestone (ERA-SPECIFIC)
+        const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestone, eraId);
         const hasSeenMilestone = await AsyncStorage.getItem(milestoneKey);
 
         if (hasSeenMilestone !== 'true') {
@@ -499,8 +514,8 @@ export default function Quiz({
     console.log(`📊 [Quiz] Milestone check result:`, { oldXP, newXP, milestone, hasCallback: !!onMilestoneReached });
 
     if (milestone && onMilestoneReached) {
-      console.log(`🎉 [Quiz] Milestone ${milestone} crossed! Calling onMilestoneReached`);
-      onMilestoneReached(milestone, newXP);
+      console.log(`🎉 [Quiz] Milestone ${milestone} crossed! Calling onMilestoneReached for era: ${eraId}`);
+      onMilestoneReached(milestone, newXP, eraId);
       return; // Don't call onContinue - let milestone modal handle it
     }
 
@@ -672,12 +687,13 @@ export default function Quiz({
         bottomInset={insets.bottom}
       />
 
-      {/* Mid-Quiz Milestone Modal */}
+      {/* Mid-Quiz Milestone Modal (ERA-SPECIFIC) */}
       {showMilestone && milestoneData && (
         <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
           <XPMilestoneScreen
             milestoneXP={milestoneData.milestoneXP}
             totalXP={milestoneData.totalXP}
+            eraId={eraId}
             onContinue={() => {
               // Video finished, close modal and show feedback
               console.log('🎬 [Quiz] Milestone video finished, resuming quiz');

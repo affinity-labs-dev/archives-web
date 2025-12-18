@@ -213,6 +213,111 @@ export const getROIAdventureStats = (newModules: any[], adventureId: string): { 
   };
 };
 
+// Calculate total lessons completed across all eras
+// Each module has 2 lessons (lesson1, lesson2) tracked in lessonsCompleted array
+export const calculateLessonsCompleted = (legacyModules: any[], newModules: any[]): number => {
+  let totalLessons = 0;
+
+  // Era 1: Count lessons from lessonsCompleted array
+  legacyModules.forEach(m => {
+    if (m.lessonsCompleted && Array.isArray(m.lessonsCompleted)) {
+      totalLessons += m.lessonsCompleted.length;
+    }
+  });
+
+  // Era 2: Count lessons from lessonsCompleted array
+  newModules.forEach(m => {
+    if (m.lessonsCompleted && Array.isArray(m.lessonsCompleted)) {
+      totalLessons += m.lessonsCompleted.length;
+    }
+  });
+
+  return totalLessons;
+};
+
+// Calculate adventures completed across all eras
+// Era 1: Adventure complete when all 3 modules have quizScore >= 2
+// Era 2: Adventure complete when all modules have isCompleted = true
+export const calculateAdventuresCompleted = (legacyModules: any[], newModules: any[]): number => {
+  let totalAdventures = 0;
+
+  // Era 1: Group by adventureId, check if all 3 modules completed (quizScore >= 2)
+  const era1Adventures = new Map<number, number[]>();
+  legacyModules.forEach(m => {
+    if (!era1Adventures.has(m.adventureId)) {
+      era1Adventures.set(m.adventureId, []);
+    }
+    if (m.quizScore && m.quizScore >= 2) {
+      era1Adventures.get(m.adventureId)!.push(m.moduleId);
+    }
+  });
+  // Count adventures with all 3 modules completed
+  era1Adventures.forEach((modules, _adventureId) => {
+    if (modules.length >= 3) {
+      totalAdventures += 1;
+    }
+  });
+
+  // Era 2: Group by adventureId, check if all modules completed
+  const era2Adventures = new Map<string, { total: number; completed: number }>();
+  newModules.forEach(m => {
+    const advId = m.adventureId;
+    if (!era2Adventures.has(advId)) {
+      era2Adventures.set(advId, { total: 0, completed: 0 });
+    }
+    const stats = era2Adventures.get(advId)!;
+    stats.total += 1;
+    if (m.isCompleted && m.quizCompleted) {
+      stats.completed += 1;
+    }
+  });
+  // Count adventures where all modules are completed (assuming 3 modules per adventure)
+  era2Adventures.forEach((stats, _adventureId) => {
+    if (stats.completed >= 3 && stats.completed === stats.total) {
+      totalAdventures += 1;
+    }
+  });
+
+  return totalAdventures;
+};
+
+// Calculate eras completed
+// Era 1 (Umayyad): Complete when all 5 adventures are completed (15 modules with quizScore >= 2)
+// Era 2+: Complete when all adventures in that era are completed
+export const calculateErasCompleted = (legacyModules: any[], newModules: any[]): number => {
+  let erasCompleted = 0;
+
+  // Era 1: Check if all 15 modules have quizScore >= 2
+  const era1CompletedModules = legacyModules.filter(m => m.quizScore && m.quizScore >= 2).length;
+  if (era1CompletedModules >= 15) {
+    erasCompleted += 1;
+  }
+
+  // Era 2+: Group by era_id and check if all modules in each era are completed
+  const eraProgress = new Map<string, { total: number; completed: number }>();
+  newModules.forEach(m => {
+    const eraId = m.era_id;
+    if (eraId) {
+      if (!eraProgress.has(eraId)) {
+        eraProgress.set(eraId, { total: 0, completed: 0 });
+      }
+      const stats = eraProgress.get(eraId)!;
+      stats.total += 1;
+      if (m.isCompleted && m.quizCompleted) {
+        stats.completed += 1;
+      }
+    }
+  });
+  // Count eras where all modules are completed (minimum 15 modules = 5 adventures × 3 modules)
+  eraProgress.forEach((stats, _eraId) => {
+    if (stats.completed >= 15 && stats.completed === stats.total) {
+      erasCompleted += 1;
+    }
+  });
+
+  return erasCompleted;
+};
+
 // Initial data for Umayyad Dynasty Era (Adventure IDs 1-5)
 // All adventures unlocked by default (no progressive unlock system)
 const INITIAL_ADVENTURE_DATA: AdventureProgress[] = [
@@ -412,13 +517,21 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       const totalModulesCompleted = calculateModulesCompleted(moduleProgress, progressData);
       const eraXP = calculateEraXP(progressData);
 
+      // Calculate missing properties for PostHog
+      const lessonsCompleted = calculateLessonsCompleted(moduleProgress, progressData);
+      const adventuresCompleted = calculateAdventuresCompleted(moduleProgress, progressData);
+      const erasCompleted = calculateErasCompleted(moduleProgress, progressData);
+
       analyticsService.updateProgressProperties({
         total_xp: totalXP,
         quizzes_completed: quizzesCompleted,
         modules_completed: totalModulesCompleted,
+        lessons_completed: lessonsCompleted,
+        adventures_completed: adventuresCompleted,
+        eras_completed: erasCompleted,
         era_xp: eraXP,
       });
-      console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}, EraXP=`, eraXP);
+      console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}, Lessons=${lessonsCompleted}, Adventures=${adventuresCompleted}, Eras=${erasCompleted}, EraXP=`, eraXP);
 
       // Trigger real-time cloud sync (awaits immediately, no debounce)
       await syncModule()
@@ -786,13 +899,21 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         const totalModulesCompleted = calculateModulesCompleted(updatedModules, newModules);
         const eraXP = calculateEraXP(newModules);
 
+        // Calculate missing properties for PostHog
+        const lessonsCompleted = calculateLessonsCompleted(updatedModules, newModules);
+        const adventuresCompleted = calculateAdventuresCompleted(updatedModules, newModules);
+        const erasCompleted = calculateErasCompleted(updatedModules, newModules);
+
         analyticsService.updateProgressProperties({
           total_xp: totalXP,
           quizzes_completed: quizzesCompleted,
           modules_completed: totalModulesCompleted,
+          lessons_completed: lessonsCompleted,
+          adventures_completed: adventuresCompleted,
+          eras_completed: erasCompleted,
           era_xp: eraXP,
         });
-        console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}, EraXP=`, eraXP);
+        console.log(`📊 [PostHog] Updated person properties: XP=${totalXP}, Quizzes=${quizzesCompleted}, Modules=${totalModulesCompleted}, Lessons=${lessonsCompleted}, Adventures=${adventuresCompleted}, Eras=${erasCompleted}, EraXP=`, eraXP);
       }
 
       // Trigger real-time cloud sync (awaits immediately, no debounce)

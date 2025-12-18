@@ -275,26 +275,37 @@ class AIStorageService {
    */
   async saveMessages(userId: string, messages: StoredMessage[]): Promise<boolean> {
     try {
+      // Sanitize messages to ensure they're JSON-serializable
+      const sanitizedMessages = messages.map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : new Date().toISOString(),
+        imageUrl: msg.imageUrl || undefined,
+        isUploadedImage: msg.isUploadedImage || undefined,
+      }));
+
       const { error } = await supabase
         .from('ai_user_data')
         .upsert(
           {
             user_id: userId,
-            messages: messages,
+            messages: sanitizedMessages,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'user_id' }
         );
 
       if (error) {
-        console.error('❌ [AIStorage] Save messages error:', error);
+        console.error('❌ [AIStorage] Save messages error:', error.message || error.code || error.details || JSON.stringify(error));
         return false;
       }
 
-      console.log('✅ [AIStorage] Saved messages:', messages.length);
+      console.log('✅ [AIStorage] Saved messages:', sanitizedMessages.length);
       return true;
-    } catch (error) {
-      console.error('❌ [AIStorage] Save failed:', error);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('❌ [AIStorage] Save failed:', errorMessage);
       return false;
     }
   }

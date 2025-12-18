@@ -321,6 +321,8 @@ class AnalyticsService {
    * Only sends key events that are useful for segmentation/campaigns
    */
   private trackToCustomerIO(eventName: string, properties?: Record<string, unknown>) {
+    console.log('🔍 [Analytics] trackToCustomerIO called with:', eventName);
+
     // Only track key events to Customer.io to avoid noise
     const customerIOEvents = [
       'user_signed_up',
@@ -337,7 +339,11 @@ class AnalyticsService {
       'push_notifications_declined',
     ];
 
-    if (customerIOEvents.includes(eventName)) {
+    const shouldTrack = customerIOEvents.includes(eventName);
+    console.log('🔍 [Analytics] Event in customerIOEvents list:', shouldTrack);
+
+    if (shouldTrack) {
+      console.log('🔍 [Analytics] Calling CustomerIOService.track()...');
       CustomerIOService.track(eventName, properties);
     }
   }
@@ -559,17 +565,19 @@ class AnalyticsService {
     module_id: number | string;
     lesson_id: string;
     lesson_type: string;
-    era_id?: number;
+    era_id?: number | string; // Support both number (legacy) and string (new eras)
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
     $screen_name?: string; // Custom screen name for PostHog activity view
   }) {
+    console.log('🔍 [Analytics] trackLessonStarted called with:', data);
     const event = {
       ...data,
       ...this.getBaseProperties(),
     };
 
+    console.log('🔍 [Analytics] About to capture lesson_started, posthog exists:', !!this.posthog);
     this.posthog?.capture('lesson_started', event);
     this.trackToCustomerIO('lesson_started', event);
     console.log('📊 [Analytics] Lesson Started:', event);

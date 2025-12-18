@@ -129,26 +129,49 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const posthog = usePostHog();
   const { user, isSignedIn } = useUser();
 
-  // Initialize analytics service + set user properties when both PostHog and Clerk user are ready
+  // Initialize Customer.io SDK IMMEDIATELY (not dependent on PostHog)
+  // This runs once on mount to ensure Customer.io is ready before any events
   React.useEffect(() => {
+    console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIO init useEffect running (mount)');
+    CustomerIOService.initialize();
+    console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIO init complete');
+  }, []); // Empty deps = runs once on mount
+
+  // Identify user to Customer.io when signed in (independent of PostHog)
+  React.useEffect(() => {
+    console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIO identify useEffect, isSignedIn:', isSignedIn, 'user:', !!user);
+
+    if (isSignedIn && user) {
+      console.log('🔍 [AnalyticsWrapper DEBUG] Calling CustomerIOService.identify()...');
+      CustomerIOService.identify(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        first_name: user.firstName,
+        last_name: user.lastName,
+      });
+      console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIOService.identify() returned');
+    } else {
+      // Clear Customer.io identity when signed out
+      CustomerIOService.clearIdentify();
+    }
+  }, [isSignedIn, user]);
+
+  // Initialize PostHog analytics + set user properties when both PostHog and Clerk user are ready
+  React.useEffect(() => {
+    console.log('🔍 [AnalyticsWrapper DEBUG] PostHog useEffect running, posthog:', !!posthog, 'isSignedIn:', isSignedIn);
+
     if (posthog) {
+      console.log('🔍 [AnalyticsWrapper DEBUG] PostHog available, initializing analytics...');
       analyticsService.initialize(posthog);
       // Note: Session replay starts automatically via enableSessionReplay: true config
 
       // Identify user if signed in - this merges all anonymous events to the authenticated user
       if (isSignedIn && user) {
+        console.log('🔍 [AnalyticsWrapper DEBUG] User signed in:', user.id);
         analyticsService.identifyUser(user.id, {
           email: user.primaryEmailAddress?.emailAddress,
           firstName: user.firstName,
           lastName: user.lastName,
           username: user.username,
-        });
-
-        // Identify user to Customer.io for push notifications
-        CustomerIOService.identify(user.id, {
-          email: user.primaryEmailAddress?.emailAddress,
-          first_name: user.firstName,
-          last_name: user.lastName,
         });
 
         // Set Sentry user for crash reporting - links crashes to specific users
@@ -178,8 +201,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       } else {
         // Clear Sentry user when signed out
         Sentry.setUser(null);
-        // Clear Customer.io identity when signed out
-        CustomerIOService.clearIdentify();
       }
     }
   }, [posthog, isSignedIn, user]);
@@ -358,8 +379,6 @@ export default Sentry.wrap(function RootLayout() {
   // Hide splash screen when fonts are loaded
   React.useEffect(() => {
     if (loaded) {
-      // Initialize Customer.io SDK
-      CustomerIOService.initialize();
       SplashScreen.hideAsync();
     }
   }, [loaded]);

@@ -34,6 +34,14 @@
       },
       "channel": "development"
     },
+    "development-device": {
+      "extends": "development",
+      "distribution": "internal",
+      "ios": {
+        "simulator": false,
+        "resourceClass": "medium"
+      }
+    },
     "preview": {
       "extends": "base",
       "distribution": "internal",

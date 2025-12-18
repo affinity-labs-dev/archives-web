@@ -16,10 +16,11 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 interface XPMilestoneScreenProps {
   totalXP?: number;
   milestoneXP?: number; // Which milestone was reached (50, 100, 200, 400, 750)
+  eraId?: string;       // Era ID for era-specific milestone tracking
   onContinue?: () => void;
 }
 
-export default function XPMilestoneScreen({ milestoneXP, onContinue }: XPMilestoneScreenProps) {
+export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XPMilestoneScreenProps) {
 
   // Video player setup - plays once, then auto-dismisses
   const videoSource = require('@/assets/videos/xp1.mp4');
@@ -52,10 +53,10 @@ export default function XPMilestoneScreen({ milestoneXP, onContinue }: XPMilesto
         console.log(`📊 [Analytics] XP Milestone Dismissed: ${milestoneXP} XP`);
       }
 
-      // Save flag to mark this XP milestone as seen
+      // Save flag to mark this XP milestone as seen (ERA-SPECIFIC)
       if (milestoneXP) {
-        AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP), 'true')
-          .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP`))
+        AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP, eraId), 'true')
+          .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP for era: ${eraId || 'global'}`))
           .catch((error) => console.error('❌ Error saving XP milestone flag:', error));
       }
 

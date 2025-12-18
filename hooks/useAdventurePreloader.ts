@@ -104,6 +104,15 @@ export function useAdventurePreloader(
       // Sort adventures by order_by for sequential processing
       const sortedAdventures = [...adventures].sort((a, b) => a.order_by - b.order_by);
 
+      // Log adventure unlock status
+      const unlockedAdventures = sortedAdventures.filter(a => preloadStatus[a.readable_id]?.isUnlocked);
+      const lockedAdventures = sortedAdventures.filter(a => !preloadStatus[a.readable_id]?.isUnlocked);
+      console.log(`🔓 [Preloader] Unlocked adventures: ${unlockedAdventures.map(a => a.readable_id).join(', ') || 'none'}`);
+      console.log(`🔒 [Preloader] Locked adventures: ${lockedAdventures.map(a => a.readable_id).join(', ') || 'none'}`);
+
+      // Track what we preload for summary
+      const preloadedSummary: string[] = [];
+
       // Process each adventure that needs preloading
       for (const adventure of sortedAdventures) {
         if (!isMountedRef.current) break;
@@ -122,19 +131,31 @@ export function useAdventurePreloader(
           continue;
         }
 
-        console.log(`🚀 [Preloader] Starting ${adventure.readable_id}: intensity=${status.preloadIntensity}, images=${contentUrls.images.length}, videos=${contentUrls.videos.length}`);
+        console.log(`🚀 [Preloader] Preloading "${adventure.adventure_title}" (${adventure.readable_id}):`);
+        console.log(`   📸 Images (${contentUrls.images.length}): ${contentUrls.images.slice(0, 3).map(url => url.split('/').pop()).join(', ')}${contentUrls.images.length > 3 ? '...' : ''}`);
+        console.log(`   🎬 Videos (${contentUrls.videos.length}): ${contentUrls.videos.slice(0, 2).map(url => url.split('/').pop()).join(', ')}${contentUrls.videos.length > 2 ? '...' : ''}`);
 
         // Preload content based on intensity
         await preloadAdventureContent(contentUrls, status.preloadIntensity, config);
 
         // Mark as preloaded
         preloadedAdventuresRef.current.add(adventure.readable_id);
+        preloadedSummary.push(`${adventure.adventure_title} (${contentUrls.images.length} imgs, ${contentUrls.videos.length} vids)`);
 
         // Update stats
         if (isMountedRef.current) {
           const stats = getPreloadStats();
           setState(prev => ({ ...prev, stats }));
         }
+      }
+
+      // Log completion summary
+      if (preloadedSummary.length > 0) {
+        const finalStats = getPreloadStats();
+        console.log(`✅ [Preloader] Complete! Preloaded ${preloadedSummary.length} adventure(s): ${preloadedSummary.join(', ')}`);
+        console.log(`📦 [Preloader] Total cached: ${finalStats.preloadedImages} images, ${finalStats.preloadedVideos} videos, ${finalStats.activeVideoPlayers} video players`);
+      } else {
+        console.log(`⏭️ [Preloader] No new adventures to preload (already cached or not needed)`);
       }
     } catch (error) {
       console.error('❌ [Preloader] Error:', error);

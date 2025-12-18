@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "113",
+      "buildNumber": "114",
       "associatedDomains": [
         "applinks:link.archiveszone.app",
         "applinks:link.archiveszone.app"
@@ -47,7 +47,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 32,
+      "versionCode": 33,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -67,7 +67,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "server",
+      "output": "static",
       "favicon": "./assets/images/favicon.png",
       "name": "Archives",
       "shortName": "Archives",
