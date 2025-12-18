@@ -141,22 +141,18 @@ Question: ${questionText}
 They answered: ${userAnswer}
 Correct answer: ${correctAnswer}
 
-Write ONE SHORT SENTENCE (max 15 words) explaining why the correct answer is right + one interesting fact.
+Write a helpful explanation in 5-6 lines that:
+1. Explains why the correct answer is right
+2. Adds one interesting historical fact or context
+3. Ends with a brief encouraging message
 
-Then ONE SHORT encouraging phrase (5 words max).
+Keep it conversational, warm, and easy to understand. Make it memorable but educational.
 
-Keep it conversational, not textbook-y. Make it memorable.
-
-Respond as JSON:
-{
-  "explanation": "One sentence max 15 words",
-  "encouragement": "5 words max",
-  "relatedTopic": "Optional"
-}`;
+Write in plain text (NOT JSON). Just write the explanation naturally as you would explain to a friend.`;
   }
 
   /**
-   * Parse AI response from Gemini (expects JSON format)
+   * Parse AI response from Gemini (handles plain text format)
    */
   private parseAIResponse(aiResponse: string): AIExplanationResponse {
     try {
@@ -166,20 +162,28 @@ Respond as JSON:
       // Remove markdown code fences if present (```json ... ``` or ``` ... ```)
       cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
 
-      // Try to parse as JSON
-      const parsed = JSON.parse(cleanedResponse);
-      return {
-        explanation: parsed.explanation || '',
-        encouragement: parsed.encouragement || 'Great effort! Keep learning.',
-        relatedTopic: parsed.relatedTopic,
-      };
+      // Try to parse as JSON (for backward compatibility with old responses)
+      try {
+        const parsed = JSON.parse(cleanedResponse);
+        return {
+          explanation: parsed.explanation || '',
+          encouragement: parsed.encouragement || 'Great effort! Keep learning.',
+          relatedTopic: parsed.relatedTopic,
+        };
+      } catch {
+        // Not JSON - treat as plain text (expected format now)
+        // The response should be 5-6 lines of natural explanation
+        console.log('✅ [AIService] Using plain text explanation format');
+        return {
+          explanation: cleanedResponse,
+          encouragement: '', // Encouragement is now part of the explanation text
+        };
+      }
     } catch (error) {
-      // If JSON parsing fails, treat the whole response as explanation
-      console.warn('⚠️ [AIService] Could not parse AI response as JSON, using raw text');
-      console.warn('Raw response:', aiResponse);
+      console.warn('⚠️ [AIService] Error parsing AI response:', error);
       return {
         explanation: aiResponse,
-        encouragement: 'Keep up the great work!',
+        encouragement: '',
       };
     }
   }
