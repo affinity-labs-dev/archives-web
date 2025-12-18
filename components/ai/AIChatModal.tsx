@@ -849,42 +849,46 @@ export default function AIChatModal({
 
           {/* Input Bar */}
           <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            {/* Plus button - opens action menu */}
-            <TouchableOpacity
-              style={styles.plusButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowActionMenu(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add" size={24} color="#9A8B7A" />
-            </TouchableOpacity>
-
-            {/* Text Input with Send Button inside */}
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder={pendingImage ? 'Ask about this image...' : 'What are you curious about?'}
-                placeholderTextColor="#9A8B7A"
-                multiline
-                maxLength={500}
-                onSubmitEditing={() => handleSend()}
-                returnKeyType="send"
-                blurOnSubmit={false}
-              />
-              {/* Send button inside input - enabled if text OR pending image */}
+            <View style={styles.inputRow}>
+              {/* Plus button - opens action menu */}
               <TouchableOpacity
-                style={[styles.sendButton, (!inputText.trim() && !pendingImage || isLoading) && styles.sendButtonDisabled]}
-                onPress={() => handleSend()}
-                disabled={(!inputText.trim() && !pendingImage) || isLoading}
+                style={styles.plusButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowActionMenu(true);
+                }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="arrow-up" size={20} color="white" />
+                <Ionicons name="add" size={24} color="#9A8B7A" />
               </TouchableOpacity>
+
+              {/* Text Input with Send Button inside */}
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder={pendingImage ? 'Ask about this image...' : 'What are you curious about?'}
+                  placeholderTextColor="#9A8B7A"
+                  multiline
+                  maxLength={500}
+                  onSubmitEditing={() => handleSend()}
+                  returnKeyType="send"
+                  blurOnSubmit={false}
+                />
+                {/* Send button inside input - enabled if text OR pending image */}
+                <TouchableOpacity
+                  style={[styles.sendButton, (!inputText.trim() && !pendingImage || isLoading) && styles.sendButtonDisabled]}
+                  onPress={() => handleSend()}
+                  disabled={(!inputText.trim() && !pendingImage) || isLoading}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="arrow-up" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
             </View>
+            {/* AI Disclaimer */}
+            <Text style={styles.aiDisclaimer}>Beta feature – AI responses may be inaccurate</Text>
           </View>
         </KeyboardAvoidingView>
       </View>
@@ -1274,12 +1278,21 @@ const styles = StyleSheet.create({
 
   // Input Bar
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 12,
     paddingTop: 12,
     // paddingBottom is set dynamically using insets.bottom
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+  },
+  aiDisclaimer: {
+    fontFamily: 'DM Sans',
+    fontSize: 11,
+    color: '#9A8B7A',
+    textAlign: 'center',
+    marginTop: 8,
   },
   plusButton: {
     width: 47,
