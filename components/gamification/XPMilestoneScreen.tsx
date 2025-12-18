@@ -6,10 +6,12 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { analyticsService } from '@/services/AnalyticsService';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import React, { useEffect } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -39,6 +41,29 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
       console.log(`📊 [Analytics] XP Milestone Reached: ${milestoneXP} XP`);
     }
   }, [milestoneXP]);
+
+  // Handle close button
+  const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Track milestone skipped
+    if (milestoneXP) {
+      analyticsService.trackCustomEvent('xp_milestone_skipped', {
+        milestone_xp: milestoneXP,
+      });
+      console.log(`📊 [Analytics] XP Milestone Skipped: ${milestoneXP} XP`);
+
+      // Save flag to mark this XP milestone as seen
+      AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP), 'true')
+        .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP`))
+        .catch((error) => console.error('❌ Error saving XP milestone flag:', error));
+    }
+
+    // Dismiss screen
+    if (onContinue) {
+      onContinue();
+    }
+  };
 
   // Listen for video end - Auto-dismiss screen when video finishes
   useEffect(() => {
@@ -71,6 +96,15 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
 
   return (
     <View style={styles.container}>
+      {/* Close Button */}
+      <TouchableOpacity
+        style={styles.closeButton}
+        onPress={handleClose}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
+      </TouchableOpacity>
+
       {/* Video Background - Top 60% */}
       <View style={styles.videoContainer}>
         <VideoView
@@ -122,6 +156,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ArchivesTheme.colors.creamWhite,
+  },
+
+  // Close Button
+  closeButton: {
+    position: 'absolute',
+    top: SCREEN_HEIGHT * 0.05,
+    right: SCREEN_WIDTH * 0.05,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 
   // Video Section

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Modal, Dimensions, Image } from 'react-native';
+import { View, StyleSheet, Modal, Dimensions, Image, TouchableOpacity } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 
@@ -36,6 +37,11 @@ export default function AvatarUnlockAnimation({
   const crackScale = useSharedValue(0);
   const avatarScale = useSharedValue(0.8);
   const backgroundOpacity = useSharedValue(0);
+
+  const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onComplete();
+  };
 
   useEffect(() => {
     if (visible) {
@@ -133,6 +139,15 @@ export default function AvatarUnlockAnimation({
   return (
     <Modal transparent visible={visible} animationType="none">
       <Animated.View style={[styles.container, backgroundStyle]}>
+        {/* Close Button */}
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={handleClose}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="close" size={24} color="white" />
+        </TouchableOpacity>
+
         <Animated.View style={[styles.avatarContainer, avatarContainerStyle]}>
           {/* Avatar with opacity effect */}
           <Animated.View style={[styles.avatar, avatarStyle]}>
@@ -174,6 +189,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: SCREEN_HEIGHT * 0.05,
+    right: SCREEN_WIDTH * 0.05,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
   },
   avatarContainer: {
     width: AVATAR_SIZE,

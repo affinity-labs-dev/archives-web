@@ -1,6 +1,6 @@
 // LevelUpAnimation.tsx - Celebration animation for leveling up
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, Animated } from 'react-native';
+import { View, Text, StyleSheet, Modal, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -15,6 +15,11 @@ interface LevelUpAnimationProps {
 export default function LevelUpAnimation({ visible, level, onDismiss }: LevelUpAnimationProps) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onDismiss();
+  };
 
   useEffect(() => {
     if (visible) {
@@ -73,6 +78,15 @@ export default function LevelUpAnimation({ visible, level, onDismiss }: LevelUpA
         ))}
 
         <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
+          {/* Close Button */}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={handleClose}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
+          </TouchableOpacity>
+
           <View style={[styles.iconContainer, { backgroundColor: level.color }]}>
             <Ionicons name="star" size={48} color="white" />
           </View>
@@ -94,6 +108,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   star: {
     position: 'absolute',
