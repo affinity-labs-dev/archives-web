@@ -586,6 +586,9 @@ export default function AIChatModal({
     'What should I learn next?',
     'Explain this era to me',
     "Quiz me on what I've learned",
+    'Test me with harder questions',
+    'Give me more details on the last topic',
+    'Where can I learn more on the last topic',
   ];
 
   return (
