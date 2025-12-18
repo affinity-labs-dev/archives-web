@@ -18,7 +18,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
-import { VideoView, useVideoPlayer } from 'expo-video'
+import { VideoView } from 'expo-video'
+import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 
 const { width, height } = Dimensions.get('window')
@@ -463,9 +464,8 @@ export function VideoRewardPlayer({ correctAnswers }: VideoRewardPlayerProps) {
   const [isLoaded, setIsLoaded] = useState(false)
   const videoSource = getRewardVideo(correctAnswers)
 
-  const player = useVideoPlayer(videoSource, player => {
+  const player = useCelebrationVideoPlayer(videoSource, player => {
     player.loop = false
-    player.muted = false
     player.play()
   })
 

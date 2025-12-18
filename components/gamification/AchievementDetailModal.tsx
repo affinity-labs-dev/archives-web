@@ -20,7 +20,7 @@ export default function AchievementDetailModal({
   onClose
 }: AchievementDetailModalProps) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
+  // const glowAnim = useRef(new Animated.Value(0)).current; // Commented out - glow effect disabled
 
   useEffect(() => {
     if (visible && achievement) {
@@ -34,35 +34,35 @@ export default function AchievementDetailModal({
         friction: 7,
       }).start();
 
-      // Glow pulse animation (only for unlocked)
-      if (achievement.unlocked) {
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(glowAnim, {
-              toValue: 1,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(glowAnim, {
-              toValue: 0,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
-          ])
-        ).start();
-      }
+      // Glow pulse animation - commented out
+      // if (achievement.unlocked) {
+      //   Animated.loop(
+      //     Animated.sequence([
+      //       Animated.timing(glowAnim, {
+      //         toValue: 1,
+      //         duration: 1500,
+      //         useNativeDriver: true,
+      //       }),
+      //       Animated.timing(glowAnim, {
+      //         toValue: 0,
+      //         duration: 1500,
+      //         useNativeDriver: true,
+      //       }),
+      //     ])
+      //   ).start();
+      // }
     } else {
       scaleAnim.setValue(0);
-      glowAnim.setValue(0);
+      // glowAnim.setValue(0);
     }
   }, [visible, achievement]);
 
   if (!visible || !achievement) return null;
 
-  const glowOpacity = glowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.2, 0.6],
-  });
+  // const glowOpacity = glowAnim.interpolate({
+  //   inputRange: [0, 1],
+  //   outputRange: [0.2, 0.6],
+  // });
 
   const getRarityColor = () => {
     switch (achievement.rarity) {
@@ -103,22 +103,25 @@ export default function AchievementDetailModal({
             <Text style={styles.rarityText}>{getRarityLabel()}</Text>
           </View>
 
-          {/* Achievement icon with glow */}
-          {achievement.unlocked && (
-            <Animated.View style={[
-              styles.iconGlow,
-              { backgroundColor: achievement.color, opacity: glowOpacity }
-            ]} />
-          )}
-          <View style={[
-            styles.iconContainer,
-            { backgroundColor: achievement.unlocked ? achievement.color : '#E0E0E0' }
-          ]}>
-            <Ionicons
-              name={achievement.icon as any}
-              size={64}
-              color={achievement.unlocked ? 'white' : '#95A5A6'}
-            />
+          {/* Achievement icon */}
+          <View style={styles.iconWrapper}>
+            {/* Glow effect - commented out */}
+            {/* {achievement.unlocked && (
+              <Animated.View style={[
+                styles.iconGlow,
+                { backgroundColor: achievement.color, opacity: glowOpacity }
+              ]} />
+            )} */}
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: achievement.unlocked ? achievement.color : '#E0E0E0' }
+            ]}>
+              <Ionicons
+                name={achievement.icon as any}
+                size={64}
+                color={achievement.unlocked ? 'white' : '#95A5A6'}
+              />
+            </View>
           </View>
 
           {/* Achievement name */}
@@ -230,12 +233,22 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  iconWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 10,
+  },
   iconGlow: {
     position: 'absolute',
     width: 160,
     height: 160,
     borderRadius: 80,
-    top: 70,
+    top: '50%',
+    left: '50%',
+    marginTop: -80,
+    marginLeft: -80,
   },
   iconContainer: {
     width: 120,
@@ -243,13 +256,12 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 10,
     shadowColor: 'black',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
+    zIndex: 1,
   },
   achievementName: {
     fontFamily: 'DM Sans',

@@ -16,7 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { VideoView } from 'expo-video';
+import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useProgress } from '@/context/ProgressContext';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -66,9 +67,8 @@ function VideoRewardPlayer({ percentage }: VideoRewardPlayerProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const videoSource = getRewardVideo(percentage);
 
-  const player = useVideoPlayer(videoSource, (player) => {
+  const player = useCelebrationVideoPlayer(videoSource, (player) => {
     player.loop = false;
-    player.muted = false;
     player.play();
   });
 

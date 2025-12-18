@@ -4,6 +4,7 @@
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useProgress } from '@/context/ProgressContext'
 import { useRewards } from '@/context/RewardsContext'
+import { usePreferences } from '@/context/PreferencesContext'
 import { analyticsService } from '@/services/AnalyticsService'
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
@@ -12,7 +13,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
-import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
 import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen'
 import AdventureCompleteScreen from '@/components/gamification/AdventureCompleteScreen'
 import { useAdventures } from '@/hooks/useAdventures'
@@ -190,6 +191,7 @@ export default function ProfileTab() {
   const { user, isSignedIn } = useUser()
   const router = useRouter()
   const { moduleProgress, calculateTotalXP, calculateModulesCompleted, selectedEra } = useProgress()
+  const { backgroundMusicEnabled, soundEffectsEnabled, hapticsEnabled, setBackgroundMusicEnabled, setSoundEffectsEnabled, setHapticsEnabled } = usePreferences()
 
   // Fallback: Ensure Clerk user ID is set in PostHog (production safety)
   React.useEffect(() => {
@@ -1019,7 +1021,61 @@ export default function ProfileTab() {
             {/* Settings Options */}
             <ScrollView style={styles.settingsContent} showsVerticalScrollIndicator={false}>
               <View style={styles.settingsOptionsContainer}>
-                
+
+                {/* Background Music Toggle */}
+                <View style={styles.settingsToggleRow}>
+                  <View style={styles.settingsOptionIcon}>
+                    <Ionicons name="musical-notes" size={24} color={ArchivesTheme.colors.persianOrange} />
+                  </View>
+                  <View style={styles.settingsToggleTextContainer}>
+                    <Text style={styles.settingsOptionText}>Background Music</Text>
+                    <Text style={styles.settingsOptionSubtext}>Ambient music during lessons</Text>
+                  </View>
+                  <Switch
+                    value={backgroundMusicEnabled}
+                    onValueChange={setBackgroundMusicEnabled}
+                    trackColor={{ false: '#E0E0E0', true: ArchivesTheme.colors.persianOrange }}
+                    ios_backgroundColor="#E0E0E0"
+                  />
+                </View>
+
+                {/* Sound Effects Toggle */}
+                <View style={styles.settingsToggleRow}>
+                  <View style={styles.settingsOptionIcon}>
+                    <Ionicons name="volume-high" size={24} color={ArchivesTheme.colors.persianOrange} />
+                  </View>
+                  <View style={styles.settingsToggleTextContainer}>
+                    <Text style={styles.settingsOptionText}>Sound Effects</Text>
+                    <Text style={styles.settingsOptionSubtext}>Quiz feedback and celebrations</Text>
+                  </View>
+                  <Switch
+                    value={soundEffectsEnabled}
+                    onValueChange={setSoundEffectsEnabled}
+                    trackColor={{ false: '#E0E0E0', true: ArchivesTheme.colors.persianOrange }}
+                    ios_backgroundColor="#E0E0E0"
+                  />
+                </View>
+
+                {/* Vibration Toggle */}
+                <View style={styles.settingsToggleRow}>
+                  <View style={styles.settingsOptionIcon}>
+                    <Ionicons name="phone-portrait" size={24} color={ArchivesTheme.colors.persianOrange} />
+                  </View>
+                  <View style={styles.settingsToggleTextContainer}>
+                    <Text style={styles.settingsOptionText}>Vibration</Text>
+                    <Text style={styles.settingsOptionSubtext}>Haptic feedback</Text>
+                  </View>
+                  <Switch
+                    value={hapticsEnabled}
+                    onValueChange={setHapticsEnabled}
+                    trackColor={{ false: '#E0E0E0', true: ArchivesTheme.colors.persianOrange }}
+                    ios_backgroundColor="#E0E0E0"
+                  />
+                </View>
+
+                {/* Divider */}
+                <View style={styles.settingsDivider} />
+
                 {/* Privacy Policy */}
                 <TouchableOpacity 
                   style={styles.settingsOption} 
@@ -1944,6 +2000,36 @@ const styles = StyleSheet.create({
   },
   settingsOptionDisabledText: {
     color: '#999', // Gray text for disabled state
+  },
+  settingsToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: 'rgba(0, 0, 0, 0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  settingsToggleTextContainer: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  settingsOptionSubtext: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: ArchivesTheme.colors.shoeBrown,
+    opacity: 0.6,
+    marginTop: 2,
+  },
+  settingsDivider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 8,
+    marginHorizontal: 0,
   },
 
   // Privacy Policy Modal Styles

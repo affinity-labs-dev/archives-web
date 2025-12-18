@@ -4,6 +4,7 @@
 
 import { Audio, AVPlaybackSource, AVPlaybackStatus } from "expo-av";
 import { useEffect, useRef, useState } from "react";
+import { usePreferences } from '@/context/PreferencesContext';
 
 interface UseBackgroundMusicOptions {
   volume?: number; // 0.0 to 1.0
@@ -14,6 +15,7 @@ export const useBackgroundMusic = (
   audioSource: AVPlaybackSource | null, // Audio source for expo-av
   options: UseBackgroundMusicOptions = {}
 ) => {
+  const { backgroundMusicEnabled } = usePreferences();
   const {
     volume = 0.5,
     shouldLoop = true,
@@ -44,16 +46,16 @@ export const useBackgroundMusic = (
       console.log("🎵 Audio mode configured successfully");
 
       const { sound } = await Audio.Sound.createAsync(audioSource, {
-        shouldPlay: true, // Auto-play immediately
+        shouldPlay: backgroundMusicEnabled, // Auto-play only if background music is enabled
         isLooping: shouldLoop,
-        volume: volume, // Set target volume directly
+        volume: backgroundMusicEnabled ? volume : 0, // Set volume to 0 if disabled
       });
-      
+
       soundRef.current = sound;
       setIsLoaded(true);
-      setIsPlaying(true); // Set playing state immediately
+      setIsPlaying(backgroundMusicEnabled); // Set playing state based on preference
       setIsLoading(false);
-      console.log(`🎵 Background music loaded and playing at ${volume * 100}% volume`);
+      console.log(`🎵 Background music loaded ${backgroundMusicEnabled ? 'and playing' : 'but muted'} at ${volume * 100}% volume`);
     } catch (error) {
       console.error("🎵 Failed to load background music:", error);
       setIsLoading(false);
@@ -62,7 +64,7 @@ export const useBackgroundMusic = (
 
   // Simple play function - just start playing immediately
   const play = async () => {
-    if (!soundRef.current) return;
+    if (!soundRef.current || !backgroundMusicEnabled) return; // Check user preference
 
     try {
       console.log("🎵 Starting background music immediately");
@@ -125,6 +127,33 @@ export const useBackgroundMusic = (
       console.log("🎵 Audio already initialized, skipping duplicate load");
     }
   }, [audioSource]);
+
+  // React to backgroundMusicEnabled changes
+  useEffect(() => {
+    if (!soundRef.current) return;
+
+    const updatePlayback = async () => {
+      try {
+        if (backgroundMusicEnabled) {
+          console.log("🎵 Background music enabled - starting playback");
+          await soundRef.current?.setVolumeAsync(volume);
+          if (!isPlaying) {
+            await soundRef.current?.playAsync();
+            setIsPlaying(true);
+          }
+        } else {
+          console.log("🎵 Background music disabled - muting playback");
+          await soundRef.current?.setVolumeAsync(0);
+          await soundRef.current?.pauseAsync();
+          setIsPlaying(false);
+        }
+      } catch (error) {
+        console.error("🎵 Error updating playback based on preference:", error);
+      }
+    };
+
+    updatePlayback();
+  }, [backgroundMusicEnabled]);
 
   return {
     isLoaded,
