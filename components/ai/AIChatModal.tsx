@@ -255,56 +255,10 @@ export default function AIChatModal({
     }
   };
 
-  // Take photo with camera
-  const handleTakePhoto = async () => {
-    setShowActionMenu(false);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    try {
-      // Request camera permission
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow camera access to take photos.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        quality: 0.8,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        if (asset.base64) {
-          setPendingImage({
-            base64: asset.base64,
-            mimeType: asset.mimeType || 'image/jpeg',
-            uri: asset.uri,
-          });
-          analyticsService.trackCustomEvent('ai_image_selected', {
-            era_id: context?.eraId || 'unknown_era',
-            source: 'camera',
-          });
-        }
-      }
-    } catch (err) {
-      console.error('❌ [AIChatModal] Error taking photo:', err);
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
-    }
-  };
-
   // Clear pending image
   const handleClearPendingImage = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPendingImage(null);
-  };
-
-  // Handle generate image shortcut
-  const handleGenerateImageShortcut = () => {
-    setShowActionMenu(false);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setInputText('Generate an image of ');
   };
 
   // Handle clear chat history
@@ -964,36 +918,6 @@ export default function AIChatModal({
               <View style={styles.actionMenuTextContainer}>
                 <Text style={styles.actionMenuTitle}>Upload Image</Text>
                 <Text style={styles.actionMenuSubtitle}>Choose from your photo library</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionMenuItem}
-              onPress={handleTakePhoto}
-              activeOpacity={0.7}
-            >
-              <View style={styles.actionMenuIconContainer}>
-                <Ionicons name="camera-outline" size={24} color={ArchivesTheme.colors.persianOrange} />
-              </View>
-              <View style={styles.actionMenuTextContainer}>
-                <Text style={styles.actionMenuTitle}>Take Photo</Text>
-                <Text style={styles.actionMenuSubtitle}>Use your camera to capture</Text>
-              </View>
-            </TouchableOpacity>
-
-            <View style={styles.actionMenuDivider} />
-
-            <TouchableOpacity
-              style={styles.actionMenuItem}
-              onPress={handleGenerateImageShortcut}
-              activeOpacity={0.7}
-            >
-              <View style={styles.actionMenuIconContainer}>
-                <Ionicons name="sparkles-outline" size={24} color={ArchivesTheme.colors.mossGreen} />
-              </View>
-              <View style={styles.actionMenuTextContainer}>
-                <Text style={styles.actionMenuTitle}>Generate Image</Text>
-                <Text style={styles.actionMenuSubtitle}>Create AI-generated historical art</Text>
               </View>
             </TouchableOpacity>
 
