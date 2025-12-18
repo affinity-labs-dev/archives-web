@@ -91,17 +91,7 @@ SafeAreaProvider + GestureHandlerRootView
 
 ### Progress System Architecture
 
-**Atomic updates prevent race conditions:**
-```typescript
-// CORRECT - Use atomic update
-await atomicProgressUpdate(adventureId, moduleId, {
-  type: 'LESSON_COMPLETED',
-  lessonId: 'lesson1'
-})
-
-// WRONG - Never do this
-await AsyncStorage.setItem(...)  // ❌ NEVER
-```
+**Atomic updates prevent race conditions** (see Quick Start for code examples).
 
 **Data flow:**
 1. User action → `atomicProgressUpdate()`
@@ -195,14 +185,19 @@ rm -rf node_modules && npm install  # Nuclear option
 
 ### Build for testing
 ```bash
-# Development build (with dev menu)
+# Development build (with dev menu) - add --platform android for Android
 eas build --platform ios --profile development
+
+# Development build for physical iOS device
+eas build --platform ios --profile development-device
 
 # Preview build (internal testing)
 eas build --platform ios --profile preview
+eas build --platform android --profile preview  # Android APK
 
 # Production build
 eas build --platform ios --profile production
+eas build --platform android --profile production  # Android AAB
 eas submit --platform ios  # Submit to App Store
 
 # Check build status
@@ -214,6 +209,7 @@ eas update --branch production --message "Your update message"
 
 **Build profiles (eas.json):**
 - `development` - Dev client, internal distribution, simulator support, APK for Android
+- `development-device` - Dev client for physical iOS devices (no simulator)
 - `preview` - Internal testing build, APK for Android, simulator support
 - `production` - Store distribution, auto-increments buildNumber (iOS) and versionCode (Android)
 - All profiles inherit from `base` (includes all env vars)
@@ -398,12 +394,12 @@ console.log('🔔 Notification')    // Push notifications
 
 **iOS (App Store):**
 - Bundle: `ai.affinitylabs.archivesexpo` | Team: `LQ9LP2WW94` | App ID: `6751173663`
-- Build number: `114` (auto-increments on production builds)
+- Build number auto-increments on production builds (check `app.json` for current)
 - Universal Links via `link.archiveszone.app`
 
 **Android (Play Store):**
 - Package: `ai.affinitylabs.archivesexpo`
-- Version code: `33` (auto-increments on production builds)
+- Version code auto-increments on production builds (check `app.json` for current)
 - Edge-to-edge disabled, largeHeap enabled (Android OOM fixes)
 - App Links SHA-256: Must match console fingerprint
 
