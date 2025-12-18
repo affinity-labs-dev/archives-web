@@ -2,16 +2,16 @@
 // EXACT replica of SwiftUI Module1VideoPlayerView
 // Migrated to expo-video (modern API)
 
-import React, { useState, useEffect, useMemo } from 'react'
-import {
-  View,
-  StyleSheet,
-  TouchableWithoutFeedback,
-  Dimensions,
-} from 'react-native'
-import { useVideoPlayer, VideoView } from 'expo-video'
 import { useEvent } from 'expo'
 import * as Haptics from 'expo-haptics'
+import { useVideoPlayer, VideoView } from 'expo-video'
+import React, { useEffect, useMemo, useState } from 'react'
+import {
+  Dimensions,
+  StyleSheet,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native'
 
 const { width, height } = Dimensions.get('window')
 

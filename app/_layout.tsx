@@ -21,11 +21,13 @@ import { ProgressProvider } from "@/context/ProgressContext";
 import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
 import { RewardsProvider, useRewards } from "@/context/RewardsContext";
+import { PreferencesProvider } from "@/context/PreferencesContext";
 import { AIProvider } from "@/context/AIContext";
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { analyticsService } from "@/services/AnalyticsService";
+import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
 import { usePostHog } from 'posthog-react-native';
 import AvatarUnlockAnimation from "@/components/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
@@ -504,9 +506,10 @@ export default Sentry.wrap(function RootLayout() {
                 <AdventuresContentProvider>
                   <RewardsProvider>
                     <ProgressProvider>
-                      <AIProvider>
-                        <AvatarAnimationWrapper>
-                          <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                      <PreferencesProvider>
+                        <AIProvider>
+                          <AvatarAnimationWrapper>
+                            <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
                             <Stack>
                               <Stack.Screen name="index" options={{ headerShown: false }} />
                               <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
@@ -516,9 +519,10 @@ export default Sentry.wrap(function RootLayout() {
                             </Stack>
                             <AIAssistant />
                             <StatusBar style="auto" />
-                          </ThemeProvider>
-                        </AvatarAnimationWrapper>
-                      </AIProvider>
+                            </ThemeProvider>
+                          </AvatarAnimationWrapper>
+                        </AIProvider>
+                      </PreferencesProvider>
                     </ProgressProvider>
                 </RewardsProvider>
               </AdventuresContentProvider>

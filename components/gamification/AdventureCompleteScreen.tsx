@@ -17,8 +17,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { VideoView, useVideoPlayer } from 'expo-video';
-import React, { useEffect, useState } from 'react';
+import { VideoView } from 'expo-video';
+import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
+import React, { useState, useEffect } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -153,7 +154,7 @@ export default function AdventureCompleteScreen({
 
   // Set up video player for character animation
   const videoSource = require('@/assets/videos/advend.mp4');
-  const player = useVideoPlayer(videoSource, (player) => {
+  const player = useCelebrationVideoPlayer(videoSource, (player) => {
     player.loop = true;
     player.play();
   });

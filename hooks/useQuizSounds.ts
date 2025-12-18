@@ -3,6 +3,7 @@
 
 import { Audio } from 'expo-av';
 import { useEffect, useRef } from 'react';
+import { usePreferences } from '@/context/PreferencesContext';
 
 interface UseQuizSoundsReturn {
   playTap: () => Promise<void>;
@@ -12,6 +13,7 @@ interface UseQuizSoundsReturn {
 }
 
 export function useQuizSounds(): UseQuizSoundsReturn {
+  const { soundEffectsEnabled } = usePreferences();
   const tapSoundRef = useRef<Audio.Sound | null>(null);
   const correctSoundRef = useRef<Audio.Sound | null>(null);
   const incorrectSoundRef = useRef<Audio.Sound | null>(null);
@@ -90,6 +92,7 @@ export function useQuizSounds(): UseQuizSoundsReturn {
 
   // Play tap sound (for option selection)
   const playTap = async () => {
+    if (!soundEffectsEnabled) return; // Check user preference
     try {
       if (tapSoundRef.current) {
         await tapSoundRef.current.replayAsync();
@@ -101,6 +104,7 @@ export function useQuizSounds(): UseQuizSoundsReturn {
 
   // Play correct sound (for correct answers)
   const playCorrect = async () => {
+    if (!soundEffectsEnabled) return; // Check user preference
     try {
       if (correctSoundRef.current) {
         await correctSoundRef.current.replayAsync();
@@ -112,6 +116,7 @@ export function useQuizSounds(): UseQuizSoundsReturn {
 
   // Play incorrect sound (for incorrect answers)
   const playIncorrect = async () => {
+    if (!soundEffectsEnabled) return; // Check user preference
     try {
       if (incorrectSoundRef.current) {
         await incorrectSoundRef.current.replayAsync();

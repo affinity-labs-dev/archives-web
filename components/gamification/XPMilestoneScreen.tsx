@@ -9,7 +9,8 @@ import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { VideoView } from 'expo-video';
+import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
 import React, { useEffect } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -26,9 +27,8 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
 
   // Video player setup - plays once, then auto-dismisses
   const videoSource = require('@/assets/videos/xp1.mp4');
-  const player = useVideoPlayer(videoSource, (player) => {
+  const player = useCelebrationVideoPlayer(videoSource, (player) => {
     player.loop = false; // Play once only
-    player.muted = false; // Enable audio for celebration
     player.play();
   });
 
