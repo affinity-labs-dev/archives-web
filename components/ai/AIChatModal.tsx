@@ -261,6 +261,13 @@ export default function AIChatModal({
     setPendingImage(null);
   };
 
+  // Handle quick prompt from action menu
+  const handleQuickPrompt = (prompt: string) => {
+    setShowActionMenu(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    handleSend(prompt);
+  };
+
   // Handle clear chat history
   const handleClearHistory = () => {
     setShowHeaderMenu(false);
@@ -586,9 +593,6 @@ export default function AIChatModal({
     'What should I learn next?',
     'Explain this era to me',
     "Quiz me on what I've learned",
-    'Test me with harder questions',
-    'Give me more details on the last topic',
-    'Where can I learn more on the last topic',
   ];
 
   return (
@@ -921,6 +925,48 @@ export default function AIChatModal({
               <View style={styles.actionMenuTextContainer}>
                 <Text style={styles.actionMenuTitle}>Upload Image</Text>
                 <Text style={styles.actionMenuSubtitle}>Choose from your photo library</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Quick Prompts Divider */}
+            <View style={styles.actionMenuDivider} />
+
+            <TouchableOpacity
+              style={styles.actionMenuItem}
+              onPress={() => handleQuickPrompt('Test me with harder questions')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionMenuIconContainer}>
+                <Ionicons name="school-outline" size={24} color={ArchivesTheme.colors.mossGreen} />
+              </View>
+              <View style={styles.actionMenuTextContainer}>
+                <Text style={styles.actionMenuTitle}>Test me with harder questions</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionMenuItem}
+              onPress={() => handleQuickPrompt('Give me more details on the last topic')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionMenuIconContainer}>
+                <Ionicons name="information-circle-outline" size={24} color={ArchivesTheme.colors.mossGreen} />
+              </View>
+              <View style={styles.actionMenuTextContainer}>
+                <Text style={styles.actionMenuTitle}>Give me more details on the last topic</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionMenuItem}
+              onPress={() => handleQuickPrompt('Where can I learn more on the last topic')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionMenuIconContainer}>
+                <Ionicons name="book-outline" size={24} color={ArchivesTheme.colors.mossGreen} />
+              </View>
+              <View style={styles.actionMenuTextContainer}>
+                <Text style={styles.actionMenuTitle}>Where can I learn more on the last topic</Text>
               </View>
             </TouchableOpacity>
 
