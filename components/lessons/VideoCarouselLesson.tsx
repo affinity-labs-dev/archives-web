@@ -85,9 +85,10 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     player.bufferOptions = {
       preferredForwardBufferDuration: 10,  // Only buffer 10 seconds ahead
     };
+    // Always set loop - must be outside isActive check
+    player.loop = true;
     if (isActive) {
       player.play();
-      player.loop = true;
     } else {
       player.pause();
     }
