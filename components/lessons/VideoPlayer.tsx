@@ -8,6 +8,7 @@ import { useVideoPlayer, VideoView } from 'expo-video'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   Dimensions,
+  Platform,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
@@ -30,20 +31,57 @@ export default function VideoPlayer({
 }: VideoPlayerProps) {
   const [isVideoLoaded, setIsVideoLoaded] = useState(false)
 
-  // PERFORMANCE: Optimize videoSource with useMemo (no caching to avoid bugs)
+  // Helper to detect HLS format from URL
+  const isHLSUrl = (url: string): boolean => {
+    return url.includes('.m3u8') || url.includes('/hls/') || url.includes('format=m3u8');
+  };
+
+  // PERFORMANCE: Optimize videoSource with useMemo + HLS detection for Android
   const optimizedVideoSource = useMemo(() => {
-    // Remote URL object - pass as-is (NO caching)
+    // Remote URL object - add contentType for Android HLS compatibility
     if (typeof videoSource === 'object' && videoSource !== null && 'uri' in videoSource) {
-      return videoSource;
+      const uri = videoSource.uri || '';
+      const isHLS = isHLSUrl(uri);
+
+      // Debug logging for Android
+      if (Platform.OS === 'android') {
+        console.log('🎬 [Android] VideoPlayer source:', {
+          uri: uri.substring(0, 80) + '...',
+          detectedFormat: isHLS ? 'HLS' : 'Progressive',
+          contentType: isHLS ? 'hls' : undefined,
+        });
+      }
+
+      return {
+        ...videoSource,
+        // Only set contentType for HLS on Android - helps ExoPlayer identify format
+        ...(isHLS && { contentType: 'hls' }),
+      };
     }
+
     // Local asset from require() - pass directly (NO assetId wrapper)
     if (typeof videoSource === 'number') {
+      console.log('🎬 VideoPlayer: Local asset (require)');
       return videoSource;
     }
-    // String URI - wrap in object (NO caching)
+
+    // String URI - wrap in object with HLS detection
     if (typeof videoSource === 'string') {
-      return { uri: videoSource };
+      const isHLS = isHLSUrl(videoSource);
+
+      if (Platform.OS === 'android') {
+        console.log('🎬 [Android] VideoPlayer string source:', {
+          uri: videoSource.substring(0, 80) + '...',
+          detectedFormat: isHLS ? 'HLS' : 'Progressive',
+        });
+      }
+
+      return {
+        uri: videoSource,
+        ...(isHLS && { contentType: 'hls' }),
+      };
     }
+
     return videoSource;
   }, [videoSource])
 
@@ -102,21 +140,50 @@ export default function VideoPlayer({
     };
   }, [player])
 
-  // Handle basic player status changes
+  // Handle basic player status changes with enhanced Android debugging
   useEffect(() => {
     const statusSubscription = player.addListener('statusChange', (status, oldStatus, error) => {
+      // Enhanced logging for debugging
+      console.log(`🎬 [${Platform.OS}] Player status: ${oldStatus} → ${status}`);
+
       if (error) {
-        console.error('🎬 ERROR: Video playback failed:', error)
+        // Detailed error logging for Android debugging
+        const videoUrl = typeof videoSource === 'object' && videoSource?.uri
+          ? videoSource.uri
+          : typeof videoSource === 'string'
+            ? videoSource
+            : 'local asset';
+
+        console.error(`🎬 [${Platform.OS}] ERROR: Video playback failed`);
+        console.error('🎬 Error details:', {
+          message: error.message || error,
+          videoUrl: videoUrl.substring(0, 100) + '...',
+          platform: Platform.OS,
+          osVersion: Platform.Version,
+        });
+
+        // Android-specific error hints
+        if (Platform.OS === 'android') {
+          console.error('🎬 [Android] Possible causes:');
+          console.error('   - HLS format not detected (check contentType)');
+          console.error('   - ExoPlayer codec issue');
+          console.error('   - Network/CORS issue with video URL');
+        }
         return
       }
 
       if (status === 'readyToPlay' && !isVideoLoaded) {
+        console.log(`🎬 [${Platform.OS}] Video loaded and ready to play ✅`);
         setIsVideoLoaded(true)
+      }
+
+      if (status === 'error') {
+        console.error(`🎬 [${Platform.OS}] Player entered error state`);
       }
     })
 
     return () => statusSubscription?.remove()
-  }, [player, isVideoLoaded])
+  }, [player, isVideoLoaded, videoSource])
 
   // Handle tap to play/pause - Direct player control
   const handleVideoTap = () => {
