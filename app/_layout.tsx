@@ -29,8 +29,10 @@ import * as SystemUI from 'expo-system-ui';
 import { analyticsService } from "@/services/AnalyticsService";
 import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
 import { usePostHog } from 'posthog-react-native';
+import { useAchievements, AchievementsProvider } from "@/hooks/useAchievements";
 import AvatarUnlockAnimation from "@/components/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
+import AchievementUnlockAnimation from "@/components/gamification/AchievementUnlockAnimation";
 import LoadingScreen from "@/components/LoadingScreen";
 import AIAssistant from "@/components/ai/AIAssistant";
 import * as Sentry from '@sentry/react-native';
@@ -365,6 +367,33 @@ function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Achievement unlock animation wrapper - shows celebrations app-wide
+function AchievementAnimationWrapper({ children }: { children: React.ReactNode }) {
+  const { newlyUnlocked, clearNewlyUnlocked } = useAchievements();
+
+  // Debug logging
+  React.useEffect(() => {
+    if (newlyUnlocked) {
+      console.log(`🎬 [Animation Wrapper] Rendering animation for: ${newlyUnlocked.name}`);
+    } else {
+      console.log(`🎬 [Animation Wrapper] No achievement to show`);
+    }
+  }, [newlyUnlocked]);
+
+  return (
+    <>
+      {children}
+      {newlyUnlocked && (
+        <AchievementUnlockAnimation
+          visible={true}
+          achievement={newlyUnlocked}
+          onDismiss={clearNewlyUnlocked}
+        />
+      )}
+    </>
+  );
+}
+
 export default Sentry.wrap(function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
@@ -507,21 +536,25 @@ export default Sentry.wrap(function RootLayout() {
                   <RewardsProvider>
                     <ProgressProvider>
                       <PreferencesProvider>
-                        <AIProvider>
-                          <AvatarAnimationWrapper>
-                            <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
-                            <Stack>
-                              <Stack.Screen name="index" options={{ headerShown: false }} />
-                              <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-                              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                              <Stack.Screen name="+not-found" />
-                            </Stack>
-                            <AIAssistant />
-                            <StatusBar style="auto" />
-                            </ThemeProvider>
-                          </AvatarAnimationWrapper>
-                        </AIProvider>
+                        <AchievementsProvider>
+                          <AIProvider>
+                            <AvatarAnimationWrapper>
+                              <AchievementAnimationWrapper>
+                              <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                              <Stack>
+                                <Stack.Screen name="index" options={{ headerShown: false }} />
+                                <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                <Stack.Screen name="+not-found" />
+                              </Stack>
+                              <AIAssistant />
+                              <StatusBar style="auto" />
+                              </ThemeProvider>
+                              </AchievementAnimationWrapper>
+                            </AvatarAnimationWrapper>
+                          </AIProvider>
+                        </AchievementsProvider>
                       </PreferencesProvider>
                     </ProgressProvider>
                 </RewardsProvider>

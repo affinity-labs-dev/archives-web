@@ -1,10 +1,14 @@
 // useAchievements.ts - Achievement tracking and unlocking system
-import { useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProgress } from '@/context/ProgressContext';
 import { useDailyStreak } from './useDailyStreak';
+import { useAdventuresContent } from '@/context/AdventuresContentProvider';
 
 const ACHIEVEMENTS_KEY = 'unlocked_achievements';
+
+// Create context for shared achievement state
+const AchievementsContext = createContext<ReturnType<typeof useAchievementsHook> | null>(null);
 
 export interface UnlockedAchievement {
   id: string;
@@ -145,6 +149,16 @@ const ACHIEVEMENTS: Achievement[] = [
     unlockCondition: { type: 'era_complete', threshold: 1, metadata: { era_id: 'rise_of_islam' } },
     rarity: 'epic',
   },
+  {
+    id: 'era_complete_women_of_islam',
+    name: 'Women of Islam Scholar',
+    description: 'Complete all of Women of Islam era',
+    icon: 'ribbon',
+    category: 'completion',
+    color: '#E91E63',
+    unlockCondition: { type: 'era_complete', threshold: 1, metadata: { era_id: 'women_of_islam' } },
+    rarity: 'epic',
+  },
 
   // Time-based Achievements
   {
@@ -201,18 +215,57 @@ const ACHIEVEMENTS: Achievement[] = [
   },
 ];
 
-export function useAchievements() {
+// Hook implementation (internal)
+function useAchievementsHook() {
   const [unlockedAchievements, setUnlockedAchievements] = useState<UnlockedAchievement[]>([]);
-  const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement | null>(null);
+  const [unlockedQueue, setUnlockedQueue] = useState<Achievement[]>([]); // Queue for multiple achievements
+  const [currentUnlocked, setCurrentUnlocked] = useState<Achievement | null>(null); // Currently showing achievement
   const [isLoading, setIsLoading] = useState(true);
+
+  // Cache era module counts for progress calculation
+  const [eraModuleCounts, setEraModuleCounts] = useState<Record<string, { total: number; completed: number }>>({});
+
+  // Load new era progress data for direct calculation in getProgress
+  const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
+
+  // Track achievements currently being unlocked to prevent duplicates
+  const unlockingRef = React.useRef<Set<string>>(new Set());
 
   const { moduleProgress, calculateTotalXP } = useProgress();
   const { streak } = useDailyStreak();
+  const { getAdventures } = useAdventuresContent();
 
   // Load unlocked achievements
   useEffect(() => {
     loadUnlockedAchievements();
   }, []);
+
+  // Load new era progress data
+  useEffect(() => {
+    const loadNewProgress = async () => {
+      try {
+        const data = await AsyncStorage.getItem('new_user_progress');
+        if (data) {
+          setNewUserProgress(JSON.parse(data));
+        }
+      } catch (error) {
+        console.error('❌ [Achievements] Error loading new progress:', error);
+      }
+    };
+    loadNewProgress();
+  }, []);
+
+  // Process achievement unlock queue - show next achievement when current is dismissed
+  useEffect(() => {
+    console.log(`🎊 [Queue Effect] Queue length: ${unlockedQueue.length}, Current: ${currentUnlocked?.name || 'none'}`);
+    if (unlockedQueue.length > 0 && !currentUnlocked) {
+      // Show next achievement in queue
+      const [nextAchievement, ...remainingQueue] = unlockedQueue;
+      setCurrentUnlocked(nextAchievement);
+      setUnlockedQueue(remainingQueue);
+      console.log(`🎊 [Achievements] Showing ${nextAchievement.name} (${remainingQueue.length} more in queue)`);
+    }
+  }, [unlockedQueue, currentUnlocked]);
 
   const loadUnlockedAchievements = async () => {
     try {
@@ -221,20 +274,29 @@ export function useAchievements() {
         const parsed = JSON.parse(data);
         // Handle both old format (string[]) and new format (UnlockedAchievement[])
         if (Array.isArray(parsed) && parsed.length > 0) {
+          let achievements: UnlockedAchievement[];
+
           if (typeof parsed[0] === 'string') {
             // Old format - migrate to new format
-            const migrated: UnlockedAchievement[] = parsed.map(id => ({
+            achievements = parsed.map(id => ({
               id,
               unlockedAt: new Date().toISOString(), // Set to now for old achievements
             }));
-            setUnlockedAchievements(migrated);
-            await AsyncStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(migrated));
-            console.log('🏆 [Achievements] Migrated old format:', migrated.length, 'unlocked');
+            await AsyncStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(achievements));
+            console.log('🏆 [Achievements] Migrated old format:', achievements.length, 'unlocked');
           } else {
             // New format
-            setUnlockedAchievements(parsed);
-            console.log('🏆 [Achievements] Loaded:', parsed.length, 'unlocked');
+            achievements = parsed;
+            console.log('🏆 [Achievements] Loaded:', achievements.length, 'unlocked');
           }
+
+          setUnlockedAchievements(achievements);
+
+          // Populate ref with already unlocked achievements to prevent showing animations again
+          achievements.forEach(a => {
+            unlockingRef.current.add(a.id);
+          });
+          console.log('🔒 [Achievements] Protected from re-unlocking:', achievements.length, 'achievements');
         }
       }
       setIsLoading(false);
@@ -247,12 +309,18 @@ export function useAchievements() {
   // Unlock an achievement
   const unlockAchievement = async (achievementId: string) => {
     const unlockedIds = unlockedAchievements.map(a => a.id);
-    if (unlockedIds.includes(achievementId)) {
-      return; // Already unlocked
+
+    // Check if already unlocked OR currently being unlocked
+    if (unlockedIds.includes(achievementId) || unlockingRef.current.has(achievementId)) {
+      console.log(`⏭️ [Achievements] Skipping ${achievementId} - already unlocked or in progress`);
+      return;
     }
 
     const achievement = ACHIEVEMENTS.find(a => a.id === achievementId);
     if (!achievement) return;
+
+    // Mark as being unlocked to prevent duplicates
+    unlockingRef.current.add(achievementId);
 
     try {
       const newUnlock: UnlockedAchievement = {
@@ -262,31 +330,81 @@ export function useAchievements() {
       const updated = [...unlockedAchievements, newUnlock];
       await AsyncStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(updated));
       setUnlockedAchievements(updated);
-      setNewlyUnlocked(achievement);
+
+      // Add to queue instead of setting single achievement
+      setUnlockedQueue(prev => {
+        const newQueue = [...prev, achievement];
+        console.log(`🎊 [Achievements] Added to queue: ${achievement.name} (queue length: ${newQueue.length})`);
+        return newQueue;
+      });
 
       console.log('🎉 [Achievements] Unlocked:', achievement.name);
     } catch (error) {
       console.error('❌ [Achievements] Error unlocking:', error);
+    } finally {
+      // Keep in the set - don't remove so it acts as permanent guard
+      // (The unlockedAchievements state check will also prevent re-unlocking)
+    }
+  };
+
+  // Helper: Get total and completed quiz scores for an era
+  // All eras use same calculation: Sum of correct answers / (modules × 5 questions)
+  const getEraModuleCount = async (eraId: string, newModules: any[]): Promise<{ total: number; completed: number }> => {
+    try {
+      // Get module count from Supabase (works for ALL eras including Umayyad)
+      const adventures = await getAdventures(eraId);
+      const totalModules = adventures.reduce((sum, adv) => sum + (adv.content_list?.length || 0), 0);
+      const totalPossible = totalModules * 5; // Each module has 5 questions
+
+      // ALL eras (including Umayyad) read from newModules (new_user_progress storage)
+      const eraModules = newModules.filter((m: any) => m.era_id === eraId && m.quizCompleted);
+      const totalCorrect = eraModules.reduce((sum: number, m: any) => sum + (m.quizCorrectAnswers || 0), 0);
+
+      console.log(`🏆 [Era ${eraId}] Quiz score: ${totalCorrect}/${totalPossible} correct answers`);
+      return { total: totalPossible, completed: totalCorrect };
+    } catch (error) {
+      console.error(`❌ Error counting quiz scores for era ${eraId}:`, error);
+      return { total: 0, completed: 0 };
     }
   };
 
   // Check all achievements and unlock if conditions met
   const checkAchievements = async () => {
-    // Get total XP
-    const totalXP = calculateTotalXP(moduleProgress, []);
+    console.log('🏆 [Achievements] checkAchievements() STARTED');
 
-    // Count perfect quiz scores
-    const perfectQuizCount = moduleProgress.filter(
-      m => m.quizCompleted && m.quizScore === 5
+    // Load new era progress data
+    let newModules: any[] = [];
+    try {
+      const newModulesData = await AsyncStorage.getItem('new_user_progress');
+      newModules = newModulesData ? JSON.parse(newModulesData) : [];
+      console.log('🏆 [Achievements] Loaded progress data:', newModules.length, 'modules');
+    } catch (error) {
+      console.error('❌ Error loading new progress for achievements:', error);
+    }
+
+    // Get total XP from BOTH eras
+    const totalXP = calculateTotalXP(moduleProgress, newModules);
+
+    // Count perfect quiz scores from ALL eras (all use new_user_progress)
+    // Perfect = quizCorrectAnswers === 5 OR quizScore === 3 (3 stars)
+    const perfectQuizCount = newModules.filter(
+      m => m.quizCompleted && (m.quizCorrectAnswers === 5 || m.quizScore === 3)
     ).length;
 
-    // Count lessons completed today
+    console.log(`🏆 [Achievements] Perfect quiz count: ${perfectQuizCount}`);
+    console.log(`🏆 [Achievements] Total XP: ${totalXP}`);
+
+    // Count lessons completed today (only from new eras - legacy era doesn't track completedAt)
     const today = new Date().toDateString();
-    const lessonsToday = moduleProgress.filter(m => {
+
+    // New eras: Count modules completed today (each module = 2 lessons)
+    const lessonsToday = newModules.filter((m: any) => {
       if (!m.completedAt) return false;
       const completedDate = new Date(m.completedAt).toDateString();
-      return completedDate === today && m.lessonsCompleted && m.lessonsCompleted.length > 0;
-    }).length;
+      return completedDate === today;
+    }).length * 2; // Each module has 2 lessons
+    console.log(`🏆 [Achievements] Lessons today: ${lessonsToday}`);
+    console.log(`🏆 [Achievements] Current streak: ${streak} days`);
 
     // Check each achievement
     const unlockedIds = unlockedAchievements.map(a => a.id);
@@ -318,15 +436,27 @@ export function useAchievements() {
           // These are checked manually when lesson completes
           break;
 
-        // Era completion would be checked when final module completes
+        // Era completion check (dynamic - works for any era added to Supabase)
         case 'era_complete':
-          // Checked manually
+          const eraId = achievement.unlockCondition.metadata?.era_id;
+          if (eraId) {
+            const { total, completed } = await getEraModuleCount(eraId, newModules);
+
+            // Cache the counts for progress calculation (used by getProgress)
+            setEraModuleCounts(prev => ({
+              ...prev,
+              [eraId]: { total, completed }
+            }));
+
+            shouldUnlock = completed >= total && total > 0;
+            console.log(`🏆 [Era Complete Check] ${eraId}: ${completed}/${total} correct answers (${Math.round((completed/total)*100)}%) - ${shouldUnlock ? 'UNLOCKED!' : 'Not yet'}`);
+          }
           break;
       }
 
       if (shouldUnlock) {
         await unlockAchievement(achievement.id);
-        break; // Only unlock one per check to show animation
+        // Continue checking other achievements (removed break to unlock all pending achievements)
       }
     }
   };
@@ -392,20 +522,49 @@ export function useAchievements() {
   // Get progress towards an achievement
   const getProgress = (achievementId: string) => {
     const achievement = ACHIEVEMENTS.find(a => a.id === achievementId);
-    if (!achievement) return 0;
+    if (!achievement) {
+      console.log(`⚠️ [Progress] Achievement not found: ${achievementId}`);
+      return 0;
+    }
 
-    const totalXP = calculateTotalXP(moduleProgress, []);
-    const perfectQuizCount = moduleProgress.filter(m => m.quizCompleted && m.quizScore === 5).length;
+    const totalXP = calculateTotalXP(moduleProgress, newUserProgress);
+
+    // Count perfect quizzes from newUserProgress (unified system)
+    const perfectQuizCount = newUserProgress.filter(
+      m => m.quizCompleted && (m.quizCorrectAnswers === 5 || m.quizScore === 3)
+    ).length;
 
     switch (achievement.unlockCondition.type) {
       case 'quiz_perfect':
-        return Math.min(100, (perfectQuizCount / achievement.unlockCondition.threshold) * 100);
+        const progress = Math.min(100, (perfectQuizCount / achievement.unlockCondition.threshold) * 100);
+        // console.log(`📊 [Progress] ${achievement.name}: ${perfectQuizCount}/${achievement.unlockCondition.threshold} perfect quizzes = ${progress}%`);
+        return progress;
 
       case 'streak_days':
         return Math.min(100, (streak / achievement.unlockCondition.threshold) * 100);
 
       case 'total_xp':
         return Math.min(100, (totalXP / achievement.unlockCondition.threshold) * 100);
+
+      case 'era_complete': {
+        // Calculate incremental progress based on quiz scores (correct answers)
+        const eraId = achievement.unlockCondition.metadata?.era_id;
+        if (!eraId) return 0;
+
+        // Try using cached counts first (works for ALL eras including Umayyad)
+        const cachedCounts = eraModuleCounts[eraId];
+        if (cachedCounts && cachedCounts.total > 0) {
+          return Math.min(100, (cachedCounts.completed / cachedCounts.total) * 100);
+        }
+
+        // Fallback: Calculate directly from newUserProgress (ALL eras use same storage)
+        const eraModules = newUserProgress.filter((m: any) => m.era_id === eraId && m.quizCompleted);
+        if (eraModules.length === 0) return 0; // No quizzes completed yet
+
+        const totalCorrect = eraModules.reduce((sum: number, m: any) => sum + (m.quizCorrectAnswers || 0), 0);
+        const estimatedTotal = 15 * 5; // 75 questions (fallback until cache populates)
+        return Math.min(100, (totalCorrect / estimatedTotal) * 100);
+      }
 
       default:
         const unlockedIds = unlockedAchievements.map(a => a.id);
@@ -414,15 +573,17 @@ export function useAchievements() {
   };
 
   // Clear newly unlocked (after animation)
+  // Clear current achievement and show next in queue
   const clearNewlyUnlocked = () => {
-    setNewlyUnlocked(null);
+    console.log(`🎊 [Achievements] Dismissed achievement, ${unlockedQueue.length} remaining in queue`);
+    setCurrentUnlocked(null); // This triggers useEffect to show next achievement
   };
 
   return {
     achievements: getAllAchievements(),
     unlockedCount: unlockedAchievements.length,
     totalCount: ACHIEVEMENTS.length,
-    newlyUnlocked,
+    newlyUnlocked: currentUnlocked, // Return currently showing achievement
     isLoading,
     checkAchievements,
     checkTimeBasedAchievement,
@@ -432,4 +593,23 @@ export function useAchievements() {
     getProgress,
     clearNewlyUnlocked,
   };
+}
+
+// Provider component to share state across all components
+export function AchievementsProvider({ children }: { children: React.ReactNode }) {
+  const achievements = useAchievementsHook();
+  return React.createElement(
+    AchievementsContext.Provider,
+    { value: achievements },
+    children
+  );
+}
+
+// Hook to consume the context
+export function useAchievements() {
+  const context = useContext(AchievementsContext);
+  if (!context) {
+    throw new Error('useAchievements must be used within AchievementsProvider');
+  }
+  return context;
 }
