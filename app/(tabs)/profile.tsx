@@ -18,7 +18,6 @@ import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen'
 import AdventureCompleteScreen from '@/components/gamification/AdventureCompleteScreen'
 import { useAdventures } from '@/hooks/useAdventures'
 import { useAchievements } from '@/hooks/useAchievements'
-import AchievementUnlockAnimation from '@/components/gamification/AchievementUnlockAnimation'
 import AchievementDetailModal from '@/components/gamification/AchievementDetailModal'
 
 const { width: screenWidth } = Dimensions.get('window')
@@ -219,9 +218,7 @@ export default function ProfileTab() {
     achievements,
     unlockedCount,
     totalCount,
-    newlyUnlocked,
     getProgress,
-    clearNewlyUnlocked,
     checkAchievements,
   } = useAchievements()
 
@@ -278,7 +275,7 @@ export default function ProfileTab() {
     if (storedTotalXP !== null) {
       return storedTotalXP
     }
-    return calculateTotalXP(moduleProgress, newUserProgress)
+    return calculateTotalXP(moduleProgress, newUserProgress) || 0
   }, [storedTotalXP, moduleProgress, newUserProgress, calculateTotalXP])
 
   // Get current avatar (use first avatar as default if none selected)
@@ -407,7 +404,7 @@ export default function ProfileTab() {
         console.log('📊 [ProfileTab] Screen blurred - ending page view tracking')
         analyticsService.endPageView('profile')
       }
-    }, [checkAchievements])
+    }, []) // Removed checkAchievements from dependencies to prevent infinite re-renders
   )
 
   const handleSignOut = async () => {
@@ -804,12 +801,6 @@ export default function ProfileTab() {
                         !badge.earned && styles.timelineBadgeImageLocked
                       ]}
                     />
-                    <Text style={[
-                      styles.timelineBadgeText,
-                      !badge.earned && styles.timelineBadgeTextLocked
-                    ]}>
-                      {badge.display_text}
-                    </Text>
                   </View>
                 ))}
               </View>
@@ -1392,15 +1383,6 @@ export default function ProfileTab() {
         </SafeAreaView>
       </Modal>
 
-      {/* Achievement Unlock Animation */}
-      {newlyUnlocked && (
-        <AchievementUnlockAnimation
-          visible={true}
-          achievement={newlyUnlocked}
-          onDismiss={clearNewlyUnlocked}
-        />
-      )}
-
       {/* Achievement Detail Modal */}
       <AchievementDetailModal
         visible={selectedAchievement !== null}
@@ -1807,6 +1789,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 20,
+    zIndex: 100, // Ensure button is above other elements
+    elevation: 5, // Android elevation for touch handling
   },
   signOutText: {
     fontFamily: 'DM Sans',

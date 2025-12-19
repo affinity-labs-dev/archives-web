@@ -28,6 +28,7 @@ import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen';
 import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
+import { useAchievements } from '@/hooks/useAchievements';
 
 interface QuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
@@ -282,6 +283,7 @@ export default function Quiz({
   const { saveNewProgressData, calculateTotalXP, checkIfCrossed50XPBoundary } = useProgress();
   const insets = useSafeAreaInsets();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
+  const { checkAchievements, checkTimeBasedAchievement } = useAchievements();
 
   // Extract adventure number from adventureId (e.g., "roi_adventure_1" → 1)
   const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
@@ -487,6 +489,15 @@ export default function Quiz({
     console.log('💾 [NEW] Saving quiz completion:', moduleData);
     await saveNewProgressData(moduleData);
 
+    // Check achievements immediately after quiz completion (for instant feedback)
+    console.log('🏆 [Quiz] About to check achievements...');
+    try {
+      await checkAchievements();
+      console.log('🏆 [Quiz] Achievement check completed successfully');
+    } catch (error) {
+      console.error('❌ [Quiz] Error checking achievements:', error);
+    }
+
     // Track module completed event (critical for funnel analysis, era-agnostic)
     analyticsService.trackCustomEvent('module_completed', {
       adventure_id: adventureId,
@@ -501,6 +512,12 @@ export default function Quiz({
       $current_url: `/${eraId}/${adventureId}/${moduleId}/quiz`,
     });
     console.log('📊 [Analytics] Module completed event tracked');
+
+    // Check for achievements after quiz completion
+    console.log('🏆 [Achievements] Checking for unlocks after quiz completion');
+    await checkAchievements();
+    await checkTimeBasedAchievement();
+    console.log('🏆 [Achievements] Achievement check complete');
 
     // Load updated Era 2 progress to calculate new XP (AFTER saving)
     const updatedNewModulesData = await AsyncStorage.getItem('new_user_progress');
