@@ -110,6 +110,15 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
     let mounted = true;
 
     const initializeRevenueCat = async () => {
+      // Skip RevenueCat on web - it only works on iOS/Android
+      if (Platform.OS === 'web') {
+        console.log('ℹ️ Skipping RevenueCat initialization on web');
+        if (mounted) {
+          setIsLoading(false);
+        }
+        return;
+      }
+
       try {
         console.log(`🚀 Initializing RevenueCat for ${Platform.OS} with API key:`, REVENUECAT_API_KEY);
 

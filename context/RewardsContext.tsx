@@ -166,7 +166,6 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
         });
 
         // Check for unlocks on login
-        console.log('🎁 [LOGIN] Checking for items to unlock...');
         await checkUnlocksOnLogin(itemsData || [], finalUnlockables);
 
       } catch (error) {
@@ -185,20 +184,16 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
       // Load Era 1 (Umayyad) progress from AsyncStorage
       const moduleProgressData = await AsyncStorage.getItem('module_progress');
       const moduleProgress = moduleProgressData ? JSON.parse(moduleProgressData) : [];
-      console.log('🎁 [LOGIN] Era 1 progress loaded:', moduleProgress.length, 'modules');
 
       // Load Era 2 (Rise of Islam) progress from AsyncStorage
       const newUserProgressData = await AsyncStorage.getItem('new_user_progress');
       const newUserProgress = newUserProgressData ? JSON.parse(newUserProgressData) : [];
-      console.log('🎁 [LOGIN] Era 2 progress loaded:', newUserProgress.length, 'modules');
 
       // Calculate total XP using centralized function (Era 1 + Era 2)
       const totalXP = calculateTotalXP(moduleProgress, newUserProgress);
-      console.log('🎁 [LOGIN] Total XP (deduplicated):', totalXP);
 
       // Calculate modules completed using centralized function (both eras)
       const modulesCompleted = calculateModulesCompleted(moduleProgress, newUserProgress);
-      console.log('🎁 [LOGIN] Modules completed:', modulesCompleted);
 
       // Build userData for months calculation (Era 1 + Era 2)
       const userData: any = { data: {} };
@@ -235,8 +230,6 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
 
       const monthsActive = calculateMonthsActive(userData);
 
-      console.log('🎁 [LOGIN] Metrics - XP:', totalXP, 'Modules:', modulesCompleted, 'Months:', monthsActive);
-
       // Build dynamic metrics map (completely extensible - add new metrics here)
       const metrics: Record<string, number> = {
         'xp': totalXP,
@@ -254,18 +247,12 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
         // Dynamic metric lookup
         const currentValue = metrics[item.unlock_metric];
 
-        if (currentValue === undefined) {
-          console.log(`⚠️ [LOGIN] Unknown or missing metric: ${item.unlock_metric}`);
-          continue;
-        }
+        if (currentValue === undefined) continue;
 
         const alreadyUnlocked = unlockedItemIds.has(item.id);
 
-        console.log(`🎁 [LOGIN] ${item.display_text} (${item.type}): ${currentValue}/${item.unlock_threshold} ${item.unlock_metric} - unlocked: ${alreadyUnlocked}`);
-
         if (currentValue >= item.unlock_threshold && !alreadyUnlocked) {
-          console.log(`🎉 [LOGIN] Unlocking ${item.display_text}!`);
-          await unlockItem(item.id);
+          await unlockItem(item.id, items);
         }
       }
     } catch (error) {
@@ -303,24 +290,18 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
   };
 
   // Unlock new item (AsyncStorage + Supabase IMMEDIATELY)
-  const unlockItem = async (itemId: string) => {
+  // itemsOverride: Pass items array directly during initial load (before state is set)
+  const unlockItem = async (itemId: string, itemsOverride?: UnlockableItem[]) => {
     if (!user?.id) return;
 
     // Check if already unlocked (single source of truth - state)
     const alreadyUnlocked = userUnlockables.some(u => u.item_id === itemId);
-    if (alreadyUnlocked) {
-      console.log(`🎁 Item already unlocked: ${itemId}`);
-      return;
-    }
+    if (alreadyUnlocked) return;
 
-    // Find item details
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) {
-      console.error(`❌ Item ${itemId} not found`);
-      return;
-    }
-
-    console.log(`🎉 Unlocking item: ${item.display_text} (${item.type})`);
+    // Find item details - use override if provided (fixes race condition during initial load)
+    const itemsToSearch = itemsOverride || allItems;
+    const item = itemsToSearch.find(i => i.id === itemId);
+    if (!item) return;
 
     // Set newly unlocked item for animation
     setNewlyUnlockedItem(item);
@@ -342,15 +323,12 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
     // Store to AsyncStorage immediately
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUnlockables));
-      console.log(`✅ Item unlocked and saved to AsyncStorage: ${item.display_text}`);
     } catch (error) {
-      console.error('❌ Error saving unlock to AsyncStorage:', error);
+      // Silent fail - Supabase is source of truth
     }
 
     // IMMEDIATELY save to Supabase
     try {
-      console.log(`🎁 Saving unlock to Supabase...`);
-
       // Check if already exists in DB first
       const { data: existing } = await supabase
         .from('user_unlockables')
@@ -359,12 +337,9 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
         .eq('item_id', itemId)
         .single();
 
-      if (existing) {
-        console.log(`⚠️ Item already exists in DB: ${item.display_text}`);
-        return;
-      }
+      if (existing) return;
 
-      const { error } = await supabase
+      await supabase
         .from('user_unlockables')
         .insert({
           item_id: itemId,
@@ -372,14 +347,8 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
           unlocked_at: new Date().toISOString(),
           is_selected: false
         });
-
-      if (error && error.code !== '23505') {
-        console.error('❌ Error saving unlock to Supabase:', error);
-      } else {
-        console.log(`✅ Unlock saved to Supabase: ${item.display_text}`);
-      }
     } catch (error) {
-      console.error('❌ Error syncing unlock to Supabase:', error);
+      // Silent fail
     }
   };
 
@@ -392,7 +361,6 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
   const setSelectedAvatar = async (avatar: UnlockableItem) => {
     if (!user?.id) return;
 
-    console.log(`🎁 Selecting avatar: ${avatar.display_text}`);
     setSelectedAvatarState(avatar);
 
     // Update is_selected field (only one avatar should be true)
@@ -406,15 +374,12 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
     // Store to AsyncStorage immediately
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUnlockables));
-      console.log(`✅ Avatar selection saved to AsyncStorage: ${avatar.display_text}`);
     } catch (error) {
       console.error('❌ Error saving avatar selection to AsyncStorage:', error);
     }
 
     // IMMEDIATELY save to Supabase
     try {
-      console.log(`🎁 Saving avatar selection to Supabase...`);
-
       // First, unselect all avatars for this user
       await supabase
         .from('user_unlockables')
@@ -430,8 +395,6 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('❌ Error saving avatar selection to Supabase:', error);
-      } else {
-        console.log(`✅ Avatar selection saved to Supabase: ${avatar.display_text}`);
       }
     } catch (error) {
       console.error('❌ Error syncing avatar selection to Supabase:', error);
@@ -442,12 +405,8 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
   const checkAndUnlockItems = async (userData: any, totalXP: number, modulesCompleted?: number) => {
     if (!user?.id) return;
 
-    console.log('🎁 [CHECK] Checking items to unlock...');
-    console.log('🎁 [CHECK] XP:', totalXP, 'Modules:', modulesCompleted ?? 'not provided');
-
     // Calculate months active
     const monthsActive = calculateMonthsActive(userData);
-    console.log('🎁 [CHECK] Months active:', monthsActive);
 
     // Build dynamic metrics map (completely extensible - add new metrics here)
     const metrics: Record<string, number> = {
@@ -455,8 +414,6 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
       'modules_completed': modulesCompleted ?? 0,
       'months_active': monthsActive
     };
-
-    console.log('🎁 [CHECK] Available metrics:', metrics);
 
     // OPTIMIZATION: Create Set for O(1) lookup instead of O(n)
     const unlockedItemIds = new Set(userUnlockables.map(u => u.item_id));
@@ -467,18 +424,11 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
 
       // Dynamic metric lookup
       const currentValue = metrics[item.unlock_metric];
-
-      if (currentValue === undefined) {
-        console.log(`⚠️ [CHECK] Unknown or missing metric: ${item.unlock_metric}`);
-        continue;
-      }
+      if (currentValue === undefined) continue;
 
       const alreadyUnlocked = unlockedItemIds.has(item.id);
 
-      console.log(`🎁 [CHECK] ${item.display_text}: ${currentValue}/${item.unlock_threshold} ${item.unlock_metric} - unlocked: ${alreadyUnlocked}`);
-
       if (currentValue >= item.unlock_threshold && !alreadyUnlocked) {
-        console.log(`🎉 [CHECK] Unlocking ${item.display_text}!`);
         await unlockItem(item.id);
       }
     }
