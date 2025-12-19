@@ -4,8 +4,8 @@
 
 import { useEvent } from 'expo'
 import * as Haptics from 'expo-haptics'
-import { useVideoPlayer, VideoView } from 'expo-video'
-import React, { useEffect, useMemo, useState } from 'react'
+import { useVideoPlayer, VideoView, VideoSource } from 'expo-video'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
 import {
   Dimensions,
   Platform,
@@ -17,8 +17,8 @@ import {
 const { width, height } = Dimensions.get('window')
 
 interface VideoPlayerProps {
-  videoSource: any // Video file require() source
-  onPlaybackStatusUpdate?: (status: any) => void // Updated for expo-video
+  videoSource: any
+  onPlaybackStatusUpdate?: (status: any) => void
   autoPlay?: boolean
   shouldLoop?: boolean
 }
@@ -31,88 +31,111 @@ export default function VideoPlayer({
 }: VideoPlayerProps) {
   const [isVideoLoaded, setIsVideoLoaded] = useState(false)
 
-  // Helper to detect HLS format from URL
-  const isHLSUrl = (url: string): boolean => {
-    return url.includes('.m3u8') || url.includes('/hls/') || url.includes('format=m3u8');
-  };
+  // Track if we've already logged the source (prevent spam)
+  const hasLoggedSource = useRef(false)
 
-  // PERFORMANCE: Optimize videoSource with useMemo + HLS detection for Android
-  const optimizedVideoSource = useMemo(() => {
-    // Remote URL object - add contentType for Android HLS compatibility
+  // PERFORMANCE: Optimize videoSource with useMemo
+  const optimizedVideoSource: VideoSource = useMemo(() => {
+    // Remote URL object
     if (typeof videoSource === 'object' && videoSource !== null && 'uri' in videoSource) {
       const uri = videoSource.uri || '';
-      const isHLS = isHLSUrl(uri);
 
-      // Debug logging for Android
-      if (Platform.OS === 'android') {
+      // Auto-detect HLS for Android compatibility
+      const isHLS = uri.includes('.m3u8') || uri.includes('/hls/') || uri.includes('format=m3u8');
+
+      const source = {
+        ...videoSource,
+        contentType: isHLS ? 'hls' : 'progressive',
+      };
+
+      // Log only once
+      if (!hasLoggedSource.current && Platform.OS === 'android') {
         console.log('🎬 [Android] VideoPlayer source:', {
           uri: uri.substring(0, 80) + '...',
+          contentType: source.contentType,
           detectedFormat: isHLS ? 'HLS' : 'Progressive',
-          contentType: isHLS ? 'hls' : undefined,
         });
+        hasLoggedSource.current = true;
       }
 
-      return {
-        ...videoSource,
-        // Only set contentType for HLS on Android - helps ExoPlayer identify format
-        ...(isHLS && { contentType: 'hls' }),
-      };
+      return source;
     }
 
-    // Local asset from require() - pass directly (NO assetId wrapper)
+    // Local asset from require()
     if (typeof videoSource === 'number') {
-      console.log('🎬 VideoPlayer: Local asset (require)');
       return videoSource;
     }
 
-    // String URI - wrap in object with HLS detection
+    // String URI
     if (typeof videoSource === 'string') {
-      const isHLS = isHLSUrl(videoSource);
-
-      if (Platform.OS === 'android') {
-        console.log('🎬 [Android] VideoPlayer string source:', {
-          uri: videoSource.substring(0, 80) + '...',
-          detectedFormat: isHLS ? 'HLS' : 'Progressive',
-        });
-      }
-
+      const isHLS = videoSource.includes('.m3u8') || videoSource.includes('/hls/') || videoSource.includes('format=m3u8');
       return {
         uri: videoSource,
-        ...(isHLS && { contentType: 'hls' }),
+        contentType: isHLS ? 'hls' : 'progressive',
       };
     }
 
     return videoSource;
   }, [videoSource])
 
-  // Create video player with expo-video API and optimized source
+  // Create video player
   const player = useVideoPlayer(optimizedVideoSource, player => {
-    // ANDROID OOM FIX: Limit buffer to reduce memory usage
-    // ExoPlayer pre-parses all HLS variants which can cause OOM on lower-end devices
-    player.bufferOptions = {
-      preferredForwardBufferDuration: 10,  // Only buffer 10 seconds ahead
-    };
-    player.loop = shouldLoop
+    player.loop = shouldLoop;
+
+    console.log('🎬 [' + Platform.OS + '] Player created, autoPlay:', autoPlay);
+
     if (autoPlay) {
-      player.play()
+      player.play();
     }
   })
 
-  // Use proper expo-video event handling for playing state
+  // Use proper expo-video event handling
   const { isPlaying } = useEvent(player, 'playingChange', {
     isPlaying: player.playing,
   })
 
-  // Clean implementation: Use expo-video's proper progress tracking
+  // ✅ FIXED: Correct event listener signature (receives single payload object)
   useEffect(() => {
-    if (!onPlaybackStatusUpdate) return
+    const statusSubscription = player.addListener('statusChange', (payload) => {
+      const { status, oldStatus, error } = payload;
 
-    // Set up progress updates when video is ready
-    // PERFORMANCE FIX: Reduced from 60fps (16ms) to 10fps (100ms) - 6x less memory/CPU usage
+      console.log(`🎬 [${Platform.OS}] Status: ${oldStatus} → ${status}`);
+
+      if (error) {
+        // Log full error object to debug
+        console.error('🎬 ERROR - Full error object:', JSON.stringify(error, null, 2));
+        console.error('🎬 ERROR - Video URL:', typeof videoSource === 'object' ? videoSource?.uri : videoSource);
+      }
+
+      if (status === 'readyToPlay') {
+        console.log('🎬 Video ready to play!');
+        if (!isVideoLoaded) {
+          setIsVideoLoaded(true);
+        }
+        // Ensure playback starts on Android
+        if (autoPlay && !player.playing) {
+          console.log('🎬 [Android] Forcing play after readyToPlay');
+          player.play();
+        }
+      }
+
+      if (status === 'error') {
+        console.error('🎬 Player entered error state');
+        console.error('🎬 Video URL that failed:', typeof videoSource === 'object' ? videoSource?.uri : videoSource);
+      }
+    });
+
+    return () => statusSubscription?.remove();
+  }, [player, isVideoLoaded, autoPlay, videoSource]);
+
+  // Progress updates
+  useEffect(() => {
+    if (!onPlaybackStatusUpdate) return;
+
     const interval = setInterval(() => {
       if (player.status === 'readyToPlay') {
-        const currentTime = player.currentTime
-        const duration = player.duration
+        const currentTime = player.currentTime;
+        const duration = player.duration;
 
         if (duration > 0) {
           onPlaybackStatusUpdate({
@@ -121,15 +144,15 @@ export default function VideoPlayer({
             positionMillis: currentTime * 1000,
             durationMillis: duration * 1000,
             status: 'readyToPlay'
-          })
+          });
         }
       }
-    }, 100) // 10fps is plenty for progress bars, saves 6x memory
+    }, 100);
 
-    return () => clearInterval(interval)
-  }, [player, onPlaybackStatusUpdate])
+    return () => clearInterval(interval);
+  }, [player, onPlaybackStatusUpdate]);
 
-  // Cleanup video player on unmount
+  // Cleanup
   useEffect(() => {
     return () => {
       try {
@@ -138,67 +161,21 @@ export default function VideoPlayer({
         // Silently handle cleanup errors
       }
     };
-  }, [player])
+  }, [player]);
 
-  // Handle basic player status changes with enhanced Android debugging
-  useEffect(() => {
-    const statusSubscription = player.addListener('statusChange', (status, oldStatus, error) => {
-      // Enhanced logging for debugging
-      console.log(`🎬 [${Platform.OS}] Player status: ${oldStatus} → ${status}`);
-
-      if (error) {
-        // Detailed error logging for Android debugging
-        const videoUrl = typeof videoSource === 'object' && videoSource?.uri
-          ? videoSource.uri
-          : typeof videoSource === 'string'
-            ? videoSource
-            : 'local asset';
-
-        console.error(`🎬 [${Platform.OS}] ERROR: Video playback failed`);
-        console.error('🎬 Error details:', {
-          message: error.message || error,
-          videoUrl: videoUrl.substring(0, 100) + '...',
-          platform: Platform.OS,
-          osVersion: Platform.Version,
-        });
-
-        // Android-specific error hints
-        if (Platform.OS === 'android') {
-          console.error('🎬 [Android] Possible causes:');
-          console.error('   - HLS format not detected (check contentType)');
-          console.error('   - ExoPlayer codec issue');
-          console.error('   - Network/CORS issue with video URL');
-        }
-        return
-      }
-
-      if (status === 'readyToPlay' && !isVideoLoaded) {
-        console.log(`🎬 [${Platform.OS}] Video loaded and ready to play ✅`);
-        setIsVideoLoaded(true)
-      }
-
-      if (status === 'error') {
-        console.error(`🎬 [${Platform.OS}] Player entered error state`);
-      }
-    })
-
-    return () => statusSubscription?.remove()
-  }, [player, isVideoLoaded, videoSource])
-
-  // Handle tap to play/pause - Direct player control
+  // Handle tap to play/pause
   const handleVideoTap = () => {
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       if (isPlaying) {
-        player.pause()
+        player.pause();
       } else {
-        player.play()
+        player.play();
       }
     } catch (error) {
-      console.error('🎬 ERROR: Failed to toggle playback:', error)
+      console.error('🎬 ERROR: Failed to toggle playback:', error);
     }
-  }
+  };
 
   return (
     <TouchableWithoutFeedback onPress={handleVideoTap}>
@@ -208,12 +185,12 @@ export default function VideoPlayer({
           style={styles.video}
           allowsFullscreen={false}
           allowsPictureInPicture={false}
-          nativeControls={false} // EXACT SwiftUI: .showsPlaybackControls = false
-          contentFit="cover" // EXACT SwiftUI: .videoGravity = .resizeAspectFill
+          nativeControls={false}
+          contentFit="cover"
         />
       </View>
     </TouchableWithoutFeedback>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -231,13 +208,4 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: 'black',
   },
-  touchOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    right: 0,
-    backgroundColor: 'transparent',
-    zIndex: 5, // Higher zIndex to ensure it captures touches above video
-  },
-})
+});

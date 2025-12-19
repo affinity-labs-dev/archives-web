@@ -308,6 +308,14 @@ export async function preloadVideos(
     return 0;
   }
 
+  // ANDROID: Completely disable video preloading to prevent decoder exhaustion
+  // ExoPlayer's hardware decoders (OMX) have limited slots (~4-8 per device)
+  // Creating preload players exhausts these slots before actual playback
+  if (Platform.OS === 'android') {
+    console.log('📹 [Preload] [Android] Video preloading DISABLED - prevents decoder exhaustion');
+    return 0;
+  }
+
   // Filter already preloaded and limit count
   const newUrls = urls
     .filter(url => url && !state.preloadedVideos.has(url))

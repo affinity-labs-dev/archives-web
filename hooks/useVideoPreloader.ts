@@ -1,18 +1,23 @@
 // useVideoPreloader.ts - Preload videos for instant playback
 // Creates VideoPlayer instances that buffer in background before display
+// NOTE: Disabled on Android to prevent decoder exhaustion (max ~4-8 hardware decoders)
 
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { createVideoPlayer, VideoPlayer } from 'expo-video';
 
 interface PreloadOptions {
   enabled?: boolean;  // Allow disabling preload
-  maxVideos?: number; // Limit number of videos to preload (default: 10)
+  maxVideos?: number; // Limit number of videos to preload (default: 2 on Android, 6 on iOS)
 }
 
 /**
  * Preloads an array of video URLs so they start instantly when displayed.
  * Creates VideoPlayer instances that buffer in the background.
  * Players are automatically cleaned up on unmount.
+ *
+ * ANDROID: Limited to 2 videos max to prevent decoder exhaustion.
+ * ExoPlayer's hardware decoders (OMX) have limited slots (~4-8 per device).
  *
  * @param videoUrls - Array of video URLs to preload
  * @param options - Configuration options
@@ -21,11 +26,22 @@ export function useVideoPreloader(
   videoUrls: string[],
   options: PreloadOptions = {}
 ): void {
-  const { enabled = true, maxVideos = 10 } = options;
+  // Android: Limit to 2 to prevent decoder exhaustion, iOS: Allow 6
+  const defaultMaxVideos = Platform.OS === 'android' ? 2 : 6;
+  const { enabled = true, maxVideos = defaultMaxVideos } = options;
   const playersRef = useRef<VideoPlayer[]>([]);
 
   useEffect(() => {
+    // Skip preloading if disabled or no URLs
     if (!enabled || videoUrls.length === 0) {
+      return;
+    }
+
+    // ANDROID: Completely disable video preloading to prevent decoder exhaustion
+    // ExoPlayer's hardware decoders (OMX) have limited slots (~4-8 per device)
+    // Creating preload players exhausts these slots before actual playback
+    if (Platform.OS === 'android') {
+      console.log('🎬 [Android] Video preloading DISABLED - prevents decoder exhaustion');
       return;
     }
 
@@ -38,7 +54,7 @@ export function useVideoPreloader(
       return;
     }
 
-    console.log(`🎬 Preloading ${urlsToPreload.length} videos...`);
+    console.log(`🎬 [${Platform.OS}] Preloading ${urlsToPreload.length}/${videoUrls.length} videos (max: ${maxVideos})`);
 
     // Create players for each video URL
     const players: VideoPlayer[] = [];
