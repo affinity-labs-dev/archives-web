@@ -1,135 +1,68 @@
 // useQuizSounds.ts - Hook for quiz sound effects
 // Provides tap, correct, and incorrect sounds for quiz interactions
+// Migrated from expo-av to expo-audio
 
-import { Audio } from 'expo-av';
-import { useEffect, useRef } from 'react';
+import { useAudioPlayer } from 'expo-audio';
+import { useCallback } from 'react';
 import { usePreferences } from '@/context/PreferencesContext';
 
 interface UseQuizSoundsReturn {
-  playTap: () => Promise<void>;
-  playCorrect: () => Promise<void>;
-  playIncorrect: () => Promise<void>;
+  playTap: () => void;
+  playCorrect: () => void;
+  playIncorrect: () => void;
   isLoaded: boolean;
 }
 
 export function useQuizSounds(): UseQuizSoundsReturn {
   const { soundEffectsEnabled } = usePreferences();
-  const tapSoundRef = useRef<Audio.Sound | null>(null);
-  const correctSoundRef = useRef<Audio.Sound | null>(null);
-  const incorrectSoundRef = useRef<Audio.Sound | null>(null);
-  const isLoadedRef = useRef(false);
 
-  // Load all quiz sounds on mount
-  useEffect(() => {
-    let isMounted = true;
+  // Create audio players - hooks manage lifecycle automatically
+  const tapPlayer = useAudioPlayer(require('@/assets/audio/quiz/tap.wav'));
+  const correctPlayer = useAudioPlayer(require('@/assets/audio/quiz/correct.wav'));
+  const incorrectPlayer = useAudioPlayer(require('@/assets/audio/quiz/incorrect.wav'));
 
-    const loadSounds = async () => {
-      try {
-        console.log('🔊 Loading quiz sounds...');
-
-        // Load tap sound
-        const { sound: tapSound } = await Audio.Sound.createAsync(
-          require('@/assets/audio/quiz/tap.wav'),
-          { shouldPlay: false, volume: 0.1 }
-        );
-        if (!isMounted) {
-          await tapSound.unloadAsync();
-          return;
-        }
-        tapSoundRef.current = tapSound;
-
-        // Load correct sound
-        const { sound: correctSound } = await Audio.Sound.createAsync(
-          require('@/assets/audio/quiz/correct.wav'),
-          { shouldPlay: false, volume: 0.8 }
-        );
-        if (!isMounted) {
-          await correctSound.unloadAsync();
-          return;
-        }
-        correctSoundRef.current = correctSound;
-
-        // Load incorrect sound
-        const { sound: incorrectSound } = await Audio.Sound.createAsync(
-          require('@/assets/audio/quiz/incorrect.wav'),
-          { shouldPlay: false, volume: 0.8 }
-        );
-        if (!isMounted) {
-          await incorrectSound.unloadAsync();
-          return;
-        }
-        incorrectSoundRef.current = incorrectSound;
-
-        isLoadedRef.current = true;
-        console.log('✅ Quiz sounds loaded successfully');
-      } catch (error) {
-        console.error('❌ Failed to load quiz sounds:', error);
-      }
-    };
-
-    loadSounds();
-
-    // Cleanup on unmount
-    return () => {
-      isMounted = false;
-      console.log('🔊 Cleaning up quiz sounds...');
-
-      if (tapSoundRef.current) {
-        tapSoundRef.current.unloadAsync().catch(console.error);
-        tapSoundRef.current = null;
-      }
-      if (correctSoundRef.current) {
-        correctSoundRef.current.unloadAsync().catch(console.error);
-        correctSoundRef.current = null;
-      }
-      if (incorrectSoundRef.current) {
-        incorrectSoundRef.current.unloadAsync().catch(console.error);
-        incorrectSoundRef.current = null;
-      }
-      isLoadedRef.current = false;
-    };
-  }, []);
+  // Set volumes (expo-audio uses property assignment)
+  if (tapPlayer.isLoaded) tapPlayer.volume = 0.1;
+  if (correctPlayer.isLoaded) correctPlayer.volume = 0.8;
+  if (incorrectPlayer.isLoaded) incorrectPlayer.volume = 0.8;
 
   // Play tap sound (for option selection)
-  const playTap = async () => {
-    if (!soundEffectsEnabled) return; // Check user preference
+  const playTap = useCallback(() => {
+    if (!soundEffectsEnabled) return;
     try {
-      if (tapSoundRef.current) {
-        await tapSoundRef.current.replayAsync();
-      }
+      tapPlayer.seekTo(0); // expo-audio doesn't auto-reset position
+      tapPlayer.play();
     } catch (error) {
       console.error('❌ Error playing tap sound:', error);
     }
-  };
+  }, [soundEffectsEnabled, tapPlayer]);
 
   // Play correct sound (for correct answers)
-  const playCorrect = async () => {
-    if (!soundEffectsEnabled) return; // Check user preference
+  const playCorrect = useCallback(() => {
+    if (!soundEffectsEnabled) return;
     try {
-      if (correctSoundRef.current) {
-        await correctSoundRef.current.replayAsync();
-      }
+      correctPlayer.seekTo(0);
+      correctPlayer.play();
     } catch (error) {
       console.error('❌ Error playing correct sound:', error);
     }
-  };
+  }, [soundEffectsEnabled, correctPlayer]);
 
   // Play incorrect sound (for incorrect answers)
-  const playIncorrect = async () => {
-    if (!soundEffectsEnabled) return; // Check user preference
+  const playIncorrect = useCallback(() => {
+    if (!soundEffectsEnabled) return;
     try {
-      if (incorrectSoundRef.current) {
-        await incorrectSoundRef.current.replayAsync();
-      }
+      incorrectPlayer.seekTo(0);
+      incorrectPlayer.play();
     } catch (error) {
       console.error('❌ Error playing incorrect sound:', error);
     }
-  };
+  }, [soundEffectsEnabled, incorrectPlayer]);
 
   return {
     playTap,
     playCorrect,
     playIncorrect,
-    isLoaded: isLoadedRef.current,
+    isLoaded: tapPlayer.isLoaded && correctPlayer.isLoaded && incorrectPlayer.isLoaded,
   };
 }

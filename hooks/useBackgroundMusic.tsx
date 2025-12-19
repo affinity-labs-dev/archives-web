@@ -1,9 +1,9 @@
 // useBackgroundMusic.tsx - Custom hook for background music management
 // Handles audio lifecycle, looping, and cleanup for lesson experiences
-// Using expo-av due to AWS CloudFront compatibility issues with expo-audio
+// Migrated from expo-av to expo-audio
 
-import { Audio, AVPlaybackSource, AVPlaybackStatus } from "expo-av";
-import { useEffect, useRef, useState } from "react";
+import { useAudioPlayer, setAudioModeAsync, AudioSource } from 'expo-audio';
+import { useEffect, useRef } from 'react';
 import { usePreferences } from '@/context/PreferencesContext';
 
 interface UseBackgroundMusicOptions {
@@ -12,156 +12,96 @@ interface UseBackgroundMusicOptions {
 }
 
 export const useBackgroundMusic = (
-  audioSource: AVPlaybackSource | null, // Audio source for expo-av
+  audioSource: AudioSource | null, // Audio source (require() or URL string)
   options: UseBackgroundMusicOptions = {}
 ) => {
   const { backgroundMusicEnabled } = usePreferences();
-  const {
-    volume = 0.5,
-    shouldLoop = true,
-  } = options;
-
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { volume = 0.5, shouldLoop = true } = options;
   const isInitializedRef = useRef(false);
 
-  // Load audio
-  const loadAudio = async () => {
-    if (isLoading || isLoaded || !audioSource) return;
-    setIsLoading(true);
-    console.log("🎵 Loading background music from AVPlaybackSource:", audioSource);
+  // Create audio player - hook manages lifecycle automatically
+  // Pass null if no source to avoid loading
+  const player = useAudioPlayer(audioSource);
 
-    try {
-      // Configure audio mode for proper Android playback
-      console.log("🎵 Configuring audio mode for Android...");
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        staysActiveInBackground: true,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
-      console.log("🎵 Audio mode configured successfully");
-
-      const { sound } = await Audio.Sound.createAsync(audioSource, {
-        shouldPlay: backgroundMusicEnabled, // Auto-play only if background music is enabled
-        isLooping: shouldLoop,
-        volume: backgroundMusicEnabled ? volume : 0, // Set volume to 0 if disabled
-      });
-
-      soundRef.current = sound;
-      setIsLoaded(true);
-      setIsPlaying(backgroundMusicEnabled); // Set playing state based on preference
-      setIsLoading(false);
-      console.log(`🎵 Background music loaded ${backgroundMusicEnabled ? 'and playing' : 'but muted'} at ${volume * 100}% volume`);
-    } catch (error) {
-      console.error("🎵 Failed to load background music:", error);
-      setIsLoading(false);
-    }
-  };
-
-  // Simple play function - just start playing immediately
-  const play = async () => {
-    if (!soundRef.current || !backgroundMusicEnabled) return; // Check user preference
-
-    try {
-      console.log("🎵 Starting background music immediately");
-      await soundRef.current.playAsync();
-      setIsPlaying(true);
-      console.log("🎵 Background music started successfully");
-    } catch (error) {
-      console.error("🎵 Failed to start background music:", error);
-      setIsPlaying(false);
-    }
-  };
-
-  // Simple stop function - just pause immediately
-  const stop = async () => {
-    if (!soundRef.current) return;
-
-    try {
-      console.log("🎵 Stopping background music");
-      await soundRef.current.pauseAsync();
-      setIsPlaying(false);
-      console.log("🎵 Background music stopped");
-    } catch (error) {
-      console.error("🎵 Failed to stop background music:", error);
-    }
-  };
-
-  // Set volume
-  const setVolume = async (newVolume: number) => {
-    if (!soundRef.current) return;
-
-    try {
-      await soundRef.current.setVolumeAsync(Math.max(0, Math.min(1, newVolume)));
-    } catch (error) {
-      console.error("🎵 Failed to set volume:", error);
-    }
-  };
-
-  // Cleanup on unmount
+  // Configure audio mode on first mount
   useEffect(() => {
-    return () => {
-      if (soundRef.current) {
-        console.log("🎵 Unloading background music on cleanup");
-        soundRef.current.unloadAsync().catch((error) => {
-          // Silently handle cleanup errors
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
+    const configureAudio = async () => {
+      try {
+        console.log('🎵 Configuring audio mode...');
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldDuckAndroid: true,
         });
-        soundRef.current = null;
+        console.log('🎵 Audio mode configured successfully');
+      } catch (error) {
+        console.error('🎵 Failed to configure audio mode:', error);
       }
     };
+
+    configureAudio();
   }, []);
 
-  // Auto-load audio when hook is used (prevent multiple initializations)
+  // Configure loop setting
   useEffect(() => {
-    if (audioSource && !isInitializedRef.current) {
-      console.log("🎵 AVPlaybackSource provided (first time):", audioSource);
-      isInitializedRef.current = true;
-      loadAudio();
-    } else if (!audioSource) {
-      console.log("🎵 No valid audio source provided - background music disabled", audioSource);
-    } else if (isInitializedRef.current) {
-      console.log("🎵 Audio already initialized, skipping duplicate load");
+    if (player.isLoaded) {
+      player.loop = shouldLoop;
     }
-  }, [audioSource]);
+  }, [player, player.isLoaded, shouldLoop]);
 
-  // React to backgroundMusicEnabled changes
+  // Handle volume and playback based on user preference
   useEffect(() => {
-    if (!soundRef.current) return;
+    if (!player.isLoaded) return;
 
-    const updatePlayback = async () => {
-      try {
-        if (backgroundMusicEnabled) {
-          console.log("🎵 Background music enabled - starting playback");
-          await soundRef.current?.setVolumeAsync(volume);
-          if (!isPlaying) {
-            await soundRef.current?.playAsync();
-            setIsPlaying(true);
-          }
-        } else {
-          console.log("🎵 Background music disabled - muting playback");
-          await soundRef.current?.setVolumeAsync(0);
-          await soundRef.current?.pauseAsync();
-          setIsPlaying(false);
-        }
-      } catch (error) {
-        console.error("🎵 Error updating playback based on preference:", error);
+    if (backgroundMusicEnabled) {
+      player.volume = volume;
+      if (!player.playing) {
+        console.log('🎵 Starting background music');
+        player.play();
       }
-    };
+    } else {
+      console.log('🎵 Background music disabled - pausing');
+      player.volume = 0;
+      player.pause();
+    }
+  }, [player, player.isLoaded, backgroundMusicEnabled, volume]);
 
-    updatePlayback();
-  }, [backgroundMusicEnabled]);
+  // Log when audio loads
+  useEffect(() => {
+    if (player.isLoaded) {
+      console.log(`🎵 Background music loaded ${backgroundMusicEnabled ? 'and playing' : 'but muted'} at ${volume * 100}% volume`);
+    }
+  }, [player.isLoaded]);
+
+  // Play function
+  const play = () => {
+    if (!player.isLoaded || !backgroundMusicEnabled) return;
+    console.log('🎵 Starting background music');
+    player.play();
+  };
+
+  // Stop function
+  const stop = () => {
+    if (!player.isLoaded) return;
+    console.log('🎵 Stopping background music');
+    player.pause();
+  };
+
+  // Set volume function
+  const setVolume = (newVolume: number) => {
+    if (!player.isLoaded) return;
+    player.volume = Math.max(0, Math.min(1, newVolume));
+  };
 
   return {
-    isLoaded,
-    isPlaying,
-    isLoading,
+    isLoaded: player.isLoaded,
+    isPlaying: player.playing,
+    isLoading: player.isBuffering,
     play,
     stop,
     setVolume,
-    loadAudio,
+    loadAudio: () => {}, // No-op for backwards compatibility (loading is automatic)
   };
 };
