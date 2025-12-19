@@ -4,7 +4,6 @@
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
-import { AVPlaybackStatus } from "expo-av";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -34,6 +33,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
+
+// VideoPlayer status type (expo-video compatible)
+interface VideoPlaybackStatus {
+  isLoaded: boolean;
+  isPlaying?: boolean;
+  positionMillis?: number;
+  durationMillis?: number;
+  status?: string;
+}
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -181,7 +189,7 @@ export default function ReelLesson({
   }, [isCardExpanded, hasEverExpandedCard]);
 
   // Ultra-Smooth Video Progress System
-  const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+  const handlePlaybackStatusUpdate = (status: VideoPlaybackStatus) => {
     if (status.isLoaded) {
       if (!isVideoLoaded) {
         setIsVideoLoaded(true);

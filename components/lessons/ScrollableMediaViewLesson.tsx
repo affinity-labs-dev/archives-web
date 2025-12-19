@@ -6,10 +6,9 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { useLessonBase } from "@/hooks/useLessonBase";
 import { Ionicons } from "@expo/vector-icons";
-import { ResizeMode, Video } from 'expo-av';
-import * as Haptics from "expo-haptics";
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dimensions,
   ScrollView,
@@ -25,6 +24,55 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ContentBlock, ContentItem } from "@/components/shared/types";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+// VideoBlock component using expo-video hooks
+interface VideoBlockProps {
+  url: string;
+  autoplay?: boolean;
+  loop?: boolean;
+  style?: any;
+}
+
+function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockProps) {
+  const player = useVideoPlayer({ uri: url }, (player) => {
+    player.loop = loop;
+    // Note: autoplay handled in effect to ensure proper initialization
+  });
+
+  useEffect(() => {
+    // Delay autoplay to ensure video is ready
+    if (autoplay && player) {
+      const timer = setTimeout(() => {
+        player.play();
+        console.log('📺 Video auto-playing');
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoplay, player]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (player) {
+        try {
+          player.pause();
+          console.log('📺 Video cleaned up');
+        } catch (error) {
+          // Silently handle cleanup errors
+        }
+      }
+    };
+  }, [player]);
+
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
+}
 
 // EXACT layout constants from Adventure3_Module1_Lesson1.tsx
 const LAYOUT_CONSTANTS = {
@@ -80,10 +128,6 @@ export default function ScrollableMediaViewLesson({
   // Extract and sort content blocks by order
   const sortedBlocks = (contentItem.content_blocks || []).sort((a, b) => a.order - b.order);
 
-  // Create video refs for all video blocks
-  const videoBlocks = sortedBlocks.filter(block => block.type === 'video');
-  const videoRefs = useRef<Array<Video | null>>(videoBlocks.map(() => null));
-
   // Background music hook
   const backgroundMusic = useBackgroundMusic(
     contentItem.background_music_url ? { uri: contentItem.background_music_url } : null,
@@ -102,56 +146,20 @@ export default function ScrollableMediaViewLesson({
     onContinue,
   });
 
-  // Setup video players on mount
-  useEffect(() => {
-    const setupVideoPlayers = () => {
-      setTimeout(() => {
-        videoRefs.current.forEach((ref, index) => {
-          if (ref && videoBlocks[index]?.autoplay) {
-            ref.playAsync();
-            console.log(`📺 Video ${index + 1} auto-playing`);
-          }
-        });
-      }, LAYOUT_CONSTANTS.videoInitializationDelay);
-    };
-
-    setupVideoPlayers();
-
-    return () => {
-      // Cleanup videos on unmount
-      videoRefs.current.forEach((ref, index) => {
-        if (ref) {
-          ref.pauseAsync();
-          console.log(`📺 Video ${index + 1} cleaned up`);
-        }
-      });
-    };
-  }, []);
-
   // Render individual block based on type
   const renderBlock = (block: ContentBlock, blockIndex: number) => {
     const key = `${block.type}-${block.order}-${blockIndex}`;
 
     switch (block.type) {
       case 'video':
-        // Find the video index in videoBlocks array
-        const videoIndex = videoBlocks.findIndex(vb => vb.order === block.order);
-
         return (
           <View key={key} style={styles.videoSection}>
             <View style={styles.videoContainer}>
-              <Video
-                ref={(ref) => {
-                  if (videoIndex !== -1) {
-                    videoRefs.current[videoIndex] = ref;
-                  }
-                }}
-                source={{ uri: block.url || '' }}
+              <VideoBlock
+                url={block.url || ''}
+                autoplay={block.autoplay}
+                loop={block.loop !== false}
                 style={styles.video}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={false}
-                isLooping={block.loop !== false}
-                isMuted={false}
               />
             </View>
           </View>
