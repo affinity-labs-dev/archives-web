@@ -423,6 +423,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
             completedModules={adventureSummary.totalModules}
             totalModules={adventureSummary.totalModules}
             onContinue={() => setAdventureSummary(null)}
+            onClose={() => setAdventureSummary(null)}
           />
         </Modal>
       )}
