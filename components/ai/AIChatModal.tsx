@@ -15,7 +15,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -171,13 +171,20 @@ export default function AIChatModal({
     }
   }, [visible]);
 
-  // Save image to device photos
-  const handleSaveToPhotos = async () => {
+  // Share image (allows saving to photos, sharing to apps, etc.)
+  const handleShareImage = async () => {
     if (!selectedImage) return;
 
-    // Saving to photos is only supported on iOS and Android
+    // Sharing is only supported on iOS and Android
     if (Platform.OS === 'web') {
-      Alert.alert('Not Supported', 'Saving images is only available on mobile devices.');
+      Alert.alert('Not Supported', 'Sharing images is only available on mobile devices.');
+      return;
+    }
+
+    // Check if sharing is available
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('Not Available', 'Sharing is not available on this device.');
       return;
     }
 
@@ -185,14 +192,6 @@ export default function AIChatModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      // Request permission (accept both 'granted' and 'limited' on iOS 14+)
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted' && status !== 'limited') {
-        Alert.alert('Permission Required', 'Please allow access to save images to your photo library.');
-        setIsSaving(false);
-        return;
-      }
-
       // Create a temporary file - cacheDirectory is guaranteed on iOS/Android
       const filename = `archives_ai_${Date.now()}.png`;
       const fileUri = cacheDirectory + filename;
@@ -202,21 +201,22 @@ export default function AIChatModal({
         encoding: 'base64',
       });
 
-      // Save to media library
-      await MediaLibrary.saveToLibraryAsync(fileUri);
+      // Open share sheet - user can save to photos, share to apps, etc.
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Share or Save Image',
+      });
 
-      // Clean up temp file
+      // Clean up temp file after sharing
       await deleteAsync(fileUri, { idempotent: true });
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Saved!', 'Image saved to your photo library.');
-      analyticsService.trackCustomEvent('ai_image_saved', {
+      analyticsService.trackCustomEvent('ai_image_shared', {
         era_id: context?.eraId || 'unknown_era',
       });
     } catch (err) {
-      console.error('❌ [AIChatModal] Error saving image:', err);
+      console.error('❌ [AIChatModal] Error sharing image:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'Failed to save image. Please try again.');
+      Alert.alert('Error', 'Failed to share image. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -880,10 +880,10 @@ export default function AIChatModal({
             />
           )}
 
-          {/* Save to Photos button */}
+          {/* Share button */}
           <TouchableOpacity
             style={styles.saveToPhotosButton}
-            onPress={handleSaveToPhotos}
+            onPress={handleShareImage}
             disabled={isSaving}
             activeOpacity={0.8}
           >
@@ -891,8 +891,8 @@ export default function AIChatModal({
               <ActivityIndicator size="small" color="white" />
             ) : (
               <>
-                <Ionicons name="download-outline" size={24} color="white" />
-                <Text style={styles.saveToPhotosText}>Save to Photos</Text>
+                <Ionicons name="share-outline" size={24} color="white" />
+                <Text style={styles.saveToPhotosText}>Share</Text>
               </>
             )}
           </TouchableOpacity>

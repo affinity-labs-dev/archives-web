@@ -7,7 +7,6 @@ import { Question } from '@/components/shared/types';
 // Response type from Gemini API
 interface AIExplanationResponse {
   explanation: string;
-  encouragement: string;
   relatedTopic?: string;
 }
 
@@ -103,11 +102,11 @@ class AIService {
           console.warn(`⛔ [AIService] Response blocked. Reason: ${finishReason}`);
           if (!aiResponse) {
             if (finishReason === 'SAFETY') {
-              aiResponse = '{"explanation": "I cannot answer that due to safety guidelines.", "encouragement": "Try a different question!"}';
+              aiResponse = '{"explanation": "I cannot answer that due to safety guidelines."}';
             } else if (finishReason === 'RECITATION') {
-              aiResponse = '{"explanation": "I cannot reproduce that specific content directly.", "encouragement": "Ask in a different way!"}';
+              aiResponse = '{"explanation": "I cannot reproduce that specific content directly."}';
             } else {
-              aiResponse = '{"explanation": "I\'m having trouble generating a response right now.", "encouragement": "Please try again!"}';
+              aiResponse = '{"explanation": "I\'m having trouble generating a response right now."}';
             }
           }
         }
@@ -124,7 +123,6 @@ class AIService {
       // Return fallback explanation
       return {
         explanation: `The correct answer is "${request.correctAnswer}". This is an important concept in ${request.eraName} history. Review the lesson content for more details.`,
-        encouragement: 'Keep learning! Every mistake is a step toward mastery.',
       };
     }
   }
@@ -141,14 +139,18 @@ Question: ${questionText}
 They answered: ${userAnswer}
 Correct answer: ${correctAnswer}
 
-Write a helpful explanation in 5-6 lines that:
+Write a helpful explanation in 3-4 sentences that:
 1. Explains why the correct answer is right
 2. Adds one interesting historical fact or context
-3. Ends with a brief encouraging message
 
-Keep it conversational, warm, and easy to understand. Make it memorable but educational.
+STRICT RULES:
+- NEVER start with "Actually", "Well", "So", or similar filler words
+- Start directly with the historical explanation
+- NO motivational phrases, encouragement, or "keep learning" type endings
+- End with the historical fact, not fluff
+- Be concise and informative only
 
-Write in plain text (NOT JSON). Just write the explanation naturally as you would explain to a friend.`;
+Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
   }
 
   /**
@@ -167,23 +169,19 @@ Write in plain text (NOT JSON). Just write the explanation naturally as you woul
         const parsed = JSON.parse(cleanedResponse);
         return {
           explanation: parsed.explanation || '',
-          encouragement: parsed.encouragement || 'Great effort! Keep learning.',
           relatedTopic: parsed.relatedTopic,
         };
       } catch {
         // Not JSON - treat as plain text (expected format now)
-        // The response should be 5-6 lines of natural explanation
         console.log('✅ [AIService] Using plain text explanation format');
         return {
           explanation: cleanedResponse,
-          encouragement: '', // Encouragement is now part of the explanation text
         };
       }
     } catch (error) {
       console.warn('⚠️ [AIService] Error parsing AI response:', error);
       return {
         explanation: aiResponse,
-        encouragement: '',
       };
     }
   }
@@ -215,7 +213,6 @@ Write in plain text (NOT JSON). Just write the explanation naturally as you woul
       if (userAnswerIndex === correctAnswerIndex) {
         explanations.push({
           explanation: '✅ You got this right!',
-          encouragement: 'Great job!',
         });
         continue;
       }

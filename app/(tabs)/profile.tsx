@@ -1,10 +1,15 @@
 // Profile Tab - EXACT replica of SwiftUI Profile.swift
 // Matches the exact structure: historical avatars + stats + badges + achievements + settings
 
+import AchievementDetailModal from '@/components/gamification/AchievementDetailModal'
+import AdventureCompleteScreen from '@/components/gamification/AdventureCompleteScreen'
+import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import { usePreferences } from '@/context/PreferencesContext'
 import { useProgress } from '@/context/ProgressContext'
 import { useRewards } from '@/context/RewardsContext'
-import { usePreferences } from '@/context/PreferencesContext'
+import { useAchievements } from '@/hooks/useAchievements'
+import { useAdventures } from '@/hooks/useAdventures'
 import { analyticsService } from '@/services/AnalyticsService'
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
@@ -14,11 +19,6 @@ import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
-import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen'
-import AdventureCompleteScreen from '@/components/gamification/AdventureCompleteScreen'
-import { useAdventures } from '@/hooks/useAdventures'
-import { useAchievements } from '@/hooks/useAchievements'
-import AchievementDetailModal from '@/components/gamification/AchievementDetailModal'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -377,6 +377,7 @@ export default function ProfileTab() {
   // Temporary test screen states
   const [showXPTest, setShowXPTest] = useState(false)
   const [showAdventureTest, setShowAdventureTest] = useState(false)
+  const [testAdventureIndex, setTestAdventureIndex] = useState(0)
 
   // Map context era to Supabase era_id format for test button
   const ERA_ID_MAP: Record<string, string> = {
@@ -388,8 +389,18 @@ export default function ProfileTab() {
   }
   const supabaseEraId = selectedEra ? (ERA_ID_MAP[selectedEra] || selectedEra) : ''
 
-  // Fetch adventures for test button (era-agnostic)
-  const { adventures: testAdventures, loading: adventuresLoading } = useAdventures(supabaseEraId)
+  // Fetch adventures from ALL eras for test button
+  const { adventures: riseOfIslamAdv } = useAdventures('rise_of_islam')
+  const { adventures: umayyadAdv } = useAdventures('umayyad')
+  const { adventures: womenOfIslamAdv } = useAdventures('women_of_islam')
+
+  // Combine all adventures from all eras
+  const testAdventures = [
+    ...riseOfIslamAdv,
+    ...umayyadAdv,
+    ...womenOfIslamAdv,
+  ]
+  const adventuresLoading = testAdventures.length === 0
 
   // Track page views with focus/blur + check achievements
   useFocusEffect(
@@ -481,7 +492,7 @@ export default function ProfileTab() {
             try {
               // Calculate account age in days
               const accountAgeDays = user.createdAt
-                ? Math.floor((Date.now() - user.createdAt) / (1000 * 60 * 60 * 24))
+                ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
                 : undefined
 
               // Calculate total adventures completed
@@ -1406,11 +1417,78 @@ export default function ProfileTab() {
 
       {showAdventureTest && testAdventures.length > 0 && (
         <Modal visible={showAdventureTest} animationType="slide" presentationStyle="fullScreen">
-          <AdventureCompleteScreen
-            adventure={testAdventures[0]}
-            totalBadges={3}
-            onContinue={() => setShowAdventureTest(false)}
-          />
+          <View style={{ flex: 1 }}>
+            <AdventureCompleteScreen
+              adventure={testAdventures[testAdventureIndex]}
+              totalBadges={3}
+              onContinue={() => setShowAdventureTest(false)}
+              onClose={() => setShowAdventureTest(false)}
+            />
+
+            {/* Navigation Overlay */}
+            <View style={{
+              position: 'absolute',
+              bottom: 30,
+              left: 0,
+              right: 0,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 20,
+              zIndex: 1000,
+            }}>
+              <TouchableOpacity
+                onPress={() => setTestAdventureIndex(prev => Math.max(0, prev - 1))}
+                disabled={testAdventureIndex === 0}
+                style={{
+                  backgroundColor: testAdventureIndex === 0 ? '#CCC' : ArchivesTheme.colors.persianOrange,
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                }}
+              >
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>← Previous</Text>
+              </TouchableOpacity>
+
+              <View style={{
+                backgroundColor: 'white',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 6,
+                alignItems: 'center',
+              }}>
+                <Text style={{
+                  fontFamily: 'DM Sans',
+                  fontSize: 16,
+                  fontWeight: '600',
+                  color: ArchivesTheme.colors.mutedNavy,
+                }}>
+                  {testAdventureIndex + 1} / {testAdventures.length}
+                </Text>
+                <Text style={{
+                  fontFamily: 'DM Sans',
+                  fontSize: 11,
+                  fontWeight: '500',
+                  color: ArchivesTheme.colors.persianOrange,
+                }}>
+                  {testAdventures[testAdventureIndex]?.era_id || 'Unknown'}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setTestAdventureIndex(prev => Math.min(testAdventures.length - 1, prev + 1))}
+                disabled={testAdventureIndex === testAdventures.length - 1}
+                style={{
+                  backgroundColor: testAdventureIndex === testAdventures.length - 1 ? '#CCC' : ArchivesTheme.colors.persianOrange,
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                }}
+              >
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>Next →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Modal>
       )}
     </SafeAreaView>
