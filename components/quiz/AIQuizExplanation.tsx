@@ -36,7 +36,6 @@ interface ExplanationItem {
   correctAnswer: string;
   isCorrect: boolean;
   aiExplanation?: string;
-  encouragement?: string;
   loading: boolean;
   error?: string;
 }
@@ -117,7 +116,6 @@ export default function AIQuizExplanation({
         prev.map((item, index) => ({
           ...item,
           aiExplanation: aiExplanations[index]?.explanation,
-          encouragement: aiExplanations[index]?.encouragement,
           loading: false,
         }))
       );
@@ -237,15 +235,10 @@ export default function AIQuizExplanation({
                     ) : item.error ? (
                       <Text style={styles.errorText}>{item.error}</Text>
                     ) : item.aiExplanation ? (
-                      <>
-                        <View style={styles.aiExplanationContainer}>
-                          <Ionicons name="bulb-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
-                          {renderMarkdownText(item.aiExplanation, styles.aiExplanationText)}
-                        </View>
-                        {item.encouragement && (
-                          <Text style={styles.encouragementText}>{item.encouragement}</Text>
-                        )}
-                      </>
+                      <View style={styles.aiExplanationContainer}>
+                        <Ionicons name="bulb-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
+                        {renderMarkdownText(item.aiExplanation, styles.aiExplanationText)}
+                      </View>
                     ) : null}
                   </View>
                 ))}
@@ -422,13 +415,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginLeft: 8,
     flex: 1,
-  },
-  encouragementText: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: ArchivesTheme.colors.persianOrange,
-    fontStyle: 'italic',
-    textAlign: 'center',
   },
 
   // Error State
