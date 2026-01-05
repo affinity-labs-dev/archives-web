@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useUser } from '@clerk/clerk-expo';
 import { supabase } from '@/hooks/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { calculateTotalXP, calculateModulesCompleted } from './ProgressContext';
+import { calculateTotalXP, calculateModulesCompleted } from './GamifiedProgress';
 import type { EraType } from '@/types/progress';
 
 // Unified interface for all unlockable items (avatars + badges)
