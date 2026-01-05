@@ -265,7 +265,7 @@ const calculateXPByEra = (progress: ProgressEntry[]): Record<string, number> => 
 /**
  * Calculate XP per era dynamically (for PostHog person properties)
  * Returns: { "umayyad": 200, "rise_of_islam": 80 } - keys are era_ids from Supabase
- * Used by SimplifiedSyncService for cloud sync
+ * Used for PostHog person properties and cloud sync
  */
 export const calculateEraXP = (modules: any[]): Record<string, number> => {
   const eraXP: Record<string, number> = {};
