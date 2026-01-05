@@ -74,6 +74,8 @@ export { PuzzleEngagementProvider, usePuzzleEngagement } from './engines/PuzzleE
 // ========== HOOKS ==========
 export { useDailyStreak } from './engines/useDailyStreak';
 export { useLevel } from './engines/useLevel';
+export { useGameDragDrop } from './hooks/useGameDragDrop';
+export { useSnapToGrid } from './hooks/useSnapToGrid';
 
 // ========== SERVICES ==========
 export { default as AIService, aiService } from './services/AIService';
