@@ -537,6 +537,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         // Fallback to empty state
         const emptyState = createEmptyState(user.id);
         setState(emptyState);
+        setIsInitialized(true);
       } finally {
         setIsLoading(false);
       }

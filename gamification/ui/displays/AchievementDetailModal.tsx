@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated } from 'react
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import type { Achievement } from '@/hooks/useAchievements';
+import type { Achievement } from '@/gamification/engines/useAchievements';
 
 interface AchievementDetailModalProps {
   visible: boolean;

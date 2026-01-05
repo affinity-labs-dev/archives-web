@@ -16,9 +16,9 @@ eas update --branch production        # Push OTA update
 
 **Architecture entry points:**
 - `app/_layout.tsx` - Provider hierarchy, initialization order critical
-- `context/ProgressContext.tsx` - Atomic progress updates, XP calculation (NEVER use AsyncStorage directly)
+- `gamification/engines/GamifiedProgress.tsx` - Unified progress, XP calculation, cloud sync (NEVER use AsyncStorage directly)
+- `gamification/index.ts` - Public API exports for all gamification features
 - `constants/ArchivesTheme.ts` - Design system colors/spacing (ALWAYS use)
-- `services/SimplifiedSyncService.ts` - Cloud sync with Supabase JSONB
 - `Adventure1_Module1_Lesson1.tsx` - Best lesson implementation reference
 
 **Common code patterns:**
@@ -34,7 +34,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 color: ArchivesTheme.colors.persianOrange
 
 // WRONG - Never do these
-await AsyncStorage.setItem(...)  // ❌ Use ProgressContext
+await AsyncStorage.setItem(...)  // ❌ Use GamifiedProgress
 color: '#C99151'                 // ❌ Use ArchivesTheme
 ```
 
@@ -44,7 +44,7 @@ color: '#C99151'                 // ❌ Use ArchivesTheme
 1. **🚀 PRODUCTION APP - iOS & Android LIVE** - Both platforms are in production with real users. ALL code changes MUST work perfectly on BOTH iOS and Android. Test on both platforms before committing. Cross-platform compatibility is MANDATORY.
 2. **Check for syntax errors before commit** - Run `npm run lint` to check for errors. If errors found, REPORT them to user and ASK for permission before fixing. DO NOT automatically fix code - only inform user of issues.
 3. **Git commit attribution** - NEVER include Claude attribution in commits. User wants commits to show only their GitHub account. Remove "Co-Authored-By: Claude" and "Generated with Claude Code" lines from ALL commit messages.
-4. **NEVER access AsyncStorage directly** - Use `atomicProgressUpdate()` from ProgressContext
+4. **NEVER access AsyncStorage directly** - Use `atomicProgressUpdate()` from GamifiedProgress (`@/gamification`)
 5. **ALWAYS use ArchivesTheme constants** - Never hardcode colors/spacing
 6. **Component naming**: `Adventure{N}_Module{N}_Lesson{N}.tsx` pattern
 7. **Clean commits**: Run `rm -f *.ipa *.apk build-*.ipa` before committing
@@ -66,30 +66,29 @@ color: '#C99151'                 // ❌ Use ArchivesTheme
 SafeAreaProvider + GestureHandlerRootView
 └── PostHogProvider (analytics from app launch)
     └── ClerkProvider (authentication)
-        └── AnalyticsWrapper (PostHog init + Customer.io + Sentry user linking)
-            └── BackgroundSyncProvider (cloud sync)
-                └── AdventuresContentProvider (Supabase content fetching)
-                    └── RewardsProvider (badges + avatars system)
-                        └── ProgressProvider (state management)
-                            └── PreferencesProvider (user preferences)
-                                └── AchievementsProvider (streaks + levels)
-                                    └── AIProvider (Gemini AI features)
-                                        └── AvatarAnimationWrapper (avatar unlock animations)
-                                            └── AchievementAnimationWrapper (achievement celebrations)
-                                                └── ThemeProvider + Stack Navigation + AIAssistant
+        └── AnalyticsWrapper (PostHog init + Customer.io + Sentry + session tracking)
+            └── AdventuresContentProvider (Supabase content fetching)
+                └── RewardsProvider (badges + avatars system)
+                    └── GamifiedProgressProvider (unified progress + cloud sync)
+                        └── PreferencesProvider (user preferences)
+                            └── AchievementsProvider (streaks + levels)
+                                └── AIProvider (Gemini AI features)
+                                    └── AvatarAnimationWrapper (avatar unlock animations)
+                                        └── AchievementAnimationWrapper (achievement celebrations)
+                                            └── ThemeProvider + Stack Navigation + AIAssistant
 ```
 
 **Critical initialization sequence:**
 1. PostHog initializes (conditional on iOS ATT permission)
 2. Clerk authenticates user
-3. BackgroundSync fetches cloud data (waits for Clerk)
-4. ProgressContext loads local AsyncStorage AFTER cloud sync completes
-5. This order prevents cloud data from being overwritten by stale local data
+3. AnalyticsWrapper handles session tracking (sign-in/sign-out, last active)
+4. GamifiedProgressProvider handles cloud sync internally (migration from legacy `user_data` to `gamification_data` table)
+5. This order ensures cloud data is properly restored before local state initializes
 
 **Key architectural patterns:**
-- **Web-compatible storage wrapper** in ProgressContext prevents SSR issues on web platform
-- **Centralized XP calculation** in ProgressContext (`calculateXPForEra`, `calculateTotalXP`) with era-specific rules
-- **Dual era system**: Legacy (Umayyad) vs New (ROI) with separate contexts but shared provider hierarchy
+- **Web-compatible storage wrapper** in GamifiedProgress prevents SSR issues on web platform
+- **Centralized XP calculation** in GamifiedProgress (`calculateXPForEra`, `calculateTotalXP`) with era-specific rules
+- **Unified cloud sync** - GamifiedProgress handles both local state and Supabase sync (debounced 2s)
 - **Font loading critical path**: DM Sans + Cormorant must load before splash screen hides (prevents flash)
 
 ### Progress System Architecture
@@ -104,10 +103,11 @@ SafeAreaProvider + GestureHandlerRootView
 
 **Unified Supabase-driven era system:**
 - **ALL eras come from Supabase** - `eras` table for era definitions, `content` table for adventures/modules/lessons
-- **Progress storage**: `newProgress` array in ProgressContext stores all module progress with `era_id`, `adventureId`, `moduleId`
+- **Progress storage**: `newProgress` array in GamifiedProgress stores all module progress with `era_id`, `adventureId`, `moduleId`
 - **Legacy compatibility**: Old `moduleProgress` array maintained for existing Era 1 user data (backward compat only)
 - **XP calculation**: `quizCorrectAnswers * 10` per module, tracked per-era via `era_xp` property
 - Both `atomicProgressUpdate()` (Era 1) and `saveNewProgressData()` (Era 2+) feed into same analytics
+- **Cloud table**: `gamification_data` (migrated from legacy `user_data` table)
 
 ### Module Completion Logic
 - **Unlock chain**: Adventure 1 unlocked by default → Complete all 3 modules → Unlock Adventure 2
@@ -236,14 +236,16 @@ eas update --branch production --message "Your update message"
 ### Working with Progress System
 
 ```typescript
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from '@/gamification';
 
 // In component
 const {
   atomicProgressUpdate,     // Update progress
   getModuleProgress,        // Read progress
-  isAdventureUnlocked      // Check unlock status
-} = useProgress();
+  isAdventureUnlocked,      // Check unlock status
+  calculateTotalXP,         // Calculate total XP across all eras
+  saveNewProgressData,      // Save new era progress (Era 2+)
+} = useGamifiedProgress();
 
 // Complete a lesson
 await atomicProgressUpdate(adventureId, moduleId, {
@@ -353,18 +355,24 @@ if (Platform.OS === 'ios' && !canTrack) {
 
 **Supabase single-table JSONB design:**
 ```sql
-CREATE TABLE user_data (
+CREATE TABLE gamification_data (
   user_id TEXT PRIMARY KEY,
-  data JSONB,  -- All progress data
-  updated_at TIMESTAMPTZ
+  data JSONB NOT NULL DEFAULT '{}',  -- All progress data
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-**Sync behavior:**
-1. Sign-in → Check cloud data
-2. Cloud exists → Restore from cloud (priority)
-3. No cloud → Upload local progress
-4. Ongoing → Debounced sync (2s) on changes
+**Sync behavior (handled by GamifiedProgress):**
+1. Sign-in → Check `gamification_data` for cloud data
+2. If not migrated → Migrate from legacy `user_data` table
+3. Cloud exists → Restore from cloud (priority)
+4. No cloud → Upload local progress
+5. Ongoing → Debounced sync (2s) on changes
+
+**Migration from legacy system:**
+- GamifiedProgress checks `migration_completed` flag
+- If false, reads from legacy `user_data` table and transforms data
+- Writes to new `gamification_data` table with migration flag set
 
 ## Console Logging Convention
 
@@ -382,7 +390,7 @@ console.log('🔔 Notification')    // Push notifications
 
 | Issue | Solution |
 |-------|----------|
-| Progress not saving | Check ProgressContext wrapping, network status |
+| Progress not saving | Check GamifiedProgressProvider wrapping, network status |
 | Video won't play | Verify CloudFront URL in browser |
 | Build fails | Check API keys in `eas.json` |
 | Module resolution error | `npx expo start --clear` |
@@ -418,6 +426,8 @@ console.log('🔔 Notification')    // Push notifications
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus
+- **Unified GamifiedProgress engine** - Consolidated `ProgressContext` + `SimplifiedSyncService` into single `GamifiedProgress.tsx`. All progress and cloud sync through `@/gamification` module.
+- **Cloud sync migration** - Migrated from `user_data` table to `gamification_data` table with automatic legacy data migration
 - **Unified Supabase-driven era system** - ALL eras come from Supabase (`eras` table + `content` table). Legacy Era 1 initialization removed. System is fully dynamic for future eras.
 - **Current content** - Era 1 (Umayyad Dynasty) and Era 2 (Rise of Islam) with 5 adventures each, all content in Supabase
 - **PostHog person properties** - User progress tracking via person properties for analytics
@@ -479,14 +489,19 @@ Before committing:
 - [ ] Test on iOS AND Android simulators
 - [ ] Physical device testing if using: notifications, auth, audio, haptics, subscriptions
 - [ ] Verify progress persists after restart
-- [ ] AsyncStorage only via ProgressContext (never direct)
+- [ ] AsyncStorage only via GamifiedProgress (never direct)
 - [ ] Remove build artifacts (`rm -f *.ipa *.apk`)
 - [ ] No Claude attribution in commit messages
 
 ## Types System
 
-Progress types are centralized in `/types/progress.ts`:
+Progress types are available from `@/gamification` (defined in `gamification/types/gamification.ts`):
 - `EraType` - LEGACY (Era 1) vs NEW (Era 2+)
 - `ModuleState` - LOCKED, LESSON1_AVAILABLE, LESSON1_COMPLETED, etc.
 - `ProgressUpdateAction` - LESSON_COMPLETED, QUIZ_COMPLETED, QUIZ_RETAKEN, MODULE_RESET
 - `ModuleProgress`, `AdventureProgress` - Core data structures
+
+**Import pattern:**
+```typescript
+import { EraType, ModuleState, type ModuleProgress } from '@/gamification';
+```

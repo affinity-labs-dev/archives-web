@@ -1,15 +1,14 @@
 // Profile Tab - EXACT replica of SwiftUI Profile.swift
 // Matches the exact structure: historical avatars + stats + badges + achievements + settings
 
-import AchievementDetailModal from '@/components/gamification/AchievementDetailModal'
-import AdventureCompleteScreen from '@/components/gamification/AdventureCompleteScreen'
-import GameHub from '@/components/gamification/GameHub'
-import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen'
+import AchievementDetailModal from '@/gamification/ui/displays/AchievementDetailModal'
+import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen'
+import GameHub from '@/gamification/ui/games/GameHub'
+import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { usePreferences } from '@/context/PreferencesContext'
-import { useProgress } from '@/context/ProgressContext'
-import { useRewards } from '@/context/RewardsContext'
-import { useAchievements } from '@/hooks/useAchievements'
+import { useGamifiedProgress, useRewards } from '@/gamification'
+import { useAchievements } from '@/gamification/engines/useAchievements'
 import { useAdventures } from '@/hooks/useAdventures'
 import { analyticsService } from '@/services/AnalyticsService'
 import { useAuth, useUser } from '@clerk/clerk-expo'
@@ -190,7 +189,7 @@ export default function ProfileTab() {
   const { signOut } = useAuth()
   const { user, isSignedIn } = useUser()
   const router = useRouter()
-  const { moduleProgress, calculateTotalXP, calculateModulesCompleted, selectedEra } = useProgress()
+  const { moduleProgress, calculateTotalXP, calculateModulesCompleted, selectedEra } = useGamifiedProgress()
   const { backgroundMusicEnabled, soundEffectsEnabled, hapticsEnabled, setBackgroundMusicEnabled, setSoundEffectsEnabled, setHapticsEnabled } = usePreferences()
 
   // Fallback: Ensure Clerk user ID is set in PostHog (production safety)

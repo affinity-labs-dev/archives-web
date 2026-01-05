@@ -5,18 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAdventures } from '@/hooks/useAdventures';
 import { useEras } from '@/hooks/useEras';
-import { useProgress } from '@/context/ProgressContext';
-import { useAI } from '@/context/AIContext';
+import { useGamifiedProgress, useAI, usePuzzleEngagement } from '@/gamification';
 import BentoGridScreen from '@/components/adventure/types/bento-grid/BentoGridScreen';
 import EraProgressHeader from '@/components/shared/EraProgressHeader';
 import ComingSoonView from '@/components/eras/ComingSoonView';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useBackgroundSync } from '@/context/BackgroundSyncProvider';
 import { useUser } from '@clerk/clerk-expo';
 import { analyticsService } from '@/services/AnalyticsService';
-import GameHub from '@/components/gamification/GameHub';
-import { usePuzzleEngagement } from '@/context/PuzzleEngagementContext';
+import GameHub from '@/gamification/ui/games/GameHub';
 
 // User progress type (era-agnostic)
 interface UserProgress {
@@ -32,7 +29,7 @@ interface UserProgress {
 
 export default function AdventuresScreen() {
   // Get selected era from context (data-driven)
-  const { selectedEra, moduleProgress } = useProgress();
+  const { selectedEra, moduleProgress, isLoading: gamificationLoading } = useGamifiedProgress();
 
   // Get AI context for updating era awareness
   const { updateContext } = useAI();
@@ -120,9 +117,6 @@ export default function AdventuresScreen() {
 
   // User sign-in detection for data reload
   const { user, isSignedIn } = useUser();
-
-  // CRITICAL: Wait for background sync to complete before loading data on login
-  const { isInitialized: syncInitialized } = useBackgroundSync();
 
   // Get user's completed eras for puzzle contextualization
   const getUserCompletedEras = useCallback(async (): Promise<string[]> => {
@@ -217,20 +211,20 @@ export default function AdventuresScreen() {
         return;
       }
 
-      // If signed in, WAIT for background sync to complete first
+      // If signed in, WAIT for GamifiedProgress to finish loading first
       if (isSignedIn && user) {
-        if (!syncInitialized) {
-          console.log('⏳ [Adventures] Waiting for background sync to complete...');
+        if (gamificationLoading) {
+          console.log('⏳ [Adventures] Waiting for gamification to initialize...');
           return;
         }
 
-        console.log(`✅ [Adventures] Background sync complete, loading data for: ${selectedEra}`);
+        console.log(`✅ [Adventures] Gamification ready, loading data for: ${selectedEra}`);
         loadProgress();
       }
     };
 
     loadData();
-  }, [isSignedIn, user?.id, syncInitialized, loadProgress, selectedEra]);
+  }, [isSignedIn, user?.id, gamificationLoading, loadProgress, selectedEra]);
 
   // Fallback: Ensure Clerk user ID is set in PostHog (production safety)
   useEffect(() => {

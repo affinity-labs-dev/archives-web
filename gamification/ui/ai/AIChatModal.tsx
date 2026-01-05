@@ -1,8 +1,8 @@
 // AIChatModal.tsx - AI chat interface (Ibu - AI Assistant)
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { useAI } from '@/context/AIContext';
-import { aiService } from '@/services/AIService';
-import { aiStorageService, StoredMessage } from '@/services/AIStorageService';
+import { useAI } from '@/gamification';
+import { aiService, aiStorageService } from '@/gamification';
+import type { StoredMessage } from '@/gamification';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useUser } from '@clerk/clerk-expo';
 import { useRevenueCat } from '@/hooks/useRevenueCat';

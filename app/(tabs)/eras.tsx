@@ -19,7 +19,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from '@/gamification';
 import { useEras, Era, isEraAccessible } from '@/hooks/useEras';
 import { EraCard, EraSelectionSkeleton } from '@/components/EraSelection';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -32,7 +32,7 @@ export default function EraSelection() {
 
   const { isSignedIn } = useAuth();
   const { user } = useUser();
-  const { setSelectedEra } = useProgress();
+  const { setSelectedEra } = useGamifiedProgress();
   const { eras, loading, error } = useEras();
 
   const [selectedEraId, setSelectedEraId] = useState<string | null>(null);

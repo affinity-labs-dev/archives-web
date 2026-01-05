@@ -1,7 +1,7 @@
 // useAchievements.ts - Achievement tracking and unlocking system
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from './GamifiedProgress';
 import { useDailyStreak } from './useDailyStreak';
 import { useAdventuresContent } from '@/context/AdventuresContentProvider';
 
@@ -231,7 +231,7 @@ function useAchievementsHook() {
   // Track achievements currently being unlocked to prevent duplicates
   const unlockingRef = React.useRef<Set<string>>(new Set());
 
-  const { moduleProgress, calculateTotalXP } = useProgress();
+  const { moduleProgress, calculateTotalXP } = useGamifiedProgress();
   const { streak } = useDailyStreak();
   const { getAdventures } = useAdventuresContent();
 

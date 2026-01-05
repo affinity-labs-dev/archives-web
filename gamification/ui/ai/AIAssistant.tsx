@@ -4,7 +4,7 @@
 import React from 'react';
 import FloatingAIButton from './FloatingAIButton';
 import AIChatModal from './AIChatModal';
-import { useAI } from '@/context/AIContext';
+import { useAI } from '@/gamification';
 import { useUser } from '@clerk/clerk-expo';
 
 export default function AIAssistant() {

@@ -6,7 +6,7 @@ import {
 import { useFonts } from "expo-font";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, Text, Platform, Linking } from "react-native";
+import { View, Text, Platform, Linking, AppState, AppStateStatus } from "react-native";
 import React from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -17,29 +17,32 @@ import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { PostHogProvider } from 'posthog-react-native';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { ProgressProvider } from "@/context/ProgressContext";
-import { BackgroundSyncProvider } from "@/context/BackgroundSyncProvider";
 import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
-import { RewardsProvider, useRewards } from "@/context/RewardsContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
-import { AIProvider } from "@/context/AIContext";
-import { PuzzleEngagementProvider } from "@/context/PuzzleEngagementContext";
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { analyticsService } from "@/services/AnalyticsService";
 import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
 import { usePostHog } from 'posthog-react-native';
-import { useAchievements, AchievementsProvider } from "@/hooks/useAchievements";
-import AvatarUnlockAnimation from "@/components/AvatarUnlockAnimation";
-import AvatarUnlockNotification from "@/components/AvatarUnlockNotification";
-import AchievementUnlockAnimation from "@/components/gamification/AchievementUnlockAnimation";
 import LoadingScreen from "@/components/LoadingScreen";
-import AIAssistant from "@/components/ai/AIAssistant";
-import PuzzlePromptWrapper from "@/components/gamification/PuzzlePromptWrapper";
 import * as Sentry from '@sentry/react-native';
 import CustomerIOService from '@/services/CustomerIOService';
-import gamificationOrchestrator from '@/components/gamification/GamificationOrchestrator';
+
+// Gamification imports - unified from @/gamification
+import {
+  GamifiedProgressProvider,
+  RewardsProvider,
+  useRewards,
+  AIProvider,
+  PuzzleEngagementProvider,
+} from "@/gamification";
+import { useAchievements, AchievementsProvider } from "@/gamification/engines/useAchievements";
+import AvatarUnlockAnimation from "@/gamification/ui/celebrations/AvatarUnlockAnimation";
+import AvatarUnlockNotification from "@/gamification/ui/celebrations/AvatarUnlockNotification";
+import AchievementUnlockAnimation from "@/gamification/ui/celebrations/AchievementUnlockAnimation";
+import AIAssistant from "@/gamification/ui/ai/AIAssistant";
+import PuzzlePromptWrapper from "@/gamification/ui/games/PuzzlePromptWrapper";
 
 Sentry.init({
   dsn: 'https://87a73fd4ec7ba02d87dccedcce85a9fa@o4510499177889792.ingest.de.sentry.io/4510499179790416',
@@ -136,6 +139,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const posthog = usePostHog();
   const { user, isSignedIn } = useUser();
 
+  // Track if user was previously signed in (to detect actual sign-out vs fresh install)
+  const wasSignedInRef = React.useRef(false);
+
   // Initialize Customer.io SDK IMMEDIATELY (not dependent on PostHog)
   // This runs once on mount to ensure Customer.io is ready before any events
   React.useEffect(() => {
@@ -161,6 +167,48 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       CustomerIOService.clearIdentify();
     }
   }, [isSignedIn, user]);
+
+  // Session tracking - track sign-in/sign-out for analytics
+  React.useEffect(() => {
+    // Skip on web during SSR
+    if (Platform.OS === 'web' && typeof window === 'undefined') {
+      return;
+    }
+
+    if (isSignedIn && user) {
+      console.log('🔑 [AnalyticsWrapper] User signed in, tracking session');
+      analyticsService.trackUserSessionIn('email');
+      wasSignedInRef.current = true;
+    } else if (!isSignedIn && wasSignedInRef.current) {
+      // Only reset analytics if user was PREVIOUSLY signed in (actual sign-out)
+      console.log('👋 [AnalyticsWrapper] User signed out, resetting analytics');
+      analyticsService.reset();
+      wasSignedInRef.current = false;
+    }
+  }, [isSignedIn, user]);
+
+  // Update last_active_at on initial app launch
+  React.useEffect(() => {
+    analyticsService.updateLastActiveAt();
+  }, []);
+
+  // Monitor app state changes for updating last_active_at - Native only
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        analyticsService.updateLastActiveAt();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
 
   // Initialize PostHog analytics + set user properties when both PostHog and Clerk user are ready
   React.useEffect(() => {
@@ -295,33 +343,10 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Gamification orchestrator initialization wrapper that must be inside ClerkProvider
+// Gamification wrapper - GamifiedProgressProvider handles all initialization internally
 function GamificationWrapper({ children }: { children: React.ReactNode }) {
-  const { user, isSignedIn } = useUser();
-  const [isInitialized, setIsInitialized] = React.useState(false);
-
-  // Initialize GamificationOrchestrator when user signs in
-  React.useEffect(() => {
-    const initializeGamification = async () => {
-      if (isSignedIn && user?.id) {
-        try {
-          console.log('🎮 [GamificationWrapper] Initializing orchestrator for user:', user.id);
-          await gamificationOrchestrator.initialize(user.id);
-          setIsInitialized(true);
-          console.log('✅ [GamificationWrapper] Orchestrator initialized successfully');
-        } catch (error) {
-          console.error('❌ [GamificationWrapper] Initialization error:', error);
-          // Don't block app - gamification is non-critical
-          setIsInitialized(true); // Set to true anyway to prevent blocking
-        }
-      } else {
-        setIsInitialized(false);
-      }
-    };
-
-    initializeGamification();
-  }, [isSignedIn, user?.id]);
-
+  // Note: Orchestrator initialization moved to GamifiedProgressProvider
+  // This wrapper is kept for potential future use
   return <>{children}</>;
 }
 
@@ -565,10 +590,9 @@ export default Sentry.wrap(function RootLayout() {
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
             <AnalyticsWrapper>
               <GamificationWrapper>
-                <BackgroundSyncProvider>
                   <AdventuresContentProvider>
                     <RewardsProvider>
-                      <ProgressProvider>
+                      <GamifiedProgressProvider>
                       <PuzzleEngagementProvider>
                         <PreferencesProvider>
                           <AchievementsProvider>
@@ -593,10 +617,9 @@ export default Sentry.wrap(function RootLayout() {
                           </AchievementsProvider>
                         </PreferencesProvider>
                       </PuzzleEngagementProvider>
-                    </ProgressProvider>
+                    </GamifiedProgressProvider>
                 </RewardsProvider>
               </AdventuresContentProvider>
-            </BackgroundSyncProvider>
           </GamificationWrapper>
           </AnalyticsWrapper>
           </ClerkProvider>

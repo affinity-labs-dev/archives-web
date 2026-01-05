@@ -1,6 +1,6 @@
 // useAIRecommendations.ts - Smart AI-powered recommendations
 import { useState, useEffect } from 'react';
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from './GamifiedProgress';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CACHE_KEY = 'ai_recommendations_cache';
@@ -31,7 +31,7 @@ export function useAIRecommendations() {
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { moduleProgress, calculateTotalXP } = useProgress();
+  const { moduleProgress, calculateTotalXP } = useGamifiedProgress();
 
   useEffect(() => {
     generateRecommendations();

@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useLessonTracking } from '@/hooks/useLessonTracking';
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from '@/gamification';
 import type { ContentItem } from '@/components/shared/types';
 
 // Lesson type for analytics and walkthrough
@@ -88,7 +88,7 @@ export function useLessonBase({
   const moduleNumber = contentItem.order_by || 0;
 
   // Progress context for saving lesson completion
-  const { saveNewProgressData } = useProgress();
+  const { saveNewProgressData } = useGamifiedProgress();
 
   // Walkthrough state
   const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);

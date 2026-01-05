@@ -6,8 +6,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Rect, Defs, Filter, FeGaussianBlur, FeFlood, FeComposite, FeMerge, FeMergeNode, Path } from 'react-native-svg';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { useDailyStreak } from '@/hooks/useDailyStreak';
-import { useLevel } from '@/hooks/useLevel';
+import { useDailyStreak, useLevel } from '@/gamification';
 
 // Streak icon (flame)
 const StreakIcon = ({ size = 14 }: { size?: number }) => (

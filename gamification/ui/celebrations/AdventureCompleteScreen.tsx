@@ -11,7 +11,7 @@
 import type { Adventure } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from '@/gamification';
 import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
 import { analyticsService } from '@/services/AnalyticsService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -143,7 +143,7 @@ export default function AdventureCompleteScreen({
   onClose,
 }: AdventureCompleteScreenProps) {
   // Get progress functions
-  const { getROIAdventureStats } = useProgress();
+  const { getROIAdventureStats } = useGamifiedProgress();
 
   // State for calculated stats
   const [calculatedStats, setCalculatedStats] = useState({ xp: 0, completedModules: 0 });

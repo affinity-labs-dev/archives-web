@@ -17,7 +17,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from '@/gamification';
 import { useQuizTracking } from '@/hooks/useQuizTracking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -25,11 +25,10 @@ import { useQuizSounds } from '@/hooks/useQuizSounds';
 import type { ContentItem } from '@/components/shared/types';
 import QuizResults from './QuizResults';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
-import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen';
+import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
-import { useAchievements } from '@/hooks/useAchievements';
-import gamificationOrchestrator from '@/components/gamification/GamificationOrchestrator';
+import { useAchievements } from '@/gamification/engines/useAchievements';
 
 interface QuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
@@ -281,7 +280,7 @@ export default function Quiz({
   onBack,
   onMilestoneReached,
 }: QuizProps) {
-  const { saveNewProgressData, calculateTotalXP, checkIfCrossed50XPBoundary } = useProgress();
+  const { saveNewProgressData, calculateTotalXP, checkIfCrossed50XPBoundary } = useGamifiedProgress();
   const insets = useSafeAreaInsets();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
   const { checkAchievements, checkTimeBasedAchievement } = useAchievements();

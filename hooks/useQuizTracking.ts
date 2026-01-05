@@ -2,7 +2,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { analyticsService } from '@/services/AnalyticsService';
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from '@/gamification';
 
 interface UseQuizTrackingProps {
   adventureId: number | string; // Support both Era 1 (number) and Era 2 (string)
@@ -38,7 +38,7 @@ export function useQuizTracking({
   const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
 
   // Access progress context for XP calculations
-  const { calculateTotalXP, moduleProgress } = useProgress();
+  const { calculateTotalXP, moduleProgress } = useGamifiedProgress();
 
   // Load new user progress data for XP calculations
   useEffect(() => {

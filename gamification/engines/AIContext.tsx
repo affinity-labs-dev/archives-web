@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChatMessage } from '@/components/ai/AIChatModal';
-import { useProgress } from './ProgressContext';
+import { useGamifiedProgress } from './GamifiedProgress';
 import { aiContextService, type AIKnowledgeContext } from '@/services/AIContextService';
 
 const CHAT_HISTORY_KEY = 'ai_chat_history';
@@ -76,7 +76,7 @@ export function AIProvider({ children }: AIProviderProps) {
     moduleProgress,
     calculateTotalXP,
     getModuleProgress,
-  } = useProgress();
+  } = useGamifiedProgress();
 
   // Load new era progress (Era 2+) from AsyncStorage
   const loadNewEraProgress = useCallback(async () => {

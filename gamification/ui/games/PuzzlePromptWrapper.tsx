@@ -3,7 +3,7 @@
 // Should be added to app layout to be always available
 
 import React, { useState } from 'react';
-import { usePuzzleEngagement } from '@/context/PuzzleEngagementContext';
+import { usePuzzleEngagement } from '@/gamification';
 import PuzzlePrompt from './PuzzlePrompt';
 import GameHub from './GameHub';
 

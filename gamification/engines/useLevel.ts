@@ -1,6 +1,6 @@
 // useLevel.ts - Calculate user level from total XP
 import { useState, useEffect } from 'react';
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from './GamifiedProgress';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LAST_LEVEL_KEY = 'last_user_level';
@@ -23,7 +23,7 @@ const LEVELS: Level[] = [
 ];
 
 export function useLevel() {
-  const { moduleProgress, calculateTotalXP } = useProgress();
+  const { moduleProgress, calculateTotalXP } = useGamifiedProgress();
   const [currentLevel, setCurrentLevel] = useState<Level>(LEVELS[0]);
   const [didLevelUp, setDidLevelUp] = useState(false);
   const [isLoading, setIsLoading] = useState(true);

@@ -20,7 +20,7 @@ import GameContainer from './shared/GameContainer';
 import JigsawGame from './games/Jigsaw/JigsawGame';
 import type { GameMode, GameType, GameDifficulty, JigsawGameData, GameResult } from '@/types/games';
 import { analyticsService } from '@/services/AnalyticsService';
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from '@/gamification';
 import { gameGeneratorService } from '@/services/GameGeneratorService';
 
 interface GameHubProps {
@@ -53,7 +53,7 @@ export default function GameHub({
   // Ref to store the preload promise so we can await it when needed
   const preloadPromiseRef = useRef<Promise<JigsawGameData | null> | null>(null);
 
-  const { moduleProgress } = useProgress();
+  const { moduleProgress } = useGamifiedProgress();
 
   // Determine which eras to use for puzzle themes
   const getUserCompletedEras = async (): Promise<string[] | undefined> => {

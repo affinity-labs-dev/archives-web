@@ -19,7 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { VideoView } from 'expo-video';
 import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
 import { analyticsService } from '@/services/AnalyticsService';
-import { useProgress } from '@/context/ProgressContext';
+import { useGamifiedProgress } from '@/gamification';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import AIQuizExplanation from './AIQuizExplanation';
 import type { Question } from '@/components/shared/types';
@@ -141,7 +141,7 @@ export default function QuizResults({
   const messages = getResultMessages(percentage);
 
   // Access progress context for XP calculations
-  const { calculateTotalXP, moduleProgress } = useProgress();
+  const { calculateTotalXP, moduleProgress } = useGamifiedProgress();
   const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
 
   // Load new user progress data for XP calculations

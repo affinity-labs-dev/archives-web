@@ -3,7 +3,7 @@
 
 import { Question } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { aiService } from '@/services/AIService';
+import { aiService } from '@/gamification';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';

@@ -1,6 +1,6 @@
 import AdventureComponent from '@/components/adventure/shared/AdventureComponent';
-import AdventureCompleteScreen from '@/components/gamification/AdventureCompleteScreen';
-import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen';
+import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen';
+import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 import LessonPlayer from '@/components/lessons/LessonPlayer';
 import Quiz from '@/components/quiz/Quiz';
 import type { Adventure, ContentItem } from '@/components/shared/types';
