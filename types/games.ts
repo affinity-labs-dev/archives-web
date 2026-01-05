@@ -32,9 +32,10 @@ export interface JigsawGameData {
   type: 'jigsaw';
   difficulty: GameDifficulty;
   imageUrl: string; // Full image URL
-  gridSize: 3 | 4 | 5 | 6; // 3x3=9 pieces, 4x4=16, 5x5=25, 6x6=36
+  gridSize: number; // Grid size (3×3 to 12×12 for intelligent difficulty scaling)
   pieces: JigsawPieceData[];
   topic: string; // "Abbasid Architecture", etc.
+  id?: string; // Unique puzzle ID for React key
 }
 
 // ============================================
@@ -147,6 +148,8 @@ export interface GameGenerationRequest {
   difficulty: GameDifficulty;
   eraId?: string; // Optional: Filter to specific era
   adventureId?: string; // Optional: Filter to specific adventure
+  gridSize?: number; // Optional: Override grid size for jigsaw puzzles (for intelligent difficulty scaling)
+  userCompletedEras?: string[]; // Optional: User's completed eras for contextual puzzle themes
 }
 
 // ============================================

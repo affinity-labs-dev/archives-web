@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { ActivityIndicator, Text, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, Text, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAdventures } from '@/hooks/useAdventures';
 import { useEras } from '@/hooks/useEras';
 import { useProgress } from '@/context/ProgressContext';
@@ -13,6 +15,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBackgroundSync } from '@/context/BackgroundSyncProvider';
 import { useUser } from '@clerk/clerk-expo';
 import { analyticsService } from '@/services/AnalyticsService';
+import GameHub from '@/components/gamification/GameHub';
+import { usePuzzleEngagement } from '@/context/PuzzleEngagementContext';
 
 // User progress type (era-agnostic)
 interface UserProgress {
@@ -28,7 +32,7 @@ interface UserProgress {
 
 export default function AdventuresScreen() {
   // Get selected era from context (data-driven)
-  const { selectedEra } = useProgress();
+  const { selectedEra, moduleProgress } = useProgress();
 
   // Get AI context for updating era awareness
   const { updateContext } = useAI();
@@ -42,6 +46,13 @@ export default function AdventuresScreen() {
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Puzzle FAB state
+  const [showGameHub, setShowGameHub] = useState(false);
+  const [showNewPuzzleBadge, setShowNewPuzzleBadge] = useState(false);
+
+  // Puzzle engagement tracking
+  const { trackScreenChange, trackScrollActivity } = usePuzzleEngagement();
 
   // Get selected era data from eras table
   const selectedEraData = useMemo(() => {
@@ -113,6 +124,65 @@ export default function AdventuresScreen() {
   // CRITICAL: Wait for background sync to complete before loading data on login
   const { isInitialized: syncInitialized } = useBackgroundSync();
 
+  // Get user's completed eras for puzzle contextualization
+  const getUserCompletedEras = useCallback(async (): Promise<string[]> => {
+    const completedEras: string[] = [];
+
+    // Check legacy Era 1 (Umayyad Dynasty) - no era_id in old system
+    if (moduleProgress && moduleProgress.length > 0) {
+      completedEras.push('era_1'); // Legacy era uses 'era_1' key for themes
+    }
+
+    // Check new eras - read from AsyncStorage
+    try {
+      const newProgressData = await AsyncStorage.getItem('new_user_progress');
+      if (newProgressData) {
+        const newProgress: UserProgress[] = JSON.parse(newProgressData);
+        const uniqueEras = [...new Set(newProgress.map((p: UserProgress) => p.era_id))];
+        // Add all unique era_ids from Supabase directly
+        completedEras.push(...uniqueEras);
+      }
+    } catch (error) {
+      console.error('❌ [Adventures] Error reading new progress:', error);
+    }
+
+    return completedEras;
+  }, [moduleProgress]);
+
+  // Check for new unlocked puzzle eras and show badge
+  useEffect(() => {
+    const checkNewEras = async () => {
+      try {
+        const currentEras = await getUserCompletedEras();
+        const lastKnownEras = await AsyncStorage.getItem('last_known_puzzle_eras');
+
+        if (currentEras.length === 0) {
+          // No completed eras yet
+          setShowNewPuzzleBadge(false);
+          return;
+        }
+
+        if (!lastKnownEras) {
+          // First time - show badge if user has any completed eras
+          setShowNewPuzzleBadge(currentEras.length > 0);
+          return;
+        }
+
+        const lastEras: string[] = JSON.parse(lastKnownEras);
+        const hasNewEras = currentEras.some(era => !lastEras.includes(era));
+        setShowNewPuzzleBadge(hasNewEras);
+
+        if (hasNewEras) {
+          console.log('🎉 [Adventures] New puzzle eras unlocked!', currentEras);
+        }
+      } catch (error) {
+        console.error('❌ [Adventures] Error checking puzzle eras:', error);
+      }
+    };
+
+    checkNewEras();
+  }, [getUserCompletedEras]);
+
   // Load user progress from AsyncStorage
   const loadProgress = useCallback(async () => {
     try {
@@ -181,8 +251,11 @@ export default function AdventuresScreen() {
       if (selectedEra) {
         console.log(`🔄 [Adventures] Screen focused, reloading progress for: ${selectedEra}`);
         loadProgress();
+
+        // Track screen change for puzzle engagement
+        trackScreenChange('navigation', { era: selectedEra });
       }
-    }, [loadProgress, selectedEra])
+    }, [loadProgress, selectedEra, trackScreenChange])
   );
 
   // Handle pull-to-refresh
@@ -199,6 +272,31 @@ export default function AdventuresScreen() {
       setRefreshing(false);
     }
   }, [refreshAdventures, loadProgress, selectedEra]);
+
+  // Handle puzzle FAB press
+  const handlePuzzleFABPress = useCallback(async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Save current completed eras to clear badge
+      const currentEras = await getUserCompletedEras();
+      await AsyncStorage.setItem('last_known_puzzle_eras', JSON.stringify(currentEras));
+      setShowNewPuzzleBadge(false);
+
+      // Open GameHub
+      setShowGameHub(true);
+
+      // Track analytics
+      analyticsService.trackCustomEvent('puzzle_fab_pressed', {
+        completed_eras: currentEras,
+        had_badge: showNewPuzzleBadge,
+      });
+
+      console.log('🎮 [Adventures] Opening puzzle hub');
+    } catch (error) {
+      console.error('❌ [Adventures] Error opening puzzle hub:', error);
+    }
+  }, [getUserCompletedEras, showNewPuzzleBadge]);
 
   // No era selected - show message
   if (!selectedEra) {
@@ -262,6 +360,30 @@ export default function AdventuresScreen() {
         onProgressUpdate={loadProgress}
         refreshing={refreshing}
         onRefresh={handleRefresh}
+        onScrollActivity={trackScrollActivity}
+      />
+
+      {/* Floating Action Button for Puzzles */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handlePuzzleFABPress}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="extension-puzzle" size={28} color="white" />
+        {showNewPuzzleBadge && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>NEW</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* GameHub Modal */}
+      <GameHub
+        visible={showGameHub}
+        onClose={() => setShowGameHub(false)}
+        initialGameType="jigsaw"
+        initialTopic="Islamic History"
+        currentEraId={supabaseEraId} // Pass current era for contextual puzzles
       />
     </View>
   );
@@ -297,5 +419,39 @@ const styles = StyleSheet.create({
     fontFamily: 'DM Sans',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#E74C3C',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 2,
+    borderColor: ArchivesTheme.colors.creamWhite,
+  },
+  badgeText: {
+    fontFamily: 'DM Sans',
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: 'white',
+    letterSpacing: 0.5,
   },
 });

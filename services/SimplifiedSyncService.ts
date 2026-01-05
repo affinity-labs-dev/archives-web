@@ -1,12 +1,12 @@
 // Simplified Background Sync Service - Single Table JSONB Storage
 // Replaces the three-table structure with one simple table per user
 
+import { calculateAdventuresCompleted, calculateErasCompleted, calculateEraXP, calculateLessonsCompleted, calculateModulesCompleted, calculateXPForEra } from "@/context/ProgressContext";
 import { supabase } from "@/hooks/lib/supabase";
+import { EraType } from "@/types/progress";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { analyticsService } from "./AnalyticsService";
-import { calculateXPForEra, calculateModulesCompleted, calculateEraXP, calculateLessonsCompleted, calculateAdventuresCompleted, calculateErasCompleted } from "@/context/ProgressContext";
-import { EraType } from "@/types/progress";
 
 // Types matching local AsyncStorage structure
 interface ModuleProgress {
@@ -45,11 +45,13 @@ interface UserData {
     // New progress system - flows AS IS from content_list
     adventureId: string;
     moduleId: string;
+    lessonsCompleted: string[]; // ✅ Track lesson completions
     quizScore: number;
+    quizCorrectAnswers: number; // Actual correct answers for XP calculation
     isCompleted: boolean;
     quizCompleted: boolean;
     completedAt: string;
-    era_id: number;
+    era_id: string; // Era ID (e.g., "rise_of_islam", "umayyad")
   }>;
   streak?: StreakData; // Daily learning streak data
 }
@@ -167,71 +169,63 @@ class SimplifiedSyncService {
   private async saveAllLocalData(userData: UserData) {
     const promises = [];
 
-    if (userData.selectedEra) {
-      promises.push(
-        AsyncStorage.setItem(STORAGE_KEYS.SELECTED_ERA, userData.selectedEra)
-      );
-    }
+    // ALWAYS set to clear old user's data (even if undefined/null for new users)
+    promises.push(
+      AsyncStorage.setItem(STORAGE_KEYS.SELECTED_ERA, userData.selectedEra || '')
+    );
 
-    // Save totalXP if available
-    if (userData.totalXP !== undefined) {
-      promises.push(
-        AsyncStorage.setItem('totalXP', JSON.stringify(userData.totalXP))
-      );
-      console.log(`✅ Restored totalXP from cloud: ${userData.totalXP}`);
-    }
+    // Save totalXP - ALWAYS set to clear old user's data
+    promises.push(
+      AsyncStorage.setItem('totalXP', JSON.stringify(userData.totalXP || 0))
+    );
+    console.log(`✅ Restored totalXP from cloud: ${userData.totalXP || 0}`);
 
-    // Era 1 data
-    if (userData.adventures.length > 0) {
-      promises.push(
-        AsyncStorage.setItem(
-          STORAGE_KEYS.ADVENTURE_PROGRESS,
-          JSON.stringify(userData.adventures)
-        )
-      );
-    }
+    // Era 1 data - ALWAYS set to clear old user's data
+    promises.push(
+      AsyncStorage.setItem(
+        STORAGE_KEYS.ADVENTURE_PROGRESS,
+        JSON.stringify(userData.adventures || [])
+      )
+    );
 
-    if (userData.modules.length > 0) {
-      promises.push(
-        AsyncStorage.setItem(
-          STORAGE_KEYS.MODULE_PROGRESS,
-          JSON.stringify(userData.modules)
-        )
-      );
-    }
+    promises.push(
+      AsyncStorage.setItem(
+        STORAGE_KEYS.MODULE_PROGRESS,
+        JSON.stringify(userData.modules || [])
+      )
+    );
 
-    // New progress data
-    if (userData.newProgress && userData.newProgress.length > 0) {
-      promises.push(
-        AsyncStorage.setItem(
-          STORAGE_KEYS.NEW_USER_PROGRESS,
-          JSON.stringify(userData.newProgress)
-        )
-      );
-      console.log(`✅ Restored ${userData.newProgress.length} new system modules from cloud`);
-    }
+    // New progress data - ALWAYS set to clear old user's data
+    promises.push(
+      AsyncStorage.setItem(
+        STORAGE_KEYS.NEW_USER_PROGRESS,
+        JSON.stringify(userData.newProgress || [])
+      )
+    );
+    console.log(`✅ Restored ${userData.newProgress?.length || 0} new system modules from cloud`);
 
-    // Streak data
-    if (userData.streak) {
-      promises.push(
-        AsyncStorage.setItem(
-          STORAGE_KEYS.DAILY_STREAK,
-          JSON.stringify({
-            currentStreak: userData.streak.currentStreak,
-            longestStreak: userData.streak.longestStreak,
-            lastActiveDate: userData.streak.lastActiveDate,
-            longestStreakDate: userData.streak.longestStreakDate,
-          })
-        )
-      );
-      promises.push(
-        AsyncStorage.setItem(
-          STORAGE_KEYS.LAST_ACTIVE_DATE,
-          userData.streak.lastActiveDate
-        )
-      );
-      console.log(`🔥 Restored streak from cloud: ${userData.streak.currentStreak} days (longest: ${userData.streak.longestStreak}${userData.streak.longestStreakDate ? ` on ${userData.streak.longestStreakDate}` : ''})`);
-    }
+    // Streak data - ALWAYS set to clear old user's data
+    const defaultStreak = {
+      currentStreak: 0,
+      longestStreak: 0,
+      lastActiveDate: new Date().toISOString().split('T')[0],
+      longestStreakDate: new Date().toISOString().split('T')[0],
+    };
+    const streakToSave = userData.streak || defaultStreak;
+
+    promises.push(
+      AsyncStorage.setItem(
+        STORAGE_KEYS.DAILY_STREAK,
+        JSON.stringify(streakToSave)
+      )
+    );
+    promises.push(
+      AsyncStorage.setItem(
+        STORAGE_KEYS.LAST_ACTIVE_DATE,
+        streakToSave.lastActiveDate
+      )
+    );
+    console.log(`🔥 Restored streak from cloud: ${streakToSave.currentStreak} days (longest: ${streakToSave.longestStreak}${streakToSave.longestStreakDate ? ` on ${streakToSave.longestStreakDate}` : ''})`);
 
     await Promise.all(promises);
 
@@ -364,7 +358,7 @@ class SimplifiedSyncService {
       await this.saveAllLocalData(userData);
       console.log('✅ [SYNC] Cloud data restored successfully!');
     } else {
-      console.log('⚠️ [SYNC] Cloud data exists but is empty or invalid');
+      console.log('⚠️ [SYNC] es but is empty or invalid');
     }
   }
 

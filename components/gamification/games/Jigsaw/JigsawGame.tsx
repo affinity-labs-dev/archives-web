@@ -1,30 +1,41 @@
 // JigsawGame.tsx - Main jigsaw puzzle game component
 // Orchestrates board, pieces, and game logic
 
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView, TouchableOpacity, Modal, Image } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Modal, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import JigsawBoard from './JigsawBoard';
 import JigsawPiece from './JigsawPiece';
 import { useJigsawLogic } from './useJigsawLogic';
+import { PuzzleEdgeMap } from './PuzzleEdgeMap';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import type { JigsawGameData } from '@/types/games';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface JigsawGameProps {
   gameData: JigsawGameData;
   onGameStart?: () => void;
   onGameComplete?: () => void;
+  onNearCompletion?: () => void;
+  onClose?: () => void;
+  onNextPuzzle?: () => void;
   isGameStarted?: boolean;
+  mode?: 'practice' | 'challenge';
+  formattedTime?: string;
 }
 
 export default function JigsawGame({
   gameData,
   onGameStart,
   onGameComplete,
+  onNearCompletion,
+  onClose,
+  onNextPuzzle,
   isGameStarted,
+  mode,
+  formattedTime,
 }: JigsawGameProps) {
   // Calculate cell size based on screen width (leave margins)
   const BOARD_MARGIN = 40;
@@ -36,7 +47,18 @@ export default function JigsawGame({
     gameData,
     cellSize,
     onComplete: onGameComplete,
+    onNearCompletion,
   });
+
+  // Generate coordinated edge map for perfect interlocking
+  // Use gameData.id as seed for consistency across restarts
+  const edgeMap = useMemo(() => {
+    const seed = gameData.id ? parseInt(gameData.id.replace(/\D/g, '')) || 42 : 42;
+    const map = new PuzzleEdgeMap(gameData.gridSize, seed);
+    map.verify(); // Verify edges match correctly
+    console.log('🧩 [JigsawGame] Edge map generated for perfect interlocking');
+    return map;
+  }, [gameData.gridSize, gameData.id]);
 
   // Hint modal state
   const [showHint, setShowHint] = useState(false);
@@ -52,33 +74,57 @@ export default function JigsawGame({
 
   return (
     <View style={styles.container}>
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${jigsawLogic.progressPercentage}%` },
-            ]}
-          />
-        </View>
-        <Text style={styles.progressText}>
-          {jigsawLogic.correctPlacements}/{gameData.pieces.length} pieces placed
-        </Text>
-      </View>
+      {/* Header: Close + Timer + Progress + Hint all in one row */}
+      <View style={styles.headerContainer}>
+        {/* Close Button */}
+        {onClose && (
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onClose();
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={24} color={ArchivesTheme.colors.shoeBrown} />
+          </TouchableOpacity>
+        )}
 
-      {/* Hint Button */}
-      <TouchableOpacity
-        style={styles.hintButton}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          setShowHint(true);
-        }}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="help-circle" size={24} color={ArchivesTheme.colors.persianOrange} />
-        <Text style={styles.hintButtonText}>Show Hint</Text>
-      </TouchableOpacity>
+        {/* Timer (Challenge mode only) */}
+        {mode === 'challenge' && formattedTime && (
+          <View style={styles.timerContainer}>
+            <Ionicons name="time-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
+            <Text style={styles.timerText}>{formattedTime}</Text>
+          </View>
+        )}
+
+        {/* Progress Section */}
+        <View style={styles.progressSection}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${jigsawLogic.progressPercentage}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {jigsawLogic.correctPlacements}/{gameData.pieces.length}
+          </Text>
+        </View>
+
+        {/* Hint Button */}
+        <TouchableOpacity
+          style={styles.hintButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowHint(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="help-circle" size={20} color={ArchivesTheme.colors.persianOrange} />
+        </TouchableOpacity>
+      </View>
 
       {/* Game Board */}
       <View style={styles.boardContainer}>
@@ -94,17 +140,41 @@ export default function JigsawGame({
               gridSize={gameData.gridSize}
               isCorrect={jigsawLogic.isPieceCorrect(piece.id)}
               onDrop={jigsawLogic.placePiece}
+              edgeMap={edgeMap}
+              isPuzzleComplete={jigsawLogic.isComplete}
             />
           ))}
         </View>
       </View>
 
-      {/* Instructions */}
-      <View style={styles.instructionsContainer}>
-        <Text style={styles.instructionsText}>
-          Drag pieces around the board to arrange them correctly!
-        </Text>
-      </View>
+      {/* Instructions or Action Button */}
+      {jigsawLogic && (
+        <View style={styles.footerContainer}>
+          {!jigsawLogic.isComplete ? (
+            <Text style={styles.instructionsText}>
+              Drag pieces around the board to arrange them correctly!
+            </Text>
+          ) : (
+            <TouchableOpacity
+              style={styles.continueButton}
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                if (onNextPuzzle) {
+                  onNextPuzzle();
+                } else {
+                  onClose?.();
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.continueButtonText}>
+                {onNextPuzzle ? 'Next Puzzle' : 'Continue'}
+              </Text>
+              <Ionicons name="arrow-forward" size={20} color="white" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Hint Modal */}
       <Modal visible={showHint} transparent={true} animationType="fade">
@@ -144,48 +214,62 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    borderRadius: 4,
-  },
-  progressText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: '#7F8C8D',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  hintButton: {
+  headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
-    gap: 8,
+    gap: 10,
+    zIndex: 100, // Keep header above puzzle pieces
   },
-  hintButtonText: {
+  closeButton: {
+    padding: 4,
+  },
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#FFF8DC',
+    borderRadius: 6,
+  },
+  timerText: {
     fontFamily: 'DM Sans',
-    fontSize: 14,
+    fontSize: 13,
     color: ArchivesTheme.colors.persianOrange,
     fontWeight: '600',
+  },
+  progressSection: {
+    flex: 1,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    borderRadius: 3,
+  },
+  progressText: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: '#7F8C8D',
+    fontWeight: '600',
+  },
+  hintButton: {
+    padding: 6,
+    backgroundColor: ArchivesTheme.colors.creamWhite,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: ArchivesTheme.colors.persianOrange,
   },
   boardContainer: {
     flex: 1,
@@ -196,12 +280,14 @@ const styles = StyleSheet.create({
   boardWrapper: {
     position: 'relative',
   },
-  instructionsContainer: {
+  footerContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+    zIndex: 100, // Keep footer above puzzle pieces
+    alignItems: 'center',
   },
   instructionsText: {
     fontFamily: 'DM Sans',
@@ -209,6 +295,27 @@ const styles = StyleSheet.create({
     color: '#7F8C8D',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  continueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  continueButtonText: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
   },
   hintModalOverlay: {
     flex: 1,

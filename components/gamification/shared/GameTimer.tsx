@@ -1,10 +1,10 @@
 // GameTimer.tsx - Visual timer display for Challenge mode
 // Shows elapsed time with clean UI
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import ArchivesTheme from '@/constants/ArchivesTheme';
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 interface GameTimerProps {
   formattedTime: string; // "MM:SS" format

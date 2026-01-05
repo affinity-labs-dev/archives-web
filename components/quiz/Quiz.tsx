@@ -29,6 +29,7 @@ import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen';
 import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useAchievements } from '@/hooks/useAchievements';
+import gamificationOrchestrator from '@/components/gamification/GamificationOrchestrator';
 
 interface QuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
@@ -320,6 +321,8 @@ export default function Quiz({
   const [showResults, setShowResults] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [userAnswers, setUserAnswers] = useState<number[]>([]); // Track all user answers for AI explanations
+  const [questionTimings, setQuestionTimings] = useState<number[]>([]); // Track time taken for each question (in seconds)
+  const [quizStartTime] = useState(new Date().toISOString()); // Track quiz start time
 
   // Mid-quiz milestone detection
   const [initialXP, setInitialXP] = useState(0);
@@ -384,8 +387,9 @@ export default function Quiz({
     const isCorrect = selectedAnswer === correctAnswerIndex;
     const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000);
 
-    // Save user's answer for AI explanations
+    // Save user's answer and timing for AI explanations and gamification tracking
     setUserAnswers(prev => [...prev, selectedAnswer]);
+    setQuestionTimings(prev => [...prev, timeTaken]);
 
     // Track answer submission
     trackQuestionAnswered(
@@ -474,6 +478,12 @@ export default function Quiz({
     const oldXP = calculateTotalXP([], newModules); // Only Era 2 XP
     console.log(`📊 Old XP (Era 2 before quiz): ${oldXP}`);
 
+    // Check if this module already has tracked lessons
+    const existingModule = newModules.find((m: any) =>
+      m.adventureId === adventureId && m.moduleId === moduleId
+    );
+    const existingLessons = existingModule?.lessonsCompleted || [];
+
     // Always save progress (no minimum check for new system)
     const moduleData = {
       adventureId,     // Database readable_id (e.g., "roi_adventure_1")
@@ -483,11 +493,46 @@ export default function Quiz({
       isCompleted: true,
       quizCompleted: true,
       completedAt: new Date().toISOString(),
-      era_id: eraId    // Era-agnostic: use prop instead of hardcoded value
+      era_id: eraId,    // Era-agnostic: use prop instead of hardcoded value
+      lessonsCompleted: existingLessons // Preserve lessons already completed, backfill will handle if empty
     };
 
     console.log('💾 [NEW] Saving quiz completion:', moduleData);
     await saveNewProgressData(moduleData);
+
+    // Track attempt in GamificationOrchestrator for detailed analytics
+    console.log('🎮 [Gamification] Tracking quiz attempt in orchestrator');
+    try {
+      // Build question results array
+      const questionResults = questions.map((question: any, index: number) => {
+        const userAnswerIndex = userAnswers[index];
+        const correctAnswerIndex = question.correct_answer_index;
+        const isCorrect = userAnswerIndex === correctAnswerIndex;
+
+        return {
+          q_index: index + 1,
+          question_text: question.question || '',
+          correct: isCorrect,
+          user_answer: userAnswerIndex !== undefined ? question.options?.[userAnswerIndex] : undefined,
+          correct_answer: isCorrect ? undefined : question.options?.[correctAnswerIndex],
+          time_taken_seconds: questionTimings[index] || 0,
+        };
+      });
+
+      await gamificationOrchestrator.trackAttempt({
+        era_id: eraId,
+        adventure_id: adventureId,
+        module_id: moduleId,
+        quiz_score: correctAnswers,
+        started_at: quizStartTime,
+        completed_at: new Date().toISOString(),
+        questions: questionResults,
+      });
+      console.log('✅ [Gamification] Attempt tracked successfully');
+    } catch (error) {
+      console.error('❌ [Gamification] Error tracking attempt:', error);
+      // Don't block quiz completion if gamification fails
+    }
 
     // Check achievements immediately after quiz completion (for instant feedback)
     console.log('🏆 [Quiz] About to check achievements...');
@@ -552,6 +597,7 @@ export default function Quiz({
     setShowResults(false);
     setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
     setUserAnswers([]); // Reset user answers for fresh quiz attempt
+    setQuestionTimings([]); // Reset question timings for fresh quiz attempt
   };
 
   const isCorrect = selectedAnswer === correctAnswerIndex;

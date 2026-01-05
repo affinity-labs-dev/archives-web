@@ -39,3 +39,18 @@ yarn-error.*
 app-example
 
 .env.local
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.ipa
+*.apk
+build-*.ipa
+
+# Test data
+data/
+scripts/

@@ -2,7 +2,7 @@
 // Shows ghost outline and drop zones
 
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions, Image } from 'react-native';
 import type { JigsawGameData } from '@/types/games';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -41,13 +41,23 @@ export default function JigsawBoard({ gameData, cellSize }: JigsawBoardProps) {
 
   return (
     <View style={[styles.board, { width: boardSize, height: boardSize }]}>
+      {/* Faded background image - fills gaps visible through puzzle pieces */}
+      <Image
+        source={{ uri: gameData.imageUrl }}
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            width: boardSize,
+            height: boardSize,
+            opacity: 0.12,
+            borderRadius: 6, // Match board border radius
+          },
+        ]}
+        resizeMode="cover"
+      />
+
       {/* Grid lines */}
       {renderGrid()}
-
-      {/* Ghost image (shows completed puzzle faintly) */}
-      <View style={styles.ghostContainer} pointerEvents="none">
-        {/* Could add a semi-transparent reference image here */}
-      </View>
     </View>
   );
 }
@@ -69,9 +79,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderWidth: 0.5,
     borderColor: '#E0E0E0',
-  },
-  ghostContainer: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.1,
   },
 });

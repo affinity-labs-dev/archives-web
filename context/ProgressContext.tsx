@@ -11,6 +11,7 @@ import { useBackgroundSync } from '@/context/BackgroundSyncProvider'
 import { useRewards } from '@/context/RewardsContext'
 import { simplifiedSyncService } from '@/services/SimplifiedSyncService'
 import { analyticsService } from '@/services/AnalyticsService'
+import { behaviorTrackerService } from '@/services/BehaviorTrackerService'
 import { EraType, ModuleState } from '@/types/progress'
 import type {
   ProgressUpdateAction,
@@ -398,7 +399,8 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         console.log(`🔧 Migrating corrupted module - Adventure ${module.adventureId} Module ${module.moduleId}`)
         migratedModule.quizCompleted = true
         migratedModule.quizScore = migratedModule.quizScore || 1
-        migratedModule.lessonsCompleted = ['lesson1', 'lesson2']
+        // Note: lessonsCompleted will be backfilled in the migration logic below
+        migratedModule.lessonsCompleted = []
       }
 
       return migratedModule
@@ -431,6 +433,9 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
         console.log('✅ Progress data loaded and migrated successfully')
       }
+
+      // ❌ REMOVED: Migration backfill logic - Not needed with real-time lesson tracking
+      // Old quiz completions will have empty lessonsCompleted arrays (historical data)
 
     } catch (error) {
       console.error('Error loading progress data:', error)
@@ -477,13 +482,28 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       )
 
       if (moduleIndex >= 0) {
-        progressData[moduleIndex] = moduleData
+        // Merge lessonsCompleted arrays (preserve existing + add new)
+        const existingLessons = progressData[moduleIndex].lessonsCompleted || []
+        const newLessons = moduleData.lessonsCompleted || []
+        const mergedLessons = Array.from(new Set([...existingLessons, ...newLessons]))
+
+        progressData[moduleIndex] = {
+          ...moduleData,
+          lessonsCompleted: mergedLessons
+        }
       } else {
-        progressData.push(moduleData)
+        // New module - ensure lessonsCompleted array exists
+        progressData.push({
+          ...moduleData,
+          lessonsCompleted: moduleData.lessonsCompleted || []
+        })
       }
+
+      // ❌ REMOVED: Migration backfill - Real-time tracking handles this now
 
       await WebCompatibleStorage.setItem('new_user_progress', JSON.stringify(progressData))
       console.log('✅ New progress data saved to cache', moduleData)
+      console.log(`📚 Lessons tracked: ${moduleData.lessonsCompleted?.join(', ') || 'none'}`)
 
       // Calculate total XP using centralized deduplication logic
       const totalXP = calculateTotalXP(moduleProgress, progressData);
@@ -684,6 +704,13 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
             updatedModule.lessonsCompleted = [...updatedModule.lessonsCompleted, action.lessonId]
           }
           console.log(`✅ Lesson ${action.lessonId} completed for Adventure ${adventureId} Module ${moduleId}`)
+
+          // Track lesson completion for puzzle engagement
+          behaviorTrackerService.trackContentAction('lesson_complete', {
+            adventureId,
+            moduleId,
+            lessonId: action.lessonId,
+          })
           break
 
         case 'QUIZ_COMPLETED':
@@ -710,15 +737,30 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
           updatedModule.quizCompleted = true
           console.log(`📝 [ProgressContext] Updated module quizScore: ${updatedModule.quizScore}`)
-          
+
+          // Track quiz completion for puzzle engagement
+          behaviorTrackerService.trackContentAction('quiz_complete', {
+            adventureId,
+            moduleId,
+            score: updatedModule.quizScore,
+            isRetake,
+          })
+
           // Module is completed when quiz is passed (score >= 1)
           if (updatedModule.quizScore >= 1) {
             updatedModule.isCompleted = true
-            updatedModule.lessonsCompleted = ['lesson1', 'lesson2'] // Ensure lessons are marked complete
+            // ❌ REMOVED: Backfill logic - Real-time tracking handles lessons now
             console.log(`🎉 Module ${moduleId} completed!`)
 
             // Haptic feedback for module completion
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+
+            // Track module completion for puzzle engagement
+            behaviorTrackerService.trackContentAction('module_complete', {
+              adventureId,
+              moduleId,
+              score: updatedModule.quizScore,
+            })
 
             // Calculate XP earned from module (based on quiz score)
             // Quiz score is 1-3 stars: 1★ = 2 correct (20 XP), 2★ = 3-4 correct (30-40 XP), 3★ = 5 correct (50 XP)
@@ -807,7 +849,13 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         // Check for adventure completion and unlocking
         if (completedModulesCount === adventure.totalModules) {
           console.log(`🎉 Adventure ${adventureId} completed! Unlocking next adventure...`)
-          
+
+          // Track adventure completion for puzzle engagement - THIS IS THE KEY TRIGGER!
+          behaviorTrackerService.trackContentAction('adventure_complete', {
+            adventureId,
+            totalModules: adventure.totalModules,
+          })
+
           // Unlock next adventure
           const nextAdventureId = adventureId + 1
           if (nextAdventureId <= 10) { // Max 10 adventures (Adventures 1-5 for Umayyad, 6-10 for Rise of Islam)

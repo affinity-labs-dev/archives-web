@@ -2,22 +2,22 @@
 // Handles timer, results, and game flow orchestration
 
 import React, { useState, ReactNode } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import GameTimer from './GameTimer';
+import { View, StyleSheet, SafeAreaView } from 'react-native';
 import GameResults from './GameResults';
 import { useGameTimer } from '@/hooks/useGameTimer';
 import type { GameMode, GameResult } from '@/types/games';
 import { GAME_XP_REWARDS } from '@/types/games';
-import ArchivesTheme from '@/constants/ArchivesTheme';
 
 interface GameContainerProps {
   mode: GameMode;
   children: ReactNode;
   onComplete: (result: GameResult) => void;
   onExit: () => void;
+  onNextPuzzle?: () => void;
+  onNearCompletion?: () => void;
   difficulty: 'easy' | 'medium' | 'hard';
+  puzzlesCompleted?: number;
+  gridSize?: number;
 }
 
 export default function GameContainer({
@@ -25,7 +25,11 @@ export default function GameContainer({
   children,
   onComplete,
   onExit,
+  onNextPuzzle,
+  onNearCompletion,
   difficulty,
+  puzzlesCompleted = 0,
+  gridSize = 3,
 }: GameContainerProps) {
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const [isGameStarted, setIsGameStarted] = useState(false);
@@ -71,16 +75,21 @@ export default function GameContainer({
       ...additionalData,
     };
 
-    setGameResult(result);
+    console.log('🎮 [GameContainer] Game completed with result:', result);
+
+    // No modal - game handles its own continue button
     onComplete(result);
   };
 
-  // Play again
-  const handlePlayAgain = () => {
+  // Next puzzle (generate new puzzle with increased difficulty)
+  const handleNextPuzzle = async () => {
     setGameResult(null);
     setIsGameStarted(false);
     timer.reset();
-    // Child game component should reset itself via key or internal state
+
+    if (onNextPuzzle) {
+      await onNextPuzzle();
+    }
   };
 
   // Close
@@ -96,7 +105,12 @@ export default function GameContainer({
         // @ts-ignore - Dynamic props injection
         onGameStart: startGame,
         onGameComplete: completeGame,
+        onNearCompletion: onNearCompletion,
+        onClose: handleClose,
+        onNextPuzzle: onNextPuzzle,
         isGameStarted,
+        mode,
+        formattedTime: timer.formattedTime,
       } as any);
     }
     return child;
@@ -105,30 +119,7 @@ export default function GameContainer({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Close Button */}
-        {!gameResult && (
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleClose();
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="close" size={28} color={ArchivesTheme.colors.persianOrange} />
-          </TouchableOpacity>
-        )}
-
-        {/* Timer (Challenge mode only) */}
-        {mode === 'challenge' && isGameStarted && !gameResult && (
-          <GameTimer
-            formattedTime={timer.formattedTime}
-            isRunning={timer.isRunning}
-            isPaused={timer.isPaused}
-          />
-        )}
-
-        {/* Game Content */}
+        {/* Game Content - close button and timer now handled by game component */}
         <View style={styles.gameArea}>
           {childrenWithProps}
         </View>
@@ -137,8 +128,10 @@ export default function GameContainer({
         {gameResult && (
           <GameResults
             result={gameResult}
-            onPlayAgain={handlePlayAgain}
+            onNextPuzzle={handleNextPuzzle}
             onClose={handleClose}
+            puzzlesCompleted={puzzlesCompleted}
+            gridSize={gridSize}
           />
         )}
       </View>
@@ -153,23 +146,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
   },
   gameArea: {
     flex: 1,

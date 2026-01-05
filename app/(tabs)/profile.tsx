@@ -3,6 +3,7 @@
 
 import AchievementDetailModal from '@/components/gamification/AchievementDetailModal'
 import AdventureCompleteScreen from '@/components/gamification/AdventureCompleteScreen'
+import GameHub from '@/components/gamification/GameHub'
 import XPMilestoneScreen from '@/components/gamification/XPMilestoneScreen'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { usePreferences } from '@/context/PreferencesContext'
@@ -378,6 +379,7 @@ export default function ProfileTab() {
   const [showXPTest, setShowXPTest] = useState(false)
   const [showAdventureTest, setShowAdventureTest] = useState(false)
   const [testAdventureIndex, setTestAdventureIndex] = useState(0)
+  const [showGameHub, setShowGameHub] = useState(false)
 
   // Map context era to Supabase era_id format for test button
   const ERA_ID_MAP: Record<string, string> = {
@@ -683,6 +685,15 @@ export default function ProfileTab() {
               disabled={adventuresLoading}
             >
               <Text style={styles.testButtonText}>ADV</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.testButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowGameHub(true);
+              }}
+            >
+              <Text style={styles.testButtonText}>GAME</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.settingsButton}
@@ -1491,6 +1502,27 @@ export default function ProfileTab() {
           </View>
         </Modal>
       )}
+
+      {/* GameHub Modal */}
+      <GameHub
+        visible={showGameHub}
+        onClose={() => setShowGameHub(false)}
+        initialGameType="jigsaw"
+      />
+
+      {/* Floating Game Button - Rewritten */}
+      <View style={styles.floatingButtonContainer}>
+        <TouchableOpacity
+          style={styles.floatingGameButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setShowGameHub(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="game-controller" size={32} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   )
 }
@@ -2381,5 +2413,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#95A5A6',
+  },
+
+  // Floating Game Button
+  floatingButtonContainer: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    zIndex: 999,
+  },
+  floatingGameButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#C99151', // Persian Orange
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 10,
   },
 })

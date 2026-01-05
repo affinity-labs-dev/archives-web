@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useLessonTracking } from '@/hooks/useLessonTracking';
+import { useProgress } from '@/context/ProgressContext';
 import type { ContentItem } from '@/components/shared/types';
 
 // Lesson type for analytics and walkthrough
@@ -86,6 +87,9 @@ export function useLessonBase({
   const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
   const moduleNumber = contentItem.order_by || 0;
 
+  // Progress context for saving lesson completion
+  const { saveNewProgressData } = useProgress();
+
   // Walkthrough state
   const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
 
@@ -150,9 +154,51 @@ export function useLessonBase({
       }
     }
 
+    // SAVE LESSON COMPLETION TO PROGRESS SYSTEM
+    try {
+      console.log(`💾 Saving lesson completion: ${eraId}:${adventureId}:${moduleId}:${lessonId}`);
+
+      // Read existing module progress from AsyncStorage
+      const existingData = await AsyncStorage.getItem('new_user_progress');
+      const progressData = existingData ? JSON.parse(existingData) : [];
+
+      // Find this module
+      const existingModule = progressData.find(
+        (m: any) => m.adventureId === adventureId && m.moduleId === moduleId
+      );
+
+      // Get existing lessons or create empty array
+      const existingLessons = existingModule?.lessonsCompleted || [];
+
+      // Add this lesson if not already tracked (prevent duplicates)
+      if (!existingLessons.includes(lessonId)) {
+        const updatedLessons = [...existingLessons, lessonId];
+
+        // Save progress data with updated lessons
+        await saveNewProgressData({
+          era_id: eraId,
+          adventureId,
+          moduleId,
+          lessonsCompleted: updatedLessons,
+          quizCompleted: existingModule?.quizCompleted || false,
+          quizScore: existingModule?.quizScore || 0,
+          quizCorrectAnswers: existingModule?.quizCorrectAnswers || 0,
+          isCompleted: existingModule?.isCompleted || false,
+          completedAt: existingModule?.completedAt || new Date().toISOString(),
+        });
+
+        console.log(`✅ Lesson ${lessonId} saved to progress (${updatedLessons.length} total lessons)`);
+      } else {
+        console.log(`⚠️ Lesson ${lessonId} already completed - skipping save`);
+      }
+    } catch (error) {
+      console.error(`❌ Error saving lesson completion:`, error);
+      // Don't block user flow if save fails
+    }
+
     console.log(`🔄 Continue button pressed - ${moduleId} ${lessonId}`);
     onContinue();
-  }, [tracking, walkthroughKey, lessonType, moduleId, lessonId, onContinue]);
+  }, [tracking, walkthroughKey, lessonType, moduleId, lessonId, onContinue, saveNewProgressData, eraId, adventureId]);
 
   return {
     adventureNumber,

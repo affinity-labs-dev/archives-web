@@ -19,15 +19,25 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface GameResultsProps {
   result: GameResult;
-  onPlayAgain?: () => void;
+  onNextPuzzle?: () => void;
   onClose: () => void;
+  puzzlesCompleted?: number;
+  gridSize?: number;
 }
 
-export default function GameResults({ result, onPlayAgain, onClose }: GameResultsProps) {
+export default function GameResults({
+  result,
+  onNextPuzzle,
+  onClose,
+  puzzlesCompleted = 0,
+  gridSize = 3
+}: GameResultsProps) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    console.log('🎉 [GameResults] Rendering with result:', result);
+
     // Celebration haptics
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -64,10 +74,22 @@ export default function GameResults({ result, onPlayAgain, onClose }: GameResult
 
   const timeBadge = getTimeBadge();
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds?: number) => {
+    if (!seconds && seconds !== 0) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getDifficultyText = () => {
+    const totalPieces = gridSize * gridSize;
+    const stars = totalPieces <= 16 ? '⭐' : totalPieces <= 36 ? '⭐⭐' : '⭐⭐⭐';
+    return `${stars} ${totalPieces} Pieces`;
+  };
+
+  const getNextDifficultyText = () => {
+    // Never-ending game - always show encouragement
+    return 'Keep solving - puzzles get bigger as you improve!';
   };
 
   return (
@@ -89,8 +111,14 @@ export default function GameResults({ result, onPlayAgain, onClose }: GameResult
         {/* Title */}
         <Text style={styles.title}>Puzzle Completed!</Text>
 
+        {/* Difficulty Badge */}
+        <View style={styles.difficultyBadge}>
+          <Text style={styles.difficultyText}>{getDifficultyText()}</Text>
+          <Text style={styles.nextDifficultyText}>{getNextDifficultyText()}</Text>
+        </View>
+
         {/* Time Badge (Challenge Mode Only) */}
-        {timeBadge && (
+        {timeBadge !== null && (
           <View style={[styles.timeBadge, { backgroundColor: timeBadge.color }]}>
             <Text style={styles.timeBadgeEmoji}>{timeBadge.emoji}</Text>
             <Text style={styles.timeBadgeLabel}>{timeBadge.label}</Text>
@@ -103,18 +131,18 @@ export default function GameResults({ result, onPlayAgain, onClose }: GameResult
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>XP Earned</Text>
             <View style={styles.xpRow}>
-              <Text style={styles.statValue}>{result.xpEarned}</Text>
-              {result.bonusXP && result.bonusXP > 0 && (
+              <Text style={styles.statValue}>{result.xpEarned || 0}</Text>
+              {(result.bonusXP ?? 0) > 0 && (
                 <Text style={styles.bonusXP}>+{result.bonusXP}</Text>
               )}
             </View>
-            {result.bonusXP && result.bonusXP > 0 && (
+            {(result.bonusXP ?? 0) > 0 && (
               <Text style={styles.bonusLabel}>Time Bonus!</Text>
             )}
           </View>
 
           {/* Time (if challenge mode) */}
-          {result.timeElapsed && result.mode === 'challenge' && (
+          {(result.timeElapsed ?? 0) > 0 && result.mode === 'challenge' && (
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Time</Text>
               <Text style={styles.statValue}>{formatTime(result.timeElapsed)}</Text>
@@ -132,17 +160,17 @@ export default function GameResults({ result, onPlayAgain, onClose }: GameResult
 
         {/* Buttons */}
         <View style={styles.buttonContainer}>
-          {onPlayAgain && (
+          {!!onNextPuzzle && (
             <TouchableOpacity
-              style={[styles.button, styles.playAgainButton]}
+              style={[styles.button, styles.nextPuzzleButton]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                onPlayAgain();
+                onNextPuzzle();
               }}
               activeOpacity={0.8}
             >
-              <Ionicons name="refresh" size={20} color="white" style={{ marginRight: 8 }} />
-              <Text style={styles.playAgainText}>Play Again</Text>
+              <Ionicons name="arrow-forward" size={20} color="white" style={{ marginRight: 8 }} />
+              <Text style={styles.nextPuzzleText}>Next Puzzle</Text>
             </TouchableOpacity>
           )}
 
@@ -201,8 +229,29 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: ArchivesTheme.colors.shoeBrown,
-    marginBottom: 16,
+    marginBottom: 8,
     textAlign: 'center',
+  },
+  difficultyBadge: {
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+  },
+  difficultyText: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: ArchivesTheme.colors.shoeBrown,
+    marginBottom: 4,
+  },
+  nextDifficultyText: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: ArchivesTheme.colors.persianOrange,
+    fontWeight: '600',
   },
   timeBadge: {
     flexDirection: 'row',
@@ -275,10 +324,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '100%',
   },
-  playAgainButton: {
+  nextPuzzleButton: {
     backgroundColor: ArchivesTheme.colors.persianOrange,
   },
-  playAgainText: {
+  nextPuzzleText: {
     fontFamily: 'DM Sans',
     fontSize: 16,
     fontWeight: 'bold',

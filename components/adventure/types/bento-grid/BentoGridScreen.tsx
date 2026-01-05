@@ -37,9 +37,10 @@ interface BentoGridScreenProps {
   onProgressUpdate?: () => Promise<void> | void;
   refreshing?: boolean;
   onRefresh?: () => void;
+  onScrollActivity?: () => void; // Track browsing behavior
 }
 
-const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh }) => {
+const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh, onScrollActivity }) => {
   const [selectedLesson, setSelectedLesson] = useState<{
     contentItem: ContentItem;
     adventureId: string;
@@ -353,6 +354,8 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
           keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          onScroll={() => onScrollActivity?.()} // Track browsing behavior
+          scrollEventThrottle={400} // Throttle to avoid excessive tracking
           refreshControl={
             <RefreshControl
               refreshing={refreshing || false}
