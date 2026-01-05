@@ -42,14 +42,16 @@ gamification/
 │   ├── GameGeneratorService.ts     # AI game generation
 │   └── BehaviorTrackerService.ts   # User behavior tracking
 │
-├── hooks/                          # Specialized hooks (FROM hooks/)
-│   ├── useQuizSounds.ts            # Quiz sound effects
-│   ├── useQuizTracking.ts          # Quiz analytics
-│   ├── useCelebrationVideoPlayer.ts # Video player for celebrations
-│   ├── useGameDragDrop.ts          # Game drag-drop logic
-│   ├── useGameTimer.ts             # Game timer logic
-│   ├── useSnapToGrid.ts            # Grid snapping for games
-│   └── useJigsawLogic.ts           # Jigsaw-specific logic
+├── hooks/                          # Game-specific hooks only
+│   ├── useGameDragDrop.ts          # Game drag-drop logic ✅
+│   ├── useGameTimer.ts             # Game timer logic ✅
+│   ├── useSnapToGrid.ts            # Grid snapping for games ✅
+│   └── useJigsawLogic.ts           # Jigsaw-specific logic ✅
+│
+# NOTE: These stay in hooks/ (not gamification/):
+#   - useQuizSounds.ts
+#   - useQuizTracking.ts
+#   - useCelebrationVideoPlayer.ts
 │
 ├── types/                          # Type definitions (FROM types/)
 │   ├── games.ts                    # Game types
@@ -115,13 +117,14 @@ gamification/
 | services/GameGeneratorService.ts | gamification/services/ | Move |
 | services/BehaviorTrackerService.ts | gamification/services/ | Move |
 | **MOVE hooks/** |||
-| hooks/useQuizSounds.ts | gamification/hooks/ | Move |
-| hooks/useQuizTracking.ts | gamification/hooks/ | Move |
-| hooks/useCelebrationVideoPlayer.ts | gamification/hooks/ | Move |
-| hooks/useGameDragDrop.ts | gamification/hooks/ | Move |
-| hooks/useGameTimer.ts | gamification/hooks/ | Move |
-| hooks/useSnapToGrid.ts | gamification/hooks/ | Move |
-| components/gamification/games/Jigsaw/useJigsawLogic.ts | gamification/hooks/ | Move |
+| hooks/useGameDragDrop.ts | gamification/hooks/ | ✅ Moved |
+| hooks/useGameTimer.ts | gamification/hooks/ | ✅ Already there |
+| hooks/useSnapToGrid.ts | gamification/hooks/ | ✅ Moved |
+| components/gamification/games/Jigsaw/useJigsawLogic.ts | gamification/hooks/ | ✅ Already there |
+| **KEEP IN hooks/ (not moving)** |||
+| hooks/useQuizSounds.ts | hooks/ | ⏸️ Keep in place |
+| hooks/useQuizTracking.ts | hooks/ | ⏸️ Keep in place |
+| hooks/useCelebrationVideoPlayer.ts | hooks/ | ⏸️ Keep in place |
 | **MOVE types/** |||
 | types/games.ts | gamification/types/ | Move |
 | types/progress.ts | gamification/types/ | Copy (still needed elsewhere) |
