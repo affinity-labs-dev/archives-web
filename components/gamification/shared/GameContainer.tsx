@@ -1,9 +1,8 @@
 // GameContainer.tsx - Universal wrapper for all game types
-// Handles timer, results, and game flow orchestration
+// Handles timer and game flow orchestration
 
 import React, { useState, ReactNode } from 'react';
 import { View, StyleSheet, SafeAreaView } from 'react-native';
-import GameResults from './GameResults';
 import { useGameTimer } from '@/hooks/useGameTimer';
 import type { GameMode, GameResult } from '@/types/games';
 import { GAME_XP_REWARDS } from '@/types/games';
@@ -16,8 +15,6 @@ interface GameContainerProps {
   onNextPuzzle?: () => void;
   onNearCompletion?: () => void;
   difficulty: 'easy' | 'medium' | 'hard';
-  puzzlesCompleted?: number;
-  gridSize?: number;
 }
 
 export default function GameContainer({
@@ -28,10 +25,7 @@ export default function GameContainer({
   onNextPuzzle,
   onNearCompletion,
   difficulty,
-  puzzlesCompleted = 0,
-  gridSize = 3,
 }: GameContainerProps) {
-  const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const [isGameStarted, setIsGameStarted] = useState(false);
 
   const timer = useGameTimer({
@@ -83,7 +77,6 @@ export default function GameContainer({
 
   // Next puzzle (generate new puzzle with increased difficulty)
   const handleNextPuzzle = async () => {
-    setGameResult(null);
     setIsGameStarted(false);
     timer.reset();
 
@@ -123,17 +116,6 @@ export default function GameContainer({
         <View style={styles.gameArea}>
           {childrenWithProps}
         </View>
-
-        {/* Results Modal */}
-        {gameResult && (
-          <GameResults
-            result={gameResult}
-            onNextPuzzle={handleNextPuzzle}
-            onClose={handleClose}
-            puzzlesCompleted={puzzlesCompleted}
-            gridSize={gridSize}
-          />
-        )}
       </View>
     </SafeAreaView>
   );
