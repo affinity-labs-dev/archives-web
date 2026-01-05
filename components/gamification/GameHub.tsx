@@ -463,8 +463,6 @@ export default function GameHub({
           onNextPuzzle={handleNextPuzzle}
           onNearCompletion={handleNearCompletion}
           difficulty={gameData.difficulty}
-          puzzlesCompleted={puzzlesCompleted}
-          gridSize={currentGridSize}
         >
           {gameData.type === 'jigsaw' && (
             <JigsawGame
