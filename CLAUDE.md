@@ -71,9 +71,12 @@ SafeAreaProvider + GestureHandlerRootView
                 └── AdventuresContentProvider (Supabase content fetching)
                     └── RewardsProvider (badges + avatars system)
                         └── ProgressProvider (state management)
-                            └── AIProvider (Gemini AI features)
-                                └── AvatarAnimationWrapper (unlock animations)
-                                    └── ThemeProvider + Stack Navigation + AIAssistant
+                            └── PreferencesProvider (user preferences)
+                                └── AchievementsProvider (streaks + levels)
+                                    └── AIProvider (Gemini AI features)
+                                        └── AvatarAnimationWrapper (avatar unlock animations)
+                                            └── AchievementAnimationWrapper (achievement celebrations)
+                                                └── ThemeProvider + Stack Navigation + AIAssistant
 ```
 
 **Critical initialization sequence:**
@@ -406,11 +409,12 @@ console.log('🔔 Notification')    // Push notifications
 **Shared:**
 - EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
 - App version: `3.1.0` | Runtime: `1.0.0` | Expo SDK: 54
+- iOS buildNumber: `120` | Android versionCode: `36` (auto-incremented on production builds)
 - New Architecture: Enabled (React Native 0.81.5)
 
 ## Important Patterns & Development Context
 
-**Current status:** Branch `merge-eras` | Both platforms LIVE in production
+**Current status:** Branch `mergeversion` | Both platforms LIVE in production
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus

@@ -23,6 +23,7 @@ import {
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -227,7 +228,26 @@ export default function AIChatModal({
     setShowActionMenu(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+    // Small delay to let iOS modal animation complete before launching picker
+    await new Promise((resolve) => setTimeout(resolve, Platform.OS === 'ios' ? 400 : 100));
+
     try {
+      // Request permissions on iOS (best practice for better UX)
+      if (Platform.OS === 'ios') {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permissionResult.granted) {
+          Alert.alert(
+            'Permission Required',
+            'Please allow access to your photos in Settings to upload images.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+            ]
+          );
+          return;
+        }
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,

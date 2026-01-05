@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "116",
+      "buildNumber": "120",
       "associatedDomains": [
         "applinks:link.archiveszone.app"
       ],
@@ -46,7 +46,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 33,
+      "versionCode": 36,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -104,6 +104,12 @@
         }
       ],
       "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Archives needs access to your photos so you can share images with Ibu, your AI learning buddy."
+        }
+      ],
       [
         "expo-video",
         {
