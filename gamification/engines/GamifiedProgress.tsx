@@ -5,7 +5,7 @@
  *
  * This file replaces:
  * - context/ProgressContext.tsx (progress tracking)
- * - gamification/engines/GamificationOrchestrator.ts (gamification data)
+ * - services/SimplifiedSyncService.ts (cloud sync)
  *
  * Manages:
  * - User progress (lessons, quizzes, module completion)

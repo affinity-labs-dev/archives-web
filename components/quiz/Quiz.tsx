@@ -320,8 +320,6 @@ export default function Quiz({
   const [showResults, setShowResults] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [userAnswers, setUserAnswers] = useState<number[]>([]); // Track all user answers for AI explanations
-  const [questionTimings, setQuestionTimings] = useState<number[]>([]); // Track time taken for each question (in seconds)
-  const [quizStartTime] = useState(new Date().toISOString()); // Track quiz start time
 
   // Mid-quiz milestone detection
   const [initialXP, setInitialXP] = useState(0);
@@ -386,9 +384,8 @@ export default function Quiz({
     const isCorrect = selectedAnswer === correctAnswerIndex;
     const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000);
 
-    // Save user's answer and timing for AI explanations and gamification tracking
+    // Save user's answer for AI explanations
     setUserAnswers(prev => [...prev, selectedAnswer]);
-    setQuestionTimings(prev => [...prev, timeTaken]);
 
     // Track answer submission
     trackQuestionAnswered(
@@ -499,40 +496,6 @@ export default function Quiz({
     console.log('💾 [NEW] Saving quiz completion:', moduleData);
     await saveNewProgressData(moduleData);
 
-    // Track attempt in GamificationOrchestrator for detailed analytics
-    console.log('🎮 [Gamification] Tracking quiz attempt in orchestrator');
-    try {
-      // Build question results array
-      const questionResults = questions.map((question: any, index: number) => {
-        const userAnswerIndex = userAnswers[index];
-        const correctAnswerIndex = question.correct_answer_index;
-        const isCorrect = userAnswerIndex === correctAnswerIndex;
-
-        return {
-          q_index: index + 1,
-          question_text: question.question || '',
-          correct: isCorrect,
-          user_answer: userAnswerIndex !== undefined ? question.options?.[userAnswerIndex] : undefined,
-          correct_answer: isCorrect ? undefined : question.options?.[correctAnswerIndex],
-          time_taken_seconds: questionTimings[index] || 0,
-        };
-      });
-
-      await gamificationOrchestrator.trackAttempt({
-        era_id: eraId,
-        adventure_id: adventureId,
-        module_id: moduleId,
-        quiz_score: correctAnswers,
-        started_at: quizStartTime,
-        completed_at: new Date().toISOString(),
-        questions: questionResults,
-      });
-      console.log('✅ [Gamification] Attempt tracked successfully');
-    } catch (error) {
-      console.error('❌ [Gamification] Error tracking attempt:', error);
-      // Don't block quiz completion if gamification fails
-    }
-
     // Check achievements immediately after quiz completion (for instant feedback)
     console.log('🏆 [Quiz] About to check achievements...');
     try {
@@ -596,7 +559,6 @@ export default function Quiz({
     setShowResults(false);
     setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
     setUserAnswers([]); // Reset user answers for fresh quiz attempt
-    setQuestionTimings([]); // Reset question timings for fresh quiz attempt
   };
 
   const isCorrect = selectedAnswer === correctAnswerIndex;
