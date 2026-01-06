@@ -203,16 +203,20 @@ export default function AdventuresScreen() {
         return;
       }
 
-      // If signed in, WAIT for GamifiedProgress to finish loading first
-      if (isSignedIn && user) {
-        if (gamificationLoading) {
-          console.log('⏳ [Adventures] Waiting for gamification to initialize...');
-          return;
-        }
-
-        console.log(`✅ [Adventures] Gamification ready, loading data for: ${selectedEra}`);
-        loadProgress();
+      // If signed in but user object not yet available, wait for Clerk
+      if (isSignedIn && !user) {
+        console.log('⏳ [Adventures] Waiting for Clerk user object...');
+        return;
       }
+
+      // If signed in, WAIT for GamifiedProgress to finish loading first
+      if (gamificationLoading) {
+        console.log('⏳ [Adventures] Waiting for gamification to initialize...');
+        return;
+      }
+
+      console.log(`✅ [Adventures] Gamification ready, loading data for: ${selectedEra}`);
+      loadProgress();
     };
 
     loadData();
