@@ -68,7 +68,7 @@ export {
 
 // ========== ORCHESTRATOR (Centralized Triggers + Streaks) ==========
 // One engine with full control - components just report events
-// Also manages streak tracking (replaces useDailyStreak for most use cases)
+// Also manages streak tracking, achievements, and celebrations
 export {
   GamificationOrchestratorProvider,
   useGamificationOrchestrator,
@@ -97,9 +97,6 @@ export type {
 // ========== PROVIDERS (Contexts) ==========
 export { RewardsProvider, useRewards } from './engines/RewardsContext';
 export { AIProvider, useAI } from './engines/AIContext';
-
-// ========== HOOKS ==========
-export { useDailyStreak } from './engines/useDailyStreak';
 
 // ========== SERVICES ==========
 export { aiService } from './services/AIService';
