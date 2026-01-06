@@ -1032,14 +1032,14 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     let updatedProgress = [...state.progress];
 
     if (existingIndex >= 0) {
-      // Update existing
+      // Update existing (retake)
       const existing = updatedProgress[existingIndex];
       updatedProgress[existingIndex] = {
         ...existing,
         lessonsCompleted: moduleData.lessonsCompleted || existing.lessonsCompleted,
         quizScore: Math.max(existing.quizScore, quizScore),
         quizCorrectAnswers: Math.max(existing.quizCorrectAnswers || 0, moduleData.quizCorrectAnswers || 0),
-        completedAt: moduleData.completedAt || existing.completedAt,
+        completedAt: existing.completedAt, // NEVER update on retake - keep original completion date
         isCompleted: moduleData.isCompleted || existing.isCompleted,
         quizCompleted: moduleData.quizCompleted || existing.quizCompleted,
         mastery_level: masteryLevel,
