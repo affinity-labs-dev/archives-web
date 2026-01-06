@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { ChatMessage } from '@/components/ai/AIChatModal';
+import type { ChatMessage } from '@/gamification/ui/ai/AIChatModal';
 import { useGamifiedProgress } from './GamifiedProgress';
 import { aiContextService, type AIKnowledgeContext } from '@/gamification/services/AIContextService';
 
@@ -180,7 +180,7 @@ export function AIProvider({ children }: AIProviderProps) {
     const safeNewEraProgress = newEraProgress || [];
 
     // Calculate total XP (works for both legacy and new eras)
-    const totalXP = calculateTotalXP(safeModuleProgress, safeNewEraProgress);
+    const totalXP = calculateTotalXP();
 
     // Get completed modules count from both eras
     // Era 1 (legacy): quizScore >= 2 counts as completed
