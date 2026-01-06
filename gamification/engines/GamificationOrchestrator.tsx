@@ -375,6 +375,8 @@ interface GamificationOrchestratorContextType {
   getAchievement: (id: string) => Achievement | undefined;
   /** Check time-based achievements (night owl, early bird) - call after lesson completion */
   checkTimeBasedAchievement: () => Promise<void>;
+  /** Check all achievements and unlock if conditions met */
+  checkAchievements: () => Promise<void>;
 }
 
 const GamificationOrchestratorContext = createContext<GamificationOrchestratorContextType | null>(null);
@@ -981,6 +983,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         getAchievementsByCategory,
         getAchievement,
         checkTimeBasedAchievement,
+        checkAchievements,
       }}
     >
       {children}
