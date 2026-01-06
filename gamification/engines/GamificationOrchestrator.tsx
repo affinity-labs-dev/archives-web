@@ -58,7 +58,7 @@ export interface Achievement {
   category: 'quiz' | 'streak' | 'speed' | 'completion' | 'time' | 'perfectionist';
   color: string;
   unlockCondition: {
-    type: 'quiz_perfect' | 'quiz_perfect_streak' | 'streak_days' | 'lessons_in_day' | 'era_complete' | 'all_perfect_era' | 'night_owl' | 'early_bird' | 'total_xp';
+    type: 'quiz_perfect' | 'quiz_perfect_streak' | 'streak_days' | 'modules_in_day' | 'era_complete' | 'all_perfect_era' | 'night_owl' | 'early_bird' | 'total_xp';
     threshold: number;
     metadata?: any; // Additional data like era_id for era-specific achievements
   };
@@ -148,21 +148,21 @@ const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'quick_learner',
     name: 'Quick Learner',
-    description: 'Complete 3 lessons in one day',
+    description: 'Complete 3 modules in one day',
     icon: 'flash',
     category: 'speed',
     color: '#3498DB',
-    unlockCondition: { type: 'lessons_in_day', threshold: 3 },
+    unlockCondition: { type: 'modules_in_day', threshold: 3 },
     rarity: 'common',
   },
   {
     id: 'speed_demon',
     name: 'Speed Demon',
-    description: 'Complete 5 lessons in one day',
+    description: 'Complete 5 modules in one day',
     icon: 'rocket',
     category: 'speed',
     color: '#E67E22',
-    unlockCondition: { type: 'lessons_in_day', threshold: 5 },
+    unlockCondition: { type: 'modules_in_day', threshold: 5 },
     rarity: 'rare',
   },
 
@@ -220,37 +220,37 @@ const ACHIEVEMENTS: Achievement[] = [
     rarity: 'common',
   },
 
-  // XP Achievements
-  {
-    id: 'xp_500',
-    name: 'Knowledge Seeker',
-    description: 'Earn 500 total XP',
-    icon: 'trending-up',
-    category: 'completion',
-    color: '#3498DB',
-    unlockCondition: { type: 'total_xp', threshold: 500 },
-    rarity: 'rare',
-  },
-  {
-    id: 'xp_1000',
-    name: 'Wisdom Collector',
-    description: 'Earn 1000 total XP',
-    icon: 'analytics',
-    category: 'completion',
-    color: '#9B59B6',
-    unlockCondition: { type: 'total_xp', threshold: 1000 },
-    rarity: 'epic',
-  },
-  {
-    id: 'xp_2500',
-    name: 'Grand Scholar',
-    description: 'Earn 2500 total XP',
-    icon: 'flame',
-    category: 'completion',
-    color: '#E74C3C',
-    unlockCondition: { type: 'total_xp', threshold: 2500 },
-    rarity: 'legendary',
-  },
+  // XP Achievements - Commented out for release
+  // {
+  //   id: 'xp_500',
+  //   name: 'Knowledge Seeker',
+  //   description: 'Earn 500 total XP',
+  //   icon: 'trending-up',
+  //   category: 'completion',
+  //   color: '#3498DB',
+  //   unlockCondition: { type: 'total_xp', threshold: 500 },
+  //   rarity: 'rare',
+  // },
+  // {
+  //   id: 'xp_1000',
+  //   name: 'Wisdom Collector',
+  //   description: 'Earn 1000 total XP',
+  //   icon: 'analytics',
+  //   category: 'completion',
+  //   color: '#9B59B6',
+  //   unlockCondition: { type: 'total_xp', threshold: 1000 },
+  //   rarity: 'epic',
+  // },
+  // {
+  //   id: 'xp_2500',
+  //   name: 'Grand Scholar',
+  //   description: 'Earn 2500 total XP',
+  //   icon: 'flame',
+  //   category: 'completion',
+  //   color: '#E74C3C',
+  //   unlockCondition: { type: 'total_xp', threshold: 2500 },
+  //   rarity: 'legendary',
+  // },
 ];
 
 // ============================================================
@@ -735,6 +735,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       console.log('🎉 [Orchestrator] Achievement unlocked:', achievement.name);
     } catch (error) {
       console.error('❌ [Orchestrator] Error unlocking achievement:', error);
+    } finally {
+      unlockingRef.current.delete(achievementId);
     }
   }, [unlockedAchievements]);
 
@@ -760,15 +762,24 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       m => m.quizCompleted && (m.quizCorrectAnswers === 5 || m.quizScore === 3)
     ).length;
 
-    // Count lessons completed today
+    // Count modules completed today
     const today = new Date().toDateString();
-    const lessonsToday = newModules.filter((m: any) => {
+    const modulesToday = newModules.filter((m: any) => {
       if (!m.completedAt) return false;
       const completedDate = new Date(m.completedAt).toDateString();
       return completedDate === today;
-    }).length;
+    });
 
-    console.log(`🏆 [Orchestrator] Perfect quizzes: ${perfectQuizCount}, Total XP: ${totalXP}, Lessons today: ${lessonsToday}, Streak: ${streak}`);
+    // DEBUG: Log what's being counted
+    console.log(`🔍 [Orchestrator] Modules completed today (${today}):`, modulesToday.map((m: any) => ({
+      adventureId: m.adventureId,
+      moduleId: m.moduleId,
+      completedAt: m.completedAt,
+    })));
+
+    const modulesCompletedToday = modulesToday.length;
+
+    console.log(`🏆 [Orchestrator] Perfect quizzes: ${perfectQuizCount}, Total XP: ${totalXP}, Modules today: ${modulesCompletedToday}, Streak: ${streak}`);
 
     const unlockedIds = unlockedAchievements.map(a => a.id);
     for (const achievement of ACHIEVEMENTS) {
@@ -785,8 +796,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           shouldUnlock = streak >= achievement.unlockCondition.threshold;
           break;
 
-        case 'lessons_in_day':
-          shouldUnlock = lessonsToday >= achievement.unlockCondition.threshold;
+        case 'modules_in_day':
+          shouldUnlock = modulesCompletedToday >= achievement.unlockCondition.threshold;
           break;
 
         case 'total_xp':
@@ -995,7 +1006,10 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     // --- Check 3: Achievements ---
     // Check all achievement conditions (XP, perfect quizzes, streaks, etc.)
     await checkAchievements();
-  }, [checkAchievements]);
+
+    // Check time-based achievements (night owl, early bird)
+    await checkTimeBasedAchievement();
+  }, [checkAchievements, checkTimeBasedAchievement]);
 
   // Report lesson completion - for future triggers
   const reportLessonComplete = useCallback(async (_input: LessonCompleteInput) => {
