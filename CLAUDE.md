@@ -17,9 +17,10 @@ eas update --branch production        # Push OTA update
 **Architecture entry points:**
 - `app/_layout.tsx` - Provider hierarchy, initialization order critical
 - `gamification/engines/GamifiedProgress.tsx` - Unified progress, XP calculation, cloud sync (NEVER use AsyncStorage directly)
+- `gamification/engines/GamificationOrchestrator.tsx` - Achievements, celebrations, milestone tracking
 - `gamification/index.ts` - Public API exports for all gamification features
 - `constants/ArchivesTheme.ts` - Design system colors/spacing (ALWAYS use)
-- `Adventure1_Module1_Lesson1.tsx` - Best lesson implementation reference
+- `components/modules/adventure1/Adventure1_Module1_Lesson1.tsx` - Best lesson implementation reference
 
 **Common code patterns:**
 ```typescript
@@ -70,12 +71,9 @@ SafeAreaProvider + GestureHandlerRootView
             └── AdventuresContentProvider (Supabase content fetching)
                 └── RewardsProvider (badges + avatars system)
                     └── GamifiedProgressProvider (unified progress + cloud sync)
-                        └── PreferencesProvider (user preferences)
-                            └── AchievementsProvider (streaks + levels)
-                                └── AIProvider (Gemini AI features)
-                                    └── AvatarAnimationWrapper (avatar unlock animations)
-                                        └── AchievementAnimationWrapper (achievement celebrations)
-                                            └── ThemeProvider + Stack Navigation + AIAssistant
+                        └── GamificationOrchestratorProvider (achievements, celebrations, milestones)
+                            └── AIProvider (Gemini AI features)
+                                └── ThemeProvider + Stack Navigation + AIAssistant
 ```
 
 **Critical initialization sequence:**
@@ -110,9 +108,42 @@ SafeAreaProvider + GestureHandlerRootView
 - **Cloud table**: `gamification_data` (migrated from legacy `user_data` table)
 
 ### Module Completion Logic
-- **Unlock chain**: Adventure 1 unlocked by default → Complete all 3 modules → Unlock Adventure 2
-- **Module completion**: Both lessons completed + Quiz passed (≥2/5 correct)
+- **Unlock chain**: Adventure 1 unlocked by default → Complete all modules → Unlock Adventure 2
+- **Module completion**: All lessons completed + Quiz passed (≥2/5 correct)
+  - **Variable lesson count**: Number of lessons per module = `media_url.length` in ContentItem
+  - Each ContentItem in `content_list` represents one module with 1+ lessons + 1 quiz
 - **Star ratings**: 1-2 correct = 1★, 3-4 = 2★, 5 = 3★
+
+### Gamification Orchestrator Pattern
+
+**Centralized celebration system** in `GamificationOrchestrator.tsx`:
+
+```typescript
+import { useGamificationOrchestrator } from '@/gamification';
+
+// In Quiz component
+const { reportQuizComplete, checkTimeBasedAchievement } = useGamificationOrchestrator();
+
+// After quiz completion
+await reportQuizComplete({
+  eraId,
+  adventureId,
+  oldEraXP,
+  newEraXP,
+  adventureModulesCompleted,
+  adventureTotalModules,
+  adventureData,
+});
+```
+
+**Orchestrator automatically handles:**
+- XP milestone checks (50, 100, 200, 500, 1000 XP)
+- Adventure complete celebrations
+- Streak milestone checks (3, 7, 30, 100 days)
+- Achievement unlocks (17 total achievements)
+- Celebration queuing (shows one at a time, preserves order)
+
+**Key principle:** Components just report events, orchestrator handles all celebration logic.
 
 ## Key Dependencies & Their Purpose
 
@@ -144,6 +175,30 @@ app/
 ├── onboarding-*.tsx               # 8-screen onboarding flow
 └── era-selection.tsx
 
+gamification/                      # Unified gamification module
+├── engines/                       # Core contexts and logic
+│   ├── GamifiedProgress.tsx       # Progress tracking + cloud sync
+│   ├── GamificationOrchestrator.tsx  # Achievements + celebrations
+│   ├── AIContext.tsx              # AI chat context
+│   ├── RewardsContext.tsx         # Badges + avatars
+│   └── useDailyStreak.ts          # Streak tracking
+├── services/                      # Services
+│   ├── AIService.ts               # Gemini AI integration
+│   ├── GameGeneratorService.ts    # AI puzzle generation
+│   └── AIContextService.ts        # AI context management
+├── ui/                            # UI components
+│   ├── achievement/               # Achievement grids
+│   ├── ai/                        # AI chat modals
+│   ├── celebrations/              # XP milestones, adventure complete
+│   └── games/                     # Jigsaw puzzles
+├── hooks/                         # Reusable hooks
+│   ├── useGameTimer.ts
+│   └── useJigsawLogic.ts
+├── types/                         # Type definitions
+│   ├── gamification.ts
+│   └── games.ts
+└── index.ts                       # Public API exports
+
 components/
 ├── modules/
 │   ├── adventure1/                # Umayyad Dynasty Adventure 1
@@ -152,10 +207,16 @@ components/
 │   ├── adventure4/                # Umayyad Dynasty Adventure 4
 │   ├── adventure5/                # Umayyad Dynasty Adventure 5
 │   ├── ModuleModal.tsx            # Umayyad wrapper
-│   ├── LessonPlayer.tsx           # Video player
-│   └── QuizSystem.tsx             # Quiz engine
-├── ROI/                           # Rise of Islam era components
-│   └── ROIModuleModal.tsx         # ROI wrapper
+│   └── QuizSystem.tsx             # Legacy quiz engine
+├── lessons/                       # Reusable lesson components
+│   ├── LessonPlayer.tsx           # Unified lesson orchestrator
+│   ├── ReelLesson.tsx             # Video + reading
+│   ├── ImageCarouselLesson.tsx    # Image galleries
+│   ├── VideoCarouselLesson.tsx    # Video series
+│   └── ScrollableMediaViewLesson.tsx
+├── quiz/                          # Modern quiz system
+│   ├── Quiz.tsx                   # Universal quiz component
+│   └── QuizResults.tsx            # Results screen
 ├── adventures/                    # Adventure-specific components
 └── eras/                          # Era selection screens
 ```
@@ -426,7 +487,14 @@ console.log('🔔 Notification')    // Push notifications
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus
+- **Gamification folder restructure** - Reorganized into feature-based architecture:
+  - `gamification/engines/` - Core contexts (GamifiedProgress, GamificationOrchestrator, AIContext, RewardsContext)
+  - `gamification/services/` - AI and game generation services
+  - `gamification/ui/` - UI components organized by feature (achievement, ai, celebrations, games)
+  - `gamification/index.ts` - Clean public API exports
+  - Removed: PuzzleEngagementContext, AIRecommendationCard, PuzzlePromptWrapper, useLevel, useGameDragDrop, useSnapToGrid
 - **Unified GamifiedProgress engine** - Consolidated `ProgressContext` + `SimplifiedSyncService` into single `GamifiedProgress.tsx`. All progress and cloud sync through `@/gamification` module.
+- **GamificationOrchestrator** - Centralized achievement and celebration system with automatic XP/adventure/streak milestone detection
 - **Cloud sync migration** - Migrated from `user_data` table to `gamification_data` table with automatic legacy data migration
 - **Unified Supabase-driven era system** - ALL eras come from Supabase (`eras` table + `content` table). Legacy Era 1 initialization removed. System is fully dynamic for future eras.
 - **Current content** - Era 1 (Umayyad Dynasty) and Era 2 (Rise of Islam) with 5 adventures each, all content in Supabase

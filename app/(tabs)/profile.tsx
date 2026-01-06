@@ -428,6 +428,9 @@ export default function ProfileTab() {
         'totalXP',
         'user_preferences',
         'user_unlockables_data',
+        'daily_streak',
+        'last_active_date',
+        'unlocked_achievements',
       ])
       console.log('✅ Local data cleared')
 
@@ -680,7 +683,8 @@ export default function ProfileTab() {
             >
               <Text style={styles.testButtonText}>ADV</Text>
             </TouchableOpacity>
-            <TouchableOpacity
+            {/* GAME button - Commented out for release */}
+            {/* <TouchableOpacity
               style={styles.testButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -688,7 +692,7 @@ export default function ProfileTab() {
               }}
             >
               <Text style={styles.testButtonText}>GAME</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <TouchableOpacity
               style={styles.settingsButton}
               onPress={() => {
@@ -1504,8 +1508,8 @@ export default function ProfileTab() {
         initialGameType="jigsaw"
       />
 
-      {/* Floating Game Button - Rewritten */}
-      <View style={styles.floatingButtonContainer}>
+      {/* Floating game controller button - Commented out for release */}
+      {/* <View style={styles.floatingButtonContainer}>
         <TouchableOpacity
           style={styles.floatingGameButton}
           onPress={() => {
@@ -1516,7 +1520,7 @@ export default function ProfileTab() {
         >
           <Ionicons name="game-controller" size={32} color="#FFFFFF" />
         </TouchableOpacity>
-      </View>
+      </View> */}
     </SafeAreaView>
   )
 }
