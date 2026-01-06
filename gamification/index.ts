@@ -91,6 +91,7 @@ export type {
   Achievement as OrchestratorAchievement, // Achievement type from Orchestrator
   UnlockedAchievement,
   AchievementCelebration,
+  EraProgressStats, // Progress bar data (correctAnswers/totalQuestions)
 } from './engines/GamificationOrchestrator';
 
 // ========== PROVIDERS (Contexts) ==========

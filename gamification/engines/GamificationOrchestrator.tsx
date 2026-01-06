@@ -21,7 +21,7 @@ import { Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import { analyticsService } from '@/services/AnalyticsService';
-import { useGamifiedProgress } from './GamifiedProgress';
+import { useGamifiedProgress, calculateTotalXP as calculateTotalXPUtil } from './GamifiedProgress';
 import { useAdventuresContent } from '@/context/AdventuresContentProvider';
 
 // Import celebration screens
@@ -377,6 +377,18 @@ interface GamificationOrchestratorContextType {
   checkTimeBasedAchievement: () => Promise<void>;
   /** Check all achievements and unlock if conditions met */
   checkAchievements: () => Promise<void>;
+
+  // ===== ERA PROGRESS =====
+  /** Get progress for a specific era */
+  getEraProgress: (eraId: string) => Promise<EraProgressStats>;
+}
+
+/** Era progress data for progress bar (correctAnswers / totalQuestions) */
+export interface EraProgressStats {
+  correctAnswers: number;
+  totalQuestions: number;
+  percentage: number;
+  totalXP: number;
 }
 
 const GamificationOrchestratorContext = createContext<GamificationOrchestratorContextType | null>(null);
@@ -503,7 +515,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const unlockingRef = useRef<Set<string>>(new Set());
 
   // Hooks for achievements calculation
-  const { moduleProgress, calculateTotalXP } = useGamifiedProgress();
+  const { moduleProgress } = useGamifiedProgress();
   const { getAdventures } = useAdventuresContent();
 
   // Load and update streak on mount
@@ -644,8 +656,13 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const getEraModuleCount = useCallback(async (eraId: string, newModules: any[]): Promise<{ total: number; completed: number }> => {
     try {
       const adventures = await getAdventures(eraId);
-      const totalModules = adventures.reduce((sum, adv) => sum + (adv.content_list?.length || 0), 0);
-      const totalPossible = totalModules * 5; // Each module has 5 questions
+      // Count actual questions from content_list
+      const totalPossible = adventures.reduce((sum, adv) => {
+        const advQuestions = (adv.content_list || []).reduce((moduleSum, module) => {
+          return moduleSum + (module.questions?.length || 0);
+        }, 0);
+        return sum + advQuestions;
+      }, 0);
 
       const eraModules = newModules.filter((m: any) => m.era_id === eraId && m.quizCompleted);
       const totalCorrect = eraModules.reduce((sum: number, m: any) => sum + (m.quizCorrectAnswers || 0), 0);
@@ -656,6 +673,35 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       return { total: 0, completed: 0 };
     }
   }, [getAdventures]);
+
+  // Get era progress for progress bar display
+  const getEraProgress = useCallback(async (eraId: string): Promise<EraProgressStats> => {
+    try {
+      const adventures = await getAdventures(eraId);
+
+      // Count actual questions from content_list
+      const totalQuestions = adventures.reduce((sum, adv) => {
+        const advQuestions = (adv.content_list || []).reduce((moduleSum, module) => {
+          return moduleSum + (module.questions?.length || 0);
+        }, 0);
+        return sum + advQuestions;
+      }, 0);
+
+      // Get correct answers from user progress
+      const eraModules = newUserProgress.filter((m: any) => m.era_id === eraId && m.quizCompleted);
+      const correctAnswers = eraModules.reduce((sum: number, m: any) => sum + (m.quizCorrectAnswers || 0), 0);
+
+      const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+      const totalXP = correctAnswers * 10;
+
+      console.log(`📊 [Orchestrator] Era progress for ${eraId}: ${correctAnswers}/${totalQuestions} (${percentage}%)`);
+
+      return { correctAnswers, totalQuestions, percentage, totalXP };
+    } catch (error) {
+      console.error(`❌ [Orchestrator] Error getting era progress for ${eraId}:`, error);
+      return { correctAnswers: 0, totalQuestions: 0, percentage: 0, totalXP: 0 };
+    }
+  }, [getAdventures, newUserProgress]);
 
   // Unlock an achievement
   const unlockAchievement = useCallback(async (achievementId: string) => {
@@ -707,7 +753,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       console.error('❌ [Orchestrator] Error loading new progress for achievements:', error);
     }
 
-    const totalXP = calculateTotalXP(moduleProgress, newModules);
+    const totalXP = calculateTotalXPUtil(moduleProgress, newModules);
 
     // Count perfect quiz scores (quizCorrectAnswers === 5 OR quizScore === 3)
     const perfectQuizCount = newModules.filter(
@@ -720,7 +766,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       if (!m.completedAt) return false;
       const completedDate = new Date(m.completedAt).toDateString();
       return completedDate === today;
-    }).length * 2; // Each module has 2 lessons
+    }).length;
 
     console.log(`🏆 [Orchestrator] Perfect quizzes: ${perfectQuizCount}, Total XP: ${totalXP}, Lessons today: ${lessonsToday}, Streak: ${streak}`);
 
@@ -766,7 +812,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         await unlockAchievement(achievement.id);
       }
     }
-  }, [unlockedAchievements, streak, moduleProgress, calculateTotalXP, getEraModuleCount, unlockAchievement]);
+  }, [unlockedAchievements, streak, moduleProgress, getEraModuleCount, unlockAchievement]);
 
   // Check time-based achievements (night owl, early bird)
   const checkTimeBasedAchievement = useCallback(async () => {
@@ -808,7 +854,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     const achievement = ACHIEVEMENTS.find(a => a.id === achievementId);
     if (!achievement) return 0;
 
-    const totalXP = calculateTotalXP(moduleProgress, newUserProgress);
+    const totalXP = calculateTotalXPUtil(moduleProgress, newUserProgress);
     const perfectQuizCount = newUserProgress.filter(
       m => m.quizCompleted && (m.quizCorrectAnswers === 5 || m.quizScore === 3)
     ).length;
@@ -843,7 +889,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       default:
         return unlockedAchievements.some(a => a.id === achievementId) ? 100 : 0;
     }
-  }, [moduleProgress, newUserProgress, streak, eraModuleCounts, calculateTotalXP, unlockedAchievements]);
+  }, [moduleProgress, newUserProgress, streak, eraModuleCounts, unlockedAchievements]);
 
   // Get achievements by category
   const getAchievementsByCategory = useCallback((category: Achievement['category']) => {
@@ -984,6 +1030,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         getAchievement,
         checkTimeBasedAchievement,
         checkAchievements,
+        getEraProgress,
       }}
     >
       {children}
