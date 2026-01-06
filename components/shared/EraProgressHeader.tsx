@@ -6,7 +6,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Rect, Defs, Filter, FeGaussianBlur, FeFlood, FeComposite, FeMerge, FeMergeNode, Path } from 'react-native-svg';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { useDailyStreak, useLevel } from '@/gamification';
+import { useDailyStreak } from '@/gamification';
 
 // Streak icon (flame)
 const StreakIcon = ({ size = 14 }: { size?: number }) => (
@@ -37,7 +37,6 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
   totalXP = 0,
 }) => {
   const { streak } = useDailyStreak();
-  const { currentLevel } = useLevel();
 
   // Responsive padding to match bento grid
   const { width: screenWidth } = Dimensions.get('window');
