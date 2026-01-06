@@ -148,7 +148,7 @@ const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'quick_learner',
     name: 'Quick Learner',
-    description: 'Complete 3 lessons in one day',
+    description: 'Complete 3 quizzes in one day',
     icon: 'flash',
     category: 'speed',
     color: '#3498DB',
@@ -158,7 +158,7 @@ const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'speed_demon',
     name: 'Speed Demon',
-    description: 'Complete 5 lessons in one day',
+    description: 'Complete 5 quizzes in one day',
     icon: 'rocket',
     category: 'speed',
     color: '#E67E22',
@@ -220,37 +220,37 @@ const ACHIEVEMENTS: Achievement[] = [
     rarity: 'common',
   },
 
-  // XP Achievements
-  {
-    id: 'xp_500',
-    name: 'Knowledge Seeker',
-    description: 'Earn 500 total XP',
-    icon: 'trending-up',
-    category: 'completion',
-    color: '#3498DB',
-    unlockCondition: { type: 'total_xp', threshold: 500 },
-    rarity: 'rare',
-  },
-  {
-    id: 'xp_1000',
-    name: 'Wisdom Collector',
-    description: 'Earn 1000 total XP',
-    icon: 'analytics',
-    category: 'completion',
-    color: '#9B59B6',
-    unlockCondition: { type: 'total_xp', threshold: 1000 },
-    rarity: 'epic',
-  },
-  {
-    id: 'xp_2500',
-    name: 'Grand Scholar',
-    description: 'Earn 2500 total XP',
-    icon: 'flame',
-    category: 'completion',
-    color: '#E74C3C',
-    unlockCondition: { type: 'total_xp', threshold: 2500 },
-    rarity: 'legendary',
-  },
+  // XP Achievements - Commented out for release
+  // {
+  //   id: 'xp_500',
+  //   name: 'Knowledge Seeker',
+  //   description: 'Earn 500 total XP',
+  //   icon: 'trending-up',
+  //   category: 'completion',
+  //   color: '#3498DB',
+  //   unlockCondition: { type: 'total_xp', threshold: 500 },
+  //   rarity: 'rare',
+  // },
+  // {
+  //   id: 'xp_1000',
+  //   name: 'Wisdom Collector',
+  //   description: 'Earn 1000 total XP',
+  //   icon: 'analytics',
+  //   category: 'completion',
+  //   color: '#9B59B6',
+  //   unlockCondition: { type: 'total_xp', threshold: 1000 },
+  //   rarity: 'epic',
+  // },
+  // {
+  //   id: 'xp_2500',
+  //   name: 'Grand Scholar',
+  //   description: 'Earn 2500 total XP',
+  //   icon: 'flame',
+  //   category: 'completion',
+  //   color: '#E74C3C',
+  //   unlockCondition: { type: 'total_xp', threshold: 2500 },
+  //   rarity: 'legendary',
+  // },
 ];
 
 // ============================================================
@@ -735,6 +735,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       console.log('🎉 [Orchestrator] Achievement unlocked:', achievement.name);
     } catch (error) {
       console.error('❌ [Orchestrator] Error unlocking achievement:', error);
+    } finally {
+      unlockingRef.current.delete(achievementId);
     }
   }, [unlockedAchievements]);
 
@@ -995,7 +997,10 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     // --- Check 3: Achievements ---
     // Check all achievement conditions (XP, perfect quizzes, streaks, etc.)
     await checkAchievements();
-  }, [checkAchievements]);
+
+    // Check time-based achievements (night owl, early bird)
+    await checkTimeBasedAchievement();
+  }, [checkAchievements, checkTimeBasedAchievement]);
 
   // Report lesson completion - for future triggers
   const reportLessonComplete = useCallback(async (_input: LessonCompleteInput) => {

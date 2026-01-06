@@ -289,7 +289,7 @@ export default function Quiz({
   adventureData,
 }: QuizProps) {
   const { saveNewProgressData } = useGamifiedProgress();
-  const { reportQuizComplete, checkAchievements, checkTimeBasedAchievement } = useGamificationOrchestrator();
+  const { reportQuizComplete } = useGamificationOrchestrator();
   const insets = useSafeAreaInsets();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
 
@@ -507,15 +507,6 @@ export default function Quiz({
     console.log('💾 [NEW] Saving quiz completion:', moduleData);
     await saveNewProgressData(moduleData);
 
-    // Check achievements immediately after quiz completion (for instant feedback)
-    console.log('🏆 [Quiz] About to check achievements...');
-    try {
-      await checkAchievements();
-      console.log('🏆 [Quiz] Achievement check completed successfully');
-    } catch (error) {
-      console.error('❌ [Quiz] Error checking achievements:', error);
-    }
-
     // Track module completed event (critical for funnel analysis, era-agnostic)
     analyticsService.trackCustomEvent('module_completed', {
       adventure_id: adventureId,
@@ -530,12 +521,6 @@ export default function Quiz({
       $current_url: `/${eraId}/${adventureId}/${moduleId}/quiz`,
     });
     console.log('📊 [Analytics] Module completed event tracked');
-
-    // Check for achievements after quiz completion
-    console.log('🏆 [Achievements] Checking for unlocks after quiz completion');
-    await checkAchievements();
-    await checkTimeBasedAchievement();
-    console.log('🏆 [Achievements] Achievement check complete');
 
     // Load updated progress to calculate era-specific XP (AFTER saving)
     const updatedNewModulesData = await AsyncStorage.getItem('new_user_progress');
