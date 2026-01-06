@@ -96,7 +96,6 @@ export type {
 // ========== PROVIDERS (Contexts) ==========
 export { RewardsProvider, useRewards } from './engines/RewardsContext';
 export { AIProvider, useAI } from './engines/AIContext';
-export { PuzzleEngagementProvider, usePuzzleEngagement } from './engines/PuzzleEngagementContext';
 
 // ========== HOOKS ==========
 export { useDailyStreak } from './engines/useDailyStreak';

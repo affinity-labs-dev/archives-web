@@ -2,7 +2,7 @@
 // Uses Gemini to create dynamic puzzle games on-demand
 
 import { aiService } from './AIService';
-import { supabase } from '../hooks/lib/supabase';
+import { supabase } from '@/hooks/lib/supabase';
 import type {
   GameType,
   GameDifficulty,
@@ -11,8 +11,8 @@ import type {
   WordSearchGameData,
   PatternGameData,
   GameGenerationRequest,
-} from '@/types/games';
-import { DIFFICULTY_SETTINGS } from '@/types/games';
+} from '@/gamification/types/games';
+import { DIFFICULTY_SETTINGS } from '@/gamification/types/games';
 
 // Era data from Supabase
 interface EraData {

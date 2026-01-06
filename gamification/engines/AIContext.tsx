@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChatMessage } from '@/components/ai/AIChatModal';
 import { useGamifiedProgress } from './GamifiedProgress';
-import { aiContextService, type AIKnowledgeContext } from '@/services/AIContextService';
+import { aiContextService, type AIKnowledgeContext } from '@/gamification/services/AIContextService';
 
 const CHAT_HISTORY_KEY = 'ai_chat_history';
 const MAX_STORED_MESSAGES = 50; // Limit stored messages to prevent storage bloat

@@ -6,7 +6,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import type { GameMode } from '@/types/games';
+import type { GameMode } from '@/gamification/types/games';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

@@ -2,7 +2,7 @@
 // Phase 1: Uses existing content table
 // Phase 2 (Future): Will integrate with dedicated knowledge/summaries table
 
-import { adventuresContentService } from './AdventuresContentService';
+import { adventuresContentService } from '@/services/AdventuresContentService';
 import type { Adventure, ContentItem } from '@/components/shared/types';
 
 // User progress item structure (from AsyncStorage)

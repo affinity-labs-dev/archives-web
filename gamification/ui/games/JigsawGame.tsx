@@ -7,10 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import JigsawBoard from './JigsawBoard';
 import JigsawPiece from './JigsawPiece';
-import { useJigsawLogic } from './useJigsawLogic';
+import { useJigsawLogic } from '@/gamification/hooks/useJigsawLogic';
 import { PuzzleEdgeMap } from './PuzzleEdgeMap';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import type { JigsawGameData } from '@/types/games';
+import type { JigsawGameData } from '@/gamification/types/games';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

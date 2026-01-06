@@ -6,7 +6,15 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { analyticsService } from '@/services/AnalyticsService';
-import type { AIRecommendation } from '@/hooks/useAIRecommendations';
+
+// AI Recommendation type (component not currently in use)
+interface AIRecommendation {
+  type: 'next_adventure' | 'strengthen_knowledge' | 'explore_new' | 'achievement';
+  title: string;
+  description: string;
+  actionLabel?: string;
+  route?: string;
+}
 
 interface AIRecommendationCardProps {
   recommendation: AIRecommendation;

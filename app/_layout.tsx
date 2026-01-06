@@ -36,12 +36,10 @@ import {
   RewardsProvider,
   useRewards,
   AIProvider,
-  PuzzleEngagementProvider,
 } from "@/gamification";
 import AvatarUnlockAnimation from "@/gamification/ui/celebrations/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/gamification/ui/celebrations/AvatarUnlockNotification";
 import AIAssistant from "@/gamification/ui/ai/AIAssistant";
-import PuzzlePromptWrapper from "@/gamification/ui/games/PuzzlePromptWrapper";
 
 Sentry.init({
   dsn: 'https://87a73fd4ec7ba02d87dccedcce85a9fa@o4510499177889792.ingest.de.sentry.io/4510499179790416',
@@ -567,7 +565,6 @@ export default Sentry.wrap(function RootLayout() {
                     <RewardsProvider>
                       <GamifiedProgressProvider>
                         <GamificationOrchestratorProvider>
-                      <PuzzleEngagementProvider>
                         <PreferencesProvider>
                             <AIProvider>
                             <AvatarAnimationWrapper>
@@ -580,13 +577,11 @@ export default Sentry.wrap(function RootLayout() {
                                 <Stack.Screen name="+not-found" />
                               </Stack>
                               <AIAssistant />
-                              <PuzzlePromptWrapper />
                               <StatusBar style="auto" />
                               </ThemeProvider>
                             </AvatarAnimationWrapper>
                             </AIProvider>
                         </PreferencesProvider>
-                      </PuzzleEngagementProvider>
                         </GamificationOrchestratorProvider>
                     </GamifiedProgressProvider>
                 </RewardsProvider>

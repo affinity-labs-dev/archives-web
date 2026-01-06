@@ -5,7 +5,7 @@ import React, { useRef, useMemo } from 'react';
 import { StyleSheet, PanResponder, Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Svg, { Image as SvgImage, Defs, ClipPath, Path } from 'react-native-svg';
-import type { JigsawPieceData, JigsawPiecePosition } from '@/types/games';
+import type { JigsawPieceData, JigsawPiecePosition } from '@/gamification/types/games';
 import type { PuzzleEdgeMap } from './PuzzleEdgeMap';
 
 interface JigsawPieceProps {

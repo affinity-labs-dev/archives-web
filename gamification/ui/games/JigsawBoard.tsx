@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { View, StyleSheet, Dimensions, Image } from 'react-native';
-import type { JigsawGameData } from '@/types/games';
+import type { JigsawGameData } from '@/gamification/types/games';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

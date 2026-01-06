@@ -30,7 +30,6 @@ import * as Haptics from 'expo-haptics';
 import { useUser } from '@clerk/clerk-expo';
 import { supabase } from '@/hooks/lib/supabase';
 import { analyticsService } from '@/services/AnalyticsService';
-import { behaviorTrackerService } from '@/services/BehaviorTrackerService';
 import { EraType, ModuleState } from '@/gamification/types/gamification';
 import type { ProgressUpdateAction, ModuleProgress, AdventureProgress } from '@/gamification/types/gamification';
 
@@ -888,12 +887,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
           updatedModule.lessonsCompleted = [...updatedModule.lessonsCompleted, action.lessonId];
         }
         console.log(`✅ Lesson ${action.lessonId} completed`);
-
-        behaviorTrackerService.trackContentAction('lesson_complete', {
-          adventureId,
-          moduleId,
-          lessonId: action.lessonId,
-        });
         break;
 
       case 'QUIZ_COMPLETED':
@@ -910,23 +903,10 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
         updatedModule.quizCompleted = true;
 
-        behaviorTrackerService.trackContentAction('quiz_complete', {
-          adventureId,
-          moduleId,
-          score: updatedModule.quizScore,
-          isRetake,
-        });
-
         if (updatedModule.quizScore >= 1) {
           updatedModule.isCompleted = true;
           console.log(`🎉 Module ${moduleId} completed!`);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-          behaviorTrackerService.trackContentAction('module_complete', {
-            adventureId,
-            moduleId,
-            score: updatedModule.quizScore,
-          });
         }
         break;
 
@@ -967,10 +947,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
       if (completedModulesCount === adventure.totalModules) {
         console.log(`🎉 Adventure ${adventureId} completed!`);
-        behaviorTrackerService.trackContentAction('adventure_complete', {
-          adventureId,
-          totalModules: adventure.totalModules,
-        });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }

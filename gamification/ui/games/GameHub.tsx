@@ -18,10 +18,10 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import GameModeSelector from './GameModeSelector';
 import GameContainer from './GameContainer';
 import JigsawGame from './JigsawGame';
-import type { GameMode, GameType, GameDifficulty, JigsawGameData, GameResult } from '@/types/games';
+import type { GameMode, GameType, GameDifficulty, JigsawGameData, GameResult } from '@/gamification/types/games';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useGamifiedProgress } from '@/gamification';
-import { gameGeneratorService } from '@/services/GameGeneratorService';
+import { gameGeneratorService } from '@/gamification/services/GameGeneratorService';
 
 interface GameHubProps {
   visible: boolean;

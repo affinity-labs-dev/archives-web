@@ -3,7 +3,7 @@ import { useUser } from '@clerk/clerk-expo';
 import { supabase } from '@/hooks/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateTotalXP, calculateModulesCompleted } from './GamifiedProgress';
-import type { EraType } from '@/types/progress';
+import type { EraType } from '@/gamification/types/gamification';
 
 // Unified interface for all unlockable items (avatars + badges)
 interface UnlockableItem {

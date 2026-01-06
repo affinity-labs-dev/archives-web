@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAdventures } from '@/hooks/useAdventures';
 import { useEras } from '@/hooks/useEras';
-import { useGamifiedProgress, useAI, usePuzzleEngagement } from '@/gamification';
+import { useGamifiedProgress, useAI } from '@/gamification';
 import BentoGridScreen from '@/components/adventure/types/bento-grid/BentoGridScreen';
 import EraProgressHeader from '@/components/shared/EraProgressHeader';
 import ComingSoonView from '@/components/eras/ComingSoonView';
@@ -47,9 +47,6 @@ export default function AdventuresScreen() {
   // Puzzle FAB state
   const [showGameHub, setShowGameHub] = useState(false);
   const [showNewPuzzleBadge, setShowNewPuzzleBadge] = useState(false);
-
-  // Puzzle engagement tracking
-  const { trackScreenChange, trackScrollActivity } = usePuzzleEngagement();
 
   // Get selected era data from eras table
   const selectedEraData = useMemo(() => {
@@ -245,11 +242,8 @@ export default function AdventuresScreen() {
       if (selectedEra) {
         console.log(`🔄 [Adventures] Screen focused, reloading progress for: ${selectedEra}`);
         loadProgress();
-
-        // Track screen change for puzzle engagement
-        trackScreenChange('navigation', { era: selectedEra });
       }
-    }, [loadProgress, selectedEra, trackScreenChange])
+    }, [loadProgress, selectedEra])
   );
 
   // Handle pull-to-refresh
@@ -354,7 +348,6 @@ export default function AdventuresScreen() {
         onProgressUpdate={loadProgress}
         refreshing={refreshing}
         onRefresh={handleRefresh}
-        onScrollActivity={trackScrollActivity}
       />
 
       {/* Floating Action Button for Puzzles */}

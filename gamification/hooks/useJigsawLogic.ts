@@ -2,7 +2,7 @@
 // Handles piece shuffling, placement, win condition
 
 import { useState, useEffect, useCallback } from 'react';
-import type { JigsawGameData, JigsawPieceData, JigsawPiecePosition } from '@/types/games';
+import type { JigsawGameData, JigsawPieceData, JigsawPiecePosition } from '@/gamification/types/games';
 
 interface UseJigsawLogicProps {
   gameData: JigsawGameData;

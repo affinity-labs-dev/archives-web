@@ -3,9 +3,9 @@
 
 import React, { useState, ReactNode } from 'react';
 import { View, StyleSheet, SafeAreaView } from 'react-native';
-import { useGameTimer } from '@/hooks/useGameTimer';
-import type { GameMode, GameResult } from '@/types/games';
-import { GAME_XP_REWARDS } from '@/types/games';
+import { useGameTimer } from '@/gamification/hooks/useGameTimer';
+import type { GameMode, GameResult } from '@/gamification/types/games';
+import { GAME_XP_REWARDS } from '@/gamification/types/games';
 
 interface GameContainerProps {
   mode: GameMode;

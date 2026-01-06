@@ -28,7 +28,6 @@ import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
-import { useAchievements } from '@/gamification/engines/useAchievements';
 
 interface QuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
@@ -290,10 +289,9 @@ export default function Quiz({
   adventureData,
 }: QuizProps) {
   const { saveNewProgressData } = useGamifiedProgress();
-  const { reportQuizComplete } = useGamificationOrchestrator();
+  const { reportQuizComplete, checkAchievements, checkTimeBasedAchievement } = useGamificationOrchestrator();
   const insets = useSafeAreaInsets();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
-  const { checkAchievements, checkTimeBasedAchievement } = useAchievements();
 
   // Extract adventure number from adventureId (e.g., "roi_adventure_1" → 1)
   const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);

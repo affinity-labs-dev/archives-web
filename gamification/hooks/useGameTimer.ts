@@ -2,7 +2,7 @@
 // Supports both practice (no timer) and challenge (timed) modes
 
 import { useState, useEffect, useRef } from 'react';
-import type { GameMode } from '@/types/games';
+import type { GameMode } from '@/gamification/types/games';
 
 interface UseGameTimerOptions {
   mode: GameMode;
