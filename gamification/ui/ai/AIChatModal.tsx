@@ -11,7 +11,8 @@ import {
   cacheDirectory,
   writeAsStringAsync,
   deleteAsync,
-} from 'expo-file-system';
+  EncodingType,
+} from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -199,7 +200,7 @@ export default function AIChatModal({
 
       // Write base64 to file
       await writeAsStringAsync(fileUri, selectedImage.base64, {
-        encoding: 'base64',
+        encoding: EncodingType.Base64,
       });
 
       // Open share sheet - user can save to photos, share to apps, etc.
