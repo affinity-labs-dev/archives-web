@@ -66,6 +66,33 @@ export {
   DIFFICULTY_SETTINGS,
 } from './types/games';
 
+// ========== ORCHESTRATOR (Centralized Triggers + Streaks) ==========
+// One engine with full control - components just report events
+// Also manages streak tracking (replaces useDailyStreak for most use cases)
+export {
+  GamificationOrchestratorProvider,
+  useGamificationOrchestrator,
+  checkXPMilestone,
+  checkStreakMilestone,
+  calculateStreakBonus,
+  XP_MILESTONES,
+  STREAK_MILESTONES,
+  ACHIEVEMENTS, // All 17 achievements array
+} from './engines/GamificationOrchestrator';
+
+export type {
+  QuizCompleteInput,
+  LessonCompleteInput,
+  CelebrationItem,
+  XPMilestoneCelebration,
+  AdventureCompleteCelebration,
+  StreakMilestoneCelebration,
+  StreakData as OrchestratorStreakData, // Renamed to avoid conflict with GamifiedProgress.StreakData
+  Achievement as OrchestratorAchievement, // Achievement type from Orchestrator
+  UnlockedAchievement,
+  AchievementCelebration,
+} from './engines/GamificationOrchestrator';
+
 // ========== PROVIDERS (Contexts) ==========
 export { RewardsProvider, useRewards } from './engines/RewardsContext';
 export { AIProvider, useAI } from './engines/AIContext';

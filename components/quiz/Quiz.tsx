@@ -17,7 +17,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useGamifiedProgress } from '@/gamification';
+import { useGamifiedProgress, useGamificationOrchestrator, checkXPMilestone } from '@/gamification';
 import { useQuizTracking } from '@/hooks/useQuizTracking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -39,7 +39,16 @@ interface QuizProps {
   onContinue: () => void;    // Called when quiz is completed
   onDismiss: () => void;     // Called to close quiz
   onBack?: () => void;       // Optional back button
-  onMilestoneReached?: (milestoneXP: number, totalXP: number, eraId: string) => void; // XP milestone callback (era-specific)
+  // Adventure data for orchestrator (adventure complete celebration)
+  adventureData?: {
+    title: string;
+    subtitle?: string;
+    description?: string;
+    backgroundImage?: string;
+    totalModules: number;
+    completedModules: number;  // BEFORE this quiz
+    totalBadges?: number;
+  };
 }
 
 // MCQ Option Button Design
@@ -278,9 +287,10 @@ export default function Quiz({
   onContinue,
   onDismiss,
   onBack,
-  onMilestoneReached,
+  adventureData,
 }: QuizProps) {
-  const { saveNewProgressData, calculateTotalXP, checkIfCrossed50XPBoundary } = useGamifiedProgress();
+  const { saveNewProgressData } = useGamifiedProgress();
+  const { reportQuizComplete } = useGamificationOrchestrator();
   const insets = useSafeAreaInsets();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
   const { checkAchievements, checkTimeBasedAchievement } = useAchievements();
@@ -405,8 +415,8 @@ export default function Quiz({
 
       console.log(`📊 [Quiz] Correct answer! XP: ${oldXP} → ${newXP}`);
 
-      // Check if we crossed a milestone
-      const milestone = checkIfCrossed50XPBoundary(oldXP, newXP);
+      // Check if we crossed a milestone (uses orchestrator's function)
+      const milestone = checkXPMilestone(oldXP, newXP);
 
       if (milestone) {
         console.log(`🎉 [Quiz] MID-QUIZ Milestone crossed: ${milestone} XP for era: ${eraId}`);
@@ -467,12 +477,15 @@ export default function Quiz({
     // Track quiz completion
     trackQuizComplete(correctAnswers, totalQuestions, score);
 
-    // Load Era 2 progress to calculate old XP (BEFORE saving)
+    // Load progress to calculate era-specific XP (BEFORE saving)
     const newModulesData = await AsyncStorage.getItem('new_user_progress');
     const newModules = newModulesData ? JSON.parse(newModulesData) : [];
 
-    const oldXP = calculateTotalXP([], newModules); // Only Era 2 XP
-    console.log(`📊 Old XP (Era 2 before quiz): ${oldXP}`);
+    // Calculate era-specific XP (only modules in current era)
+    const oldEraXP = newModules
+      .filter((m: any) => m.era_id === eraId)
+      .reduce((sum: number, m: any) => sum + ((m.quizCorrectAnswers || 0) * 10), 0);
+    console.log(`📊 Old Era XP (${eraId} before quiz): ${oldEraXP}`);
 
     // Check if this module already has tracked lessons
     const existingModule = newModules.find((m: any) =>
@@ -526,24 +539,35 @@ export default function Quiz({
     await checkTimeBasedAchievement();
     console.log('🏆 [Achievements] Achievement check complete');
 
-    // Load updated Era 2 progress to calculate new XP (AFTER saving)
+    // Load updated progress to calculate era-specific XP (AFTER saving)
     const updatedNewModulesData = await AsyncStorage.getItem('new_user_progress');
     const updatedNewModules = updatedNewModulesData ? JSON.parse(updatedNewModulesData) : [];
 
-    const newXP = calculateTotalXP([], updatedNewModules); // Only Era 2 XP
-    console.log(`📊 New XP (Era 2 after quiz): ${newXP}`);
+    // Calculate era-specific XP after quiz
+    const newEraXP = updatedNewModules
+      .filter((m: any) => m.era_id === eraId)
+      .reduce((sum: number, m: any) => sum + ((m.quizCorrectAnswers || 0) * 10), 0);
+    console.log(`📊 New Era XP (${eraId} after quiz): ${newEraXP}`);
 
-    // Check if user crossed 50 XP boundary (50, 100, 200, 400, 750) - Era 2 only
-    const milestone = checkIfCrossed50XPBoundary(oldXP, newXP);
-    console.log(`📊 [Quiz] Milestone check result:`, { oldXP, newXP, milestone, hasCallback: !!onMilestoneReached });
-
-    if (milestone && onMilestoneReached) {
-      console.log(`🎉 [Quiz] Milestone ${milestone} crossed! Calling onMilestoneReached for era: ${eraId}`);
-      onMilestoneReached(milestone, newXP, eraId);
-      return; // Don't call onContinue - let milestone modal handle it
-    }
-
-    console.log(`✅ [Quiz] No milestone reached, calling onContinue`);
+    // Report quiz completion to orchestrator - it handles milestone checks and celebrations
+    await reportQuizComplete({
+      eraId,
+      adventureId,
+      moduleId,
+      oldEraXP,
+      newEraXP,
+      // This module completion increments the count
+      adventureModulesCompleted: (adventureData?.completedModules || 0) + 1,
+      adventureTotalModules: adventureData?.totalModules || 3,
+      adventureData: adventureData ? {
+        title: adventureData.title,
+        subtitle: adventureData.subtitle,
+        description: adventureData.description,
+        backgroundImage: adventureData.backgroundImage,
+        totalBadges: adventureData.totalBadges,
+      } : undefined,
+    });
+    console.log(`📋 [Quiz] Reported to orchestrator - XP: ${oldEraXP} → ${newEraXP}`);
 
     console.log(`✅ Quiz completed - Correct: ${correctAnswers}/${totalQuestions} (${percentage.toFixed(0)}%), Stars: ${quizScore}★`);
     onContinue();

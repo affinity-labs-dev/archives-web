@@ -1,14 +1,13 @@
 // Profile Tab - EXACT replica of SwiftUI Profile.swift
 // Matches the exact structure: historical avatars + stats + badges + achievements + settings
 
-import AchievementDetailModal from '@/gamification/ui/displays/AchievementDetailModal'
+import { AchievementDetailModal } from '@/gamification/ui/achievement/AchievementGrid'
 import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen'
 import GameHub from '@/gamification/ui/games/GameHub'
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { usePreferences } from '@/context/PreferencesContext'
-import { useGamifiedProgress, useRewards } from '@/gamification'
-import { useAchievements } from '@/gamification/engines/useAchievements'
+import { useGamifiedProgress, useRewards, useGamificationOrchestrator } from '@/gamification'
 import { useAdventures } from '@/hooks/useAdventures'
 import { analyticsService } from '@/services/AnalyticsService'
 import { useAuth, useUser } from '@clerk/clerk-expo'
@@ -219,8 +218,7 @@ export default function ProfileTab() {
     unlockedCount,
     totalCount,
     getProgress,
-    checkAchievements,
-  } = useAchievements()
+  } = useGamificationOrchestrator()
 
   // Achievement detail modal state
   const [selectedAchievement, setSelectedAchievement] = React.useState<(typeof achievements)[0] | null>(null)
@@ -403,20 +401,17 @@ export default function ProfileTab() {
   ]
   const adventuresLoading = testAdventures.length === 0
 
-  // Track page views with focus/blur + check achievements
+  // Track page views with focus/blur
   useFocusEffect(
     React.useCallback(() => {
       console.log('📊 [ProfileTab] Screen focused - starting page view tracking')
       analyticsService.startPageView('profile', '/profile')
 
-      // Check achievements when profile opens
-      checkAchievements();
-
       return () => {
         console.log('📊 [ProfileTab] Screen blurred - ending page view tracking')
         analyticsService.endPageView('profile')
       }
-    }, []) // Removed checkAchievements from dependencies to prevent infinite re-renders
+    }, [])
   )
 
   const handleSignOut = async () => {

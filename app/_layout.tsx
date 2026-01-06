@@ -32,15 +32,14 @@ import CustomerIOService from '@/services/CustomerIOService';
 // Gamification imports - unified from @/gamification
 import {
   GamifiedProgressProvider,
+  GamificationOrchestratorProvider,
   RewardsProvider,
   useRewards,
   AIProvider,
   PuzzleEngagementProvider,
 } from "@/gamification";
-import { useAchievements, AchievementsProvider } from "@/gamification/engines/useAchievements";
 import AvatarUnlockAnimation from "@/gamification/ui/celebrations/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/gamification/ui/celebrations/AvatarUnlockNotification";
-import AchievementUnlockAnimation from "@/gamification/ui/celebrations/AchievementUnlockAnimation";
 import AIAssistant from "@/gamification/ui/ai/AIAssistant";
 import PuzzlePromptWrapper from "@/gamification/ui/games/PuzzlePromptWrapper";
 
@@ -425,32 +424,6 @@ function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Achievement unlock animation wrapper - shows celebrations app-wide
-function AchievementAnimationWrapper({ children }: { children: React.ReactNode }) {
-  const { newlyUnlocked, clearNewlyUnlocked } = useAchievements();
-
-  // Debug logging
-  React.useEffect(() => {
-    if (newlyUnlocked) {
-      console.log(`🎬 [Animation Wrapper] Rendering animation for: ${newlyUnlocked.name}`);
-    } else {
-      console.log(`🎬 [Animation Wrapper] No achievement to show`);
-    }
-  }, [newlyUnlocked]);
-
-  return (
-    <>
-      {children}
-      {newlyUnlocked && (
-        <AchievementUnlockAnimation
-          visible={true}
-          achievement={newlyUnlocked}
-          onDismiss={clearNewlyUnlocked}
-        />
-      )}
-    </>
-  );
-}
 
 export default Sentry.wrap(function RootLayout() {
   const colorScheme = useColorScheme();
@@ -593,12 +566,11 @@ export default Sentry.wrap(function RootLayout() {
                   <AdventuresContentProvider>
                     <RewardsProvider>
                       <GamifiedProgressProvider>
+                        <GamificationOrchestratorProvider>
                       <PuzzleEngagementProvider>
                         <PreferencesProvider>
-                          <AchievementsProvider>
                             <AIProvider>
                             <AvatarAnimationWrapper>
-                              <AchievementAnimationWrapper>
                               <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
                               <Stack>
                                 <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -611,12 +583,11 @@ export default Sentry.wrap(function RootLayout() {
                               <PuzzlePromptWrapper />
                               <StatusBar style="auto" />
                               </ThemeProvider>
-                              </AchievementAnimationWrapper>
                             </AvatarAnimationWrapper>
                             </AIProvider>
-                          </AchievementsProvider>
                         </PreferencesProvider>
                       </PuzzleEngagementProvider>
+                        </GamificationOrchestratorProvider>
                     </GamifiedProgressProvider>
                 </RewardsProvider>
               </AdventuresContentProvider>
