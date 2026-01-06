@@ -345,8 +345,8 @@ export default function AdventuresScreen() {
         onRefresh={handleRefresh}
       />
 
-      {/* Floating Action Button for Puzzles */}
-      <TouchableOpacity
+      {/* Floating Action Button for Puzzles - Commented out for release */}
+      {/* <TouchableOpacity
         style={styles.fab}
         onPress={handlePuzzleFABPress}
         activeOpacity={0.8}
@@ -357,7 +357,7 @@ export default function AdventuresScreen() {
             <Text style={styles.badgeText}>NEW</Text>
           </View>
         )}
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       {/* GameHub Modal */}
       <GameHub

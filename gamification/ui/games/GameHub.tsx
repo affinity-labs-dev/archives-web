@@ -1,27 +1,212 @@
 // GameHub.tsx - Main entry point for all puzzle games
 // Shows available games, mode selection, and game flow
 
-import React, { useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  Modal,
-  ActivityIndicator,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import GameModeSelector from './GameModeSelector';
-import GameContainer from './GameContainer';
-import JigsawGame from './JigsawGame';
-import type { GameMode, GameType, GameDifficulty, JigsawGameData, GameResult } from '@/gamification/types/games';
-import { analyticsService } from '@/services/AnalyticsService';
 import { useGamifiedProgress } from '@/gamification';
 import { gameGeneratorService } from '@/gamification/services/GameGeneratorService';
+import type { GameDifficulty, GameMode, GameResult, GameType, JigsawGameData } from '@/gamification/types/games';
+import { analyticsService } from '@/services/AnalyticsService';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import React, { useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Modal,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useGameTimer } from '@/gamification/hooks/useGameTimer';
+import JigsawGame from './JigsawGame';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// ========== INTERNAL COMPONENT: GameModeSelector ==========
+// Choose Practice vs Challenge mode (inline component, no separate file)
+
+interface GameModeSelectorProps {
+  onSelectMode: (mode: GameMode) => void;
+  onClose?: () => void;
+}
+
+function GameModeSelector({ onSelectMode, onClose }: GameModeSelectorProps) {
+  const handleSelectMode = (mode: GameMode) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onSelectMode(mode);
+  };
+
+  return (
+    <View style={modeSelectorStyles.container}>
+      <View style={modeSelectorStyles.modal}>
+        {/* Header */}
+        <View style={modeSelectorStyles.header}>
+          <Text style={modeSelectorStyles.title}>Choose Your Mode</Text>
+          {onClose && (
+            <TouchableOpacity onPress={onClose} style={modeSelectorStyles.closeButton}>
+              <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Practice Mode - Commented out for release */}
+        {/* <TouchableOpacity
+          style={[modeSelectorStyles.modeCard, modeSelectorStyles.practiceCard]}
+          onPress={() => handleSelectMode('practice')}
+          activeOpacity={0.8}
+        >
+          <View style={modeSelectorStyles.modeIcon}>
+            <Ionicons name="book-outline" size={32} color="#3498DB" />
+          </View>
+          <View style={modeSelectorStyles.modeContent}>
+            <Text style={modeSelectorStyles.modeTitle}>📚 Practice Mode</Text>
+            <Text style={modeSelectorStyles.modeDescription}>
+              • No timer - take your time{'\n'}
+              • Relaxed gameplay{'\n'}
+              • Earn 25 XP on completion
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color="#95A5A6" />
+        </TouchableOpacity> */}
+
+        {/* Challenge Mode */}
+        <TouchableOpacity
+          style={[modeSelectorStyles.modeCard, modeSelectorStyles.challengeCard]}
+          onPress={() => handleSelectMode('challenge')}
+          activeOpacity={0.8}
+        >
+          <View style={[modeSelectorStyles.modeIcon, modeSelectorStyles.challengeIcon]}>
+            <Ionicons name="flash-outline" size={32} color="#E74C3C" />
+          </View>
+          <View style={modeSelectorStyles.modeContent}>
+            <Text style={modeSelectorStyles.modeTitle}>⚡ Challenge Mode</Text>
+            <Text style={modeSelectorStyles.modeDescription}>
+              • Timed race against the clock{'\n'}
+              • Compete for best time{'\n'}
+              • Test your puzzle-solving skills
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color="#95A5A6" />
+        </TouchableOpacity>
+
+        {/* Tip */}
+        <View style={modeSelectorStyles.tip}>
+          <Ionicons name="information-circle-outline" size={16} color="#7F8C8D" />
+          <Text style={modeSelectorStyles.tipText}>
+            Tip: Complete puzzles quickly to test your skills!
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const modeSelectorStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modal: {
+    backgroundColor: ArchivesTheme.colors.creamWhite,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 500,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  title: {
+    fontFamily: 'DM Sans',
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: ArchivesTheme.colors.shoeBrown,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  practiceCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#3498DB',
+  },
+  challengeCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#E74C3C',
+  },
+  modeIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#EBF5FB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  challengeIcon: {
+    backgroundColor: '#FADBD8',
+  },
+  modeContent: {
+    flex: 1,
+  },
+  modeTitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: ArchivesTheme.colors.shoeBrown,
+    marginBottom: 8,
+  },
+  modeDescription: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    color: '#7F8C8D',
+    lineHeight: 20,
+  },
+  tip: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+  },
+  tipText: {
+    fontFamily: 'DM Sans',
+    fontSize: 13,
+    color: '#7F8C8D',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
+  },
+});
+
+// ========== MAIN COMPONENT: GameHub ==========
 
 interface GameHubProps {
   visible: boolean;
@@ -49,11 +234,18 @@ export default function GameHub({
   const [puzzlesCompleted, setPuzzlesCompleted] = useState(0);
   const [solveTimes, setSolveTimes] = useState<number[]>([]); // Track recent solve times
   const [puzzleStartTime, setPuzzleStartTime] = useState<number | null>(null);
+  const [isGameStarted, setIsGameStarted] = useState(false);
 
   // Ref to store the preload promise so we can await it when needed
   const preloadPromiseRef = useRef<Promise<JigsawGameData | null> | null>(null);
 
   const { moduleProgress } = useGamifiedProgress();
+
+  // Timer for challenge mode (merged from GameContainer)
+  const timer = useGameTimer({
+    mode: selectedMode || 'challenge',
+    // No countdown - let timer run indefinitely until puzzle is solved
+  });
 
   // Determine which eras to use for puzzle themes
   const getUserCompletedEras = async (): Promise<string[] | undefined> => {
@@ -134,11 +326,11 @@ export default function GameHub({
     // - Slow (>= 8s per piece): Stay same
 
     if (timePerPiece < 3) {
-      return Math.min(currentSize + 2, 12); // Cap at 12×12 (144 pieces!)
+      return Math.min(currentSize + 2, 5); // Cap at 5×5 (25 pieces max)
     } else if (timePerPiece < 5) {
-      return Math.min(currentSize + 1, 12);
+      return Math.min(currentSize + 1, 5);
     } else if (timePerPiece < 8 && puzzlesCompleted % 2 === 0) {
-      return Math.min(currentSize + 1, 12); // Gradual increase
+      return Math.min(currentSize + 1, 5); // Gradual increase
     } else {
       return currentSize; // Keep same size
     }
@@ -155,6 +347,12 @@ export default function GameHub({
   const handleNearCompletion = () => {
     console.log('🔔 [GameHub] handleNearCompletion called - halfway done!');
     console.log(`📊 [GameHub] Current preload status: ${preloadStatus}`);
+
+    // Don't preload if we're at max difficulty (5×5)
+    if (currentGridSize >= 5) {
+      console.log('🏁 [GameHub] Already at max difficulty (5×5) - no preload needed');
+      return;
+    }
 
     // Only preload if we haven't already started
     if (preloadStatus !== 'idle') {
@@ -265,12 +463,33 @@ export default function GameHub({
     }
   };
 
-  // Handle game completion
-  const handleGameComplete = async (result: GameResult) => {
-    // Award XP via progress system
-    // For now, we'll use a generic adventure/module
-    // In production, this would be linked to specific content
-    const totalXP = result.xpEarned + (result.bonusXP || 0);
+  // Game flow functions (merged from GameContainer)
+  const handleGameStart = () => {
+    setIsGameStarted(true);
+    if (selectedMode === 'challenge') {
+      timer.start();
+    }
+  };
+
+  const handleGameComplete = (additionalData?: Partial<GameResult>) => {
+    if (selectedMode === 'challenge') {
+      timer.stop();
+    }
+
+    // Build result object
+    const result: GameResult = {
+      completed: true,
+      mode: selectedMode || 'challenge',
+      difficulty: gameData?.difficulty || 'medium',
+      timeElapsed: selectedMode === 'challenge' ? timer.elapsedSeconds : undefined,
+      score: 100,
+      xpEarned: 0, // XP disabled
+      bonusXP: 0, // XP disabled
+      perfectCompletion: true,
+      ...additionalData,
+    };
+
+    console.log('🎮 [GameHub] Game completed with result:', result);
 
     // Calculate solve time
     const solveTime = puzzleStartTime ? (Date.now() - puzzleStartTime) / 1000 : 60; // in seconds
@@ -285,7 +504,7 @@ export default function GameHub({
     // Increment completed count
     setPuzzlesCompleted(prev => prev + 1);
 
-    console.log(`🎮 Game completed! Earned ${totalXP} XP (Total puzzles: ${puzzlesCompleted + 1})`);
+    console.log(`🎮 Game completed! (Total puzzles: ${puzzlesCompleted + 1})`);
 
     // Track analytics
     analyticsService.trackCustomEvent('game_completed', {
@@ -295,7 +514,6 @@ export default function GameHub({
       grid_size: currentGridSize,
       time_elapsed: result.timeElapsed,
       solve_time: solveTime,
-      xp_earned: totalXP,
       perfect_completion: result.perfectCompletion,
       puzzles_completed: puzzlesCompleted + 1,
     });
@@ -306,6 +524,29 @@ export default function GameHub({
   // Handle next puzzle - STRICT RULE: NEVER call AI on button click
   const handleNextPuzzle = async () => {
     if (!selectedMode) return;
+
+    // Check if we've reached the maximum difficulty (5×5)
+    if (currentGridSize >= 5) {
+      console.log('🏆 [GameHub] Maximum difficulty reached (5×5) - ending game session');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Track final completion
+      analyticsService.trackCustomEvent('game_session_completed', {
+        game_type: initialGameType,
+        mode: selectedMode,
+        max_grid_size: currentGridSize,
+        total_puzzles: puzzlesCompleted,
+        final_achievement: 'completed_5x5',
+      });
+
+      // Exit game
+      handleExit();
+      return;
+    }
+
+    // Reset game state for next puzzle
+    setIsGameStarted(false);
+    timer.reset();
 
     console.log('🎮 [GameHub] "Next Puzzle" button clicked');
     console.log(`📊 [GameHub] Preload status: ${preloadStatus}`);
@@ -456,22 +697,25 @@ export default function GameHub({
   if (gameData && selectedMode) {
     return (
       <Modal visible={visible} animationType="slide">
-        <GameContainer
-          mode={selectedMode}
-          onComplete={handleGameComplete}
-          onExit={handleExit}
-          onNextPuzzle={handleNextPuzzle}
-          onNearCompletion={handleNearCompletion}
-          difficulty={gameData.difficulty}
-        >
-          {gameData.type === 'jigsaw' && (
-            <JigsawGame
-              key={gameData.id || `puzzle-${Date.now()}`}
-              gameData={gameData}
-            />
-          )}
-          {/* Add other game types here as they're built */}
-        </GameContainer>
+        <SafeAreaView style={styles.gameContainer}>
+          <View style={styles.gameContent}>
+            {gameData.type === 'jigsaw' && (
+              <JigsawGame
+                key={gameData.id || `puzzle-${Date.now()}`}
+                gameData={gameData}
+                onGameStart={handleGameStart}
+                onGameComplete={handleGameComplete}
+                onNearCompletion={handleNearCompletion}
+                onClose={handleExit}
+                onNextPuzzle={handleNextPuzzle}
+                isGameStarted={isGameStarted}
+                mode={selectedMode}
+                formattedTime={timer.formattedTime}
+              />
+            )}
+            {/* Add other game types here as they're built */}
+          </View>
+        </SafeAreaView>
       </Modal>
     );
   }
@@ -480,6 +724,13 @@ export default function GameHub({
 }
 
 const styles = StyleSheet.create({
+  gameContainer: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  gameContent: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

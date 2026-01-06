@@ -102,8 +102,8 @@ export { AIProvider, useAI } from './engines/AIContext';
 export { useDailyStreak } from './engines/useDailyStreak';
 
 // ========== SERVICES ==========
-export { default as AIService, aiService } from './services/AIService';
-export { default as AIContextService } from './services/AIContextService';
-export { default as AIStorageService, aiStorageService } from './services/AIStorageService';
+export { aiService } from './services/AIService';
+export { aiContextService } from './services/AIContextService';
+export { aiStorageService } from './services/AIStorageService';
 export type { StoredMessage } from './services/AIStorageService';
-export { default as GameGeneratorService } from './services/GameGeneratorService';
+export { gameGeneratorService } from './services/GameGeneratorService';

@@ -1103,5 +1103,5 @@ export function useGamificationOrchestrator(): GamificationOrchestratorContextTy
 // EXPORTS
 // ============================================================
 
-export { checkXPMilestone, checkStreakMilestone, calculateStreakBonus };
-export type { CelebrationItem, XPMilestoneCelebration, AdventureCompleteCelebration, StreakMilestoneCelebration };
+export { checkXPMilestone, checkStreakMilestone, calculateStreakBonus, ACHIEVEMENTS };
+export type { CelebrationItem, XPMilestoneCelebration, AdventureCompleteCelebration, StreakMilestoneCelebration, AchievementCelebration, StreakData };

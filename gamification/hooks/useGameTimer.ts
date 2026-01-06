@@ -24,6 +24,7 @@ export function useGameTimer(options: UseGameTimerOptions) {
   const start = () => {
     if (mode === 'practice') return; // No timer in practice mode
 
+    console.log(`⏱️ [Timer] Starting timer - mode: ${mode}, countdownSeconds: ${countdownSeconds || 'none'}`);
     if (!startTimeRef.current) {
       startTimeRef.current = Date.now();
     }
@@ -51,6 +52,7 @@ export function useGameTimer(options: UseGameTimerOptions) {
 
   // Stop timer
   const stop = () => {
+    console.log(`⏱️ [Timer] Stopping timer at ${elapsedSeconds}s`);
     setIsRunning(false);
     setIsPaused(false);
     if (intervalRef.current) {
@@ -85,6 +87,7 @@ export function useGameTimer(options: UseGameTimerOptions) {
 
         // Handle countdown mode
         if (countdownSeconds && elapsed >= countdownSeconds) {
+          console.log(`⏱️ [Timer] Countdown reached: ${elapsed}s >= ${countdownSeconds}s - stopping timer`);
           stop();
         }
       }
