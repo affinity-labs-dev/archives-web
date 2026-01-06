@@ -100,9 +100,6 @@ export { PuzzleEngagementProvider, usePuzzleEngagement } from './engines/PuzzleE
 
 // ========== HOOKS ==========
 export { useDailyStreak } from './engines/useDailyStreak';
-export { useLevel } from './engines/useLevel';
-export { useGameDragDrop } from './hooks/useGameDragDrop';
-export { useSnapToGrid } from './hooks/useSnapToGrid';
 
 // ========== SERVICES ==========
 export { default as AIService, aiService } from './services/AIService';
@@ -110,4 +107,3 @@ export { default as AIContextService } from './services/AIContextService';
 export { default as AIStorageService, aiStorageService } from './services/AIStorageService';
 export type { StoredMessage } from './services/AIStorageService';
 export { default as GameGeneratorService } from './services/GameGeneratorService';
-export { behaviorTrackerService } from './services/BehaviorTrackerService';
