@@ -77,6 +77,8 @@ export function AIProvider({ children }: AIProviderProps) {
     moduleProgress,
     calculateTotalXP,
     getModuleProgress,
+    getStreak,
+    getXPByEra,
   } = useGamifiedProgress();
 
   // Load new era progress (Era 2+) from AsyncStorage
@@ -329,17 +331,23 @@ export function AIProvider({ children }: AIProviderProps) {
       }
 
       // Convert legacy moduleProgress (Era 1 - Umayyad) to AIToolsContext format
-      const legacyProgressItems = (moduleProgress || []).map(m => ({
-        era_id: 'umayyad', // All legacy modules are Era 1 (Umayyad)
-        adventureId: String(m.adventureId),
-        moduleId: String(m.moduleId),
-        lessonsCompleted: m.lessonsCompleted || [],
-        quizScore: m.quizScore || 0,
-        quizCorrectAnswers: m.quizScore || 0, // In Era 1, quizScore IS the correct answers count
-        completedAt: m.unlockedAt || new Date().toISOString(),
-        isCompleted: m.quizScore !== undefined && m.quizScore >= 2,
-        quizCompleted: m.quizCompleted || false,
-      }));
+      // FIX: Use proper timestamp mapping - unlockedAt is firstAttemptAt, NOT completedAt
+      const legacyProgressItems = (moduleProgress || []).map(m => {
+        const isCompleted = m.quizScore !== undefined && m.quizScore >= 2;
+        return {
+          era_id: 'umayyad', // All legacy modules are Era 1 (Umayyad)
+          adventureId: String(m.adventureId),
+          moduleId: String(m.moduleId),
+          lessonsCompleted: m.lessonsCompleted || [],
+          quizScore: m.quizScore || 0,
+          quizCorrectAnswers: m.quizScore || 0, // In Era 1, quizScore IS the correct answers count
+          isCompleted,
+          quizCompleted: m.quizCompleted || false,
+          // Enhanced timestamps: firstAttemptAt = when started, completedAt = when finished (if completed)
+          firstAttemptAt: m.unlockedAt || new Date().toISOString(),
+          completedAt: isCompleted ? (m.unlockedAt || new Date().toISOString()) : undefined,
+        };
+      });
 
       // Convert new era progress (Era 2+)
       const newEraProgressItems = freshNewEraProgress.map(m => ({
@@ -349,28 +357,58 @@ export function AIProvider({ children }: AIProviderProps) {
         lessonsCompleted: m.lessonsCompleted || [],
         quizScore: m.quizScore || 0,
         quizCorrectAnswers: m.quizCorrectAnswers || 0,
-        completedAt: m.completedAt || m.unlockedAt || new Date().toISOString(),
         isCompleted: m.isCompleted || false,
         quizCompleted: m.quizCompleted || false,
+        // Enhanced timestamps
+        firstAttemptAt: m.first_attempt_at || m.unlockedAt || new Date().toISOString(),
+        completedAt: m.isCompleted ? (m.completedAt || m.unlockedAt) : undefined,
       }));
 
       // Combine all progress
       const allProgress = [...legacyProgressItems, ...newEraProgressItems];
 
-      // Build context for AIToolsService
+      // Get streak data
+      const streakData = getStreak();
+
+      // Get XP by era
+      const xpByEra = getXPByEra();
+
+      // Calculate first and last activity timestamps
+      const allTimestamps = allProgress
+        .flatMap(p => [p.firstAttemptAt, p.completedAt])
+        .filter((t): t is string => !!t)
+        .map(t => new Date(t).getTime())
+        .filter(t => !isNaN(t));
+
+      const firstActivityAt = allTimestamps.length > 0
+        ? new Date(Math.min(...allTimestamps)).toISOString()
+        : undefined;
+      const lastActiveAt = allTimestamps.length > 0
+        ? new Date(Math.max(...allTimestamps)).toISOString()
+        : undefined;
+
+      // Build context for AIToolsService with enhanced data
       const ragContext: AIToolsContext = {
         progress: allProgress,
         selectedEra: currentContext.eraId,
         totalXP: calculateTotalXP(),
+        xpByEra,
+        streak: streakData ? {
+          currentStreak: streakData.currentStreak,
+          longestStreak: streakData.longestStreak,
+          lastActiveDate: streakData.lastActiveDate,
+        } : undefined,
+        firstActivityAt,
+        lastActiveAt,
       };
 
       // Set the context for RAG tools
       aiToolsService.setContext(ragContext);
-      console.log(`✅ [AIContext] RAG context set with ${allProgress.length} progress items`);
+      console.log(`✅ [AIContext] RAG context set with ${allProgress.length} progress items, streak: ${streakData?.currentStreak || 0} days`);
     } catch (error) {
       console.error('❌ [AIContext] Error setting up RAG context:', error);
     }
-  }, [moduleProgress, currentContext.eraId, calculateTotalXP]);
+  }, [moduleProgress, currentContext.eraId, calculateTotalXP, getStreak, getXPByEra]);
 
   // Refresh knowledge context and set up RAG tools when chat opens or progress changes
   useEffect(() => {

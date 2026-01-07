@@ -22,14 +22,27 @@ export interface AIToolsContext {
     lessonsCompleted: string[];
     quizScore: number;
     quizCorrectAnswers: number;
-    completedAt: string;
     isCompleted: boolean;
     quizCompleted: boolean;
+    // Enhanced timestamps for accurate context
+    firstAttemptAt: string;   // When user first started this module
+    completedAt?: string;     // When module was completed (quiz passed) - undefined if not completed
   }>;
   // Current selected era
   selectedEra?: string;
   // Total XP (pre-calculated)
   totalXP: number;
+  // XP breakdown by era
+  xpByEra?: Record<string, number>;
+  // Streak data for engagement context
+  streak?: {
+    currentStreak: number;
+    longestStreak: number;
+    lastActiveDate: string;
+  };
+  // Timeline context
+  firstActivityAt?: string;   // User's first ever learning activity
+  lastActiveAt?: string;      // User's most recent activity
 }
 
 // Tool execution result
@@ -125,6 +138,24 @@ export const AI_TOOL_DECLARATIONS: FunctionDeclaration[] = [
       required: ['eraId'],
     },
   },
+  {
+    name: 'getLearningTimeline',
+    description: 'Get the user\'s chronological learning journey showing when they started, what they completed, and their activity pattern. Use this when the user asks about their learning history, timeline, or activity. Examples: "When did I start learning?", "Show my learning timeline", "What did I do last week?", "How active have I been?"',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        eraId: {
+          type: Type.STRING,
+          description: 'Optional: Filter timeline to a specific era. Omit to get timeline across all eras.',
+        },
+        limit: {
+          type: Type.NUMBER,
+          description: 'Maximum number of timeline entries to return (default: 10, max: 20)',
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 // ========== AI TOOLS SERVICE CLASS ==========
@@ -185,6 +216,9 @@ class AIToolsService {
         case 'getEraOverview':
           result = await this.getEraOverview(args.eraId);
           break;
+        case 'getLearningTimeline':
+          result = await this.getLearningTimeline(args.eraId, args.limit);
+          break;
         default:
           result = { success: false, error: `Unknown tool: ${toolName}` };
       }
@@ -227,7 +261,7 @@ class AIToolsService {
       ? quizScores.reduce((a, b) => a + b, 0) / quizScores.length
       : 0;
 
-    // Calculate per-era breakdown
+    // Calculate per-era breakdown (use xpByEra if available for accuracy)
     const eraBreakdown: Record<string, { completed: number; xp: number }> = {};
     progress.forEach(p => {
       if (!eraBreakdown[p.era_id]) {
@@ -239,9 +273,19 @@ class AIToolsService {
       }
     });
 
-    // Get recent completions (sorted by date, newest first)
+    // Override with actual xpByEra if available (more accurate)
+    if (this.context.xpByEra) {
+      Object.entries(this.context.xpByEra).forEach(([era, xp]) => {
+        if (eraBreakdown[era]) {
+          eraBreakdown[era].xp = xp;
+        }
+      });
+    }
+
+    // Get recent completions (sorted by date, newest first) with relative times
     const recentCompletions = completedModules
-      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+      .filter(p => p.completedAt) // Only include modules with completion dates
+      .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
       .slice(0, 5)
       .map(p => ({
         eraId: p.era_id,
@@ -249,7 +293,20 @@ class AIToolsService {
         moduleId: String(p.moduleId),
         quizScore: p.quizScore,
         completedAt: p.completedAt,
+        completedAgo: this.getRelativeTime(p.completedAt!),
       }));
+
+    // Build streak info if available
+    const streakInfo = this.context.streak ? {
+      currentStreak: this.context.streak.currentStreak,
+      longestStreak: this.context.streak.longestStreak,
+      lastActiveDate: this.context.streak.lastActiveDate,
+      lastActiveAgo: this.getRelativeTime(this.context.streak.lastActiveDate),
+    } : null;
+
+    // Calculate journey duration
+    const firstActivity = this.context.firstActivityAt;
+    const journeyDuration = firstActivity ? this.getRelativeTime(firstActivity) : null;
 
     return {
       success: true,
@@ -260,7 +317,16 @@ class AIToolsService {
         currentEra: this.context.selectedEra || 'Not selected',
         eraBreakdown,
         recentCompletions,
-        summary: `User has completed ${completedModules.length} modules with ${this.context.totalXP || totalXP} XP total. Average quiz score: ${Math.round(avgQuizScore * 10) / 10}/5.`,
+        streak: streakInfo,
+        journeyStarted: firstActivity ? {
+          date: firstActivity,
+          ago: journeyDuration,
+        } : null,
+        lastActivity: this.context.lastActiveAt ? {
+          date: this.context.lastActiveAt,
+          ago: this.getRelativeTime(this.context.lastActiveAt),
+        } : null,
+        summary: `User has completed ${completedModules.length} modules with ${this.context.totalXP || totalXP} XP total. Average quiz score: ${Math.round(avgQuizScore * 10) / 10}/5.${streakInfo ? ` Current streak: ${streakInfo.currentStreak} days.` : ''}`,
       },
     };
   }
@@ -350,13 +416,19 @@ class AIToolsService {
         quizScore: lastModule.quizScore,
         quizCorrectAnswers: lastModule.quizCorrectAnswers,
         xpEarned: (lastModule.quizCorrectAnswers || 0) * 10,
+        // Enhanced timestamp information
+        startedAt: lastModule.firstAttemptAt,
+        startedAgo: this.getRelativeTime(lastModule.firstAttemptAt),
         completedAt: lastModule.completedAt,
-        completedAtFormatted: new Date(lastModule.completedAt).toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }),
+        completedAgo: lastModule.completedAt ? this.getRelativeTime(lastModule.completedAt) : null,
+        completedAtFormatted: lastModule.completedAt
+          ? new Date(lastModule.completedAt).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })
+          : 'Not yet completed',
       },
     };
   }
@@ -667,7 +739,174 @@ class AIToolsService {
     }
   }
 
+  /**
+   * Tool 6: Get user's learning timeline
+   * Shows chronological learning journey with timestamps
+   */
+  private async getLearningTimeline(eraId?: string, limit?: number): Promise<ToolResult> {
+    if (!this.context) {
+      return { success: false, error: 'No user context available. User may not be signed in.' };
+    }
+
+    const maxLimit = Math.min(limit || 10, 20);
+    let progress = [...this.context.progress];
+
+    // Filter by era if specified
+    if (eraId) {
+      progress = progress.filter(p => p.era_id === eraId);
+    }
+
+    if (progress.length === 0) {
+      return {
+        success: true,
+        data: {
+          hasActivity: false,
+          eraId: eraId || 'all',
+          message: eraId
+            ? `No learning activity found in the "${eraId}" era yet.`
+            : 'No learning activity found yet. The user is just getting started!',
+        },
+      };
+    }
+
+    // Build timeline events from progress
+    type TimelineEvent = {
+      type: 'started' | 'completed';
+      date: string;
+      dateFormatted: string;
+      ago: string;
+      eraId: string;
+      adventureId: string;
+      moduleId: string;
+      details?: {
+        quizScore?: number;
+        xpEarned?: number;
+      };
+    };
+
+    const events: TimelineEvent[] = [];
+
+    progress.forEach(p => {
+      // Add "started" event
+      if (p.firstAttemptAt) {
+        events.push({
+          type: 'started',
+          date: p.firstAttemptAt,
+          dateFormatted: new Date(p.firstAttemptAt).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+          ago: this.getRelativeTime(p.firstAttemptAt),
+          eraId: p.era_id,
+          adventureId: String(p.adventureId),
+          moduleId: String(p.moduleId),
+        });
+      }
+
+      // Add "completed" event if module is done
+      if (p.isCompleted && p.quizCompleted && p.completedAt) {
+        events.push({
+          type: 'completed',
+          date: p.completedAt,
+          dateFormatted: new Date(p.completedAt).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+          ago: this.getRelativeTime(p.completedAt),
+          eraId: p.era_id,
+          adventureId: String(p.adventureId),
+          moduleId: String(p.moduleId),
+          details: {
+            quizScore: p.quizScore,
+            xpEarned: (p.quizCorrectAnswers || 0) * 10,
+          },
+        });
+      }
+    });
+
+    // Sort by date (newest first)
+    events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Limit results
+    const timelineEvents = events.slice(0, maxLimit);
+
+    // Calculate activity stats
+    const completedModules = progress.filter(p => p.isCompleted && p.quizCompleted);
+    const inProgressModules = progress.filter(p => !p.isCompleted && p.lessonsCompleted.length > 0);
+
+    // Find first and last activity dates
+    const allDates = events.map(e => new Date(e.date).getTime()).filter(d => !isNaN(d));
+    const firstActivityDate = allDates.length > 0 ? new Date(Math.min(...allDates)) : null;
+    const lastActivityDate = allDates.length > 0 ? new Date(Math.max(...allDates)) : null;
+
+    // Calculate unique active days
+    const uniqueDays = new Set(events.map(e => e.date.split('T')[0])).size;
+
+    return {
+      success: true,
+      data: {
+        hasActivity: true,
+        eraId: eraId || 'all',
+        timeline: timelineEvents,
+        stats: {
+          totalModulesStarted: progress.length,
+          totalModulesCompleted: completedModules.length,
+          modulesInProgress: inProgressModules.length,
+          uniqueActiveDays: uniqueDays,
+        },
+        journeySpan: firstActivityDate && lastActivityDate ? {
+          firstActivity: {
+            date: firstActivityDate.toISOString(),
+            formatted: firstActivityDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+            ago: this.getRelativeTime(firstActivityDate.toISOString()),
+          },
+          lastActivity: {
+            date: lastActivityDate.toISOString(),
+            formatted: lastActivityDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+            ago: this.getRelativeTime(lastActivityDate.toISOString()),
+          },
+        } : null,
+        streak: this.context.streak || null,
+        summary: `User has been learning for ${uniqueDays} day(s), started ${progress.length} module(s), and completed ${completedModules.length}.${this.context.streak ? ` Current streak: ${this.context.streak.currentStreak} days.` : ''}`,
+      },
+    };
+  }
+
   // ========== UTILITY METHODS ==========
+
+  /**
+   * Convert ISO date string to relative time (e.g., "3 days ago", "just now")
+   */
+  private getRelativeTime(dateString: string): string {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffSeconds = Math.floor(diffMs / 1000);
+      const diffMinutes = Math.floor(diffSeconds / 60);
+      const diffHours = Math.floor(diffMinutes / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      const diffWeeks = Math.floor(diffDays / 7);
+      const diffMonths = Math.floor(diffDays / 30);
+
+      if (diffSeconds < 60) return 'just now';
+      if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+      if (diffDays === 1) return 'yesterday';
+      if (diffDays < 7) return `${diffDays} days ago`;
+      if (diffWeeks === 1) return 'last week';
+      if (diffWeeks < 4) return `${diffWeeks} weeks ago`;
+      if (diffMonths === 1) return 'last month';
+      if (diffMonths < 12) return `${diffMonths} months ago`;
+      return 'over a year ago';
+    } catch {
+      return 'unknown';
+    }
+  }
 
   /**
    * Strip HTML tags and decode entities from text
