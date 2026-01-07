@@ -1,13 +1,13 @@
 // Profile Tab - EXACT replica of SwiftUI Profile.swift
 // Matches the exact structure: historical avatars + stats + badges + achievements + settings
 
-import { AchievementDetailModal } from '@/gamification/ui/achievement/AchievementGrid'
-import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen'
-import GameHub from '@/gamification/ui/games/GameHub'
-import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { usePreferences } from '@/context/PreferencesContext'
-import { useGamifiedProgress, useRewards, useGamificationOrchestrator } from '@/gamification'
+import { useGamificationOrchestrator, useGamifiedProgress, useRewards } from '@/gamification'
+import { AchievementDetailModal } from '@/gamification/ui/achievement/AchievementGrid'
+import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen'
+import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen'
+import GameHub from '@/gamification/ui/games/GameHub'
 import { useAdventures } from '@/hooks/useAdventures'
 import { analyticsService } from '@/services/AnalyticsService'
 import { useAuth, useUser } from '@clerk/clerk-expo'
@@ -1575,10 +1575,8 @@ const styles = StyleSheet.create({
   },
   editIconContainer: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginTop: 50, // Moved down 50px from center
-    marginLeft: 30, // Moved 30px right from center
+    bottom: 50, // Position on circumference (bottom-right edge)
+    right: 50,  // Position on circumference (bottom-right edge)
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -2277,9 +2275,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   achievementName: {
-    fontFamily: 'DM Sans',
-    fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Cormorant-Bold',
+    fontSize: 16,
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
     marginBottom: 8,
