@@ -109,11 +109,10 @@ export interface BehaviorData {
 export interface GamifiedProgressState {
   user_id: string;
 
-  // Progress data
+  // Progress data (unified - ALL eras use this)
   progress: ProgressEntry[];
 
-  // Legacy support (Era 1 - Umayyad)
-  legacyModuleProgress: ModuleProgress[];
+  // Adventure progress (tracks unlock status)
   adventureProgress: AdventureProgress[];
 
   // Era selection
@@ -170,14 +169,11 @@ interface GamifiedProgressContextType {
   selectedEra: string | null;
   setSelectedEra: (eraId: string) => Promise<void>;
 
-  // Progress tracking (Era 1 - Umayyad)
+  // Progress tracking
   adventureProgress: AdventureProgress[];
   moduleProgress: ModuleProgress[];
   getAdventureProgress: (adventureId: number) => AdventureProgress | null;
   getModuleProgress: (adventureId: number, moduleId: number) => ModuleProgress | null;
-  atomicProgressUpdate: (adventureId: number, moduleId: number, action: ProgressUpdateAction) => Promise<void>;
-
-  // Progress tracking (Era 2+)
   saveNewProgressData: (moduleData: any) => Promise<void>;
 
   // Quiz tracking (detailed)
@@ -225,28 +221,6 @@ interface GamifiedProgressContextType {
 
 const calculateXPFromProgress = (progress: ProgressEntry[]): number => {
   return progress.reduce((sum, p) => sum + (p.xp_earned || 0), 0);
-};
-
-const calculateXPFromLegacy = (modules: ModuleProgress[]): number => {
-  let totalXP = 0;
-  const moduleMap = new Map<string, number>();
-
-  modules.forEach(m => {
-    const key = `${m.adventureId}-${m.moduleId}`;
-    const currentScore = m.quizScore || 0;
-    const existingScore = moduleMap.get(key) || 0;
-
-    // Era 1 rule: Only count if score >= 2
-    if (currentScore >= 2) {
-      moduleMap.set(key, Math.max(existingScore, currentScore));
-    }
-  });
-
-  moduleMap.forEach(score => {
-    totalXP += score * 10;
-  });
-
-  return totalXP;
 };
 
 const calculateXPByEra = (progress: ProgressEntry[]): Record<string, number> => {
@@ -420,7 +394,6 @@ const INITIAL_ADVENTURE_DATA: AdventureProgress[] = [
 const createEmptyState = (userId: string): GamifiedProgressState => ({
   user_id: userId,
   progress: [],
-  legacyModuleProgress: [],
   adventureProgress: INITIAL_ADVENTURE_DATA,
   selectedEra: '',
   totalXP: 0,
@@ -661,30 +634,46 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
           };
         }
 
-        // Migrate Era 1 (Umayyad) progress
-        if (legacyData.modules && Array.isArray(legacyData.modules)) {
-          console.log(`  📚 Migrating ${legacyData.modules.length} Era 1 modules`);
-          newState.legacyModuleProgress = legacyData.modules.map((m: any) => ({
-            adventureId: typeof m.adventureId === 'number' ? m.adventureId : parseInt(m.adventureId, 10),
-            moduleId: typeof m.moduleId === 'number' ? m.moduleId : parseInt(m.moduleId, 10),
-            isCompleted: m.isCompleted || false,
-            lessonsCompleted: Array.isArray(m.lessonsCompleted) ? m.lessonsCompleted : [],
-            quizCompleted: m.quizCompleted || false,
-            quizScore: m.quizScore,
-            unlockedAt: m.unlockedAt || new Date().toISOString(),
-          }));
-        }
-
         // Migrate adventures
         if (legacyData.adventures && Array.isArray(legacyData.adventures)) {
           newState.adventureProgress = legacyData.adventures;
         }
 
+        // Build unified progress map (ALL eras go into progress array)
+        const progressMap = new Map<string, ProgressEntry>();
+
+        // Migrate Era 1 (Umayyad) modules to unified progress array
+        if (legacyData.modules && Array.isArray(legacyData.modules)) {
+          console.log(`  📚 Migrating ${legacyData.modules.length} Era 1 modules to progress array`);
+          for (const m of legacyData.modules) {
+            const adventureId = typeof m.adventureId === 'number' ? m.adventureId : parseInt(m.adventureId, 10);
+            const moduleId = typeof m.moduleId === 'number' ? m.moduleId : parseInt(m.moduleId, 10);
+            const key = `umayyad:${adventureId}:${moduleId}`;
+            const quizScore = m.quizScore || 0;
+            const xpEarned = quizScore * 10;
+            const masteryLevel = quizScore >= 3 ? 'mastered' : quizScore >= 2 ? 'passed' : 'attempted';
+
+            progressMap.set(key, {
+              era_id: 'umayyad',
+              adventureId,
+              moduleId,
+              lessonsCompleted: Array.isArray(m.lessonsCompleted) ? m.lessonsCompleted : [],
+              quizScore,
+              quizCorrectAnswers: quizScore, // Era 1: quizScore = correct answers
+              completedAt: m.unlockedAt || new Date().toISOString(),
+              isCompleted: m.isCompleted || false,
+              quizCompleted: m.quizCompleted || false,
+              mastery_level: masteryLevel,
+              xp_earned: xpEarned,
+              first_attempt_at: m.unlockedAt || new Date().toISOString(),
+              attempt_count: 1,
+            });
+          }
+        }
+
         // Migrate Era 2+ (newProgress) to progress array
         if (legacyData.newProgress && Array.isArray(legacyData.newProgress)) {
           console.log(`  📚 Migrating ${legacyData.newProgress.length} Era 2+ modules`);
-
-          const progressMap = new Map<string, ProgressEntry>();
 
           for (const entry of legacyData.newProgress) {
             const key = `${entry.era_id}:${entry.adventureId}:${entry.moduleId}`;
@@ -721,51 +710,72 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
               });
             }
           }
-
-          newState.progress = Array.from(progressMap.values());
         }
+
+        newState.progress = Array.from(progressMap.values());
       }
     } catch (error) {
       console.log('⚠️ [GamifiedProgress] No user_data found or error:', error);
     }
 
-    // Step 2: Read from legacy AsyncStorage keys
+    // Step 2: Read from legacy AsyncStorage keys (if no cloud data)
     try {
-      // Module progress (Era 1)
-      const legacyModules = await WebCompatibleStorage.getItem(LEGACY_KEYS.MODULE_PROGRESS);
-      if (legacyModules && newState.legacyModuleProgress.length === 0) {
-        const modules = JSON.parse(legacyModules);
-        newState.legacyModuleProgress = modules;
-        console.log(`  💾 Loaded ${modules.length} modules from AsyncStorage`);
-      }
-
       // Adventure progress
       const legacyAdventures = await WebCompatibleStorage.getItem(LEGACY_KEYS.ADVENTURE_PROGRESS);
       if (legacyAdventures) {
         newState.adventureProgress = JSON.parse(legacyAdventures);
       }
 
-      // New progress (Era 2+)
+      // Era 1 modules from AsyncStorage (convert to unified progress format)
+      const legacyModules = await WebCompatibleStorage.getItem(LEGACY_KEYS.MODULE_PROGRESS);
+      const hasEra1InProgress = newState.progress.some(p => p.era_id === 'umayyad');
+      if (legacyModules && !hasEra1InProgress) {
+        const modules = JSON.parse(legacyModules);
+        console.log(`  💾 Loading ${modules.length} Era 1 modules from AsyncStorage`);
+        for (const m of modules) {
+          const quizScore = m.quizScore || 0;
+          newState.progress.push({
+            era_id: 'umayyad',
+            adventureId: m.adventureId,
+            moduleId: m.moduleId,
+            lessonsCompleted: m.lessonsCompleted || [],
+            quizScore,
+            quizCorrectAnswers: quizScore,
+            completedAt: m.unlockedAt || new Date().toISOString(),
+            isCompleted: m.isCompleted || false,
+            quizCompleted: m.quizCompleted || false,
+            mastery_level: quizScore >= 3 ? 'mastered' : quizScore >= 2 ? 'passed' : 'attempted',
+            xp_earned: quizScore * 10,
+            first_attempt_at: m.unlockedAt || new Date().toISOString(),
+            attempt_count: 1,
+          });
+        }
+      }
+
+      // Era 2+ progress from AsyncStorage
       const newProgress = await WebCompatibleStorage.getItem(LEGACY_KEYS.NEW_USER_PROGRESS);
-      if (newProgress && newState.progress.length === 0) {
+      const hasEra2InProgress = newState.progress.some(p => p.era_id !== 'umayyad');
+      if (newProgress && !hasEra2InProgress) {
         const entries = JSON.parse(newProgress);
-        // Convert to ProgressEntry format
-        newState.progress = entries.map((e: any) => ({
-          era_id: e.era_id,
-          adventureId: e.adventureId,
-          moduleId: e.moduleId,
-          lessonsCompleted: e.lessonsCompleted || [],
-          quizScore: e.quizScore || 0,
-          quizCorrectAnswers: e.quizCorrectAnswers || 0,
-          completedAt: e.completedAt || new Date().toISOString(),
-          isCompleted: e.isCompleted || false,
-          quizCompleted: e.quizCompleted || false,
-          mastery_level: (e.quizScore || 0) >= 3 ? 'mastered' : (e.quizScore || 0) >= 2 ? 'passed' : 'attempted',
-          xp_earned: (e.quizCorrectAnswers || 0) * 10,
-          first_attempt_at: e.completedAt || new Date().toISOString(),
-          attempt_count: 1,
-        }));
-        console.log(`  💾 Loaded ${entries.length} new progress from AsyncStorage`);
+        console.log(`  💾 Loading ${entries.length} Era 2+ progress from AsyncStorage`);
+        for (const e of entries) {
+          const quizScore = e.quizScore || 0;
+          newState.progress.push({
+            era_id: e.era_id,
+            adventureId: e.adventureId,
+            moduleId: e.moduleId,
+            lessonsCompleted: e.lessonsCompleted || [],
+            quizScore,
+            quizCorrectAnswers: e.quizCorrectAnswers || 0,
+            completedAt: e.completedAt || new Date().toISOString(),
+            isCompleted: e.isCompleted || false,
+            quizCompleted: e.quizCompleted || false,
+            mastery_level: quizScore >= 3 ? 'mastered' : quizScore >= 2 ? 'passed' : 'attempted',
+            xp_earned: (e.quizCorrectAnswers || 0) * 10,
+            first_attempt_at: e.completedAt || new Date().toISOString(),
+            attempt_count: 1,
+          });
+        }
       }
 
       // Selected era
@@ -787,21 +797,24 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       console.log('⚠️ [GamifiedProgress] Error reading legacy AsyncStorage:', error);
     }
 
-    // Step 3: Calculate totals
-    const legacyXP = calculateXPFromLegacy(newState.legacyModuleProgress);
-    const newXP = calculateXPFromProgress(newState.progress);
-    newState.totalXP = legacyXP + newXP;
+    // Step 3: Calculate totals (unified - all from progress array)
+    const totalXP = calculateXPFromProgress(newState.progress);
+    newState.totalXP = totalXP;
 
     // Calculate XP by era
     newState.xp_by_era = calculateXPByEra(newState.progress);
-    if (legacyXP > 0) {
-      newState.xp_by_era['umayyad'] = (newState.xp_by_era['umayyad'] || 0) + legacyXP;
-    }
+
+    // Calculate XP by source (sum of all era XP = quizzes)
+    newState.xp_by_source = {
+      lessons: 0,
+      quizzes: Object.values(newState.xp_by_era).reduce((sum, xp) => sum + xp, 0),
+      games: 0,
+    };
 
     // Update behavior stats
     const masteredCount = newState.progress.filter(p => p.mastery_level === 'mastered').length;
     newState.behavior.mastered_modules = masteredCount;
-    newState.behavior.total_modules = newState.progress.length + newState.legacyModuleProgress.length;
+    newState.behavior.total_modules = newState.progress.length;
     newState.behavior.mastery_percentage = newState.behavior.total_modules > 0
       ? Math.round((masteredCount / newState.behavior.total_modules) * 100)
       : 0;
@@ -811,12 +824,11 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     newState.metadata.migration_source = 'user_data + AsyncStorage';
     newState.metadata.last_updated = new Date().toISOString();
     newState.metadata.total_quiz_attempts = newState.progress.length;
-    newState.metadata.total_modules_attempted = newState.progress.length + newState.legacyModuleProgress.filter(m => m.quizCompleted).length;
+    newState.metadata.total_modules_attempted = newState.progress.filter(p => p.quizCompleted).length;
 
     console.log('📊 [GamifiedProgress] Migration results:');
     console.log(`  Total XP: ${newState.totalXP}`);
-    console.log(`  Era 1 modules: ${newState.legacyModuleProgress.length}`);
-    console.log(`  Era 2+ modules: ${newState.progress.length}`);
+    console.log(`  Total modules: ${newState.progress.length}`);
     console.log(`  XP by era:`, newState.xp_by_era);
 
     return newState;
@@ -848,166 +860,24 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
   const getModuleProgress = useCallback((adventureId: number, moduleId: number): ModuleProgress | null => {
     if (!state) return null;
-    return state.legacyModuleProgress.find(
-      m => m.adventureId === adventureId && m.moduleId === moduleId
-    ) || null;
+    // Find in unified progress array (supports all eras)
+    const entry = state.progress.find(
+      p => p.adventureId === adventureId && p.moduleId === moduleId
+    );
+    if (!entry) return null;
+    // Convert ProgressEntry to ModuleProgress format for backward compatibility
+    return {
+      adventureId: typeof entry.adventureId === 'number' ? entry.adventureId : parseInt(String(entry.adventureId), 10),
+      moduleId: typeof entry.moduleId === 'number' ? entry.moduleId : parseInt(String(entry.moduleId), 10),
+      isCompleted: entry.isCompleted,
+      lessonsCompleted: entry.lessonsCompleted,
+      quizCompleted: entry.quizCompleted,
+      quizScore: entry.quizScore,
+      unlockedAt: entry.first_attempt_at || entry.completedAt,
+    };
   }, [state]);
 
-  // ========== ATOMIC PROGRESS UPDATE (Era 1) ==========
-
-  const atomicProgressUpdate = useCallback(async (
-    adventureId: number,
-    moduleId: number,
-    action: ProgressUpdateAction
-  ): Promise<void> => {
-    if (!state) {
-      console.error('❌ [GamifiedProgress] Cannot update: Not initialized');
-      return;
-    }
-
-    console.log(`🔄 [GamifiedProgress] Atomic update: Adv${adventureId} Mod${moduleId}`, action);
-
-    let existingModule = getModuleProgress(adventureId, moduleId);
-    if (!existingModule) {
-      existingModule = {
-        adventureId,
-        moduleId,
-        isCompleted: false,
-        lessonsCompleted: [],
-        quizCompleted: false,
-        unlockedAt: new Date().toISOString(),
-      };
-    }
-
-    let updatedModule: ModuleProgress = { ...existingModule };
-
-    switch (action.type) {
-      case 'LESSON_COMPLETED':
-        if (!updatedModule.lessonsCompleted.includes(action.lessonId)) {
-          updatedModule.lessonsCompleted = [...updatedModule.lessonsCompleted, action.lessonId];
-        }
-        console.log(`✅ Lesson ${action.lessonId} completed`);
-        break;
-
-      case 'QUIZ_COMPLETED':
-      case 'QUIZ_RETAKEN':
-        const isRetake = action.type === 'QUIZ_RETAKEN';
-        const newScore = action.quizScore;
-        const currentBestScore = updatedModule.quizScore || 0;
-
-        if (isRetake) {
-          updatedModule.quizScore = Math.max(currentBestScore, newScore);
-        } else {
-          updatedModule.quizScore = newScore;
-        }
-
-        updatedModule.quizCompleted = true;
-
-        if (updatedModule.quizScore >= 1) {
-          updatedModule.isCompleted = true;
-          console.log(`🎉 Module ${moduleId} completed!`);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
-        break;
-
-      case 'MODULE_RESET':
-        updatedModule = {
-          ...existingModule,
-          isCompleted: false,
-          lessonsCompleted: [],
-          quizCompleted: false,
-          quizScore: undefined,
-        };
-        break;
-    }
-
-    // Update modules array
-    const updatedModules = state.legacyModuleProgress.some(
-      m => m.adventureId === adventureId && m.moduleId === moduleId
-    )
-      ? state.legacyModuleProgress.map(m =>
-          m.adventureId === adventureId && m.moduleId === moduleId ? updatedModule : m
-        )
-      : [...state.legacyModuleProgress, updatedModule];
-
-    // Update adventure progress
-    let updatedAdventures = [...state.adventureProgress];
-    const adventure = getAdventureProgress(adventureId);
-
-    if (adventure && updatedModule.isCompleted) {
-      const completedModulesCount = updatedModules.filter(
-        m => m.adventureId === adventureId && m.isCompleted
-      ).length;
-
-      updatedAdventures = state.adventureProgress.map(a =>
-        a.adventureId === adventureId
-          ? { ...a, modulesCompleted: completedModulesCount }
-          : a
-      );
-
-      if (completedModulesCount === adventure.totalModules) {
-        console.log(`🎉 Adventure ${adventureId} completed!`);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    }
-
-    // Recalculate XP
-    const legacyXP = calculateXPFromLegacy(updatedModules);
-    const newXP = calculateXPFromProgress(state.progress);
-    const totalXP = legacyXP + newXP;
-
-    // Update xp_by_era
-    const xpByEra = { ...state.xp_by_era };
-    xpByEra['umayyad'] = legacyXP;
-
-    // Create new state
-    const newState: GamifiedProgressState = {
-      ...state,
-      legacyModuleProgress: updatedModules,
-      adventureProgress: updatedAdventures,
-      totalXP,
-      xp_by_era: xpByEra,
-      metadata: {
-        ...state.metadata,
-        last_updated: new Date().toISOString(),
-      },
-    };
-
-    await saveState(newState);
-
-    // Also save to legacy AsyncStorage for backward compatibility
-    await WebCompatibleStorage.setItem(
-      LEGACY_KEYS.MODULE_PROGRESS,
-      JSON.stringify(updatedModules)
-    );
-    await WebCompatibleStorage.setItem(
-      LEGACY_KEYS.ADVENTURE_PROGRESS,
-      JSON.stringify(updatedAdventures)
-    );
-
-    // Update PostHog
-    if (action.type === 'QUIZ_COMPLETED' || action.type === 'QUIZ_RETAKEN') {
-      const quizzesCompleted = updatedModules.filter(m => m.quizCompleted).length +
-        state.progress.filter(p => p.quizCompleted).length;
-      const lessonsCompleted = calculateLessonsCompleted(updatedModules, state.progress);
-      const adventuresCompleted = calculateAdventuresCompleted(updatedModules, state.progress);
-      const erasCompleted = calculateErasCompleted(updatedModules, state.progress);
-
-      analyticsService.updateProgressProperties({
-        total_xp: totalXP,
-        quizzes_completed: quizzesCompleted,
-        modules_completed: updatedModules.filter(m => m.isCompleted).length + state.progress.filter(p => p.isCompleted).length,
-        lessons_completed: lessonsCompleted,
-        adventures_completed: adventuresCompleted,
-        eras_completed: erasCompleted,
-        era_xp: xpByEra,
-      });
-    }
-
-    console.log(`✅ Atomic update complete. Total XP: ${totalXP}`);
-  }, [state, getModuleProgress, getAdventureProgress, saveState]);
-
-  // ========== SAVE NEW PROGRESS (Era 2+) ==========
+  // ========== SAVE PROGRESS ==========
 
   const saveNewProgressData = useCallback(async (moduleData: any): Promise<void> => {
     if (!state) {
@@ -1044,7 +914,9 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         quizCompleted: moduleData.quizCompleted || existing.quizCompleted,
         mastery_level: masteryLevel,
         xp_earned: Math.max(existing.xp_earned, xpEarned),
-        attempt_count: existing.attempt_count + 1,
+        attempt_count: (moduleData.quizCompleted && existing.quizCompleted)
+          ? existing.attempt_count + 1  // Actual retake
+          : existing.attempt_count,     // Not a retake, keep same
       };
     } else {
       // Add new
@@ -1065,16 +937,11 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       });
     }
 
-    // Recalculate XP
-    const legacyXP = calculateXPFromLegacy(state.legacyModuleProgress);
-    const newXP = calculateXPFromProgress(updatedProgress);
-    const totalXP = legacyXP + newXP;
+    // Recalculate XP (unified - all from progress array)
+    const totalXP = calculateXPFromProgress(updatedProgress);
 
     // Update xp_by_era
     const xpByEra = calculateXPByEra(updatedProgress);
-    if (legacyXP > 0) {
-      xpByEra['umayyad'] = legacyXP;
-    }
 
     // Update behavior
     const masteredCount = updatedProgress.filter(p => p.mastery_level === 'mastered').length;
@@ -1084,12 +951,17 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       progress: updatedProgress,
       totalXP,
       xp_by_era: xpByEra,
+      xp_by_source: {
+        lessons: 0,
+        quizzes: Object.values(xpByEra).reduce((sum, xp) => sum + xp, 0),
+        games: 0,
+      },
       behavior: {
         ...state.behavior,
         mastered_modules: masteredCount,
-        total_modules: updatedProgress.length + state.legacyModuleProgress.length,
-        mastery_percentage: (updatedProgress.length + state.legacyModuleProgress.length) > 0
-          ? Math.round((masteredCount / (updatedProgress.length + state.legacyModuleProgress.length)) * 100)
+        total_modules: updatedProgress.length,
+        mastery_percentage: updatedProgress.length > 0
+          ? Math.round((masteredCount / updatedProgress.length) * 100)
           : 0,
       },
       metadata: {
@@ -1118,15 +990,15 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       })))
     );
 
-    // Update PostHog
-    const lessonsCompleted = calculateLessonsCompleted(state.legacyModuleProgress, updatedProgress);
-    const adventuresCompleted = calculateAdventuresCompleted(state.legacyModuleProgress, updatedProgress);
-    const erasCompleted = calculateErasCompleted(state.legacyModuleProgress, updatedProgress);
+    // Update PostHog (unified - pass empty array for legacy param)
+    const lessonsCompleted = calculateLessonsCompleted([], updatedProgress);
+    const adventuresCompleted = calculateAdventuresCompleted([], updatedProgress);
+    const erasCompleted = calculateErasCompleted([], updatedProgress);
 
     analyticsService.updateProgressProperties({
       total_xp: totalXP,
-      quizzes_completed: state.legacyModuleProgress.filter(m => m.quizCompleted).length + updatedProgress.filter(p => p.quizCompleted).length,
-      modules_completed: state.legacyModuleProgress.filter(m => m.isCompleted).length + updatedProgress.filter(p => p.isCompleted).length,
+      quizzes_completed: updatedProgress.filter(p => p.quizCompleted).length,
+      modules_completed: updatedProgress.filter(p => p.isCompleted).length,
       lessons_completed: lessonsCompleted,
       adventures_completed: adventuresCompleted,
       eras_completed: erasCompleted,
@@ -1170,9 +1042,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
   const calculateModulesCompleted = useCallback((): number => {
     if (!state) return 0;
-    const legacyCompleted = state.legacyModuleProgress.filter(m => m.isCompleted).length;
-    const newCompleted = state.progress.filter(p => p.isCompleted).length;
-    return legacyCompleted + newCompleted;
+    return state.progress.filter(p => p.isCompleted).length;
   }, [state]);
 
   const checkIfCrossed50XPBoundary = useCallback((oldXP: number, newXP: number): number | null => {
@@ -1224,7 +1094,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   const getOverallProgress = useCallback((): number => {
     if (!state) return 0;
     const totalModules = state.adventureProgress.reduce((sum, a) => sum + a.totalModules, 0);
-    const completedModules = state.legacyModuleProgress.filter(m => m.isCompleted).length;
+    const completedModules = state.progress.filter(p => p.isCompleted).length;
     return totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
   }, [state]);
 
@@ -1380,11 +1250,18 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     setSelectedEra,
 
     adventureProgress: state?.adventureProgress || INITIAL_ADVENTURE_DATA,
-    moduleProgress: state?.legacyModuleProgress || [],
+    // Convert unified progress to ModuleProgress format for backward compatibility
+    moduleProgress: (state?.progress || []).map(p => ({
+      adventureId: typeof p.adventureId === 'number' ? p.adventureId : parseInt(String(p.adventureId), 10),
+      moduleId: typeof p.moduleId === 'number' ? p.moduleId : parseInt(String(p.moduleId), 10),
+      isCompleted: p.isCompleted,
+      lessonsCompleted: p.lessonsCompleted,
+      quizCompleted: p.quizCompleted,
+      quizScore: p.quizScore,
+      unlockedAt: p.first_attempt_at || p.completedAt,
+    })),
     getAdventureProgress,
     getModuleProgress,
-    atomicProgressUpdate,
-
     saveNewProgressData,
     trackQuizAttempt,
 
@@ -1442,8 +1319,10 @@ export type { ProgressUpdateAction, ModuleProgress, AdventureProgress } from '@/
 export const useProgress = useGamifiedProgress;
 
 // Legacy XP calculation exports (for components that import directly)
+// Note: legacyModules parameter kept for backward compatibility but all modules now use unified format
 export const calculateTotalXP = (legacyModules: any[], newModules: any[]): number => {
-  return calculateXPFromLegacy(legacyModules) + calculateXPFromProgress(newModules);
+  // All modules now use unified format with quizCorrectAnswers
+  return calculateXPFromProgress([...legacyModules, ...newModules]);
 };
 
 export const calculateModulesCompleted = (legacyModules: any[], newModules: any[]): number => {
@@ -1456,9 +1335,8 @@ export const checkIfCrossed50XPBoundary = (oldXP: number, newXP: number): number
   return checkMilestoneCrossed(oldXP, newXP);
 };
 
-export const calculateXPForEra = (modules: any[], eraType: EraType): number => {
-  if (eraType === EraType.LEGACY) {
-    return calculateXPFromLegacy(modules);
-  }
+// All eras now use unified format with quizCorrectAnswers
+export const calculateXPForEra = (modules: any[], _eraType: EraType): number => {
+  // EraType parameter kept for backward compatibility but all modules use same format
   return calculateXPFromProgress(modules);
 };

@@ -4,6 +4,7 @@
 
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
+import { useGamifiedProgress } from '@/gamification';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ interface XPMilestoneScreenProps {
 }
 
 export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XPMilestoneScreenProps) {
+  const { addMilestone } = useGamifiedProgress();
 
   // Video player setup - plays once, then auto-dismisses
   const videoSource = require('@/assets/videos/xp1.mp4');
@@ -32,15 +34,22 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
     player.play();
   });
 
-  // Track milestone reached on mount
+  // Track milestone reached on mount and persist to Supabase
   useEffect(() => {
     if (milestoneXP) {
       analyticsService.trackCustomEvent('xp_milestone_reached', {
         milestone_xp: milestoneXP,
       });
       console.log(`📊 [Analytics] XP Milestone Reached: ${milestoneXP} XP`);
+
+      // Persist milestone to GamifiedProgress (syncs to Supabase)
+      addMilestone({
+        type: 'xp',
+        threshold: milestoneXP,
+        era_id: eraId,
+      });
     }
-  }, [milestoneXP]);
+  }, [milestoneXP, eraId, addMilestone]);
 
   // Handle close button
   const handleClose = () => {

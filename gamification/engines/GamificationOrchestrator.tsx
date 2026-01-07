@@ -515,7 +515,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const unlockingRef = useRef<Set<string>>(new Set());
 
   // Hooks for achievements calculation
-  const { moduleProgress } = useGamifiedProgress();
+  const { moduleProgress, unlockAchievement: persistAchievement } = useGamifiedProgress();
   const { getAdventures } = useAdventuresContent();
 
   // Load and update streak on mount
@@ -726,6 +726,12 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       await AsyncStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(updated));
       setUnlockedAchievements(updated);
 
+      // Persist to GamifiedProgress (syncs to Supabase)
+      await persistAchievement({
+        id: achievementId,
+        name: achievement.name,
+      });
+
       // Add achievement celebration to queue
       setCelebrationQueue(prev => [...prev, {
         type: 'ACHIEVEMENT' as const,
@@ -738,7 +744,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     } finally {
       unlockingRef.current.delete(achievementId);
     }
-  }, [unlockedAchievements]);
+  }, [unlockedAchievements, persistAchievement]);
 
   // Check all achievements and unlock if conditions met
   const checkAchievements = useCallback(async () => {
