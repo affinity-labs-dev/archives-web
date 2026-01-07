@@ -1177,6 +1177,15 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   const addMilestone = useCallback(async (milestone: Omit<Milestone, 'achieved_at'>): Promise<void> => {
     if (!state) return;
 
+    // Check if this milestone already exists (same type + threshold + era_id)
+    const alreadyExists = state.milestones.some(
+      (m) => m.type === milestone.type && m.threshold === milestone.threshold && m.era_id === milestone.era_id
+    );
+    if (alreadyExists) {
+      console.log(`⏭️ [GamifiedProgress] Milestone already exists: ${milestone.type} ${milestone.threshold} for era ${milestone.era_id}`);
+      return;
+    }
+
     const newMilestone: Milestone = {
       ...milestone,
       achieved_at: new Date().toISOString(),
@@ -1189,6 +1198,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     };
 
     await saveState(newState);
+    console.log(`✅ [GamifiedProgress] Added milestone: ${milestone.type} ${milestone.threshold} for era ${milestone.era_id}`);
   }, [state, saveState]);
 
   const unlockAchievement = useCallback(async (achievement: Omit<Achievement, 'unlocked_at'>): Promise<void> => {

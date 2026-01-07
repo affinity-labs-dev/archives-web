@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { VideoView } from 'expo-video';
 import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -27,6 +27,9 @@ interface XPMilestoneScreenProps {
 export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XPMilestoneScreenProps) {
   const { addMilestone } = useGamifiedProgress();
 
+  // Ref to prevent duplicate saves (useEffect runs once per mount, not on addMilestone changes)
+  const hasSavedRef = useRef(false);
+
   // Video player setup - plays once, then auto-dismisses
   const videoSource = require('@/assets/videos/xp1.mp4');
   const player = useCelebrationVideoPlayer(videoSource, (player) => {
@@ -35,8 +38,11 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
   });
 
   // Track milestone reached on mount and persist to Supabase
+  // Using ref to prevent infinite loop (addMilestone updates state, which would re-trigger this effect)
   useEffect(() => {
-    if (milestoneXP) {
+    if (milestoneXP && !hasSavedRef.current) {
+      hasSavedRef.current = true;
+
       analyticsService.trackCustomEvent('xp_milestone_reached', {
         milestone_xp: milestoneXP,
       });
@@ -62,9 +68,9 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
       });
       console.log(`📊 [Analytics] XP Milestone Skipped: ${milestoneXP} XP`);
 
-      // Save flag to mark this XP milestone as seen
-      AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP), 'true')
-        .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP`))
+      // Save flag to mark this XP milestone as seen (ERA-SPECIFIC)
+      AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP, eraId), 'true')
+        .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP for era: ${eraId || 'global'}`))
         .catch((error) => console.error('❌ Error saving XP milestone flag:', error));
     }
 
