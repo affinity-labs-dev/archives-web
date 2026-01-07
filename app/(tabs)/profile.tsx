@@ -419,20 +419,9 @@ export default function ProfileTab() {
     try {
       console.log('👋 User logging out - clearing all local data...')
 
-      // Clear all user-specific AsyncStorage keys to prevent data leakage between accounts
-      await AsyncStorage.multiRemove([
-        'selected_era',
-        'adventure_progress',
-        'module_progress',
-        'new_user_progress',
-        'totalXP',
-        'user_preferences',
-        'user_unlockables_data',
-        'daily_streak',
-        'last_active_date',
-        'unlocked_achievements',
-      ])
-      console.log('✅ Local data cleared')
+      // Clear ALL AsyncStorage to prevent any data leakage between accounts
+      await AsyncStorage.clear()
+      console.log('✅ All local data cleared')
 
       await signOut()
       router.replace('/onboarding-video')
