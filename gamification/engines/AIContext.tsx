@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChatMessage } from '@/gamification/ui/ai/AIChatModal';
 import { useGamifiedProgress } from './GamifiedProgress';
 import { aiContextService, type AIKnowledgeContext } from '@/gamification/services/AIContextService';
+import { aiToolsService, type AIToolsContext } from '@/gamification/services/AIToolsService';
 
 const CHAT_HISTORY_KEY = 'ai_chat_history';
 const MAX_STORED_MESSAGES = 50; // Limit stored messages to prevent storage bloat
@@ -310,13 +311,75 @@ export function AIProvider({ children }: AIProviderProps) {
     return aiContextService.formatForPrompt(knowledgeContext);
   }, [knowledgeContext]);
 
-  // Refresh knowledge context when chat opens or progress changes
+  // Set up RAG tools context when chat opens
+  // This provides aiToolsService with user progress data for function calling
+  const setupRAGContext = useCallback(async () => {
+    try {
+      console.log('🔧 [AIContext] Setting up RAG tools context...');
+
+      // Reload new era progress to ensure fresh data
+      let freshNewEraProgress: any[] = [];
+      try {
+        const stored = await AsyncStorage.getItem('new_user_progress');
+        if (stored) {
+          freshNewEraProgress = JSON.parse(stored);
+        }
+      } catch (e) {
+        console.error('❌ [AIContext] Error loading new era progress for RAG:', e);
+      }
+
+      // Convert legacy moduleProgress (Era 1 - Umayyad) to AIToolsContext format
+      const legacyProgressItems = (moduleProgress || []).map(m => ({
+        era_id: 'umayyad', // All legacy modules are Era 1 (Umayyad)
+        adventureId: String(m.adventureId),
+        moduleId: String(m.moduleId),
+        lessonsCompleted: m.lessonsCompleted || [],
+        quizScore: m.quizScore || 0,
+        quizCorrectAnswers: m.quizScore || 0, // In Era 1, quizScore IS the correct answers count
+        completedAt: m.unlockedAt || new Date().toISOString(),
+        isCompleted: m.quizScore !== undefined && m.quizScore >= 2,
+        quizCompleted: m.quizCompleted || false,
+      }));
+
+      // Convert new era progress (Era 2+)
+      const newEraProgressItems = freshNewEraProgress.map(m => ({
+        era_id: m.era_id || 'unknown',
+        adventureId: String(m.adventureId),
+        moduleId: String(m.moduleId),
+        lessonsCompleted: m.lessonsCompleted || [],
+        quizScore: m.quizScore || 0,
+        quizCorrectAnswers: m.quizCorrectAnswers || 0,
+        completedAt: m.completedAt || m.unlockedAt || new Date().toISOString(),
+        isCompleted: m.isCompleted || false,
+        quizCompleted: m.quizCompleted || false,
+      }));
+
+      // Combine all progress
+      const allProgress = [...legacyProgressItems, ...newEraProgressItems];
+
+      // Build context for AIToolsService
+      const ragContext: AIToolsContext = {
+        progress: allProgress,
+        selectedEra: currentContext.eraId,
+        totalXP: calculateTotalXP(),
+      };
+
+      // Set the context for RAG tools
+      aiToolsService.setContext(ragContext);
+      console.log(`✅ [AIContext] RAG context set with ${allProgress.length} progress items`);
+    } catch (error) {
+      console.error('❌ [AIContext] Error setting up RAG context:', error);
+    }
+  }, [moduleProgress, currentContext.eraId, calculateTotalXP]);
+
+  // Refresh knowledge context and set up RAG tools when chat opens or progress changes
   useEffect(() => {
     const hasProgress = (moduleProgress && moduleProgress.length > 0) || (newEraProgress && newEraProgress.length > 0);
     if (isChatOpen && hasProgress) {
       refreshKnowledgeContext();
+      setupRAGContext(); // Set up RAG tools context when chat opens
     }
-  }, [isChatOpen, moduleProgress, newEraProgress, refreshKnowledgeContext]);
+  }, [isChatOpen, moduleProgress, newEraProgress, refreshKnowledgeContext, setupRAGContext]);
 
   const value: AIContextType = {
     isChatOpen,

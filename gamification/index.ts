@@ -104,3 +104,7 @@ export { aiContextService } from './services/AIContextService';
 export { aiStorageService } from './services/AIStorageService';
 export type { StoredMessage } from './services/AIStorageService';
 export { gameGeneratorService } from './services/GameGeneratorService';
+
+// RAG Tools Service (function calling for AI chat)
+export { aiToolsService, AI_TOOL_DECLARATIONS } from './services/AIToolsService';
+export type { AIToolsContext, ToolResult } from './services/AIToolsService';

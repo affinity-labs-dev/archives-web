@@ -1,8 +1,9 @@
 // AIService.ts - Google Gemini API integration for AI-powered quiz explanations
-// Provides contextual, personalized learning assistance
+// Provides contextual, personalized learning assistance with RAG (Retrieval Augmented Generation)
 
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, FunctionCallingConfigMode, Type, FunctionDeclaration } from '@google/genai';
 import { Question } from '@/components/shared/types';
+import { aiToolsService, type AIToolsContext } from './AIToolsService';
 
 // Response type from Gemini API
 interface AIExplanationResponse {
@@ -239,6 +240,8 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
 
   /**
    * Get chat response for general conversation
+   * Uses RAG (Retrieval Augmented Generation) with function calling to dynamically
+   * fetch user progress and lesson content when needed.
    */
   async getChatResponse(params: {
     userMessage: string;
@@ -261,16 +264,19 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
     };
     // Knowledge context - actual lesson content the user has learned
     knowledgeContext?: string;
+    // Enable RAG tools for dynamic content retrieval
+    enableRAG?: boolean;
   }): Promise<string> {
     if (!this.isAvailable()) {
       throw new Error('AI Service is not available. Please configure EXPO_PUBLIC_GEMINI_API_KEY.');
     }
 
-    const { userMessage, conversationHistory = [], context = {}, userProgress, knowledgeContext } = params;
+    const { userMessage, conversationHistory = [], context = {}, userProgress, knowledgeContext, enableRAG = true } = params;
 
     try {
       console.log('🤖 [AIService] Getting chat response...');
       console.log('💬 User message:', userMessage);
+      console.log('🔧 [AIService] RAG enabled:', enableRAG);
       if (knowledgeContext) {
         console.log('📚 [AIService] Knowledge context provided, length:', knowledgeContext.length);
       }
@@ -278,37 +284,146 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
       // Build system prompt with context, user progress, and knowledge context
       const systemPrompt = this.buildChatSystemPrompt(context, userProgress, knowledgeContext);
 
-      // Build conversation for Gemini (system prompt + history + user message)
-      const conversationText = [
-        systemPrompt,
-        '',
-        '=== CONVERSATION ===',
-        ...conversationHistory.map((msg) =>
-          `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
-        ),
-        `User: ${userMessage}`,
-        '',
-        'Assistant:'
-      ].join('\n');
+      // Build conversation history for multi-turn chat
+      const conversationContents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
-      // Call Gemini API using SDK (text model for chat)
-      // Note: Gemini 3 uses dynamic thinking by default (high), which consumes tokens
-      // Setting thinkingLevel to "low" ensures tokens are used for output, not internal reasoning
+      // Add system prompt as first user message (Gemini doesn't have system role)
+      conversationContents.push({
+        role: 'user',
+        parts: [{ text: systemPrompt + '\n\nPlease acknowledge these guidelines and be ready to help.' }]
+      });
+      conversationContents.push({
+        role: 'model',
+        parts: [{ text: 'I understand. I am your educational chatbot for Archives, here to help you learn about Islamic and Middle Eastern history. I will follow all the guidelines provided, including proper Islamic etiquette, historical accuracy, and a warm educational tone. How can I help you today?' }]
+      });
+
+      // Add conversation history
+      for (const msg of conversationHistory) {
+        conversationContents.push({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        });
+      }
+
+      // Add current user message
+      conversationContents.push({
+        role: 'user',
+        parts: [{ text: userMessage }]
+      });
+
+      // Get tool declarations if RAG is enabled
+      const tools = enableRAG ? aiToolsService.getToolDeclarations() : [];
+
+      // Call Gemini API with function calling support
+      console.log(`🔧 [AIService] Calling Gemini with ${tools.length} tools available`);
+
       const response = await this.ai!.models.generateContent({
         model: this.textModel,
-        contents: [{ text: conversationText }],
+        contents: conversationContents,
         config: {
           maxOutputTokens: 2048,
-          temperature: 1.0, // Gemini 3 recommends keeping temperature at 1.0
+          temperature: 1.0,
           thinkingConfig: {
-            thinkingLevel: 'low', // Minimize internal reasoning to preserve output tokens
+            thinkingLevel: 'low',
           },
+          // Add tools for function calling
+          ...(tools.length > 0 && {
+            tools: [{ functionDeclarations: tools }],
+            toolConfig: {
+              functionCallingConfig: {
+                mode: FunctionCallingConfigMode.AUTO, // Let AI decide when to use tools
+              },
+            },
+          }),
         }
       });
 
-      // Extract text from response (with safety handling)
-      let aiResponse = '';
+      // Check if AI wants to call a function
       const candidate = response.candidates?.[0];
+      const functionCalls = candidate?.content?.parts?.filter(
+        (part: any) => part.functionCall
+      );
+
+      if (functionCalls && functionCalls.length > 0 && enableRAG) {
+        console.log(`🔧 [AIService] AI requested ${functionCalls.length} function call(s)`);
+
+        // Execute each function call and collect results
+        const functionResults: Array<{ functionName: string; response: any }> = [];
+
+        for (const part of functionCalls) {
+          const fc = (part as any).functionCall;
+          const toolName = fc.name;
+          const toolArgs = fc.args || {};
+
+          console.log(`🔧 [AIService] Executing tool: ${toolName}`);
+
+          // Execute the tool
+          const result = await aiToolsService.executeTool(toolName, toolArgs);
+
+          functionResults.push({
+            functionName: toolName,
+            response: result,
+          });
+        }
+
+        // Add function responses to conversation and get final answer
+        const functionResponseParts = functionResults.map(fr => ({
+          functionResponse: {
+            name: fr.functionName,
+            response: fr.response,
+          },
+        }));
+
+        // Make follow-up call with function results
+        console.log('🔧 [AIService] Sending function results back to Gemini...');
+
+        const followUpContents = [
+          ...conversationContents,
+          {
+            role: 'model' as const,
+            parts: functionCalls,
+          },
+          {
+            role: 'user' as const,
+            parts: functionResponseParts,
+          },
+        ];
+
+        const followUpResponse = await this.ai!.models.generateContent({
+          model: this.textModel,
+          contents: followUpContents,
+          config: {
+            maxOutputTokens: 2048,
+            temperature: 1.0,
+            thinkingConfig: {
+              thinkingLevel: 'low',
+            },
+          }
+        });
+
+        // Extract final text response
+        let aiResponse = '';
+        const followUpCandidate = followUpResponse.candidates?.[0];
+
+        if (followUpCandidate?.content?.parts) {
+          for (const part of followUpCandidate.content.parts) {
+            if ((part as any).text) {
+              aiResponse += (part as any).text;
+            }
+          }
+        }
+
+        // Handle empty response
+        if (!aiResponse) {
+          aiResponse = 'I found some information about that. Let me summarize what I know from your learning history.';
+        }
+
+        console.log('✅ [AIService] RAG response received, length:', aiResponse.length);
+        return aiResponse;
+      }
+
+      // No function calls - extract text directly
+      let aiResponse = '';
       const finishReason = candidate?.finishReason;
 
       // Debug: Log raw candidate structure for chat responses
@@ -317,8 +432,8 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
       // 1. Capture whatever text was generated (even if incomplete)
       if (candidate?.content?.parts) {
         for (const part of candidate.content.parts) {
-          if (part.text) {
-            aiResponse += part.text;
+          if ((part as any).text) {
+            aiResponse += (part as any).text;
           }
         }
       }
