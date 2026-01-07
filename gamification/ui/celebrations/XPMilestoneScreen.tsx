@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { VideoView } from 'expo-video';
 import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -29,6 +29,9 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
 
   // Ref to prevent duplicate saves (useEffect runs once per mount, not on addMilestone changes)
   const hasSavedRef = useRef(false);
+
+  // State to track if video has ended (prevents double dismissal)
+  const [videoEnded, setVideoEnded] = useState(false);
 
   // Video player setup - plays once, then auto-dismisses
   const videoSource = require('@/assets/videos/xp1.mp4');
@@ -80,34 +83,44 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
     }
   };
 
-  // Listen for video end - Auto-dismiss screen when video finishes
-  useEffect(() => {
-    const playbackSubscription = player.addListener('playToEnd', () => {
-      console.log('🎬 [XPMilestoneScreen] Video finished, auto-dismissing...');
+  // Handle video end - dismiss screen
+  const handleVideoEnd = useCallback(() => {
+    if (videoEnded) return; // Prevent double dismissal
+    setVideoEnded(true);
 
-      // Track milestone dismissed
-      if (milestoneXP) {
-        analyticsService.trackCustomEvent('xp_milestone_dismissed', {
-          milestone_xp: milestoneXP,
-        });
-        console.log(`📊 [Analytics] XP Milestone Dismissed: ${milestoneXP} XP`);
-      }
+    console.log('🎬 [XPMilestoneScreen] Video finished, auto-dismissing...');
 
-      // Save flag to mark this XP milestone as seen (ERA-SPECIFIC)
-      if (milestoneXP) {
-        AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP, eraId), 'true')
-          .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP for era: ${eraId || 'global'}`))
-          .catch((error) => console.error('❌ Error saving XP milestone flag:', error));
-      }
+    // Track milestone dismissed
+    if (milestoneXP) {
+      analyticsService.trackCustomEvent('xp_milestone_dismissed', {
+        milestone_xp: milestoneXP,
+      });
+      console.log(`📊 [Analytics] XP Milestone Dismissed: ${milestoneXP} XP`);
+    }
 
-      // Dismiss screen
+    // Save flag to mark this XP milestone as seen (ERA-SPECIFIC)
+    if (milestoneXP) {
+      AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP, eraId), 'true')
+        .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP for era: ${eraId || 'global'}`))
+        .catch((error) => console.error('❌ Error saving XP milestone flag:', error));
+    }
+
+    // Dismiss screen after short delay for smooth transition
+    setTimeout(() => {
       if (onContinue) {
         onContinue();
       }
-    });
+    }, 300);
+  }, [videoEnded, milestoneXP, eraId, onContinue]);
+
+  // Listen for video end - Auto-dismiss screen when video finishes
+  useEffect(() => {
+    if (!player) return;
+
+    const playbackSubscription = player.addListener('playToEnd', handleVideoEnd);
 
     return () => playbackSubscription?.remove();
-  }, [player, milestoneXP, onContinue]);
+  }, [player, handleVideoEnd]);
 
   return (
     <View style={styles.container}>

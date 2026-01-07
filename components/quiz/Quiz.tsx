@@ -288,7 +288,7 @@ export default function Quiz({
   onBack,
   adventureData,
 }: QuizProps) {
-  const { saveNewProgressData } = useGamifiedProgress();
+  const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
   const { reportQuizComplete } = useGamificationOrchestrator();
   const insets = useSafeAreaInsets();
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
@@ -475,7 +475,7 @@ export default function Quiz({
     // Track quiz completion (score = star rating, correctAnswers = correct count)
     trackQuizComplete(quizScore, correctAnswers);
 
-    // Load progress to calculate era-specific XP (BEFORE saving)
+    // Load progress from React state (SOURCE OF TRUTH - avoids AsyncStorage race conditions)
     const newModulesData = await AsyncStorage.getItem('new_user_progress');
     const newModules = newModulesData ? JSON.parse(newModulesData) : [];
 
@@ -485,10 +485,9 @@ export default function Quiz({
       .reduce((sum: number, m: any) => sum + ((m.quizCorrectAnswers || 0) * 10), 0);
     console.log(`📊 Old Era XP (${eraId} before quiz): ${oldEraXP}`);
 
-    // Check if this module already has tracked lessons
-    const existingModule = newModules.find((m: any) =>
-      m.adventureId === adventureId && m.moduleId === moduleId
-    );
+    // Get existing module from React state (SOURCE OF TRUTH)
+    // This avoids race conditions with AsyncStorage reads
+    const existingModule = getProgressByStringIds(adventureId, moduleId);
     const existingLessons = existingModule?.lessonsCompleted || [];
 
     // Always save progress (no minimum check for new system)

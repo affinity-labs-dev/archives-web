@@ -174,6 +174,8 @@ interface GamifiedProgressContextType {
   moduleProgress: ModuleProgress[];
   getAdventureProgress: (adventureId: number) => AdventureProgress | null;
   getModuleProgress: (adventureId: number, moduleId: number) => ModuleProgress | null;
+  // New era progress getter (uses string IDs)
+  getProgressByStringIds: (adventureId: string, moduleId: string) => ProgressEntry | null;
   saveNewProgressData: (moduleData: any) => Promise<void>;
 
   // Quiz tracking (detailed)
@@ -204,7 +206,7 @@ interface GamifiedProgressContextType {
 
   // Streak
   getStreak: () => StreakData;
-  updateStreak: () => Promise<void>;
+  syncStreakToState: (streakData: StreakData) => Promise<void>;
 
   // Achievements & Milestones
   getMilestones: () => Milestone[];
@@ -895,6 +897,15 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     };
   }, [state]);
 
+  // Get progress for new era modules (uses string IDs)
+  // This is the SOURCE OF TRUTH for module progress - avoids AsyncStorage race conditions
+  const getProgressByStringIds = useCallback((adventureId: string, moduleId: string): ProgressEntry | null => {
+    if (!state) return null;
+    return state.progress.find(
+      p => p.adventureId === adventureId && p.moduleId === moduleId
+    ) || null;
+  }, [state]);
+
   // ========== SAVE PROGRESS ==========
 
   const saveNewProgressData = useCallback(async (moduleData: any): Promise<void> => {
@@ -1138,48 +1149,19 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     return state.streak;
   }, [state]);
 
-  const updateStreak = useCallback(async (): Promise<void> => {
+  // Sync streak data to state (called by GamificationOrchestrator)
+  // This ensures streak is saved to cloud via the unified sync system
+  const syncStreakToState = useCallback(async (streakData: StreakData): Promise<void> => {
     if (!state) return;
-
-    const today = new Date().toISOString().split('T')[0];
-    const lastActive = state.streak.lastActiveDate;
-
-    let newStreak = { ...state.streak };
-
-    if (lastActive === today) {
-      // Already active today, no change
-      return;
-    }
-
-    const lastDate = new Date(lastActive);
-    const todayDate = new Date(today);
-    const diffDays = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 1) {
-      // Consecutive day
-      newStreak.currentStreak += 1;
-      if (newStreak.currentStreak > newStreak.longestStreak) {
-        newStreak.longestStreak = newStreak.currentStreak;
-        newStreak.longestStreakDate = today;
-      }
-    } else if (diffDays > 1) {
-      // Streak broken
-      newStreak.currentStreak = 1;
-    }
-
-    newStreak.lastActiveDate = today;
 
     const newState = {
       ...state,
-      streak: newStreak,
+      streak: streakData,
       metadata: { ...state.metadata, last_updated: new Date().toISOString() },
     };
 
     await saveState(newState);
-
-    // Also save to legacy AsyncStorage
-    await WebCompatibleStorage.setItem(LEGACY_KEYS.DAILY_STREAK, String(newStreak.currentStreak));
-    await WebCompatibleStorage.setItem(LEGACY_KEYS.LAST_ACTIVE_DATE, newStreak.lastActiveDate);
+    console.log(`🔥 [GamifiedProgress] Streak synced to state: ${streakData.currentStreak} days`);
   }, [state, saveState]);
 
   // ========== ACHIEVEMENTS & MILESTONES ==========
@@ -1290,6 +1272,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     })),
     getAdventureProgress,
     getModuleProgress,
+    getProgressByStringIds,
     saveNewProgressData,
     trackQuizAttempt,
 
@@ -1306,7 +1289,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     getModuleStarCount,
 
     getStreak,
-    updateStreak,
+    syncStreakToState,
 
     getMilestones,
     getAchievements,

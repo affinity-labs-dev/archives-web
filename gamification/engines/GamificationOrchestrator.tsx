@@ -515,8 +515,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
   const unlockingRef = useRef<Set<string>>(new Set());
 
-  // Hooks for achievements calculation
-  const { moduleProgress, unlockAchievement: persistAchievement } = useGamifiedProgress();
+  // Hooks for achievements calculation and streak sync
+  const { moduleProgress, unlockAchievement: persistAchievement, syncStreakToState } = useGamifiedProgress();
   const { getAdventures } = useAdventuresContent();
   const { user } = useUser();
   const [previousUserId, setPreviousUserId] = useState<string | null>(null);
@@ -574,6 +574,14 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           longest_streak_date: data.longestStreakDate,
         });
 
+        // Sync streak to GamifiedProgress state (syncs to Supabase gamification_data)
+        await syncStreakToState({
+          currentStreak: data.currentStreak,
+          longestStreak: data.longestStreak,
+          lastActiveDate: today,
+          longestStreakDate: data.longestStreakDate || today,
+        });
+
         console.log(`🔥 [Orchestrator] Streak updated: ${oldStreak} → ${data.currentStreak}`);
 
         // Log streak milestone (achievements system handles celebrations)
@@ -595,7 +603,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       setLongestStreak(0);
       setIsStreakLoading(false);
     }
-  }, []);
+  }, [syncStreakToState]);
 
   // Load streak on mount
   useEffect(() => {

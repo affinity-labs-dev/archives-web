@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useLessonTracking } from '@/hooks/useLessonTracking';
-import { useGamifiedProgress } from '@/gamification';
+import { useGamifiedProgress, type ProgressEntry } from '@/gamification';
 import type { ContentItem } from '@/components/shared/types';
 
 // Lesson type for analytics and walkthrough
@@ -88,7 +88,7 @@ export function useLessonBase({
   const moduleNumber = contentItem.order_by || 0;
 
   // Progress context for saving lesson completion
-  const { saveNewProgressData } = useGamifiedProgress();
+  const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
 
   // Walkthrough state
   const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
@@ -158,14 +158,9 @@ export function useLessonBase({
     try {
       console.log(`💾 Saving lesson completion: ${eraId}:${adventureId}:${moduleId}:${lessonId}`);
 
-      // Read existing module progress from AsyncStorage
-      const existingData = await AsyncStorage.getItem('new_user_progress');
-      const progressData = existingData ? JSON.parse(existingData) : [];
-
-      // Find this module
-      const existingModule = progressData.find(
-        (m: any) => m.adventureId === adventureId && m.moduleId === moduleId
-      );
+      // Read existing module progress from React state (SOURCE OF TRUTH)
+      // This avoids race conditions with AsyncStorage reads
+      const existingModule = getProgressByStringIds(adventureId, moduleId);
 
       // Get existing lessons or create empty array
       const existingLessons = existingModule?.lessonsCompleted || [];
@@ -198,7 +193,7 @@ export function useLessonBase({
 
     console.log(`🔄 Continue button pressed - ${moduleId} ${lessonId}`);
     onContinue();
-  }, [tracking, walkthroughKey, lessonType, moduleId, lessonId, onContinue, saveNewProgressData, eraId, adventureId]);
+  }, [tracking, walkthroughKey, lessonType, moduleId, lessonId, onContinue, saveNewProgressData, getProgressByStringIds, eraId, adventureId]);
 
   return {
     adventureNumber,
