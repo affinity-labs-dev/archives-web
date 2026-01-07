@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
 import Purchases, {
   CustomerInfo,
-  Offerings,
+  PurchasesOfferings,
   PurchasesPackage,
   PurchasesError,
   PURCHASES_ERROR_CODE,
@@ -25,7 +25,7 @@ interface UseRevenueCatReturn {
   customerInfo: CustomerInfo | null;
 
   // Offerings and packages
-  offerings: Offerings | null;
+  offerings: PurchasesOfferings | null;
   monthlyPackage: PurchasesPackage | null;
   yearlyPackage: PurchasesPackage | null;
 
@@ -53,7 +53,7 @@ interface UseRevenueCatReturn {
 export const useRevenueCat = (): UseRevenueCatReturn => {
   // State management - matching sample app patterns
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
-  const [offerings, setOfferings] = useState<Offerings | null>(null);
+  const [offerings, setOfferings] = useState<PurchasesOfferings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isFetchingOfferings, setIsFetchingOfferings] = useState(false);
@@ -72,7 +72,7 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
     // Try current offering first
     if (offerings?.current?.availablePackages) {
       const found = offerings.current.availablePackages.find(
-        pkg => pkg.packageType === packageType
+        (pkg: PurchasesPackage) => pkg.packageType === packageType
       );
       if (found) return found;
     }
@@ -82,7 +82,7 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
       for (const offeringKey in offerings.all) {
         const offering = offerings.all[offeringKey];
         const found = offering.availablePackages.find(
-          pkg => pkg.packageType === packageType
+          (pkg: PurchasesPackage) => pkg.packageType === packageType
         );
         if (found) return found;
       }
@@ -93,14 +93,14 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
 
   // Use package types instead of hardcoded product IDs (following sample app pattern)
   const monthlyPackage = findPackageByType('MONTHLY') ||
-    offerings?.current?.availablePackages?.find(pkg =>
-      pkg.storeProduct?.productIdentifier?.includes('MONTH') ||
+    offerings?.current?.availablePackages?.find((pkg: PurchasesPackage) =>
+      pkg.product?.identifier?.includes('MONTH') ||
       pkg.identifier?.toLowerCase().includes('month')
     ) || null;
 
   const yearlyPackage = findPackageByType('ANNUAL') ||
-    offerings?.current?.availablePackages?.find(pkg =>
-      pkg.storeProduct?.productIdentifier?.includes('YEAR') ||
+    offerings?.current?.availablePackages?.find((pkg: PurchasesPackage) =>
+      pkg.product?.identifier?.includes('YEAR') ||
       pkg.identifier?.toLowerCase().includes('year') ||
       pkg.identifier?.toLowerCase().includes('annual')
     ) || null;
@@ -135,7 +135,7 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
         Purchases.addCustomerInfoUpdateListener((info) => {
           if (mounted) {
             console.log('📱 Customer info updated:', {
-              userId: info.originalPurchaser,
+              userId: info.originalAppUserId,
               entitlements: Object.keys(info.entitlements.active),
               isSubscribed: info.entitlements.active[ENTITLEMENT_IDENTIFIER]?.isActive ?? false
             });
@@ -194,8 +194,8 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
       if (fetchedOfferings.current?.availablePackages) {
         console.log('📦 Available packages:', fetchedOfferings.current.availablePackages.map(pkg => ({
           identifier: pkg.identifier,
-          productId: pkg.storeProduct?.productIdentifier || 'N/A',
-          price: pkg.storeProduct?.priceString || 'N/A',
+          productId: pkg.product?.identifier || 'N/A',
+          price: pkg.product?.priceString || 'N/A',
           packageType: pkg.packageType
         })));
       }
@@ -204,11 +204,11 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
       const monthlyByType = fetchedOfferings.current?.availablePackages.find(pkg => pkg.packageType === 'MONTHLY');
       const yearlyByType = fetchedOfferings.current?.availablePackages.find(pkg => pkg.packageType === 'ANNUAL');
       const monthlyByName = fetchedOfferings.current?.availablePackages.find(pkg =>
-        pkg.storeProduct?.productIdentifier?.includes('MONTH') ||
+        pkg.product?.identifier?.includes('MONTH') ||
         pkg.identifier?.toLowerCase().includes('month')
       );
       const yearlyByName = fetchedOfferings.current?.availablePackages.find(pkg =>
-        pkg.storeProduct?.productIdentifier?.includes('YEAR') ||
+        pkg.product?.identifier?.includes('YEAR') ||
         pkg.identifier?.toLowerCase().includes('year') ||
         pkg.identifier?.toLowerCase().includes('annual')
       );
@@ -220,8 +220,8 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
         yearlyByName: !!yearlyByName,
         finalMonthly: !!(monthlyByType || monthlyByName),
         finalYearly: !!(yearlyByType || yearlyByName),
-        monthlyPrice: (monthlyByType || monthlyByName)?.storeProduct?.priceString,
-        yearlyPrice: (yearlyByType || yearlyByName)?.storeProduct?.priceString
+        monthlyPrice: (monthlyByType || monthlyByName)?.product?.priceString,
+        yearlyPrice: (yearlyByType || yearlyByName)?.product?.priceString
       });
 
       // If no current offering is set, but we have offerings available, warn about it
@@ -243,7 +243,7 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
   }, [isFetchingOfferings]);
 
   // Check intro offer eligibility (iOS only)
-  const checkIntroEligibility = useCallback(async (fetchedOfferings: Offerings) => {
+  const checkIntroEligibility = useCallback(async (fetchedOfferings: PurchasesOfferings) => {
     // Only check on iOS - Android always returns UNKNOWN
     if (Platform.OS !== 'ios') {
       console.log('ℹ️ Skipping intro eligibility check - not on iOS');
@@ -253,25 +253,25 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
     try {
       // Find monthly and yearly packages from fetched offerings
       const monthlyPkg = findPackageByType('MONTHLY') ||
-        fetchedOfferings?.current?.availablePackages?.find(pkg =>
-          pkg.storeProduct?.productIdentifier?.includes('MONTH') ||
+        fetchedOfferings?.current?.availablePackages?.find((pkg: PurchasesPackage) =>
+          pkg.product?.identifier?.includes('MONTH') ||
           pkg.identifier?.toLowerCase().includes('month')
         );
 
       const yearlyPkg = findPackageByType('ANNUAL') ||
-        fetchedOfferings?.current?.availablePackages?.find(pkg =>
-          pkg.storeProduct?.productIdentifier?.includes('YEAR') ||
+        fetchedOfferings?.current?.availablePackages?.find((pkg: PurchasesPackage) =>
+          pkg.product?.identifier?.includes('YEAR') ||
           pkg.identifier?.toLowerCase().includes('year') ||
           pkg.identifier?.toLowerCase().includes('annual')
         );
 
       // Collect product IDs to check
       const productIds: string[] = [];
-      if (monthlyPkg?.storeProduct?.productIdentifier) {
-        productIds.push(monthlyPkg.storeProduct.productIdentifier);
+      if (monthlyPkg?.product?.identifier) {
+        productIds.push(monthlyPkg.product.identifier);
       }
-      if (yearlyPkg?.storeProduct?.productIdentifier) {
-        productIds.push(yearlyPkg.storeProduct.productIdentifier);
+      if (yearlyPkg?.product?.identifier) {
+        productIds.push(yearlyPkg.product.identifier);
       }
 
       if (productIds.length === 0) {
@@ -287,8 +287,8 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
       console.log('✅ Intro eligibility results:', eligibilityMap);
 
       // Update state with eligibility for each product
-      if (monthlyPkg?.storeProduct?.productIdentifier) {
-        const monthlyElig = eligibilityMap[monthlyPkg.storeProduct.productIdentifier];
+      if (monthlyPkg?.product?.identifier) {
+        const monthlyElig = eligibilityMap[monthlyPkg.product.identifier];
         setMonthlyEligibility(monthlyElig);
         console.log('📱 Monthly eligibility:', {
           status: monthlyElig.status,
@@ -296,8 +296,8 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
         });
       }
 
-      if (yearlyPkg?.storeProduct?.productIdentifier) {
-        const yearlyElig = eligibilityMap[yearlyPkg.storeProduct.productIdentifier];
+      if (yearlyPkg?.product?.identifier) {
+        const yearlyElig = eligibilityMap[yearlyPkg.product.identifier];
         setYearlyEligibility(yearlyElig);
         console.log('📅 Yearly eligibility:', {
           status: yearlyElig.status,
@@ -321,17 +321,11 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
     try {
       console.log('💳 Starting purchase for package:', packageToPurchase.identifier);
 
-      // This replicates the exact purchase flow from sample app
-      const { customerInfo: updatedCustomerInfo, userCancelled } = await Purchases.purchasePackage(packageToPurchase);
-
-      // Check if user cancelled (matching sample app logic)
-      if (userCancelled) {
-        console.log('🚫 User cancelled purchase');
-        return;
-      }
+      // Purchase the package - cancellation now throws an error instead of returning userCancelled
+      const { customerInfo: updatedCustomerInfo } = await Purchases.purchasePackage(packageToPurchase);
 
       console.log('✅ Purchase successful!', {
-        userId: updatedCustomerInfo.originalPurchaser,
+        userId: updatedCustomerInfo.originalAppUserId,
         entitlements: Object.keys(updatedCustomerInfo.entitlements.active),
         isSubscribed: updatedCustomerInfo.entitlements.active[ENTITLEMENT_IDENTIFIER]?.isActive ?? false
       });
@@ -340,26 +334,29 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
       setCustomerInfo(updatedCustomerInfo);
 
     } catch (error) {
-      console.error('❌ Purchase failed:', error);
-
       // Handle specific error types
       const purchasesError = error as PurchasesError;
+
+      // User cancellation is now an error with PURCHASE_CANCELLED_ERROR code
+      if (purchasesError.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
+        console.log('🚫 User cancelled purchase');
+        return; // Don't show error for user cancellation
+      }
+
+      console.error('❌ Purchase failed:', error);
       let errorMessage = 'Purchase failed. Please try again.';
 
       switch (purchasesError.code) {
-        case PURCHASES_ERROR_CODE.PURCHASE_CANCELLED:
-          errorMessage = 'Purchase was cancelled';
-          break;
-        case PURCHASES_ERROR_CODE.STORE_PROBLEM:
+        case PURCHASES_ERROR_CODE.STORE_PROBLEM_ERROR:
           errorMessage = 'There was a problem with the App Store. Please try again later.';
           break;
-        case PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED:
+        case PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR:
           errorMessage = 'Purchases are not allowed on this device';
           break;
-        case PURCHASES_ERROR_CODE.PAYMENT_PENDING:
+        case PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR:
           errorMessage = 'Payment is pending approval';
           break;
-        case PURCHASES_ERROR_CODE.INSUFFICIENT_PERMISSIONS:
+        case PURCHASES_ERROR_CODE.INSUFFICIENT_PERMISSIONS_ERROR:
           errorMessage = 'Insufficient permissions for purchase';
           break;
         case PURCHASES_ERROR_CODE.UNKNOWN_ERROR:
@@ -396,7 +393,7 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
       const restoredCustomerInfo = await Purchases.restorePurchases();
 
       console.log('🔄 Purchases restored:', {
-        userId: restoredCustomerInfo.originalPurchaser,
+        userId: restoredCustomerInfo.originalAppUserId,
         entitlements: Object.keys(restoredCustomerInfo.entitlements.active),
         isSubscribed: restoredCustomerInfo.entitlements.active[ENTITLEMENT_IDENTIFIER]?.isActive ?? false
       });

@@ -83,7 +83,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
       eraId,
       contentType: contentItem.content_type,
       title: contentItem.thumbnail_title,
-      hasQuestions: contentItem.questions?.length > 0
+      hasQuestions: (contentItem.questions?.length ?? 0) > 0
     });
 
     setSelectedLesson({
@@ -105,7 +105,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
 
     console.log('✅ Lesson completed', {
       lessonId: selectedLesson.lessonId,
-      hasQuestions: contentItem.questions?.length > 0,
+      hasQuestions: (contentItem.questions?.length ?? 0) > 0,
       questionCount: contentItem.questions?.length || 0
     });
 
@@ -392,7 +392,6 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
                 onContinue={handleQuizContinue}
                 onDismiss={handleLessonDismiss}
                 onBack={handleLessonDismiss}
-                onMilestoneReached={handleMilestoneReached}
               />
             ) : (
               <LessonPlayer

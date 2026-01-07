@@ -128,7 +128,7 @@ export default function EraSelection() {
       router.replace('/(tabs)');
     } else {
       // Just navigate to home tab
-      router.push('/(tabs)/');
+      router.push('/(tabs)');
     }
   };
 

@@ -41,9 +41,9 @@ interface UseLessonBaseReturn {
 
   // Analytics tracking functions
   tracking: {
-    trackVideoPlay: () => void;
-    trackVideoPause: () => void;
-    trackVideoComplete: (duration: number) => void;
+    trackVideoPlay: (videoDuration?: number) => void;
+    trackVideoPause: (position: number, duration: number) => void;
+    trackVideoComplete: (videoDuration?: number) => void;
     trackCardExpanded: () => void;
     trackLessonComplete: () => void;
   };

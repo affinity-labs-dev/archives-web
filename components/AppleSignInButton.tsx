@@ -91,7 +91,7 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
         } else if (signUp?.status === 'missing_requirements') {
           // Handle missing name requirements from Apple Sign In
           // Extract user email from sign up attempt
-          const email = signUp?.emailAddress || signUp?.primaryEmailAddress?.emailAddress
+          const email = signUp?.emailAddress ?? undefined
           setUserEmail(email)
           setIncompleteSignUp(signUp)
           setShowNameCollection(true)
@@ -189,7 +189,7 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
     setShowNameCollection(false)
     setIncompleteSignUp(null)
     setUserEmail(undefined)
-    onError('Sign up cancelled')
+    onError({ message: 'Sign up cancelled' })
   }, [onError])
 
   return (

@@ -8,8 +8,8 @@ interface UseLessonTrackingProps {
   lessonId: string;
   lessonType: 'video_reading' | 'image_carousel' | 'video_carousel' | 'static_image' | 'scrollable_media' | 'reel'; // Add 'reel' for ROI
   // Era context for funnel analysis
-  eraId?: number;              // 1 = Umayyad, 2 = Rise of Islam (optional for backward compatibility)
-  eraName?: string;            // "umayyad" | "riseOfIslam" (optional for backward compatibility)
+  eraId?: string;              // Era ID from Supabase (e.g., "umayyad", "rise_of_islam")
+  eraName?: string;            // Display name (e.g., "Umayyad Dynasty", "Rise of Islam")
   adventureNumber?: number;    // 1-5 for cross-era comparison (optional)
   moduleNumber?: number;       // 1-3 for cross-era comparison (optional)
   // Enhanced video metadata for detailed analytics

@@ -176,7 +176,7 @@ interface SubscriptionEvent {
 }
 
 interface AdventureStartedEvent {
-  era_id: number;
+  era_id: string;
   era_name: string;
   adventure_id: string | number;
   adventure_number: number;
@@ -189,7 +189,7 @@ interface AdventureCompleteContinueEvent {
   adventure_number: number;
   adventure_title: string;
   screen: string;
-  era_id: number;
+  era_id: string;
   era_name: string;
   total_xp_earned: number;
 }
@@ -217,14 +217,14 @@ interface QuizResultsViewedEvent {
   percentage: number;
   total_points: number;
   performance_tier: 'high' | 'medium' | 'low';
-  era_id: number;
+  era_id: string;
   era_name: string;
   adventure_number?: number;
   module_number?: number;
 }
 
 interface ModuleStartedEvent {
-  era_id: number;
+  era_id: string;
   era_name: string;
   adventure_id: number;
   adventure_number: number;
@@ -233,7 +233,7 @@ interface ModuleStartedEvent {
 }
 
 interface ModuleCompletedEvent {
-  era_id: number;
+  era_id: string;
   era_name: string;
   adventure_id: number;
   adventure_number: number;
@@ -357,10 +357,11 @@ class AnalyticsService {
    */
   trackUserSignedUp(userId: string, data: UserSignedUpEvent) {
     // Connect anonymous activity to this new user account
+    // PostHog's alias() assigns an alias to the current user
     if (this.anonymousId) {
-      this.posthog?.alias(userId, this.anonymousId);
-      console.log('📊 [Analytics] Aliased anonymous ID to user ID:', {
-        anonymousId: this.anonymousId,
+      this.posthog?.alias(userId);
+      console.log('📊 [Analytics] Aliased current user to user ID:', {
+        previousAnonymousId: this.anonymousId,
         userId: userId
       });
     }
@@ -591,7 +592,7 @@ class AnalyticsService {
     module_id: number | string;
     lesson_id: string;
     time_spent_seconds: number;
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -618,7 +619,7 @@ class AnalyticsService {
     chapter_number?: number;
     video_duration_seconds?: number;
     $current_url?: string; // Lesson screen URL for activity tracking
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -647,7 +648,7 @@ class AnalyticsService {
     position_seconds: number;
     duration_seconds?: number;
     $current_url?: string;
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -676,7 +677,7 @@ class AnalyticsService {
     video_duration_seconds?: number;
     completion_time_seconds?: number; // How long it took user to complete
     $current_url?: string;
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -698,7 +699,7 @@ class AnalyticsService {
     adventure_id: number | string;
     module_id: number | string;
     lesson_id: string;
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -721,7 +722,7 @@ class AnalyticsService {
     lesson_id: string;
     buffer_time_ms: number;
     video_url: string;
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -746,7 +747,7 @@ class AnalyticsService {
     image_index: number;
     time_spent_seconds: number;
     total_images: number;
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -770,7 +771,7 @@ class AnalyticsService {
     lesson_id: string;
     interaction_type: 'tap' | 'swipe' | 'card_expand' | 'card_collapse' | 'button_press';
     target?: string; // What was tapped/swiped (optional description)
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -806,7 +807,7 @@ class AnalyticsService {
     adventure_id: number | string;
     module_id: number | string;
     total_questions: number;
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -838,7 +839,7 @@ class AnalyticsService {
     time_taken_seconds: number;
     xp_earned?: number; // 10 if correct, 0 if incorrect
     current_total_xp?: number; // User's current total XP
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -872,7 +873,7 @@ class AnalyticsService {
     xp_earned?: number; // XP earned from this quiz (correct_answers * 10)
     total_xp_before?: number; // User's total XP before quiz
     total_xp_after?: number; // User's total XP after quiz
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -898,7 +899,7 @@ class AnalyticsService {
     adventure_id: number | string;
     module_id: number | string;
     previous_score: number;
-    era_id?: number;
+    era_id?: string;
     era_name?: string;
     adventure_number?: number;
     module_number?: number;
@@ -932,9 +933,9 @@ class AnalyticsService {
     const event = {
       ...this.getBaseProperties(),
       screen_name: screenName,
-      era_number: context?.eraNumber,
-      adventure_number: context?.adventureNumber,
-      module_number: context?.moduleNumber,
+      ...(context?.eraNumber !== undefined && { era_number: context.eraNumber }),
+      ...(context?.adventureNumber !== undefined && { adventure_number: context.adventureNumber }),
+      ...(context?.moduleNumber !== undefined && { module_number: context.moduleNumber }),
       session_duration_seconds: sessionDuration,
     };
 
@@ -949,7 +950,7 @@ class AnalyticsService {
    * @param pageName - Human-readable page name
    * @param screenUrl - Screen URL path for PostHog activity view (e.g., '/(tabs)/', '/(tabs)/profile')
    */
-  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'home', screenUrl: string) {
+  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home', screenUrl: string) {
     this.pageStartTimes.set(pageName, Date.now());
     this.pageClicks.set(pageName, 0);
     this.pageUrls.set(pageName, screenUrl);
@@ -959,7 +960,7 @@ class AnalyticsService {
   /**
    * Track page click
    */
-  trackPageClick(pageName: 'profile' | 'subscription' | 'era' | 'home') {
+  trackPageClick(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home') {
     const currentClicks = this.pageClicks.get(pageName) || 0;
     this.pageClicks.set(pageName, currentClicks + 1);
   }
@@ -967,7 +968,7 @@ class AnalyticsService {
   /**
    * End tracking page view (call on screen blur)
    */
-  endPageView(pageName: 'profile' | 'subscription' | 'era' | 'home') {
+  endPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home') {
     const startTime = this.pageStartTimes.get(pageName);
     if (!startTime) {
       console.warn(`⚠️ [Analytics] No start time for ${pageName} page`);
@@ -1111,23 +1112,17 @@ class AnalyticsService {
   }
 
   /**
-   * Track module started (Umayyad only)
+   * Track module started
    */
   trackModuleStarted(properties: ModuleStartedEvent) {
-    // Only track for Umayyad (era_id = 1)
-    if (properties.era_id === 1) {
-      this.trackCustomEvent('module_started', properties);
-    }
+    this.trackCustomEvent('module_started', properties);
   }
 
   /**
-   * Track module completed (Umayyad only)
+   * Track module completed
    */
   trackModuleCompleted(properties: ModuleCompletedEvent) {
-    // Only track for Umayyad (era_id = 1)
-    if (properties.era_id === 1) {
-      this.trackCustomEvent('module_completed', properties);
-    }
+    this.trackCustomEvent('module_completed', properties);
   }
 
   // ==================== END NEW TRACKING EVENTS ====================

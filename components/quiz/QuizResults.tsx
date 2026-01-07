@@ -36,7 +36,7 @@ interface QuizResultsProps {
   // Context for analytics
   adventureId: string;
   moduleId: string;
-  eraId: number;
+  eraId: string;
   eraName: string;
   adventureNumber: number;
   moduleNumber: number;
@@ -160,8 +160,8 @@ export default function QuizResults({
     loadNewProgress();
   }, []);
 
-  // Calculate total XP after quiz
-  const totalXP = calculateTotalXP(moduleProgress, newUserProgress);
+  // Calculate total XP after quiz - hook function uses internal state
+  const totalXP = calculateTotalXP();
 
   // Determine performance tier based on percentage
   const getPerformanceTier = (pct: number): 'high' | 'medium' | 'low' => {

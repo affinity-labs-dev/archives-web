@@ -28,8 +28,8 @@ async function loadHapticsPreference() {
   }
 }
 
-// Patch impactAsync
-Haptics.impactAsync = async (style: Haptics.ImpactFeedbackStyle) => {
+// Patch impactAsync - use type assertion to bypass readonly
+(Haptics as any).impactAsync = async (style: Haptics.ImpactFeedbackStyle) => {
   if (!isInitialized) {
     await loadHapticsPreference();
   }
@@ -39,8 +39,8 @@ Haptics.impactAsync = async (style: Haptics.ImpactFeedbackStyle) => {
   return Promise.resolve();
 };
 
-// Patch notificationAsync
-Haptics.notificationAsync = async (type: Haptics.NotificationFeedbackType) => {
+// Patch notificationAsync - use type assertion to bypass readonly
+(Haptics as any).notificationAsync = async (type: Haptics.NotificationFeedbackType) => {
   if (!isInitialized) {
     await loadHapticsPreference();
   }
@@ -50,8 +50,8 @@ Haptics.notificationAsync = async (type: Haptics.NotificationFeedbackType) => {
   return Promise.resolve();
 };
 
-// Patch selectionAsync
-Haptics.selectionAsync = async () => {
+// Patch selectionAsync - use type assertion to bypass readonly
+(Haptics as any).selectionAsync = async () => {
   if (!isInitialized) {
     await loadHapticsPreference();
   }

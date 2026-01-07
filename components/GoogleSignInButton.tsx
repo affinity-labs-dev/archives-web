@@ -91,7 +91,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         } else if (signUp?.status === 'missing_requirements') {
           // Handle missing name requirements from Google Sign In
           // Extract user email from sign up attempt
-          const email = signUp?.emailAddress || signUp?.primaryEmailAddress?.emailAddress
+          const email = signUp?.emailAddress ?? undefined
           setUserEmail(email)
           setIncompleteSignUp(signUp)
           setShowNameCollection(true)

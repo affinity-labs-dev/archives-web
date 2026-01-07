@@ -61,8 +61,8 @@ export default function SubscribeContent() {
     hasOfferings: !!offerings,
     monthlyPackageId: monthlyPackage?.identifier,
     yearlyPackageId: yearlyPackage?.identifier,
-    monthlyPrice: monthlyPackage?.storeProduct?.priceString,
-    yearlyPrice: yearlyPackage?.storeProduct?.priceString,
+    monthlyPrice: monthlyPackage?.product?.priceString,
+    yearlyPrice: yearlyPackage?.product?.priceString,
     monthlyEligibility: monthlyEligibility?.status,
     yearlyEligibility: yearlyEligibility?.status,
     error
@@ -71,7 +71,7 @@ export default function SubscribeContent() {
   // Helper function to check if user is eligible for intro offer
   const isEligibleForIntro = (eligibility: typeof monthlyEligibility) => {
     if (!eligibility) return false;
-    return eligibility.status === Purchases.INTRO_ELIGIBILITY_STATUS.ELIGIBLE;
+    return eligibility.status === Purchases.INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE;
   };
 
   // Check if ANY plan has intro offer available (for banner display)
@@ -100,11 +100,11 @@ export default function SubscribeContent() {
     return match ? match[1] : '$';
   };
 
-  const monthlyPricing = formatPrice(monthlyPackage?.storeProduct?.priceString, '$4.99');
-  const yearlyPricing = formatPrice(yearlyPackage?.storeProduct?.priceString, '$49.99');
+  const monthlyPricing = formatPrice(monthlyPackage?.product?.priceString, '$4.99');
+  const yearlyPricing = formatPrice(yearlyPackage?.product?.priceString, '$49.99');
 
   // Get currency symbol for crossed-out prices
-  const currencySymbol = getCurrencySymbol(monthlyPackage?.storeProduct?.priceString);
+  const currencySymbol = getCurrencySymbol(monthlyPackage?.product?.priceString);
 
   // If user is already subscribed, show success state
   if (isSubscribed) {

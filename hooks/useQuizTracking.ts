@@ -9,8 +9,8 @@ interface UseQuizTrackingProps {
   moduleId: number | string;    // Support both Era 1 (number) and Era 2 (UUID string)
   totalQuestions: number;
   // Era context for funnel analysis
-  eraId?: number;              // 1 = Umayyad, 2 = Rise of Islam
-  eraName?: string;            // "umayyad" | "riseOfIslam"
+  eraId?: string;              // "umayyad" | "rise_of_islam" etc.
+  eraName?: string;            // Display name of era
   adventureNumber?: number;    // 1-5 for cross-era comparison
   moduleNumber?: number;       // 1-3 for cross-era comparison
   quizId?: string;             // Quiz identifier (optional)
@@ -93,7 +93,7 @@ export function useQuizTracking({
 
     // Calculate XP properties
     const xpEarned = isCorrect ? 10 : 0;
-    const currentTotalXP = calculateTotalXP(moduleProgress, newUserProgress);
+    const currentTotalXP = calculateTotalXP();
 
     analyticsService.trackQuizQuestionAnswered({
       adventure_id: adventureId,
@@ -113,7 +113,7 @@ export function useQuizTracking({
     });
 
     console.log(`📊 [QuizTracking] XP tracking - Earned: ${xpEarned}, Total: ${currentTotalXP}`);
-  }, [adventureId, moduleId, eraId, eraName, adventureNumber, moduleNumber, quizId, screenUrl, screen, calculateTotalXP, moduleProgress, newUserProgress]);
+  }, [adventureId, moduleId, eraId, eraName, adventureNumber, moduleNumber, quizId, screenUrl, screen, calculateTotalXP]);
 
   // Track quiz completion
   const trackQuizComplete = useCallback((score: number, correctAnswers: number, isRetake: boolean = false) => {
@@ -121,7 +121,7 @@ export function useQuizTracking({
     console.log(`📊 [QuizTracking] Quiz completed: ${adventureId}-${moduleId}, score: ${correctAnswers}/${totalQuestions}, time: ${timeSpent}s`);
 
     // Calculate XP properties
-    const totalXPBefore = calculateTotalXP(moduleProgress, newUserProgress);
+    const totalXPBefore = calculateTotalXP();
     const xpEarned = correctAnswers * 10;
     const totalXPAfter = totalXPBefore + xpEarned;
 
@@ -147,7 +147,7 @@ export function useQuizTracking({
     });
 
     console.log(`📊 [QuizTracking] XP tracking - Before: ${totalXPBefore}, Earned: ${xpEarned}, After: ${totalXPAfter}`);
-  }, [adventureId, moduleId, totalQuestions, eraId, eraName, adventureNumber, moduleNumber, quizId, quizTitle, screenUrl, screen, calculateTotalXP, moduleProgress, newUserProgress]);
+  }, [adventureId, moduleId, totalQuestions, eraId, eraName, adventureNumber, moduleNumber, quizId, quizTitle, screenUrl, screen, calculateTotalXP]);
 
   // Track quiz retake
   const trackQuizRetake = useCallback((previousScore: number) => {

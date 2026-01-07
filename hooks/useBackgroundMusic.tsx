@@ -33,7 +33,8 @@ export const useBackgroundMusic = (
         console.log('🎵 Configuring audio mode...');
         await setAudioModeAsync({
           playsInSilentMode: true,
-          shouldDuckAndroid: true,
+          // Note: shouldDuckAndroid was removed in newer expo-av versions
+          // Audio ducking is now handled automatically by the platform
         });
         console.log('🎵 Audio mode configured successfully');
       } catch (error) {

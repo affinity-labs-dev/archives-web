@@ -112,8 +112,18 @@ export function RewardsProvider({ children }: { children: ReactNode }) {
 
         setAllItems(itemsData || []);
 
+        // Transform Supabase response - join returns array, we need first element
+        const transformedUnlockables: UserUnlockable[] = (userUnlockedData || []).map((row: any) => ({
+          id: row.id,
+          item_id: row.item_id,
+          user_id: row.user_id,
+          unlocked_at: row.unlocked_at,
+          is_selected: row.is_selected,
+          item: Array.isArray(row.item) ? row.item[0] : row.item,
+        }));
+
         // Auto-unlock all avatars with threshold 0 (starter avatars)
-        let finalUnlockables = userUnlockedData || [];
+        let finalUnlockables: UserUnlockable[] = transformedUnlockables;
         const unlockedItemIds = new Set(finalUnlockables.map(u => u.item_id));
         const itemsToUnlock: UserUnlockable[] = [];
 

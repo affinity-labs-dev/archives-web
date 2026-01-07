@@ -99,7 +99,7 @@ export default function OnboardingVideoScreen() {
         }
       })
 
-      // Listen for video completion
+      // Listen for video completion - playToEnd is the official expo-video v3 event
       const playbackSubscription = player.addListener('playToEnd', () => {
         if (!videoCompleted) {
           setVideoCompleted(true)
@@ -110,24 +110,9 @@ export default function OnboardingVideoScreen() {
         }
       })
 
-      // Backup listener for playback status (for completion check)
-      const statusSubscription2 = player.addListener('playbackStatusChange', (status) => {
-        // Fallback completion check
-        if (status.isLoaded && status.positionMillis && status.durationMillis) {
-          const progress = status.positionMillis / status.durationMillis
-          if (progress >= 0.95 && !videoCompleted) {
-            setVideoCompleted(true)
-            setTimeout(() => {
-              handleContinue()
-            }, 1000)
-          }
-        }
-      })
-
       return () => {
         statusSubscription?.remove()
         playbackSubscription?.remove()
-        statusSubscription2?.remove()
       }
     } catch (error) {
       console.warn('Video listener error:', error)

@@ -472,8 +472,8 @@ export default function Quiz({
     const percentage = (correctAnswers / totalQuestions) * 100;
     const quizScore = percentage === 100 ? 3 : percentage >= 50 ? 2 : 1;
 
-    // Track quiz completion
-    trackQuizComplete(correctAnswers, totalQuestions, score);
+    // Track quiz completion (score = star rating, correctAnswers = correct count)
+    trackQuizComplete(quizScore, correctAnswers);
 
     // Load progress to calculate era-specific XP (BEFORE saving)
     const newModulesData = await AsyncStorage.getItem('new_user_progress');

@@ -273,7 +273,8 @@ export default function ProfileTab() {
     if (storedTotalXP !== null) {
       return storedTotalXP
     }
-    return calculateTotalXP(moduleProgress, newUserProgress) || 0
+    // Hook function uses internal state - no arguments needed
+    return calculateTotalXP() || 0
   }, [storedTotalXP, moduleProgress, newUserProgress, calculateTotalXP])
 
   // Get current avatar (use first avatar as default if none selected)
@@ -281,7 +282,8 @@ export default function ProfileTab() {
 
   // Calculate modules finished using centralized function (BOTH Era 1 and Era 2+)
   const modulesFinished = React.useMemo(() => {
-    return calculateModulesCompleted(moduleProgress, newUserProgress)
+    // Hook function uses internal state - no arguments needed
+    return calculateModulesCompleted()
   }, [moduleProgress, newUserProgress, calculateModulesCompleted])
 
   // Get user's display name from Clerk (firstName + first letter of lastName)

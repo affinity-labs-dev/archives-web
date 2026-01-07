@@ -33,7 +33,7 @@ export function useAnalytics() {
           email: user.emailAddresses[0]?.emailAddress,
           firstName: user.firstName,
           lastName: user.lastName,
-          createdAt: user.createdAt,
+          createdAt: user.createdAt?.toISOString() ?? null,
         });
       }
     }, 'identify_user');
@@ -58,7 +58,7 @@ export function useAnalytics() {
         module_id: moduleId,
         lesson_id: lessonId,
         lesson_path: `adventure_${adventureId}_module_${moduleId}_lesson_${lessonId}`,
-        duration_seconds: duration,
+        ...(duration !== undefined && { duration_seconds: duration }),
       });
     }, 'lesson_completed');
   };
@@ -113,8 +113,8 @@ export function useAnalytics() {
     safeTrack(() => {
       posthog.capture('video_played', {
         video_url: videoUrl,
-        adventure_id: adventureId,
-        module_id: moduleId,
+        ...(adventureId !== undefined && { adventure_id: adventureId }),
+        ...(moduleId !== undefined && { module_id: moduleId }),
         video_type: videoUrl.includes('cloudfront') ? 'aws_cloudfront' : 'local',
       });
     }, 'video_played');
@@ -125,8 +125,8 @@ export function useAnalytics() {
       posthog.capture('video_completed', {
         video_url: videoUrl,
         duration_seconds: duration,
-        adventure_id: adventureId,
-        module_id: moduleId,
+        ...(adventureId !== undefined && { adventure_id: adventureId }),
+        ...(moduleId !== undefined && { module_id: moduleId }),
         video_type: videoUrl.includes('cloudfront') ? 'aws_cloudfront' : 'local',
       });
     }, 'video_completed');
@@ -144,8 +144,8 @@ export function useAnalytics() {
     safeTrack(() => {
       posthog.capture('audio_played', {
         audio_url: audioUrl,
-        adventure_id: adventureId,
-        module_id: moduleId,
+        ...(adventureId !== undefined && { adventure_id: adventureId }),
+        ...(moduleId !== undefined && { module_id: moduleId }),
         audio_type: audioUrl.includes('cloudfront') ? 'aws_cloudfront' : 'local',
       });
     }, 'audio_played');

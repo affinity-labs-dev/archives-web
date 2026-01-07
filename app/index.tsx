@@ -20,8 +20,8 @@ export default function Index() {
       posthog.capture('app_entry_point', {
         screen: 'index',
         // $timestamp auto-captured by PostHog
-        is_signed_in: isSignedIn,
-        is_loaded: isLoaded,
+        is_signed_in: isSignedIn ?? false,
+        is_loaded: isLoaded ?? false,
       })
       console.log('🎥 [PostHog] App entry point tracked for session replay')
     }

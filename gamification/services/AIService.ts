@@ -1,7 +1,7 @@
 // AIService.ts - Google Gemini API integration for AI-powered quiz explanations
 // Provides contextual, personalized learning assistance with RAG (Retrieval Augmented Generation)
 
-import { GoogleGenAI, FunctionCallingConfigMode, Type, FunctionDeclaration } from '@google/genai';
+import { GoogleGenAI, FunctionCallingConfigMode, Type, FunctionDeclaration, ThinkingLevel } from '@google/genai';
 import { Question } from '@/components/shared/types';
 import { aiToolsService, type AIToolsContext } from './AIToolsService';
 
@@ -72,7 +72,7 @@ class AIService {
           maxOutputTokens: 1024,
           temperature: 1.0, // Gemini 3 recommends keeping temperature at 1.0
           thinkingConfig: {
-            thinkingLevel: 'low', // Minimize internal reasoning to preserve output tokens
+            thinkingLevel: ThinkingLevel.LOW, // Minimize internal reasoning to preserve output tokens
           },
         }
       });
@@ -325,7 +325,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
           maxOutputTokens: 2048,
           temperature: 1.0,
           thinkingConfig: {
-            thinkingLevel: 'low',
+            thinkingLevel: ThinkingLevel.LOW,
           },
           // Add tools for function calling
           ...(tools.length > 0 && {
@@ -397,7 +397,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
             maxOutputTokens: 2048,
             temperature: 1.0,
             thinkingConfig: {
-              thinkingLevel: 'low',
+              thinkingLevel: ThinkingLevel.LOW,
             },
           }
         });
@@ -649,7 +649,7 @@ Your job is to help users learn history correctly, respectfully, and confidently
       // Check if we have valid content parts to iterate over
       if (content?.parts) {
         for (const part of content.parts) {
-          if (part.inlineData) {
+          if (part.inlineData && part.inlineData.data) {
             console.log('✅ [AIService] Image generated successfully');
             return {
               imageBase64: part.inlineData.data,
@@ -805,7 +805,7 @@ Generate a single high-quality image.`;
 
       if (content?.parts) {
         for (const part of content.parts) {
-          if (part.inlineData) {
+          if (part.inlineData && part.inlineData.data) {
             console.log('✅ [AIService] Image edited successfully');
             return {
               imageBase64: part.inlineData.data,
@@ -927,7 +927,7 @@ Generate the edited image.`;
           maxOutputTokens: 1024,
           temperature: 1.0,
           thinkingConfig: {
-            thinkingLevel: 'low',
+            thinkingLevel: ThinkingLevel.LOW,
           },
         },
       });

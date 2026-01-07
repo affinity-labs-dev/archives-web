@@ -346,7 +346,7 @@ class AIToolsService {
     // Find completed modules sorted by completion date
     let completedModules = this.context.progress
       .filter(p => p.isCompleted && p.quizCompleted && p.completedAt)
-      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+      .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
 
     // Filter by era if specified
     if (filterEraId) {
@@ -508,8 +508,8 @@ class AIToolsService {
           moduleId: module.id,
           moduleTitle: module.thumbnail_title || module.id,
           lessonsCount: module.media_url?.length || 0,
-          hasQuiz: module.quiz && module.quiz.length > 0,
-          quizQuestionsCount: module.quiz?.length || 0,
+          hasQuiz: module.questions && module.questions.length > 0,
+          quizQuestionsCount: module.questions?.length || 0,
           fullContent,
           contentLength: fullContent.length,
           contentPreview: fullContent.length > 500

@@ -301,8 +301,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       posthog.capture('$exception', {
         $exception_message: error.message,
         $exception_type: error.name,
-        $exception_stack_trace_raw: error.stack,
-        $exception_is_fatal: isFatal,
+        $exception_stack_trace_raw: error.stack ?? '',
+        $exception_is_fatal: isFatal ?? false,
         $exception_source: 'global_error_handler',
       });
 

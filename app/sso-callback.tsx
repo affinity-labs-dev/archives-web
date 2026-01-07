@@ -37,7 +37,7 @@ export default function SSOCallback() {
           router.replace('/(tabs)');
         } else {
           // New user or hasn't selected era - go to era selection
-          router.replace('/era-selection');
+          router.replace('/(tabs)/eras?mode=onboarding');
         }
       } else {
         // Authentication failed or was cancelled - return to auth screen
