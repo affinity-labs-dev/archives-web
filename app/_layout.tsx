@@ -564,8 +564,8 @@ export default Sentry.wrap(function RootLayout() {
                   <AdventuresContentProvider>
                     <RewardsProvider>
                       <GamifiedProgressProvider>
-                        <GamificationOrchestratorProvider>
                         <PreferencesProvider>
+                          <GamificationOrchestratorProvider>
                             <AIProvider>
                             <AvatarAnimationWrapper>
                               <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
@@ -581,8 +581,8 @@ export default Sentry.wrap(function RootLayout() {
                               </ThemeProvider>
                             </AvatarAnimationWrapper>
                             </AIProvider>
+                          </GamificationOrchestratorProvider>
                         </PreferencesProvider>
-                        </GamificationOrchestratorProvider>
                     </GamifiedProgressProvider>
                 </RewardsProvider>
               </AdventuresContentProvider>
