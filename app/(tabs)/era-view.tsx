@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { ActivityIndicator, Text, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAdventures } from '@/hooks/useAdventures';
@@ -30,7 +31,7 @@ interface UserProgress {
 
 export default function AdventuresScreen() {
   // Get selected era from context (data-driven)
-  const { selectedEra, moduleProgress, isLoading: gamificationLoading } = useGamifiedProgress();
+  const { selectedEra, moduleProgress, isLoading: gamificationLoading, setSelectedEra } = useGamifiedProgress();
 
   // Get AI context for updating era awareness
   const { updateContext } = useAI();
@@ -41,9 +42,12 @@ export default function AdventuresScreen() {
   // Use selectedEra directly (already Supabase era_id format)
   const supabaseEraId = selectedEra || '';
 
+  // Router for navigation
+  const router = useRouter();
+
   // Fetch adventures for selected era (dynamic, not hardcoded)
   const { adventures, loading, error, refreshAdventures } = useAdventures(supabaseEraId);
-  const { eras } = useEras();
+  const { eras, loading: erasLoading, error: erasError } = useEras();
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,6 +68,18 @@ export default function AdventuresScreen() {
   const selectedEraData = useMemo(() => {
     return eras.find(era => era.era_id === supabaseEraId);
   }, [eras, supabaseEraId]);
+
+  // Auto-correct invalid selectedEra (migration fix)
+  // If user has a selectedEra that doesn't exist in Supabase, auto-select first available era
+  useEffect(() => {
+    if (eras.length > 0 && selectedEra && !selectedEraData) {
+      console.log(`⚠️ [Adventures] Invalid selectedEra "${selectedEra}" - auto-selecting first era`);
+      const firstActiveEra = eras.find(era => era.status === 'active');
+      if (firstActiveEra) {
+        setSelectedEra(firstActiveEra.era_id);
+      }
+    }
+  }, [eras, selectedEra, selectedEraData, setSelectedEra]);
 
   // Update AI context when era changes (for AI chat awareness)
   useEffect(() => {
@@ -285,12 +301,22 @@ export default function AdventuresScreen() {
     }
   }, [getUserCompletedEras, showNewPuzzleBadge]);
 
-  // No era selected - show message
+  // Navigate to Eras tab
+  const goToErasTab = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/(tabs)/eras');
+  }, [router]);
+
+  // No era selected - show message with button
   if (!selectedEra) {
     return (
       <View style={styles.centerContainer}>
+        <Ionicons name="library-outline" size={48} color={ArchivesTheme.colors.shoeBrown} style={{ marginBottom: 16 }} />
         <Text style={styles.errorText}>No era selected</Text>
-        <Text style={styles.errorSubtext}>Please select an era to view adventures</Text>
+        <Text style={styles.errorSubtext}>Choose an era to start your journey</Text>
+        <TouchableOpacity style={styles.ctaButton} onPress={goToErasTab}>
+          <Text style={styles.ctaButtonText}>Select Era</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -305,22 +331,52 @@ export default function AdventuresScreen() {
     );
   }
 
-  // Error state
-  if (error) {
+  // Error state (network or data fetch error)
+  if (error || erasError) {
+    const isNetworkError = (error?.message || erasError || '').toLowerCase().includes('network');
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Failed to load adventures</Text>
-        <Text style={styles.errorSubtext}>{error.message}</Text>
+        <Ionicons
+          name={isNetworkError ? "cloud-offline-outline" : "alert-circle-outline"}
+          size={48}
+          color={ArchivesTheme.colors.shoeBrown}
+          style={{ marginBottom: 16 }}
+        />
+        <Text style={styles.errorText}>
+          {isNetworkError ? 'No internet connection' : 'Failed to load adventures'}
+        </Text>
+        <Text style={styles.errorSubtext}>
+          {isNetworkError ? 'Please check your connection and try again' : (error?.message || erasError)}
+        </Text>
+        <TouchableOpacity style={styles.ctaButton} onPress={handleRefresh}>
+          <Text style={styles.ctaButtonText}>Try Again</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   // No adventures found - show coming soon (data-driven from Supabase)
   if (!adventures || adventures.length === 0) {
+    // Still loading eras or era not found in database
     if (!selectedEraData) {
+      // If eras are still loading, show loading state
+      if (erasLoading) {
+        return (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
+            <Text style={styles.loadingText}>Loading era...</Text>
+          </View>
+        );
+      }
+      // Eras loaded but selected era not found - prompt to select a new one
       return (
         <View style={styles.centerContainer}>
-          <Text style={styles.loadingText}>Loading era...</Text>
+          <Ionicons name="help-circle-outline" size={48} color={ArchivesTheme.colors.shoeBrown} style={{ marginBottom: 16 }} />
+          <Text style={styles.errorText}>Era not found</Text>
+          <Text style={styles.errorSubtext}>The selected era is no longer available</Text>
+          <TouchableOpacity style={styles.ctaButton} onPress={goToErasTab}>
+            <Text style={styles.ctaButtonText}>Select Era</Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -405,6 +461,20 @@ const styles = StyleSheet.create({
     fontFamily: 'DM Sans',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
+    marginBottom: 24,
+  },
+  ctaButton: {
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  ctaButtonText: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
   fab: {
     position: 'absolute',
