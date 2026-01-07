@@ -170,6 +170,11 @@ export default function AIChatModal({
         era_id: context?.eraId || 'unknown_era',
         message_count: messages.length,
       });
+
+      // Scroll to latest message when modal opens
+      if (messages.length > 0) {
+        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: false }), 100);
+      }
     }
   }, [visible]);
 
