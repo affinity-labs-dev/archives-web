@@ -247,6 +247,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
     userMessage: string;
     conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
     context?: {
+      eraId?: string;
       eraName?: string;
       adventureId?: string;
       currentScreen?: string;
@@ -473,6 +474,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
    */
   private buildChatSystemPrompt(
     context: {
+      eraId?: string;
       eraName?: string;
       adventureId?: string;
       currentScreen?: string;
@@ -490,7 +492,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
     },
     knowledgeContext?: string
   ): string {
-    const { eraName = 'Islamic History', adventureId, currentScreen } = context;
+    const { eraId, eraName = 'Islamic History', adventureId, currentScreen } = context;
 
     // Build user progress section
     let progressSection = '';
@@ -521,6 +523,7 @@ Your role is to inform, guide, and support learning while strictly following Isl
 
 CURRENT CONTEXT:
 - Learning about: ${eraName}
+${eraId ? `- Current Era ID: "${eraId}" (IMPORTANT: Use this era ID when calling tools like getLastCompletedModule, searchLessons, getUserProgress to get era-specific results)` : ''}
 ${adventureId ? `- Current adventure: ${adventureId}` : ''}
 ${currentScreen ? `- Current screen: ${currentScreen}` : ''}
 ${progressSection}

@@ -59,10 +59,15 @@ export const AI_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'getLastCompletedModule',
-    description: 'Get the user\'s most recently completed module with its FULL lesson content. Use this when the user asks about their last lesson, recent learning, or wants a recap. Examples: "What was my last lesson about?", "What did I learn yesterday?", "Remind me what I studied last", "Can you recap my recent lesson?"',
+    description: 'Get the user\'s most recently completed module with its FULL lesson content. IMPORTANT: Always use the current era ID to get progress for the era the user is currently viewing. Use this when the user asks about their last lesson, recent learning, or wants a recap. Examples: "What was my last lesson about?", "What did I learn yesterday?", "Remind me what I studied last", "Can you recap my recent lesson?"',
     parameters: {
       type: Type.OBJECT,
-      properties: {},
+      properties: {
+        eraId: {
+          type: Type.STRING,
+          description: 'The era ID to filter by (e.g., "umayyad", "rise_of_islam", "women_of_islam"). IMPORTANT: Always pass the current era ID from the context to get era-specific progress. Only omit this to get the last module across ALL eras.',
+        },
+      },
       required: [],
     },
   },
@@ -90,13 +95,17 @@ export const AI_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'searchLessons',
-    description: 'Search across all lessons the user has completed for specific topics, people, places, or events. Use this when the user asks if they learned about something specific. Examples: "Did I learn about Damascus?", "What do I know about Khalid ibn al-Walid?", "Have I studied the Byzantine Empire?"',
+    description: 'Search across lessons the user has completed for specific topics, people, places, or events. Use this when the user asks if they learned about something specific. Examples: "Did I learn about Damascus?", "What do I know about Khalid ibn al-Walid?", "Have I studied the Byzantine Empire?"',
     parameters: {
       type: Type.OBJECT,
       properties: {
         query: {
           type: Type.STRING,
           description: 'The search query - a topic, person, place, or event (e.g., "Damascus", "Umar", "Battle of Yarmouk")',
+        },
+        eraId: {
+          type: Type.STRING,
+          description: 'Optional: Filter search to a specific era (e.g., "umayyad", "women_of_islam"). Pass the current era ID to search within that era only.',
         },
       },
       required: ['query'],
@@ -165,13 +174,13 @@ class AIToolsService {
           result = await this.getUserProgress(args.eraId);
           break;
         case 'getLastCompletedModule':
-          result = await this.getLastCompletedModule();
+          result = await this.getLastCompletedModule(args.eraId);
           break;
         case 'getModuleContent':
           result = await this.getModuleContent(args.eraId, args.adventureId, args.moduleId);
           break;
         case 'searchLessons':
-          result = await this.searchLessons(args.query);
+          result = await this.searchLessons(args.query, args.eraId);
           break;
         case 'getEraOverview':
           result = await this.getEraOverview(args.eraId);
@@ -258,16 +267,40 @@ class AIToolsService {
 
   /**
    * Tool 2: Get the most recently completed module with full content
+   * @param eraId - Optional era ID to filter by (recommended: always pass current era)
    */
-  private async getLastCompletedModule(): Promise<ToolResult> {
+  private async getLastCompletedModule(eraId?: string): Promise<ToolResult> {
     if (!this.context) {
       return { success: false, error: 'No user context available. User may not be signed in.' };
     }
 
+    // Use provided eraId or fall back to selectedEra from context
+    const filterEraId = eraId || this.context.selectedEra;
+
     // Find completed modules sorted by completion date
-    const completedModules = this.context.progress
+    let completedModules = this.context.progress
       .filter(p => p.isCompleted && p.quizCompleted && p.completedAt)
       .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+
+    // Filter by era if specified
+    if (filterEraId) {
+      const eraFilteredModules = completedModules.filter(p => p.era_id === filterEraId);
+
+      if (eraFilteredModules.length === 0) {
+        return {
+          success: true,
+          data: {
+            hasCompletedModules: false,
+            eraId: filterEraId,
+            message: `The user has not completed any modules in the "${filterEraId}" era yet. They may have progress in other eras.`,
+            // Also provide info about other eras with progress
+            otherErasWithProgress: [...new Set(completedModules.map(p => p.era_id))],
+          },
+        };
+      }
+
+      completedModules = eraFilteredModules;
+    }
 
     if (completedModules.length === 0) {
       return {
@@ -423,8 +456,10 @@ class AIToolsService {
 
   /**
    * Tool 4: Search across completed lessons for topics
+   * @param query - The search query
+   * @param eraId - Optional era ID to filter search results
    */
-  private async searchLessons(query: string): Promise<ToolResult> {
+  private async searchLessons(query: string, eraId?: string): Promise<ToolResult> {
     if (!this.context) {
       return { success: false, error: 'No user context available. User may not be signed in.' };
     }
@@ -433,16 +468,27 @@ class AIToolsService {
       return { success: false, error: 'Search query must be at least 2 characters.' };
     }
 
-    const completedModules = this.context.progress.filter(p => p.isCompleted);
+    // Use provided eraId or fall back to selectedEra from context
+    const filterEraId = eraId || this.context.selectedEra;
+
+    let completedModules = this.context.progress.filter(p => p.isCompleted);
+
+    // Filter by era if specified
+    if (filterEraId) {
+      completedModules = completedModules.filter(p => p.era_id === filterEraId);
+    }
 
     if (completedModules.length === 0) {
       return {
         success: true,
         data: {
           query,
+          eraId: filterEraId,
           resultsCount: 0,
           results: [],
-          message: 'The user has not completed any modules yet, so there is no content to search.',
+          message: filterEraId
+            ? `The user has not completed any modules in the "${filterEraId}" era yet, so there is no content to search in this era.`
+            : 'The user has not completed any modules yet, so there is no content to search.',
         },
       };
     }
@@ -519,11 +565,16 @@ class AIToolsService {
       success: true,
       data: {
         query,
+        eraId: filterEraId,
         resultsCount: searchResults.length,
         results: topResults,
         message: searchResults.length === 0
-          ? `No lessons found matching "${query}". The user may not have learned about this topic yet, or it might be covered in modules they haven't completed.`
-          : `Found ${searchResults.length} lesson(s) matching "${query}".`,
+          ? filterEraId
+            ? `No lessons found matching "${query}" in the "${filterEraId}" era. The user may not have learned about this topic yet in this era.`
+            : `No lessons found matching "${query}". The user may not have learned about this topic yet, or it might be covered in modules they haven't completed.`
+          : filterEraId
+            ? `Found ${searchResults.length} lesson(s) matching "${query}" in the "${filterEraId}" era.`
+            : `Found ${searchResults.length} lesson(s) matching "${query}".`,
       },
     };
   }

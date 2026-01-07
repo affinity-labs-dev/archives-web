@@ -547,6 +547,7 @@ export default function AIChatModal({
           userMessage,
           conversationHistory: messages,
           context: {
+            eraId: context.eraId,
             eraName: context.eraName || 'Islamic History',
             adventureId: context.adventureId,
             currentScreen: context.currentScreen,
