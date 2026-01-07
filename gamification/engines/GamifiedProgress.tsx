@@ -470,6 +470,22 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   const [syncTimer, setSyncTimer] = useState<NodeJS.Timeout | null>(null);
 
   const { user, isSignedIn } = useUser();
+  const [previousUserId, setPreviousUserId] = useState<string | null>(null);
+
+  // ========== RESET STATE ON USER CHANGE ==========
+  // This ensures old user's data doesn't show when switching accounts
+  useEffect(() => {
+    if (user?.id !== previousUserId) {
+      console.log('🔄 [GamifiedProgress] User changed, resetting state...');
+      console.log(`   Previous: ${previousUserId} → New: ${user?.id || 'signed out'}`);
+
+      // Reset state immediately to prevent showing old user's data
+      setState(null);
+      setIsInitialized(false);
+      setIsLoading(true);
+      setPreviousUserId(user?.id || null);
+    }
+  }, [user?.id, previousUserId]);
 
   // ========== INITIALIZATION ==========
 
@@ -477,6 +493,8 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     const initialize = async () => {
       if (!isSignedIn || !user?.id) {
         console.log('🎮 [GamifiedProgress] No user signed in');
+        setState(null);
+        setIsInitialized(false);
         setIsLoading(false);
         return;
       }

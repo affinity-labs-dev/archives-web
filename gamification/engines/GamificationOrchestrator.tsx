@@ -19,6 +19,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUser } from '@clerk/clerk-expo';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useGamifiedProgress, calculateTotalXP as calculateTotalXPUtil } from './GamifiedProgress';
@@ -517,6 +518,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   // Hooks for achievements calculation
   const { moduleProgress, unlockAchievement: persistAchievement } = useGamifiedProgress();
   const { getAdventures } = useAdventuresContent();
+  const { user } = useUser();
+  const [previousUserId, setPreviousUserId] = useState<string | null>(null);
 
   // Load and update streak on mount
   const loadStreak = useCallback(async () => {
@@ -651,6 +654,35 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     loadUnlockedAchievements();
     loadNewProgress();
   }, [loadUnlockedAchievements, loadNewProgress]);
+
+  // ========== RESET STATE ON USER CHANGE ==========
+  // This ensures old user's streak/achievements don't show when switching accounts
+  useEffect(() => {
+    if (user?.id !== previousUserId) {
+      console.log('🔄 [Orchestrator] User changed, resetting state...');
+      console.log(`   Previous: ${previousUserId} → New: ${user?.id || 'signed out'}`);
+
+      // Reset all state immediately
+      setStreak(0);
+      setLongestStreak(0);
+      setIsNewDay(false);
+      setUnlockedAchievements([]);
+      setCelebrationQueue([]);
+      setCurrentCelebration(null);
+      setNewUserProgress([]);
+      setEraModuleCounts({});
+      streakLoadedRef.current = false;
+      unlockingRef.current.clear();
+      setPreviousUserId(user?.id || null);
+
+      // Reload data for new user (if signed in)
+      if (user?.id) {
+        loadStreak();
+        loadUnlockedAchievements();
+        loadNewProgress();
+      }
+    }
+  }, [user?.id, previousUserId, loadStreak, loadUnlockedAchievements, loadNewProgress]);
 
   // Get era module count for progress calculation
   const getEraModuleCount = useCallback(async (eraId: string, newModules: any[]): Promise<{ total: number; completed: number }> => {
