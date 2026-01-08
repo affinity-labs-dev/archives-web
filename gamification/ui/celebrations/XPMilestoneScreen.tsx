@@ -13,7 +13,7 @@ import { Image } from 'expo-image';
 import { VideoView } from 'expo-video';
 import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -114,12 +114,39 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
   }, [videoEnded, milestoneXP, eraId, onContinue]);
 
   // Listen for video end - Auto-dismiss screen when video finishes
+  // Multiple fallback mechanisms for Android reliability:
+  // 1. playToEnd event (primary)
+  // 2. statusChange to 'idle' (backup for Android)
+  // 3. Timeout fallback (final safety net)
   useEffect(() => {
     if (!player) return;
 
+    // Primary: playToEnd event
     const playbackSubscription = player.addListener('playToEnd', handleVideoEnd);
 
-    return () => playbackSubscription?.remove();
+    // Backup for Android: statusChange to 'idle' means video finished
+    // On Android, playToEnd may not fire reliably
+    const statusSubscription = player.addListener('statusChange', ({ status }) => {
+      // 'idle' status means the video is done playing (not loading, not playing)
+      // Only trigger if we haven't already dismissed
+      if (status === 'idle' && Platform.OS === 'android') {
+        console.log('🎬 [XPMilestoneScreen] Android: Status changed to idle, triggering dismissal');
+        handleVideoEnd();
+      }
+    });
+
+    // Final fallback: Timeout after 12 seconds (celebration videos are ~5-8 seconds)
+    // This ensures the screen always dismisses even if events don't fire
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ [XPMilestoneScreen] Timeout fallback triggered');
+      handleVideoEnd();
+    }, 12000);
+
+    return () => {
+      playbackSubscription?.remove();
+      statusSubscription?.remove();
+      clearTimeout(timeoutId);
+    };
   }, [player, handleVideoEnd]);
 
   return (

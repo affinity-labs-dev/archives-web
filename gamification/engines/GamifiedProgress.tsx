@@ -23,7 +23,7 @@
  * - Zero data loss - old data preserved as backup
  */
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -61,8 +61,8 @@ export interface StreakData {
 
 export interface ProgressEntry {
   era_id: string;
-  adventureId: string | number;
-  moduleId: string | number;
+  adventureId: string;
+  moduleId: string;
   lessonsCompleted: string[];
   quizScore: number;
   quizCorrectAnswers: number;
@@ -471,7 +471,18 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   const [isInitialized, setIsInitialized] = useState(false);
   const [syncTimer, setSyncTimer] = useState<NodeJS.Timeout | null>(null);
 
-  const { user, isSignedIn } = useUser();
+  // ========== STATE REF FOR LATEST STATE ==========
+  // Prevents stale closure issues - ref always has the LATEST state
+  // React setState is async, so callbacks may read stale state from closures
+  // This ref is updated synchronously whenever state changes
+  const stateRef = useRef<GamifiedProgressState | null>(null);
+
+  // Keep ref in sync with state (runs synchronously after every state update)
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const { user, isSignedIn, isLoaded: isClerkLoaded } = useUser();
   const [previousUserId, setPreviousUserId] = useState<string | null>(null);
 
   // ========== RESET STATE ON USER CHANGE ==========
@@ -493,6 +504,12 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     const initialize = async () => {
+      // Wait for Clerk to fully load before making any decisions
+      if (!isClerkLoaded) {
+        console.log('🎮 [GamifiedProgress] Waiting for Clerk to load...');
+        return; // Don't set any state yet - keep loading true
+      }
+
       if (!isSignedIn || !user?.id) {
         console.log('🎮 [GamifiedProgress] No user signed in');
         setState(null);
@@ -536,7 +553,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     };
 
     initialize();
-  }, [isSignedIn, user?.id]);
+  }, [isClerkLoaded, isSignedIn, user?.id]);
 
   // ========== CLOUD SYNC ==========
 
@@ -608,7 +625,10 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   }, [syncTimer]);
 
   const saveState = useCallback(async (newState: GamifiedProgressState) => {
-    // Update local state
+    // Update ref FIRST (synchronous) - prevents stale closure in rapid saves
+    stateRef.current = newState;
+
+    // Then update React state (async)
     setState(newState);
 
     // Save to local storage immediately
@@ -666,8 +686,9 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         if (legacyData.modules && Array.isArray(legacyData.modules)) {
           console.log(`  📚 Migrating ${legacyData.modules.length} Era 1 modules to progress array`);
           for (const m of legacyData.modules) {
-            const adventureId = typeof m.adventureId === 'number' ? m.adventureId : parseInt(m.adventureId, 10);
-            const moduleId = typeof m.moduleId === 'number' ? m.moduleId : parseInt(m.moduleId, 10);
+            // Always convert to string - never use numbers
+            const adventureId = String(m.adventureId);
+            const moduleId = String(m.moduleId);
             const key = `umayyad:${adventureId}:${moduleId}`;
             const quizScore = m.quizScore || 0;
             const xpEarned = quizScore * 10;
@@ -696,7 +717,10 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
           console.log(`  📚 Migrating ${legacyData.newProgress.length} Era 2+ modules`);
 
           for (const entry of legacyData.newProgress) {
-            const key = `${entry.era_id}:${entry.adventureId}:${entry.moduleId}`;
+            // Always convert to string - never use numbers
+            const adventureId = String(entry.adventureId);
+            const moduleId = String(entry.moduleId);
+            const key = `${entry.era_id}:${adventureId}:${moduleId}`;
             const xpEarned = (entry.quizCorrectAnswers || 0) * 10;
             const quizScore = entry.quizScore || entry.quizCorrectAnswers || 0;
             const masteryLevel = quizScore >= 3 ? 'mastered' : quizScore >= 2 ? 'passed' : 'attempted';
@@ -715,8 +739,8 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
             } else {
               progressMap.set(key, {
                 era_id: entry.era_id,
-                adventureId: entry.adventureId,
-                moduleId: entry.moduleId,
+                adventureId,  // Use string-converted variable
+                moduleId,     // Use string-converted variable
                 lessonsCompleted: entry.lessonsCompleted || [],
                 quizScore: quizScore,
                 quizCorrectAnswers: entry.quizCorrectAnswers || 0,
@@ -756,8 +780,8 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
           const quizScore = m.quizScore || 0;
           newState.progress.push({
             era_id: 'umayyad',
-            adventureId: m.adventureId,
-            moduleId: m.moduleId,
+            adventureId: String(m.adventureId),  // Always string
+            moduleId: String(m.moduleId),        // Always string
             lessonsCompleted: m.lessonsCompleted || [],
             quizScore,
             quizCorrectAnswers: quizScore,
@@ -782,8 +806,8 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
           const quizScore = e.quizScore || 0;
           newState.progress.push({
             era_id: e.era_id,
-            adventureId: e.adventureId,
-            moduleId: e.moduleId,
+            adventureId: String(e.adventureId),  // Always string
+            moduleId: String(e.moduleId),        // Always string
             lessonsCompleted: e.lessonsCompleted || [],
             quizScore,
             quizCorrectAnswers: e.quizCorrectAnswers || 0,
@@ -881,14 +905,17 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   const getModuleProgress = useCallback((adventureId: number, moduleId: number): ModuleProgress | null => {
     if (!state) return null;
     // Find in unified progress array (supports all eras)
+    // Convert params to strings for comparison - stored data is always string
+    const advIdStr = String(adventureId);
+    const modIdStr = String(moduleId);
     const entry = state.progress.find(
-      p => p.adventureId === adventureId && p.moduleId === moduleId
+      p => p.adventureId === advIdStr && p.moduleId === modIdStr
     );
     if (!entry) return null;
     // Convert ProgressEntry to ModuleProgress format for backward compatibility
     return {
-      adventureId: typeof entry.adventureId === 'number' ? entry.adventureId : parseInt(String(entry.adventureId), 10),
-      moduleId: typeof entry.moduleId === 'number' ? entry.moduleId : parseInt(String(entry.moduleId), 10),
+      adventureId: parseInt(entry.adventureId, 10),
+      moduleId: parseInt(entry.moduleId, 10),
       isCompleted: entry.isCompleted,
       lessonsCompleted: entry.lessonsCompleted,
       quizCompleted: entry.quizCompleted,
@@ -909,26 +936,35 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   // ========== SAVE PROGRESS ==========
 
   const saveNewProgressData = useCallback(async (moduleData: any): Promise<void> => {
-    if (!state) {
+    // Use stateRef to get the LATEST state - prevents stale closure issues
+    // React setState is async, so rapid saves could use stale closure state
+    const currentState = stateRef.current;
+
+    if (!currentState) {
       console.error('❌ [GamifiedProgress] Cannot save: Not initialized');
       return;
     }
 
     console.log('🔄 [GamifiedProgress] Saving new progress:', moduleData);
 
-    const key = `${moduleData.era_id}:${moduleData.adventureId}:${moduleData.moduleId}`;
+    // Always convert to strings for consistent comparison and storage
+    const adventureIdStr = String(moduleData.adventureId);
+    const moduleIdStr = String(moduleData.moduleId);
+
+    const key = `${moduleData.era_id}:${adventureIdStr}:${moduleIdStr}`;
     const xpEarned = (moduleData.quizCorrectAnswers || 0) * 10;
     const quizScore = moduleData.quizScore || moduleData.quizCorrectAnswers || 0;
     const masteryLevel = quizScore >= 3 ? 'mastered' : quizScore >= 2 ? 'passed' : 'attempted';
 
-    // Find existing entry
-    const existingIndex = state.progress.findIndex(
+    // Find existing entry (using string comparison) - use currentState from ref
+    const existingIndex = currentState.progress.findIndex(
       p => p.era_id === moduleData.era_id &&
-           p.adventureId === moduleData.adventureId &&
-           p.moduleId === moduleData.moduleId
+           p.adventureId === adventureIdStr &&
+           p.moduleId === moduleIdStr
     );
 
-    let updatedProgress = [...state.progress];
+    // Use currentState.progress to get LATEST progress array
+    let updatedProgress = [...currentState.progress];
 
     if (existingIndex >= 0) {
       // Update existing (retake)
@@ -951,8 +987,8 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       // Add new
       updatedProgress.push({
         era_id: moduleData.era_id,
-        adventureId: moduleData.adventureId,
-        moduleId: moduleData.moduleId,
+        adventureId: adventureIdStr,  // Always string
+        moduleId: moduleIdStr,        // Always string
         lessonsCompleted: moduleData.lessonsCompleted || [],
         quizScore,
         quizCorrectAnswers: moduleData.quizCorrectAnswers || 0,
@@ -976,7 +1012,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     const masteredCount = updatedProgress.filter(p => p.mastery_level === 'mastered').length;
 
     const newState: GamifiedProgressState = {
-      ...state,
+      ...currentState,
       progress: updatedProgress,
       totalXP,
       xp_by_era: xpByEra,
@@ -986,7 +1022,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         games: 0,
       },
       behavior: {
-        ...state.behavior,
+        ...currentState.behavior,
         mastered_modules: masteredCount,
         total_modules: updatedProgress.length,
         mastery_percentage: updatedProgress.length > 0
@@ -994,7 +1030,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
           : 0,
       },
       metadata: {
-        ...state.metadata,
+        ...currentState.metadata,
         last_updated: new Date().toISOString(),
         total_quiz_attempts: updatedProgress.length,
         total_modules_attempted: updatedProgress.length,
@@ -1035,7 +1071,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     });
 
     console.log(`✅ Progress saved. Total XP: ${totalXP}`);
-  }, [state, saveState]);
+  }, [saveState]);  // Note: Uses stateRef.current for latest state, not closure state
 
   // ========== QUIZ TRACKING (Detailed) ==========
 
@@ -1261,9 +1297,10 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
     adventureProgress: state?.adventureProgress || INITIAL_ADVENTURE_DATA,
     // Convert unified progress to ModuleProgress format for backward compatibility
+    // Note: stored data is always string, convert to number for legacy interface
     moduleProgress: (state?.progress || []).map(p => ({
-      adventureId: typeof p.adventureId === 'number' ? p.adventureId : parseInt(String(p.adventureId), 10),
-      moduleId: typeof p.moduleId === 'number' ? p.moduleId : parseInt(String(p.moduleId), 10),
+      adventureId: parseInt(p.adventureId, 10),
+      moduleId: parseInt(p.moduleId, 10),
       isCompleted: p.isCompleted,
       lessonsCompleted: p.lessonsCompleted,
       quizCompleted: p.quizCompleted,
