@@ -16,19 +16,19 @@
  * 4. Orchestrator handles the rest - Quiz doesn't know about celebrations or achievements
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import { Modal } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUser } from '@clerk/clerk-expo';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
-import { analyticsService } from '@/services/AnalyticsService';
-import { useGamifiedProgress, calculateTotalXP as calculateTotalXPUtil } from './GamifiedProgress';
 import { useAdventuresContent } from '@/context/AdventuresContentProvider';
+import { analyticsService } from '@/services/AnalyticsService';
+import { useUser } from '@clerk/clerk-expo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Modal } from 'react-native';
+import { calculateTotalXP as calculateTotalXPUtil, useGamifiedProgress } from './GamifiedProgress';
 
 // Import celebration screens
-import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
-import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen';
 import { AchievementUnlockAnimation } from '@/gamification/ui/achievement/AchievementGrid';
+import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen';
+import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 
 // ============================================================
 // CONSTANTS
@@ -38,8 +38,6 @@ export const XP_MILESTONES = [50, 100, 200, 400, 750] as const;
 export const STREAK_MILESTONES = [7, 30, 100] as const;
 
 // Storage keys
-const STREAK_KEY = 'daily_streak';
-const LAST_ACTIVE_KEY = 'last_active_date';
 const ACHIEVEMENTS_KEY = 'unlocked_achievements';
 
 // ============================================================
@@ -296,7 +294,7 @@ export interface StreakData {
   currentStreak: number;
   longestStreak: number;
   lastActiveDate: string;
-  longestStreakDate?: string; // Date when longest streak was achieved
+  longestStreakDate: string; // Date when longest streak was achieved (required to match GamifiedProgress type)
 }
 
 // ============================================================
@@ -358,6 +356,8 @@ interface GamificationOrchestratorContextType {
   streakBonus: number;
   /** Refresh streak data */
   refreshStreak: () => Promise<void>;
+  /** TEST: Simulate next day to test streak increment */
+  simulateNextDay: () => Promise<void>;
 
   // ===== ACHIEVEMENTS =====
   /** All achievements with unlock status (sorted: unlocked first, then by progress) */
@@ -501,10 +501,10 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   // Currently displaying celebration
   const [currentCelebration, setCurrentCelebration] = useState<CelebrationItem | null>(null);
 
-  // Streak state
+  // Streak state (automatic loading disabled - only used for testing)
   const [streak, setStreak] = useState(0);
   const [longestStreak, setLongestStreak] = useState(0);
-  const [isStreakLoading, setIsStreakLoading] = useState(true);
+  const [isStreakLoading, setIsStreakLoading] = useState(false); // Changed to false since auto-loading is disabled
   const [isNewDay, setIsNewDay] = useState(false);
   const streakLoadedRef = useRef(false);
 
@@ -517,99 +517,138 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
   // Hooks for achievements calculation and streak sync
   // IMPORTANT: Include isInitialized to wait for GamifiedProgress to load cloud data before reading achievements
-  const { moduleProgress, unlockAchievement: persistAchievement, syncStreakToState, getAchievements: getCloudAchievements, isInitialized: isProgressInitialized } = useGamifiedProgress();
+  const { moduleProgress, unlockAchievement: persistAchievement, syncStreakToState, syncToCloud, reloadData, getStreak: getCloudStreak, getAchievements: getCloudAchievements, isInitialized: isProgressInitialized } = useGamifiedProgress();
   const { getAdventures } = useAdventuresContent();
   const { user } = useUser();
   const [previousUserId, setPreviousUserId] = useState<string | null>(null);
 
-  // Load and update streak on mount
+  // Load and update streak - DIRECT SUPABASE READ/WRITE (no local state confusion)
   const loadStreak = useCallback(async () => {
     try {
-      const [streakData, lastActive] = await Promise.all([
-        AsyncStorage.getItem(STREAK_KEY),
-        AsyncStorage.getItem(LAST_ACTIVE_KEY),
-      ]);
+      console.log(`🔥 [Orchestrator] ======= LOADING STREAK FROM SUPABASE =======`);
 
-      const today = new Date().toDateString();
-      const data: StreakData = streakData
-        ? JSON.parse(streakData)
-        : { currentStreak: 0, longestStreak: 0, lastActiveDate: '' };
+      // STEP 1: Force reload from Supabase to get FRESH data (not stale local state)
+      await reloadData();
+      console.log(`✅ [Orchestrator] Fresh data loaded from Supabase`);
 
-      const oldStreak = data.currentStreak;
+      // STEP 2: Read the FRESH streak data (now guaranteed to be from Supabase)
+      const cloudStreak = getCloudStreak();
+      console.log(`🔥 [Orchestrator] Current streak: ${cloudStreak.currentStreak}, Last active: ${cloudStreak.lastActiveDate}`);
 
-      if (!lastActive || lastActive !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toDateString();
+      const today = new Date().toISOString().split('T')[0]; // ISO format: YYYY-MM-DD
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0]; // ISO format: YYYY-MM-DD
 
-        if (lastActive === yesterdayStr) {
-          // Consecutive day - increment streak
-          data.currentStreak += 1;
-          setIsNewDay(true);
-        } else if (lastActive && lastActive !== today) {
-          // Missed days - reset streak
-          data.currentStreak = 1;
-        } else if (!lastActive) {
-          // First time
-          data.currentStreak = 1;
+      console.log(`📅 [Orchestrator] Date comparison:`);
+      console.log(`   Today: ${today}`);
+      console.log(`   Yesterday: ${yesterdayStr}`);
+      console.log(`   Last active: ${cloudStreak.lastActiveDate}`);
+
+      // STEP 3: Check if we need to update streak
+      let needsUpdate = false;
+      let newStreak = cloudStreak.currentStreak;
+      let newLongest = cloudStreak.longestStreak;
+      let newLongestDate = cloudStreak.longestStreakDate;
+
+      console.log(`🔍 [Orchestrator] Checking streak condition...`);
+      if (cloudStreak.lastActiveDate === yesterdayStr) {
+        // CONSECUTIVE DAY - Increment
+        newStreak = cloudStreak.currentStreak + 1;
+        needsUpdate = true;
+        setIsNewDay(true);
+        console.log(`🔥 [Orchestrator] ✅ CONSECUTIVE DAY DETECTED!`);
+        console.log(`   Old streak: ${cloudStreak.currentStreak}`);
+        console.log(`   New streak: ${newStreak}`);
+      } else if (!cloudStreak.lastActiveDate || cloudStreak.lastActiveDate !== today) {
+        // MISSED DAYS or FIRST TIME - Reset to 1
+        newStreak = 1;
+        needsUpdate = true;
+        if (!cloudStreak.lastActiveDate) {
+          console.log(`🔥 [Orchestrator] ⭐ FIRST TIME! Setting streak to 1`);
+        } else {
+          console.log(`🔥 [Orchestrator] ❌ MISSED DAYS DETECTED!`);
+          console.log(`   Old streak: ${cloudStreak.currentStreak}`);
+          console.log(`   Resetting to: 1`);
         }
+      } else {
+        // SAME DAY - No change
+        console.log(`🔥 [Orchestrator] ⏸️  SAME DAY - No update needed`);
+        console.log(`   Streak remains: ${cloudStreak.currentStreak}`);
+      }
 
-        // Update longest streak and track the date when it was achieved
-        const isNewRecord = data.currentStreak > data.longestStreak;
-        if (isNewRecord) {
-          data.longestStreak = data.currentStreak;
-          data.longestStreakDate = today;
-        }
+      // STEP 4: Update longest streak if new record
+      if (needsUpdate && newStreak > newLongest) {
+        newLongest = newStreak;
+        newLongestDate = today;
+        console.log(`🏆 [Orchestrator] 🎉 NEW LONGEST STREAK RECORD!`);
+        console.log(`   Old longest: ${cloudStreak.longestStreak}`);
+        console.log(`   New longest: ${newLongest}`);
+        console.log(`   Date achieved: ${newLongestDate}`);
+      }
 
-        // Save updated data
-        await Promise.all([
-          AsyncStorage.setItem(STREAK_KEY, JSON.stringify(data)),
-          AsyncStorage.setItem(LAST_ACTIVE_KEY, today),
-        ]);
-
-        // Update PostHog person properties with streak data
-        analyticsService.updateProgressProperties({
-          current_streak: data.currentStreak,
-          current_streak_date: today,
-          longest_streak: data.longestStreak,
-          longest_streak_date: data.longestStreakDate,
-        });
-
-        // Sync streak to GamifiedProgress state (syncs to Supabase gamification_data)
-        await syncStreakToState({
-          currentStreak: data.currentStreak,
-          longestStreak: data.longestStreak,
+      // STEP 5: Write back to Supabase if changed
+      if (needsUpdate) {
+        const updatedStreak: StreakData = {
+          currentStreak: newStreak,
+          longestStreak: newLongest,
           lastActiveDate: today,
-          longestStreakDate: data.longestStreakDate || today,
+          longestStreakDate: newLongestDate,
+        };
+
+        console.log(`💾 [Orchestrator] ========== WRITING STREAK TO SUPABASE ==========`);
+        console.log(`   Current streak: ${updatedStreak.currentStreak}`);
+        console.log(`   Longest streak: ${updatedStreak.longestStreak}`);
+        console.log(`   Last active: ${updatedStreak.lastActiveDate}`);
+        console.log(`   Longest date: ${updatedStreak.longestStreakDate}`);
+
+        await syncStreakToState(updatedStreak);
+        await syncToCloud(); // Force immediate write
+        console.log(`✅ [Orchestrator] ========== STREAK SUCCESSFULLY SAVED TO SUPABASE ==========`);
+
+        // Update PostHog
+        analyticsService.updateProgressProperties({
+          current_streak: newStreak,
+          longest_streak: newLongest,
+          longest_streak_date: newLongestDate,
         });
+        console.log(`📊 [Orchestrator] PostHog properties updated`);
 
-        console.log(`🔥 [Orchestrator] Streak updated: ${oldStreak} → ${data.currentStreak}`);
-
-        // Log streak milestone (achievements system handles celebrations)
+        // Check for milestone
         if (!streakLoadedRef.current) {
-          const milestone = checkStreakMilestone(oldStreak, data.currentStreak);
+          const milestone = checkStreakMilestone(cloudStreak.currentStreak, newStreak);
           if (milestone) {
-            console.log(`🎯 [Orchestrator] Streak milestone ${milestone} days reached! Achievement system will handle celebration.`);
+            console.log(`🎯 [Orchestrator] 🎉 Streak milestone ${milestone} days reached!`);
           }
         }
       }
 
-      setStreak(data.currentStreak);
-      setLongestStreak(data.longestStreak);
+      // STEP 6: Update local UI state
+      setStreak(newStreak);
+      setLongestStreak(newLongest);
       setIsStreakLoading(false);
       streakLoadedRef.current = true;
+
+      console.log(`🔥 [Orchestrator] ======= STREAK LOAD COMPLETE =======`);
+      console.log(`📊 [Orchestrator] Final state:`);
+      console.log(`   Current streak: ${newStreak}`);
+      console.log(`   Longest streak: ${newLongest}`);
+      console.log(`   Updated: ${needsUpdate ? 'YES' : 'NO'}`);
     } catch (error) {
       console.error('❌ [Orchestrator] Error loading streak:', error);
       setStreak(0);
       setLongestStreak(0);
       setIsStreakLoading(false);
     }
-  }, [syncStreakToState]);
+  }, [reloadData, getCloudStreak, syncStreakToState, syncToCloud]);
 
-  // Load streak on mount
+  // Load streak on mount - check consecutive days and update automatically
   useEffect(() => {
-    loadStreak();
-  }, [loadStreak]);
+    if (isProgressInitialized) {
+      console.log('🔥 [Orchestrator] GamifiedProgress initialized, loading streak...');
+      loadStreak();
+    }
+  }, [loadStreak, isProgressInitialized]);
 
   // ===== ACHIEVEMENT FUNCTIONS =====
 
@@ -1100,9 +1139,75 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     console.log(`🔄 [Orchestrator] Lesson complete reported (no triggers yet)`);
   }, []);
 
+  // TEST FUNCTION: Set lastActiveDate to yesterday in Supabase, then trigger streak check
+  const simulateNextDay = useCallback(async () => {
+    console.log(`🧪 [TEST] ====== STARTING STREAK TEST ======`);
+
+    // STEP 1: Read current streak from Supabase
+    await reloadData();
+    const currentStreak = getCloudStreak();
+    console.log(`🧪 [TEST] Current streak: ${currentStreak.currentStreak}, Longest: ${currentStreak.longestStreak}, Last active: ${currentStreak.lastActiveDate}`);
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0]; // ISO format: YYYY-MM-DD
+
+    console.log(`🧪 [TEST] Setting lastActiveDate to yesterday (${yesterdayStr}) in Supabase...`);
+
+    // STEP 2: Write yesterday's date to Supabase (simulate "last active yesterday")
+    const testStreak: StreakData = {
+      currentStreak: currentStreak.currentStreak,
+      longestStreak: currentStreak.longestStreak,
+      lastActiveDate: yesterdayStr, // Set to yesterday
+      longestStreakDate: currentStreak.longestStreakDate,
+    };
+
+    await syncStreakToState(testStreak);
+    await syncToCloud(); // Force immediate write
+    console.log(`🧪 [TEST] ✅ Yesterday's date written to local state`);
+
+    // Wait for Supabase write to fully commit
+    console.log(`🧪 [TEST] Waiting 2 seconds for Supabase write to commit...`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Verify the write by reading directly from Supabase
+    await reloadData();
+    const verifyStreak = getCloudStreak();
+    console.log(`🧪 [TEST] Verifying Supabase data:`);
+    console.log(`   Last active date: ${verifyStreak.lastActiveDate}`);
+    console.log(`   Expected: ${yesterdayStr}`);
+    console.log(`   Match: ${verifyStreak.lastActiveDate === yesterdayStr ? '✅' : '❌'}`);
+
+    if (verifyStreak.lastActiveDate !== yesterdayStr) {
+      console.error(`❌ [TEST] FAILED TO WRITE TO SUPABASE! Date is still ${verifyStreak.lastActiveDate}`);
+      return;
+    }
+
+    // STEP 3: Now call loadStreak() - it will read from Supabase, see yesterday, and increment
+    console.log(`🧪 [TEST] ✅ Verified! Calling loadStreak() - should see yesterday and increment ${currentStreak.currentStreak} → ${currentStreak.currentStreak + 1}...`);
+    console.log(`🧪 [TEST] ====================================`);
+    await loadStreak();
+
+    // STEP 4: Verify result
+    const finalStreak = getCloudStreak();
+    console.log(`🧪 [TEST] ====== TEST COMPLETE ======`);
+    console.log(`🧪 [TEST] Expected current: ${currentStreak.currentStreak + 1}`);
+    console.log(`🧪 [TEST] Actual current: ${finalStreak.currentStreak}`);
+    console.log(`🧪 [TEST] Longest streak: ${finalStreak.longestStreak}`);
+    console.log(`🧪 [TEST] Result: ${finalStreak.currentStreak === currentStreak.currentStreak + 1 ? '✅ PASS' : '❌ FAIL'}`);
+  }, [reloadData, getCloudStreak, syncStreakToState, syncToCloud, loadStreak]);
+
   const isCelebrating = currentCelebration !== null;
   const streakBonus = calculateStreakBonus(streak);
   const achievements = getAllAchievements();
+
+  // Expose test function globally in development
+  useEffect(() => {
+    if (__DEV__) {
+      (global as any).testStreakIncrement = simulateNextDay;
+      console.log('🧪 [TEST] Test function exposed! Call global.testStreakIncrement() to simulate next day');
+    }
+  }, [simulateNextDay]);
 
   return (
     <GamificationOrchestratorContext.Provider
@@ -1116,6 +1221,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         isNewDay,
         streakBonus,
         refreshStreak: loadStreak,
+        simulateNextDay, // TEST FUNCTION
         // Achievements
         achievements,
         unlockedCount: unlockedAchievements.length,
@@ -1199,5 +1305,6 @@ export function useGamificationOrchestrator(): GamificationOrchestratorContextTy
 // EXPORTS
 // ============================================================
 
-export { checkXPMilestone, checkStreakMilestone, calculateStreakBonus, ACHIEVEMENTS };
-export type { CelebrationItem, XPMilestoneCelebration, AdventureCompleteCelebration, StreakMilestoneCelebration, AchievementCelebration };
+export { ACHIEVEMENTS, calculateStreakBonus, checkStreakMilestone, checkXPMilestone };
+export type { AchievementCelebration, AdventureCompleteCelebration, CelebrationItem, StreakMilestoneCelebration, XPMilestoneCelebration };
+
