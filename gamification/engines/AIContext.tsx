@@ -1,15 +1,59 @@
 // AIContext.tsx - Global AI chat state management
 // Manages floating button, chat modal, message history, and context awareness
+// Sessions are stored in Supabase `ai_user_data` table for cloud sync
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUser } from '@clerk/clerk-expo';
+import { supabase } from '@/hooks/lib/supabase';
 import type { ChatMessage } from '@/gamification/ui/ai/AIChatModal';
 import { useGamifiedProgress } from './GamifiedProgress';
 import { aiContextService, type AIKnowledgeContext } from '@/gamification/services/AIContextService';
 import { aiToolsService, type AIToolsContext } from '@/gamification/services/AIToolsService';
 
 const CHAT_HISTORY_KEY = 'ai_chat_history';
-const MAX_STORED_MESSAGES = 50; // Limit stored messages to prevent storage bloat
+const AI_USER_DATA_TABLE = 'ai_user_data';
+const SYNC_DEBOUNCE_MS = 1500;
+const MAX_MESSAGES_PER_SESSION = 100; // Limit messages per session
+const MAX_SESSIONS_STORED = 50; // Maximum number of sessions to keep
+
+// ========== SESSION TYPES ==========
+
+interface ChatSession {
+  session_id: string;
+  started_at: string;
+  ended_at: string | null;
+  messages: ChatMessage[];
+}
+
+interface SessionsData {
+  sessions: ChatSession[];
+  current_session_id: string | null;
+}
+
+// Generate a simple UUID-like ID
+const generateSessionId = (): string => {
+  return `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+};
+
+// Create a new session
+const createNewSession = (): ChatSession => {
+  return {
+    session_id: generateSessionId(),
+    started_at: new Date().toISOString(),
+    ended_at: null,
+    messages: [],
+  };
+};
+
+// Get default sessions data structure
+const getDefaultSessionsData = (): SessionsData => {
+  const newSession = createNewSession();
+  return {
+    sessions: [newSession],
+    current_session_id: newSession.session_id,
+  };
+};
 
 interface UserProgressSummary {
   totalXP: number;
@@ -72,6 +116,21 @@ export function AIProvider({ children }: AIProviderProps) {
   const [knowledgeContext, setKnowledgeContext] = useState<AIKnowledgeContext | null>(null);
   const [newEraProgress, setNewEraProgress] = useState<any[]>([]);
 
+  // Session-based storage state
+  const [sessionsData, setSessionsData] = useState<SessionsData>(getDefaultSessionsData());
+  const sessionsDataRef = useRef<SessionsData>(sessionsData);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLoadingRef = useRef(false);
+
+  // Get user from Clerk for cloud sync
+  const { user } = useUser();
+  const userId = user?.id;
+
+  // Keep ref in sync with state (for async operations)
+  useEffect(() => {
+    sessionsDataRef.current = sessionsData;
+  }, [sessionsData]);
+
   // Access user progress data
   const {
     moduleProgress,
@@ -95,22 +154,120 @@ export function AIProvider({ children }: AIProviderProps) {
     }
   }, []);
 
-  // Load chat history and new era progress from AsyncStorage on mount
-  useEffect(() => {
-    loadChatHistory();
-    loadNewEraProgress();
-  }, [loadNewEraProgress]);
+  // ========== CLOUD SYNC FUNCTIONS ==========
 
-  // Save chat history to AsyncStorage when messages change
-  useEffect(() => {
-    if (messages.length > 0) {
-      saveChatHistory();
-    }
-  }, [messages]);
+  // Fetch sessions data from Supabase
+  const fetchFromCloud = useCallback(async (): Promise<SessionsData | null> => {
+    if (!userId) return null;
 
-  // Load chat history
-  const loadChatHistory = async () => {
     try {
+      const { data, error } = await supabase
+        .from(AI_USER_DATA_TABLE)
+        .select('messages')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No row found - that's fine, user just hasn't used AI chat yet
+          return null;
+        }
+        console.error('❌ [AIContext] Error fetching from cloud:', error);
+        return null;
+      }
+
+      // Parse the messages JSONB field as SessionsData
+      if (data?.messages && typeof data.messages === 'object') {
+        const cloudData = data.messages as SessionsData;
+        // Validate structure
+        if (Array.isArray(cloudData.sessions)) {
+          console.log(`☁️ [AIContext] Fetched ${cloudData.sessions.length} sessions from cloud`);
+          return cloudData;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ [AIContext] Error fetching from cloud:', error);
+      return null;
+    }
+  }, [userId]);
+
+  // Save sessions data to Supabase (debounced)
+  const saveToCloud = useCallback(async (data: SessionsData) => {
+    if (!userId) return;
+
+    try {
+      const { error } = await supabase
+        .from(AI_USER_DATA_TABLE)
+        .upsert({
+          user_id: userId,
+          messages: data,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id',
+        });
+
+      if (error) {
+        console.error('❌ [AIContext] Error saving to cloud:', error);
+        return;
+      }
+
+      console.log(`☁️ [AIContext] Saved ${data.sessions.length} sessions to cloud`);
+    } catch (error) {
+      console.error('❌ [AIContext] Error saving to cloud:', error);
+    }
+  }, [userId]);
+
+  // Trigger debounced cloud sync
+  const triggerCloudSync = useCallback(() => {
+    if (!userId) return;
+
+    // Clear existing timer
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+    }
+
+    // Set new timer for debounced sync
+    syncTimerRef.current = setTimeout(() => {
+      saveToCloud(sessionsDataRef.current);
+    }, SYNC_DEBOUNCE_MS);
+  }, [userId, saveToCloud]);
+
+  // ========== LOAD/SAVE FUNCTIONS ==========
+
+  // Load chat history from cloud (with local fallback for migration)
+  const loadChatHistory = useCallback(async () => {
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+
+    try {
+      // Try to load from cloud first (if user is logged in)
+      if (userId) {
+        const cloudData = await fetchFromCloud();
+        if (cloudData && cloudData.sessions.length > 0) {
+          // Restore sessions from cloud
+          setSessionsData(cloudData);
+
+          // Get current session messages for display
+          const currentSession = cloudData.sessions.find(
+            s => s.session_id === cloudData.current_session_id
+          );
+          if (currentSession) {
+            // Convert timestamp strings back to Date objects
+            const messagesWithDates = currentSession.messages.map((msg: any) => ({
+              ...msg,
+              timestamp: new Date(msg.timestamp),
+            }));
+            setMessages(messagesWithDates);
+            console.log(`📚 [AIContext] Loaded ${messagesWithDates.length} messages from cloud (session: ${currentSession.session_id})`);
+          }
+          isLoadingRef.current = false;
+          return;
+        }
+      }
+
+      // Fallback: Try to migrate from old AsyncStorage format
       const stored = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -119,25 +276,79 @@ export function AIProvider({ children }: AIProviderProps) {
           ...msg,
           timestamp: new Date(msg.timestamp),
         }));
+
+        // Migrate old flat messages to session format
+        const migratedSession: ChatSession = {
+          session_id: generateSessionId(),
+          started_at: messagesWithDates.length > 0
+            ? messagesWithDates[0].timestamp.toISOString()
+            : new Date().toISOString(),
+          ended_at: null,
+          messages: messagesWithDates,
+        };
+
+        const migratedData: SessionsData = {
+          sessions: [migratedSession],
+          current_session_id: migratedSession.session_id,
+        };
+
+        setSessionsData(migratedData);
         setMessages(messagesWithDates);
-        console.log('📚 [AIContext] Loaded', messagesWithDates.length, 'messages from history');
+        console.log(`📚 [AIContext] Migrated ${messagesWithDates.length} messages to session format`);
+
+        // Save migrated data to cloud
+        if (userId) {
+          await saveToCloud(migratedData);
+          // Clean up old local storage after successful migration
+          await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
+          console.log('✅ [AIContext] Migration to cloud complete');
+        }
       }
     } catch (error) {
       console.error('❌ [AIContext] Error loading chat history:', error);
+    } finally {
+      isLoadingRef.current = false;
     }
-  };
+  }, [userId, fetchFromCloud, saveToCloud]);
 
-  // Save chat history
-  const saveChatHistory = async () => {
-    try {
-      // Keep only the last N messages
-      const messagesToStore = messages.slice(-MAX_STORED_MESSAGES);
-      await AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messagesToStore));
-      console.log('💾 [AIContext] Saved', messagesToStore.length, 'messages to history');
-    } catch (error) {
-      console.error('❌ [AIContext] Error saving chat history:', error);
+  // Save current session messages (updates state and triggers cloud sync)
+  const saveCurrentSession = useCallback((newMessages: ChatMessage[]) => {
+    setSessionsData(prev => {
+      const updatedSessions = prev.sessions.map(session => {
+        if (session.session_id === prev.current_session_id) {
+          // Limit messages per session
+          const limitedMessages = newMessages.slice(-MAX_MESSAGES_PER_SESSION);
+          return { ...session, messages: limitedMessages };
+        }
+        return session;
+      });
+
+      return { ...prev, sessions: updatedSessions };
+    });
+
+    // Trigger cloud sync
+    triggerCloudSync();
+  }, [triggerCloudSync]);
+
+  // Load chat history and new era progress on mount
+  useEffect(() => {
+    loadChatHistory();
+    loadNewEraProgress();
+  }, [loadNewEraProgress, loadChatHistory]);
+
+  // Reload from cloud when user signs in
+  useEffect(() => {
+    if (userId) {
+      loadChatHistory();
     }
-  };
+  }, [userId, loadChatHistory]);
+
+  // Save to cloud when messages change (with debouncing)
+  useEffect(() => {
+    if (messages.length > 0 && !isLoadingRef.current) {
+      saveCurrentSession(messages);
+    }
+  }, [messages, saveCurrentSession]);
 
   // Open chat
   const openChat = () => {
@@ -156,15 +367,42 @@ export function AIProvider({ children }: AIProviderProps) {
     setMessages((prev) => [...prev, message]);
   };
 
-  // Clear history
+  // Clear history - ends current session and starts a new one (preserves history in cloud)
   const clearHistory = async () => {
-    console.log('🗑️ [AIContext] Clearing chat history');
+    console.log('🗑️ [AIContext] Starting new chat session (preserving history)');
+
+    // Clear current messages display
     setMessages([]);
-    try {
-      await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
-    } catch (error) {
-      console.error('❌ [AIContext] Error clearing chat history:', error);
-    }
+
+    // End current session and start a new one
+    setSessionsData(prev => {
+      // End the current session
+      const updatedSessions = prev.sessions.map(session => {
+        if (session.session_id === prev.current_session_id) {
+          return { ...session, ended_at: new Date().toISOString() };
+        }
+        return session;
+      });
+
+      // Create a new session
+      const newSession = createNewSession();
+
+      // Keep only the most recent sessions
+      const trimmedSessions = [...updatedSessions, newSession].slice(-MAX_SESSIONS_STORED);
+
+      const newData: SessionsData = {
+        sessions: trimmedSessions,
+        current_session_id: newSession.session_id,
+      };
+
+      // Immediately save to cloud
+      if (userId) {
+        saveToCloud(newData);
+      }
+
+      console.log(`✨ [AIContext] Created new session: ${newSession.session_id} (total: ${trimmedSessions.length} sessions)`);
+      return newData;
+    });
   };
 
   // Update context (memoized to prevent infinite loops in useEffect dependencies)
