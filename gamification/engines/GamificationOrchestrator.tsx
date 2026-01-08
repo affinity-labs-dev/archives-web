@@ -516,7 +516,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const unlockingRef = useRef<Set<string>>(new Set());
 
   // Hooks for achievements calculation and streak sync
-  const { moduleProgress, unlockAchievement: persistAchievement, syncStreakToState } = useGamifiedProgress();
+  // IMPORTANT: Include isInitialized to wait for GamifiedProgress to load cloud data before reading achievements
+  const { moduleProgress, unlockAchievement: persistAchievement, syncStreakToState, getAchievements: getCloudAchievements, isInitialized: isProgressInitialized } = useGamifiedProgress();
   const { getAdventures } = useAdventuresContent();
   const { user } = useUser();
   const [previousUserId, setPreviousUserId] = useState<string | null>(null);
@@ -612,38 +613,64 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
   // ===== ACHIEVEMENT FUNCTIONS =====
 
-  // Load unlocked achievements from storage
+  // Load unlocked achievements from storage AND cloud (merge both sources)
+  // This ensures achievements are restored on new device/reinstall
   const loadUnlockedAchievements = useCallback(async () => {
     try {
+      // 1. Load from local AsyncStorage
+      let localAchievements: UnlockedAchievement[] = [];
       const data = await AsyncStorage.getItem(ACHIEVEMENTS_KEY);
       if (data) {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          let achievements: UnlockedAchievement[];
-
           if (typeof parsed[0] === 'string') {
             // Old format - migrate to new format
-            achievements = parsed.map((id: string) => ({
+            localAchievements = parsed.map((id: string) => ({
               id,
               unlockedAt: new Date().toISOString(),
             }));
-            await AsyncStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(achievements));
-            console.log('🏆 [Orchestrator] Migrated old achievement format:', achievements.length, 'unlocked');
+            console.log('🏆 [Orchestrator] Migrated old achievement format:', localAchievements.length, 'unlocked');
           } else {
-            achievements = parsed;
-            console.log('🏆 [Orchestrator] Loaded achievements:', achievements.length, 'unlocked');
+            localAchievements = parsed;
+            console.log('🏆 [Orchestrator] Loaded local achievements:', localAchievements.length, 'unlocked');
           }
-
-          setUnlockedAchievements(achievements);
-          achievements.forEach(a => unlockingRef.current.add(a.id));
         }
       }
+
+      // 2. Get achievements from cloud (GamifiedProgress syncs to Supabase)
+      const cloudAchievements = getCloudAchievements();
+      const cloudUnlocked: UnlockedAchievement[] = cloudAchievements.map(a => ({
+        id: a.id,
+        unlockedAt: a.unlocked_at || new Date().toISOString(),
+      }));
+      console.log('🏆 [Orchestrator] Cloud achievements:', cloudUnlocked.length, 'unlocked');
+
+      // 3. Merge: Union of local + cloud (no duplicates)
+      const mergedMap = new Map<string, UnlockedAchievement>();
+      localAchievements.forEach(a => mergedMap.set(a.id, a));
+      cloudUnlocked.forEach(a => {
+        if (!mergedMap.has(a.id)) {
+          mergedMap.set(a.id, a);
+        }
+      });
+      const mergedAchievements = Array.from(mergedMap.values());
+
+      // 4. If cloud had achievements not in local, update local storage
+      if (mergedAchievements.length > localAchievements.length) {
+        await AsyncStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(mergedAchievements));
+        console.log('🏆 [Orchestrator] Synced cloud achievements to local:', mergedAchievements.length, 'total');
+      }
+
+      // 5. Update state and refs
+      setUnlockedAchievements(mergedAchievements);
+      mergedAchievements.forEach(a => unlockingRef.current.add(a.id));
+
       setIsAchievementsLoading(false);
     } catch (error) {
       console.error('❌ [Orchestrator] Error loading achievements:', error);
       setIsAchievementsLoading(false);
     }
-  }, []);
+  }, [getCloudAchievements]);
 
   // Load new era progress data for achievements calculation
   const loadNewProgress = useCallback(async () => {
@@ -657,11 +684,10 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     }
   }, []);
 
-  // Load achievements and progress on mount
+  // Load progress on mount (achievements loaded separately after GamifiedProgress initializes)
   useEffect(() => {
-    loadUnlockedAchievements();
     loadNewProgress();
-  }, [loadUnlockedAchievements, loadNewProgress]);
+  }, [loadNewProgress]);
 
   // ========== RESET STATE ON USER CHANGE ==========
   // This ensures old user's streak/achievements don't show when switching accounts
@@ -683,14 +709,24 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       unlockingRef.current.clear();
       setPreviousUserId(user?.id || null);
 
-      // Reload data for new user (if signed in)
+      // Reload streak and progress for new user (if signed in)
+      // NOTE: Achievements are loaded separately after GamifiedProgress initializes (see below)
       if (user?.id) {
         loadStreak();
-        loadUnlockedAchievements();
         loadNewProgress();
       }
     }
-  }, [user?.id, previousUserId, loadStreak, loadUnlockedAchievements, loadNewProgress]);
+  }, [user?.id, previousUserId, loadStreak, loadNewProgress]);
+
+  // ========== LOAD ACHIEVEMENTS AFTER GAMIFIED PROGRESS INITIALIZES ==========
+  // This is critical: We must wait for GamifiedProgress to load cloud data before
+  // calling getCloudAchievements(), otherwise it returns empty array and we lose achievements
+  useEffect(() => {
+    if (isProgressInitialized && user?.id) {
+      console.log('🏆 [Orchestrator] GamifiedProgress initialized, loading achievements from cloud...');
+      loadUnlockedAchievements();
+    }
+  }, [isProgressInitialized, user?.id, loadUnlockedAchievements]);
 
   // Get era module count for progress calculation
   const getEraModuleCount = useCallback(async (eraId: string, newModules: any[]): Promise<{ total: number; completed: number }> => {

@@ -26,12 +26,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import * as Haptics from 'expo-haptics';
+// Haptics imported but unused - kept for potential future use
 import { useUser } from '@clerk/clerk-expo';
 import { supabase } from '@/hooks/lib/supabase';
 import { analyticsService } from '@/services/AnalyticsService';
-import { EraType, ModuleState } from '@/gamification/types/gamification';
-import type { ProgressUpdateAction, ModuleProgress, AdventureProgress } from '@/gamification/types/gamification';
+import { EraType } from '@/gamification/types/gamification';
+import type { ModuleProgress, AdventureProgress } from '@/gamification/types/gamification';
 
 // ========== CONSTANTS ==========
 
@@ -489,9 +489,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   // This ensures old user's data doesn't show when switching accounts
   useEffect(() => {
     if (user?.id !== previousUserId) {
-      console.log('🔄 [GamifiedProgress] User changed, resetting state...');
-      console.log(`   Previous: ${previousUserId} → New: ${user?.id || 'signed out'}`);
-
       // Reset state immediately to prevent showing old user's data
       setState(null);
       setIsInitialized(false);
@@ -506,19 +503,16 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     const initialize = async () => {
       // Wait for Clerk to fully load before making any decisions
       if (!isClerkLoaded) {
-        console.log('🎮 [GamifiedProgress] Waiting for Clerk to load...');
         return; // Don't set any state yet - keep loading true
       }
 
       if (!isSignedIn || !user?.id) {
-        console.log('🎮 [GamifiedProgress] No user signed in');
         setState(null);
         setIsInitialized(false);
         setIsLoading(false);
         return;
       }
 
-      console.log('🎮 [GamifiedProgress] Initializing for user:', user.id);
       setIsLoading(true);
 
       try {
@@ -527,17 +521,51 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
         if (cloudData && cloudData.metadata?.migration_completed) {
           // Already migrated - use cloud data
-          console.log('✅ [GamifiedProgress] Loaded from cloud (already migrated)');
           setState(cloudData);
           await saveToLocal(cloudData);
+
+          // CRITICAL: Sync progress back to legacy AsyncStorage for backward compatibility
+          // Many components read directly from 'new_user_progress' AsyncStorage
+          if (cloudData.progress && cloudData.progress.length > 0) {
+            await WebCompatibleStorage.setItem(
+              LEGACY_KEYS.NEW_USER_PROGRESS,
+              JSON.stringify(cloudData.progress.map(p => ({
+                era_id: p.era_id,
+                adventureId: p.adventureId,
+                moduleId: p.moduleId,
+                lessonsCompleted: p.lessonsCompleted,
+                quizScore: p.quizScore,
+                quizCorrectAnswers: p.quizCorrectAnswers,
+                completedAt: p.completedAt,
+                isCompleted: p.isCompleted,
+                quizCompleted: p.quizCompleted,
+              })))
+            );
+          }
         } else {
           // Step 2: Check for legacy data and migrate
-          console.log('🔄 [GamifiedProgress] Checking for legacy data to migrate...');
           const migratedData = await migrateFromLegacy(user.id, cloudData);
           setState(migratedData);
           await saveToLocal(migratedData);
           await saveToCloud(migratedData);
-          console.log('✅ [GamifiedProgress] Migration complete');
+
+          // Also sync to legacy AsyncStorage for backward compatibility
+          if (migratedData.progress && migratedData.progress.length > 0) {
+            await WebCompatibleStorage.setItem(
+              LEGACY_KEYS.NEW_USER_PROGRESS,
+              JSON.stringify(migratedData.progress.map(p => ({
+                era_id: p.era_id,
+                adventureId: p.adventureId,
+                moduleId: p.moduleId,
+                lessonsCompleted: p.lessonsCompleted,
+                quizScore: p.quizScore,
+                quizCorrectAnswers: p.quizCorrectAnswers,
+                completedAt: p.completedAt,
+                isCompleted: p.isCompleted,
+                quizCompleted: p.quizCompleted,
+              })))
+            );
+          }
         }
 
         setIsInitialized(true);
@@ -566,9 +594,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          console.log('🎮 [GamifiedProgress] No cloud data found (new user)');
-        } else {
+        if (error.code !== 'PGRST116') {
           console.error('❌ [GamifiedProgress] Cloud fetch error:', error);
         }
         return null;
@@ -595,8 +621,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
       if (error) {
         console.error('❌ [GamifiedProgress] Cloud save error:', error);
-      } else {
-        console.log('☁️ [GamifiedProgress] Saved to cloud');
       }
     } catch (error) {
       console.error('❌ [GamifiedProgress] Cloud save error:', error);
@@ -606,7 +630,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   const saveToLocal = async (data: GamifiedProgressState): Promise<void> => {
     try {
       await WebCompatibleStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      console.log('💾 [GamifiedProgress] Saved to local storage');
     } catch (error) {
       console.error('❌ [GamifiedProgress] Local save error:', error);
     }
@@ -625,6 +648,13 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   }, [syncTimer]);
 
   const saveState = useCallback(async (newState: GamifiedProgressState) => {
+    // Safety check: detect if progress is being lost (helps catch bugs)
+    const oldProgressCount = stateRef.current?.progress?.length || 0;
+    const newProgressCount = newState.progress?.length || 0;
+    if (newProgressCount < oldProgressCount) {
+      console.error(`❌ [GamifiedProgress] PROGRESS LOST! ${oldProgressCount} → ${newProgressCount}`);
+    }
+
     // Update ref FIRST (synchronous) - prevents stale closure in rapid saves
     stateRef.current = newState;
 
@@ -641,7 +671,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   // ========== MIGRATION ==========
 
   const migrateFromLegacy = async (userId: string, existingCloud?: GamifiedProgressState | null): Promise<GamifiedProgressState> => {
-    console.log('🔄 [GamifiedProgress] Starting migration...');
 
     // Start with empty state or existing cloud data
     let newState = existingCloud || createEmptyState(userId);
@@ -656,7 +685,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         .single();
 
       if (!error && userData?.data) {
-        console.log('📊 [GamifiedProgress] Found user_data to migrate');
         const legacyData = userData.data;
 
         // Migrate selectedEra
@@ -684,7 +712,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
         // Migrate Era 1 (Umayyad) modules to unified progress array
         if (legacyData.modules && Array.isArray(legacyData.modules)) {
-          console.log(`  📚 Migrating ${legacyData.modules.length} Era 1 modules to progress array`);
           for (const m of legacyData.modules) {
             // Always convert to string - never use numbers
             const adventureId = String(m.adventureId);
@@ -714,7 +741,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
         // Migrate Era 2+ (newProgress) to progress array
         if (legacyData.newProgress && Array.isArray(legacyData.newProgress)) {
-          console.log(`  📚 Migrating ${legacyData.newProgress.length} Era 2+ modules`);
 
           for (const entry of legacyData.newProgress) {
             // Always convert to string - never use numbers
@@ -758,8 +784,8 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
         newState.progress = Array.from(progressMap.values());
       }
-    } catch (error) {
-      console.log('⚠️ [GamifiedProgress] No user_data found or error:', error);
+    } catch {
+      // No legacy user_data found - this is normal for new users
     }
 
     // Step 2: Read from legacy AsyncStorage keys (if no cloud data)
@@ -775,7 +801,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       const hasEra1InProgress = newState.progress.some(p => p.era_id === 'umayyad');
       if (legacyModules && !hasEra1InProgress) {
         const modules = JSON.parse(legacyModules);
-        console.log(`  💾 Loading ${modules.length} Era 1 modules from AsyncStorage`);
         for (const m of modules) {
           const quizScore = m.quizScore || 0;
           newState.progress.push({
@@ -801,7 +826,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       const hasEra2InProgress = newState.progress.some(p => p.era_id !== 'umayyad');
       if (newProgress && !hasEra2InProgress) {
         const entries = JSON.parse(newProgress);
-        console.log(`  💾 Loading ${entries.length} Era 2+ progress from AsyncStorage`);
         for (const e of entries) {
           const quizScore = e.quizScore || 0;
           newState.progress.push({
@@ -837,8 +861,8 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       if (lastActive) {
         newState.streak.lastActiveDate = lastActive;
       }
-    } catch (error) {
-      console.log('⚠️ [GamifiedProgress] Error reading legacy AsyncStorage:', error);
+    } catch {
+      // Error reading legacy AsyncStorage - continue with what we have
     }
 
     // Step 3: Calculate totals (unified - all from progress array)
@@ -870,30 +894,27 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     newState.metadata.total_quiz_attempts = newState.progress.length;
     newState.metadata.total_modules_attempted = newState.progress.filter(p => p.quizCompleted).length;
 
-    console.log('📊 [GamifiedProgress] Migration results:');
-    console.log(`  Total XP: ${newState.totalXP}`);
-    console.log(`  Total modules: ${newState.progress.length}`);
-    console.log(`  XP by era:`, newState.xp_by_era);
-
     return newState;
   };
 
   // ========== ERA MANAGEMENT ==========
 
   const setSelectedEra = useCallback(async (eraId: string) => {
-    if (!state) return;
+    // Use stateRef for LATEST state - prevents stale closure overwriting progress
+    const currentState = stateRef.current;
+    if (!currentState) return;
 
     const newState = {
-      ...state,
+      ...currentState,
       selectedEra: eraId,
-      metadata: { ...state.metadata, last_updated: new Date().toISOString() },
+      metadata: { ...currentState.metadata, last_updated: new Date().toISOString() },
     };
 
     await saveState(newState);
 
     // Also save to legacy key for backward compatibility
     await WebCompatibleStorage.setItem(LEGACY_KEYS.SELECTED_ERA, eraId);
-  }, [state, saveState]);
+  }, [saveState]);
 
   // ========== PROGRESS GETTERS ==========
 
@@ -945,13 +966,10 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       return;
     }
 
-    console.log('🔄 [GamifiedProgress] Saving new progress:', moduleData);
-
     // Always convert to strings for consistent comparison and storage
     const adventureIdStr = String(moduleData.adventureId);
     const moduleIdStr = String(moduleData.moduleId);
 
-    const key = `${moduleData.era_id}:${adventureIdStr}:${moduleIdStr}`;
     const xpEarned = (moduleData.quizCorrectAnswers || 0) * 10;
     const quizScore = moduleData.quizScore || moduleData.quizCorrectAnswers || 0;
     const masteryLevel = quizScore >= 3 ? 'mastered' : quizScore >= 2 ? 'passed' : 'attempted';
@@ -1069,8 +1087,6 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       eras_completed: erasCompleted,
       era_xp: xpByEra,
     });
-
-    console.log(`✅ Progress saved. Total XP: ${totalXP}`);
   }, [saveState]);  // Note: Uses stateRef.current for latest state, not closure state
 
   // ========== QUIZ TRACKING (Detailed) ==========
@@ -1188,17 +1204,18 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   // Sync streak data to state (called by GamificationOrchestrator)
   // This ensures streak is saved to cloud via the unified sync system
   const syncStreakToState = useCallback(async (streakData: StreakData): Promise<void> => {
-    if (!state) return;
+    // Use stateRef for LATEST state - prevents stale closure overwriting progress
+    const currentState = stateRef.current;
+    if (!currentState) return;
 
     const newState = {
-      ...state,
+      ...currentState,
       streak: streakData,
-      metadata: { ...state.metadata, last_updated: new Date().toISOString() },
+      metadata: { ...currentState.metadata, last_updated: new Date().toISOString() },
     };
 
     await saveState(newState);
-    console.log(`🔥 [GamifiedProgress] Streak synced to state: ${streakData.currentStreak} days`);
-  }, [state, saveState]);
+  }, [saveState]);
 
   // ========== ACHIEVEMENTS & MILESTONES ==========
 
@@ -1211,16 +1228,15 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   }, [state]);
 
   const addMilestone = useCallback(async (milestone: Omit<Milestone, 'achieved_at'>): Promise<void> => {
-    if (!state) return;
+    // Use stateRef for LATEST state - prevents stale closure overwriting progress
+    const currentState = stateRef.current;
+    if (!currentState) return;
 
     // Check if this milestone already exists (same type + threshold + era_id)
-    const alreadyExists = state.milestones.some(
+    const alreadyExists = currentState.milestones.some(
       (m) => m.type === milestone.type && m.threshold === milestone.threshold && m.era_id === milestone.era_id
     );
-    if (alreadyExists) {
-      console.log(`⏭️ [GamifiedProgress] Milestone already exists: ${milestone.type} ${milestone.threshold} for era ${milestone.era_id}`);
-      return;
-    }
+    if (alreadyExists) return;
 
     const newMilestone: Milestone = {
       ...milestone,
@@ -1228,22 +1244,21 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     };
 
     const newState = {
-      ...state,
-      milestones: [...state.milestones, newMilestone],
-      metadata: { ...state.metadata, last_updated: new Date().toISOString() },
+      ...currentState,
+      milestones: [...currentState.milestones, newMilestone],
+      metadata: { ...currentState.metadata, last_updated: new Date().toISOString() },
     };
 
     await saveState(newState);
-    console.log(`✅ [GamifiedProgress] Added milestone: ${milestone.type} ${milestone.threshold} for era ${milestone.era_id}`);
-  }, [state, saveState]);
+  }, [saveState]);
 
   const unlockAchievement = useCallback(async (achievement: Omit<Achievement, 'unlocked_at'>): Promise<void> => {
-    if (!state) return;
+    // Use stateRef for LATEST state - prevents stale closure overwriting progress
+    const currentState = stateRef.current;
+    if (!currentState) return;
 
     // Check if already unlocked
-    if (state.achievements_unlocked.some(a => a.id === achievement.id)) {
-      return;
-    }
+    if (currentState.achievements_unlocked.some(a => a.id === achievement.id)) return;
 
     const newAchievement: Achievement = {
       ...achievement,
@@ -1251,20 +1266,18 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     };
 
     const newState = {
-      ...state,
-      achievements_unlocked: [...state.achievements_unlocked, newAchievement],
-      metadata: { ...state.metadata, last_updated: new Date().toISOString() },
+      ...currentState,
+      achievements_unlocked: [...currentState.achievements_unlocked, newAchievement],
+      metadata: { ...currentState.metadata, last_updated: new Date().toISOString() },
     };
 
     await saveState(newState);
-  }, [state, saveState]);
+  }, [saveState]);
 
   // ========== SYNC & RELOAD ==========
 
   const reloadData = useCallback(async (): Promise<void> => {
     if (!user?.id) return;
-
-    console.log('🔄 [GamifiedProgress] Reloading data...');
     setIsLoading(true);
 
     try {
@@ -1362,6 +1375,7 @@ export const useGamification = useGamifiedProgress;
 // Re-export for backward compatibility with existing imports
 export { EraType, ModuleState } from '@/gamification/types/gamification';
 export type { ProgressUpdateAction, ModuleProgress, AdventureProgress } from '@/gamification/types/gamification';
+// Note: ModuleState and ProgressUpdateAction are re-exported but not used internally in this file
 
 // Legacy hook alias
 export const useProgress = useGamifiedProgress;
