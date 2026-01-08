@@ -20,7 +20,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView } from 'expo-video';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -51,13 +51,14 @@ const smartWrapTitle = (title: string): string => {
     return title;
   }
 
-  // If title is short, no wrapping needed
-  if (title.length <= 20) {
+  const words = title.split(' ');
+
+  // If title has 3 words or less, keep on single line
+  if (words.length <= 3) {
     return title;
   }
 
-  // Find best split point (after 3rd word or ~15-16 characters)
-  const words = title.split(' ');
+  // For titles with 4+ words, find best split point
 
   // Try to split after 3rd word
   if (words.length >= 4) {
@@ -102,29 +103,12 @@ const smartWrapTitle = (title: string): string => {
   return title;
 };
 
-// Dynamic margin calculation based on first line length
-// Shorter first lines need more negative margin, longer lines need less
+// Consistent line spacing for multi-line titles
 const getLineSpacing = (firstLine: string): number => {
-  const firstLineLength = firstLine.length;
+  // Use consistent negative margin for tight, uniform spacing across all titles
+  const marginValue = -SCREEN_HEIGHT * 0.035; // -3.5% works well for all title lengths
 
-  let marginValue: number;
-  let marginPercent: string;
-
-  if (firstLineLength < 12) {
-    // Short lines (e.g., "Mothers of")
-    marginValue = -SCREEN_HEIGHT * 0.045;
-    marginPercent = '-4.5%';
-  } else if (firstLineLength < 16) {
-    // Medium lines (e.g., "The Rise of")
-    marginValue = -SCREEN_HEIGHT * 0.035;
-    marginPercent = '-3.5%';
-  } else {
-    // Long lines (e.g., "The World Before", "Standing Firm in")
-    marginValue = SCREEN_HEIGHT * 0.015;
-    marginPercent = '1.5%';
-  }
-
-  console.log(`🎨 Title spacing - First line: "${firstLine}" (${firstLineLength} chars) → ${marginPercent} margin`);
+  console.log(`🎨 Title spacing - First line: "${firstLine}" → -3.5% margin`);
 
   return marginValue;
 };
@@ -289,11 +273,11 @@ export default function AdventureCompleteScreen({
         <View style={styles.titleContainer}>
           {hasMultipleLines && titleLine1 ? (
             <>
-              <Text style={styles.titleLine2} numberOfLines={2}>{titleLine1}</Text>
-              <Text style={[styles.titleLine2, { marginTop: getLineSpacing(titleLine1) }]} numberOfLines={2}>{titleLine2}</Text>
+              <Text style={styles.titleLine2} numberOfLines={1}>{titleLine1}</Text>
+              <Text style={[styles.titleLine2, { marginTop: getLineSpacing(titleLine1) }]} numberOfLines={1}>{titleLine2}</Text>
             </>
           ) : (
-            <Text style={styles.titleLine2} numberOfLines={2}>{titleLine2}</Text>
+            <Text style={styles.titleLine2} numberOfLines={1}>{titleLine2}</Text>
           )}
         </View>
       </View>
@@ -412,15 +396,21 @@ const styles = StyleSheet.create({
   titleContainer: {
     alignItems: 'center',
     paddingHorizontal: SCREEN_WIDTH * 0.08, // Increased from 0.05 to prevent truncation
-    marginTop: SCREEN_HEIGHT * 0.12, // Move text down by 12% of screen height (reduced to fit more content)
+    marginTop: Platform.OS === 'android'
+      ? SCREEN_HEIGHT * 0.13 // Android: 16% (more space to prevent overlap with close button)
+      : SCREEN_HEIGHT * 0.12, // iOS: 12% (keep current working value)
   },
   titleLine2: {
     fontFamily: 'Cormorant-Bold',
-    fontSize: SCREEN_WIDTH * 0.103, // 10.3% → ~40px on standard screen
+    fontSize: Platform.OS === 'android'
+      ? SCREEN_WIDTH * 0.085  // Android: 9.5% (slightly smaller to prevent overlap)
+      : SCREEN_WIDTH * 0.096, // iOS: 10.3% (~40px on standard screen)
     fontWeight: '700',
     color: ArchivesTheme.colors.mutedNavy, // #41425E - Muted Navy
     textAlign: 'center',
-    lineHeight: SCREEN_WIDTH * 0.103, // Match font size for tighter spacing (~40px)
+    lineHeight: Platform.OS === 'android'
+      ? SCREEN_WIDTH * 0.15   // Android: 11% (more space between lines)
+      : SCREEN_WIDTH * 0.193, // iOS: 10.3% (match font size for tighter spacing)
   },
 
   // Content Section - Rest of screen with solid background
