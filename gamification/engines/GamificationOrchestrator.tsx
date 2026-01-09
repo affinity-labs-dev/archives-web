@@ -28,6 +28,7 @@ import { calculateTotalXP as calculateTotalXPUtil, useGamifiedProgress } from '.
 // Import celebration screens
 import { AchievementUnlockAnimation } from '@/gamification/ui/achievement/AchievementGrid';
 import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen';
+import StreakCelebrationScreen from '@/gamification/ui/celebrations/StreakCelebrationScreen';
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 
 // ============================================================
@@ -328,12 +329,18 @@ interface StreakMilestoneCelebration {
   isNewRecord: boolean;
 }
 
+interface StreakCelebration {
+  type: 'STREAK_CELEBRATION';
+  streakCount: number;
+  weekData: { day: string; completed: boolean; isToday: boolean }[];
+}
+
 interface AchievementCelebration {
   type: 'ACHIEVEMENT';
   achievement: Achievement;
 }
 
-type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | AchievementCelebration;
+type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | StreakCelebration | AchievementCelebration;
 
 // ============================================================
 // CONTEXT
@@ -487,6 +494,25 @@ function calculateStreakBonus(streak: number): number {
   return 0;
 }
 
+/**
+ * Calculate week progress data for calendar widget.
+ * Returns 7 days (Mo-Su) with completion status based on current streak.
+ */
+function calculateWeekData(currentStreak: number): { day: string; completed: boolean; isToday: boolean }[] {
+  const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const todayIndex = today === 0 ? 6 : today - 1; // Convert to Mo-Su (0-6)
+
+  // Calculate how many days this week are completed
+  const completedThisWeek = Math.min(currentStreak, todayIndex + 1);
+
+  return days.map((day, index) => ({
+    day,
+    completed: index < completedThisWeek,
+    isToday: index === todayIndex,
+  }));
+}
+
 // ============================================================
 // PROVIDER
 // ============================================================
@@ -623,7 +649,18 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         }
       }
 
-      // STEP 6: Update local UI state
+      // STEP 6: Queue streak celebration if updated (show once per day)
+      if (needsUpdate && !streakLoadedRef.current) {
+        const weekData = calculateWeekData(newStreak);
+        setCelebrationQueue(prev => [...prev, {
+          type: 'STREAK_CELEBRATION',
+          streakCount: newStreak,
+          weekData,
+        }]);
+        console.log(`🎉 [Orchestrator] Streak celebration queued for ${newStreak} days`);
+      }
+
+      // STEP 7: Update local UI state
       setStreak(newStreak);
       setLongestStreak(newLongest);
       setIsStreakLoading(false);
@@ -1276,6 +1313,14 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           />
         )}
       </Modal>
+
+      {/* Streak Celebration Screen - Shows daily on first app open */}
+      <StreakCelebrationScreen
+        visible={currentCelebration?.type === 'STREAK_CELEBRATION'}
+        streakCount={currentCelebration?.type === 'STREAK_CELEBRATION' ? currentCelebration.streakCount : 0}
+        weekData={currentCelebration?.type === 'STREAK_CELEBRATION' ? currentCelebration.weekData : []}
+        onContinue={dismissCurrent}
+      />
 
       {/* Achievement Unlock Modal */}
       {currentCelebration?.type === 'ACHIEVEMENT' && (

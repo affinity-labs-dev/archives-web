@@ -2,11 +2,12 @@
 // Displays era name, progress bar with percentage, streak days, and XP
 // Progress calculated based on quiz correct answers
 
-import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import Svg, { Rect, Defs, Filter, FeGaussianBlur, FeFlood, FeComposite, FeMerge, FeMergeNode, Path } from 'react-native-svg';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useGamificationOrchestrator } from '@/gamification';
+import StreakCelebrationScreen from '@/gamification/ui/celebrations/StreakCelebrationScreen';
 
 // Streak icon (flame)
 const StreakIcon = ({ size = 14 }: { size?: number }) => (
@@ -37,6 +38,23 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
   totalXP = 0,
 }) => {
   const { streak } = useGamificationOrchestrator();
+
+  // TEST MODE: Show celebration when clicking streak
+  const [showTestCelebration, setShowTestCelebration] = useState(false);
+
+  // Calculate week data for test
+  const calculateWeekData = (currentStreak: number) => {
+    const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const todayIndex = today === 0 ? 6 : today - 1; // Convert to Mo-Su (0-6)
+    const completedThisWeek = Math.min(currentStreak, todayIndex + 1);
+
+    return days.map((day, index) => ({
+      day,
+      completed: index < completedThisWeek,
+      isToday: index === todayIndex,
+    }));
+  };
 
   // Responsive padding to match bento grid
   const { width: screenWidth } = Dimensions.get('window');
@@ -112,14 +130,18 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
 
         {/* Right side: Stats box (streak + XP) */}
         <View style={styles.statsBox}>
-          {/* Streak row */}
-          <View style={styles.statRow}>
+          {/* Streak row - CLICKABLE FOR TESTING */}
+          <TouchableOpacity
+            style={styles.statRow}
+            onPress={() => setShowTestCelebration(true)}
+            activeOpacity={0.7}
+          >
             <View style={styles.iconWrapper}>
               <StreakIcon size={16} />
             </View>
             <Text style={styles.statValue}>{streak} </Text>
             <Text style={styles.statLabel}>days</Text>
-          </View>
+          </TouchableOpacity>
           {/* XP row */}
           <View style={styles.statRow}>
             <View style={styles.iconWrapper}>
@@ -130,6 +152,14 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
           </View>
         </View>
       </View>
+
+      {/* TEST MODE: Streak Celebration Screen */}
+      <StreakCelebrationScreen
+        visible={showTestCelebration}
+        streakCount={streak}
+        weekData={calculateWeekData(streak)}
+        onContinue={() => setShowTestCelebration(false)}
+      />
     </View>
   );
 };
