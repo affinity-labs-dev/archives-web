@@ -57,6 +57,7 @@ export interface StreakData {
   longestStreak: number;
   lastActiveDate: string;
   longestStreakDate: string;
+  streakShields: number; // Streak freeze shields (0-3 max, auto-use when missing a day)
 }
 
 export interface ProgressEntry {
@@ -406,6 +407,7 @@ const createEmptyState = (userId: string): GamifiedProgressState => ({
     longestStreak: 0,
     lastActiveDate: new Date().toISOString().split('T')[0],
     longestStreakDate: new Date().toISOString().split('T')[0],
+    streakShields: 0,
   },
   milestones: [],
   achievements_unlocked: [],

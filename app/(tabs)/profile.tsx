@@ -219,6 +219,11 @@ export default function ProfileTab() {
     totalCount,
     getProgress,
     simulateNextDay, // TEST FUNCTION
+    streakShields,
+    shieldUsedToday,
+    shieldEarnedToday,
+    streak,
+    longestStreak,
   } = useGamificationOrchestrator()
 
   // Achievement detail modal state
@@ -719,8 +724,9 @@ export default function ProfileTab() {
 
         </View>
 
-        {/* Modules Achievement Card */}
+        {/* Stats Cards Row */}
         <View style={styles.achievementsSection}>
+          {/* Modules Achievement Card */}
           <View style={styles.moduleAchievementCard}>
             <View style={styles.achievementBadge}>
               <Text style={styles.achievementNumber}>{modulesFinished}</Text>
@@ -729,6 +735,28 @@ export default function ProfileTab() {
             <View style={styles.achievementIcons}>
               <Image source={require('@/assets/images/icons/modules-icon.png')} style={styles.largeModuleIcon} />
             </View>
+          </View>
+
+          {/* Streak Shields Card */}
+          <View style={[styles.moduleAchievementCard, { marginLeft: 12 }]}>
+            <View style={[styles.achievementBadge, { backgroundColor: '#E0F2FE' }]}>
+              <Text style={[styles.achievementNumber, { color: '#0284C7' }]}>{streakShields}</Text>
+              <Text style={[styles.shieldMaxText, { color: '#0284C7' }]}>/3</Text>
+            </View>
+            <Text style={styles.achievementText}>Streak shields 🛡️</Text>
+            <Text style={styles.shieldSubtext}>
+              {streak > 0 && `${streak} day streak 🔥`}
+            </Text>
+            {shieldEarnedToday && (
+              <View style={styles.shieldBadge}>
+                <Text style={styles.shieldBadgeText}>+1 Shield earned!</Text>
+              </View>
+            )}
+            {shieldUsedToday && (
+              <View style={[styles.shieldBadge, { backgroundColor: '#FEF3C7' }]}>
+                <Text style={[styles.shieldBadgeText, { color: '#92400E' }]}>Shield used today</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -1718,16 +1746,16 @@ const styles = StyleSheet.create({
   
   // Modules Achievement Card
   moduleAchievementCard: {
-    width: '100%',
-    height: 60,
+    flex: 1,
+    height: 100,
     alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
     backgroundColor: 'white',
     borderRadius: 16,
-    paddingVertical: 0,
-    paddingLeft: 16,
-    paddingRight: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     shadowColor: 'rgba(0, 0, 0, 0.05)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
@@ -1772,6 +1800,34 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     resizeMode: 'contain',
+  },
+
+  // Shield Streak Card Styles
+  shieldMaxText: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  shieldSubtext: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    fontWeight: '400',
+    color: ArchivesTheme.colors.mutedNavy,
+    marginTop: 4,
+  },
+  shieldBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  shieldBadgeText: {
+    fontFamily: 'DM Sans',
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#166534',
   },
 
   // Achievements Timeline Design - Matching Screenshot
@@ -2257,6 +2313,7 @@ const styles = StyleSheet.create({
   achievementsSection: {
     paddingHorizontal: 20,
     marginBottom: 30,
+    flexDirection: 'row',
   },
   achievementsHeader: {
     flexDirection: 'row',

@@ -295,6 +295,7 @@ export interface StreakData {
   longestStreak: number;
   lastActiveDate: string;
   longestStreakDate: string; // Date when longest streak was achieved (required to match GamifiedProgress type)
+  streakShields: number; // Streak freeze shields (0-3 max, auto-use when missing a day)
 }
 
 // ============================================================
@@ -358,6 +359,12 @@ interface GamificationOrchestratorContextType {
   refreshStreak: () => Promise<void>;
   /** TEST: Simulate next day to test streak increment */
   simulateNextDay: () => Promise<void>;
+  /** Streak shields (freeze protection, max 3) */
+  streakShields: number;
+  /** Whether a shield was used today to protect streak */
+  shieldUsedToday: boolean;
+  /** Whether a shield was earned today (perfect week) */
+  shieldEarnedToday: boolean;
 
   // ===== ACHIEVEMENTS =====
   /** All achievements with unlock status (sorted: unlocked first, then by progress) */
@@ -508,6 +515,11 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const [isNewDay, setIsNewDay] = useState(false);
   const streakLoadedRef = useRef(false);
 
+  // Streak shield state
+  const [streakShields, setStreakShields] = useState(0);
+  const [shieldUsedToday, setShieldUsedToday] = useState(false);
+  const [shieldEarnedToday, setShieldEarnedToday] = useState(false);
+
   // Achievement state
   const [unlockedAchievements, setUnlockedAchievements] = useState<UnlockedAchievement[]>([]);
   const [isAchievementsLoading, setIsAchievementsLoading] = useState(true);
@@ -550,8 +562,13 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       let newStreak = cloudStreak.currentStreak;
       let newLongest = cloudStreak.longestStreak;
       let newLongestDate = cloudStreak.longestStreakDate;
+      let newShields = cloudStreak.streakShields || 0;
+      let shieldUsed = false;
+      let shieldEarned = false;
 
       console.log(`🔍 [Orchestrator] Checking streak condition...`);
+      console.log(`   Current shields: ${newShields}`);
+
       if (cloudStreak.lastActiveDate === yesterdayStr) {
         // CONSECUTIVE DAY - Increment
         newStreak = cloudStreak.currentStreak + 1;
@@ -560,16 +577,37 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         console.log(`🔥 [Orchestrator] ✅ CONSECUTIVE DAY DETECTED!`);
         console.log(`   Old streak: ${cloudStreak.currentStreak}`);
         console.log(`   New streak: ${newStreak}`);
+
+        // Check if earned shield (every 7 consecutive days = perfect week)
+        if (newStreak % 7 === 0 && newShields < 3) {
+          newShields += 1;
+          shieldEarned = true;
+          console.log(`🛡️ [Orchestrator] 🎉 PERFECT WEEK! Shield earned (${newShields}/3)`);
+        }
       } else if (!cloudStreak.lastActiveDate || cloudStreak.lastActiveDate !== today) {
-        // MISSED DAYS or FIRST TIME - Reset to 1
-        newStreak = 1;
+        // MISSED DAYS or FIRST TIME
         needsUpdate = true;
         if (!cloudStreak.lastActiveDate) {
+          // FIRST TIME - Set streak to 1
+          newStreak = 1;
           console.log(`🔥 [Orchestrator] ⭐ FIRST TIME! Setting streak to 1`);
         } else {
-          console.log(`🔥 [Orchestrator] ❌ MISSED DAYS DETECTED!`);
-          console.log(`   Old streak: ${cloudStreak.currentStreak}`);
-          console.log(`   Resetting to: 1`);
+          // MISSED DAYS - Check if we can use a shield
+          if (newShields > 0) {
+            // USE SHIELD - Keep streak alive!
+            newShields -= 1;
+            shieldUsed = true;
+            console.log(`🛡️ [Orchestrator] ❄️  SHIELD USED! Streak protected (${newShields}/3 remaining)`);
+            console.log(`   Streak maintained: ${cloudStreak.currentStreak}`);
+            // Streak stays the same, just update lastActiveDate
+            newStreak = cloudStreak.currentStreak;
+          } else {
+            // NO SHIELDS - Reset to 1
+            newStreak = 1;
+            console.log(`🔥 [Orchestrator] ❌ MISSED DAYS DETECTED! No shields available`);
+            console.log(`   Old streak: ${cloudStreak.currentStreak}`);
+            console.log(`   Resetting to: 1`);
+          }
         }
       } else {
         // SAME DAY - No change
@@ -594,6 +632,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           longestStreak: newLongest,
           lastActiveDate: today,
           longestStreakDate: newLongestDate,
+          streakShields: newShields,
         };
 
         console.log(`💾 [Orchestrator] ========== WRITING STREAK TO SUPABASE ==========`);
@@ -601,6 +640,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         console.log(`   Longest streak: ${updatedStreak.longestStreak}`);
         console.log(`   Last active: ${updatedStreak.lastActiveDate}`);
         console.log(`   Longest date: ${updatedStreak.longestStreakDate}`);
+        console.log(`   Streak shields: ${updatedStreak.streakShields}/3`);
 
         await syncStreakToState(updatedStreak);
         await syncToCloud(); // Force immediate write
@@ -626,6 +666,9 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       // STEP 6: Update local UI state
       setStreak(newStreak);
       setLongestStreak(newLongest);
+      setStreakShields(newShields);
+      setShieldUsedToday(shieldUsed);
+      setShieldEarnedToday(shieldEarned);
       setIsStreakLoading(false);
       streakLoadedRef.current = true;
 
@@ -633,6 +676,9 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       console.log(`📊 [Orchestrator] Final state:`);
       console.log(`   Current streak: ${newStreak}`);
       console.log(`   Longest streak: ${newLongest}`);
+      console.log(`   Streak shields: ${newShields}/3`);
+      console.log(`   Shield used: ${shieldUsed}`);
+      console.log(`   Shield earned: ${shieldEarned}`);
       console.log(`   Updated: ${needsUpdate ? 'YES' : 'NO'}`);
     } catch (error) {
       console.error('❌ [Orchestrator] Error loading streak:', error);
@@ -1146,7 +1192,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     // STEP 1: Read current streak from Supabase
     await reloadData();
     const currentStreak = getCloudStreak();
-    console.log(`🧪 [TEST] Current streak: ${currentStreak.currentStreak}, Longest: ${currentStreak.longestStreak}, Last active: ${currentStreak.lastActiveDate}`);
+    console.log(`🧪 [TEST] Current streak: ${currentStreak.currentStreak}, Longest: ${currentStreak.longestStreak}, Shields: ${currentStreak.streakShields}/3, Last active: ${currentStreak.lastActiveDate}`);
 
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -1160,6 +1206,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       longestStreak: currentStreak.longestStreak,
       lastActiveDate: yesterdayStr, // Set to yesterday
       longestStreakDate: currentStreak.longestStreakDate,
+      streakShields: currentStreak.streakShields || 0,
     };
 
     await syncStreakToState(testStreak);
@@ -1194,6 +1241,14 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     console.log(`🧪 [TEST] Expected current: ${currentStreak.currentStreak + 1}`);
     console.log(`🧪 [TEST] Actual current: ${finalStreak.currentStreak}`);
     console.log(`🧪 [TEST] Longest streak: ${finalStreak.longestStreak}`);
+    console.log(`🧪 [TEST] Streak shields: ${finalStreak.streakShields}/3`);
+
+    // Check if shield was earned (every 7 days)
+    const shouldEarnShield = (currentStreak.currentStreak + 1) % 7 === 0 && currentStreak.streakShields < 3;
+    if (shouldEarnShield) {
+      console.log(`🛡️ [TEST] Shield should be earned! (${currentStreak.currentStreak + 1} is a multiple of 7)`);
+    }
+
     console.log(`🧪 [TEST] Result: ${finalStreak.currentStreak === currentStreak.currentStreak + 1 ? '✅ PASS' : '❌ FAIL'}`);
   }, [reloadData, getCloudStreak, syncStreakToState, syncToCloud, loadStreak]);
 
@@ -1222,6 +1277,10 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         streakBonus,
         refreshStreak: loadStreak,
         simulateNextDay, // TEST FUNCTION
+        // Streak shields
+        streakShields,
+        shieldUsedToday,
+        shieldEarnedToday,
         // Achievements
         achievements,
         unlockedCount: unlockedAchievements.length,
