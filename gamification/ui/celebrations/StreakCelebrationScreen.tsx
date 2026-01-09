@@ -13,6 +13,9 @@ import Rive, { RiveRef } from 'rive-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useRef } from 'react';
 
+// Import Rive animation from assets
+const streakFlame = require('@/public/rive/streak_flame.riv');
+
 // Week day data structure
 interface WeekDay {
   day: string;
@@ -96,7 +99,7 @@ export default function StreakCelebrationScreen({
         <View style={styles.flameArea}>
           <Rive
             ref={riveRef}
-            resourceName="streak_flame"
+            url={streakFlame}
             autoplay={true}
             onPlay={handleRivePlay}
             style={{ width: 140, height: 140 }}
