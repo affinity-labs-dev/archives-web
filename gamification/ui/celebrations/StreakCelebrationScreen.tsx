@@ -14,7 +14,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { useRef } from 'react';
 
 // Import Rive animation from assets
-const streakFlame = require('@/public/rive/streak_flame.riv');
+const streakFlame = require('@/assets/rive/streak_flame.riv');
 
 // Week day data structure
 interface WeekDay {
