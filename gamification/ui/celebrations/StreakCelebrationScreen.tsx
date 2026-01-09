@@ -9,9 +9,9 @@ import * as Haptics from 'expo-haptics';
 import React, { useEffect } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Rive, { RiveRef } from 'rive-react-native';
+// import Rive, { RiveRef } from 'rive-react-native'; // TEMPORARILY DISABLED
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { useRef } from 'react';
+// import { useRef } from 'react'; // TEMPORARILY DISABLED
 
 // Week day data structure
 interface WeekDay {
@@ -44,7 +44,7 @@ export default function StreakCelebrationScreen({
   weekData,
   onContinue,
 }: StreakCelebrationScreenProps) {
-  const riveRef = useRef<RiveRef>(null);
+  // const riveRef = useRef<RiveRef>(null); // TEMPORARILY DISABLED
 
   // Track analytics and haptics on mount
   useEffect(() => {
@@ -57,8 +57,8 @@ export default function StreakCelebrationScreen({
     }
   }, [visible, streakCount]);
 
-  // Change Rive flame colors to orange when animation loads
-  const handleRivePlay = () => {
+  // TEMPORARILY DISABLED: Change Rive flame colors to orange when animation loads
+  /* const handleRivePlay = () => {
     if (riveRef.current) {
       try {
         console.log('🔥 Rive animation loaded - attempting to change colors...');
@@ -75,7 +75,7 @@ export default function StreakCelebrationScreen({
         console.log('❌ Rive color change error:', error);
       }
     }
-  };
+  }; */
 
   return (
     <Modal visible={visible} animationType="none" transparent={false} statusBarTranslucent>
@@ -93,7 +93,8 @@ export default function StreakCelebrationScreen({
         </TouchableOpacity>
 
         {/* Flame Area - Rive Animation */}
-        <View style={styles.flameArea}>
+        {/* TEMPORARILY DISABLED: Requires dev build with Rive native module */}
+        {/* <View style={styles.flameArea}>
           <Rive
             ref={riveRef}
             resourceName="streak_flame"
@@ -101,7 +102,7 @@ export default function StreakCelebrationScreen({
             onPlay={handleRivePlay}
             style={{ width: 140, height: 140 }}
           />
-        </View>
+        </View> */}
 
         {/* Main Card - Absolutely positioned */}
         <View style={styles.card} />
