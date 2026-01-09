@@ -724,9 +724,8 @@ export default function ProfileTab() {
 
         </View>
 
-        {/* Stats Cards Row */}
+        {/* Modules Achievement Card */}
         <View style={styles.achievementsSection}>
-          {/* Modules Achievement Card */}
           <View style={styles.moduleAchievementCard}>
             <View style={styles.achievementBadge}>
               <Text style={styles.achievementNumber}>{modulesFinished}</Text>
@@ -736,25 +735,30 @@ export default function ProfileTab() {
               <Image source={require('@/assets/images/icons/modules-icon.png')} style={styles.largeModuleIcon} />
             </View>
           </View>
+        </View>
 
-          {/* Streak Shields Card */}
-          <View style={[styles.moduleAchievementCard, { marginLeft: 12 }]}>
-            <View style={[styles.achievementBadge, { backgroundColor: '#E0F2FE' }]}>
-              <Text style={[styles.achievementNumber, { color: '#0284C7' }]}>{streakShields}</Text>
-              <Text style={[styles.shieldMaxText, { color: '#0284C7' }]}>/3</Text>
+        {/* Streak Shields Card */}
+        <View style={[styles.achievementsSection, { marginTop: -15 }]}>
+          <View style={styles.streakShieldCard}>
+            <View style={styles.shieldHeader}>
+              <View style={styles.shieldBadgeIcon}>
+                <Text style={styles.shieldEmojiIcon}>🛡️</Text>
+              </View>
+              <View style={styles.shieldInfo}>
+                <Text style={styles.shieldTitle}>{streakShields}/3 Streak Shields</Text>
+                <Text style={styles.shieldSubtitle}>
+                  {streak > 0 ? `${streak} day streak 🔥` : 'Start your streak!'}
+                </Text>
+              </View>
             </View>
-            <Text style={styles.achievementText}>Streak shields 🛡️</Text>
-            <Text style={styles.shieldSubtext}>
-              {streak > 0 && `${streak} day streak 🔥`}
-            </Text>
             {shieldEarnedToday && (
-              <View style={styles.shieldBadge}>
-                <Text style={styles.shieldBadgeText}>+1 Shield earned!</Text>
+              <View style={styles.shieldStatusBadge}>
+                <Text style={styles.shieldStatusText}>+1 Shield earned today!</Text>
               </View>
             )}
             {shieldUsedToday && (
-              <View style={[styles.shieldBadge, { backgroundColor: '#FEF3C7' }]}>
-                <Text style={[styles.shieldBadgeText, { color: '#92400E' }]}>Shield used today</Text>
+              <View style={[styles.shieldStatusBadge, { backgroundColor: '#FEF3C7' }]}>
+                <Text style={[styles.shieldStatusText, { color: '#92400E' }]}>Shield used today</Text>
               </View>
             )}
           </View>
@@ -1746,16 +1750,16 @@ const styles = StyleSheet.create({
   
   // Modules Achievement Card
   moduleAchievementCard: {
-    flex: 1,
-    height: 100,
+    width: '100%',
+    height: 60,
     alignSelf: 'center',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'white',
     borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 0,
+    paddingLeft: 16,
+    paddingRight: 4,
     shadowColor: 'rgba(0, 0, 0, 0.05)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
@@ -1803,29 +1807,60 @@ const styles = StyleSheet.create({
   },
 
   // Shield Streak Card Styles
-  shieldMaxText: {
+  streakShieldCard: {
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: 'rgba(0, 0, 0, 0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  shieldHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shieldBadgeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  shieldEmojiIcon: {
+    fontSize: 24,
+  },
+  shieldInfo: {
+    flex: 1,
+  },
+  shieldTitle: {
     fontFamily: 'DM Sans',
     fontSize: 16,
     fontWeight: '600',
-    marginTop: 4,
+    color: ArchivesTheme.colors.persianOrange,
   },
-  shieldSubtext: {
+  shieldSubtitle: {
     fontFamily: 'DM Sans',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '400',
     color: ArchivesTheme.colors.mutedNavy,
-    marginTop: 4,
+    marginTop: 2,
   },
-  shieldBadge: {
+  shieldStatusBadge: {
     backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginTop: 6,
+    marginTop: 12,
+    alignSelf: 'flex-start',
   },
-  shieldBadgeText: {
+  shieldStatusText: {
     fontFamily: 'DM Sans',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
     color: '#166534',
   },
@@ -2313,7 +2348,6 @@ const styles = StyleSheet.create({
   achievementsSection: {
     paddingHorizontal: 20,
     marginBottom: 30,
-    flexDirection: 'row',
   },
   achievementsHeader: {
     flexDirection: 'row',
