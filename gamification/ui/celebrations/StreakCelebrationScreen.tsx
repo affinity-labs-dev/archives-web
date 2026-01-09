@@ -13,8 +13,8 @@ import Rive, { RiveRef } from 'rive-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useRef } from 'react';
 
-// Import Rive animation from assets
-const streakFlame = require('@/assets/rive/streak_flame.riv');
+// Import Rive animation from assets (relative path)
+const streakFlame = require('../../../assets/rive/streak_flame.riv');
 
 // Week day data structure
 interface WeekDay {
