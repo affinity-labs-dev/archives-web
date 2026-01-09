@@ -511,6 +511,18 @@ async function markStreakCelebrationShown(): Promise<void> {
 }
 
 /**
+ * Sanitize numeric values to prevent Customer.io errors.
+ * Converts NaN, Infinity, null, undefined to 0.
+ */
+function sanitizeNumericValue(value: any): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    console.warn(`⚠️ [Orchestrator] Invalid numeric value detected: ${value}, converting to 0`);
+    return 0;
+  }
+  return value;
+}
+
+/**
  * Calculate streak bonus multiplier based on current streak.
  */
 function calculateStreakBonus(streak: number): number {
@@ -659,13 +671,23 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         await syncToCloud(); // Force immediate write
         console.log(`✅ [Orchestrator] ========== STREAK SUCCESSFULLY SAVED TO SUPABASE ==========`);
 
-        // Update PostHog
+        // Update PostHog - sanitize values to prevent Customer.io errors
+        const sanitizedStreak = sanitizeNumericValue(newStreak);
+        const sanitizedLongest = sanitizeNumericValue(newLongest);
+
+        console.log(`📊 [Orchestrator] Preparing analytics update:`, {
+          raw: { current_streak: newStreak, longest_streak: newLongest },
+          sanitized: { current_streak: sanitizedStreak, longest_streak: sanitizedLongest },
+          types: { streak: typeof newStreak, longest: typeof newLongest },
+          isValid: { streak: Number.isFinite(newStreak), longest: Number.isFinite(newLongest) },
+        });
+
         analyticsService.updateProgressProperties({
-          current_streak: newStreak,
-          longest_streak: newLongest,
+          current_streak: sanitizedStreak,
+          longest_streak: sanitizedLongest,
           longest_streak_date: newLongestDate,
         });
-        console.log(`📊 [Orchestrator] PostHog properties updated`);
+        console.log(`✅ [Orchestrator] PostHog properties updated`);
 
         // Check for milestone
         if (!streakLoadedRef.current) {
@@ -679,9 +701,9 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       // STEP 6: Streak celebration will be shown after module completion (Duolingo pattern)
       // Background streak update is silent - no UI shown here
 
-      // STEP 7: Update local UI state
-      setStreak(newStreak);
-      setLongestStreak(newLongest);
+      // STEP 7: Update local UI state (sanitize to prevent NaN in UI)
+      setStreak(sanitizeNumericValue(newStreak));
+      setLongestStreak(sanitizeNumericValue(newLongest));
       setIsStreakLoading(false);
       streakLoadedRef.current = true;
 
