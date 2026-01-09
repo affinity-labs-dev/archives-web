@@ -1,3 +1,6 @@
+import { ClerkProvider, useUser } from "@clerk/clerk-expo";
+import { tokenCache } from "@clerk/clerk-expo/token-cache";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   DarkTheme,
   DefaultTheme,
@@ -6,40 +9,37 @@ import {
 import { useFonts } from "expo-font";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, Text, Platform, Linking, AppState, AppStateStatus } from "react-native";
-import React from "react";
-import "react-native-reanimated";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ClerkProvider, useUser } from "@clerk/clerk-expo";
-import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { PostHogProvider } from 'posthog-react-native';
+import React from "react";
+import { AppState, AppStateStatus, Linking, Platform } from "react-native";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import "react-native-reanimated";
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { useColorScheme } from "@/hooks/useColorScheme";
+import LoadingScreen from "@/components/LoadingScreen";
 import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
 import { PreferencesProvider } from "@/context/PreferencesContext";
+import { useColorScheme } from "@/hooks/useColorScheme";
+import { analyticsService } from "@/services/AnalyticsService";
+import CustomerIOService from '@/services/CustomerIOService';
+import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
+import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
-import { analyticsService } from "@/services/AnalyticsService";
-import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
 import { usePostHog } from 'posthog-react-native';
-import LoadingScreen from "@/components/LoadingScreen";
-import * as Sentry from '@sentry/react-native';
-import CustomerIOService from '@/services/CustomerIOService';
 
 // Gamification imports - unified from @/gamification
 import {
-  GamifiedProgressProvider,
+  AIProvider,
   GamificationOrchestratorProvider,
+  GamifiedProgressProvider,
   RewardsProvider,
   useRewards,
-  AIProvider,
 } from "@/gamification";
+import AIAssistant from "@/gamification/ui/ai/AIAssistant";
 import AvatarUnlockAnimation from "@/gamification/ui/celebrations/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/gamification/ui/celebrations/AvatarUnlockNotification";
-import AIAssistant from "@/gamification/ui/ai/AIAssistant";
 
 Sentry.init({
   dsn: 'https://87a73fd4ec7ba02d87dccedcce85a9fa@o4510499177889792.ingest.de.sentry.io/4510499179790416',
@@ -450,7 +450,8 @@ export default Sentry.wrap(function RootLayout() {
     }
   }, []);
 
-  // Clean up test/debug data on app launch (only in DEV mode)
+  // Clean up test/debug data on app launch (only in 
+  //  mode)
   React.useEffect(() => {
     const cleanupTestData = async () => {
       if (!__DEV__) return; // Only clean in development mode

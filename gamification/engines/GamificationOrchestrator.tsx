@@ -29,6 +29,7 @@ import { calculateTotalXP as calculateTotalXPUtil, useGamifiedProgress } from '.
 import { AchievementUnlockAnimation } from '@/gamification/ui/achievement/AchievementGrid';
 import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen';
 import ShieldEarnedScreen from '@/gamification/ui/celebrations/ShieldEarnedScreen';
+import ShieldUsedNotification from '@/gamification/ui/celebrations/ShieldUsedNotification';
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 
 // ============================================================
@@ -341,7 +342,13 @@ interface ShieldEarnedCelebration {
   totalShields: number;
 }
 
-type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | AchievementCelebration | ShieldEarnedCelebration;
+interface ShieldUsedCelebration {
+  type: 'SHIELD_USED';
+  currentStreak: number;
+  remainingShields: number;
+}
+
+type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | AchievementCelebration | ShieldEarnedCelebration | ShieldUsedCelebration;
 
 // ============================================================
 // CONTEXT
@@ -599,15 +606,24 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           newStreak = 1;
           console.log(`🔥 [Orchestrator] ⭐ FIRST TIME! Setting streak to 1`);
         } else {
-          // MISSED DAYS - Check if we can use a shield
+          // MISSED DAYS - Check if user has shields to auto-activate
           if (newShields > 0) {
-            // USE SHIELD - Keep streak alive!
+            // HAS SHIELDS - Automatically use shield (Duolingo style - no choice)
             newShields -= 1;
             shieldUsed = true;
-            console.log(`🛡️ [Orchestrator] ❄️  SHIELD USED! Streak protected (${newShields}/3 remaining)`);
-            console.log(`   Streak maintained: ${cloudStreak.currentStreak}`);
-            // Streak stays the same, just update lastActiveDate
-            newStreak = cloudStreak.currentStreak;
+            newStreak = cloudStreak.currentStreak; // Keep current streak
+            console.log(`🛡️ [Orchestrator] ✨ SHIELD AUTO-ACTIVATED! Streak protected (Duolingo style)`);
+            console.log(`   Streak maintained: ${newStreak} days`);
+            console.log(`   Shields remaining: ${newShields}/3`);
+
+            // Queue shield used notification (simple, not a choice)
+            if (!streakLoadedRef.current) {
+              setCelebrationQueue(prev => [...prev, {
+                type: 'SHIELD_USED',
+                currentStreak: newStreak,
+                remainingShields: newShields,
+              }]);
+            }
           } else {
             // NO SHIELDS - Reset to 1
             newStreak = 1;
@@ -704,7 +720,6 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       setIsStreakLoading(false);
     }
   }, [reloadData, getCloudStreak, syncStreakToState, syncToCloud]);
-
   // Load streak on mount - check consecutive days and update automatically
   useEffect(() => {
     if (isProgressInitialized) {
@@ -1368,6 +1383,14 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           />
         )}
       </Modal>
+
+      {/* Shield Used Notification - Simple centered notification */}
+      <ShieldUsedNotification
+        visible={currentCelebration?.type === 'SHIELD_USED'}
+        currentStreak={currentCelebration?.type === 'SHIELD_USED' ? currentCelebration.currentStreak : 0}
+        remainingShields={currentCelebration?.type === 'SHIELD_USED' ? currentCelebration.remainingShields : 0}
+        onClose={dismissCurrent}
+      />
 
       {/* Achievement Unlock Modal */}
       {currentCelebration?.type === 'ACHIEVEMENT' && (
