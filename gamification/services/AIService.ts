@@ -245,7 +245,11 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
    */
   async getChatResponse(params: {
     userMessage: string;
-    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+    conversationHistory: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+      image?: { base64: string; mimeType: string };
+    }>;
     context?: {
       eraId?: string;
       eraName?: string;
@@ -286,7 +290,9 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
       const systemPrompt = this.buildChatSystemPrompt(context, userProgress, knowledgeContext);
 
       // Build conversation history for multi-turn chat
-      const conversationContents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+      // Parts can be text or inline image data (for multimodal conversations)
+      type ContentPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+      const conversationContents: Array<{ role: 'user' | 'model'; parts: ContentPart[] }> = [];
 
       // Add system prompt as first user message (Gemini doesn't have system role)
       conversationContents.push({
@@ -298,11 +304,23 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
         parts: [{ text: 'I understand. I am your educational chatbot for Archives, here to help you learn about Islamic and Middle Eastern history. I will follow all the guidelines provided, including proper Islamic etiquette, historical accuracy, and a warm educational tone. How can I help you today?' }]
       });
 
-      // Add conversation history
+      // Add conversation history (including images if present)
       for (const msg of conversationHistory) {
+        const parts: ContentPart[] = [{ text: msg.content }];
+
+        // If message has an image, include it as inline data for multimodal context
+        if (msg.image?.base64) {
+          parts.push({
+            inlineData: {
+              mimeType: msg.image.mimeType,
+              data: msg.image.base64,
+            }
+          });
+        }
+
         conversationContents.push({
           role: msg.role === 'user' ? 'user' : 'model',
-          parts: [{ text: msg.content }]
+          parts,
         });
       }
 
