@@ -484,6 +484,33 @@ async function markStreakMilestoneSeen(streakDays: number): Promise<void> {
 }
 
 /**
+ * Check if user has already seen the streak celebration today (Duolingo pattern).
+ */
+async function hasShownStreakCelebrationToday(): Promise<boolean> {
+  try {
+    const lastShown = await AsyncStorage.getItem('streak_celebration_last_shown');
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    return lastShown === today;
+  } catch (error) {
+    console.error('❌ [Orchestrator] Error checking streak celebration:', error);
+    return false;
+  }
+}
+
+/**
+ * Mark streak celebration as shown today.
+ */
+async function markStreakCelebrationShown(): Promise<void> {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    await AsyncStorage.setItem('streak_celebration_last_shown', today);
+    console.log(`✅ [Orchestrator] Streak celebration marked as shown for ${today}`);
+  } catch (error) {
+    console.error('❌ [Orchestrator] Error marking streak celebration shown:', error);
+  }
+}
+
+/**
  * Calculate streak bonus multiplier based on current streak.
  */
 function calculateStreakBonus(streak: number): number {
@@ -649,16 +676,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         }
       }
 
-      // STEP 6: Queue streak celebration if updated (show once per day)
-      if (needsUpdate && !streakLoadedRef.current) {
-        const weekData = calculateWeekData(newStreak);
-        setCelebrationQueue(prev => [...prev, {
-          type: 'STREAK_CELEBRATION',
-          streakCount: newStreak,
-          weekData,
-        }]);
-        console.log(`🎉 [Orchestrator] Streak celebration queued for ${newStreak} days`);
-      }
+      // STEP 6: Streak celebration will be shown after module completion (Duolingo pattern)
+      // Background streak update is silent - no UI shown here
 
       // STEP 7: Update local UI state
       setStreak(newStreak);
@@ -1155,13 +1174,31 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       }
     }
 
+    // --- Check 3: Streak Celebration (Duolingo pattern) ---
+    // Show after module completion if: (1) user has active streak, (2) not shown today
+    if (streak > 0) {
+      const alreadyShownToday = await hasShownStreakCelebrationToday();
+      if (!alreadyShownToday) {
+        const weekData = calculateWeekData(streak);
+        newCelebrations.push({
+          type: 'STREAK_CELEBRATION',
+          streakCount: streak,
+          weekData,
+        });
+        await markStreakCelebrationShown();
+        console.log(`🔥 [Orchestrator] Streak celebration queued for ${streak} days (Duolingo pattern)`);
+      } else {
+        console.log(`⏭️ [Orchestrator] Streak celebration already shown today, skipping`);
+      }
+    }
+
     // Add to queue
     if (newCelebrations.length > 0) {
       setCelebrationQueue((prev) => [...prev, ...newCelebrations]);
       console.log(`📋 [Orchestrator] Added ${newCelebrations.length} celebrations to queue`);
     }
 
-    // --- Check 3: Achievements ---
+    // --- Check 4: Achievements ---
     // Check all achievement conditions (XP, perfect quizzes, streaks, etc.)
     await checkAchievements();
 
