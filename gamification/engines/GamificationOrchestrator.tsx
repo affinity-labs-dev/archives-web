@@ -28,6 +28,7 @@ import { calculateTotalXP as calculateTotalXPUtil, useGamifiedProgress } from '.
 // Import celebration screens
 import { AchievementUnlockAnimation } from '@/gamification/ui/achievement/AchievementGrid';
 import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen';
+import ShieldEarnedScreen from '@/gamification/ui/celebrations/ShieldEarnedScreen';
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 
 // ============================================================
@@ -334,7 +335,13 @@ interface AchievementCelebration {
   achievement: Achievement;
 }
 
-type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | AchievementCelebration;
+interface ShieldEarnedCelebration {
+  type: 'SHIELD_EARNED';
+  currentStreak: number;
+  totalShields: number;
+}
+
+type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | AchievementCelebration | ShieldEarnedCelebration;
 
 // ============================================================
 // CONTEXT
@@ -659,6 +666,16 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           const milestone = checkStreakMilestone(cloudStreak.currentStreak, newStreak);
           if (milestone) {
             console.log(`🎯 [Orchestrator] 🎉 Streak milestone ${milestone} days reached!`);
+          }
+
+          // Queue shield earned celebration
+          if (shieldEarned) {
+            console.log(`🛡️ [Orchestrator] Queueing shield earned celebration`);
+            setCelebrationQueue(prev => [...prev, {
+              type: 'SHIELD_EARNED',
+              currentStreak: newStreak,
+              totalShields: newShields,
+            }]);
           }
         }
       }
@@ -1336,6 +1353,22 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         )}
       </Modal>
 
+      {/* Shield Earned Modal */}
+      <Modal
+        visible={currentCelebration?.type === 'SHIELD_EARNED'}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        statusBarTranslucent
+      >
+        {currentCelebration?.type === 'SHIELD_EARNED' && (
+          <ShieldEarnedScreen
+            currentStreak={currentCelebration.currentStreak}
+            totalShields={currentCelebration.totalShields}
+            onContinue={dismissCurrent}
+          />
+        )}
+      </Modal>
+
       {/* Achievement Unlock Modal */}
       {currentCelebration?.type === 'ACHIEVEMENT' && (
         <AchievementUnlockAnimation
@@ -1365,5 +1398,5 @@ export function useGamificationOrchestrator(): GamificationOrchestratorContextTy
 // ============================================================
 
 export { ACHIEVEMENTS, calculateStreakBonus, checkStreakMilestone, checkXPMilestone };
-export type { AchievementCelebration, AdventureCompleteCelebration, CelebrationItem, StreakMilestoneCelebration, XPMilestoneCelebration };
+export type { AchievementCelebration, AdventureCompleteCelebration, CelebrationItem, ShieldEarnedCelebration, StreakMilestoneCelebration, XPMilestoneCelebration };
 
