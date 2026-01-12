@@ -5,16 +5,16 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeIn, FadeInUp, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Rive, { RiveRef } from 'rive-react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { useRef } from 'react';
+import Rive, { Alignment, Fit, RiveRef } from 'rive-react-native';
 
-// Import Rive animation from assets (relative path)
-const streakFlame = require('../../../assets/rive/streak_flame.riv');
+// Import Rive animation from assets (relative path) - using new file
+const streakFlame = require('../../../assets/rive/streak_flame_new.riv');
 
 // Week day data structure
 interface WeekDay {
@@ -48,8 +48,71 @@ export default function StreakCelebrationScreen({
   onContinue,
 }: StreakCelebrationScreenProps) {
   const riveRef = useRef<RiveRef>(null);
+  const celebrationSound = useRef<Audio.Sound | null>(null);
+  const tickSound = useRef<Audio.Sound | null>(null);
+  const [skipped, setSkipped] = useState(false);
 
-  // Track analytics and haptics on mount
+  // Animated value for moving flame + number upward (Duolingo style)
+  const translateY = useSharedValue(0);
+
+  // Load sounds on mount
+  useEffect(() => {
+    const loadSounds = async () => {
+      try {
+        // Load celebration sound (reuse quiz correct sound)
+        const { sound: celebSound } = await Audio.Sound.createAsync(
+          require('../../../assets/audio/quiz/correct.wav'),
+          { volume: 0.5 }
+        );
+        celebrationSound.current = celebSound;
+
+        // Load tick sound (reuse quiz tap sound)
+        const { sound: tickSnd } = await Audio.Sound.createAsync(
+          require('../../../assets/audio/quiz/tap.wav'),
+          { volume: 0.3 }
+        );
+        tickSound.current = tickSnd;
+      } catch (error) {
+        console.log('❌ Error loading celebration sounds:', error);
+      }
+    };
+
+    loadSounds();
+
+    // Cleanup sounds on unmount
+    return () => {
+      celebrationSound.current?.unloadAsync();
+      tickSound.current?.unloadAsync();
+    };
+  }, []);
+
+  // Reset skipped state when modal closes
+  useEffect(() => {
+    if (!visible) {
+      setSkipped(false);
+      translateY.value = 0; // Reset position
+    }
+  }, [visible]);
+
+  // Move flame + number UP after 3s to make room for calendar (Duolingo style)
+  useEffect(() => {
+    if (visible && !skipped) {
+      // Start centered (200px down from normal position)
+      translateY.value = 200;
+      // At 3s, move to final top position
+      translateY.value = withDelay(3000, withSpring(0, { damping: 20, stiffness: 90 }));
+    } else if (skipped) {
+      // Instant position if skipped
+      translateY.value = 0;
+    }
+  }, [visible, skipped]);
+
+  // Animated style for the hero container (flame + number + text)
+  const heroAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  // Track analytics, haptics, and play celebration sound
   useEffect(() => {
     if (visible) {
       analyticsService.trackCustomEvent('streak_celebration_shown', {
@@ -57,117 +120,173 @@ export default function StreakCelebrationScreen({
         is_milestone: [3, 7, 14, 30, 50, 100].includes(streakCount),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Play celebration sound when modal opens
+      celebrationSound.current?.replayAsync();
     }
   }, [visible, streakCount]);
 
-  // Change Rive flame colors to orange when animation loads
-  const handleRivePlay = () => {
-    if (riveRef.current) {
-      try {
-        console.log('🔥 Rive animation loaded - attempting to change colors...');
-        const shapeNames = ['flame', 'fire', 'Flame', 'Fire', 'glow', 'Glow', 'base', 'Base', 'core', 'Core'];
-        shapeNames.forEach(name => {
-          try {
-            riveRef.current?.setColor(name, '#FF6B35'); // Bright orange
-            console.log(`✅ Changed color for shape: ${name}`);
-          } catch (e) {
-            // Shape doesn't exist, skip silently
-          }
-        });
-      } catch (error) {
-        console.log('❌ Rive color change error:', error);
-      }
+  // Haptic feedback at key animation moments (Duolingo style)
+  useEffect(() => {
+    if (visible && !skipped) {
+      // Streak number appears (2s)
+      const timer1 = setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }, 2000);
+
+      // Calendar appears (3s)
+      const timer2 = setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }, 3000);
+
+      // Continue button appears (4.5s)
+      const timer3 = setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }, 4500);
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        clearTimeout(timer3);
+      };
     }
-  };
+  }, [visible, skipped]);
+
+  // Play tick sounds for checkmarks (staggered with animation)
+  useEffect(() => {
+    if (visible && !skipped) {
+      weekData.forEach((day, index) => {
+        if (day.completed) {
+          const delay = 3200 + index * 100; // Match checkmark animation timing
+          setTimeout(() => {
+            tickSound.current?.replayAsync();
+          }, delay);
+        }
+      });
+    }
+  }, [visible, skipped, weekData]);
 
   return (
     <Modal visible={visible} animationType="none" transparent={false} statusBarTranslucent>
-      <SafeAreaView style={styles.container}>
-        {/* Close Button - Top Right */}
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onContinue();
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="close" size={32} color={ArchivesTheme.colors.shoeBrown} />
-        </TouchableOpacity>
+      <Pressable
+        style={{ flex: 1 }}
+        onPress={() => setSkipped(true)}
+        disabled={skipped}
+      >
+        <SafeAreaView style={styles.container}>
+          {/* Close Button - Top Right */}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onContinue();
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={32} color={ArchivesTheme.colors.shoeBrown} />
+          </TouchableOpacity>
 
-        {/* Flame Area - Rive Animation */}
-        <View style={styles.flameArea}>
-          <Rive
-            ref={riveRef}
-            url={streakFlame}
-            autoplay={true}
-            onPlay={handleRivePlay}
-            style={{ width: 140, height: 140 }}
+          {/* Flame Area - Rive Animation - Appears immediately */}
+          <Animated.View style={[styles.flameArea, heroAnimatedStyle]}>
+            <Rive
+              ref={riveRef}
+              source={streakFlame}
+              autoplay={true}
+              animationName="burning_flame"
+              fit={Fit.Contain}
+              alignment={Alignment.Center}
+              style={{ width: 200, height: 200, backgroundColor: 'transparent', position: 'absolute' }}
+            />
+          </Animated.View>
+
+          {/* Main Card - Fades in from bottom at 3s */}
+          <Animated.View
+            entering={skipped ? undefined : FadeInUp.delay(3000).duration(600)}
+            style={styles.card}
           />
-        </View>
 
-        {/* Main Card - Absolutely positioned */}
-        <View style={styles.card} />
+          {/* Big Streak Number - Zooms in with bounce at 2s */}
+          <Animated.Text
+            entering={skipped ? undefined : ZoomIn.delay(2000).duration(500).springify()}
+            style={[styles.streakNumber, heroAnimatedStyle]}
+          >
+            {streakCount}
+          </Animated.Text>
 
-        {/* Big Streak Number - Absolutely positioned (above card) */}
-        <Text style={styles.streakNumber}>{streakCount}</Text>
+          {/* "day streak!" text - Fades in at 2.5s */}
+          <Animated.Text
+            entering={skipped ? undefined : FadeIn.delay(2500).duration(300)}
+            style={[styles.streakText, heroAnimatedStyle]}
+          >
+            day streak!
+          </Animated.Text>
 
-        {/* "day streak!" text - Absolutely positioned */}
-        <Text style={styles.streakText}>day streak!</Text>
+          {/* Week Calendar Widget - Fades in from bottom at 3s */}
+          <Animated.View
+            entering={skipped ? undefined : FadeInUp.delay(3000).duration(600)}
+            style={styles.calendarWidget}
+          >
+            {/* Day Labels (Mo-Su) */}
+            <View style={styles.dayLabels}>
+              {weekData.map(({ day, completed }) => (
+                <Text
+                  key={day}
+                  style={[
+                    styles.dayLabel,
+                    !completed && styles.dayLabelFuture,
+                  ]}
+                >
+                  {day}
+                </Text>
+              ))}
+            </View>
 
-        {/* Week Calendar Widget - Absolutely positioned */}
-        <View style={styles.calendarWidget}>
-          {/* Day Labels (Mo-Su) */}
-          <View style={styles.dayLabels}>
-            {weekData.map(({ day, completed }) => (
-              <Text
-                key={day}
-                style={[
-                  styles.dayLabel,
-                  !completed && styles.dayLabelFuture,
-                ]}
-              >
-                {day}
-              </Text>
-            ))}
-          </View>
+            {/* Day Indicators (checkmarks/circles) - Stagger starts at 3.2s */}
+            <View style={styles.dayIndicators}>
+              {weekData.map(({ day, completed, isToday }, index) => (
+                <Animated.View
+                  key={day}
+                  entering={skipped ? undefined : FadeIn.delay(3200 + index * 100).duration(300)}
+                >
+                  {completed ? (
+                    <View style={[styles.checkmark, isToday && styles.checkmarkToday]}>
+                      <Text style={styles.checkmarkIcon}>✓</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.emptyCircle} />
+                  )}
+                </Animated.View>
+              ))}
+            </View>
+          </Animated.View>
 
-          {/* Day Indicators (checkmarks/circles) - Animated stagger */}
-          <View style={styles.dayIndicators}>
-            {weekData.map(({ day, completed, isToday }, index) => (
-              <Animated.View
-                key={day}
-                entering={FadeIn.delay(index * 100).duration(300)}
-              >
-                {completed ? (
-                  <View style={[styles.checkmark, isToday && styles.checkmarkToday]}>
-                    <Text style={styles.checkmarkIcon}>✓</Text>
-                  </View>
-                ) : (
-                  <View style={styles.emptyCircle} />
-                )}
-              </Animated.View>
-            ))}
-          </View>
-        </View>
+          {/* Motivational Text - Fades in at 4s */}
+          <Animated.Text
+            entering={skipped ? undefined : FadeIn.delay(4000).duration(400)}
+            style={styles.motivationalText}
+          >
+            {getMotivationalQuote(streakCount)}
+          </Animated.Text>
 
-        {/* Motivational Text - Absolutely positioned */}
-        <Text style={styles.motivationalText}>
-          {getMotivationalQuote(streakCount)}
-        </Text>
-
-        {/* Continue Button - Absolutely positioned at bottom */}
-        <TouchableOpacity
-          style={styles.continueButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onContinue();
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.continueButtonText}>LET&apos;S LEARN</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+          {/* Continue Button - Fades in from bottom at 4.5s */}
+          <Animated.View
+            entering={skipped ? undefined : FadeInUp.delay(4500).duration(600)}
+            style={styles.continueButton}
+          >
+            <TouchableOpacity
+              style={styles.continueButtonInner}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                tickSound.current?.replayAsync(); // Play tap sound
+                onContinue();
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.continueButtonText}>LET&apos;S LEARN</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </SafeAreaView>
+      </Pressable>
     </Modal>
   );
 }
@@ -189,19 +308,22 @@ const styles = StyleSheet.create({
   },
   flameArea: {
     position: 'absolute',
-    top: 110,
-    height: 140,
+    top: 90,
+    width: 200,
+    height: 200,
     alignSelf: 'center',
-    // Placeholder for flame animation
+    backgroundColor: 'transparent',
+    zIndex: 20, // Above white card
+    elevation: 20, // Android
   },
   card: {
     position: 'absolute',
-    top: 308,
+    top: 320,
     left: 18,
     backgroundColor: '#FFFFFF',
     borderRadius: 30,
     width: 358,
-    height: 372,
+    height: 390,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
@@ -210,7 +332,7 @@ const styles = StyleSheet.create({
   },
   streakNumber: {
     position: 'absolute',
-    top: 310,
+    top: 330,
     left: 0,
     right: 0,
     fontFamily: 'DM Sans',
@@ -218,12 +340,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#41425E',
     lineHeight: 140,
-    // includeFontPadding: false,
     textAlign: 'center',
+    zIndex: 20, // Above white card
+    elevation: 20, // Android
   },
   streakText: {
     position: 'absolute',
-    top: 437,
+    top: 462,
     left: 0,
     right: 0,
     fontFamily: 'DM Sans',
@@ -233,10 +356,12 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     textAlign: 'center',
     includeFontPadding: false,
+    zIndex: 20, // Above white card
+    elevation: 20, // Android
   },
   calendarWidget: {
     position: 'absolute',
-    top: 483,
+    top: 508,
     left: 34,
     width: 327,
     height: 106,
@@ -295,7 +420,7 @@ const styles = StyleSheet.create({
   },
   motivationalText: {
     position: 'absolute',
-    top: 610,
+    top: 635,
     left: 54,
     width: 288,
     fontFamily: 'DM Sans',
@@ -311,6 +436,9 @@ const styles = StyleSheet.create({
     left: 18,
     width: 358,
     height: 52,
+  },
+  continueButtonInner: {
+    flex: 1,
     borderRadius: 26,
     backgroundColor: '#959C00',
     alignItems: 'center',
