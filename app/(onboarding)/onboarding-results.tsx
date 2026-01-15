@@ -187,7 +187,7 @@ export default function OnboardingResultsScreen() {
             {/* Speech Bubble on Right */}
             <View style={styles.speechBubble}>
               <Text style={styles.suggestionText} selectable={false}>
-                Based on your{'\n'}answers, we suggest{'\n'}you to explore...
+                Based on your{'\n'}answers, we suggest...
               </Text>
 
               {/* Speech bubble tail - SVG arrow */}
@@ -236,36 +236,33 @@ export default function OnboardingResultsScreen() {
           {/* Era Recommendation Card */}
           <View style={styles.eraCard}>
             <Image
-              source={require('@/assets/images/eras/era2-bg.jpg')}
+              source={require('@/assets/images/eras/era61.jpg')}
               style={styles.eraImage}
               resizeMode="cover"
             />
 
-            {/* Gradient Overlay - Bottom to Top (100% to 0%) */}
+            {/* Gradient Overlay - lighter gradient for text readability */}
             <LinearGradient
               colors={[
                 'rgba(0,0,0,0.0)',    // 0% opacity at top
+                'rgba(0,0,0,0.1)',    // 10% opacity
                 'rgba(0,0,0,0.4)',    // 40% opacity
-                'rgba(0,0,0,0.7)',    // 70% opacity
-                'rgba(0,0,0,1.0)'     // 100% opacity at bottom
+                'rgba(0,0,0,0.7)'     // 70% opacity at bottom
               ]}
-              locations={[0, 0.3, 0.7, 1]}
+              locations={[0, 0.4, 0.7, 1]}
               style={styles.gradientOverlay}
             />
 
             <View style={styles.eraOverlay}>
               <Text style={styles.eraTitle} selectable={false}>
-                Rise of Islam
+                Women of Islam
               </Text>
-              <Text style={styles.eraSubtitle} selectable={false}>
-                (570–632 CE)
-              </Text>
-            </View>
+                          </View>
           </View>
 
           {/* Account Creation Prompt */}
           <Text style={styles.accountPrompt} selectable={false}>
-            Start exploring by creating an account
+            Create an account to start exploring
           </Text>
 
           {/* Spacer */}
@@ -358,8 +355,8 @@ const styles = StyleSheet.create({
   // Era Recommendation Card
   eraCard: {
     width: '100%',
-    height: 400,
-    borderRadius: 20,
+    height: 250,
+    borderRadius: 24,
     overflow: 'hidden',
     position: 'relative',
     marginBottom: 30,
