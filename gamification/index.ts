@@ -77,22 +77,21 @@ export {
   calculateStreakBonus,
   XP_MILESTONES,
   STREAK_MILESTONES,
-  ACHIEVEMENTS, // All 17 achievements array
+  ACHIEVEMENTS, // All 21 achievements array (15 original + 6 new XP achievements)
 } from './engines/GamificationOrchestrator';
 
 export type {
   QuizCompleteInput,
   LessonCompleteInput,
-  CelebrationItem,
-  XPMilestoneCelebration,
-  AdventureCompleteCelebration,
-  StreakMilestoneCelebration,
+  CelebrationItem, // Union of all celebration types (XP/Adventure/Streak/Achievement)
   StreakData as OrchestratorStreakData, // Renamed to avoid conflict with GamifiedProgress.StreakData
   Achievement as OrchestratorAchievement, // Achievement type from Orchestrator
   UnlockedAchievement,
-  AchievementCelebration,
   EraProgressStats, // Progress bar data (correctAnswers/totalQuestions)
 } from './engines/GamificationOrchestrator';
+
+// ========== UI COMPONENTS (Celebrations) ==========
+export { default as CelebrationManager } from './ui/celebrations/CelebrationManager';
 
 // ========== PROVIDERS (Contexts) ==========
 export { RewardsProvider, useRewards } from './engines/RewardsContext';

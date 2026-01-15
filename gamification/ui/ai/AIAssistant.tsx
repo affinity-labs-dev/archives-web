@@ -6,6 +6,7 @@ import FloatingAIButton from './FloatingAIButton';
 import AIChatModal from './AIChatModal';
 import { useAI } from '@/gamification';
 import { useUser } from '@clerk/clerk-expo';
+import { usePathname } from 'expo-router';
 
 export default function AIAssistant() {
   const {
@@ -20,8 +21,16 @@ export default function AIAssistant() {
   // Get user authentication status
   const { isSignedIn } = useUser();
 
+  // Get current route
+  const pathname = usePathname();
+
   // Don't render if user is not logged in
   if (!isSignedIn) {
+    return null;
+  }
+
+  // Don't render on onboarding screens or auth screens
+  if (pathname?.startsWith('/onboarding') || pathname?.startsWith('/(onboarding)') || pathname?.startsWith('/auth') || pathname?.startsWith('/(auth)')) {
     return null;
   }
 

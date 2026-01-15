@@ -15,7 +15,7 @@ const IbnIcon = require('@/assets/images/ai-images/Ibn.png');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MARGIN = 20;
-const BUTTON_SIZE = 60;
+const BUTTON_SIZE = 75;  // 48.7x48.47 from Figma, rounded to 49
 
 const INITIAL_X = SCREEN_WIDTH - BUTTON_SIZE - MARGIN;
 const INITIAL_Y = SCREEN_HEIGHT - BUTTON_SIZE - MARGIN - 100;

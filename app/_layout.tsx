@@ -36,6 +36,7 @@ import {
   RewardsProvider,
   useRewards,
   AIProvider,
+  CelebrationManager,
 } from "@/gamification";
 import AvatarUnlockAnimation from "@/gamification/ui/celebrations/AvatarUnlockAnimation";
 import AvatarUnlockNotification from "@/gamification/ui/celebrations/AvatarUnlockNotification";
@@ -569,13 +570,18 @@ export default Sentry.wrap(function RootLayout() {
                             <AIProvider>
                             <AvatarAnimationWrapper>
                               <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
-                              <Stack>
+                              <Stack screenOptions={{
+                                gestureEnabled: false,
+                                animation: 'none',
+                                fullScreenGestureEnabled: false
+                              }}>
                                 <Stack.Screen name="index" options={{ headerShown: false }} />
                                 <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
                                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                                 <Stack.Screen name="+not-found" />
                               </Stack>
+                              <CelebrationManager />
                               <AIAssistant />
                               <StatusBar style="auto" />
                               </ThemeProvider>

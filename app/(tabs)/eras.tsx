@@ -122,9 +122,10 @@ export default function EraSelection() {
     });
 
     if (isOnboarding) {
-      // Mark onboarding as completed
+      // Mark onboarding as completed and save selected era
       await AsyncStorage.setItem('onboarding_completed', 'true');
-      console.log('✅ Onboarding completed - user can now return directly to home');
+      await AsyncStorage.setItem('selected_era', selectedEra.era_id);
+      console.log('✅ Onboarding completed - selected era:', selectedEra.era_id);
       router.replace('/(tabs)');
     } else {
       // Just navigate to home tab

@@ -1,34 +1,30 @@
 /**
  * GamificationOrchestrator Provider
  *
- * TRUE orchestration - One engine with full control over all gamification triggers.
+ * Engine-only orchestration - Handles gamification logic, UI is separate.
  * Components just report events, orchestrator handles everything:
  * - Checks conditions (XP milestones, adventure complete, streaks, achievements)
  * - Manages celebration queue
- * - Renders celebration UI as overlay
+ * - Exposes celebration state for UI layer (see CelebrationManager.tsx)
  * - Tracks daily streaks
  * - Manages achievement unlocking
  *
  * Usage:
  * 1. Wrap app with <GamificationOrchestratorProvider>
- * 2. In Quiz.tsx: const { reportQuizComplete } = useGamificationOrchestrator();
- * 3. Call: await reportQuizComplete({ eraId, xpEarned, ... });
- * 4. Orchestrator handles the rest - Quiz doesn't know about celebrations or achievements
+ * 2. Add <CelebrationManager /> to render celebrations
+ * 3. In Quiz.tsx: const { reportQuizComplete } = useGamificationOrchestrator();
+ * 4. Call: await reportQuizComplete({ eraId, xpEarned, ... });
+ * 5. Orchestrator handles logic, CelebrationManager renders UI
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import { Modal } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUser } from '@clerk/clerk-expo';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
-import { analyticsService } from '@/services/AnalyticsService';
-import { useGamifiedProgress, calculateTotalXP as calculateTotalXPUtil } from './GamifiedProgress';
 import { useAdventuresContent } from '@/context/AdventuresContentProvider';
-
-// Import celebration screens
-import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
-import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen';
-import { AchievementUnlockAnimation } from '@/gamification/ui/achievement/AchievementGrid';
+import { analyticsService } from '@/services/AnalyticsService';
+import { useUser } from '@clerk/clerk-expo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+// OLD: import { calculateTotalXP as calculateTotalXPUtil, useGamifiedProgress } from './GamifiedProgress';
+import { useGamifiedProgress } from './GamifiedProgress';
 
 // ============================================================
 // CONSTANTS
@@ -55,19 +51,17 @@ export interface Achievement {
   id: string;
   name: string;
   description: string;
-  icon: string; // Ionicons name
-  category: 'quiz' | 'streak' | 'speed' | 'completion' | 'time' | 'perfectionist';
   color: string;
+  image?: any; // require() reference to achievement image
   unlockCondition: {
     type: 'quiz_perfect' | 'quiz_perfect_streak' | 'streak_days' | 'modules_in_day' | 'era_complete' | 'all_perfect_era' | 'night_owl' | 'early_bird' | 'total_xp';
     threshold: number;
     metadata?: any; // Additional data like era_id for era-specific achievements
   };
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
 }
 
 // ============================================================
-// ALL ACHIEVEMENTS (17 total)
+// ALL ACHIEVEMENTS (21 total)
 // ============================================================
 
 const ACHIEVEMENTS: Achievement[] = [
@@ -75,42 +69,34 @@ const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'first_perfect',
     name: 'First Steps',
-    description: 'Score 100% on your first quiz',
-    icon: 'checkmark-circle',
-    category: 'quiz',
+    description: 'Score 100% on first quiz',
     color: '#3498DB',
+    image: require('@/assets/images/adventure-unlocked/firststeps.png'),
     unlockCondition: { type: 'quiz_perfect', threshold: 1 },
-    rarity: 'common',
   },
   {
     id: 'quiz_master',
     name: 'Quiz Master',
     description: 'Score 100% on 5 quizzes',
-    icon: 'school',
-    category: 'quiz',
     color: '#9B59B6',
+    image: require('@/assets/images/adventure-unlocked/quizmaster.png'),
     unlockCondition: { type: 'quiz_perfect', threshold: 5 },
-    rarity: 'rare',
   },
   {
     id: 'perfect_scholar',
     name: 'Perfect Scholar',
     description: 'Score 100% on 10 quizzes',
-    icon: 'trophy',
-    category: 'quiz',
     color: '#F39C12',
+    image: require('@/assets/images/adventure-unlocked/perfectscholar.png'),
     unlockCondition: { type: 'quiz_perfect', threshold: 10 },
-    rarity: 'epic',
   },
   {
     id: 'quiz_legend',
     name: 'Quiz Legend',
     description: 'Score 100% on 20 quizzes',
-    icon: 'star',
-    category: 'quiz',
     color: '#E74C3C',
+    image: require('@/assets/images/adventure-unlocked/quizlegend.png'),
     unlockCondition: { type: 'quiz_perfect', threshold: 20 },
-    rarity: 'legendary',
   },
 
   // Streak Achievements
@@ -118,31 +104,25 @@ const ACHIEVEMENTS: Achievement[] = [
     id: 'week_warrior',
     name: 'Week Warrior',
     description: 'Maintain a 7-day streak',
-    icon: 'flame',
-    category: 'streak',
     color: '#F39C12',
+    image: require('@/assets/images/adventure-unlocked/weekwarrior.png'),
     unlockCondition: { type: 'streak_days', threshold: 7 },
-    rarity: 'rare',
   },
   {
     id: 'month_master',
     name: 'Month Master',
     description: 'Maintain a 30-day streak',
-    icon: 'flame',
-    category: 'streak',
     color: '#E67E22',
+    image: require('@/assets/images/adventure-unlocked/monthmaster.png'),
     unlockCondition: { type: 'streak_days', threshold: 30 },
-    rarity: 'epic',
   },
   {
     id: 'century_scholar',
     name: 'Century Scholar',
     description: 'Maintain a 100-day streak',
-    icon: 'flame',
-    category: 'streak',
     color: '#C0392B',
+    image: require('@/assets/images/adventure-unlocked/100dayscholar.png'),
     unlockCondition: { type: 'streak_days', threshold: 100 },
-    rarity: 'legendary',
   },
 
   // Speed Achievements
@@ -150,53 +130,43 @@ const ACHIEVEMENTS: Achievement[] = [
     id: 'quick_learner',
     name: 'Quick Learner',
     description: 'Complete 3 modules in one day',
-    icon: 'flash',
-    category: 'speed',
     color: '#3498DB',
+    image: require('@/assets/images/adventure-unlocked/quicklearner.png'),
     unlockCondition: { type: 'modules_in_day', threshold: 3 },
-    rarity: 'common',
   },
   {
     id: 'speed_demon',
     name: 'Speed Demon',
     description: 'Complete 5 modules in one day',
-    icon: 'rocket',
-    category: 'speed',
     color: '#E67E22',
+    image: require('@/assets/images/adventure-unlocked/speeddemon.png'),
     unlockCondition: { type: 'modules_in_day', threshold: 5 },
-    rarity: 'rare',
   },
 
   // Completion Achievements
   {
     id: 'era_complete_umayyad',
-    name: 'Umayyad Expert',
-    description: 'Complete all of Umayyad Dynasty era',
-    icon: 'ribbon',
-    category: 'completion',
+    name: 'Umayyad Era',
+    description: 'Complete Umayyad Dynasty era',
     color: '#9B59B6',
+    image: require('@/assets/images/adventure-unlocked/umayyadexpert.png'),
     unlockCondition: { type: 'era_complete', threshold: 1, metadata: { era_id: 'umayyad' } },
-    rarity: 'epic',
   },
   {
     id: 'era_complete_roi',
-    name: 'Rise of Islam Scholar',
-    description: 'Complete all of Rise of Islam era',
-    icon: 'ribbon',
-    category: 'completion',
+    name: 'Rise of Islam',
+    description: 'Complete Rise of Islam era',
     color: '#16A085',
+    image: require('@/assets/images/adventure-unlocked/riseofislam.png'),
     unlockCondition: { type: 'era_complete', threshold: 1, metadata: { era_id: 'rise_of_islam' } },
-    rarity: 'epic',
   },
   {
     id: 'era_complete_women_of_islam',
-    name: 'Women of Islam Scholar',
-    description: 'Complete all of Women of Islam era',
-    icon: 'ribbon',
-    category: 'completion',
+    name: 'Women of Islam',
+    description: 'Complete Women of Islam era',
     color: '#E91E63',
+    image: require('@/assets/images/adventure-unlocked/womenofislam.png'),
     unlockCondition: { type: 'era_complete', threshold: 1, metadata: { era_id: 'women_of_islam' } },
-    rarity: 'epic',
   },
 
   // Time-based Achievements
@@ -204,54 +174,68 @@ const ACHIEVEMENTS: Achievement[] = [
     id: 'night_owl',
     name: 'Night Owl',
     description: 'Complete a lesson after 10 PM',
-    icon: 'moon',
-    category: 'time',
     color: '#34495E',
+    image: require('@/assets/images/adventure-unlocked/nightowl.png'),
     unlockCondition: { type: 'night_owl', threshold: 1 },
-    rarity: 'common',
   },
   {
     id: 'early_bird',
     name: 'Early Bird',
     description: 'Complete a lesson before 7 AM',
-    icon: 'sunny',
-    category: 'time',
     color: '#F39C12',
+    image: require('@/assets/images/adventure-unlocked/earlybird.png'),
     unlockCondition: { type: 'early_bird', threshold: 1 },
-    rarity: 'common',
   },
 
-  // XP Achievements - Commented out for release
-  // {
-  //   id: 'xp_500',
-  //   name: 'Knowledge Seeker',
-  //   description: 'Earn 500 total XP',
-  //   icon: 'trending-up',
-  //   category: 'completion',
-  //   color: '#3498DB',
-  //   unlockCondition: { type: 'total_xp', threshold: 500 },
-  //   rarity: 'rare',
-  // },
-  // {
-  //   id: 'xp_1000',
-  //   name: 'Wisdom Collector',
-  //   description: 'Earn 1000 total XP',
-  //   icon: 'analytics',
-  //   category: 'completion',
-  //   color: '#9B59B6',
-  //   unlockCondition: { type: 'total_xp', threshold: 1000 },
-  //   rarity: 'epic',
-  // },
-  // {
-  //   id: 'xp_2500',
-  //   name: 'Grand Scholar',
-  //   description: 'Earn 2500 total XP',
-  //   icon: 'flame',
-  //   category: 'completion',
-  //   color: '#E74C3C',
-  //   unlockCondition: { type: 'total_xp', threshold: 2500 },
-  //   rarity: 'legendary',
-  // },
+  // XP Achievements - Progression system with Arabic names
+  {
+    id: 'xp_100',
+    name: 'Tālib (Seeker)',
+    description: 'Awakening to Knowledge - 100 XP',
+    color: '#95A5A6',
+    image: require('@/assets/images/adventure-unlocked/talib(seeker).png'),
+    unlockCondition: { type: 'total_xp', threshold: 100 },
+  },
+  {
+    id: 'xp_250',
+    name: 'Dāris (Student)',
+    description: 'Path of Learning - 250 XP',
+    color: '#3498DB',
+    image: require('@/assets/images/adventure-unlocked/daris(student).png'),
+    unlockCondition: { type: 'total_xp', threshold: 250 },
+  },
+  {
+    id: 'xp_500',
+    name: 'Ālim (Scholar)',
+    description: 'Bearer of Insight - 500 XP',
+    color: '#9B59B6',
+    image: require('@/assets/images/adventure-unlocked/alim(scholar).png'),
+    unlockCondition: { type: 'total_xp', threshold: 500 },
+  },
+  {
+    id: 'xp_1000',
+    name: 'Hakīm (Sage)',
+    description: 'Wisdom & Experience - 1000 XP',
+    color: '#E67E22',
+    image: require('@/assets/images/adventure-unlocked/hakim(sage).png'),
+    unlockCondition: { type: 'total_xp', threshold: 1000 },
+  },
+  {
+    id: 'xp_2000',
+    name: 'Ustādh (Master)',
+    description: 'Guide of Minds - 2000 XP',
+    color: '#E74C3C',
+    image: require('@/assets/images/adventure-unlocked/ustadh(master).png'),
+    unlockCondition: { type: 'total_xp', threshold: 2000 },
+  },
+  {
+    id: 'xp_3000',
+    name: 'Shaykh al-Ilm',
+    description: 'Master of Knowledge - 3000+ XP',
+    color: '#C0392B',
+    image: require('@/assets/images/adventure-unlocked/shaykhalilm.png'),
+    unlockCondition: { type: 'total_xp', threshold: 3000 },
+  },
 ];
 
 // ============================================================
@@ -335,7 +319,7 @@ interface AchievementCelebration {
   achievement: Achievement;
 }
 
-type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | AchievementCelebration;
+export type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | AchievementCelebration;
 
 // ============================================================
 // CONTEXT
@@ -359,6 +343,12 @@ interface GamificationOrchestratorContextType {
   /** Refresh streak data */
   refreshStreak: () => Promise<void>;
 
+  // ===== CELEBRATIONS =====
+  /** Current celebration being shown (null if none) */
+  currentCelebration: CelebrationItem | null;
+  /** Dismiss current celebration and move to next in queue */
+  dismissCurrentCelebration: () => void;
+
   // ===== ACHIEVEMENTS =====
   /** All achievements with unlock status (sorted: unlocked first, then by progress) */
   achievements: (Achievement & { unlocked: boolean; unlockedAt?: string })[];
@@ -370,8 +360,6 @@ interface GamificationOrchestratorContextType {
   isAchievementsLoading: boolean;
   /** Get progress (0-100) towards an achievement */
   getProgress: (achievementId: string) => number;
-  /** Get achievements filtered by category */
-  getAchievementsByCategory: (category: Achievement['category']) => (Achievement & { unlocked: boolean })[];
   /** Get a single achievement by ID */
   getAchievement: (id: string) => Achievement | undefined;
   /** Check time-based achievements (night owl, early bird) - call after lesson completion */
@@ -517,7 +505,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
   // Hooks for achievements calculation and streak sync
   // IMPORTANT: Include isInitialized to wait for GamifiedProgress to load cloud data before reading achievements
-  const { moduleProgress, unlockAchievement: persistAchievement, syncStreakToState, getAchievements: getCloudAchievements, isInitialized: isProgressInitialized } = useGamifiedProgress();
+  const { moduleProgress, calculateTotalXP: getTotalXPFromContext, unlockAchievement: persistAchievement, syncStreakToState, getAchievements: getCloudAchievements, isInitialized: isProgressInitialized } = useGamifiedProgress();
   const { getAdventures } = useAdventuresContent();
   const { user } = useUser();
   const [previousUserId, setPreviousUserId] = useState<string | null>(null);
@@ -837,7 +825,13 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       console.error('❌ [Orchestrator] Error loading new progress for achievements:', error);
     }
 
-    const totalXP = calculateTotalXPUtil(moduleProgress, newModules);
+    // NEW: Get totalXP from GamifiedProgress context (reads from gamification_data table in Supabase)
+    // This ensures we use the single source of truth and will unlock ALL achievements user qualifies for
+    const totalXP = getTotalXPFromContext();
+    console.log('✅ [Orchestrator] Using totalXP from context:', totalXP);
+
+    // OLD: Calculate from AsyncStorage (COMMENTED OUT - keeping for reference)
+    // const totalXP = calculateTotalXPUtil(moduleProgress, newModules);
 
     // Count perfect quiz scores (quizCorrectAnswers === 5 OR quizScore === 3)
     const perfectQuizCount = newModules.filter(
@@ -905,7 +899,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         await unlockAchievement(achievement.id);
       }
     }
-  }, [unlockedAchievements, streak, moduleProgress, getEraModuleCount, unlockAchievement]);
+  }, [unlockedAchievements, streak, moduleProgress, getEraModuleCount, unlockAchievement, getTotalXPFromContext]);
 
   // Check time-based achievements (night owl, early bird)
   const checkTimeBasedAchievement = useCallback(async () => {
@@ -947,7 +941,9 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     const achievement = ACHIEVEMENTS.find(a => a.id === achievementId);
     if (!achievement) return 0;
 
-    const totalXP = calculateTotalXPUtil(moduleProgress, newUserProgress);
+    // NEW: Get totalXP from context (same as checkAchievements)
+    const totalXP = getTotalXPFromContext();
+    // OLD: const totalXP = calculateTotalXPUtil(moduleProgress, newUserProgress);
     const perfectQuizCount = newUserProgress.filter(
       m => m.quizCompleted && (m.quizCorrectAnswers === 5 || m.quizScore === 3)
     ).length;
@@ -982,16 +978,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       default:
         return unlockedAchievements.some(a => a.id === achievementId) ? 100 : 0;
     }
-  }, [moduleProgress, newUserProgress, streak, eraModuleCounts, unlockedAchievements]);
-
-  // Get achievements by category
-  const getAchievementsByCategory = useCallback((category: Achievement['category']) => {
-    const unlockedIds = unlockedAchievements.map(a => a.id);
-    return ACHIEVEMENTS.filter(a => a.category === category).map(achievement => ({
-      ...achievement,
-      unlocked: unlockedIds.includes(achievement.id),
-    }));
-  }, [unlockedAchievements]);
+  }, [moduleProgress, newUserProgress, streak, eraModuleCounts, unlockedAchievements, getTotalXPFromContext]);
 
   // Get a single achievement by ID
   const getAchievement = useCallback((id: string) => {
@@ -1116,13 +1103,15 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         isNewDay,
         streakBonus,
         refreshStreak: loadStreak,
+        // Celebrations
+        currentCelebration,
+        dismissCurrentCelebration: dismissCurrent,
         // Achievements
         achievements,
         unlockedCount: unlockedAchievements.length,
         totalCount: ACHIEVEMENTS.length,
         isAchievementsLoading,
         getProgress,
-        getAchievementsByCategory,
         getAchievement,
         checkTimeBasedAchievement,
         checkAchievements,
@@ -1130,55 +1119,6 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       }}
     >
       {children}
-
-      {/* XP Milestone Modal */}
-      <Modal
-        visible={currentCelebration?.type === 'XP_MILESTONE'}
-        animationType="fade"
-        presentationStyle="fullScreen"
-        statusBarTranslucent
-      >
-        {currentCelebration?.type === 'XP_MILESTONE' && (
-          <XPMilestoneScreen
-            milestoneXP={currentCelebration.milestoneXP}
-            totalXP={currentCelebration.totalXP}
-            eraId={currentCelebration.eraId}
-            onContinue={dismissCurrent}
-          />
-        )}
-      </Modal>
-
-      {/* Adventure Complete Modal */}
-      <Modal
-        visible={currentCelebration?.type === 'ADVENTURE_COMPLETE'}
-        animationType="fade"
-        presentationStyle="fullScreen"
-        statusBarTranslucent
-      >
-        {currentCelebration?.type === 'ADVENTURE_COMPLETE' && (
-          <AdventureCompleteScreen
-            adventureTitle={currentCelebration.adventureTitle}
-            adventureSubtitle={currentCelebration.adventureSubtitle}
-            adventureDescription={currentCelebration.adventureDescription}
-            backgroundImage={currentCelebration.backgroundImage}
-            completedModules={currentCelebration.completedModules}
-            totalModules={currentCelebration.totalModules}
-            totalXP={currentCelebration.totalXP}
-            totalBadges={currentCelebration.totalBadges}
-            onContinue={dismissCurrent}
-            onClose={dismissCurrent}
-          />
-        )}
-      </Modal>
-
-      {/* Achievement Unlock Modal */}
-      {currentCelebration?.type === 'ACHIEVEMENT' && (
-        <AchievementUnlockAnimation
-          visible={true}
-          achievement={currentCelebration.achievement}
-          onDismiss={dismissCurrent}
-        />
-      )}
     </GamificationOrchestratorContext.Provider>
   );
 }
@@ -1199,5 +1139,5 @@ export function useGamificationOrchestrator(): GamificationOrchestratorContextTy
 // EXPORTS
 // ============================================================
 
-export { checkXPMilestone, checkStreakMilestone, calculateStreakBonus, ACHIEVEMENTS };
-export type { CelebrationItem, XPMilestoneCelebration, AdventureCompleteCelebration, StreakMilestoneCelebration, AchievementCelebration };
+export { ACHIEVEMENTS, calculateStreakBonus, checkStreakMilestone, checkXPMilestone };
+

@@ -1,29 +1,35 @@
 // AchievementGrid.tsx - Achievement display components
 // Contains: AchievementDetailModal (detail view) and AchievementUnlockAnimation (celebration)
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import type { Achievement } from '@/gamification/engines/GamificationOrchestrator';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { GrayscaleImage } from './GrayscaleImage';
+
+// Dynamic card width for responsive design
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 328); // 90% of screen width, max 328
 
 // ============================================================
 // SHARED UTILITIES
 // ============================================================
 
-const getRarityColor = (rarity: Achievement['rarity']) => {
-  switch (rarity) {
-    case 'common': return '#95A5A6';
-    case 'rare': return '#3498DB';
-    case 'epic': return '#9B59B6';
-    case 'legendary': return '#F39C12';
-    default: return '#95A5A6';
-  }
-};
+// const getRarityColor = (rarity: Achievement['rarity']) => {
+//   switch (rarity) {
+//     case 'common': return '#95A5A6';
+//     case 'rare': return '#3498DB';
+//     case 'epic': return '#9B59B6';
+//     case 'legendary': return '#F39C12';
+//     default: return '#95A5A6';
+//   }
+// };
 
-const getRarityLabel = (rarity: Achievement['rarity']) => {
-  return rarity.charAt(0).toUpperCase() + rarity.slice(1);
-};
+// const getRarityLabel = (rarity: Achievement['rarity']) => {
+//   return rarity.charAt(0).toUpperCase() + rarity.slice(1);
+// };
 
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
@@ -32,6 +38,196 @@ const formatDate = (isoString: string) => {
     day: 'numeric',
     year: 'numeric'
   });
+};
+
+// Lighten a hex color by a percentage (0-1)
+const lightenColor = (hex: string, percent: number): string => {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.min(255, Math.floor((num >> 16) + (255 - (num >> 16)) * percent));
+  const g = Math.min(255, Math.floor(((num >> 8) & 0x00FF) + (255 - ((num >> 8) & 0x00FF)) * percent));
+  const b = Math.min(255, Math.floor((num & 0x0000FF) + (255 - (num & 0x0000FF)) * percent));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+};
+
+// Generate consistent color from 4-color palette based on achievement ID
+const getAchievementGradientColor = (achievementId: string): string => {
+  const colors = ['#ADB84B', '#FFD162', '#F9AE4A', '#A3D9FA'];
+
+  // Simple hash: sum of character codes for deterministic randomness
+  const hash = achievementId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+  return colors[hash % colors.length];
+};
+
+// Render badge component (shared across modals)
+const renderAchievementBadge = (
+  type: 'unlocked' | 'locked' | 'date',
+  text: string,
+  styles: { badge: any; badgeText: any },
+  icon?: keyof typeof Ionicons.glyphMap,
+  additionalStyle?: any
+) => {
+  const bgColor = type === 'unlocked'
+    ? ArchivesTheme.colors.mossGreen
+    : ArchivesTheme.colors.persianOrange;
+
+  return (
+    <View style={[styles.badge, { backgroundColor: bgColor }, additionalStyle]}>
+      {icon && <Ionicons name={icon} size={18} color="white" />}
+      <Text style={styles.badgeText}>{text}</Text>
+    </View>
+  );
+};
+
+// Render close button component (shared across modals)
+const renderModalCloseButton = (
+  onPress: () => void,
+  styles: { closeButton: any; closeButtonInner: any },
+  withHaptics: boolean = false
+) => {
+  const handlePress = () => {
+    if (withHaptics) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.closeButton}
+      onPress={handlePress}
+      activeOpacity={0.8}
+    >
+      <View style={styles.closeButtonInner}>
+        <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// Render progress bar component (shared, currently used in detail modal)
+const renderAchievementProgressBar = (
+  progress: number,
+  styles: { progressContainer: any; progressLabel: any; progressBar: any; progressFill: any },
+  color: string = ArchivesTheme.colors.mossGreen
+) => {
+  return (
+    <View style={styles.progressContainer}>
+      <Text style={styles.progressLabel}>{Math.round(progress)}%</Text>
+      <View style={styles.progressBar}>
+        <View style={[
+          styles.progressFill,
+          { width: `${progress}%`, backgroundColor: color }
+        ]} />
+      </View>
+    </View>
+  );
+};
+
+// Render achievement title and description (shared across modals)
+const renderAchievementText = (
+  title: string,
+  description: string,
+  styles: { achievementName: any; description: any },
+  isLocked: boolean = false
+) => {
+  return (
+    <>
+      {/* Achievement Title */}
+      <Text style={[
+        styles.achievementName,
+        isLocked && { color: '#C3C3C3' }
+      ]}>
+        {title}
+      </Text>
+
+      {/* Description */}
+      <Text style={[
+        styles.description,
+        isLocked && { color: '#C3C3C3' }
+      ]}>
+        {description}
+      </Text>
+    </>
+  );
+};
+
+// Render achievement card with image and gradient (shared across modals)
+const renderAchievementCard = (
+  achievement: Achievement,
+  isUnlocked: boolean,
+  gradientColors: readonly [string, string],
+  gradientConfig: { start: { x: number; y: number }; end: { x: number; y: number }; locations: [number, number] },
+  styles: { cardContainer: any; imageWrapper: any; achievementImage: any; card: any },
+  imageConfig: { useGrayscale: boolean; width?: number; height?: number },
+  children: React.ReactNode
+) => {
+  return (
+    <View style={styles.cardContainer}>
+      {/* Achievement Image - Overlapping card top */}
+      <View style={styles.imageWrapper}>
+        {imageConfig.useGrayscale ? (
+          <GrayscaleImage
+            source={achievement.image || require('@/assets/images/quiz-images/Camel.png')}
+            style={styles.achievementImage}
+            width={imageConfig.width || 234}
+            height={imageConfig.height || 234}
+            resizeMode="contain"
+            grayscale={!isUnlocked}
+          />
+        ) : (
+          <Image
+            source={achievement.image || require('@/assets/images/quiz-images/Camel.png')}
+            style={styles.achievementImage}
+            width={imageConfig.width || 234}
+            height={imageConfig.height || 234}
+            resizeMode="contain"
+          />
+        )}
+      </View>
+
+      {/* Gradient Card */}
+      <LinearGradient
+        colors={gradientColors}
+        start={gradientConfig.start}
+        end={gradientConfig.end}
+        locations={gradientConfig.locations}
+        style={styles.card}
+      >
+        {children}
+      </LinearGradient>
+    </View>
+  );
+};
+
+// Render modal wrapper with dark overlay (shared across modals)
+const renderAchievementModalWrapper = (
+  visible: boolean,
+  onRequestClose: () => void,
+  containerStyle: any,
+  children: React.ReactNode,
+  backdropProps?: { style: any; onPress: () => void }
+) => {
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      onRequestClose={onRequestClose}
+    >
+      <View style={containerStyle}>
+        {backdropProps && (
+          <TouchableOpacity
+            style={backdropProps.style}
+            activeOpacity={1}
+            onPress={backdropProps.onPress}
+          />
+        )}
+        {children}
+      </View>
+    </Modal>
+  );
 };
 
 // ============================================================
@@ -69,94 +265,58 @@ export function AchievementDetailModal({
     }
   }, [visible, achievement]);
 
-  if (!visible || !achievement) return null;
+  // Don't render content if no achievement selected, but keep Modal mounted
+  if (!achievement) return null;
 
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <View style={detailStyles.overlay}>
-        <TouchableOpacity style={detailStyles.backdrop} activeOpacity={1} onPress={onClose} />
+  // Dynamic gradient: colored when unlocked, grey when locked
+  const baseColor = getAchievementGradientColor(achievement.id);
+  const lightColor = achievement.unlocked
+    ? lightenColor(baseColor, 0.6)
+    : '#b4b4b4ff'; // Lighter grey for locked (decreased grayscale intensity)
+  const gradientColors: readonly [string, string] = [lightColor, '#FFFFFF'];
 
-        <Animated.View style={[detailStyles.card, { transform: [{ scale: scaleAnim }] }]}>
-          {/* Close button */}
-          <TouchableOpacity style={detailStyles.closeButton} onPress={onClose}>
-            <Ionicons name="close-circle" size={32} color={ArchivesTheme.colors.mutedNavy} />
-          </TouchableOpacity>
+  return renderAchievementModalWrapper(
+    visible,
+    onClose,
+    unlockStyles.container,
+    <>
+      {/* Close Button - Top Right */}
+      {renderModalCloseButton(onClose, detailStyles)}
 
-          {/* Rarity badge */}
-          <View style={[detailStyles.rarityBadge, { backgroundColor: getRarityColor(achievement.rarity) }]}>
-            <Text style={detailStyles.rarityText}>{getRarityLabel(achievement.rarity)}</Text>
-          </View>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          {renderAchievementCard(
+            achievement,
+            achievement.unlocked,
+            gradientColors,
+            {
+              start: { x: 0.70, y: 0.04 },
+              end: { x: 0.30, y: 0.96 },
+              locations: [0.027, 0.393]
+            },
+            unlockStyles,
+            { useGrayscale: true, width: 195, height: 195 },
+            <>
+              {renderAchievementText(achievement.name, achievement.description, unlockStyles, !achievement.unlocked)}
 
-          {/* Achievement icon */}
-          <View style={detailStyles.iconWrapper}>
-            <View style={[
-              detailStyles.iconContainer,
-              { backgroundColor: achievement.unlocked ? achievement.color : '#E0E0E0' }
-            ]}>
-              <Ionicons
-                name={achievement.icon as any}
-                size={64}
-                color={achievement.unlocked ? 'white' : '#95A5A6'}
-              />
-            </View>
-          </View>
-
-          {/* Achievement name */}
-          <Text style={[
-            detailStyles.achievementName,
-            !achievement.unlocked && detailStyles.lockedText
-          ]}>
-            {achievement.name}
-          </Text>
-
-          {/* Description */}
-          <Text style={detailStyles.description}>{achievement.description}</Text>
-
-          {/* Unlock status */}
-          {achievement.unlocked ? (
-            <View style={detailStyles.statusContainer}>
-              <View style={detailStyles.unlockedBadge}>
-                <Ionicons name="checkmark-circle" size={20} color="#27AE60" />
-                <Text style={detailStyles.unlockedText}>Unlocked</Text>
-              </View>
-              {achievement.unlockedAt && (
-                <Text style={detailStyles.dateText}>
-                  {formatDate(achievement.unlockedAt)}
-                </Text>
-              )}
-            </View>
-          ) : (
-            <View style={detailStyles.statusContainer}>
-              <View style={detailStyles.lockedBadge}>
-                <Ionicons name="lock-closed" size={16} color="#95A5A6" />
-                <Text style={detailStyles.lockedStatusText}>Locked</Text>
-              </View>
-              <View style={detailStyles.progressContainer}>
-                <View style={detailStyles.progressBar}>
-                  <View style={[
-                    detailStyles.progressFill,
-                    { width: `${progress}%`, backgroundColor: achievement.color }
-                  ]} />
+              {/* Status Badge and Progress */}
+              {achievement.unlocked ? (
+                <View style={unlockStyles.badgesRow}>
+                  {renderAchievementBadge('unlocked', 'Unlocked', unlockStyles, 'checkmark-circle')}
+                  {achievement.unlockedAt && renderAchievementBadge('date', formatDate(achievement.unlockedAt), unlockStyles)}
                 </View>
-                <Text style={detailStyles.progressText}>{Math.round(progress)}% complete</Text>
-              </View>
-            </View>
+              ) : (
+                <View style={unlockStyles.lockedContainer}>
+                  {/* Locked badge on its own line */}
+                  {renderAchievementBadge('locked', 'Locked', unlockStyles, 'lock-closed', { alignSelf: 'flex-start' })}
+                  {/* Progress section - full width */}
+                  {/* {renderAchievementProgressBar(progress, unlockStyles)} */}
+                </View>
+              )}
+            </>
           )}
-
-          {/* Category badge */}
-          <View style={detailStyles.categoryBadge}>
-            <Text style={detailStyles.categoryText}>
-              {achievement.category === 'quiz' && '🎯 Quiz'}
-              {achievement.category === 'streak' && '🔥 Streak'}
-              {achievement.category === 'speed' && '⚡ Speed'}
-              {achievement.category === 'completion' && '📚 Completion'}
-              {achievement.category === 'time' && '🌙 Time-based'}
-              {achievement.category === 'perfectionist' && '💯 Perfectionist'}
-            </Text>
-          </View>
         </Animated.View>
-      </View>
-    </Modal>
+      </>,
+    { style: unlockStyles.backdrop, onPress: onClose }
   );
 }
 
@@ -167,23 +327,18 @@ export function AchievementDetailModal({
 
 interface AchievementUnlockAnimationProps {
   visible: boolean;
-  achievement: Achievement;
+  achievement: Achievement & { unlockedAt?: string };
   onDismiss: () => void;
+  autoDismiss?: boolean; // If true, auto-dismiss after 3s (for unlock flow). If false, user must close manually (for profile)
 }
 
 export function AchievementUnlockAnimation({
   visible,
   achievement,
-  onDismiss
+  onDismiss,
+  autoDismiss = true // Default: auto-dismiss for unlock flow
 }: AchievementUnlockAnimationProps) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
-
-  const handleClose = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onDismiss();
-  };
 
   useEffect(() => {
     if (visible) {
@@ -198,105 +353,55 @@ export function AchievementUnlockAnimation({
         friction: 7,
       }).start();
 
-      // Rotate animation for particles
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }).start();
-
-      // Glow pulse animation
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(glowAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-
-      // Auto-dismiss after 3 seconds
-      const timer = setTimeout(onDismiss, 3000);
-      return () => clearTimeout(timer);
+      // Auto-dismiss after 5 seconds (only if autoDismiss is true)
+      if (autoDismiss) {
+        const timer = setTimeout(onDismiss, 5000);
+        return () => clearTimeout(timer);
+      }
     } else {
       scaleAnim.setValue(0);
-      rotateAnim.setValue(0);
-      glowAnim.setValue(0);
     }
-  }, [visible, onDismiss]);
+  }, [visible, onDismiss, autoDismiss]);
 
-  if (!visible) return null;
+  // Dynamic gradient based on achievement color
+  const baseColor = getAchievementGradientColor(achievement.id);
+  const lightColor = lightenColor(baseColor, 0.6); // 60% lighter
+  const gradientColors: readonly [string, string] = [lightColor, '#FFFFFF'];
 
-  const rotate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  return renderAchievementModalWrapper(
+    visible,
+    onDismiss,
+    unlockStyles.container,
+    <>
+      {/* Close Button - Top Right */}
+      {renderModalCloseButton(onDismiss, unlockStyles, true)}
 
-  const glowOpacity = glowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 0.8],
-  });
+      {/* Main Card with Gradient */}
+        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          {renderAchievementCard(
+            achievement,
+            true, // Always unlocked in unlock animation
+            gradientColors,
+            {
+              start: { x: 1, y: .15 },
+              end: { x: .90, y: .60 },
+              locations: [0.25, 0.75]
+            },
+            unlockStyles,
+            { useGrayscale: false, width: 195, height: 195 },
+            <>
+              {renderAchievementText(achievement.name, achievement.description, unlockStyles)}
 
-  return (
-    <Modal transparent visible={visible} animationType="fade">
-      <View style={unlockStyles.container}>
-        {/* Animated particles */}
-        {[...Array(15)].map((_, i) => (
-          <Animated.View
-            key={i}
-            style={[
-              unlockStyles.particle,
-              {
-                left: `${(i * 7) % 100}%`,
-                top: `${(i * 11) % 100}%`,
-                opacity: scaleAnim,
-                transform: [{ rotate }],
-              },
-            ]}
-          >
-            <Ionicons
-              name={i % 2 === 0 ? 'star' : 'sparkles'}
-              size={16}
-              color={achievement.color}
-            />
-          </Animated.View>
-        ))}
-
-        <Animated.View style={[unlockStyles.card, { transform: [{ scale: scaleAnim }] }]}>
-          {/* Close Button */}
-          <TouchableOpacity
-            style={unlockStyles.closeButton}
-            onPress={handleClose}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
-          </TouchableOpacity>
-
-          {/* Rarity badge */}
-          <View style={[unlockStyles.rarityBadge, { backgroundColor: getRarityColor(achievement.rarity) }]}>
-            <Text style={unlockStyles.rarityText}>{getRarityLabel(achievement.rarity)}</Text>
-          </View>
-
-          {/* Achievement icon with glow */}
-          <View style={unlockStyles.iconWrapper}>
-            <Animated.View style={[unlockStyles.iconGlow, { backgroundColor: achievement.color, opacity: glowOpacity }]} />
-            <View style={[unlockStyles.iconContainer, { backgroundColor: achievement.color }]}>
-              <Ionicons name={achievement.icon as any} size={48} color="white" />
-            </View>
-          </View>
-
-          <Text style={unlockStyles.title}>Achievement Unlocked!</Text>
-          <Text style={unlockStyles.achievementName}>{achievement.name}</Text>
-          <Text style={unlockStyles.description}>{achievement.description}</Text>
+              {/* Bottom Badges Row */}
+              <View style={unlockStyles.badgesRow}>
+                {renderAchievementBadge('unlocked', 'Unlocked', unlockStyles, 'checkmark-circle')}
+                {renderAchievementBadge('date', formatDate(achievement.unlockedAt || new Date().toISOString()), unlockStyles)}
+              </View>
+            </>
+          )}
         </Animated.View>
-      </View>
-    </Modal>
+      </>,
+    { style: unlockStyles.backdrop, onPress: onDismiss }
   );
 }
 
@@ -307,16 +412,54 @@ export function AchievementUnlockAnimation({
 export default AchievementDetailModal;
 
 // ============================================================
-// STYLES - Detail Modal
+// STYLES - Close Button (used by detail modal)
 // ============================================================
 
 const detailStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+  closeButton: {
+    position: 'absolute',
+    top: 140, // Moved down to be near card top, not above image
+    right: 28,
+    zIndex: 100,
+  },
+  closeButtonInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    ...ArchivesTheme.shadows.small,
+  },
+});
+
+// ============================================================
+// STYLES - Unlock Animation (New Figma Design)
+// ============================================================
+
+const unlockStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',  // Increased from 0.7 to 0.85 (85% opacity)
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: ArchivesTheme.spacing.lg,
+    zIndex: 2000,  // Ensure modal appears above All Achievements sheet
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 140, // Moved down to be near card top, not above image
+    right: 28,
+    zIndex: 100,
+  },
+  closeButtonInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...ArchivesTheme.shadows.small,
   },
   backdrop: {
     position: 'absolute',
@@ -324,261 +467,103 @@ const detailStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 1,
   },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 24,
-    padding: 32,
+  cardContainer: {
     alignItems: 'center',
-    width: '100%',
-    maxWidth: 360,
-    shadowColor: 'black',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
+    width: CARD_WIDTH,
     zIndex: 10,
   },
-  rarityBadge: {
+  imageWrapper: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  rarityText: {
-    fontFamily: 'DM Sans',
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: 'white',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  iconWrapper: {
-    position: 'relative',
-    justifyContent: 'center',
+    top: -130,
+    zIndex: 10,
+    right: 20,
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 10,
   },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: 'black',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 1,
+  achievementImage: {
+    width: 195, // Increased from 190
+    height: 195, // Increased from 184
+  },
+  card: {
+    width: CARD_WIDTH,
+    minHeight: 222, // Changed from fixed height to minHeight for dynamic content
+    borderRadius: 25,
+    paddingTop: 90, // Reduced from 120 to close gap between image and text
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    alignItems: 'flex-start', // Left align content to match text alignment
+    ...ArchivesTheme.shadows.medium,
   },
   achievementName: {
     fontFamily: 'DM Sans',
-    fontSize: 26,
-    fontWeight: 'bold',
+    fontSize: 35,
+    fontWeight: '700', // Bold (700)
     color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  lockedText: {
-    color: '#95A5A6',
+    textAlign: 'left', // Left align per Figma
+    lineHeight: 37.5, // 90% of 35px
+    // marginBottom: 5,
   },
   description: {
     fontFamily: 'DM Sans',
-    fontSize: 15,
-    color: ArchivesTheme.colors.shoeBrown,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  statusContainer: {
-    width: '100%',
-    alignItems: 'center',
+    fontSize: 16,
+    fontWeight: '600', // SemiBold (600)
+    color: ArchivesTheme.colors.persianOrange,
+    textAlign: 'left', // Left align per Figma
+    lineHeight: 30, // Figma spec: 35px line height
     marginBottom: 16,
   },
-  unlockedBadge: {
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap', // Allow badges to wrap on smaller screens
+    gap: 12,
+    alignItems: 'center',
+  },
+  badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F8F0',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    gap: 6,
-    marginBottom: 8,
+    gap: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 17,
+    height: 30,
   },
-  unlockedText: {
+  badgeText: {
     fontFamily: 'DM Sans',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#27AE60',
+    color: '#FFFFFF',
   },
-  dateText: {
+  lockedContainer: {
+    width: '100%',
+    gap: 8,
+  },
+  progressLabel: {
     fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: ArchivesTheme.colors.shoeBrown,
-    opacity: 0.7,
-  },
-  lockedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    gap: 6,
-    marginBottom: 12,
-  },
-  lockedStatusText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#95A5A6',
+    fontSize: 16,
+    fontWeight: '700',
+    color: ArchivesTheme.colors.mossGreen,
+    textAlign: 'right',
+    width: '100%',
+    marginBottom: 4,
   },
   progressContainer: {
     width: '100%',
-    alignItems: 'center',
   },
   progressBar: {
     width: '100%',
-    height: 8,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
+    height: 4,
+    backgroundColor: '#C3C3C3',
+    borderRadius: 12.5,
+    overflow: 'visible',
+    position: 'relative',
+    justifyContent: 'center',
   },
   progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.shoeBrown,
-  },
-  categoryBadge: {
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  categoryText: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.shoeBrown,
-  },
-});
-
-// ============================================================
-// STYLES - Unlock Animation
-// ============================================================
-
-const unlockStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButton: {
+    height: 8,
+    borderRadius: 12.5,
     position: 'absolute',
-    top: 16,
-    left: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  particle: {
-    position: 'absolute',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 24,
-    padding: 32,
-    alignItems: 'center',
-    width: '85%',
-    maxWidth: 340,
-  },
-  rarityBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  rarityText: {
-    fontFamily: 'DM Sans',
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: 'white',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  iconWrapper: {
-    position: 'relative',
-    width: 120,
-    height: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  iconGlow: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  iconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: 'black',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  title: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 8,
-  },
-  achievementName: {
-    fontFamily: 'DM Sans',
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.persianOrange,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  description: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
-    textAlign: 'center',
-    lineHeight: 20,
+    top: -2,
+    left: -7,
   },
 });

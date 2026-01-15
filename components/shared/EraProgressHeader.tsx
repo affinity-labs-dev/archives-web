@@ -2,11 +2,11 @@
 // Displays era name, progress bar with percentage, streak days, and XP
 // Progress calculated based on quiz correct answers
 
-import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Svg, { Rect, Defs, Filter, FeGaussianBlur, FeFlood, FeComposite, FeMerge, FeMergeNode, Path } from 'react-native-svg';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useGamificationOrchestrator } from '@/gamification';
+import React from 'react';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, FeComposite, FeFlood, FeGaussianBlur, FeMerge, FeMergeNode, Filter, Path, Rect } from 'react-native-svg';
 
 // Streak icon (flame)
 const StreakIcon = ({ size = 14 }: { size?: number }) => (
@@ -62,6 +62,10 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
 
   return (
     <View style={[styles.progressWrapper, { paddingLeft: containerPadding, paddingRight: containerPadding }]}>
+      {/* Layered card effect: Shoe brown background layer offset to bottom-right */}
+      <View style={styles.cardShadowLayer} />
+
+      {/* Orange card on top */}
       <View style={styles.progressCard}>
         {/* Left side: Era name + progress bar */}
         <View style={styles.leftContent}>
@@ -139,6 +143,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingTop: 77, // Status bar space when sticky
     backgroundColor: ArchivesTheme.colors.creamWhite,
+    position: 'relative',
+  },
+  cardShadowLayer: {
+    position: 'absolute',
+    top: 80,  // paddingTop (77) + offset (3px down)
+    left: 15,  // Aligned with orange card
+    right: 15,  // Aligned with orange card
+    height: 63,
+    backgroundColor: ArchivesTheme.colors.shoeBrown,
+    borderRadius: 14,
   },
   progressCard: {
     height: 63,
@@ -149,6 +163,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'relative',
+    zIndex: 1,  // Ensure orange card is on top
   },
   leftContent: {
     flex: 1,
