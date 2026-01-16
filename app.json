@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "126",
+      "buildNumber": "127",
       "associatedDomains": [
         "applinks:link.archiveszone.app"
       ],
@@ -164,9 +164,9 @@
             "pushNotification": {
               "useRichPush": true,
               "showPushAppInForeground": true,
-              "disableNotificationRegistration": true,
+              "disableNotificationRegistration": false,
               "env": {
-                "cdpApiKey": "a960d22ebf668571284c",
+                "cdpApiKey": "66b0dacc49da56e717f5",
                 "region": "eu"
               }
             }
