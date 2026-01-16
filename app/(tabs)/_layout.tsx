@@ -8,8 +8,8 @@ import SubscribeIcon from '@/components/icons/SubscribeIcon'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs'
 import { Tabs } from 'expo-router'
-import React from 'react'
-import { Platform } from 'react-native'
+import React, { useEffect } from 'react'
+import { Platform, BackHandler } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // Use native bottom tabs only on iOS, fallback to Expo Router tabs on other platforms
@@ -68,6 +68,18 @@ const getScreenOptions = (bottomInset: number): BottomTabNavigationOptions => ({
 export default function TabLayout() {
   // Get safe area insets for dynamic tab bar padding
   const insets = useSafeAreaInsets()
+
+  // Prevent Android back button from going back to onboarding/auth
+  useEffect(() => {
+    if (Platform.OS !== 'android') return
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Return true to prevent default back behavior
+      return true
+    })
+
+    return () => backHandler.remove()
+  }, [])
 
   // Use native tabs on iOS for automatic floating behavior, standard tabs elsewhere
   const TabComponent = useNativeTabs && NativeBottomTabs ? NativeBottomTabs : Tabs

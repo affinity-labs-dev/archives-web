@@ -4,7 +4,8 @@
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { usePreferences } from '@/context/PreferencesContext'
 import { useGamificationOrchestrator, useGamifiedProgress, useRewards } from '@/gamification'
-import { AchievementDetailModal } from '@/gamification/ui/achievement/AchievementGrid'
+import { AchievementDetailModal, AchievementUnlockAnimation } from '@/gamification/ui/achievement/AchievementGrid'
+import { GrayscaleImage } from '@/gamification/ui/achievement/GrayscaleImage'
 import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen'
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen'
 import GameHub from '@/gamification/ui/games/GameHub'
@@ -44,9 +45,19 @@ const BADGE_IMAGE_MAP: Record<string, any> = {
   'ACH_EarnedXP_2.png': require('@/assets/images/badges/ACH_EarnedXP_2.png'),
   'ACH_EarnedXP_3.png': require('@/assets/images/badges/ACH_EarnedXP_3.png'),
   'ACH_EarnedXP_4.png': require('@/assets/images/badges/ACH_EarnedXP_4.png'),
-  'ACH_MonthlyActive_1.png': require('@/assets/images/badges/ACH_MonthlyActive_1.png'),
-  'ACH_MonthlyActive_2.png': require('@/assets/images/badges/ACH_MonthlyActive_2.png'),
-  'ACH_MonthlyActive_3.png': require('@/assets/images/badges/ACH_MonthlyActive_3.png'),
+  // Monthly badges: 1-9 use quiz images, 10-12 use original Oct/Nov/Dec badges
+  'ACH_MonthlyActive_1.png': require('@/assets/images/quiz-images/Map.png'),
+  'ACH_MonthlyActive_2.png': require('@/assets/images/quiz-images/engineers.png'),
+  'ACH_MonthlyActive_3.png': require('@/assets/images/quiz-images/explorer.png'),
+  'ACH_MonthlyActive_4.png': require('@/assets/images/quiz-images/mosque.png'),
+  'ACH_MonthlyActive_5.png': require('@/assets/images/quiz-images/navigation.png'),
+  'ACH_MonthlyActive_6.png': require('@/assets/images/quiz-images/scroll.png'),
+  'ACH_MonthlyActive_7.png': require('@/assets/images/quiz-images/token.png'),
+  'ACH_MonthlyActive_8.png': require('@/assets/images/quiz-images/writer.png'),
+  'ACH_MonthlyActive_9.png': require('@/assets/images/quiz-images/Bilingual.png'),
+  'ACH_MonthlyActive_10.png': require('@/assets/images/quiz-images/ship.png'),
+  'ACH_MonthlyActive_11.png': require('@/assets/images/quiz-images/Reader.png'),
+  'ACH_MonthlyActive_12.png': require('@/assets/images/quiz-images/books.png'),
 }
 
 const getBadgeImage = (imagePath: string) => {
@@ -223,7 +234,10 @@ export default function ProfileTab() {
 
   // Achievement detail modal state
   const [selectedAchievement, setSelectedAchievement] = React.useState<(typeof achievements)[0] | null>(null)
+  const [showUnlockAnimation, setShowUnlockAnimation] = React.useState(false)
+  const [unlockAchievement, setUnlockAchievement] = React.useState<(typeof achievements)[0] | null>(null)
   const [showBadgesModal, setShowBadgesModal] = React.useState(false)
+
 
   // Load Era 2+ progress from AsyncStorage
   const [newUserProgress, setNewUserProgress] = React.useState<NewUserProgress[]>([])
@@ -315,57 +329,52 @@ export default function ProfileTab() {
   const maxThreshold = xpBadges[xpBadges.length - 1]?.unlock_threshold || 1
   const xpProgress = Math.min((totalXP / maxThreshold) * 100, 100)
 
-  // Get monthly badges - Filter by unlock_metric (dynamic) - CHECK BOTH ERA 1 AND ERA 2+
-  const monthlyBadges = badges
-    .filter(b => b.unlock_metric === 'months_active')
-    .map(b => {
-      // Extract level from name (e.g., 'ACH_MonthlyActive_1' → 1)
-      const level = parseInt(b.name.split('_').pop() || '0')
-      // Threshold IS the month number (1-12)
-      const monthNumber = b.unlock_threshold || 0
+  // Monthly badges - Hardcoded (no Supabase dependency)
+  // Order: Oct-Dec (last year) first, then Jan-Sep (current year)
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  const currentYear = new Date().getFullYear()
+  const monthlyBadges = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(month => {
+    // Check if user completed a quiz in this specific month+year
+    // Oct/Nov/Dec = last year, Jan-Sep = current year (dynamic)
+    const badgeYear = month >= 10 ? currentYear - 1 : currentYear
 
-      // Check Era 1 (Umayyad Dynasty) - uses unlockedAt
-      const era1Match = moduleProgress.some(m => {
-        // Check if module has required data: quizScore and unlockedAt
-        if (!m.quizScore || !m.unlockedAt) {
-          return false
-        }
+    const earned = moduleProgress.some(m => {
+      if (!m.quizScore || !m.unlockedAt) return false
+      const completionYear = parseInt(m.unlockedAt.substring(0, 4), 10)
+      const completionMonth = parseInt(m.unlockedAt.substring(5, 7), 10)
+      const matches = completionYear === badgeYear && completionMonth === month
 
-        // Extract month from ISO string (format: "2025-11-09T..." -> month = "11")
-        const monthString = m.unlockedAt.substring(5, 7)
-        const completionMonth = parseInt(monthString, 10)
-
-        const isMatch = completionMonth === monthNumber
-
-        return isMatch
-      })
-
-      // Check Era 2+ (Rise of Islam) - uses completedAt
-      const era2Match = newUserProgress.some(m => {
-        // Check if module has required data: quizCompleted and completedAt
-        if (!m.quizCompleted || !m.completedAt) {
-          return false
-        }
-
-        // Extract month from ISO string (format: "2025-11-09T..." -> month = "11")
-        const monthString = m.completedAt.substring(5, 7)
-        const completionMonth = parseInt(monthString, 10)
-
-        const isMatch = completionMonth === monthNumber
-
-        return isMatch
-      })
-
-      const earned = era1Match || era2Match
-
-      return {
-        ...b,
-        level,
-        earned: earned,
-        imagePath: b.image_url
+      if (matches) {
+        console.log(`✅ Badge ${month} earned! Quiz completed: ${m.unlockedAt}`)
       }
+
+      return matches
     })
-    .sort((a, b) => b.level - a.level) // Descending order (October appears first)
+
+    // Extra check for January - log if earned without any modules
+    if (month === 1 && earned && moduleProgress.length === 0) {
+      console.error('🚨 ISSUE: January badge earned but NO modules in progress!')
+    }
+
+    if (month === 1 || month === 10 || month === 11 || month === 12) {
+      console.log(`📅 Month ${month} badge - Looking for ${badgeYear}-${String(month).padStart(2, '0')}, found: ${earned}`)
+    }
+
+    if (month === 10) {
+      console.log(`📊 All timestamps in moduleProgress:`, moduleProgress.map(m => m.unlockedAt))
+    }
+
+    return {
+      id: `monthly_${month}`,
+      month,
+      display_text: MONTH_NAMES[month - 1],  // Display month name only (no year)
+      imagePath: `ACH_MonthlyActive_${month}.png`,
+      earned,
+      level: month
+    }
+  })
+
+  console.log('📛 [Profile] Monthly badges count:', monthlyBadges.length)
 
   // Profile state - EXACT SwiftUI values
   const [showAvatarModal, setShowAvatarModal] = useState(false)
@@ -659,21 +668,21 @@ export default function ProfileTab() {
         
         {/* Header with Profile Title and Settings Button */}
         <View style={styles.header}>
-          <Text style={styles.profileTitle}>Profile</Text>
+          <Text style={styles.profileTitle} allowFontScaling={false}>Profile</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {/* Temporary test buttons */}
             <TouchableOpacity
               style={styles.testButton}
               onPress={() => setShowXPTest(true)}
             >
-              <Text style={styles.testButtonText}>XP</Text>
+              <Text style={styles.testButtonText} allowFontScaling={false}>XP</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.testButton, adventuresLoading && styles.testButtonDisabled]}
               onPress={() => setShowAdventureTest(true)}
               disabled={adventuresLoading}
             >
-              <Text style={styles.testButtonText}>ADV</Text>
+              <Text style={styles.testButtonText} allowFontScaling={false}>ADV</Text>
             </TouchableOpacity>
             {/* GAME button - Commented out for release */}
             {/* <TouchableOpacity
@@ -713,9 +722,9 @@ export default function ProfileTab() {
             </View>
           </TouchableOpacity>
 
-          <Text style={styles.userName}>{displayName}</Text>
-          <Text style={styles.avatarSubtitle}>{currentAvatar?.display_text} • {currentAvatar?.subtitle}</Text>
-          <Text style={styles.joinedText}>Joined {joinedYear}</Text>
+          <Text style={styles.userName} allowFontScaling={false}>{displayName}</Text>
+          <Text style={styles.avatarSubtitle} allowFontScaling={false}>{currentAvatar?.display_text} • {currentAvatar?.subtitle}</Text>
+          <Text style={styles.joinedText} allowFontScaling={false}>Joined {joinedYear}</Text>
 
         </View>
 
@@ -723,9 +732,9 @@ export default function ProfileTab() {
         <View style={styles.achievementsSection}>
           <View style={styles.moduleAchievementCard}>
             <View style={styles.achievementBadge}>
-              <Text style={styles.achievementNumber}>{modulesFinished}</Text>
+              <Text style={styles.achievementNumber} allowFontScaling={false}>{modulesFinished}</Text>
             </View>
-            <Text style={styles.achievementText}>Modules finished!</Text>
+            <Text style={styles.achievementText} allowFontScaling={false}>Modules finished!</Text>
             <View style={styles.achievementIcons}>
               <Image source={require('@/assets/images/icons/modules-icon.png')} style={styles.largeModuleIcon} />
             </View>
@@ -734,22 +743,24 @@ export default function ProfileTab() {
 
         {/* Monthly Badges - EXACT SwiftUI */}
         <View style={styles.badgesSection}>
-          <Text style={styles.sectionTitle}>Monthly Badges</Text>
+          <Text style={styles.sectionTitle} allowFontScaling={false}>Monthly Badges</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesScroll}>
             {monthlyBadges.map((badge) => {
               return (
                 <View key={badge.id} style={styles.badgeContainer}>
                   <View style={styles.badgeImageContainer}>
-                    <Image
+                    <View style={styles.badgeWhiteBg} />
+                    <GrayscaleImage
                       source={getBadgeImage(badge.imagePath)}
-                      style={[
-                        styles.badgeImage,
-                        !badge.earned && styles.badgeImageGrey
-                      ]}
+                      style={styles.badgeImage}
+                      width={styles.badgeImage.width}
+                      height={styles.badgeImage.height}
+                      resizeMode="contain"
+                      grayscale={!badge.earned}
                     />
                   </View>
                   <View style={badge.earned ? styles.badgeLabelContainerEarned : styles.badgeLabelContainerLocked}>
-                    <Text style={badge.earned ? styles.badgeLabelEarned : styles.badgeLabel}>{badge.display_text}</Text>
+                    <Text style={styles.badgeLabel} allowFontScaling={false}>{badge.display_text}</Text>
                   </View>
                 </View>
               )
@@ -757,83 +768,24 @@ export default function ProfileTab() {
           </ScrollView>
         </View>
 
-        {/* Achievements - Timeline Design */}
-        <View style={styles.achievementsTimelineSection}>
-          <Text style={styles.sectionTitle}>Achievements</Text>
-
-          {/* Horizontal ScrollView containing both Progress Bar and Badges */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.timelineBadgesScroll}
-            contentContainerStyle={styles.timelineScrollContent}
-          >
-            <View style={styles.timelineContainer}>
-              {/* Progress Bar with Nodes */}
-              <View style={styles.timelineProgressContainer}>
-                <View style={[styles.timelineProgressBar, { width: xpBadges.length * 136 - 16 }]}>
-                  <View style={[styles.timelineProgressFill, { width: `${xpProgress}%` }]} />
-
-                  {/* Nodes on progress bar - positioned to align with badge centers */}
-                  {xpBadges.map((badge, index) => {
-                    const badgeWidth = 120 // Badge image width
-                    const badgeMargin = 16 // Margin between badges
-                    const totalBadgeWidth = badgeWidth + badgeMargin // 136px
-                    const progressBarWidth = xpBadges.length * totalBadgeWidth - badgeMargin
-
-                    // Center of each badge: half badge width + (index * total badge width)
-                    const badgeCenterPosition = (badgeWidth / 2) + (index * totalBadgeWidth)
-                    const positionPercentage = (badgeCenterPosition / progressBarWidth) * 100
-
-                    return (
-                      <View
-                        key={badge.id}
-                        style={[
-                          styles.timelineNode,
-                          { left: `${positionPercentage}%` },
-                          badge.earned && styles.timelineNodeEarned
-                        ]}
-                      />
-                    )
-                  })}
-                </View>
-              </View>
-
-              {/* Badge Images Below Timeline */}
-              <View style={styles.timelineBadgesRow}>
-                {xpBadges.map((badge) => (
-                  <View
-                    key={badge.id}
-                    style={styles.timelineBadgeContainer}
-                  >
-                    <Image
-                      source={getBadgeImage(badge.imagePath)}
-                      style={[
-                        styles.timelineBadgeImage,
-                        !badge.earned && styles.timelineBadgeImageLocked
-                      ]}
-                    />
-                  </View>
-                ))}
-              </View>
-            </View>
-          </ScrollView>
-        </View>
 
         {/* Achievements Section */}
         <View style={styles.achievementsSection}>
-          <View style={styles.achievementsHeader}>
-            <Text style={styles.sectionTitle}>Achievements</Text>
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowBadgesModal(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.achievementsCount}>{unlockedCount}/{totalCount}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.achievementsHeader}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // Clear any existing achievement modal states before opening
+              setSelectedAchievement(null);
+              setUnlockAchievement(null);
+              setShowUnlockAnimation(false);
+              setShowBadgesModal(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]} allowFontScaling={false}>Achievements</Text>
+            <Text style={styles.achievementsCount} allowFontScaling={false}>{unlockedCount}/{totalCount}</Text>
+          </TouchableOpacity>
 
           <ScrollView
             horizontal
@@ -848,26 +800,39 @@ export default function ProfileTab() {
                 activeOpacity={0.7}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedAchievement(achievement);
+                  // Clear all states first to prevent showing wrong achievement
+                  setSelectedAchievement(null);
+                  setUnlockAchievement(null);
+                  setShowUnlockAnimation(false);
+
+                  // Then set the correct achievement after a brief delay
+                  setTimeout(() => {
+                    if (achievement.unlocked) {
+                      setUnlockAchievement(achievement);
+                      setShowUnlockAnimation(true);
+                    } else {
+                      setSelectedAchievement(achievement);
+                    }
+                  }, 50);
                 }}
               >
-                <View style={[
-                  styles.achievementIconContainer,
-                  { backgroundColor: achievement.unlocked ? achievement.color : '#E0E0E0' }
-                ]}>
-                  <Ionicons
-                    name={achievement.icon as any}
-                    size={32}
-                    color={achievement.unlocked ? 'white' : '#95A5A6'}
+                <View style={styles.achievementIconContainer}>
+                  <GrayscaleImage
+                    source={achievement.image || require('@/assets/images/quiz-images/Camel.png')}
+                    style={styles.achievementImage}
+                    width={styles.achievementImage.width}
+                    height={styles.achievementImage.height}
+                    resizeMode="contain"
+                    grayscale={!achievement.unlocked}
                   />
                 </View>
                 <Text style={[
                   styles.achievementName,
                   !achievement.unlocked && styles.achievementNameLocked
-                ]}>
+                ]} allowFontScaling={false}>
                   {achievement.name}
                 </Text>
-                {achievement.unlocked ? (
+                {/* {achievement.unlocked ? (
                   <View style={[styles.achievementUnlockedBadge, { backgroundColor: achievement.color }]}>
                     <Ionicons name="checkmark" size={12} color="white" />
                   </View>
@@ -880,7 +845,7 @@ export default function ProfileTab() {
                       ]} />
                     </View>
                   </View>
-                )}
+                )} */}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -888,16 +853,16 @@ export default function ProfileTab() {
 
         {/* Learning Preferences */}
         <View style={styles.preferencesSection}>
-          <Text style={styles.sectionTitle}>Learning Preferences</Text>
+          <Text style={styles.sectionTitle} allowFontScaling={false}>Learning Preferences</Text>
 
           {/* Daily Goal - Locked */}
           <View style={styles.preferenceCard}>
             <View style={styles.preferenceLeft}>
               <MaterialIcons name="schedule" size={24} color={ArchivesTheme.colors.persianOrange} />
-              <Text style={styles.preferenceLabel}>Daily goal</Text>
+              <Text style={styles.preferenceLabel} allowFontScaling={false}>Daily goal</Text>
             </View>
             <View style={styles.preferenceRight}>
-              <Text style={styles.preferenceValue}>10 mins</Text>
+              <Text style={styles.preferenceValue} allowFontScaling={false}>10 mins</Text>
               <MaterialIcons name="lock" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.3} />
             </View>
           </View>
@@ -905,7 +870,7 @@ export default function ProfileTab() {
 
         {/* Sign Out Button */}
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>Sign Out</Text>
+          <Text style={styles.signOutText} allowFontScaling={false}>Sign Out</Text>
         </TouchableOpacity>
         
         <View style={styles.bottomSpacer} />
@@ -931,7 +896,7 @@ export default function ProfileTab() {
               >
                 <Ionicons name="chevron-back" size={28} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Profile</Text>
+              <Text style={styles.modalTitle} allowFontScaling={false}>Profile</Text>
               <View style={styles.closeButtonPlaceholder} />
             </View>
 
@@ -956,7 +921,7 @@ export default function ProfileTab() {
                     >
                       {/* Unlock message above avatar */}
                       {isLocked && (
-                        <Text style={styles.unlockMessage}>{avatar.unlock_condition}</Text>
+                        <Text style={styles.unlockMessage} allowFontScaling={false}>{avatar.unlock_condition}</Text>
                       )}
 
                       <View style={[
@@ -983,11 +948,11 @@ export default function ProfileTab() {
                       <Text style={[
                         styles.avatarGridName,
                         isLocked && styles.avatarGridNameLocked
-                      ]}>{avatar.display_text}</Text>
+                      ]} allowFontScaling={false}>{avatar.display_text}</Text>
                       <Text style={[
                         styles.avatarGridTitle,
                         isLocked && styles.avatarGridTitleLocked
-                      ]}>{avatar.subtitle}</Text>
+                      ]} allowFontScaling={false}>{avatar.subtitle}</Text>
                     </TouchableOpacity>
                   )
                 })}
@@ -1017,7 +982,7 @@ export default function ProfileTab() {
               >
                 <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Settings</Text>
+              <Text style={styles.modalTitle} allowFontScaling={false}>Settings</Text>
               <View style={styles.closeButtonPlaceholder} />
             </View>
 
@@ -1031,8 +996,8 @@ export default function ProfileTab() {
                     <Ionicons name="musical-notes" size={24} color={ArchivesTheme.colors.persianOrange} />
                   </View>
                   <View style={styles.settingsToggleTextContainer}>
-                    <Text style={styles.settingsOptionText}>Background Music</Text>
-                    <Text style={styles.settingsOptionSubtext}>Ambient music during lessons</Text>
+                    <Text style={styles.settingsOptionText} allowFontScaling={false}>Background Music</Text>
+                    <Text style={styles.settingsOptionSubtext} allowFontScaling={false}>Ambient music during lessons</Text>
                   </View>
                   <Switch
                     value={backgroundMusicEnabled}
@@ -1048,8 +1013,8 @@ export default function ProfileTab() {
                     <Ionicons name="volume-high" size={24} color={ArchivesTheme.colors.persianOrange} />
                   </View>
                   <View style={styles.settingsToggleTextContainer}>
-                    <Text style={styles.settingsOptionText}>Sound Effects</Text>
-                    <Text style={styles.settingsOptionSubtext}>Quiz feedback and celebrations</Text>
+                    <Text style={styles.settingsOptionText} allowFontScaling={false}>Sound Effects</Text>
+                    <Text style={styles.settingsOptionSubtext} allowFontScaling={false}>Quiz feedback and celebrations</Text>
                   </View>
                   <Switch
                     value={soundEffectsEnabled}
@@ -1065,8 +1030,8 @@ export default function ProfileTab() {
                     <Ionicons name="phone-portrait" size={24} color={ArchivesTheme.colors.persianOrange} />
                   </View>
                   <View style={styles.settingsToggleTextContainer}>
-                    <Text style={styles.settingsOptionText}>Vibration</Text>
-                    <Text style={styles.settingsOptionSubtext}>Haptic feedback</Text>
+                    <Text style={styles.settingsOptionText} allowFontScaling={false}>Vibration</Text>
+                    <Text style={styles.settingsOptionSubtext} allowFontScaling={false}>Haptic feedback</Text>
                   </View>
                   <Switch
                     value={hapticsEnabled}
@@ -1109,7 +1074,7 @@ export default function ProfileTab() {
                   <View style={styles.settingsOptionIcon}>
                     <Ionicons name="shield-checkmark" size={24} color={ArchivesTheme.colors.persianOrange} />
                   </View>
-                  <Text style={styles.settingsOptionText}>Privacy Policy</Text>
+                  <Text style={styles.settingsOptionText} allowFontScaling={false}>Privacy Policy</Text>
                   <Ionicons name="chevron-forward" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.5} />
                 </TouchableOpacity>
 
@@ -1125,7 +1090,7 @@ export default function ProfileTab() {
                   <View style={styles.settingsOptionIcon}>
                     <Ionicons name="help-circle" size={24} color={ArchivesTheme.colors.persianOrange} />
                   </View>
-                  <Text style={styles.settingsOptionText}>Support</Text>
+                  <Text style={styles.settingsOptionText} allowFontScaling={false}>Support</Text>
                   <Ionicons name="chevron-forward" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.5} />
                 </TouchableOpacity>
 
@@ -1141,7 +1106,7 @@ export default function ProfileTab() {
                   <View style={styles.settingsOptionIcon}>
                     <Ionicons name="chatbubbles" size={24} color={ArchivesTheme.colors.persianOrange} />
                   </View>
-                  <Text style={styles.settingsOptionText}>FAQ</Text>
+                  <Text style={styles.settingsOptionText} allowFontScaling={false}>FAQ</Text>
                   <Ionicons name="chevron-forward" size={20} color={ArchivesTheme.colors.mutedNavy} opacity={0.5} />
                 </TouchableOpacity>
 
@@ -1157,7 +1122,7 @@ export default function ProfileTab() {
                       color={ArchivesTheme.colors.persianOrange} 
                     />
                   </View>
-                  <Text style={styles.settingsOptionText}>
+                  <Text style={styles.settingsOptionText} allowFontScaling={false}>
                     Manage Subscription
                   </Text>
                   <Ionicons 
@@ -1190,10 +1155,10 @@ export default function ProfileTab() {
                     />
                   </View>
                   <Text style={[
-                    styles.settingsOptionText, 
+                    styles.settingsOptionText,
                     styles.settingsOptionDangerText,
                     isDeletingAccount && styles.settingsOptionDisabledText
-                  ]}>
+                  ]} allowFontScaling={false}>
                     {isDeletingAccount ? "Deleting Account..." : "Delete Account"}
                   </Text>
                   <Ionicons 
@@ -1230,13 +1195,13 @@ export default function ProfileTab() {
               >
                 <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Privacy Policy</Text>
+              <Text style={styles.modalTitle} allowFontScaling={false}>Privacy Policy</Text>
               <View style={styles.closeButtonPlaceholder} />
             </View>
 
             {/* Privacy Policy Content */}
             <ScrollView style={styles.privacyContent} showsVerticalScrollIndicator={true}>
-              <Text style={styles.privacyText}>{PRIVACY_POLICY_CONTENT}</Text>
+              <Text style={styles.privacyText} allowFontScaling={false}>{PRIVACY_POLICY_CONTENT}</Text>
             </ScrollView>
           </View>
         </SafeAreaView>
@@ -1262,7 +1227,7 @@ export default function ProfileTab() {
               >
                 <Ionicons name="close" size={24} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>FAQ</Text>
+              <Text style={styles.modalTitle} allowFontScaling={false}>FAQ</Text>
               <View style={styles.closeButtonPlaceholder} />
             </View>
 
@@ -1277,7 +1242,7 @@ export default function ProfileTab() {
                     ]}
                     onPress={() => toggleFAQ(faq.id)}
                   >
-                    <Text style={styles.faqQuestionText}>{faq.question}</Text>
+                    <Text style={styles.faqQuestionText} allowFontScaling={false}>{faq.question}</Text>
                     <View style={[
                       styles.faqToggle,
                       expandedFAQ === faq.id && styles.faqToggleExpanded
@@ -1295,17 +1260,18 @@ export default function ProfileTab() {
                   
                   {expandedFAQ === faq.id && (
                     <View style={styles.faqAnswer}>
-                      <Text style={styles.faqAnswerText}>{faq.answer}</Text>
+                      <Text style={styles.faqAnswerText} allowFontScaling={false}>{faq.answer}</Text>
                     </View>
                   )}
                 </View>
               ))}
               
               <View style={styles.faqFooter}>
-                <Text style={styles.faqFooterText}>
+                <Text style={styles.faqFooterText} allowFontScaling={false}>
                   Have more questions?{' '}
-                  <Text 
+                  <Text
                     style={styles.faqEmailLink}
+                    allowFontScaling={false}
                     onPress={() => {
                       const supportURL = 'https://archiveszone.app/support'
                       Linking.openURL(supportURL).catch(() => {
@@ -1327,7 +1293,12 @@ export default function ProfileTab() {
         visible={showBadgesModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowBadgesModal(false)}
+        onRequestClose={() => {
+          setShowBadgesModal(false);
+          setSelectedAchievement(null);
+          setUnlockAchievement(null);
+          setShowUnlockAnimation(false);
+        }}
       >
         <SafeAreaView style={styles.modalSafeArea}>
           <View style={styles.modalContainer}>
@@ -1338,11 +1309,14 @@ export default function ProfileTab() {
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setShowBadgesModal(false);
+                  setSelectedAchievement(null);
+                  setUnlockAchievement(null);
+                  setShowUnlockAnimation(false);
                 }}
               >
                 <Ionicons name="chevron-back" size={28} color={ArchivesTheme.colors.mutedNavy} />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>All Achievements</Text>
+              <Text style={styles.modalTitle} allowFontScaling={false}>Achievements</Text>
               <View style={styles.closeButtonPlaceholder} />
             </View>
 
@@ -1359,67 +1333,96 @@ export default function ProfileTab() {
                   .map((achievement) => (
                   <TouchableOpacity
                     key={achievement.id}
-                    style={styles.badgeModalItem}
+                    style={styles.badgeModalWrapper}
                     activeOpacity={0.7}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedAchievement(achievement);
-                      setShowBadgesModal(false);
+                      // Clear all states first to prevent showing wrong achievement
+                      setSelectedAchievement(null);
+                      setUnlockAchievement(null);
+                      setShowUnlockAnimation(false);
+
+                      // Then set the correct achievement after a brief delay
+                      setTimeout(() => {
+                        if (achievement.unlocked) {
+                          setUnlockAchievement(achievement);
+                          setShowUnlockAnimation(true);
+                        } else {
+                          setSelectedAchievement(achievement);
+                        }
+                      }, 50);
                     }}
                   >
-                    <View style={[
-                      styles.badgeModalIconContainer,
-                      { backgroundColor: achievement.unlocked ? achievement.color : '#E0E0E0' }
-                    ]}>
-                      <Ionicons
-                        name={achievement.icon as any}
-                        size={40}
-                        color={achievement.unlocked ? 'white' : '#95A5A6'}
+                    <View style={styles.badgeModalIconContainer} pointerEvents="none">
+                      <GrayscaleImage
+                        source={achievement.image || require('@/assets/images/quiz-images/Camel.png')}
+                        style={styles.badgeModalImage}
+                        width={100}
+                        height={100}
+                        resizeMode="contain"
+                        grayscale={!achievement.unlocked}
                       />
                     </View>
-                    <Text style={[
-                      styles.badgeModalName,
-                      !achievement.unlocked && styles.badgeModalNameLocked
-                    ]}>
-                      {achievement.name}
-                    </Text>
-                    <Text style={[
-                      styles.badgeModalDescription,
-                      !achievement.unlocked && styles.badgeModalDescriptionLocked
-                    ]}>
-                      {achievement.description}
-                    </Text>
-                    {achievement.unlocked ? (
-                      <View style={[styles.badgeModalUnlockedBadge, { backgroundColor: achievement.color }]}>
-                        <Ionicons name="checkmark" size={16} color="white" />
-                        <Text style={styles.badgeModalUnlockedText}>Unlocked</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.badgeModalProgressContainer}>
-                        <View style={styles.badgeModalProgressBar}>
-                          <View style={[
-                            styles.badgeModalProgressFill,
-                            { width: `${getProgress(achievement.id)}%`, backgroundColor: achievement.color }
-                          ]} />
-                        </View>
-                        <Text style={styles.badgeModalProgressText}>{Math.round(getProgress(achievement.id))}%</Text>
-                      </View>
-                    )}
+                    <View style={styles.badgeModalItem} pointerEvents="none">
+                      <Text style={[
+                        styles.badgeModalName,
+                        !achievement.unlocked && styles.badgeModalNameLocked
+                      ]} allowFontScaling={false}>
+                        {achievement.name}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
             </ScrollView>
           </View>
+
+          {/* Achievement modals - rendered inside All Achievements grid */}
+          <AchievementDetailModal
+            visible={selectedAchievement !== null}
+            achievement={selectedAchievement}
+            progress={selectedAchievement ? getProgress(selectedAchievement.id) : 0}
+            onClose={() => setSelectedAchievement(null)}
+          />
+
+          {unlockAchievement && (
+            <AchievementUnlockAnimation
+              visible={showUnlockAnimation}
+              achievement={unlockAchievement}
+              autoDismiss={false}
+              onDismiss={() => {
+                setShowUnlockAnimation(false);
+                setUnlockAchievement(null);
+              }}
+            />
+          )}
         </SafeAreaView>
       </Modal>
 
-      {/* Achievement Detail Modal */}
-      <AchievementDetailModal
-        visible={selectedAchievement !== null}
-        achievement={selectedAchievement}
-        progress={selectedAchievement ? getProgress(selectedAchievement.id) : 0}
-        onClose={() => setSelectedAchievement(null)}
-      />
+      {/* Achievement modals - rendered for profile section (when grid is closed) */}
+      {!showBadgesModal && (
+        <>
+          <AchievementDetailModal
+            visible={selectedAchievement !== null}
+            achievement={selectedAchievement}
+            progress={selectedAchievement ? getProgress(selectedAchievement.id) : 0}
+            onClose={() => setSelectedAchievement(null)}
+          />
+
+          {unlockAchievement && (
+            <AchievementUnlockAnimation
+              visible={showUnlockAnimation}
+              achievement={unlockAchievement}
+              autoDismiss={false}
+              onDismiss={() => {
+                setShowUnlockAnimation(false);
+                setUnlockAchievement(null);
+              }}
+            />
+          )}
+        </>
+      )}
+
 
       {/* Temporary Test Screens */}
       {showXPTest && (
@@ -1429,7 +1432,7 @@ export default function ProfileTab() {
             style={{ position: 'absolute', top: 50, right: 20, backgroundColor: 'white', padding: 10, borderRadius: 8 }}
             onPress={() => setShowXPTest(false)}
           >
-            <Text>Close</Text>
+            <Text allowFontScaling={false}>Close</Text>
           </TouchableOpacity>
         </Modal>
       )}
@@ -1466,7 +1469,7 @@ export default function ProfileTab() {
                   borderRadius: 8,
                 }}
               >
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>← Previous</Text>
+                <Text style={{ color: 'white', fontWeight: 'bold' }} allowFontScaling={false}>← Previous</Text>
               </TouchableOpacity>
 
               <View style={{
@@ -1481,7 +1484,7 @@ export default function ProfileTab() {
                   fontSize: 16,
                   fontWeight: '600',
                   color: ArchivesTheme.colors.mutedNavy,
-                }}>
+                }} allowFontScaling={false}>
                   {testAdventureIndex + 1} / {testAdventures.length}
                 </Text>
                 <Text style={{
@@ -1489,7 +1492,7 @@ export default function ProfileTab() {
                   fontSize: 11,
                   fontWeight: '500',
                   color: ArchivesTheme.colors.persianOrange,
-                }}>
+                }} allowFontScaling={false}>
                   {testAdventures[testAdventureIndex]?.era_id || 'Unknown'}
                 </Text>
               </View>
@@ -1504,7 +1507,7 @@ export default function ProfileTab() {
                   borderRadius: 8,
                 }}
               >
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>Next →</Text>
+                <Text style={{ color: 'white', fontWeight: 'bold' }} allowFontScaling={false}>Next →</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1534,6 +1537,7 @@ export default function ProfileTab() {
     </SafeAreaView>
   )
 }
+
 
 // Styles matching EXACT SwiftUI Profile implementation
 const styles = StyleSheet.create({
@@ -1575,18 +1579,13 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   avatarContainer: {
+    ...ArchivesTheme.common.iconContainer,
+    ...ArchivesTheme.common.circularIcon,
     width: 280, // Even bigger circle for more breathing room
     height: 280,
     borderRadius: 140, // Updated border radius to match new size
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 16,
-    // EXACT SwiftUI shadow: .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
     shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
   },
   avatarImage: {
     width: 230, // Increased scale while keeping breathing room
@@ -1595,6 +1594,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   editIconContainer: {
+    ...ArchivesTheme.common.circularIcon,
     position: 'absolute',
     bottom: 50, // Position on circumference (bottom-right edge)
     right: 50,  // Position on circumference (bottom-right edge)
@@ -1602,8 +1602,6 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: ArchivesTheme.colors.persianOrange,
-    alignItems: 'center',
-    justifyContent: 'center',
     shadowColor: 'rgba(0, 0, 0, 0.2)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
@@ -1651,17 +1649,8 @@ const styles = StyleSheet.create({
   
   
   // Sections - EXACT SwiftUI
-  badgesSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 18))
-    fontSize: 18,
-    fontWeight: '600', // .fontWeight(.semibold)
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 16,
-  },
+  badgesSection: ArchivesTheme.common.sectionContainer,
+  sectionTitle: ArchivesTheme.common.sectionTitle,
   
   // Badges - EXACT SwiftUI
   badgesScroll: {
@@ -1673,15 +1662,25 @@ const styles = StyleSheet.create({
     marginRight: 20,
   },
   badgeImageContainer: {
+    ...ArchivesTheme.common.iconContainer,
     width: 140,
     height: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 8,
+    shadowOpacity: 0, // No shadow for badges
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeWhiteBg: {
+    position: 'absolute',
+    width: 120,
+    height: 70,
+    backgroundColor: 'white',
+    borderRadius: 18,
+    bottom: 10,
   },
   badgeImage: {
-    width: 140, // Set to 140
-    height: 140,
+    width: 100,
+    height: 100,
     resizeMode: 'contain',
   },
   badgeImageGrey: {
@@ -1704,43 +1703,30 @@ const styles = StyleSheet.create({
   },
   badgeLabel: {
     fontFamily: 'DM Sans',
-    fontSize: 11,
+    fontSize: 16,
     color: ArchivesTheme.colors.creamWhite,
     fontWeight: '600',
     textAlign: 'center',
   },
-  badgeLabelEarned: {
-    fontFamily: 'DM Sans',
-    fontSize: 11,
-    color: ArchivesTheme.colors.creamWhite,
-    fontWeight: '600',
-  },
   
   // Modules Achievement Card
   moduleAchievementCard: {
+    ...ArchivesTheme.common.whiteCard,
     width: '100%',
     height: 60,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 16,
     paddingVertical: 0,
     paddingLeft: 16,
     paddingRight: 4,
-    shadowColor: 'rgba(0, 0, 0, 0.05)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   achievementBadge: {
+    ...ArchivesTheme.common.circularIcon,
     width: 48,
     height: 48,
     borderRadius: 12,
     backgroundColor: ArchivesTheme.colors.mossGreen,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: 16,
   },
   achievementNumber: {
@@ -1775,10 +1761,7 @@ const styles = StyleSheet.create({
   },
 
   // Achievements Timeline Design - Matching Screenshot
-  achievementsTimelineSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
+  achievementsTimelineSection: ArchivesTheme.common.sectionContainer,
   timelineProgressContainer: {
     marginBottom: 24,
     paddingVertical: 8, // Add vertical padding for node space
@@ -1856,23 +1839,11 @@ const styles = StyleSheet.create({
   
   
   // Learning Preferences Section
-  preferencesSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
+  preferencesSection: ArchivesTheme.common.sectionContainer,
   preferenceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
+    ...ArchivesTheme.common.whiteCard,
+    ...ArchivesTheme.common.rowBetween,
     marginBottom: 12,
-    shadowColor: 'rgba(0, 0, 0, 0.05)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   preferenceLeft: {
     flexDirection: 'row',
@@ -1928,44 +1899,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: ArchivesTheme.colors.mutedNavy + '20',
-    marginBottom: 20,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  modalHeader: ArchivesTheme.common.modalHeader,
+  closeButton: ArchivesTheme.common.closeButton,
   backButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeButtonPlaceholder: {
-    width: 44,
-    height: 44,
-  },
-  modalTitle: {
-    fontFamily: 'Cormorant-Bold',
-    fontSize: 24,
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: 'center',
-  },
+  closeButtonPlaceholder: ArchivesTheme.common.closeButtonPlaceholder,
+  modalTitle: ArchivesTheme.common.modalTitle,
   avatarGrid: {
     flex: 1,
   },
@@ -1981,17 +1924,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   avatarGridImageContainer: {
+    ...ArchivesTheme.common.iconContainer,
+    ...ArchivesTheme.common.circularIcon,
     width: 130, // Increased for more breathing room
     height: 130,
     borderRadius: 65,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
     overflow: 'hidden',
     backgroundColor: 'transparent',
   },
@@ -2028,6 +1966,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   lockIconContainer: {
+    ...ArchivesTheme.common.columnCenter,
     position: 'absolute',
     top: '50%',
     left: '50%',
@@ -2035,8 +1974,6 @@ const styles = StyleSheet.create({
     marginLeft: -16,
     width: 32,
     height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   avatarGridLocked: {
     opacity: 0.5,
@@ -2060,17 +1997,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   settingsOption: {
+    ...ArchivesTheme.common.whiteCard,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 16,
     padding: 15,
     marginBottom: 12,
-    shadowColor: 'rgba(0, 0, 0, 0.05)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   settingsOptionDanger: {
     backgroundColor: '#FFF5F5', // Light red background
@@ -2080,12 +2011,11 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   settingsOptionIcon: {
+    ...ArchivesTheme.common.circularIcon,
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: ArchivesTheme.colors.persianOrange + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: 16,
   },
   settingsOptionText: {
@@ -2102,17 +2032,10 @@ const styles = StyleSheet.create({
     color: '#999', // Gray text for disabled state
   },
   settingsToggleRow: {
+    ...ArchivesTheme.common.whiteCard,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
     marginBottom: 12,
-    shadowColor: 'rgba(0, 0, 0, 0.05)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   settingsToggleTextContainer: {
     flex: 1,
@@ -2182,12 +2105,11 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   faqToggle: {
+    ...ArchivesTheme.common.circularIcon,
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: ArchivesTheme.colors.persianOrange,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   faqToggleExpanded: {
     backgroundColor: ArchivesTheme.colors.persianOrange,
@@ -2254,14 +2176,9 @@ const styles = StyleSheet.create({
   },
 
   // Achievements Section Styles
-  achievementsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
+  achievementsSection: ArchivesTheme.common.sectionContainer,
   achievementsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    ...ArchivesTheme.common.rowBetween,
     marginBottom: 16,
   },
   achievementsCount: {
@@ -2278,26 +2195,27 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
   achievementCard: {
+    ...ArchivesTheme.common.achievementCardBase,
     width: 110,
-    alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'flex-start',  // Keep icons aligned at top regardless of text wrapping
   },
   achievementIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+    ...ArchivesTheme.common.iconContainer,
+    width: 125,
+    height: 125,
+    marginBottom: 8,  // ⭐ Reduced from 8 to decrease space between icon and name
     shadowColor: 'black',
-    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  achievementImage: {
+    width: 100,  // Single source of truth for achievement icon dimensions
+    height: 100,
   },
   achievementName: {
-    fontFamily: 'Cormorant-Bold',
+    fontFamily: 'DM Sans',
     fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 20,
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
     marginBottom: 8,
@@ -2306,11 +2224,10 @@ const styles = StyleSheet.create({
     color: '#95A5A6',
   },
   achievementUnlockedBadge: {
+    ...ArchivesTheme.common.circularIcon,
     width: 24,
     height: 24,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   achievementProgressContainer: {
     width: '100%',
@@ -2331,45 +2248,62 @@ const styles = StyleSheet.create({
   // All Badges Modal Styles
   badgesModalGrid: {
     flex: 1,
+    // overflow removed - ScrollView should clip properly for scrolling
   },
   badgesModalContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 16,
+    justifyContent: 'space-between',  // Force 2 per row with even spacing
+    paddingHorizontal: 12,
+    // paddingTop: 10,  // Add top padding to make space for icons
     paddingBottom: 40,
+    rowGap: 8,
   },
-  badgeModalItem: {
-    width: (screenWidth - 60) / 2,
-    backgroundColor: 'white',
-    borderRadius: 12.5,
-    padding: 16,
+  badgeModalWrapper: {
+    width: '47%',  // Responsive width - always fits 2 per row
+    maxWidth: 152,  // Cap at original size on larger screens
     alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: 'white',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 4.5,
-    elevation: 3,
   },
   badgeModalIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
+    ...ArchivesTheme.common.columnCenter,
+    width: 100,
+    height: 140,
+    zIndex: 10,
+    elevation: 10,
+  },
+  badgeModalItem: {
+    width: '100%',  // Fill the wrapper width (responsive)
+    height: 92,
+    marginTop: -65,  // Pull card up behind the icon
+    backgroundColor: 'white',
+    borderRadius: 20,
+    paddingTop: 50,
+    paddingBottom: 15,  // Reduced from 25 to give text more room
+    paddingHorizontal: 12,
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'flex-end',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 1,
+  },
+  badgeModalImage: {
+    width: 150,
+    height: 180,
   },
   badgeModalName: {
     fontFamily: 'DM Sans',
     fontSize: 14,
     fontWeight: 'bold',
+    // lineHeight: 25,
+    paddingTop: 4,
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
-    marginBottom: 4,
   },
   badgeModalNameLocked: {
-    color: '#95A5A6',
+    color: '#C3C3C3',
   },
   badgeModalDescription: {
     fontFamily: 'DM Sans',
@@ -2399,8 +2333,14 @@ const styles = StyleSheet.create({
   },
   badgeModalProgressContainer: {
     width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  badgeModalProgressBarWrapper: {
+    flex: 1,
+    maxWidth: '75%',
   },
   badgeModalProgressBar: {
     width: '100%',
@@ -2415,9 +2355,11 @@ const styles = StyleSheet.create({
   },
   badgeModalProgressText: {
     fontFamily: 'DM Sans',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#95A5A6',
+    fontSize: 12,
+    fontWeight: '700',
+    color: ArchivesTheme.colors.mutedNavy,
+    width: 40,
+    textAlign: 'left',
   },
 
   // Floating Game Button
@@ -2428,12 +2370,11 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   floatingGameButton: {
+    ...ArchivesTheme.common.circularIcon,
     width: 70,
     height: 70,
     borderRadius: 35,
     backgroundColor: '#C99151', // Persian Orange
-    justifyContent: 'center',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

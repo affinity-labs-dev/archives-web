@@ -389,9 +389,18 @@ ArchivesTheme.colors.shoeBrown      // #4D392E (primary)
 ArchivesTheme.colors.persianOrange  // #C99151 (accent)
 ArchivesTheme.colors.creamWhite     // #F4EBDB (background)
 
-// Components
-ArchivesTheme.components.card       // Pre-styled card
-ArchivesTheme.components.primaryButton  // Orange gradient
+// Components (pre-styled buttons, cards, inputs)
+ArchivesTheme.components.card              // Pre-styled card
+ArchivesTheme.components.primaryButton     // Orange gradient button
+ArchivesTheme.components.secondaryButton   // White button with border
+ArchivesTheme.components.input             // Input field styling
+
+ArchivesTheme.common.whiteCard            // White card with shadow
+ArchivesTheme.common.modalTitle           // Modal header text style
+ArchivesTheme.common.bodyText             // Standard body text
+ArchivesTheme.common.rowBetween           // Flex row space-between
+ArchivesTheme.common.circularIcon         // Circular icon container
+// See ArchivesTheme.ts for full list of common styles
 ```
 
 ## Analytics & Privacy
@@ -477,16 +486,22 @@ console.log('🔔 Notification')    // Push notifications
 
 **Shared:**
 - EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `3.1.0` | Runtime: `1.0.0` | Expo SDK: 54
-- iOS buildNumber: `120` | Android versionCode: `36` (auto-incremented on production builds)
+- App version: `3.4.0` | Runtime: `1.0.0` | Expo SDK: 54
+- iOS buildNumber: `126` | Android versionCode: `40` (auto-incremented on production builds)
 - New Architecture: Enabled (React Native 0.81.5)
 
 ## Important Patterns & Development Context
 
-**Current status:** Branch `mergeversion` | Both platforms LIVE in production
+**Current status:** Branch `feature/achievements` | Both platforms LIVE in production
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus
+- **Achievement system enhancements** - Fixed TypeScript errors, improved popup UX (5s display time, dynamic sizing, better image quality)
+- **CelebrationManager component** - New centralized UI manager for all celebration types (XP milestones, adventure complete, achievements)
+- **iOS/Android gesture management** - Stack navigation gestures disabled globally to prevent swipe back to onboarding, Android back button blocked in tabs
+- **Session-based AI chat** - AI conversations now stored in Supabase with session history for follow-up questions
+- **Women of Islam era** - Onboarding now routes to new era (Era 2)
+- **Account switching fixes** - Progress and achievements properly reset when switching Clerk accounts
 - **Gamification folder restructure** - Reorganized into feature-based architecture:
   - `gamification/engines/` - Core contexts (GamifiedProgress, GamificationOrchestrator, AIContext, RewardsContext)
   - `gamification/services/` - AI and game generation services

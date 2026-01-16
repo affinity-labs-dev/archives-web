@@ -8,13 +8,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeIn, FadeInUp, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
+import { Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Rive, { Alignment, Fit, RiveRef } from 'rive-react-native';
 
 // Import Rive animation from assets (relative path)
-const streakFlame = require('../../../assets/rive/flame.riv');
+const streakFlame = require('../../../assets/rive/flamefinal.riv');
+
+// Import checkmark PNG
+const checkmarkIcon = require('../../../assets/images/streak/check_small.png');
 
 // Week day data structure
 interface WeekDay {
@@ -250,7 +253,7 @@ export default function StreakCelebrationScreen({
                 >
                   {completed ? (
                     <View style={[styles.checkmark, isToday && styles.checkmarkToday]}>
-                      <Text style={styles.checkmarkIcon}>✓</Text>
+                      <Image source={checkmarkIcon} style={styles.checkmarkIcon} />
                     </View>
                   ) : (
                     <View style={styles.emptyCircle} />
@@ -412,9 +415,9 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   checkmarkIcon: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
   },
   emptyCircle: {
     width: 32,

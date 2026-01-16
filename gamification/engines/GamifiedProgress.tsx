@@ -542,6 +542,13 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
               })))
             );
           }
+
+          // CRITICAL: Sync selectedEra back to legacy 'selected_era' key
+          // index.tsx checks this key to determine if onboarding is complete
+          if (cloudData.selectedEra) {
+            await WebCompatibleStorage.setItem(LEGACY_KEYS.SELECTED_ERA, cloudData.selectedEra);
+            console.log('✅ [GamifiedProgress] Synced selectedEra to legacy key:', cloudData.selectedEra);
+          }
         } else {
           // Step 2: Check for legacy data and migrate
           const migratedData = await migrateFromLegacy(user.id, cloudData);
@@ -565,6 +572,12 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
                 quizCompleted: p.quizCompleted,
               })))
             );
+          }
+
+          // CRITICAL: Sync selectedEra back to legacy 'selected_era' key
+          if (migratedData.selectedEra) {
+            await WebCompatibleStorage.setItem(LEGACY_KEYS.SELECTED_ERA, migratedData.selectedEra);
+            console.log('✅ [GamifiedProgress] Synced selectedEra to legacy key (migration):', migratedData.selectedEra);
           }
         }
 

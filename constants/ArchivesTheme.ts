@@ -261,6 +261,139 @@ export const ArchivesTheme = {
     slow: 500,
     easing: 'ease-in-out' as const,
   },
+
+  // Common Component Styles (merged from CommonStyles.ts)
+  // Reusable style patterns used across the app
+  common: {
+    // CARDS
+    whiteCard: {
+      backgroundColor: '#FFFFFF',
+      borderRadius: 16,
+      padding: 16,
+      shadowColor: 'rgba(0, 0, 0, 0.05)',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 1,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    achievementCardBase: {
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginRight: 16,
+    },
+
+    // ICON CONTAINERS
+    iconContainer: {
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+      shadowColor: 'rgba(0, 0, 0, 0.1)',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 1,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    circularIcon: {
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+      borderRadius: 999,
+    },
+
+    // MODALS
+    modalHeader: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      paddingVertical: 10,
+    },
+    modalTitle: {
+      fontFamily: 'DM Sans',
+      fontSize: 20,
+      fontWeight: 'bold' as const,
+      lineHeight: 24,
+      color: '#41425E', // mutedNavy
+      textAlign: 'center' as const,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: '#FFFFFF',
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      shadowColor: 'rgba(0, 0, 0, 0.1)',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    closeButtonPlaceholder: {
+      width: 44,
+      height: 44,
+    },
+
+    // SECTIONS
+    sectionTitle: {
+      fontFamily: 'DM Sans',
+      fontSize: 18,
+      fontWeight: '600' as const,
+      color: '#41425E', // mutedNavy
+      marginBottom: 16,
+    },
+    sectionContainer: {
+      paddingHorizontal: 20,
+      marginBottom: 30,
+    },
+
+    // TEXT STYLES
+    bodyText: {
+      fontFamily: 'DM Sans',
+      fontSize: 16,
+      fontWeight: '500' as const,
+      color: '#41425E', // mutedNavy
+    },
+    labelText: {
+      fontFamily: 'DM Sans',
+      fontSize: 12,
+      fontWeight: '600' as const,
+      color: '#41425E', // mutedNavy
+    },
+    subtitleText: {
+      fontFamily: 'DM Sans',
+      fontSize: 14,
+      color: '#41425E', // mutedNavy
+      opacity: 0.7,
+    },
+
+    // PROGRESS BARS
+    progressBar: {
+      width: '100%' as const,
+      height: 4,
+      backgroundColor: '#E0E0E0',
+      borderRadius: 2,
+      overflow: 'hidden' as const,
+    },
+    progressFill: {
+      height: '100%' as const,
+      borderRadius: 2,
+    },
+
+    // LAYOUT HELPERS
+    rowBetween: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
+    },
+    rowCenter: {
+      flexDirection: 'row' as const,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+    columnCenter: {
+      flexDirection: 'column' as const,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+  },
 }
 
 // Helper functions for theme usage
