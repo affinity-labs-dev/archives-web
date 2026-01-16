@@ -510,7 +510,7 @@ const unlockStyles = StyleSheet.create({
     fontWeight: '600', // SemiBold (600)
     color: ArchivesTheme.colors.persianOrange,
     textAlign: 'left', // Left align per Figma
-    lineHeight: 30, // Figma spec: 35px line height
+    lineHeight: 20, // Reduced from 30 to 20 for tighter multi-line spacing
     marginBottom: 16,
   },
   badgesRow: {

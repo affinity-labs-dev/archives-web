@@ -1704,7 +1704,7 @@ const styles = StyleSheet.create({
   badgeLabel: {
     fontFamily: 'DM Sans',
     fontSize: 16,
-    color: ArchivesTheme.colors.creamWhite,
+    color: '#FFFFFF',
     fontWeight: '600',
     textAlign: 'center',
   },
