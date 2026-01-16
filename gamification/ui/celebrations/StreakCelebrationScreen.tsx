@@ -415,8 +415,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   checkmarkIcon: {
-    width: 20,
-    height: 20,
+    width: 30,
+    height: 30,
     resizeMode: 'contain',
   },
   emptyCircle: {
