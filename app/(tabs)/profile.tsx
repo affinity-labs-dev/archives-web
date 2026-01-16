@@ -229,6 +229,7 @@ export default function ProfileTab() {
     unlockedCount,
     totalCount,
     getProgress,
+    simulateNextDay, // TEST FUNCTION
   } = useGamificationOrchestrator()
 
   // Achievement detail modal state
@@ -1042,6 +1043,24 @@ export default function ProfileTab() {
 
                 {/* Divider */}
                 <View style={styles.settingsDivider} />
+
+                {/* TEST BUTTON - Dev mode only */}
+                {__DEV__ && (
+                  <TouchableOpacity
+                    style={[styles.settingsOption, { backgroundColor: '#FFF9E6' }]}
+                    onPress={async () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                      console.log('🧪 [BUTTON] Test button pressed! Starting streak test...')
+                      await simulateNextDay()
+                    }}
+                  >
+                    <View style={styles.settingsOptionIcon}>
+                      <Ionicons name="flask" size={24} color="#FFA500" />
+                    </View>
+                    <Text style={[styles.settingsOptionText, { color: '#FFA500' }]}>TEST: Simulate Next Day (Increment Streak)</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#FFA500" opacity={0.5} />
+                  </TouchableOpacity>
+                )}
 
                 {/* Privacy Policy */}
                 <TouchableOpacity 

@@ -9,6 +9,9 @@ const config = getSentryExpoConfig(__dirname)
 config.resolver.platforms = ['ios', 'android', 'native', 'web']
 config.resolver.sourceExts = [...config.resolver.sourceExts, 'tsx', 'ts', 'jsx', 'js']
 
+// Add .riv as an asset extension for Rive animations
+config.resolver.assetExts = [...config.resolver.assetExts, 'riv']
+
 // Ensure platform-specific files are resolved in the correct order
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main']
 

@@ -246,7 +246,7 @@ export default function SubscribeContent() {
           <View style={styles.characterSection}>
             <View style={styles.characterBackground} />
             <Image
-              source={require("@/assets/images/Explorer.png")}
+              source={require("@/assets/images/quiz-images/explorer.png")}
               style={styles.explorerImage}
             />
           </View>
