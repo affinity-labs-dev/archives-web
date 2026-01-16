@@ -54,20 +54,16 @@ export interface Achievement {
   id: string;
   name: string;
   description: string;
-  icon: string; // Ionicons name
   image?: any; // Optional image asset (require() reference)
-  category: 'quiz' | 'streak' | 'speed' | 'completion' | 'time' | 'perfectionist';
-  color: string;
   unlockCondition: {
     type: 'quiz_perfect' | 'quiz_perfect_streak' | 'streak_days' | 'modules_in_day' | 'era_complete' | 'all_perfect_era' | 'night_owl' | 'early_bird' | 'total_xp';
     threshold: number;
     metadata?: any; // Additional data like era_id for era-specific achievements
   };
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
 }
 
 // ============================================================
-// ALL ACHIEVEMENTS (17 total)
+// ALL ACHIEVEMENTS (20 total)
 // ============================================================
 
 const ACHIEVEMENTS: Achievement[] = [
@@ -76,45 +72,29 @@ const ACHIEVEMENTS: Achievement[] = [
     id: 'first_perfect',
     name: 'First Steps',
     description: 'Score 100% on your first quiz',
-    icon: 'checkmark-circle',
     image: require('@/assets/images/adventure-unlocked/firststeps.png'),
-    category: 'quiz',
-    color: '#3498DB',
     unlockCondition: { type: 'quiz_perfect', threshold: 1 },
-    rarity: 'common',
   },
   {
     id: 'quiz_master',
     name: 'Quiz Master',
     description: 'Score 100% on 5 quizzes',
-    icon: 'school',
     image: require('@/assets/images/adventure-unlocked/quizmaster.png'),
-    category: 'quiz',
-    color: '#9B59B6',
     unlockCondition: { type: 'quiz_perfect', threshold: 5 },
-    rarity: 'rare',
   },
   {
     id: 'perfect_scholar',
     name: 'Perfect Scholar',
     description: 'Score 100% on 10 quizzes',
-    icon: 'trophy',
     image: require('@/assets/images/adventure-unlocked/perfectscholar.png'),
-    category: 'quiz',
-    color: '#F39C12',
     unlockCondition: { type: 'quiz_perfect', threshold: 10 },
-    rarity: 'epic',
   },
   {
     id: 'quiz_legend',
     name: 'Quiz Legend',
     description: 'Score 100% on 20 quizzes',
-    icon: 'star',
     image: require('@/assets/images/adventure-unlocked/quizlegend.png'),
-    category: 'quiz',
-    color: '#E74C3C',
     unlockCondition: { type: 'quiz_perfect', threshold: 20 },
-    rarity: 'legendary',
   },
 
   // Streak Achievements
@@ -122,34 +102,22 @@ const ACHIEVEMENTS: Achievement[] = [
     id: 'week_warrior',
     name: 'Week Warrior',
     description: 'Maintain a 7-day streak',
-    icon: 'flame',
     image: require('@/assets/images/adventure-unlocked/weekwarrior.png'),
-    category: 'streak',
-    color: '#F39C12',
     unlockCondition: { type: 'streak_days', threshold: 7 },
-    rarity: 'rare',
   },
   {
     id: 'month_master',
     name: 'Month Master',
     description: 'Maintain a 30-day streak',
-    icon: 'flame',
     image: require('@/assets/images/adventure-unlocked/monthmaster.png'),
-    category: 'streak',
-    color: '#E67E22',
     unlockCondition: { type: 'streak_days', threshold: 30 },
-    rarity: 'epic',
   },
   {
     id: 'century_scholar',
     name: 'Century Scholar',
     description: 'Maintain a 100-day streak',
-    icon: 'flame',
     image: require('@/assets/images/adventure-unlocked/100dayscholar.png'),
-    category: 'streak',
-    color: '#C0392B',
     unlockCondition: { type: 'streak_days', threshold: 100 },
-    rarity: 'legendary',
   },
 
   // Speed Achievements
@@ -157,23 +125,15 @@ const ACHIEVEMENTS: Achievement[] = [
     id: 'quick_learner',
     name: 'Quick Learner',
     description: 'Complete 3 modules in one day',
-    icon: 'flash',
     image: require('@/assets/images/adventure-unlocked/quicklearner.png'),
-    category: 'speed',
-    color: '#3498DB',
     unlockCondition: { type: 'modules_in_day', threshold: 3 },
-    rarity: 'common',
   },
   {
     id: 'speed_demon',
     name: 'Speed Demon',
     description: 'Complete 5 modules in one day',
-    icon: 'rocket',
     image: require('@/assets/images/adventure-unlocked/speeddemon.png'),
-    category: 'speed',
-    color: '#E67E22',
     unlockCondition: { type: 'modules_in_day', threshold: 5 },
-    rarity: 'rare',
   },
 
   // Completion Achievements
@@ -181,34 +141,22 @@ const ACHIEVEMENTS: Achievement[] = [
     id: 'era_complete_umayyad',
     name: 'Umayyad Expert',
     description: 'Complete all of Umayyad Dynasty era',
-    icon: 'ribbon',
     image: require('@/assets/images/adventure-unlocked/umayyadexpert.png'),
-    category: 'completion',
-    color: '#9B59B6',
     unlockCondition: { type: 'era_complete', threshold: 1, metadata: { era_id: 'umayyad' } },
-    rarity: 'epic',
   },
   {
     id: 'era_complete_roi',
-    name: 'Rise of Islam Scholar',
+    name: 'Rise of Islam',
     description: 'Complete all of Rise of Islam era',
-    icon: 'ribbon',
     image: require('@/assets/images/adventure-unlocked/riseofislam.png'),
-    category: 'completion',
-    color: '#16A085',
     unlockCondition: { type: 'era_complete', threshold: 1, metadata: { era_id: 'rise_of_islam' } },
-    rarity: 'epic',
   },
   {
     id: 'era_complete_women_of_islam',
-    name: 'Women of Islam Scholar',
+    name: 'Women of Islam',
     description: 'Complete all of Women of Islam era',
-    icon: 'ribbon',
     image: require('@/assets/images/adventure-unlocked/womenofislam.png'),
-    category: 'completion',
-    color: '#E91E63',
     unlockCondition: { type: 'era_complete', threshold: 1, metadata: { era_id: 'women_of_islam' } },
-    rarity: 'epic',
   },
 
   // Time-based Achievements
@@ -216,56 +164,60 @@ const ACHIEVEMENTS: Achievement[] = [
     id: 'night_owl',
     name: 'Night Owl',
     description: 'Complete a lesson after 10 PM',
-    icon: 'moon',
     image: require('@/assets/images/adventure-unlocked/nightowl.png'),
-    category: 'time',
-    color: '#34495E',
     unlockCondition: { type: 'night_owl', threshold: 1 },
-    rarity: 'common',
   },
   {
     id: 'early_bird',
     name: 'Early Bird',
     description: 'Complete a lesson before 7 AM',
-    icon: 'sunny',
     image: require('@/assets/images/adventure-unlocked/earlybird.png'),
-    category: 'time',
-    color: '#F39C12',
     unlockCondition: { type: 'early_bird', threshold: 1 },
-    rarity: 'common',
   },
 
-  // XP Achievements - Commented out for release
-  // {
-  //   id: 'xp_500',
-  //   name: 'Knowledge Seeker',
-  //   description: 'Earn 500 total XP',
-  //   icon: 'trending-up',
-  //   category: 'completion',
-  //   color: '#3498DB',
-  //   unlockCondition: { type: 'total_xp', threshold: 500 },
-  //   rarity: 'rare',
-  // },
-  // {
-  //   id: 'xp_1000',
-  //   name: 'Wisdom Collector',
-  //   description: 'Earn 1000 total XP',
-  //   icon: 'analytics',
-  //   category: 'completion',
-  //   color: '#9B59B6',
-  //   unlockCondition: { type: 'total_xp', threshold: 1000 },
-  //   rarity: 'epic',
-  // },
-  // {
-  //   id: 'xp_2500',
-  //   name: 'Grand Scholar',
-  //   description: 'Earn 2500 total XP',
-  //   icon: 'flame',
-  //   category: 'completion',
-  //   color: '#E74C3C',
-  //   unlockCondition: { type: 'total_xp', threshold: 2500 },
-  //   rarity: 'legendary',
-  // },
+  // XP Achievements - Islamic Scholar Progression
+  {
+    id: 'xp_100',
+    name: 'Talib (Seeker)',
+    description: 'Earn 100 total XP',
+    image: require('@/assets/images/adventure-unlocked/talib(seeker).png'),
+    unlockCondition: { type: 'total_xp', threshold: 100 },
+  },
+  {
+    id: 'xp_250',
+    name: 'Daris (Student)',
+    description: 'Earn 250 total XP',
+    image: require('@/assets/images/adventure-unlocked/daris(student).png'),
+    unlockCondition: { type: 'total_xp', threshold: 250 },
+  },
+  {
+    id: 'xp_500',
+    name: 'Alim (Scholar)',
+    description: 'Earn 500 total XP',
+    image: require('@/assets/images/adventure-unlocked/alim(scholar).png'),
+    unlockCondition: { type: 'total_xp', threshold: 500 },
+  },
+  {
+    id: 'xp_1000',
+    name: 'Hakim (Sage)',
+    description: 'Earn 1000 total XP',
+    image: require('@/assets/images/adventure-unlocked/hakim(sage).png'),
+    unlockCondition: { type: 'total_xp', threshold: 1000 },
+  },
+  {
+    id: 'xp_2000',
+    name: 'Ustadh (Master)',
+    description: 'Earn 2000 total XP',
+    image: require('@/assets/images/adventure-unlocked/ustadh(master).png'),
+    unlockCondition: { type: 'total_xp', threshold: 2000 },
+  },
+  {
+    id: 'xp_3500',
+    name: 'Shaykh al-Ilm',
+    description: 'Earn 3500 total XP',
+    image: require('@/assets/images/adventure-unlocked/shaykhalilm.png'),
+    unlockCondition: { type: 'total_xp', threshold: 3500 },
+  },
 ];
 
 // ============================================================
@@ -392,8 +344,6 @@ interface GamificationOrchestratorContextType {
   isAchievementsLoading: boolean;
   /** Get progress (0-100) towards an achievement */
   getProgress: (achievementId: string) => number;
-  /** Get achievements filtered by category */
-  getAchievementsByCategory: (category: Achievement['category']) => (Achievement & { unlocked: boolean })[];
   /** Get a single achievement by ID */
   getAchievement: (id: string) => Achievement | undefined;
   /** Check time-based achievements (night owl, early bird) - call after lesson completion */
@@ -1116,15 +1066,6 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     }
   }, [moduleProgress, newUserProgress, streak, eraModuleCounts, unlockedAchievements]);
 
-  // Get achievements by category
-  const getAchievementsByCategory = useCallback((category: Achievement['category']) => {
-    const unlockedIds = unlockedAchievements.map(a => a.id);
-    return ACHIEVEMENTS.filter(a => a.category === category).map(achievement => ({
-      ...achievement,
-      unlocked: unlockedIds.includes(achievement.id),
-    }));
-  }, [unlockedAchievements]);
-
   // Get a single achievement by ID
   const getAchievement = useCallback((id: string) => {
     return ACHIEVEMENTS.find(a => a.id === id);
@@ -1339,7 +1280,6 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         totalCount: ACHIEVEMENTS.length,
         isAchievementsLoading,
         getProgress,
-        getAchievementsByCategory,
         getAchievement,
         checkTimeBasedAchievement,
         checkAchievements,
