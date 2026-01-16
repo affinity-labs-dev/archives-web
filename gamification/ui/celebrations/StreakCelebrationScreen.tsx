@@ -13,8 +13,8 @@ import Animated, { FadeIn, FadeInUp, ZoomIn, useAnimatedStyle, useSharedValue, w
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Rive, { Alignment, Fit, RiveRef } from 'rive-react-native';
 
-// Import Rive animation from assets (relative path) - using new file
-const streakFlame = require('../../../assets/rive/streak_flame_new.riv');
+// Import Rive animation from assets (relative path)
+const streakFlame = require('../../../assets/rive/flame.riv');
 
 // Week day data structure
 interface WeekDay {
@@ -126,7 +126,7 @@ export default function StreakCelebrationScreen({
     }
   }, [visible, streakCount]);
 
-  // Haptic feedback at key animation moments (Duolingo style)
+  // Haptic feedback at key animation moments
   useEffect(() => {
     if (visible && !skipped) {
       // Streak number appears (2s)
@@ -134,15 +134,15 @@ export default function StreakCelebrationScreen({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }, 2000);
 
-      // Calendar appears (3s)
+      // Calendar appears (3.2s - after text moves up)
       const timer2 = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }, 3000);
+      }, 3200);
 
-      // Continue button appears (4.5s)
+      // Continue button appears (4.2s)
       const timer3 = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }, 4500);
+      }, 4200);
 
       return () => {
         clearTimeout(timer1);
@@ -195,13 +195,13 @@ export default function StreakCelebrationScreen({
               animationName="burning_flame"
               fit={Fit.Contain}
               alignment={Alignment.Center}
-              style={{ width: 200, height: 200, backgroundColor: 'transparent', position: 'absolute' }}
+              style={styles.riveAnimation}
             />
           </Animated.View>
 
-          {/* Main Card - Fades in from bottom at 3s */}
+          {/* Main Card - Fades in at final position after text moves up */}
           <Animated.View
-            entering={skipped ? undefined : FadeInUp.delay(3000).duration(600)}
+            entering={skipped ? undefined : FadeIn.delay(3200).duration(400)}
             style={styles.card}
           />
 
@@ -221,9 +221,9 @@ export default function StreakCelebrationScreen({
             day streak!
           </Animated.Text>
 
-          {/* Week Calendar Widget - Fades in from bottom at 3s */}
+          {/* Week Calendar Widget - Fades in at final position after text moves up */}
           <Animated.View
-            entering={skipped ? undefined : FadeInUp.delay(3000).duration(600)}
+            entering={skipped ? undefined : FadeIn.delay(3200).duration(400)}
             style={styles.calendarWidget}
           >
             {/* Day Labels (Mo-Su) */}
@@ -260,17 +260,17 @@ export default function StreakCelebrationScreen({
             </View>
           </Animated.View>
 
-          {/* Motivational Text - Fades in at 4s */}
+          {/* Motivational Text - Fades in after calendar */}
           <Animated.Text
-            entering={skipped ? undefined : FadeIn.delay(4000).duration(400)}
+            entering={skipped ? undefined : FadeIn.delay(3800).duration(400)}
             style={styles.motivationalText}
           >
             {getMotivationalQuote(streakCount)}
           </Animated.Text>
 
-          {/* Continue Button - Fades in from bottom at 4.5s */}
+          {/* Continue Button - Fades in last */}
           <Animated.View
-            entering={skipped ? undefined : FadeInUp.delay(4500).duration(600)}
+            entering={skipped ? undefined : FadeIn.delay(4200).duration(400)}
             style={styles.continueButton}
           >
             <TouchableOpacity
@@ -308,13 +308,18 @@ const styles = StyleSheet.create({
   },
   flameArea: {
     position: 'absolute',
-    top: 90,
-    width: 200,
-    height: 200,
+    top: 80,
+    width: 220,
+    height: 220,
     alignSelf: 'center',
-    backgroundColor: 'transparent',
+    overflow: 'visible',
     zIndex: 20, // Above white card
     elevation: 20, // Android
+  },
+  riveAnimation: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
   },
   card: {
     position: 'absolute',
@@ -353,7 +358,7 @@ const styles = StyleSheet.create({
     fontSize: 25,
     fontWeight: '700',
     color: '#41425E',
-    lineHeight: 25,
+    lineHeight: 32,
     textAlign: 'center',
     includeFontPadding: false,
     zIndex: 20, // Above white card
