@@ -189,8 +189,21 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           });
 
           console.log('🔔 [AnalyticsWrapper] Push permission result:', result);
+
+          // Update Customer.io profile with notification status
+          CustomerIOService.setProfileAttributes({
+            push_notifications_enabled: result === 'Granted',
+            push_permission_status: result,
+            push_permission_updated_at: Math.floor(Date.now() / 1000),
+          });
         } else {
           console.log('🔔 [AnalyticsWrapper] Notifications already granted');
+
+          // Update Customer.io profile - already granted
+          CustomerIOService.setProfileAttributes({
+            push_notifications_enabled: true,
+            push_permission_status: 'Granted',
+          });
         }
       } catch (error) {
         console.error('❌ [AnalyticsWrapper] Error checking notifications:', error);

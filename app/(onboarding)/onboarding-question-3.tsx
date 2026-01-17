@@ -19,7 +19,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
-import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import { analyticsService } from '@/services/AnalyticsService'
 // eslint-disable-next-line import/no-unresolved
@@ -123,6 +122,13 @@ export default function OnboardingQuestion3Screen() {
 
       // Update PostHog person property for push notification status
       analyticsService.updatePushStatus(status === 'Granted')
+
+      // Update Customer.io profile with notification status
+      CustomerIOService.setProfileAttributes({
+        push_notifications_enabled: status === 'Granted',
+        push_permission_status: status,
+        push_permission_updated_at: Math.floor(Date.now() / 1000),
+      })
 
       await AsyncStorage.setItem('notification_permission_asked', 'true')
     } catch (error: any) {
