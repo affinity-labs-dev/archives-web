@@ -65,15 +65,8 @@ Sentry.init({
   // spotlight: __DEV__,
 });
 
-// Configure how notifications are handled when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Note: Foreground notification display is handled by Customer.io's
+// showPushAppInForeground: true setting in app.json
 
 /**
  * Handle deep links from push notification taps
@@ -158,6 +151,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         email: user.primaryEmailAddress?.emailAddress,
         first_name: user.firstName,
         last_name: user.lastName,
+        last_sign_in: user.lastSignInAt ? Math.floor(new Date(user.lastSignInAt).getTime() / 1000) : undefined,
+        created_at: user.createdAt ? Math.floor(new Date(user.createdAt).getTime() / 1000) : undefined,
       });
       console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIOService.identify() returned');
     } else {
@@ -165,6 +160,47 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       CustomerIOService.clearIdentify();
     }
   }, [isSignedIn, user]);
+
+  // Prompt for push notifications after sign-in if not already granted
+  // This handles returning users who may have missed or denied the onboarding prompt
+  React.useEffect(() => {
+    const checkAndPromptForNotifications = async () => {
+      // Only check if signed in
+      if (!isSignedIn) {
+        return;
+      }
+
+      // Skip on web
+      if (Platform.OS === 'web') {
+        return;
+      }
+
+      try {
+        // Check current permission status using Customer.io
+        const status = await CustomerIOService.getPushPermissionStatus();
+
+        // If not granted, prompt for permission
+        if (status !== 'Granted') {
+          console.log('🔔 [AnalyticsWrapper] Notification not granted, prompting...');
+
+          // Use Customer.io to show prompt and register token
+          const result = await CustomerIOService.showPromptForPushNotifications({
+            ios: { sound: true, badge: true }
+          });
+
+          console.log('🔔 [AnalyticsWrapper] Push permission result:', result);
+        } else {
+          console.log('🔔 [AnalyticsWrapper] Notifications already granted');
+        }
+      } catch (error) {
+        console.error('❌ [AnalyticsWrapper] Error checking notifications:', error);
+      }
+    };
+
+    // Small delay to ensure Customer.io is initialized
+    const timer = setTimeout(checkAndPromptForNotifications, 2000);
+    return () => clearTimeout(timer);
+  }, [isSignedIn]);
 
   // Session tracking - track sign-in/sign-out for analytics
   React.useEffect(() => {
