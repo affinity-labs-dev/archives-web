@@ -153,6 +153,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         last_name: user.lastName,
         last_sign_in: user.lastSignInAt ? Math.floor(new Date(user.lastSignInAt).getTime() / 1000) : undefined,
         created_at: user.createdAt ? Math.floor(new Date(user.createdAt).getTime() / 1000) : undefined,
+        device_type: Platform.OS,
       });
       console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIOService.identify() returned');
     } else {
