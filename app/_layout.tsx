@@ -28,6 +28,7 @@ import { usePostHog } from 'posthog-react-native';
 import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
 import CustomerIOService from '@/services/CustomerIOService';
+import PushNotificationService from '@/services/PushNotificationService';
 
 // Gamification imports - unified from @/gamification
 import {
@@ -162,6 +163,18 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [isSignedIn, user]);
 
+  // Sync push token on sign-in for users who already granted permission
+  // This ensures Customer.io always has the latest APNs/FCM token
+  React.useEffect(() => {
+    if (isSignedIn && Platform.OS !== 'web') {
+      // Small delay to ensure Customer.io is initialized
+      const timer = setTimeout(() => {
+        PushNotificationService.syncPushToken();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSignedIn]);
+
   // Prompt for push notifications after sign-in if not already granted
   // This handles returning users who may have missed or denied the onboarding prompt
   React.useEffect(() => {
@@ -177,31 +190,35 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        // Check current permission status using Customer.io
-        const status = await CustomerIOService.getPushPermissionStatus();
+        // Check ACTUAL iOS/Android permission status (not Customer.io's cached status)
+        const status = await PushNotificationService.getPushPermissionStatus();
 
-        // If not granted, prompt for permission
+        // If not granted, prompt for permission using the PROPER method
         if (status !== 'Granted') {
           console.log('🔔 [AnalyticsWrapper] Notification not granted, prompting...');
 
-          // Use Customer.io to show prompt and register token
-          const result = await CustomerIOService.showPromptForPushNotifications({
-            ios: { sound: true, badge: true }
-          });
+          // Use PushNotificationService which properly:
+          // 1. Requests permission via expo-notifications (registers with iOS)
+          // 2. Gets the APNs/FCM token
+          // 3. Registers the token with Customer.io
+          const result = await PushNotificationService.requestPushNotificationPermission();
 
-          console.log('🔔 [AnalyticsWrapper] Push permission result:', result);
+          console.log('🔔 [AnalyticsWrapper] Push permission result:', result.status);
 
           // Update Customer.io profile with notification status
           CustomerIOService.setProfileAttributes({
-            push_notifications_enabled: result === 'Granted',
-            push_permission_status: result,
+            push_notifications_enabled: result.status === 'Granted',
+            push_permission_status: result.status,
             push_permission_updated_at: Math.floor(Date.now() / 1000),
           });
 
           // Update PostHog person property
-          analyticsService.updatePushStatus(result === 'Granted', result || undefined);
+          analyticsService.updatePushStatus(result.status === 'Granted', result.status);
         } else {
           console.log('🔔 [AnalyticsWrapper] Notifications already granted');
+
+          // Sync token to ensure Customer.io has the latest
+          await PushNotificationService.syncPushToken();
 
           // Update Customer.io profile - already granted
           CustomerIOService.setProfileAttributes({
@@ -218,7 +235,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     };
 
     // Small delay to ensure Customer.io is initialized
-    const timer = setTimeout(checkAndPromptForNotifications, 2000);
+    const timer = setTimeout(checkAndPromptForNotifications, 3000);
     return () => clearTimeout(timer);
   }, [isSignedIn]);
 

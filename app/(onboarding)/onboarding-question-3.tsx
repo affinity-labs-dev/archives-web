@@ -19,10 +19,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
-import * as Device from 'expo-device'
 import { analyticsService } from '@/services/AnalyticsService'
-// eslint-disable-next-line import/no-unresolved
 import CustomerIOService from '@/services/CustomerIOService'
+import PushNotificationService from '@/services/PushNotificationService'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -70,26 +69,20 @@ export default function OnboardingQuestion3Screen() {
     }
   }
 
-  // Request notification permissions using Customer.io's recommended method
+  // Request notification permissions using the proper expo-notifications + Customer.io flow
+  // This properly registers with iOS (making toggle appear in Settings) and registers token with Customer.io
   const requestNotificationPermission = async () => {
     try {
-      // Check if physical device
-      if (!Device.isDevice) {
-        console.warn('⚠️ Push notifications require physical device')
-        await AsyncStorage.setItem('notifications_permission_granted', 'false')
-        return
-      }
+      // Use PushNotificationService which properly:
+      // 1. Requests permission via expo-notifications (registers with iOS/Android)
+      // 2. Gets the APNs/FCM device token
+      // 3. Registers the token with Customer.io
+      const result = await PushNotificationService.requestPushNotificationPermission()
 
-      // Use Customer.io's showPromptForPushNotifications
-      // This shows the native prompt AND automatically registers the device token
-      const status = await CustomerIOService.showPromptForPushNotifications({
-        ios: { sound: true, badge: true }
-      })
+      console.log('🔔 [OnboardingQ3] Push permission result:', result.status)
 
-      console.log('🔔 Customer.io push permission status:', status)
-
-      // Map Customer.io status to our tracking format
-      const trackingStatus = status === 'Granted' ? 'granted' : status === 'Denied' ? 'denied' : 'undetermined'
+      // Map status to our tracking format
+      const trackingStatus = result.status === 'Granted' ? 'granted' : result.status === 'Denied' ? 'denied' : 'undetermined'
 
       // Track notification permission request
       analyticsService.trackPermissionRequested({
@@ -100,7 +93,7 @@ export default function OnboardingQuestion3Screen() {
       })
 
       // Track specific permission result
-      if (status === 'Granted') {
+      if (result.status === 'Granted') {
         analyticsService.trackPushNotificationsEnabled({
           permission_type: 'push_notifications',
           screen: 'onboarding_question_3',
@@ -108,7 +101,7 @@ export default function OnboardingQuestion3Screen() {
           platform: Platform.OS,
         })
         await AsyncStorage.setItem('notifications_permission_granted', 'true')
-      } else if (status === 'Denied') {
+      } else if (result.status === 'Denied') {
         analyticsService.trackPushNotificationsDeclined({
           permission_type: 'push_notifications',
           screen: 'onboarding_question_3',
@@ -121,26 +114,17 @@ export default function OnboardingQuestion3Screen() {
       }
 
       // Update PostHog person property for push notification status
-      analyticsService.updatePushStatus(status === 'Granted', status || undefined)
+      analyticsService.updatePushStatus(result.status === 'Granted', result.status)
 
       // Update Customer.io profile with notification status
       CustomerIOService.setProfileAttributes({
-        push_notifications_enabled: status === 'Granted',
-        push_permission_status: status,
+        push_notifications_enabled: result.status === 'Granted',
+        push_permission_status: result.status,
         push_permission_updated_at: Math.floor(Date.now() / 1000),
       })
 
       await AsyncStorage.setItem('notification_permission_asked', 'true')
-    } catch (error: any) {
-      // Handle specific APS entitlement error (iOS simulator or missing config)
-      if (error?.message?.includes('aps-environment')) {
-        console.log('⚠️ [OnboardingQ3] Push notifications require physical device or proper iOS configuration')
-        await AsyncStorage.setItem('notifications_permission_granted', 'false')
-        await AsyncStorage.setItem('notification_permission_asked', 'true')
-        return
-      }
-
-      // Safely log error message
+    } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.error('❌ [OnboardingQ3] Error requesting notifications:', errorMsg)
       await AsyncStorage.setItem('notifications_permission_granted', 'false')
