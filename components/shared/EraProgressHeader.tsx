@@ -2,12 +2,12 @@
 // Displays era name, progress bar with percentage, streak days, and XP
 // Progress calculated based on quiz correct answers
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
-import Svg, { Rect, Defs, Filter, FeGaussianBlur, FeFlood, FeComposite, FeMerge, FeMergeNode, Path } from 'react-native-svg';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useGamificationOrchestrator } from '@/gamification';
 import StreakCelebrationScreen from '@/gamification/ui/celebrations/StreakCelebrationScreen';
+import React, { useState } from 'react';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Defs, FeComposite, FeFlood, FeGaussianBlur, FeMerge, FeMergeNode, Filter, Path, Rect } from 'react-native-svg';
 
 // Streak icon (flame)
 const StreakIcon = ({ size = 14 }: { size?: number }) => (
@@ -80,6 +80,9 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
 
   return (
     <View style={[styles.progressWrapper, { paddingLeft: containerPadding, paddingRight: containerPadding }]}>
+      {/* Brown card behind - only bottom edge visible */}
+      <View style={styles.brownCardBehind} />
+
       <View style={styles.progressCard}>
         {/* Left side: Era name + progress bar */}
         <View style={styles.leftContent}>
@@ -166,9 +169,20 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
 
 const styles = StyleSheet.create({
   progressWrapper: {
-    marginBottom: 16,
+    marginBottom: 22,
     paddingTop: 77, // Status bar space when sticky
     backgroundColor: ArchivesTheme.colors.creamWhite,
+    position: 'relative',
+  },
+  brownCardBehind: {
+    position: 'absolute',
+    top: 79, // 77 (paddingTop) + 2px offset
+    left: 15,
+    right: 15,
+    height: 65,
+    backgroundColor: ArchivesTheme.colors.shoeBrown,
+    borderRadius: 14,
+    marginHorizontal: 0,
   },
   progressCard: {
     height: 63,

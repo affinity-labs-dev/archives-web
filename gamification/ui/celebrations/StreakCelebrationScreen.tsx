@@ -8,10 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Rive, { Alignment, Fit, RiveRef } from 'rive-react-native';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Import Rive animation from assets (relative path)
 const streakFlame = require('../../../assets/rive/flamefinal.riv');
@@ -115,7 +117,7 @@ export default function StreakCelebrationScreen({
     transform: [{ translateY: translateY.value }],
   }));
 
-  // Track analytics, haptics, and play celebration sound
+  // Track analytics and haptics (no sound on modal open)
   useEffect(() => {
     if (visible) {
       analyticsService.trackCustomEvent('streak_celebration_shown', {
@@ -123,9 +125,6 @@ export default function StreakCelebrationScreen({
         is_milestone: [3, 7, 14, 30, 50, 100].includes(streakCount),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Play celebration sound when modal opens
-      celebrationSound.current?.replayAsync();
     }
   }, [visible, streakCount]);
 
@@ -155,14 +154,14 @@ export default function StreakCelebrationScreen({
     }
   }, [visible, skipped]);
 
-  // Play tick sounds for checkmarks (staggered with animation)
+  // Play celebration sounds for checkmarks (staggered with animation)
   useEffect(() => {
     if (visible && !skipped) {
       weekData.forEach((day, index) => {
         if (day.completed) {
           const delay = 3200 + index * 100; // Match checkmark animation timing
           setTimeout(() => {
-            tickSound.current?.replayAsync();
+            celebrationSound.current?.replayAsync();
           }, delay);
         }
       });
@@ -294,6 +293,13 @@ export default function StreakCelebrationScreen({
   );
 }
 
+const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 400);
+const FLAME_SIZE = Math.min(SCREEN_WIDTH * 0.55, 220);
+const CARD_TOP = SCREEN_HEIGHT * 0.38;
+const FLAME_TOP = SCREEN_HEIGHT * 0.1;
+const NUMBER_TOP = FLAME_TOP + FLAME_SIZE * 1.15;
+const TEXT_TOP = NUMBER_TOP + SCREEN_HEIGHT * 0.16;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -301,7 +307,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 60,
+    top: SCREEN_HEIGHT * 0.07,
     right: 24,
     zIndex: 10,
     width: 44,
@@ -311,9 +317,9 @@ const styles = StyleSheet.create({
   },
   flameArea: {
     position: 'absolute',
-    top: 80,
-    width: 220,
-    height: 220,
+    top: FLAME_TOP,
+    width: FLAME_SIZE,
+    height: FLAME_SIZE,
     alignSelf: 'center',
     overflow: 'visible',
     zIndex: 20, // Above white card
@@ -326,12 +332,12 @@ const styles = StyleSheet.create({
   },
   card: {
     position: 'absolute',
-    top: 320,
-    left: 18,
+    top: CARD_TOP,
+    left: (SCREEN_WIDTH - CARD_WIDTH) / 2,
     backgroundColor: '#FFFFFF',
     borderRadius: 30,
-    width: 358,
-    height: 390,
+    width: CARD_WIDTH,
+    height: SCREEN_HEIGHT * 0.48,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
@@ -340,25 +346,25 @@ const styles = StyleSheet.create({
   },
   streakNumber: {
     position: 'absolute',
-    top: 330,
+    top: NUMBER_TOP,
     left: 0,
     right: 0,
     fontFamily: 'DM Sans',
-    fontSize: 100,
+    fontSize: Math.min(SCREEN_WIDTH * 0.25, 100),
     fontWeight: '600',
     color: '#41425E',
-    lineHeight: 140,
+    lineHeight: Math.min(SCREEN_WIDTH * 0.35, 140),
     textAlign: 'center',
     zIndex: 20, // Above white card
     elevation: 20, // Android
   },
   streakText: {
     position: 'absolute',
-    top: 462,
+    top: TEXT_TOP,
     left: 0,
     right: 0,
     fontFamily: 'DM Sans',
-    fontSize: 25,
+    fontSize: Math.min(SCREEN_WIDTH * 0.065, 25),
     fontWeight: '700',
     color: '#41425E',
     lineHeight: 32,
@@ -369,14 +375,16 @@ const styles = StyleSheet.create({
   },
   calendarWidget: {
     position: 'absolute',
-    top: 508,
-    left: 34,
-    width: 327,
-    height: 106,
+    top: CARD_TOP + SCREEN_HEIGHT * 0.24,
+    left: (SCREEN_WIDTH - CARD_WIDTH) / 2 + CARD_WIDTH * 0.05,
+    width: CARD_WIDTH * 0.9,
+    height: SCREEN_HEIGHT * 0.13,
     backgroundColor: '#41425E',
     borderRadius: 25,
     paddingHorizontal: 20,
     paddingVertical: 24,
+    zIndex: 20, // Above white card
+    elevation: 20, // Android
   },
   dayLabels: {
     flexDirection: 'row',
@@ -428,9 +436,9 @@ const styles = StyleSheet.create({
   },
   motivationalText: {
     position: 'absolute',
-    top: 635,
-    left: 54,
-    width: 288,
+    top: CARD_TOP + SCREEN_HEIGHT * 0.40,
+    left: (SCREEN_WIDTH - CARD_WIDTH * 0.8) / 2,
+    width: CARD_WIDTH * 0.8,
     fontFamily: 'DM Sans',
     fontSize: 16,
     fontWeight: '600',
@@ -440,10 +448,12 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     position: 'absolute',
-    bottom: 50,
-    left: 18,
-    width: 358,
+    bottom: SCREEN_HEIGHT * 0.06,
+    left: (SCREEN_WIDTH - CARD_WIDTH) / 2,
+    width: CARD_WIDTH,
     height: 52,
+    zIndex: 30, // Above everything
+    elevation: 30, // Android
   },
   continueButtonInner: {
     flex: 1,
