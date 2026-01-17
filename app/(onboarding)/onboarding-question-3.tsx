@@ -121,7 +121,7 @@ export default function OnboardingQuestion3Screen() {
       }
 
       // Update PostHog person property for push notification status
-      analyticsService.updatePushStatus(status === 'Granted')
+      analyticsService.updatePushStatus(status === 'Granted', status || undefined)
 
       // Update Customer.io profile with notification status
       CustomerIOService.setProfileAttributes({

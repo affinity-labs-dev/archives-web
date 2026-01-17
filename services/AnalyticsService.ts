@@ -1211,7 +1211,7 @@ class AnalyticsService {
   /**
    * Update push notification status
    */
-  updatePushStatus(isEnabled: boolean) {
+  updatePushStatus(isEnabled: boolean, permissionStatus?: string) {
     if (!this.posthog) {
       if (__DEV__) {
         console.log('📊 [Analytics] Skipping updatePushStatus (PostHog not ready)');
@@ -1220,9 +1220,13 @@ class AnalyticsService {
     }
 
     this.posthog.capture('$set', {
-      $set: { is_push_enabled: isEnabled },
+      $set: {
+        is_push_enabled: isEnabled,
+        push_permission_status: permissionStatus || (isEnabled ? 'Granted' : 'Denied'),
+        push_permission_updated_at: new Date().toISOString(),
+      },
     });
-    console.log('📊 [Analytics] Updated push status:', isEnabled);
+    console.log('📊 [Analytics] Updated push status:', isEnabled, permissionStatus);
   }
 
   /**

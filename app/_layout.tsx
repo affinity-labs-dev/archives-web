@@ -196,6 +196,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
             push_permission_status: result,
             push_permission_updated_at: Math.floor(Date.now() / 1000),
           });
+
+          // Update PostHog person property
+          analyticsService.updatePushStatus(result === 'Granted', result || undefined);
         } else {
           console.log('🔔 [AnalyticsWrapper] Notifications already granted');
 
@@ -204,6 +207,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
             push_notifications_enabled: true,
             push_permission_status: 'Granted',
           });
+
+          // Update PostHog person property
+          analyticsService.updatePushStatus(true, 'Granted');
         }
       } catch (error) {
         console.error('❌ [AnalyticsWrapper] Error checking notifications:', error);
