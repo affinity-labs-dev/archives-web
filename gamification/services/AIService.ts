@@ -11,6 +11,19 @@ interface AIExplanationResponse {
   relatedTopic?: string;
 }
 
+// Web search source from Google Search grounding
+export interface WebSearchSource {
+  uri: string;
+  title: string;
+}
+
+// Chat response with optional web search sources
+export interface ChatResponseWithSources {
+  text: string;
+  sources?: WebSearchSource[];
+  searchQueries?: string[];
+}
+
 // Request params for quiz explanation
 interface QuizExplanationRequest {
   questionText: string;
@@ -242,6 +255,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
    * Get chat response for general conversation
    * Uses RAG (Retrieval Augmented Generation) with function calling to dynamically
    * fetch user progress and lesson content when needed.
+   * Now includes Google Search grounding for real-time web information.
    */
   async getChatResponse(params: {
     userMessage: string;
@@ -271,12 +285,14 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
     knowledgeContext?: string;
     // Enable RAG tools for dynamic content retrieval
     enableRAG?: boolean;
-  }): Promise<string> {
+    // Enable Google Search grounding for real-time web information
+    enableWebSearch?: boolean;
+  }): Promise<ChatResponseWithSources> {
     if (!this.isAvailable()) {
       throw new Error('AI Service is not available. Please configure EXPO_PUBLIC_GEMINI_API_KEY.');
     }
 
-    const { userMessage, conversationHistory = [], context = {}, userProgress, knowledgeContext, enableRAG = true } = params;
+    const { userMessage, conversationHistory = [], context = {}, userProgress, knowledgeContext, enableRAG = true, enableWebSearch = true } = params;
 
     try {
       console.log('🤖 [AIService] Getting chat response...');
@@ -331,10 +347,23 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
       });
 
       // Get tool declarations if RAG is enabled
-      const tools = enableRAG ? aiToolsService.getToolDeclarations() : [];
+      const functionTools = enableRAG ? aiToolsService.getToolDeclarations() : [];
 
-      // Call Gemini API with function calling support
-      console.log(`🔧 [AIService] Calling Gemini with ${tools.length} tools available`);
+      // Build tools array - combine function calling and Google Search
+      const toolsConfig: any[] = [];
+
+      // Add function declarations for RAG if enabled
+      if (functionTools.length > 0) {
+        toolsConfig.push({ functionDeclarations: functionTools });
+      }
+
+      // Add Google Search grounding if enabled
+      if (enableWebSearch) {
+        toolsConfig.push({ googleSearch: {} });
+      }
+
+      // Call Gemini API with function calling and Google Search support
+      console.log(`🔧 [AIService] Calling Gemini with ${functionTools.length} function tools, webSearch: ${enableWebSearch}`);
 
       const response = await this.ai!.models.generateContent({
         model: this.textModel,
@@ -345,14 +374,16 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
           thinkingConfig: {
             thinkingLevel: ThinkingLevel.LOW,
           },
-          // Add tools for function calling
-          ...(tools.length > 0 && {
-            tools: [{ functionDeclarations: tools }],
-            toolConfig: {
-              functionCallingConfig: {
-                mode: FunctionCallingConfigMode.AUTO, // Let AI decide when to use tools
+          // Add tools (function calling + Google Search)
+          ...(toolsConfig.length > 0 && {
+            tools: toolsConfig,
+            ...(functionTools.length > 0 && {
+              toolConfig: {
+                functionCallingConfig: {
+                  mode: FunctionCallingConfigMode.AUTO, // Let AI decide when to use tools
+                },
               },
-            },
+            }),
           }),
         }
       });
@@ -438,7 +469,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
         }
 
         console.log('✅ [AIService] RAG response received, length:', aiResponse.length);
-        return aiResponse;
+        return { text: aiResponse };
       }
 
       // No function calls - extract text directly
@@ -477,9 +508,39 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
         }
       }
 
+      // 3. Extract Google Search grounding metadata if available
+      const groundingMetadata = (candidate as any)?.groundingMetadata;
+      let sources: WebSearchSource[] | undefined;
+      let searchQueries: string[] | undefined;
+
+      if (groundingMetadata) {
+        console.log('🔍 [AIService] Grounding metadata found');
+
+        // Extract search queries used
+        if (groundingMetadata.webSearchQueries) {
+          searchQueries = groundingMetadata.webSearchQueries;
+          console.log('🔍 [AIService] Search queries:', searchQueries);
+        }
+
+        // Extract grounding chunks (sources)
+        if (groundingMetadata.groundingChunks) {
+          sources = groundingMetadata.groundingChunks
+            .filter((chunk: any) => chunk.web?.uri && chunk.web?.title)
+            .map((chunk: any) => ({
+              uri: chunk.web.uri,
+              title: chunk.web.title,
+            }));
+          console.log('🔍 [AIService] Sources found:', sources?.length || 0);
+        }
+      }
+
       console.log('✅ [AIService] Chat response received, length:', aiResponse.length);
 
-      return aiResponse;
+      return {
+        text: aiResponse,
+        sources,
+        searchQueries,
+      };
     } catch (error) {
       console.error('❌ [AIService] Error getting chat response:', error);
       throw error;

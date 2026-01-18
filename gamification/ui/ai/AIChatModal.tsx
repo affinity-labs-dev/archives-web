@@ -2,7 +2,7 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useAI } from '@/gamification';
 import { aiService, aiStorageService } from '@/gamification';
-import type { StoredMessage } from '@/gamification';
+import type { StoredMessage, WebSearchSource } from '@/gamification';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useUser } from '@clerk/clerk-expo';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
@@ -59,6 +59,8 @@ export interface ChatMessage {
   imageUrl?: string;
   // Flag to indicate if this is an uploaded image (user) vs generated (assistant)
   isUploadedImage?: boolean;
+  // Web search sources from Google Search grounding
+  sources?: WebSearchSource[];
 }
 
 interface AIChatModalProps {
@@ -559,6 +561,7 @@ export default function AIChatModal({
           },
           userProgress: progressSummary,
           knowledgeContext,
+          enableWebSearch: true, // Enable Google Search grounding
         });
 
         // Track usage
@@ -566,17 +569,25 @@ export default function AIChatModal({
           await aiStorageService.trackUsage(userId, 'chat');
         }
 
+        // Log if sources were found
+        if (response.sources && response.sources.length > 0) {
+          console.log('🔍 [AIChatModal] Web search sources:', response.sources.length);
+        }
+
         const aiMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: response,
+          content: response.text,
           timestamp: new Date(),
+          sources: response.sources, // Include web search sources
         };
 
         setMessages((prev) => [...prev, aiMsg]);
         analyticsService.trackCustomEvent('ai_chat_response_received', {
           era_id: context?.eraId || 'unknown_era',
-          response_length: response.length,
+          response_length: response.text.length,
+          has_web_sources: (response.sources?.length || 0) > 0,
+          web_sources_count: response.sources?.length || 0,
         });
       }
 
@@ -790,6 +801,28 @@ export default function AIChatModal({
                             <Text style={styles.tapToViewText}>Tap to expand</Text>
                           </View>
                         </TouchableOpacity>
+                      )}
+                      {/* Render web search sources if present */}
+                      {message.sources && message.sources.length > 0 && (
+                        <View style={styles.sourcesContainer}>
+                          <View style={styles.sourcesHeader}>
+                            <Ionicons name="search-outline" size={12} color="#9A8B7A" />
+                            <Text style={styles.sourcesTitle}>Sources</Text>
+                          </View>
+                          {message.sources.slice(0, 3).map((source, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={styles.sourceItem}
+                              onPress={() => Linking.openURL(source.uri)}
+                              activeOpacity={0.7}
+                            >
+                              <Ionicons name="link-outline" size={12} color={ArchivesTheme.colors.mossGreen} />
+                              <Text style={styles.sourceText} numberOfLines={1}>
+                                {source.title}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
                       )}
                     </>
                   )}
@@ -1221,6 +1254,42 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: ArchivesTheme.colors.mutedNavy,
   },
+
+  // Web Search Sources
+  sourcesContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E0D5C5',
+    maxWidth: '85%',
+  },
+  sourcesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  sourcesTitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9A8B7A',
+    marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sourceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  sourceText: {
+    fontFamily: 'DM Sans',
+    fontSize: 13,
+    color: ArchivesTheme.colors.mossGreen,
+    marginLeft: 6,
+    flex: 1,
+  },
+
   generatedImageContainer: {
     width: '100%',
     marginTop: 12,

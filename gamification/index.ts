@@ -99,6 +99,7 @@ export { AIProvider, useAI } from './engines/AIContext';
 
 // ========== SERVICES ==========
 export { aiService } from './services/AIService';
+export type { WebSearchSource, ChatResponseWithSources } from './services/AIService';
 export { aiContextService } from './services/AIContextService';
 export { aiStorageService } from './services/AIStorageService';
 export type { StoredMessage } from './services/AIStorageService';
