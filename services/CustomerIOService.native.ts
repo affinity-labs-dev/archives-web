@@ -82,20 +82,28 @@ export const initializeCustomerIO = () => {
  * Call this after user signs in
  */
 export const identifyUser = (userId: string, traits?: Record<string, unknown>) => {
-  if (isExpoGo || !isInitialized) {
+  if (isExpoGo) {
+    console.log('📧 [CustomerIO] identifyUser: Skipping in Expo Go');
+    return;
+  }
+
+  if (!isInitialized) {
+    console.warn('⚠️ [CustomerIO] identifyUser: SDK not initialized!');
     return;
   }
 
   const module = getCustomerIO();
   if (!module) {
+    console.warn('⚠️ [CustomerIO] identifyUser: Module not available');
     return;
   }
 
   try {
+    console.log('🔍 [CustomerIO] identifyUser: Identifying user:', userId);
     module.CustomerIO.identify({ userId, traits });
-    console.log('✅ [CustomerIO] User identified:', userId);
+    console.log('✅ [CustomerIO] identifyUser: User identified successfully:', userId);
   } catch (error) {
-    console.error('❌ [CustomerIO] Failed to identify user:', error);
+    console.error('❌ [CustomerIO] identifyUser: Failed:', error);
   }
 };
 
@@ -141,16 +149,28 @@ export const trackEvent = (name: string, properties?: Record<string, unknown>) =
  * Register device token for push notifications
  */
 export const registerPushToken = (token: string) => {
-  if (isExpoGo || !isInitialized) return;
+  if (isExpoGo) {
+    console.log('🔔 [CustomerIO] registerPushToken: Skipping in Expo Go');
+    return;
+  }
+
+  if (!isInitialized) {
+    console.warn('⚠️ [CustomerIO] registerPushToken: SDK not initialized! Token will be lost.');
+    return;
+  }
 
   const module = getCustomerIO();
-  if (!module) return;
+  if (!module) {
+    console.warn('⚠️ [CustomerIO] registerPushToken: Module not available');
+    return;
+  }
 
   try {
+    console.log('🔔 [CustomerIO] registerPushToken: Registering token (first 30 chars):', token.substring(0, 30) + '...');
     module.CustomerIO.registerDeviceToken(token);
-    console.log('🔔 [CustomerIO] Push token registered');
+    console.log('✅ [CustomerIO] registerPushToken: Token registered successfully');
   } catch (error) {
-    console.error('❌ [CustomerIO] Failed to register push token:', error);
+    console.error('❌ [CustomerIO] registerPushToken: Failed:', error);
   }
 };
 

@@ -165,15 +165,18 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Sync push token on sign-in for users who already granted permission
   // This ensures Customer.io always has the latest APNs/FCM token
+  // IMPORTANT: Must run AFTER CustomerIO.identify() completes
   React.useEffect(() => {
-    if (isSignedIn && Platform.OS !== 'web') {
-      // Small delay to ensure Customer.io is initialized
-      const timer = setTimeout(() => {
-        PushNotificationService.syncPushToken();
-      }, 2000);
+    if (isSignedIn && user && Platform.OS !== 'web') {
+      // Longer delay to ensure Customer.io identify() has completed first
+      // Token must be registered AFTER user is identified
+      const timer = setTimeout(async () => {
+        console.log('🔔 [AnalyticsWrapper] Syncing push token for user:', user.id);
+        await PushNotificationService.syncPushToken();
+      }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isSignedIn]);
+  }, [isSignedIn, user]);
 
   // Prompt for push notifications after sign-in if not already granted
   // This handles returning users who may have missed or denied the onboarding prompt

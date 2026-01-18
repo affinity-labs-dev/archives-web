@@ -126,20 +126,33 @@ export async function getPushPermissionStatus(): Promise<PermissionStatus> {
  * This ensures Customer.io always has the latest token
  */
 export async function syncPushToken(): Promise<void> {
-  if (Platform.OS === 'web' || !Device.isDevice) {
+  if (Platform.OS === 'web') {
+    console.log('🔔 [PushService] syncPushToken: Skipping on web');
+    return;
+  }
+
+  if (!Device.isDevice) {
+    console.log('🔔 [PushService] syncPushToken: Skipping on simulator');
     return;
   }
 
   try {
     const { status } = await Notifications.getPermissionsAsync();
+    console.log('🔔 [PushService] syncPushToken: Permission status =', status);
 
     if (status === 'granted') {
+      console.log('🔔 [PushService] syncPushToken: Getting device token...');
       const tokenData = await Notifications.getDevicePushTokenAsync();
+      console.log('🔔 [PushService] syncPushToken: Token type =', tokenData.type);
+      console.log('🔔 [PushService] syncPushToken: Token (first 30 chars) =', tokenData.data.substring(0, 30) + '...');
+
       CustomerIOService.registerPushToken(tokenData.data);
-      console.log('✅ [PushService] Synced push token with Customer.io');
+      console.log('✅ [PushService] syncPushToken: Token registered with Customer.io');
+    } else {
+      console.log('🔔 [PushService] syncPushToken: Permission not granted, skipping');
     }
   } catch (error) {
-    console.error('❌ [PushService] Error syncing push token:', error);
+    console.error('❌ [PushService] syncPushToken: Error:', error);
   }
 }
 
