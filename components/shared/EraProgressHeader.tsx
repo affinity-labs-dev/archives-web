@@ -5,8 +5,8 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useGamificationOrchestrator } from '@/gamification';
 import StreakCelebrationScreen from '@/gamification/ui/celebrations/StreakCelebrationScreen';
-import React, { useState, useEffect, useRef } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View, Animated } from 'react-native';
+import React, { useState } from 'react';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Defs, FeComposite, FeFlood, FeGaussianBlur, FeMerge, FeMergeNode, Filter, Path, Rect } from 'react-native-svg';
 
 // Streak icon (flame)
@@ -41,37 +41,6 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
 
   // TEST MODE: Show celebration when clicking streak
   const [showTestCelebration, setShowTestCelebration] = useState(false);
-
-  // Flip animation for streak number
-  const flipAnimation = useRef(new Animated.Value(0)).current;
-  const previousStreak = useRef(streak);
-
-  // Trigger flip animation when streak changes
-  useEffect(() => {
-    if (previousStreak.current !== streak && previousStreak.current !== 0) {
-      // Reset and start flip animation
-      flipAnimation.setValue(0);
-      Animated.sequence([
-        Animated.timing(flipAnimation, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-    previousStreak.current = streak;
-  }, [streak, flipAnimation]);
-
-  // Interpolate rotation for flip effect
-  const flipRotation = flipAnimation.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: ['0deg', '90deg', '0deg'],
-  });
-
-  const flipScale = flipAnimation.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 0.8, 1],
-  });
 
   // Calculate week data for test
   const calculateWeekData = (currentStreak: number) => {
@@ -173,19 +142,7 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
             <View style={styles.iconWrapper}>
               <StreakIcon size={16} />
             </View>
-            <Animated.Text
-              style={[
-                styles.statValue,
-                {
-                  transform: [
-                    { rotateX: flipRotation },
-                    { scale: flipScale }
-                  ]
-                }
-              ]}
-            >
-              {streak}{' '}
-            </Animated.Text>
+            <Text style={styles.statValue}>{streak} </Text>
             <Text style={styles.statLabel}>days</Text>
           </TouchableOpacity>
           {/* XP row */}
