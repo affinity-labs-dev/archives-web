@@ -102,13 +102,13 @@ export default function StreakCelebrationScreen({
   // Move flame + number UP after 3.5s to make room for calendar (Duolingo style)
   useEffect(() => {
     if (visible && !skipped) {
-      // Start centered (150px down from normal position)
-      translateY.value = 150;
-      // At 3.5s, move up to make room for calendar (stop at 80px down to keep within card bounds)
-      translateY.value = withDelay(3500, withSpring(80, { damping: 20, stiffness: 90 }));
+      // Start centered (120px down from normal position)
+      translateY.value = 120;
+      // At 3.5s, move to final position (0 = original position, keeps number above card)
+      translateY.value = withDelay(3500, withSpring(0, { damping: 20, stiffness: 90 }));
     } else if (skipped) {
-      // Instant position if skipped (within card boundary with calendar below)
-      translateY.value = 80;
+      // Instant position if skipped (number stays above white card)
+      translateY.value = 0;
     }
   }, [visible, skipped]);
 
@@ -117,51 +117,26 @@ export default function StreakCelebrationScreen({
     transform: [{ translateY: translateY.value }],
   }));
 
-  // Track analytics and haptics (no sound on modal open)
+  // Track analytics (no haptic on modal open)
   useEffect(() => {
     if (visible) {
       analyticsService.trackCustomEvent('streak_celebration_shown', {
         streak_count: streakCount,
         is_milestone: [3, 7, 14, 30, 50, 100].includes(streakCount),
       });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   }, [visible, streakCount]);
 
-  // Haptic feedback at key animation moments
+  // Single haptic feedback when continue button appears
   useEffect(() => {
     if (visible && !skipped) {
-      // Number starts spinning (1.2s)
-      const timer0 = setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }, 1200);
-
-      // Number lands on new value (2.2s)
-      const timer1 = setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      }, 2200);
-
-      // Zoom animation (2.5s - after number update)
-      const timer2 = setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }, 2500);
-
-      // Calendar appears (3.7s - after text moves up)
-      const timer3 = setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }, 3700);
-
       // Continue button appears (4.7s)
-      const timer4 = setTimeout(() => {
+      const timer = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }, 4700);
 
       return () => {
-        clearTimeout(timer0);
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-        clearTimeout(timer3);
-        clearTimeout(timer4);
+        clearTimeout(timer);
       };
     }
   }, [visible, skipped]);
@@ -316,12 +291,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ArchivesTheme.colors.creamWhite,
+    zIndex: 2000, // Ensure above all other UI (matches achievement popup pattern)
+    elevation: 2000, // Android layering
   },
   closeButton: {
     position: 'absolute',
     top: SCREEN_HEIGHT * 0.07,
     right: 24,
-    zIndex: 10,
+    zIndex: 100, // Above all content (matches achievement close button)
+    elevation: 100, // Android
     width: 44,
     height: 44,
     alignItems: 'center',
@@ -457,6 +435,8 @@ const styles = StyleSheet.create({
     color: '#C99151',
     textAlign: 'center',
     lineHeight: 21,
+    zIndex: 25, // Above white card (which has elevation: 10)
+    elevation: 25, // Android
   },
   continueButton: {
     position: 'absolute',
