@@ -933,11 +933,22 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       metadata: { ...currentState.metadata, last_updated: new Date().toISOString() },
     };
 
-    await saveState(newState);
+    // UPDATE 1: Update React state FIRST (synchronous - immediate)
+    setState(newState);
+    stateRef.current = newState;
+
+    // UPDATE 2: Save to local storage IMMEDIATELY (primary source for navigation)
+    await saveToLocal(newState);
+
+    // UPDATE 3: Save to Supabase IMMEDIATELY (fire and forget - don't block navigation)
+    // This ensures cloud has latest era, but doesn't block if Supabase is slow
+    saveToCloud(newState).catch(err => {
+      console.error('❌ [GamifiedProgress] Era cloud save failed (non-critical):', err);
+    });
 
     // Also save to legacy key for backward compatibility
     await WebCompatibleStorage.setItem(LEGACY_KEYS.SELECTED_ERA, eraId);
-  }, [saveState]);
+  }, []);
 
   // ========== PROGRESS GETTERS ==========
 

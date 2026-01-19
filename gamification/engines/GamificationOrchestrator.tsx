@@ -1111,24 +1111,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
     const newCelebrations: CelebrationItem[] = [];
 
-    // --- Check 1: XP Milestone ---
-    const milestone = checkXPMilestone(oldEraXP, newEraXP);
-    if (milestone) {
-      const alreadySeen = await hasSeenXPMilestone(milestone, eraId);
-      if (!alreadySeen) {
-        newCelebrations.push({
-          type: 'XP_MILESTONE',
-          milestoneXP: milestone,
-          totalXP: newEraXP,
-          eraId,
-        });
-        console.log(`🎯 [Orchestrator] XP milestone ${milestone} queued for era ${eraId}`);
-      } else {
-        console.log(`⏭️ [Orchestrator] XP milestone ${milestone} already seen, skipping`);
-      }
-    }
-
-    // --- Check 2: Adventure Complete ---
+    // --- Check 1: Adventure Complete (HIGHEST PRIORITY - shows first) ---
     const isAdventureComplete = adventureModulesCompleted >= adventureTotalModules;
     if (isAdventureComplete && adventureData) {
       const alreadySeen = await hasSeenAdventureComplete(adventureId);
@@ -1146,9 +1129,26 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           totalBadges: adventureData.totalBadges || 3,
           eraId,
         });
-        console.log(`🎯 [Orchestrator] Adventure ${adventureId} complete queued`);
+        console.log(`🎯 [Orchestrator] Adventure ${adventureId} complete queued (FIRST)`);
       } else {
         console.log(`⏭️ [Orchestrator] Adventure ${adventureId} complete already seen, skipping`);
+      }
+    }
+
+    // --- Check 2: XP Milestone ---
+    const milestone = checkXPMilestone(oldEraXP, newEraXP);
+    if (milestone) {
+      const alreadySeen = await hasSeenXPMilestone(milestone, eraId);
+      if (!alreadySeen) {
+        newCelebrations.push({
+          type: 'XP_MILESTONE',
+          milestoneXP: milestone,
+          totalXP: newEraXP,
+          eraId,
+        });
+        console.log(`🎯 [Orchestrator] XP milestone ${milestone} queued for era ${eraId}`);
+      } else {
+        console.log(`⏭️ [Orchestrator] XP milestone ${milestone} already seen, skipping`);
       }
     }
 

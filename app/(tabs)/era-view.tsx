@@ -71,15 +71,16 @@ export default function AdventuresScreen() {
 
   // Auto-correct invalid selectedEra (migration fix)
   // If user has a selectedEra that doesn't exist in Supabase, auto-select first available era
+  // IMPORTANT: Only auto-correct AFTER eras have fully loaded (prevents race condition)
   useEffect(() => {
-    if (eras.length > 0 && selectedEra && !selectedEraData) {
+    if (!erasLoading && eras.length > 0 && selectedEra && !selectedEraData) {
       console.log(`⚠️ [Adventures] Invalid selectedEra "${selectedEra}" - auto-selecting first era`);
       const firstActiveEra = eras.find(era => era.status === 'active');
       if (firstActiveEra) {
         setSelectedEra(firstActiveEra.era_id);
       }
     }
-  }, [eras, selectedEra, selectedEraData, setSelectedEra]);
+  }, [erasLoading, eras, selectedEra, selectedEraData, setSelectedEra]);
 
   // Update AI context when era changes (for AI chat awareness)
   useEffect(() => {
