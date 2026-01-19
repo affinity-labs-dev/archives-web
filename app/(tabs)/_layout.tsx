@@ -1,6 +1,7 @@
 // Main Tab Navigation - Native iOS Bottom Tabs with automatic iOS 18+ floating behavior
-// 4 tabs: Home, Eras, Subscribe, Profile with Archives styling
+// 5 tabs: Home, Eras, Subscribe, Daily Quest, Profile with Archives styling
 
+import DailyQuestIcon from '@/components/icons/DailyQuestIcon'
 import ErasIcon from '@/components/icons/ErasIcon'
 import HomeIcon from '@/components/icons/HomeIcon'
 import ProfileIcon from '@/components/icons/ProfileIcon'
@@ -130,6 +131,19 @@ export default function TabLayout() {
           headerShown: false,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <SubscribeIcon
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <TabComponent.Screen
+        name="dailyQuest"
+        options={{
+          title: 'Daily Quest',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
+            <DailyQuestIcon
               size={24}
               color={color}
             />

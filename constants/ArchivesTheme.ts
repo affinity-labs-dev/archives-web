@@ -393,6 +393,684 @@ export const ArchivesTheme = {
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
     },
+
+    // DAILY QUEST SCREEN
+    dailyQuest: {
+      // Layout
+      container: {
+        flex: 1,
+        backgroundColor: '#F4EBDB', // creamWhite
+      },
+      scrollView: {
+        flex: 1,
+      },
+      scrollContent: {
+        paddingHorizontal: 20,
+        paddingBottom: 40,
+      },
+
+      // Header Section
+      headerTop: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        paddingTop: 20,
+        paddingBottom: 12,
+      },
+      headerLeft: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: 12,
+      },
+      headerRight: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: 12,
+      },
+      badge: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#C99151', // persianOrange
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        overflow: 'hidden' as const,
+      },
+      badgeImage: {
+        width: 40,
+        height: 40,
+      },
+      headerTitle: {
+        fontFamily: 'DM Sans',
+        fontSize: 20,
+        fontWeight: '700' as const,
+        color: '#4D392E', // shoeBrown
+      },
+      subtitleRow: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: 6,
+        paddingBottom: 16,
+      },
+      headerSubtitle: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '400' as const,
+        color: '#4D392E', // shoeBrown
+        opacity: 0.6,
+        flex: 1,
+      },
+      infoIcon: {
+        padding: 2,
+      },
+      streakBadge: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        gap: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+      streakText: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '600' as const,
+        color: '#4D392E', // shoeBrown
+      },
+
+      // Calendar
+      calendarContainer: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        paddingVertical: 16,
+        paddingHorizontal: 8,
+      },
+      calendarDay: {
+        alignItems: 'center' as const,
+        gap: 8,
+      },
+      calendarDayLabel: {
+        fontFamily: 'DM Sans',
+        fontSize: 12,
+        fontWeight: '600' as const,
+        color: '#4D392E', // shoeBrown
+        opacity: 0.5,
+      },
+      calendarDateCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        backgroundColor: 'transparent',
+      },
+      calendarDateCircleActive: {
+        backgroundColor: '#4D392E', // shoeBrown
+      },
+      calendarDateText: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '600' as const,
+        color: '#4D392E', // shoeBrown
+      },
+      calendarDateTextActive: {
+        color: '#FFFFFF',
+      },
+
+      // Progress Tracker
+      progressContainer: {
+        marginBottom: 20,
+      },
+      progressHeader: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        marginBottom: 8,
+      },
+      progressLabel: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '600' as const,
+        color: '#4D392E', // shoeBrown
+      },
+      progressPercentage: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '600' as const,
+        color: '#C99151', // persianOrange
+      },
+      progressBarBackground: {
+        height: 6,
+        backgroundColor: '#E0E0E0',
+        borderRadius: 3,
+        overflow: 'hidden' as const,
+      },
+      progressBarFill: {
+        height: '100%' as const,
+        backgroundColor: '#C99151', // persianOrange
+        borderRadius: 3,
+      },
+
+      // Cards (WATCH, EXPLORE, QUESTIONS)
+      card: {
+        borderRadius: 16,
+        marginBottom: 12,
+        overflow: 'hidden' as const,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      },
+      cardWatch: {
+        backgroundColor: '#5D4037', // Dark brown
+      },
+      cardExplore: {
+        backgroundColor: '#4A5568', // Dark slate
+      },
+      cardQuestions: {
+        backgroundColor: '#A8B456', // Olive/yellow-green
+      },
+      cardLocked: {
+        opacity: 0.6,
+      },
+      cardHeader: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        padding: 16,
+      },
+      cardHeaderLeft: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: 10,
+      },
+      cardTitle: {
+        fontFamily: 'DM Sans',
+        fontSize: 16,
+        fontWeight: '700' as const,
+        color: '#FFFFFF',
+      },
+      cardHeaderRight: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: 10,
+      },
+      cardDuration: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '600' as const,
+        color: '#FFFFFF',
+        opacity: 0.8,
+      },
+      cardExpandedContent: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'space-between' as const,
+        paddingHorizontal: 16,
+        paddingTop: 0,
+        paddingBottom: 16,
+      },
+      cardExpandedText: {
+        fontFamily: 'DM Sans',
+        fontSize: 15,
+        fontWeight: '600' as const,
+        color: '#FFFFFF',
+        flex: 1,
+        marginRight: 8,
+      },
+
+      // Bottom Button
+      bottomButtonContainer: {
+        position: 'absolute' as const,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        backgroundColor: '#F4EBDB', // creamWhite
+        borderTopWidth: 1,
+        borderTopColor: '#E0E0E0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 8,
+      },
+      startButton: {
+        backgroundColor: '#4A5568', // Dark purple/slate
+        paddingVertical: 16,
+        borderRadius: 26,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
+      },
+      startButtonText: {
+        fontFamily: 'DM Sans',
+        fontSize: 18,
+        fontWeight: '700' as const,
+        color: '#FFFFFF',
+      },
+
+      // WATCH Modal
+      watchModalContainer: {
+        flex: 1,
+        backgroundColor: '#000000', // Black for video player
+      },
+      watchProgressBarContainer: {
+        position: 'absolute' as const,
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 4,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        zIndex: 10,
+      },
+      watchProgressBarFill: {
+        height: '100%' as const,
+        backgroundColor: '#C99151', // persianOrange
+      },
+      watchVideoContainer: {
+        flex: 1,
+        justifyContent: 'center' as const,
+        alignItems: 'center' as const,
+      },
+      watchNextButtonContainer: {
+        position: 'absolute' as const,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 20,
+        paddingVertical: 20,
+        backgroundColor: 'transparent',
+      },
+      watchNextButton: {
+        backgroundColor: '#6B5B95', // Purple
+        paddingVertical: 16,
+        borderRadius: 26,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+      },
+      watchNextButtonText: {
+        fontFamily: 'DM Sans',
+        fontSize: 18,
+        fontWeight: '700' as const,
+        color: '#FFFFFF',
+      },
+
+      // EXPLORE Modal
+      exploreModalContainer: {
+        flex: 1,
+        backgroundColor: '#F4EBDB', // creamWhite
+      },
+      exploreHeader: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'space-between' as const,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E0E0E0',
+      },
+      exploreBackButton: {
+        padding: 4,
+      },
+      exploreHeaderTitle: {
+        fontFamily: 'DM Sans',
+        fontSize: 20,
+        fontWeight: '700' as const,
+        color: '#4D392E', // shoeBrown
+        position: 'absolute' as const,
+        left: 0,
+        right: 0,
+        textAlign: 'center' as const,
+        zIndex: -1,
+      },
+      exploreContent: {
+        flex: 1,
+      },
+      exploreContentInner: {
+        paddingBottom: 40,
+      },
+      exploreHeroContainer: {
+        position: 'relative' as const,
+        marginHorizontal: 20,
+        marginTop: 20,
+        marginBottom: 20,
+        borderRadius: 16,
+        overflow: 'hidden' as const,
+      },
+      exploreHeroImage: {
+        width: '100%' as const,
+        height: 200,
+        borderRadius: 16,
+      },
+      exploreHeroCaption: {
+        position: 'absolute' as const,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+      },
+      exploreHeroCaptionText: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '500' as const,
+        color: '#FFFFFF',
+        textAlign: 'center' as const,
+      },
+      exploreVoiceoverButton: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        gap: 10,
+        marginHorizontal: 20,
+        marginBottom: 24,
+        paddingVertical: 14,
+        backgroundColor: '#6B5B95', // Purple
+        borderRadius: 12,
+      },
+      exploreVoiceoverText: {
+        fontFamily: 'DM Sans',
+        fontSize: 16,
+        fontWeight: '600' as const,
+        color: '#FFFFFF',
+      },
+      exploreMainTitle: {
+        fontFamily: 'DM Sans',
+        fontSize: 28,
+        fontWeight: '700' as const,
+        color: '#4D392E', // shoeBrown
+        marginHorizontal: 20,
+        marginBottom: 20,
+        lineHeight: 36,
+      },
+      exploreSectionHeader: {
+        fontFamily: 'DM Sans',
+        fontSize: 20,
+        fontWeight: '700' as const,
+        color: '#C99151', // persianOrange
+        marginHorizontal: 20,
+        marginBottom: 12,
+        marginTop: 8,
+      },
+      exploreBodyText: {
+        fontFamily: 'DM Sans',
+        fontSize: 16,
+        fontWeight: '400' as const,
+        color: '#4D392E', // shoeBrown
+        lineHeight: 26,
+        marginHorizontal: 20,
+        marginBottom: 20,
+      },
+      exploreCompletionBadge: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        gap: 8,
+        marginHorizontal: 20,
+        marginTop: 24,
+        marginBottom: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        backgroundColor: '#E8F5E9', // Light green background
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#6B7F3D',
+      },
+      exploreCompletionText: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '600' as const,
+        color: '#6B7F3D',
+      },
+      exploreFooter: {
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#E0E0E0',
+        backgroundColor: '#F4EBDB', // creamWhite
+      },
+      exploreNextButton: {
+        paddingVertical: 16,
+        backgroundColor: '#6B5B95', // Purple
+        borderRadius: 26,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
+      },
+      exploreNextText: {
+        fontFamily: 'DM Sans',
+        fontSize: 18,
+        fontWeight: '700' as const,
+        color: '#FFFFFF',
+      },
+
+      // Legacy styles (keeping for backward compatibility)
+      header: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        paddingVertical: 20,
+      },
+      section: {
+        marginBottom: 24,
+      },
+      sectionTitle: {
+        fontFamily: 'DM Sans',
+        fontSize: 18,
+        fontWeight: '700' as const,
+        color: '#4D392E', // shoeBrown
+        marginBottom: 12,
+      },
+      mediaCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        overflow: 'hidden' as const,
+        shadowColor: '#4D392E',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 4,
+      },
+      mediaImage: {
+        width: '100%' as const,
+        height: 200,
+        backgroundColor: '#E5E5E5',
+      },
+      mediaContent: {
+        padding: 16,
+      },
+      dateLabel: {
+        fontFamily: 'DM Sans',
+        fontSize: 12,
+        fontWeight: '600' as const,
+        color: '#C99151', // persianOrange
+        marginBottom: 8,
+        textTransform: 'uppercase' as const,
+        letterSpacing: 0.5,
+      },
+      eventTitle: {
+        fontFamily: 'DM Sans',
+        fontSize: 20,
+        fontWeight: '700' as const,
+        color: '#4D392E', // shoeBrown
+        lineHeight: 26,
+      },
+      formatToggle: {
+        flexDirection: 'row' as const,
+        gap: 12,
+        marginBottom: 16,
+      },
+      formatButton: {
+        flex: 1,
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        gap: 8,
+        paddingVertical: 12,
+        borderRadius: 12,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 2,
+        borderColor: '#4D392E33', // shoeBrown + 20%
+      },
+      formatButtonActive: {
+        backgroundColor: '#C99151', // persianOrange
+        borderColor: '#C99151',
+      },
+      formatButtonText: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '600' as const,
+        color: '#4D392E', // shoeBrown
+      },
+      formatButtonTextActive: {
+        color: '#FFFFFF',
+      },
+      contentCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        shadowColor: '#4D392E',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+      contentText: {
+        fontFamily: 'DM Sans',
+        fontSize: 16,
+        fontWeight: '400' as const,
+        color: '#4D392E', // shoeBrown
+        lineHeight: 24,
+      },
+      audioPlaceholder: {
+        alignItems: 'center' as const,
+        paddingVertical: 40,
+      },
+      audioPlaceholderText: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '600' as const,
+        color: '#4D392ECC', // shoeBrown + 80%
+        marginTop: 12,
+      },
+      quizCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 16,
+        shadowColor: '#4D392E',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+      quizQuestion: {
+        fontFamily: 'DM Sans',
+        fontSize: 16,
+        fontWeight: '600' as const,
+        color: '#4D392E', // shoeBrown
+        marginBottom: 16,
+        lineHeight: 22,
+      },
+      optionsContainer: {
+        gap: 10,
+      },
+      optionButton: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 10,
+        backgroundColor: '#F4EBDB', // creamWhite
+        borderWidth: 2,
+        borderColor: '#4D392E33', // shoeBrown + 20%
+      },
+      optionButtonSelected: {
+        backgroundColor: '#C9915133', // persianOrange + 20%
+        borderColor: '#C99151',
+      },
+      optionText: {
+        fontFamily: 'DM Sans',
+        fontSize: 14,
+        fontWeight: '500' as const,
+        color: '#4D392E', // shoeBrown
+      },
+      optionTextSelected: {
+        fontWeight: '600' as const,
+        color: '#C99151', // persianOrange
+      },
+      submitButton: {
+        backgroundColor: '#C99151', // persianOrange
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center' as const,
+        marginTop: 8,
+        shadowColor: '#4D392E',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 4,
+      },
+      submitButtonText: {
+        fontFamily: 'DM Sans',
+        fontSize: 16,
+        fontWeight: '700' as const,
+        color: '#FFFFFF',
+      },
+      completedCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 32,
+        alignItems: 'center' as const,
+        shadowColor: '#4D392E',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+      },
+      completedTitle: {
+        fontFamily: 'DM Sans',
+        fontSize: 20,
+        fontWeight: '700' as const,
+        color: '#4D392E', // shoeBrown
+        marginTop: 12,
+        marginBottom: 8,
+      },
+      completedText: {
+        fontFamily: 'DM Sans',
+        fontSize: 16,
+        fontWeight: '500' as const,
+        color: '#4D392E', // shoeBrown
+        marginBottom: 8,
+      },
+      completedXP: {
+        fontFamily: 'DM Sans',
+        fontSize: 18,
+        fontWeight: '700' as const,
+        color: '#C99151', // persianOrange
+      },
+    },
   },
 }
 

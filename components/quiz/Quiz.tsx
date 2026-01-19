@@ -48,6 +48,9 @@ interface QuizProps {
     completedModules: number;  // BEFORE this quiz
     totalBadges?: number;
   };
+  // Daily Quest mode - skips gamification saving, calls onQuizResults with score
+  isDailyQuest?: boolean;
+  onQuizResults?: (score: number, correctAnswers: number, totalQuestions: number) => Promise<void>;
 }
 
 // MCQ Option Button Design
@@ -287,6 +290,8 @@ export default function Quiz({
   onDismiss,
   onBack,
   adventureData,
+  isDailyQuest = false,
+  onQuizResults,
 }: QuizProps) {
   const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
   const { reportQuizComplete } = useGamificationOrchestrator();
@@ -475,6 +480,17 @@ export default function Quiz({
     // Track quiz completion (score = star rating, correctAnswers = correct count)
     trackQuizComplete(quizScore, correctAnswers);
 
+    // DAILY QUEST MODE - Skip gamification saving, call custom callback
+    if (isDailyQuest) {
+      console.log('📋 [Quiz] Daily Quest mode - skipping gamification save');
+      if (onQuizResults) {
+        await onQuizResults(quizScore, correctAnswers, totalQuestions);
+      }
+      onContinue();
+      return;
+    }
+
+    // ADVENTURE/MODULE MODE - Normal gamification flow
     // Load progress from React state (SOURCE OF TRUTH - avoids AsyncStorage race conditions)
     const newModulesData = await AsyncStorage.getItem('new_user_progress');
     const newModules = newModulesData ? JSON.parse(newModulesData) : [];
