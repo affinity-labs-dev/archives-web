@@ -443,6 +443,7 @@ const unlockStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: ArchivesTheme.spacing.lg,
     zIndex: 2000,  // Ensure modal appears above All Achievements sheet
+    elevation: 2000,  // Android layering
   },
   closeButton: {
     position: 'absolute',
@@ -471,11 +472,13 @@ const unlockStyles = StyleSheet.create({
     alignItems: 'center',
     width: CARD_WIDTH,
     zIndex: 10,
+    elevation: 10,  // Android layering
   },
   imageWrapper: {
     position: 'absolute',
     top: -150, // Adjusted for larger image size (234px)
     zIndex: 10,
+    elevation: 10,  // Android layering - ensures image stays above card
     right: 20,
     alignItems: 'center',
   },

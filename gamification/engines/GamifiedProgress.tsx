@@ -1328,6 +1328,28 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     try {
       const cloudData = await fetchFromCloud(user.id);
       if (cloudData) {
+        // CRITICAL FIX: Compare timestamps before overwriting local data
+        // This prevents losing unsaved local changes (e.g., quiz completion pending cloud sync)
+        const localData = stateRef.current;
+        const localTimestamp = localData?.metadata?.last_updated;
+        const cloudTimestamp = cloudData?.metadata?.last_updated;
+
+        if (localTimestamp && cloudTimestamp) {
+          const localTime = new Date(localTimestamp).getTime();
+          const cloudTime = new Date(cloudTimestamp).getTime();
+
+          if (localTime > cloudTime) {
+            console.log('⚠️ [GamifiedProgress] LOCAL DATA IS NEWER - skipping cloud overwrite');
+            console.log(`   Local: ${localTimestamp} (${localTime})`);
+            console.log(`   Cloud: ${cloudTimestamp} (${cloudTime})`);
+            console.log(`   Difference: ${(localTime - cloudTime) / 1000}s newer locally`);
+            // Don't overwrite - local has unsaved changes that will sync soon
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        console.log('📥 [GamifiedProgress] Cloud data is newer or local is empty, applying cloud data');
         console.log('📥 [GamifiedProgress] Reloaded streak from Supabase:', JSON.stringify(cloudData.streak));
         // Update ref FIRST (synchronous) - prevents stale closure
         stateRef.current = cloudData;

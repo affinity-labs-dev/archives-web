@@ -35,6 +35,56 @@ interface QuizExplanationRequest {
   userLevel?: 'beginner' | 'intermediate' | 'advanced';
 }
 
+// Content-related topics that may benefit from web search (Islamic/Middle Eastern history)
+const CONTENT_TOPICS = [
+  'islam', 'islamic', 'muslim', 'mosque', 'quran', 'prophet', 'muhammad',
+  'umayyad', 'abbasid', 'ottoman', 'caliphate', 'caliph', 'sultan',
+  'mecca', 'medina', 'jerusalem', 'damascus', 'baghdad', 'cordoba',
+  'middle east', 'arab', 'persian', 'fatimid', 'mamluk', 'moorish',
+  'alhambra', 'dome of the rock', 'kaaba', 'hijra', 'ramadan',
+  'sahaba', 'companions', 'khadijah', 'aisha', 'fatimah', 'ali',
+  'crusade', 'reconquista', 'al-andalus', 'golden age',
+  'scholar', 'ibn', 'al-', 'imam', 'sheikh'
+];
+
+// Keywords that indicate user wants current/recent information (combined with content topics)
+const RECENCY_KEYWORDS = [
+  // General recency
+  'latest', 'recent', 'new', 'current', 'modern', 'today',
+  'discovery', 'found', 'research', 'study', 'archaeological',
+  'news', 'update', 'happening', 'search',
+  // Archaeology
+  'excavation', 'dig', 'artifact', 'ruins',
+  // Museum/exhibits
+  'museum', 'exhibit', 'exhibition', 'collection',
+  // Preservation/heritage
+  'unesco', 'heritage', 'restoration', 'preservation',
+  // News verbs
+  'announce', 'reveal', 'uncover', 'breakthrough'
+];
+
+/**
+ * Detect if a query needs web search for content-related current information
+ * Only triggers for queries about Islamic/Middle Eastern history that need recent info
+ * NOT for general news or unrelated topics
+ */
+function needsWebSearch(query: string): boolean {
+  const lowerQuery = query.toLowerCase();
+
+  // First check: Must be related to our content (Islamic/Middle Eastern history)
+  const isContentRelated = CONTENT_TOPICS.some(topic => lowerQuery.includes(topic));
+
+  if (!isContentRelated) {
+    // Not related to our content - don't use web search
+    return false;
+  }
+
+  // Second check: User wants recent/current information about the content
+  const wantsRecentInfo = RECENCY_KEYWORDS.some(keyword => lowerQuery.includes(keyword));
+
+  return wantsRecentInfo;
+}
+
 class AIService {
   private ai: GoogleGenAI | null = null;
   // Text model for chat and quiz explanations
@@ -346,24 +396,29 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
         parts: [{ text: userMessage }]
       });
 
-      // Get tool declarations if RAG is enabled
-      const functionTools = enableRAG ? aiToolsService.getToolDeclarations() : [];
+      // Detect if this query needs web search (news, current events, real-time data)
+      // NOTE: Gemini API doesn't support combining Google Search with function calling
+      // So we need to choose ONE based on query intent
+      const queryNeedsSearch = enableWebSearch && needsWebSearch(userMessage);
 
-      // Build tools array - combine function calling and Google Search
+      // Get tool declarations if RAG is enabled AND we're not doing web search
+      const functionTools = (enableRAG && !queryNeedsSearch) ? aiToolsService.getToolDeclarations() : [];
+
+      // Build tools array - either function calling (RAG) OR Google Search (not both)
       const toolsConfig: any[] = [];
 
-      // Add function declarations for RAG if enabled
-      if (functionTools.length > 0) {
+      if (queryNeedsSearch) {
+        // Use Google Search for real-time/current event queries
+        console.log('🔍 [AIService] Query needs web search, using Google Search grounding');
+        toolsConfig.push({ googleSearch: {} });
+      } else if (functionTools.length > 0) {
+        // Use RAG function calling for app knowledge base queries
+        console.log('📚 [AIService] Using RAG function calling for knowledge base');
         toolsConfig.push({ functionDeclarations: functionTools });
       }
 
-      // Add Google Search grounding if enabled
-      if (enableWebSearch) {
-        toolsConfig.push({ googleSearch: {} });
-      }
-
-      // Call Gemini API with function calling and Google Search support
-      console.log(`🔧 [AIService] Calling Gemini with ${functionTools.length} function tools, webSearch: ${enableWebSearch}`);
+      // Call Gemini API with either RAG (function calling) or Google Search
+      console.log(`🔧 [AIService] Calling Gemini - RAG tools: ${functionTools.length}, Web search: ${queryNeedsSearch}`);
 
       const response = await this.ai!.models.generateContent({
         model: this.textModel,
@@ -672,6 +727,14 @@ Do not:
 - Be conversational like texting a friend
 - Direct and to the point
 - Warm but brief
+
+=== 8. WEB SEARCH CAPABILITY ===
+When users ask about RECENT discoveries, research, or news related to Islamic and Middle Eastern history:
+- You have access to Google Search to find up-to-date information
+- Only use web search for content-related queries (archaeology, new research, recent discoveries about Islamic history)
+- Do NOT use web search for general news unrelated to our educational content
+- Maintain Archives' respectful and educational tone
+- Cite sources when sharing information from the web
 
 Your job is to help users learn history correctly, respectfully, and confidently.`;
   }
