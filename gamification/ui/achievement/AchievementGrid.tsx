@@ -179,8 +179,6 @@ const renderAchievementCard = (
           <Image
             source={achievement.image || require('@/assets/images/quiz-images/Camel.png')}
             style={styles.achievementImage}
-            width={imageConfig.width || 234}
-            height={imageConfig.height || 234}
             resizeMode="contain"
           />
         )}
@@ -294,7 +292,7 @@ export function AchievementDetailModal({
               locations: [0.027, 0.393]
             },
             unlockStyles,
-            { useGrayscale: true, width: 195, height: 195 },
+            { useGrayscale: true, width: 234, height: 234 },
             <>
               {renderAchievementText(achievement.name, achievement.description, unlockStyles, !achievement.unlocked)}
 
@@ -388,7 +386,7 @@ export function AchievementUnlockAnimation({
               locations: [0.25, 0.75]
             },
             unlockStyles,
-            { useGrayscale: false, width: 195, height: 195 },
+            { useGrayscale: false, width: 234, height: 234 },
             <>
               {renderAchievementText(achievement.name, achievement.description, unlockStyles)}
 
@@ -418,7 +416,7 @@ export default AchievementDetailModal;
 const detailStyles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
-    top: 140, // Moved down to be near card top, not above image
+    top: 100, // Positioned above the card for better spacing
     right: 28,
     zIndex: 100,
   },
@@ -448,7 +446,7 @@ const unlockStyles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 140, // Moved down to be near card top, not above image
+    top: 100, // Positioned above the card for better spacing
     right: 28,
     zIndex: 100,
   },
@@ -476,14 +474,14 @@ const unlockStyles = StyleSheet.create({
   },
   imageWrapper: {
     position: 'absolute',
-    top: -130,
+    top: -150, // Adjusted for larger image size (234px)
     zIndex: 10,
     right: 20,
     alignItems: 'center',
   },
   achievementImage: {
-    width: 195, // Increased from 190
-    height: 195, // Increased from 184
+    width: 234, // Increased for better image quality
+    height: 234,
   },
   card: {
     width: CARD_WIDTH,

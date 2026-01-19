@@ -9,7 +9,7 @@ import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
+import Animated, { FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming, interpolate, Extrapolate } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Rive, { Alignment, Fit, RiveRef } from 'rive-react-native';
 
@@ -56,9 +56,13 @@ export default function StreakCelebrationScreen({
   const celebrationSound = useRef<Audio.Sound | null>(null);
   const tickSound = useRef<Audio.Sound | null>(null);
   const [skipped, setSkipped] = useState(false);
+  const [showNewNumber, setShowNewNumber] = useState(false);
 
   // Animated value for moving flame + number upward (Duolingo style)
   const translateY = useSharedValue(0);
+
+  // Animated value for number flip (0 = old number, 1 = new number)
+  const flipProgress = useSharedValue(0);
 
   // Load sounds on mount
   useEffect(() => {
@@ -95,17 +99,37 @@ export default function StreakCelebrationScreen({
   useEffect(() => {
     if (!visible) {
       setSkipped(false);
+      setShowNewNumber(false);
       translateY.value = 0; // Reset position
+      flipProgress.value = 0; // Reset flip
     }
   }, [visible]);
 
-  // Move flame + number UP after 3s to make room for calendar (Duolingo style)
+  // Trigger spin animation at 1.2s (before zoom at 2s)
+  useEffect(() => {
+    if (visible && !skipped) {
+      // At 1.2s, start spinning animation (slower for visibility)
+      flipProgress.value = withDelay(1200, withTiming(1, {
+        duration: 1000,
+      }));
+      // Switch to new number right when spin stops (1.2s + 1000ms = 2.2s)
+      const timer = setTimeout(() => {
+        setShowNewNumber(true);
+      }, 2200);
+      return () => clearTimeout(timer);
+    } else if (skipped) {
+      flipProgress.value = 1;
+      setShowNewNumber(true);
+    }
+  }, [visible, skipped]);
+
+  // Move flame + number UP after 3.5s to make room for calendar (Duolingo style)
   useEffect(() => {
     if (visible && !skipped) {
       // Start centered (200px down from normal position)
       translateY.value = 200;
-      // At 3s, move to final top position
-      translateY.value = withDelay(3000, withSpring(0, { damping: 20, stiffness: 90 }));
+      // At 3.5s, move to final top position
+      translateY.value = withDelay(3500, withSpring(0, { damping: 20, stiffness: 90 }));
     } else if (skipped) {
       // Instant position if skipped
       translateY.value = 0;
@@ -116,6 +140,30 @@ export default function StreakCelebrationScreen({
   const heroAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
+
+  // Animated style for number spin (rotateY) - spinning in place
+  const numberFlipStyle = useAnimatedStyle(() => {
+    // Spin 3 times (1080 degrees) then stop - slower for visibility
+    const rotateY = interpolate(
+      flipProgress.value,
+      [0, 0.85, 1],
+      [0, 1080, 1080], // Spin, then stop abruptly
+      Extrapolate.CLAMP
+    );
+    const scale = interpolate(
+      flipProgress.value,
+      [0, 0.4, 0.85, 0.95, 1],
+      [1, 1.15, 0.85, 1.05, 1],
+      Extrapolate.CLAMP
+    );
+    return {
+      transform: [
+        { perspective: 1000 },
+        { rotateY: `${rotateY}deg` },
+        { scale },
+      ],
+    };
+  });
 
   // Track analytics and haptics (no sound on modal open)
   useEffect(() => {
@@ -131,25 +179,37 @@ export default function StreakCelebrationScreen({
   // Haptic feedback at key animation moments
   useEffect(() => {
     if (visible && !skipped) {
-      // Streak number appears (2s)
-      const timer1 = setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }, 2000);
-
-      // Calendar appears (3.2s - after text moves up)
-      const timer2 = setTimeout(() => {
+      // Number starts spinning (1.2s)
+      const timer0 = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }, 3200);
+      }, 1200);
 
-      // Continue button appears (4.2s)
+      // Number lands on new value (2.2s)
+      const timer1 = setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }, 2200);
+
+      // Zoom animation (2.5s - after number update)
+      const timer2 = setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }, 2500);
+
+      // Calendar appears (3.7s - after text moves up)
       const timer3 = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }, 4200);
+      }, 3700);
+
+      // Continue button appears (4.7s)
+      const timer4 = setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }, 4700);
 
       return () => {
+        clearTimeout(timer0);
         clearTimeout(timer1);
         clearTimeout(timer2);
         clearTimeout(timer3);
+        clearTimeout(timer4);
       };
     }
   }, [visible, skipped]);
@@ -159,7 +219,7 @@ export default function StreakCelebrationScreen({
     if (visible && !skipped) {
       weekData.forEach((day, index) => {
         if (day.completed) {
-          const delay = 3200 + index * 100; // Match checkmark animation timing
+          const delay = 3700 + index * 100; // Match checkmark animation timing
           setTimeout(() => {
             celebrationSound.current?.replayAsync();
           }, delay);
@@ -203,21 +263,21 @@ export default function StreakCelebrationScreen({
 
           {/* Main Card - Fades in at final position after text moves up */}
           <Animated.View
-            entering={skipped ? undefined : FadeIn.delay(3200).duration(400)}
+            entering={skipped ? undefined : FadeIn.delay(3700).duration(400)}
             style={styles.card}
           />
 
-          {/* Big Streak Number - Zooms in with bounce at 2s */}
+          {/* Big Streak Number - Shows previous number, spins at 1.2s, updates at 2.2s, then zooms at 2.5s */}
           <Animated.Text
-            entering={skipped ? undefined : ZoomIn.delay(2000).duration(500).springify()}
-            style={[styles.streakNumber, heroAnimatedStyle]}
+            entering={skipped ? undefined : ZoomIn.delay(2500).duration(500).springify()}
+            style={[styles.streakNumber, heroAnimatedStyle, numberFlipStyle]}
           >
-            {streakCount}
+            {showNewNumber ? streakCount : Math.max(1, streakCount - 1)}
           </Animated.Text>
 
-          {/* "day streak!" text - Fades in at 2.5s */}
+          {/* "day streak!" text - Fades in at 3s (after zoom) */}
           <Animated.Text
-            entering={skipped ? undefined : FadeIn.delay(2500).duration(300)}
+            entering={skipped ? undefined : FadeIn.delay(3000).duration(300)}
             style={[styles.streakText, heroAnimatedStyle]}
           >
             day streak!
@@ -225,7 +285,7 @@ export default function StreakCelebrationScreen({
 
           {/* Week Calendar Widget - Fades in at final position after text moves up */}
           <Animated.View
-            entering={skipped ? undefined : FadeIn.delay(3200).duration(400)}
+            entering={skipped ? undefined : FadeIn.delay(3700).duration(400)}
             style={styles.calendarWidget}
           >
             {/* Day Labels (Mo-Su) */}
@@ -243,12 +303,12 @@ export default function StreakCelebrationScreen({
               ))}
             </View>
 
-            {/* Day Indicators (checkmarks/circles) - Stagger starts at 3.2s */}
+            {/* Day Indicators (checkmarks/circles) - Stagger starts at 3.7s */}
             <View style={styles.dayIndicators}>
               {weekData.map(({ day, completed, isToday }, index) => (
                 <Animated.View
                   key={day}
-                  entering={skipped ? undefined : FadeIn.delay(3200 + index * 100).duration(300)}
+                  entering={skipped ? undefined : FadeIn.delay(3700 + index * 100).duration(300)}
                 >
                   {completed ? (
                     <View style={[styles.checkmark, isToday && styles.checkmarkToday]}>
@@ -264,7 +324,7 @@ export default function StreakCelebrationScreen({
 
           {/* Motivational Text - Fades in after calendar */}
           <Animated.Text
-            entering={skipped ? undefined : FadeIn.delay(3800).duration(400)}
+            entering={skipped ? undefined : FadeIn.delay(4300).duration(400)}
             style={styles.motivationalText}
           >
             {getMotivationalQuote(streakCount)}
@@ -272,7 +332,7 @@ export default function StreakCelebrationScreen({
 
           {/* Continue Button - Fades in last */}
           <Animated.View
-            entering={skipped ? undefined : FadeIn.delay(4200).duration(400)}
+            entering={skipped ? undefined : FadeIn.delay(4700).duration(400)}
             style={styles.continueButton}
           >
             <TouchableOpacity
@@ -296,8 +356,8 @@ export default function StreakCelebrationScreen({
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 400);
 const FLAME_SIZE = Math.min(SCREEN_WIDTH * 0.55, 220);
 const CARD_TOP = SCREEN_HEIGHT * 0.38;
-const FLAME_TOP = SCREEN_HEIGHT * 0.1;
-const NUMBER_TOP = FLAME_TOP + FLAME_SIZE * 1.15;
+const FLAME_TOP = SCREEN_HEIGHT * 0.05;
+const NUMBER_TOP = FLAME_TOP + FLAME_SIZE * 1.05;
 const TEXT_TOP = NUMBER_TOP + SCREEN_HEIGHT * 0.16;
 
 const styles = StyleSheet.create({
@@ -382,7 +442,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#41425E',
     borderRadius: 25,
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingVertical: 18,
     zIndex: 20, // Above white card
     elevation: 20, // Android
   },
