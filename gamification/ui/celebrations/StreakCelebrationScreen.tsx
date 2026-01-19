@@ -99,12 +99,14 @@ export default function StreakCelebrationScreen({
     }
   }, [visible]);
 
-  // Move flame + number UP after 3.5s to make room for calendar (Duolingo style)
+  // Move flame + number UP from bottom (Duolingo style)
   useEffect(() => {
     if (visible && !skipped) {
-      // Start centered (120px down from normal position)
-      translateY.value = 120;
-      // At 3.5s, move to final position (0 = original position, keeps number above card)
+      // Start from bottom of screen
+      translateY.value = SCREEN_HEIGHT * 0.5;
+      // Animate up to center position
+      translateY.value = withSpring(200, { damping: 20, stiffness: 90 });
+      // At 3.5s, move to final position (0 = keeps number above card)
       translateY.value = withDelay(3500, withSpring(0, { damping: 20, stiffness: 90 }));
     } else if (skipped) {
       // Instant position if skipped (number stays above white card)
