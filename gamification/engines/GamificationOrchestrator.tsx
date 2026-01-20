@@ -1093,7 +1093,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       (currentCelebration?.type === 'ADVENTURE_COMPLETE' &&
         currentCelebration.adventureId?.includes('adventure_1')) ||
       (currentCelebration?.type === 'XP_MILESTONE' &&
-        currentCelebration.milestoneXP === 50);
+        (currentCelebration.milestoneXP === 50 || currentCelebration.milestoneXP === 200 || currentCelebration.milestoneXP === 750));
 
     if (shouldPromptNotification) {
       try {
