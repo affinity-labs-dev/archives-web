@@ -102,14 +102,14 @@ export default function StreakCelebrationScreen({
   // Move flame + number UP from bottom (Duolingo style)
   useEffect(() => {
     if (visible && !skipped) {
-      // Start from bottom of screen
-      translateY.value = SCREEN_HEIGHT * 0.5;
+      // Start from below screen (reasonable bottom position, not extreme)
+      translateY.value = SCREEN_HEIGHT * 0.35;
       // Animate up to center position
-      translateY.value = withSpring(200, { damping: 20, stiffness: 90 });
-      // At 3.5s, move to final position (0 = keeps number above card)
+      translateY.value = withSpring(SCREEN_HEIGHT * 0.25, { damping: 20, stiffness: 90 });
+      // At 3.5s, move to final position
       translateY.value = withDelay(3500, withSpring(0, { damping: 20, stiffness: 90 }));
     } else if (skipped) {
-      // Instant position if skipped (number stays above white card)
+      // Instant position (centered inside card)
       translateY.value = 0;
     }
   }, [visible, skipped]);
@@ -268,7 +268,6 @@ export default function StreakCelebrationScreen({
               style={styles.continueButtonInner}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                tickSound.current?.replayAsync(); // Play tap sound
                 onContinue();
               }}
               activeOpacity={0.8}
@@ -284,10 +283,14 @@ export default function StreakCelebrationScreen({
 
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 400);
 const FLAME_SIZE = Math.min(SCREEN_WIDTH * 0.55, 220);
-const CARD_TOP = SCREEN_HEIGHT * 0.32; // Moved up from 0.38 to create more gap with button
-const FLAME_TOP = SCREEN_HEIGHT * 0.02; // Moved up from 0.05 to maintain proportion
-const NUMBER_TOP = FLAME_TOP + FLAME_SIZE * 1.05;
-const TEXT_TOP = NUMBER_TOP + SCREEN_HEIGHT * 0.16;
+// Card positioned to contain number and text in center
+const CARD_TOP = SCREEN_HEIGHT * 0.35;
+// Flame above card (overlapping slightly per Figma)
+const FLAME_TOP = CARD_TOP - FLAME_SIZE * 1.0;
+// Number inside card with top padding (centered in screen middle)
+const NUMBER_TOP = CARD_TOP + SCREEN_HEIGHT * 0.04;
+// Text close below number
+const TEXT_TOP = NUMBER_TOP + SCREEN_HEIGHT * 0.14;
 
 const styles = StyleSheet.create({
   container: {
