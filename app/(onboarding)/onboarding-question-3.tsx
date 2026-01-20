@@ -116,11 +116,12 @@ export default function OnboardingQuestion3Screen() {
       // Update PostHog person property for push notification status
       analyticsService.updatePushStatus(result.status === 'Granted', result.status)
 
-      // Update Customer.io profile with notification status
+      // Update Customer.io profile with notification status and token
       CustomerIOService.setProfileAttributes({
         push_notifications_enabled: result.status === 'Granted',
         push_permission_status: result.status,
         push_permission_updated_at: Math.floor(Date.now() / 1000),
+        cio_push_token: result.token || null,  // Save token as profile attribute for segmentation
       })
 
       await AsyncStorage.setItem('notification_permission_asked', 'true')

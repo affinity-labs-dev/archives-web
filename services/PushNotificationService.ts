@@ -152,10 +152,12 @@ export async function syncPushToken(): Promise<void> {
 
       // CRITICAL: Also update analytics when syncing token
       // This ensures PostHog and Customer.io stay in sync
+      // Also save token as profile attribute for easy segmentation
       CustomerIOService.setProfileAttributes({
         push_notifications_enabled: true,
         push_permission_status: 'Granted',
         push_permission_updated_at: Math.floor(Date.now() / 1000),
+        cio_push_token: tokenData.data,
       });
       analyticsService.updatePushStatus(true, 'Granted');
       console.log('✅ [PushService] syncPushToken: Analytics updated');
@@ -168,6 +170,7 @@ export async function syncPushToken(): Promise<void> {
         push_notifications_enabled: false,
         push_permission_status: permissionStatus,
         push_permission_updated_at: Math.floor(Date.now() / 1000),
+        cio_push_token: null,  // Clear token when not granted
       });
       analyticsService.updatePushStatus(false, permissionStatus);
     }
