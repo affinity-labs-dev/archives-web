@@ -466,16 +466,10 @@ export const ArchivesTheme = {
       streakBadge: {
         flexDirection: 'row' as const,
         alignItems: 'center' as const,
-        backgroundColor: '#FFFFFF',
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 20,
         gap: 6,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
       },
       streakText: {
         fontFamily: 'DM Sans',

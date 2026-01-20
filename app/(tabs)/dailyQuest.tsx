@@ -28,26 +28,26 @@ const StreakIcon = ({ size = 14 }: { size?: number }) => (
 
 export default function DailyQuestScreen() {
   const { user } = useUser();
-  const { streak } = useGamificationOrchestrator();
+  const { streak, longestStreak } = useGamificationOrchestrator();
   const { todayQuest, questProgress, loading, error, isCompleted, saveQuestCompletion } = useDailyQuest(user?.id);
 
   const [expandedCard, setExpandedCard] = useState<'watch' | 'explore' | 'questions' | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [showVideoLesson, setShowVideoLesson] = useState(false);
   const [showReadingView, setShowReadingView] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   // Audio player for narration (when audioUrl exists)
   const player = useAudioPlayer(todayQuest?.content?.audio_url || null);
 
-  // Configure audio mode for background playback (works when phone is locked)
+  // Configure audio mode for silent mode playback
   useEffect(() => {
     const configureAudio = async () => {
       try {
         await setAudioModeAsync({
           playsInSilentMode: true, // Audio plays even in silent mode
-          staysActiveInBackground: true, // Continue playing when phone is locked (like podcasts)
         });
-        console.log('🎵 [DailyQuest] Audio mode configured for background playback');
+        console.log('🎵 [DailyQuest] Audio mode configured for silent mode playback');
       } catch (error) {
         console.error('🎵 [DailyQuest] Failed to configure audio mode:', error);
       }
@@ -147,6 +147,51 @@ export default function DailyQuestScreen() {
   const weekDates = getWeekDates();
   const progress = calculateProgress();
 
+  // Get full month calendar data with streak tracking
+  const getMonthCalendar = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+
+    // First day of month and total days
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
+
+    // Calculate streak days (days with active streak)
+    const streakDays = new Set<number>();
+    if (streak > 0) {
+      const todayDate = today.getDate();
+      // Mark today and previous streak days in current month
+      for (let i = 0; i < Math.min(streak, todayDate); i++) {
+        streakDays.add(todayDate - i);
+      }
+    }
+
+    const calendar: Array<{ date: number | null; isToday: boolean; hasStreak: boolean; isCurrentMonth: boolean }> = [];
+
+    // Add empty cells for days before month starts
+    for (let i = 0; i < startDayOfWeek; i++) {
+      calendar.push({ date: null, isToday: false, hasStreak: false, isCurrentMonth: false });
+    }
+
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      calendar.push({
+        date: day,
+        isToday: date.toDateString() === today.toDateString(),
+        hasStreak: streakDays.has(day),
+        isCurrentMonth: true,
+      });
+    }
+
+    return calendar;
+  };
+
+  const monthCalendar = getMonthCalendar();
+
   return (
     <SafeAreaView style={themeStyles.container} edges={['top']}>
       <ScrollView
@@ -171,7 +216,7 @@ export default function DailyQuestScreen() {
               <StreakIcon size={16} />
               <Text style={themeStyles.streakText}>{streak}</Text>
             </View>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowCalendarModal(true)} activeOpacity={0.7}>
               <Ionicons name="calendar-outline" size={24} color={ArchivesTheme.colors.shoeBrown} />
             </TouchableOpacity>
           </View>
@@ -216,9 +261,6 @@ export default function DailyQuestScreen() {
           onPress={() => {
             const newState = expandedCard === 'watch' ? null : 'watch';
             setExpandedCard(newState);
-            if (newState === 'watch' && !watchCompleted) {
-              setWatchCompleted(true);
-            }
           }}
           activeOpacity={0.8}
         >
@@ -262,9 +304,6 @@ export default function DailyQuestScreen() {
           onPress={() => {
             const newState = expandedCard === 'explore' ? null : 'explore';
             setExpandedCard(newState);
-            if (newState === 'explore' && !exploreCompleted) {
-              setExploreCompleted(true);
-            }
           }}
           activeOpacity={0.8}
         >
@@ -539,6 +578,125 @@ export default function DailyQuestScreen() {
             onDismiss={() => setShowQuiz(false)}
             onBack={() => setShowQuiz(false)}
           />
+        </Modal>
+      )}
+
+      {/* Calendar Modal - Full month view with streak stats */}
+      {showCalendarModal && (
+        <Modal visible={true} animationType="slide" presentationStyle="pageSheet">
+          <SafeAreaView style={{ flex: 1, backgroundColor: ArchivesTheme.colors.creamWhite }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' }}>
+              <Text style={{ fontFamily: 'DM Sans', fontSize: 20, fontWeight: '700', color: ArchivesTheme.colors.shoeBrown }}>
+                Calendar
+              </Text>
+              <TouchableOpacity onPress={() => setShowCalendarModal(false)} activeOpacity={0.7}>
+                <Ionicons name="close" size={28} color={ArchivesTheme.colors.shoeBrown} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Calendar Content */}
+            <ScrollView contentContainerStyle={{ padding: 20 }}>
+              {/* Current Month Calendar - full month grid */}
+              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 }}>
+                <Text style={{ fontFamily: 'DM Sans', fontSize: 18, fontWeight: '600', color: ArchivesTheme.colors.shoeBrown, textAlign: 'center', marginBottom: 20 }}>
+                  {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </Text>
+
+                {/* Day headers (S M T W T F S) */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 12 }}>
+                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                    <View key={index} style={{ width: 40, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: 'DM Sans', fontSize: 12, fontWeight: '600', color: '#999' }}>
+                        {day}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Calendar Grid */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                  {monthCalendar.map((item, index) => (
+                    <View key={index} style={{ width: '14.28%', alignItems: 'center', marginBottom: 12 }}>
+                      {item.date ? (
+                        <View style={{ alignItems: 'center' }}>
+                          {/* Fire icon on top if has streak */}
+                          {item.hasStreak && (
+                            <View style={{ position: 'absolute', top: -8, zIndex: 1 }}>
+                              <StreakIcon size={12} />
+                            </View>
+                          )}
+                          {/* Date circle */}
+                          <View style={[
+                            {
+                              width: 36,
+                              height: 36,
+                              borderRadius: 18,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: item.isToday ? ArchivesTheme.colors.persianOrange : item.hasStreak ? '#FFE4CC' : '#F0F0F0'
+                            }
+                          ]}>
+                            <Text style={{
+                              fontFamily: 'DM Sans',
+                              fontSize: 14,
+                              fontWeight: item.isToday ? '700' : '600',
+                              color: item.isToday ? '#FFFFFF' : ArchivesTheme.colors.shoeBrown
+                            }}>
+                              {item.date}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={{ width: 36, height: 36 }} />
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {/* Streak Stats Card */}
+              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 }}>
+                <Text style={{ fontFamily: 'DM Sans', fontSize: 18, fontWeight: '600', color: ArchivesTheme.colors.shoeBrown, marginBottom: 20, textAlign: 'center' }}>
+                  Your Streak Stats
+                </Text>
+
+                {/* Current Streak */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: ArchivesTheme.colors.persianOrange, alignItems: 'center', justifyContent: 'center' }}>
+                      <StreakIcon size={24} />
+                    </View>
+                    <View>
+                      <Text style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: '400', color: '#666' }}>
+                        Current Streak
+                      </Text>
+                      <Text style={{ fontFamily: 'DM Sans', fontSize: 24, fontWeight: '700', color: ArchivesTheme.colors.shoeBrown }}>
+                        {streak} {streak === 1 ? 'day' : 'days'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Longest Streak */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFD700', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="trophy" size={24} color="#FFFFFF" />
+                    </View>
+                    <View>
+                      <Text style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: '400', color: '#666' }}>
+                        Longest Streak
+                      </Text>
+                      <Text style={{ fontFamily: 'DM Sans', fontSize: 24, fontWeight: '700', color: ArchivesTheme.colors.shoeBrown }}>
+                        {longestStreak} {longestStreak === 1 ? 'day' : 'days'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          </SafeAreaView>
         </Modal>
       )}
     </SafeAreaView>
