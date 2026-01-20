@@ -222,7 +222,11 @@ interface GamifiedProgressContextType {
 // ========== XP CALCULATION FUNCTIONS ==========
 
 const calculateXPFromProgress = (progress: ProgressEntry[]): number => {
-  return progress.reduce((sum, p) => sum + (p.xp_earned || 0), 0);
+  return progress.reduce((sum, p) => {
+    // Support both formats: xp_earned (new unified format) or quizCorrectAnswers * 10 (AsyncStorage legacy)
+    const xp = p.xp_earned || ((p.quizCorrectAnswers || 0) * 10);
+    return sum + xp;
+  }, 0);
 };
 
 const calculateXPByEra = (progress: ProgressEntry[]): Record<string, number> => {
@@ -230,7 +234,9 @@ const calculateXPByEra = (progress: ProgressEntry[]): Record<string, number> => 
 
   progress.forEach(p => {
     if (p.era_id) {
-      xpByEra[p.era_id] = (xpByEra[p.era_id] || 0) + (p.xp_earned || 0);
+      // Support both formats: xp_earned (new unified format) or quizCorrectAnswers * 10 (AsyncStorage legacy)
+      const xp = p.xp_earned || ((p.quizCorrectAnswers || 0) * 10);
+      xpByEra[p.era_id] = (xpByEra[p.era_id] || 0) + xp;
     }
   });
 
