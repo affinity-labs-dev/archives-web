@@ -7,6 +7,7 @@ import { useGamificationOrchestrator } from '@/gamification';
 import StreakCelebrationScreen from '@/gamification/ui/celebrations/StreakCelebrationScreen';
 import React, { useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, FeComposite, FeFlood, FeGaussianBlur, FeMerge, FeMergeNode, Filter, Path, Rect } from 'react-native-svg';
 
 // Streak icon (flame)
@@ -38,6 +39,7 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
   totalXP = 0,
 }) => {
   const { streak } = useGamificationOrchestrator();
+  const insets = useSafeAreaInsets();
 
   // TEST MODE: Show celebration when clicking streak
   const [showTestCelebration, setShowTestCelebration] = useState(false);
@@ -55,6 +57,9 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
       isToday: index === todayIndex,
     }));
   };
+
+  // Dynamic top padding based on safe area + breathing room
+  const topPadding = insets.top + 16;
 
   // Responsive padding to match bento grid
   const { width: screenWidth } = Dimensions.get('window');
@@ -79,9 +84,9 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
     : 0;
 
   return (
-    <View style={[styles.progressWrapper, { paddingLeft: containerPadding, paddingRight: containerPadding }]}>
+    <View style={[styles.progressWrapper, { paddingLeft: containerPadding, paddingRight: containerPadding, paddingTop: topPadding }]}>
       {/* Brown card behind - only bottom edge visible */}
-      <View style={styles.brownCardBehind} />
+      <View style={[styles.brownCardBehind, { top: topPadding + 2 }]} />
 
       <View style={styles.progressCard}>
         {/* Left side: Era name + progress bar */}
@@ -170,13 +175,13 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
 const styles = StyleSheet.create({
   progressWrapper: {
     marginBottom: 22,
-    paddingTop: 77, // Status bar space when sticky
     backgroundColor: ArchivesTheme.colors.creamWhite,
     position: 'relative',
+    // paddingTop is now dynamic via useSafeAreaInsets + 16px
   },
   brownCardBehind: {
     position: 'absolute',
-    top: 79, // 77 (paddingTop) + 2px offset
+    // top is now dynamic (paddingTop + 2px offset) via inline style
     left: 15,
     right: 15,
     height: 65,
