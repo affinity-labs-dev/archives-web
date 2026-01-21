@@ -49,13 +49,18 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
     const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
     const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
     const todayIndex = today === 0 ? 6 : today - 1; // Convert to Mo-Su (0-6)
-    const completedThisWeek = Math.min(currentStreak, todayIndex + 1);
 
-    return days.map((day, index) => ({
-      day,
-      completed: index < completedThisWeek,
-      isToday: index === todayIndex,
-    }));
+    return days.map((day, index) => {
+      const isPast = index <= todayIndex;
+      const isInStreak = index <= todayIndex && index > todayIndex - currentStreak;
+
+      return {
+        day,
+        completed: isInStreak, // Orange checkmark - part of current streak
+        missed: isPast && !isInStreak, // Grey checkmark - past day but not in streak
+        isToday: index === todayIndex,
+      };
+    });
   };
 
   // Dynamic top padding based on safe area + breathing room
