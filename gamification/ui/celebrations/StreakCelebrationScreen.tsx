@@ -440,8 +440,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.3,
+    backgroundColor: '#222446',
   },
   motivationalText: {
     position: 'absolute',
