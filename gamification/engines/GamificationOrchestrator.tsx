@@ -504,19 +504,22 @@ function calculateStreakBonus(streak: number): number {
  * Calculate week progress data for calendar widget.
  * Returns 7 days (Mo-Su) with completion status based on current streak.
  */
-function calculateWeekData(currentStreak: number): { day: string; completed: boolean; isToday: boolean }[] {
+function calculateWeekData(currentStreak: number): { day: string; completed: boolean; missed: boolean; isToday: boolean }[] {
   const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
   const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
   const todayIndex = today === 0 ? 6 : today - 1; // Convert to Mo-Su (0-6)
 
-  // Calculate how many days this week are completed
-  const completedThisWeek = Math.min(currentStreak, todayIndex + 1);
+  return days.map((day, index) => {
+    const isPast = index <= todayIndex;
+    const isInStreak = index <= todayIndex && index > todayIndex - currentStreak;
 
-  return days.map((day, index) => ({
-    day,
-    completed: index < completedThisWeek,
-    isToday: index === todayIndex,
-  }));
+    return {
+      day,
+      completed: isInStreak, // Orange checkmark - part of current streak
+      missed: isPast && !isInStreak, // Grey checkmark - past day but not in streak
+      isToday: index === todayIndex,
+    };
+  });
 }
 
 // ============================================================

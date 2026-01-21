@@ -25,6 +25,7 @@ const checkmarkIcon = require('../../../assets/images/streak/check_small.png');
 interface WeekDay {
   day: string;
   completed: boolean;
+  missed: boolean;
   isToday: boolean;
 }
 
@@ -229,7 +230,7 @@ export default function StreakCelebrationScreen({
 
             {/* Day Indicators (checkmarks/circles) - Stagger starts at 1.6s */}
             <View style={styles.dayIndicators}>
-              {weekData.map(({ day, completed, isToday }, index) => (
+              {weekData.map(({ day, completed, missed, isToday }, index) => (
                 <Animated.View
                   key={day}
                   entering={skipped ? undefined : FadeIn.delay(1600 + index * 50).duration(200)}
@@ -237,6 +238,10 @@ export default function StreakCelebrationScreen({
                   {completed ? (
                     <View style={[styles.checkmark, isToday && styles.checkmarkToday]}>
                       <Image source={checkmarkIcon} style={styles.checkmarkIcon} />
+                    </View>
+                  ) : missed ? (
+                    <View style={styles.missedCircle}>
+                      <Text style={styles.missedDash}>—</Text>
                     </View>
                   ) : (
                     <View style={styles.emptyCircle} />
@@ -411,6 +416,21 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  missedCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#999999',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missedDash: {
+    fontFamily: 'DM Sans',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: 32,
+  },
   checkmarkIcon: {
     width: 30,
     height: 30,
@@ -420,8 +440,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.3,
+    backgroundColor: '#2D3E50',
   },
   motivationalText: {
     position: 'absolute',
