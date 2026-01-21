@@ -136,20 +136,20 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
           </View>
         </View>
 
-        {/* Right side: Stats box (streak + XP) */}
-        <View style={styles.statsBox}>
-          {/* Streak row - CLICKABLE FOR TESTING */}
-          <TouchableOpacity
-            style={styles.statRow}
-            onPress={() => setShowTestCelebration(true)}
-            activeOpacity={0.7}
-          >
+        {/* Right side: Stats box (streak + XP) - CLICKABLE FOR TESTING */}
+        <TouchableOpacity
+          style={styles.statsBox}
+          onPress={() => setShowTestCelebration(true)}
+          activeOpacity={0.7}
+        >
+          {/* Streak row */}
+          <View style={styles.statRow}>
             <View style={styles.iconWrapper}>
               <StreakIcon size={16} />
             </View>
             <Text style={styles.statValue}>{streak} </Text>
             <Text style={styles.statLabel}>days</Text>
-          </TouchableOpacity>
+          </View>
           {/* XP row */}
           <View style={styles.statRow}>
             <View style={styles.iconWrapper}>
@@ -158,7 +158,7 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
             <Text style={styles.statValue}>{totalXP || correctAnswers * 10} </Text>
             <Text style={styles.statLabel}>XP</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* TEST MODE: Streak Celebration Screen */}
