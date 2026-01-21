@@ -19,6 +19,8 @@
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import { useAdventuresContent } from '@/context/AdventuresContentProvider';
 import { analyticsService } from '@/services/AnalyticsService';
+import PushNotificationService from '@/services/PushNotificationService';
+import CustomerIOService from '@/services/CustomerIOService';
 import { useUser } from '@clerk/clerk-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -1082,8 +1084,54 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   }, [celebrationQueue, currentCelebration]);
 
   // Dismiss current celebration and move to next
-  const dismissCurrent = useCallback(() => {
+  const dismissCurrent = useCallback(async () => {
     console.log(`✅ [Orchestrator] Dismissing celebration: ${currentCelebration?.type}`);
+
+    // Check if we should prompt for notifications after this celebration
+    // Conditions: Adventure 1 complete OR 50 XP milestone
+    const shouldPromptNotification =
+      (currentCelebration?.type === 'ADVENTURE_COMPLETE' &&
+        currentCelebration.adventureId?.includes('adventure_1')) ||
+      (currentCelebration?.type === 'XP_MILESTONE' &&
+        (currentCelebration.milestoneXP === 50 || currentCelebration.milestoneXP === 200 || currentCelebration.milestoneXP === 750));
+
+    if (shouldPromptNotification) {
+      try {
+        const status = await PushNotificationService.getPushPermissionStatus();
+        if (status !== 'Granted') {
+          console.log('🔔 [Orchestrator] Prompting for notifications after celebration...');
+
+          // Small delay to let celebration dismiss animation complete
+          setTimeout(async () => {
+            const result = await PushNotificationService.requestPushNotificationPermission();
+            console.log('🔔 [Orchestrator] Notification permission result:', result.status);
+
+            // Update Customer.io profile
+            CustomerIOService.setProfileAttributes({
+              push_notifications_enabled: result.status === 'Granted',
+              push_permission_status: result.status,
+              push_permission_updated_at: Math.floor(Date.now() / 1000),
+              cio_push_token: result.token || null,
+            });
+
+            // Update PostHog
+            analyticsService.updatePushStatus(result.status === 'Granted', result.status);
+
+            // Track the prompt source
+            const source = currentCelebration?.type === 'ADVENTURE_COMPLETE'
+              ? 'adventure_1_complete'
+              : 'xp_milestone_50';
+            analyticsService.trackCustomEvent('push_notification_prompted', {
+              source,
+              result: result.status,
+            });
+          }, 500);
+        }
+      } catch (error) {
+        console.error('❌ [Orchestrator] Error checking notification permission:', error);
+      }
+    }
+
     setCurrentCelebration(null);
     // Next celebration will be picked up by useEffect
   }, [currentCelebration]);

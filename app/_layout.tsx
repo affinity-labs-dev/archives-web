@@ -208,11 +208,12 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
           console.log('🔔 [AnalyticsWrapper] Push permission result:', result.status);
 
-          // Update Customer.io profile with notification status
+          // Update Customer.io profile with notification status and token
           CustomerIOService.setProfileAttributes({
             push_notifications_enabled: result.status === 'Granted',
             push_permission_status: result.status,
             push_permission_updated_at: Math.floor(Date.now() / 1000),
+            cio_push_token: result.token || null,
           });
 
           // Update PostHog person property

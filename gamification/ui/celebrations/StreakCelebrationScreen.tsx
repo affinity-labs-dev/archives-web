@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
-import { Dimensions, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Rive, { Alignment, Fit, RiveRef } from 'rive-react-native';
@@ -106,8 +106,8 @@ export default function StreakCelebrationScreen({
       translateY.value = SCREEN_HEIGHT * 0.35;
       // Animate up to center position
       translateY.value = withSpring(SCREEN_HEIGHT * 0.25, { damping: 20, stiffness: 90 });
-      // At 3.5s, move to final position
-      translateY.value = withDelay(3500, withSpring(0, { damping: 20, stiffness: 90 }));
+      // At 1.5s, move to final position
+      translateY.value = withDelay(1500, withSpring(0, { damping: 20, stiffness: 90 }));
     } else if (skipped) {
       // Instant position (centered inside card)
       translateY.value = 0;
@@ -132,10 +132,10 @@ export default function StreakCelebrationScreen({
   // Single haptic feedback when continue button appears
   useEffect(() => {
     if (visible && !skipped) {
-      // Continue button appears (4.7s)
+      // Continue button appears (2.0s)
       const timer = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }, 4700);
+      }, 2000);
 
       return () => {
         clearTimeout(timer);
@@ -148,7 +148,7 @@ export default function StreakCelebrationScreen({
     if (visible && !skipped) {
       weekData.forEach((day, index) => {
         if (day.completed) {
-          const delay = 3700 + index * 100; // Match checkmark animation timing
+          const delay = 1600 + index * 50; // Match checkmark animation timing
           setTimeout(() => {
             celebrationSound.current?.replayAsync();
           }, delay);
@@ -159,12 +159,7 @@ export default function StreakCelebrationScreen({
 
   return (
     <Modal visible={visible} animationType="none" transparent={false} statusBarTranslucent>
-      <Pressable
-        style={{ flex: 1 }}
-        onPress={() => setSkipped(true)}
-        disabled={skipped}
-      >
-        <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container}>
           {/* Close Button - Top Right */}
           <TouchableOpacity
             style={styles.closeButton}
@@ -192,21 +187,21 @@ export default function StreakCelebrationScreen({
 
           {/* Main Card - Fades in at final position after text moves up */}
           <Animated.View
-            entering={skipped ? undefined : FadeIn.delay(3700).duration(400)}
+            entering={skipped ? undefined : FadeIn.delay(1600).duration(300)}
             style={styles.card}
           />
 
-          {/* Big Streak Number - Zooms in at 2.5s */}
+          {/* Big Streak Number - Zooms in at 1.0s */}
           <Animated.Text
-            entering={skipped ? undefined : ZoomIn.delay(2500).duration(500).springify()}
+            entering={skipped ? undefined : ZoomIn.delay(1000).duration(400).springify()}
             style={[styles.streakNumber, heroAnimatedStyle]}
           >
             {streakCount}
           </Animated.Text>
 
-          {/* "day streak!" text - Fades in at 3s (after zoom) */}
+          {/* "day streak!" text - Fades in at 1.3s (after zoom) */}
           <Animated.Text
-            entering={skipped ? undefined : FadeIn.delay(3000).duration(300)}
+            entering={skipped ? undefined : FadeIn.delay(1300).duration(200)}
             style={[styles.streakText, heroAnimatedStyle]}
           >
             day streak!
@@ -214,7 +209,7 @@ export default function StreakCelebrationScreen({
 
           {/* Week Calendar Widget - Fades in at final position after text moves up */}
           <Animated.View
-            entering={skipped ? undefined : FadeIn.delay(3700).duration(400)}
+            entering={skipped ? undefined : FadeIn.delay(1600).duration(300)}
             style={styles.calendarWidget}
           >
             {/* Day Labels (Mo-Su) */}
@@ -232,12 +227,12 @@ export default function StreakCelebrationScreen({
               ))}
             </View>
 
-            {/* Day Indicators (checkmarks/circles) - Stagger starts at 3.7s */}
+            {/* Day Indicators (checkmarks/circles) - Stagger starts at 1.6s */}
             <View style={styles.dayIndicators}>
               {weekData.map(({ day, completed, isToday }, index) => (
                 <Animated.View
                   key={day}
-                  entering={skipped ? undefined : FadeIn.delay(3700 + index * 100).duration(300)}
+                  entering={skipped ? undefined : FadeIn.delay(1600 + index * 50).duration(200)}
                 >
                   {completed ? (
                     <View style={[styles.checkmark, isToday && styles.checkmarkToday]}>
@@ -253,7 +248,7 @@ export default function StreakCelebrationScreen({
 
           {/* Motivational Text - Fades in after calendar */}
           <Animated.Text
-            entering={skipped ? undefined : FadeIn.delay(4300).duration(400)}
+            entering={skipped ? undefined : FadeIn.delay(1800).duration(300)}
             style={styles.motivationalText}
           >
             {getMotivationalQuote(streakCount)}
@@ -261,7 +256,7 @@ export default function StreakCelebrationScreen({
 
           {/* Continue Button - Fades in last */}
           <Animated.View
-            entering={skipped ? undefined : FadeIn.delay(4700).duration(400)}
+            entering={skipped ? undefined : FadeIn.delay(2000).duration(300)}
             style={styles.continueButton}
           >
             <TouchableOpacity
@@ -276,7 +271,6 @@ export default function StreakCelebrationScreen({
             </TouchableOpacity>
           </Animated.View>
         </SafeAreaView>
-      </Pressable>
     </Modal>
   );
 }
