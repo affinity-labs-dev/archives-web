@@ -301,7 +301,7 @@ interface StreakMilestoneCelebration {
 interface StreakCelebration {
   type: 'STREAK_CELEBRATION';
   streakCount: number;
-  weekData: { day: string; completed: boolean; isToday: boolean }[];
+  weekData: { day: string; completed: boolean; missed: boolean; isToday: boolean }[];
 }
 
 interface AchievementCelebration {
