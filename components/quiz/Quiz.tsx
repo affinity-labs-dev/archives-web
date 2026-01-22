@@ -48,8 +48,8 @@ interface QuizProps {
     completedModules: number;  // BEFORE this quiz
     totalBadges?: number;
   };
-  // Daily Quest mode - skips gamification saving, calls onQuizResults with score
-  isDailyQuest?: boolean;
+  // Today mode - skips gamification saving, calls onQuizResults with score
+  isToday?: boolean;
   onQuizResults?: (score: number, correctAnswers: number, totalQuestions: number) => Promise<void>;
 }
 
@@ -290,7 +290,7 @@ export default function Quiz({
   onDismiss,
   onBack,
   adventureData,
-  isDailyQuest = false,
+  isToday = false,
   onQuizResults,
 }: QuizProps) {
   const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
@@ -480,9 +480,9 @@ export default function Quiz({
     // Track quiz completion (score = star rating, correctAnswers = correct count)
     trackQuizComplete(quizScore, correctAnswers);
 
-    // DAILY QUEST MODE - Skip gamification saving, call custom callback
-    if (isDailyQuest) {
-      console.log('📋 [Quiz] Daily Quest mode - skipping gamification save');
+    // TODAY MODE - Skip gamification saving, call custom callback
+    if (isToday) {
+      console.log('📋 [Quiz] Today mode - skipping gamification save');
       if (onQuizResults) {
         await onQuizResults(quizScore, correctAnswers, totalQuestions);
       }

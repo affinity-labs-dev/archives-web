@@ -38,29 +38,71 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
   totalQuestions,
   totalXP = 0,
 }) => {
-  const { streak } = useGamificationOrchestrator();
+  const { streak, lastActiveBeforeUpdate, streakBeforeUpdate } = useGamificationOrchestrator();
   const insets = useSafeAreaInsets();
 
   // TEST MODE: Show celebration when clicking streak
   const [showTestCelebration, setShowTestCelebration] = useState(false);
 
   // Calculate week data for test
-  const calculateWeekData = (currentStreak: number) => {
+  const calculateWeekData = (currentStreak: number, lastActiveDateParam: string) => {
     const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-    const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const todayIndex = today === 0 ? 6 : today - 1; // Convert to Mo-Su (0-6)
+    const today = new Date();
+    const todayDay = today.getDate();
+    const todayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1; // Convert to Mo-Su (0-6)
 
-    return days.map((day, index) => {
-      const isPast = index <= todayIndex;
-      const isInStreak = index <= todayIndex && index > todayIndex - currentStreak;
+    console.log('🔥 [EraProgressHeader TEST] ===== STREAK CALENDAR CALCULATION =====');
+    console.log('   Current Streak (for calculation):', currentStreak);
+    console.log('   Today:', today.toISOString().split('T')[0]);
+    console.log('   Today Day Number:', todayDay);
+
+    // Use the preserved old lastActiveDate (before loadStreak updated it)
+    const lastActiveDate = lastActiveDateParam || today.toISOString().split('T')[0];
+    console.log('   Using preserved lastActiveDate:', lastActiveDateParam ? 'YES (' + lastActiveDateParam + ')' : 'NO (using today)');
+    const lastActive = new Date(lastActiveDate);
+    const lastActiveDay = lastActive.getDate();
+    const daysDiff = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+
+    console.log('   Last Active Date (preserved):', lastActiveDate);
+    console.log('   Last Active Day Number:', lastActiveDay);
+    console.log('   Days Difference:', daysDiff);
+
+    // Calculate which days in this week correspond to the streak
+    // Streak days count backwards from lastActiveDate
+    // Handle streak = 0 case: no streak days
+    const streakStartDay = currentStreak > 0 ? lastActiveDay - (currentStreak - 1) : lastActiveDay + 1;
+
+    console.log('   Streak Start Day Number:', streakStartDay);
+
+    const weekData = days.map((day, index) => {
+      // Get the actual date for this day of the week
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - todayIndex); // Go to Monday of this week
+      const dayDate = new Date(weekStart);
+      dayDate.setDate(weekStart.getDate() + index);
+      const dayNumber = dayDate.getDate();
+
+      // Check if this day is part of the streak (between streakStart and lastActive)
+      const isInStreak = dayNumber >= streakStartDay && dayNumber <= lastActiveDay;
+
+      // Missed days are in the gap between lastActive and today (if gap > 1 day)
+      const isMissed = daysDiff > 1 && dayNumber > lastActiveDay && dayNumber < todayDay;
+
+      // Check if this is today
+      const isToday = dayNumber === todayDay;
+
+      console.log(`   ${day} (${dayNumber}): completed=${isInStreak || isToday}, missed=${isMissed}, isToday=${isToday}`);
 
       return {
         day,
-        completed: isInStreak, // Orange checkmark - part of current streak
-        missed: isPast && !isInStreak, // Grey checkmark - past day but not in streak
-        isToday: index === todayIndex,
+        completed: isInStreak || isToday, // Orange checkmark - part of streak or today
+        missed: isMissed, // Grey dash for gap days
+        isToday,
       };
     });
+
+    console.log('🔥 [EraProgressHeader TEST] ===== END =====');
+    return weekData;
   };
 
   // Dynamic top padding based on safe area + breathing room
@@ -170,7 +212,10 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
       <StreakCelebrationScreen
         visible={showTestCelebration}
         streakCount={streak}
-        weekData={calculateWeekData(streak)}
+        weekData={calculateWeekData(
+          streakBeforeUpdate || streak,
+          lastActiveBeforeUpdate
+        )}
         onContinue={() => setShowTestCelebration(false)}
       />
     </View>
