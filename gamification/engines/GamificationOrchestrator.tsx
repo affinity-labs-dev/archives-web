@@ -42,6 +42,7 @@ export const STREAK_MILESTONES = [7, 30, 100] as const;
 
 // Storage keys
 const ACHIEVEMENTS_KEY = 'unlocked_achievements';
+const FROZEN_STREAK_KEY = '@frozen_streak_data';
 
 // ============================================================
 // ACHIEVEMENT TYPES
@@ -301,7 +302,7 @@ interface StreakMilestoneCelebration {
 interface StreakCelebration {
   type: 'STREAK_CELEBRATION';
   streakCount: number;
-  weekData: { day: string; completed: boolean; missed: boolean; isToday: boolean }[];
+  weekData: { day: string; completed: boolean; isToday: boolean }[];
 }
 
 interface AchievementCelebration {
@@ -334,6 +335,9 @@ interface GamificationOrchestratorContextType {
   refreshStreak: () => Promise<void>;
   /** TEST: Simulate next day to test streak increment */
   simulateNextDay: () => Promise<void>;
+  /** Old streak data before loadStreak updated it (for calendar calculation) */
+  lastActiveBeforeUpdate: string;
+  streakBeforeUpdate: number;
 
   // ===== ACHIEVEMENTS =====
   /** All achievements with unlock status (sorted: unlocked first, then by progress) */
@@ -504,22 +508,82 @@ function calculateStreakBonus(streak: number): number {
  * Calculate week progress data for calendar widget.
  * Returns 7 days (Mo-Su) with completion status based on current streak.
  */
-function calculateWeekData(currentStreak: number): { day: string; completed: boolean; missed: boolean; isToday: boolean }[] {
+function calculateWeekData(currentStreak: number, lastActiveDate: string): { day: string; completed: boolean; missed: boolean; isToday: boolean }[] {
   const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-  const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
-  const todayIndex = today === 0 ? 6 : today - 1; // Convert to Mo-Su (0-6)
+  const today = new Date();
+  const todayDay = today.getDate();
+  const todayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1; // Convert to Mo-Su (0-6)
 
-  return days.map((day, index) => {
-    const isPast = index <= todayIndex;
-    const isInStreak = index <= todayIndex && index > todayIndex - currentStreak;
+  console.log('🔥 [calculateWeekData] ===== STREAK CALENDAR CALCULATION =====');
+  console.log('   Current Streak:', currentStreak);
+  console.log('   Last Active Date:', lastActiveDate);
+  console.log('   Today:', today.toISOString().split('T')[0]);
+  console.log('   Today Day Number:', todayDay);
+
+  // Parse lastActiveDate
+  const lastActive = new Date(lastActiveDate);
+  lastActive.setHours(0, 0, 0, 0);
+
+  // Calculate days difference (gap between lastActive and today)
+  const daysDiff = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+
+  console.log('   Days Difference:', daysDiff);
+
+  // Build a Set of all streak dates for efficient lookup (works across months)
+  const streakDates = new Set<string>();
+  const missedDates = new Set<string>();
+
+  if (currentStreak > 0) {
+    // Go back currentStreak days from lastActive and mark each date
+    for (let i = 0; i < currentStreak; i++) {
+      const streakDate = new Date(lastActive);
+      streakDate.setDate(lastActive.getDate() - i);
+      streakDates.add(streakDate.toISOString().split('T')[0]);
+    }
+  }
+
+  // Missed days: gap between lastActive and today (if gap > 1)
+  if (daysDiff > 1) {
+    for (let i = 1; i < daysDiff; i++) {
+      const missedDate = new Date(lastActive);
+      missedDate.setDate(lastActive.getDate() + i);
+      missedDates.add(missedDate.toISOString().split('T')[0]);
+    }
+  }
+
+  console.log('   Streak Dates:', Array.from(streakDates));
+  console.log('   Missed Dates:', Array.from(missedDates));
+
+  const weekData = days.map((day, index) => {
+    // Get the actual date for this day of the week
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - todayIndex); // Go to Monday of this week
+    const dayDate = new Date(weekStart);
+    dayDate.setDate(weekStart.getDate() + index);
+    const dateString = dayDate.toISOString().split('T')[0];
+    const todayString = today.toISOString().split('T')[0];
+
+    // Check if this day is part of the streak using the Set (works across months)
+    const isInStreak = streakDates.has(dateString);
+
+    // Check if this day was missed using the Set
+    const isMissed = missedDates.has(dateString);
+
+    // Check if this is today
+    const isToday = dateString === todayString;
+
+    console.log(`   ${day} (${dateString}): completed=${isInStreak || isToday}, missed=${isMissed}, isToday=${isToday}`);
 
     return {
       day,
-      completed: isInStreak, // Orange checkmark - part of current streak
-      missed: isPast && !isInStreak, // Grey checkmark - past day but not in streak
-      isToday: index === todayIndex,
+      completed: isInStreak || isToday, // Orange checkmark - part of streak or today
+      missed: isMissed, // Grey dash - days missed between lastActive and today
+      isToday,
     };
   });
+
+  console.log('🔥 [calculateWeekData] ===== END =====');
+  return weekData;
 }
 
 // ============================================================
@@ -541,6 +605,9 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const [longestStreak, setLongestStreak] = useState(0);
   const [isStreakLoading, setIsStreakLoading] = useState(false); // Changed to false since auto-loading is disabled
   const [isNewDay, setIsNewDay] = useState(false);
+  // Store OLD streak data in state (loaded from AsyncStorage, persists across refreshes)
+  const [streakBeforeUpdate, setStreakBeforeUpdate] = useState<number>(0);
+  const [lastActiveBeforeUpdate, setLastActiveBeforeUpdate] = useState<string>('');
   const streakLoadedRef = useRef(false);
 
   // Achievement state
@@ -571,6 +638,39 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       console.log(`🔥 [Orchestrator] Current streak: ${cloudStreak.currentStreak}, Last active: ${cloudStreak.lastActiveDate}`);
 
       const today = new Date().toISOString().split('T')[0]; // ISO format: YYYY-MM-DD
+
+      // CRITICAL: Load and manage frozen streak data from AsyncStorage (persists across refreshes)
+      // This data is used for calendar display - only updates once per day
+      try {
+        const frozenDataRaw = await AsyncStorage.getItem(FROZEN_STREAK_KEY);
+        const frozenData = frozenDataRaw ? JSON.parse(frozenDataRaw) : null;
+
+        console.log(`📦 [Orchestrator] Frozen data from storage:`, frozenData);
+
+        // Check if frozen data is from today
+        if (!frozenData || frozenData.date !== today) {
+          // New day or no data - freeze current streak for today
+          const newFrozenData = {
+            date: today,
+            streak: cloudStreak.currentStreak || 0,
+            lastActive: cloudStreak.lastActiveDate || '',
+          };
+          await AsyncStorage.setItem(FROZEN_STREAK_KEY, JSON.stringify(newFrozenData));
+          setStreakBeforeUpdate(newFrozenData.streak);
+          setLastActiveBeforeUpdate(newFrozenData.lastActive);
+          console.log(`💾 [Orchestrator] FROZEN new streak data for today: streak=${newFrozenData.streak}, lastActive=${newFrozenData.lastActive}`);
+        } else {
+          // Same day - use frozen data from storage
+          setStreakBeforeUpdate(frozenData.streak);
+          setLastActiveBeforeUpdate(frozenData.lastActive);
+          console.log(`⏭️  [Orchestrator] Using frozen data from storage: streak=${frozenData.streak}, lastActive=${frozenData.lastActive}`);
+        }
+      } catch (error) {
+        console.error(`❌ [Orchestrator] Error managing frozen streak data:`, error);
+        // Fallback to current streak
+        setStreakBeforeUpdate(cloudStreak.currentStreak || 0);
+        setLastActiveBeforeUpdate(cloudStreak.lastActiveDate || '');
+      }
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0]; // ISO format: YYYY-MM-DD
@@ -1208,7 +1308,17 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     if (streak > 0) {
       const alreadyShownToday = await hasShownStreakCelebrationToday();
       if (!alreadyShownToday) {
-        const weekData = calculateWeekData(streak);
+        const cloudStreak = getCloudStreak();
+
+        // CRITICAL: Use the FROZEN old streak data (from AsyncStorage) for calendar calculation
+        // This shows the actual gap/missed days from when user first opened app TODAY
+        const streakForCalendar = streakBeforeUpdate || streak;
+        const lastActiveDateForCalendar = lastActiveBeforeUpdate || cloudStreak.lastActiveDate;
+        console.log(`🔥 [Orchestrator] Calculating week data with FROZEN old streak data:`);
+        console.log(`   Streak: ${streakForCalendar} (frozen: ${streakBeforeUpdate}, current: ${streak})`);
+        console.log(`   LastActive: ${lastActiveDateForCalendar} (frozen: ${lastActiveBeforeUpdate}, current: ${cloudStreak.lastActiveDate})`);
+
+        const weekData = calculateWeekData(streakForCalendar, lastActiveDateForCalendar);
         newCelebrations.push({
           type: 'STREAK_CELEBRATION',
           streakCount: streak,
@@ -1325,6 +1435,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         streakBonus,
         refreshStreak: loadStreak,
         simulateNextDay, // TEST FUNCTION
+        lastActiveBeforeUpdate, // FROZEN old data for calendar (from AsyncStorage)
+        streakBeforeUpdate, // FROZEN old data for calendar (from AsyncStorage)
         // Achievements
         achievements,
         unlockedCount: unlockedAchievements.length,
