@@ -6,14 +6,13 @@ import Quiz from "@/components/quiz/Quiz";
 import type { ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useGamificationOrchestrator } from "@/gamification";
-import { useToday } from "@/hooks/useToday";
+import { supabase } from "@/hooks/lib/supabase";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
-import ElevenLabsService from "@/services/ElevenLabsService";
 import {
   ActivityIndicator,
   Modal,
@@ -41,6 +40,293 @@ const StreakIcon = ({ size = 14 }: { size?: number }) => (
     <Path d="M240-400q0 52 21 98.5t60 81.5q-1-5-1-9v-9q0-32 12-60t35-51l113-111 113 111q23 23 35 51t12 60v9q0 4-1 9 39-35 60-81.5t21-98.5q0-50-18.5-94.5T648-574q-20 13-42 19.5t-45 6.5q-62 0-107.5-41T401-690q-39 33-69 68.5t-50.5 72Q261-513 250.5-475T240-400Zm240 52-57 56q-11 11-17 25t-6 29q0 32 23.5 55t56.5 23q33 0 56.5-23t23.5-55q0-16-6-29.5T537-292l-57-56Zm0-492v132q0 34 23.5 57t57.5 23q18 0 33.5-7.5T622-658l18-22q74 42 117 117t43 163q0 134-93 227T480-80q-134 0-227-93t-93-227q0-129 86.5-245T480-840Z" />
   </Svg>
 );
+
+// ============================================================================
+// TYPES & INTERFACES (from useToday.ts)
+// ============================================================================
+
+interface Card1Content {
+  content_type: 'reel';
+  title: string;
+  media_url: string;
+  content: {
+    reading_text: string;
+  };
+}
+
+interface Card2Content {
+  content_type: 'scrollable_media_view';
+  title: string;
+  inner_image: string;
+  inner_voice: string;
+  content: string;
+}
+
+interface Card3Content {
+  title: string;
+  questions: Array<{
+    question_id: string;
+    question_text: string;
+    question_type: 'mcq' | 'trueFalse';
+    answers: Array<{
+      answer_id: string;
+      text: string;
+      is_correct: boolean;
+    }>;
+    explanation: string;
+    order: number;
+  }>;
+}
+
+interface TodayContent {
+  card1: Card1Content;
+  card2: Card2Content;
+  card3: Card3Content;
+}
+
+interface Today {
+  id: string;
+  date: string;
+  content: TodayContent;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TodayProgress {
+  id: string;
+  user_id: string;
+  daily_quest_id: string;
+  completed_at: string;
+  score: number;
+  correct_answers: number;
+  total_questions: number;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS (from ElevenLabsService.ts)
+// ============================================================================
+
+const ELEVENLABS_API_KEY = process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY;
+const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
+
+/**
+ * Convert Blob to base64 string
+ */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Strip HTML tags from text to get plain text for TTS
+ */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Convert text to speech and return a data URI
+ */
+async function textToSpeech(
+  text: string,
+  voiceId: string = '21m00Tcm4TlvDq8ikWAM'
+): Promise<string | null> {
+  console.log('🎤 [ElevenLabs] Starting TTS generation');
+  console.log('   Text length:', text.length);
+  console.log('   Voice ID:', voiceId);
+
+  if (!ELEVENLABS_API_KEY) {
+    console.error('❌ [ElevenLabs] API key not found');
+    return null;
+  }
+
+  try {
+    console.log('🌐 [ElevenLabs] Calling API...');
+    const response = await fetch(
+      `${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': ELEVENLABS_API_KEY,
+        },
+        body: JSON.stringify({
+          text,
+          model_id: 'eleven_multilingual_v2',
+          output_format: 'mp3_44100_128',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+          },
+        }),
+      }
+    );
+
+    console.log('📡 [ElevenLabs] Response:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [ElevenLabs] API error:', response.status);
+      console.error('   Error:', errorText);
+      return null;
+    }
+
+    console.log('💾 [ElevenLabs] Converting to blob...');
+    const blob = await response.blob();
+    console.log('   Blob size:', blob.size, 'bytes');
+
+    console.log('🔄 [ElevenLabs] Converting to base64...');
+    const base64 = await blobToBase64(blob);
+    console.log('   Base64 length:', base64.length);
+
+    const dataUri = `data:audio/mpeg;base64,${base64}`;
+    console.log('✅ [ElevenLabs] Success! Data URI ready');
+
+    return dataUri;
+  } catch (error) {
+    console.error('❌ [ElevenLabs] Error:', error);
+    return null;
+  }
+}
+
+// ============================================================================
+// CUSTOM HOOK (from useToday.ts)
+// ============================================================================
+
+function useToday(userId?: string) {
+  const [todayQuest, setTodayQuest] = useState<Today | null>(null);
+  const [questProgress, setQuestProgress] = useState<TodayProgress | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTodayQuest = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const today = new Date();
+        const todayDate = today.toISOString().split('T')[0];
+
+        console.log(`🔍 [useToday] Fetching quest for ${todayDate}`);
+
+        const { data: questData, error: questError } = await supabase
+          .from('daily_content')
+          .select('*')
+          .eq('date', todayDate)
+          .eq('is_active', true)
+          .single();
+
+        if (questError) {
+          console.error('❌ [useToday] Error fetching quest:', questError);
+          setError('No quest available for today');
+          setTodayQuest(null);
+          setLoading(false);
+          return;
+        }
+
+        console.log('✅ [useToday] Quest fetched:', questData?.content?.card1?.title);
+        setTodayQuest(questData as Today);
+
+        if (userId && questData) {
+          try {
+            const { data: progressData, error: progressError } = await supabase
+              .from('user_daily_quest_progress')
+              .select('*')
+              .eq('user_id', userId)
+              .eq('daily_quest_id', questData.id)
+              .maybeSingle();
+
+            if (progressError) {
+              console.warn('⚠️ [useToday] Progress query failed:', progressError.message);
+            } else if (progressData) {
+              console.log('✅ [useToday] User already completed this quest');
+              setQuestProgress(progressData as TodayProgress);
+            }
+          } catch (err) {
+            console.warn('⚠️ [useToday] Progress check failed:', err);
+          }
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error('❌ [useToday] Unexpected error:', err);
+        setError('Failed to load daily quest');
+        setLoading(false);
+      }
+    };
+
+    fetchTodayQuest();
+  }, [userId]);
+
+  const saveQuestCompletion = async (
+    userId: string,
+    questId: string,
+    score: number,
+    correctAnswers: number,
+    totalQuestions: number
+  ) => {
+    try {
+      console.log(`💾 [useToday] Saving completion: ${correctAnswers}/${totalQuestions}`);
+
+      const { data, error } = await supabase
+        .from('user_daily_quest_progress')
+        .insert({
+          user_id: userId,
+          daily_quest_id: questId,
+          score,
+          correct_answers: correctAnswers,
+          total_questions: totalQuestions,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ [useToday] Error saving completion:', error);
+        throw error;
+      }
+
+      console.log('✅ [useToday] Completion saved');
+      setQuestProgress(data as TodayProgress);
+      return data;
+    } catch (err) {
+      console.error('❌ [useToday] Failed to save completion:', err);
+      throw err;
+    }
+  };
+
+  return {
+    todayQuest,
+    questProgress,
+    loading,
+    error,
+    isCompleted: !!questProgress,
+    saveQuestCompletion,
+  };
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
 export default function TodayScreen() {
   const { user } = useUser();
