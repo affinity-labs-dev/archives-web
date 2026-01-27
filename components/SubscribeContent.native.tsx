@@ -6,6 +6,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from "expo-linear-gradient";
+import * as WebBrowser from 'expo-web-browser';
+
+const TERMS_OF_SERVICE_URL = 'https://archiveszone.app/terms';
+const PRIVACY_POLICY_URL = 'https://archiveszone.app/privacy';
 import React, { useState } from "react";
 import {
   Alert,
@@ -386,6 +390,23 @@ export default function SubscribeContent() {
         {/* Intro Offer Message - Styled as regular text */}
         <View style={styles.introMessageContainer}>
           <Text style={styles.introBannerText}>Start your free month today</Text>
+          <Text style={styles.disclaimerText}>
+            Cancel anytime.{' '}
+            <Text
+              style={styles.disclaimerLink}
+              onPress={() => WebBrowser.openBrowserAsync(TERMS_OF_SERVICE_URL)}
+            >
+              Terms
+            </Text>
+            {' '}and{' '}
+            <Text
+              style={styles.disclaimerLink}
+              onPress={() => WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL)}
+            >
+              privacy policy
+            </Text>
+            {' '}apply.
+          </Text>
         </View>
 
         {/* More Eras Section - Original Design */}
@@ -503,10 +524,6 @@ export default function SubscribeContent() {
             Already subscribed? Restore Purchases
           </Text>
         </TouchableOpacity>
-
-        <Text style={styles.disclaimerText}>
-          Cancel anytime. Terms and privacy policy apply.
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -835,7 +852,13 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: "center",
     lineHeight: 18,
-    marginTop: 16,
+    marginTop: 8,
+  },
+  disclaimerLink: {
+    fontFamily: "DM Sans",
+    fontSize: 12,
+    color: ArchivesTheme.colors.persianOrange,
+    textDecorationLine: "underline" as const,
   },
 
   // Error and restore purchase styles
