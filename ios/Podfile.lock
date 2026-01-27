@@ -446,7 +446,7 @@ PODS:
   - libwebp/webp (1.5.0):
     - libwebp/sharpyuv
   - openiap (1.2.4)
-  - PostHog (3.35.1)
+  - PostHog (3.38.0)
   - posthog-react-native-session-replay (1.2.0):
     - hermes-engine
     - PostHog (~> 3.21)
@@ -3084,7 +3084,7 @@ SPEC CHECKSUMS:
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   openiap: bd45c90b44a0fb4bebaa9c2501598d76c253eb0f
-  PostHog: 24a9af5451f9421af38bb93fd0c06624d2f8a55c
+  PostHog: b42fd6ae60326411582e97bea5786ba748cab8a0
   posthog-react-native-session-replay: 4bc94230d2ecae9aee60b31771e82c5b7b108f61
   PurchasesHybridCommon: b7b4eafb55fbaaac19b4c36d4082657a3f0d8490
   PurchasesHybridCommonUI: fe9a666c1b768dcb630a7bd32bf490ebab08cce4
