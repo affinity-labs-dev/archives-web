@@ -5,7 +5,7 @@ import TodayVideoLesson from "@/components/lessons/TodayVideoLesson";
 import Quiz from "@/components/quiz/Quiz";
 import type { ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
-import { useGamificationOrchestrator } from "@/gamification";
+import { useGamificationOrchestrator, useGamifiedProgress } from "@/gamification";
 import { supabase } from "@/hooks/lib/supabase";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
@@ -331,6 +331,7 @@ function useToday(userId?: string) {
 export default function TodayScreen() {
   const { user } = useUser();
   const { streak, longestStreak, lastActiveBeforeUpdate, streakBeforeUpdate } = useGamificationOrchestrator();
+  const { getStreak } = useGamifiedProgress();
   const {
     todayQuest,
     questProgress,
@@ -364,6 +365,19 @@ export default function TodayScreen() {
   const [generatedAudioUri, setGeneratedAudioUri] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
 
+  // Voice selection state
+  const [selectedVoice, setSelectedVoice] = useState('21m00Tcm4TlvDq8ikWAM'); // Rachel default
+  const [showVoicePicker, setShowVoicePicker] = useState(false);
+
+  // Voice options
+  const voices = [
+    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', gender: 'Female', desc: 'Clear, professional' },
+    { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', gender: 'Female', desc: 'Warm, friendly' },
+    { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', gender: 'Male', desc: 'Deep, narrative' },
+    { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni', gender: 'Male', desc: 'Calm, storytelling' },
+    { id: 'MF3mGyEYCl7XYWbV9V6O', name: 'Elli', gender: 'Female', desc: 'Young, energetic' },
+  ];
+
   // Audio player for narration (dynamically generated from text or fallback to inner_voice)
   const player = useAudioPlayer(
     generatedAudioUri || todayQuest?.content?.card2?.inner_voice || null,
@@ -387,6 +401,36 @@ export default function TodayScreen() {
     configureAudio();
   }, []);
 
+  // Load saved voice preference from Supabase
+  useEffect(() => {
+    const loadVoicePreference = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('gamification_data')
+          .select('data')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.log('📢 [Today] No saved voice preference found');
+          return;
+        }
+
+        const preferredVoiceId = data?.data?.preferred_voice_id;
+        if (preferredVoiceId) {
+          console.log('📢 [Today] Loaded voice preference:', preferredVoiceId);
+          setSelectedVoice(preferredVoiceId);
+        }
+      } catch (error) {
+        console.error('❌ [Today] Error loading voice preference:', error);
+      }
+    };
+
+    loadVoicePreference();
+  }, [user?.id]);
+
   // Update player source when generated audio is ready
   useEffect(() => {
     if (generatedAudioUri) {
@@ -407,11 +451,11 @@ export default function TodayScreen() {
 
         try {
           // Strip HTML and get plain text
-          const plainText = ElevenLabsService.stripHtml(todayQuest.content.card2.content);
+          const plainText = stripHtml(todayQuest.content.card2.content);
           console.log('📝 [Today] Text length:', plainText.length);
 
           // Generate audio
-          const audioUri = await ElevenLabsService.textToSpeech(plainText);
+          const audioUri = await textToSpeech(plainText, selectedVoice);
 
           if (audioUri) {
             setGeneratedAudioUri(audioUri);
@@ -452,6 +496,45 @@ export default function TodayScreen() {
     }
   };
 
+  // Handle voice change and save to Supabase
+  const handleVoiceChange = async (voiceId: string) => {
+    console.log('📢 [Today] Changing voice to:', voiceId);
+    setSelectedVoice(voiceId);
+    setShowVoicePicker(false);
+
+    // Clear generated audio to regenerate with new voice
+    setGeneratedAudioUri(null);
+
+    // Save to Supabase
+    if (user?.id) {
+      try {
+        const { data: existingData } = await supabase
+          .from('gamification_data')
+          .select('data')
+          .eq('user_id', user.id)
+          .single();
+
+        const updatedData = {
+          ...(existingData?.data || {}),
+          preferred_voice_id: voiceId,
+        };
+
+        const { error } = await supabase
+          .from('gamification_data')
+          .update({ data: updatedData })
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('❌ [Today] Error saving voice preference:', error);
+        } else {
+          console.log('✅ [Today] Voice preference saved');
+        }
+      } catch (error) {
+        console.error('❌ [Today] Error saving voice preference:', error);
+      }
+    }
+  };
+
   // Get current week dates for calendar
   const getWeekDates = () => {
     const today = new Date();
@@ -460,43 +543,87 @@ export default function TodayScreen() {
     const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
     const dates = [];
 
-    // Use FROZEN old streak data for accurate calendar
-    const oldStreak = streakBeforeUpdate || streak;
-    const oldLastActive = lastActiveBeforeUpdate || today.toISOString().split('T')[0];
-    const lastActive = new Date(oldLastActive);
-    lastActive.setHours(0, 0, 0, 0);
-
-    // Calculate days difference
-    const daysDiff = Math.floor((todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+    // Get full streak data from GamifiedProgress (includes longestStreakDate)
+    const fullStreak = getStreak();
+    const { longestStreakDate, lastActiveDate } = fullStreak;
 
     // Build a Set of all streak dates for efficient lookup
     const streakDates = new Set<string>();
     const missedDates = new Set<string>();
 
-    if (oldStreak > 0) {
-      // Go back oldStreak days from lastActive and mark each date
-      for (let i = 0; i < oldStreak; i++) {
-        const streakDate = new Date(lastActive);
-        streakDate.setDate(lastActive.getDate() - i);
-        streakDates.add(streakDate.toISOString().split('T')[0]);
-      }
-    }
+    // Check if we should show historical longest streak (when it's bigger than current)
+    const useHistoricalStreak = longestStreak > streak;
 
-    // Missed days: gap between lastActive and today (if gap > 1)
-    if (daysDiff > 1) {
-      for (let i = 1; i < daysDiff; i++) {
-        const missedDate = new Date(lastActive);
-        missedDate.setDate(lastActive.getDate() + i);
-        missedDates.add(missedDate.toISOString().split('T')[0]);
+    if (useHistoricalStreak && longestStreakDate) {
+      console.log('📅 [Calendar] Using historical streak mode');
+
+      // Add historical longest streak dates (e.g., 47 days ending Jan 24)
+      const historicalEnd = new Date(longestStreakDate);
+      historicalEnd.setHours(0, 0, 0, 0);
+
+      for (let i = 0; i < longestStreak; i++) {
+        const date = new Date(historicalEnd);
+        date.setDate(historicalEnd.getDate() - i);
+        streakDates.add(date.toISOString().split('T')[0]);
+      }
+
+      // Calculate current streak start date
+      const currentStart = new Date(lastActiveDate);
+      currentStart.setHours(0, 0, 0, 0);
+      currentStart.setDate(currentStart.getDate() - (streak - 1));
+
+      // Calculate gap between historical end and current start
+      const gapDays = Math.floor((currentStart.getTime() - historicalEnd.getTime()) / (1000 * 60 * 60 * 24)) - 1;
+
+      if (gapDays > 0) {
+        console.log(`📅 [Calendar] Found ${gapDays} missed days between streaks`);
+        for (let i = 1; i <= gapDays; i++) {
+          const missedDate = new Date(historicalEnd);
+          missedDate.setDate(historicalEnd.getDate() + i);
+          missedDates.add(missedDate.toISOString().split('T')[0]);
+        }
+      }
+
+      // Add current streak dates (e.g., 2 days ending today)
+      if (streak > 0) {
+        for (let i = 0; i < streak; i++) {
+          const date = new Date(currentStart);
+          date.setDate(currentStart.getDate() + i);
+          streakDates.add(date.toISOString().split('T')[0]);
+        }
+      }
+    } else {
+      console.log('📅 [Calendar] Using normal streak mode');
+
+      // Normal mode: show current streak only
+      const lastActive = new Date(lastActiveDate);
+      lastActive.setHours(0, 0, 0, 0);
+
+      if (streak > 0) {
+        for (let i = 0; i < streak; i++) {
+          const streakDate = new Date(lastActive);
+          streakDate.setDate(lastActive.getDate() - i);
+          streakDates.add(streakDate.toISOString().split('T')[0]);
+        }
+      }
+
+      // Missed days: gap between lastActive and today (if gap > 1)
+      const daysDiff = Math.floor((todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff > 1) {
+        for (let i = 1; i < daysDiff; i++) {
+          const missedDate = new Date(lastActive);
+          missedDate.setDate(lastActive.getDate() + i);
+          missedDates.add(missedDate.toISOString().split('T')[0]);
+        }
       }
     }
 
     console.log('📅 [Calendar] Week view:', {
-      oldStreak,
-      lastActive: lastActive.toISOString().split('T')[0],
+      streak,
+      longestStreak,
+      longestStreakDate,
       streakDates: Array.from(streakDates),
       missedDates: Array.from(missedDates),
-      daysDiff,
       today: today.toISOString().split('T')[0]
     });
 
@@ -651,53 +778,107 @@ export default function TodayScreen() {
     const daysInMonth = lastDay.getDate();
     const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
 
-    // Use FROZEN old streak data (before loadStreak updated it) for accurate calendar
-    const oldStreak = streakBeforeUpdate || streak;
-    const oldLastActive = lastActiveBeforeUpdate || today.toISOString().split('T')[0];
-    const lastActive = new Date(oldLastActive);
-    const lastActiveDay = lastActive.getDate();
-    const lastActiveMonth = lastActive.getMonth();
-    const lastActiveYear = lastActive.getFullYear();
+    // Get full streak data from GamifiedProgress (includes longestStreakDate)
+    const fullStreak = getStreak();
+    const { longestStreakDate, lastActiveDate } = fullStreak;
 
-    // Calculate which days were in the old streak
+    // Calculate which days were in the streak
     const streakDays = new Set<number>();
     const missedDays = new Set<number>();
 
-    // Calculate streak days across ALL months (not just current month)
-    if (oldStreak > 0) {
-      // Go back oldStreak days from lastActive and mark each day
-      for (let i = 0; i < oldStreak; i++) {
-        const streakDate = new Date(lastActive);
-        streakDate.setDate(lastActive.getDate() - i);
+    // Check if we should show historical longest streak (when it's bigger than current)
+    const useHistoricalStreak = longestStreak > streak;
+
+    if (useHistoricalStreak && longestStreakDate) {
+      console.log('📅 [Calendar Modal] Using historical streak mode');
+
+      // Add historical longest streak dates (e.g., 47 days ending Jan 24)
+      const historicalEnd = new Date(longestStreakDate);
+      historicalEnd.setHours(0, 0, 0, 0);
+
+      for (let i = 0; i < longestStreak; i++) {
+        const date = new Date(historicalEnd);
+        date.setDate(historicalEnd.getDate() - i);
 
         // Only add to set if this day is in the current viewing month
-        if (streakDate.getMonth() === month && streakDate.getFullYear() === year) {
-          streakDays.add(streakDate.getDate());
+        if (date.getMonth() === month && date.getFullYear() === year) {
+          streakDays.add(date.getDate());
+        }
+      }
+
+      // Calculate current streak start date
+      const currentStart = new Date(lastActiveDate);
+      currentStart.setHours(0, 0, 0, 0);
+      currentStart.setDate(currentStart.getDate() - (streak - 1));
+
+      // Calculate gap between historical end and current start
+      const gapDays = Math.floor((currentStart.getTime() - historicalEnd.getTime()) / (1000 * 60 * 60 * 24)) - 1;
+
+      if (gapDays > 0) {
+        console.log(`📅 [Calendar Modal] Found ${gapDays} missed days between streaks`);
+        for (let i = 1; i <= gapDays; i++) {
+          const missedDate = new Date(historicalEnd);
+          missedDate.setDate(historicalEnd.getDate() + i);
+
+          // Only add to set if this day is in the current viewing month
+          if (missedDate.getMonth() === month && missedDate.getFullYear() === year) {
+            missedDays.add(missedDate.getDate());
+          }
+        }
+      }
+
+      // Add current streak dates (e.g., 2 days ending today)
+      if (streak > 0) {
+        for (let i = 0; i < streak; i++) {
+          const date = new Date(currentStart);
+          date.setDate(currentStart.getDate() + i);
+
+          // Only add to set if this day is in the current viewing month
+          if (date.getMonth() === month && date.getFullYear() === year) {
+            streakDays.add(date.getDate());
+          }
+        }
+      }
+    } else {
+      console.log('📅 [Calendar Modal] Using normal streak mode');
+
+      // Normal mode: show current streak only
+      const lastActive = new Date(lastActiveDate);
+      lastActive.setHours(0, 0, 0, 0);
+
+      if (streak > 0) {
+        for (let i = 0; i < streak; i++) {
+          const streakDate = new Date(lastActive);
+          streakDate.setDate(lastActive.getDate() - i);
+
+          // Only add to set if this day is in the current viewing month
+          if (streakDate.getMonth() === month && streakDate.getFullYear() === year) {
+            streakDays.add(streakDate.getDate());
+          }
+        }
+      }
+
+      // Missed days: gap between lastActive and today (if gap > 1)
+      const daysDiff = Math.floor((todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff > 1) {
+        for (let i = 1; i < daysDiff; i++) {
+          const missedDate = new Date(lastActive);
+          missedDate.setDate(lastActive.getDate() + i);
+
+          // Only add to set if this day is in the current viewing month
+          if (missedDate.getMonth() === month && missedDate.getFullYear() === year) {
+            missedDays.add(missedDate.getDate());
+          }
         }
       }
     }
 
-    // Missed days: gap between lastActiveDay and today (if gap > 1)
-    const daysDiff = Math.floor((todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff > 1) {
-      // Mark all days between lastActive and today as missed
-      for (let i = 1; i < daysDiff; i++) {
-        const missedDate = new Date(lastActive);
-        missedDate.setDate(lastActive.getDate() + i);
-
-        // Only add to set if this day is in the current viewing month
-        if (missedDate.getMonth() === month && missedDate.getFullYear() === year) {
-          missedDays.add(missedDate.getDate());
-        }
-      }
-    }
-
-    console.log('📅 [Calendar] Month view:', {
-      oldStreak,
-      lastActive: lastActive.toISOString().split('T')[0],
+    console.log('📅 [Calendar Modal] Month view:', {
+      streak,
+      longestStreak,
+      longestStreakDate,
       streakDays: Array.from(streakDays),
       missedDays: Array.from(missedDays),
-      daysDiff,
       today: today.toISOString().split('T')[0]
     });
 
@@ -1303,6 +1484,109 @@ export default function TodayScreen() {
                     color="rgba(255,255,255,0.8)"
                   />
                 </TouchableOpacity>
+
+                {/* Voice Selector Button */}
+                <TouchableOpacity
+                  onPress={() => setShowVoicePicker(!showVoicePicker)}
+                  activeOpacity={0.8}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: ArchivesTheme.colors.shoeBrown,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 10,
+                    marginTop: 8,
+                  }}
+                >
+                  <Ionicons
+                    name="mic-outline"
+                    size={20}
+                    color="#FFFFFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text
+                    style={{
+                      fontFamily: "DM Sans",
+                      fontSize: 14,
+                      fontWeight: "600",
+                      color: "#FFFFFF",
+                      flex: 1,
+                    }}
+                  >
+                    Voice: {voices.find(v => v.id === selectedVoice)?.name}
+                  </Text>
+                  <Ionicons
+                    name={showVoicePicker ? "chevron-up" : "chevron-down"}
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                </TouchableOpacity>
+
+                {/* Voice Picker Dropdown */}
+                {showVoicePicker && (
+                  <View
+                    style={{
+                      backgroundColor: "#FFFFFF",
+                      borderRadius: 10,
+                      marginTop: 8,
+                      overflow: "hidden",
+                      borderWidth: 1,
+                      borderColor: ArchivesTheme.colors.shoeBrown,
+                    }}
+                  >
+                    {voices.map((voice, index) => (
+                      <TouchableOpacity
+                        key={voice.id}
+                        onPress={() => handleVoiceChange(voice.id)}
+                        activeOpacity={0.8}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingVertical: 14,
+                          paddingHorizontal: 16,
+                          borderTopWidth: index > 0 ? 1 : 0,
+                          borderTopColor: "rgba(77, 57, 46, 0.1)",
+                          backgroundColor:
+                            selectedVoice === voice.id
+                              ? "rgba(201, 145, 81, 0.1)"
+                              : "#FFFFFF",
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              fontFamily: "DM Sans",
+                              fontSize: 15,
+                              fontWeight: "600",
+                              color: ArchivesTheme.colors.shoeBrown,
+                            }}
+                          >
+                            {voice.name} ({voice.gender})
+                          </Text>
+                          <Text
+                            style={{
+                              fontFamily: "DM Sans",
+                              fontSize: 12,
+                              fontWeight: "400",
+                              color: "rgba(77, 57, 46, 0.6)",
+                              marginTop: 2,
+                            }}
+                          >
+                            {voice.desc}
+                          </Text>
+                        </View>
+                        {selectedVoice === voice.id && (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={20}
+                            color={ArchivesTheme.colors.persianOrange}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
 
               {/* Main Title */}
