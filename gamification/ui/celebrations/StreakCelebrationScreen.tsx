@@ -287,7 +287,7 @@ const CARD_TOP = SCREEN_HEIGHT * 0.35;
 // Flame above card (overlapping slightly per Figma)
 const FLAME_TOP = CARD_TOP - FLAME_SIZE * 1.0;
 // Number inside card with top padding (centered in screen middle)
-const NUMBER_TOP = CARD_TOP + SCREEN_HEIGHT * 0.04;
+const NUMBER_TOP = CARD_TOP + SCREEN_HEIGHT * 0.02;
 // Text close below number
 const TEXT_TOP = NUMBER_TOP + SCREEN_HEIGHT * 0.14;
 
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   },
   calendarWidget: {
     position: 'absolute',
-    top: CARD_TOP + SCREEN_HEIGHT * 0.24,
+    top: CARD_TOP + SCREEN_HEIGHT * 0.22,
     left: (SCREEN_WIDTH - CARD_WIDTH) / 2 + CARD_WIDTH * 0.05,
     width: CARD_WIDTH * 0.9,
     height: SCREEN_HEIGHT * 0.13,
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   motivationalText: {
     position: 'absolute',
-    top: CARD_TOP + SCREEN_HEIGHT * 0.40,
+    top: CARD_TOP + SCREEN_HEIGHT * 0.38,
     left: (SCREEN_WIDTH - CARD_WIDTH * 0.8) / 2,
     width: CARD_WIDTH * 0.8,
     fontFamily: 'DM Sans',

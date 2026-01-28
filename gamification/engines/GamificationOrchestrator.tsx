@@ -302,7 +302,7 @@ interface StreakMilestoneCelebration {
 interface StreakCelebration {
   type: 'STREAK_CELEBRATION';
   streakCount: number;
-  weekData: { day: string; dayNumber: number; completed: boolean; missed: boolean; isToday: boolean }[];
+  weekData: { day: string; completed: boolean; isToday: boolean }[];
 }
 
 interface AchievementCelebration {
@@ -508,7 +508,7 @@ function calculateStreakBonus(streak: number): number {
  * Calculate week progress data for calendar widget.
  * Returns 7 days (Mo-Su) with completion status based on current streak.
  */
-function calculateWeekData(currentStreak: number, lastActiveDate: string): { day: string; dayNumber: number; completed: boolean; missed: boolean; isToday: boolean }[] {
+function calculateWeekData(currentStreak: number, lastActiveDate: string): { day: string; completed: boolean; missed: boolean; isToday: boolean }[] {
   const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
   const today = new Date();
   const todayDay = today.getDate();
@@ -576,7 +576,6 @@ function calculateWeekData(currentStreak: number, lastActiveDate: string): { day
 
     return {
       day,
-      dayNumber: dayDate.getDate(), // Day of month (1-31)
       completed: isInStreak || isToday, // Orange checkmark - part of streak or today
       missed: isMissed, // Grey dash - days missed between lastActive and today
       isToday,

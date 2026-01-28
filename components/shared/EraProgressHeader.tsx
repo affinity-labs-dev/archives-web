@@ -38,121 +38,71 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
   totalQuestions,
   totalXP = 0,
 }) => {
-  const { streak, longestStreak, lastActiveBeforeUpdate, streakBeforeUpdate } = useGamificationOrchestrator();
-  const { getStreak } = useGamifiedProgress();
+  const { streak, lastActiveBeforeUpdate, streakBeforeUpdate } = useGamificationOrchestrator();
   const insets = useSafeAreaInsets();
 
   // TEST MODE: Show celebration when clicking streak
   const [showTestCelebration, setShowTestCelebration] = useState(false);
 
-  // Calculate week data using full date comparison (supports historical + current streak)
+  // Calculate week data for test - using date Sets for accurate cross-month calculation
   const calculateWeekData = (currentStreak: number, lastActiveDateParam: string) => {
     const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDay = today.getDate();
     const todayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1; // Convert to Mo-Su (0-6)
 
-    console.log('🔥 [EraProgressHeader] ===== STREAK CALENDAR CALCULATION =====');
+    // Use the preserved old lastActiveDate (before loadStreak updated it)
+    const lastActiveDate = lastActiveDateParam || today.toISOString().split('T')[0];
+    const lastActive = new Date(lastActiveDate);
+    lastActive.setHours(0, 0, 0, 0);
 
-    // Get full streak data from GamifiedProgress (includes longestStreakDate)
-    const fullStreak = getStreak();
-    const { longestStreakDate, lastActiveDate: activeDate } = fullStreak;
+    // Calculate days difference (gap between lastActive and today)
+    const daysDiff = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Build Sets of streak dates and missed dates
+    // Build a Set of all streak dates for efficient lookup (works across months)
     const streakDates = new Set<string>();
     const missedDates = new Set<string>();
 
-    // Check if we should show historical longest streak (when it's bigger than current)
-    const useHistoricalStreak = longestStreak > currentStreak;
-
-    if (useHistoricalStreak && longestStreakDate) {
-      console.log('   Using historical streak mode');
-      console.log('   Longest Streak:', longestStreak, '| Current Streak:', currentStreak);
-
-      // Add historical longest streak dates (e.g., 47 days ending Jan 24)
-      const historicalEnd = new Date(longestStreakDate);
-      historicalEnd.setHours(0, 0, 0, 0);
-
-      for (let i = 0; i < longestStreak; i++) {
-        const date = new Date(historicalEnd);
-        date.setDate(historicalEnd.getDate() - i);
-        streakDates.add(date.toISOString().split('T')[0]);
-      }
-
-      // Calculate current streak start date
-      const currentStart = new Date(activeDate);
-      currentStart.setHours(0, 0, 0, 0);
-      currentStart.setDate(currentStart.getDate() - (currentStreak - 1));
-
-      // Calculate gap between historical end and current start
-      const gapDays = Math.floor((currentStart.getTime() - historicalEnd.getTime()) / (1000 * 60 * 60 * 24)) - 1;
-
-      if (gapDays > 0) {
-        console.log(`   Found ${gapDays} missed days between streaks`);
-        for (let i = 1; i <= gapDays; i++) {
-          const missedDate = new Date(historicalEnd);
-          missedDate.setDate(historicalEnd.getDate() + i);
-          missedDates.add(missedDate.toISOString().split('T')[0]);
-        }
-      }
-
-      // Add current streak dates (e.g., 2 days ending today)
-      if (currentStreak > 0) {
-        for (let i = 0; i < currentStreak; i++) {
-          const date = new Date(currentStart);
-          date.setDate(currentStart.getDate() + i);
-          streakDates.add(date.toISOString().split('T')[0]);
-        }
-      }
-    } else {
-      console.log('   Using normal streak mode');
-
-      // Normal mode: show current streak only
-      const lastActive = new Date(activeDate);
-      lastActive.setHours(0, 0, 0, 0);
-
-      if (currentStreak > 0) {
-        for (let i = 0; i < currentStreak; i++) {
-          const streakDate = new Date(lastActive);
-          streakDate.setDate(lastActive.getDate() - i);
-          streakDates.add(streakDate.toISOString().split('T')[0]);
-        }
-      }
-
-      // Missed days: gap between lastActive and today (if gap > 1)
-      const daysDiff = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysDiff > 1) {
-        for (let i = 1; i < daysDiff; i++) {
-          const missedDate = new Date(lastActive);
-          missedDate.setDate(lastActive.getDate() + i);
-          missedDates.add(missedDate.toISOString().split('T')[0]);
-        }
+    if (currentStreak > 0) {
+      // Go back currentStreak days from lastActive and mark each date
+      for (let i = 0; i < currentStreak; i++) {
+        const streakDate = new Date(lastActive);
+        streakDate.setDate(lastActive.getDate() - i);
+        streakDates.add(streakDate.toISOString().split('T')[0]);
       }
     }
 
-    console.log('   Streak Dates:', Array.from(streakDates));
-    console.log('   Missed Dates:', Array.from(missedDates));
+    // Missed days: gap between lastActive and today (if gap > 1)
+    if (daysDiff > 1) {
+      for (let i = 1; i < daysDiff; i++) {
+        const missedDate = new Date(lastActive);
+        missedDate.setDate(lastActive.getDate() + i);
+        missedDates.add(missedDate.toISOString().split('T')[0]);
+      }
+    }
 
-    // Generate week data using full date comparison
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - todayIndex); // Go to Monday of this week
-
-    const weekData = days.map((day, index) => {
+    return days.map((day, index) => {
+      // Get the actual date for this day of the week
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - todayIndex); // Go to Monday of this week
       const dayDate = new Date(weekStart);
       dayDate.setDate(weekStart.getDate() + index);
       const dateString = dayDate.toISOString().split('T')[0];
-      const isToday = dateString === today.toISOString().split('T')[0];
+      const todayString = today.toISOString().split('T')[0];
 
-      // Check against date Sets
+      // Check if this day is part of the streak using the Set (works across months)
       const isInStreak = streakDates.has(dateString);
+
+      // Check if this day was missed using the Set
       const isMissed = missedDates.has(dateString);
 
-      console.log(`   ${day} (${dateString}): completed=${isInStreak || isToday}, missed=${isMissed}, isToday=${isToday}`);
+      // Check if this is today
+      const isToday = dateString === todayString;
 
       return {
         day,
-        completed: isInStreak || isToday,
-        missed: isMissed,
+        completed: isInStreak || isToday, // Orange checkmark - part of streak or today
+        missed: isMissed, // Grey dash - days missed between lastActive and today
         isToday,
       };
     });
