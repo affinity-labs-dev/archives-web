@@ -235,7 +235,7 @@ function useToday(userId?: string) {
         .from('daily_content')
         .select('*')
         .eq('date', todayDate)
-        .eq('is_active', true)
+        .in('is_active', [true, 'TRUE', 'true'])
         .single();
 
       if (questError) {
