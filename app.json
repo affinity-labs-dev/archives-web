@@ -19,7 +19,7 @@
       ],
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
+          "audio",
           "remote-notification"
         ],
         "CFBundleURLTypes": [

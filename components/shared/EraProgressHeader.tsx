@@ -3,7 +3,7 @@
 // Progress calculated based on quiz correct answers
 
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { useGamificationOrchestrator } from '@/gamification';
+import { useGamificationOrchestrator, useGamifiedProgress } from '@/gamification';
 import StreakCelebrationScreen from '@/gamification/ui/celebrations/StreakCelebrationScreen';
 import React, { useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -106,6 +106,9 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
         isToday,
       };
     });
+
+    console.log('🔥 [EraProgressHeader] ===== END =====');
+    return weekData;
   };
 
   // Dynamic top padding based on safe area + breathing room
