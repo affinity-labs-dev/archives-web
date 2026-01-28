@@ -125,12 +125,12 @@ export default function TabLayout() {
         }}
       />
       <TabComponent.Screen
-        name="subscribe"
+        name="today"
         options={{
-          title: 'Subscribe',
+          title: 'Today',
           headerShown: false,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <SubscribeIcon
+            <TodayIcon
               size={24}
               color={color}
             />
@@ -138,12 +138,12 @@ export default function TabLayout() {
         }}
       />
       <TabComponent.Screen
-        name="today"
+        name="subscribe"
         options={{
-          title: 'Today',
+          title: 'Subscribe',
           headerShown: false,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <TodayIcon
+            <SubscribeIcon
               size={24}
               color={color}
             />

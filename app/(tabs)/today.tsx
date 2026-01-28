@@ -218,64 +218,90 @@ function useToday(userId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchTodayQuest = async () => {
-      try {
+  // Extract fetch function so it can be reused by realtime subscription
+  const fetchTodayQuest = async (showLoading = true) => {
+    try {
+      if (showLoading) {
         setLoading(true);
-        setError(null);
-
-        const today = new Date();
-        const todayDate = today.toISOString().split('T')[0];
-
-        console.log(`🔍 [useToday] Fetching quest for ${todayDate}`);
-
-        const { data: questData, error: questError } = await supabase
-          .from('daily_content')
-          .select('*')
-          .eq('date', todayDate)
-          .eq('is_active', true)
-          .single();
-
-        if (questError) {
-          console.error('❌ [useToday] Error fetching quest:', questError);
-          setError('No quest available for today');
-          setTodayQuest(null);
-          setLoading(false);
-          return;
-        }
-
-        console.log('✅ [useToday] Quest fetched:', questData?.content?.card1?.title);
-        setTodayQuest(questData as Today);
-
-        if (userId && questData) {
-          try {
-            const { data: progressData, error: progressError } = await supabase
-              .from('user_daily_quest_progress')
-              .select('*')
-              .eq('user_id', userId)
-              .eq('daily_quest_id', questData.id)
-              .maybeSingle();
-
-            if (progressError) {
-              console.warn('⚠️ [useToday] Progress query failed:', progressError.message);
-            } else if (progressData) {
-              console.log('✅ [useToday] User already completed this quest');
-              setQuestProgress(progressData as TodayProgress);
-            }
-          } catch (err) {
-            console.warn('⚠️ [useToday] Progress check failed:', err);
-          }
-        }
-
-        setLoading(false);
-      } catch (err) {
-        console.error('❌ [useToday] Unexpected error:', err);
-        setError('Failed to load daily quest');
-        setLoading(false);
       }
-    };
+      setError(null);
 
-    fetchTodayQuest();
+      const today = new Date();
+      const todayDate = today.toISOString().split('T')[0];
+
+      console.log(`🔍 [useToday] Fetching quest for ${todayDate}`);
+
+      const { data: questData, error: questError } = await supabase
+        .from('daily_content')
+        .select('*')
+        .eq('date', todayDate)
+        .eq('is_active', true)
+        .single();
+
+      if (questError) {
+        console.error('❌ [useToday] Error fetching quest:', questError);
+        setError('No quest available for today');
+        setTodayQuest(null);
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ [useToday] Quest fetched:', questData?.content?.card1?.title);
+      setTodayQuest(questData as Today);
+
+      if (userId && questData) {
+        try {
+          const { data: progressData, error: progressError } = await supabase
+            .from('user_daily_quest_progress')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('daily_quest_id', questData.id)
+            .maybeSingle();
+
+          if (progressError) {
+            console.warn('⚠️ [useToday] Progress query failed:', progressError.message);
+          } else if (progressData) {
+            console.log('✅ [useToday] User already completed this quest');
+            setQuestProgress(progressData as TodayProgress);
+          }
+        } catch (err) {
+          console.warn('⚠️ [useToday] Progress check failed:', err);
+        }
+      }
+
+      setLoading(false);
+    } catch (err) {
+      console.error('❌ [useToday] Unexpected error:', err);
+      setError('Failed to load daily quest');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial fetch
+    fetchTodayQuest(true);
+
+    // Subscribe to realtime changes on daily_content table
+    const channel = supabase
+      .channel('daily-content-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'daily_content' },
+        (payload) => {
+          console.log('🔄 [useToday] Realtime update received:', payload.eventType);
+          // Refetch without showing loading spinner for smoother UX
+          fetchTodayQuest(false);
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 [useToday] Realtime subscription status:', status);
+      });
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('🔌 [useToday] Unsubscribing from realtime');
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
   const saveQuestCompletion = async (
