@@ -1,11 +1,15 @@
 // Daily Quest Tab - New card-based design with expandable sections
 // Features: Calendar week view, progress tracker, three content cards (WATCH, EXPLORE, QUESTIONS)
 
+import TodayScrollableLesson from "@/components/lessons/TodayScrollableLesson";
 import TodayVideoLesson from "@/components/lessons/TodayVideoLesson";
 import Quiz from "@/components/quiz/Quiz";
-import type { ContentItem } from "@/components/shared/types";
+import type { ContentBlock, ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
-import { useGamificationOrchestrator, useGamifiedProgress } from "@/gamification";
+import {
+  useGamificationOrchestrator,
+  useGamifiedProgress,
+} from "@/gamification";
 import { supabase } from "@/hooks/lib/supabase";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,13 +20,14 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   ScrollView,
+  StatusBar,
   Text,
   TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
-import RenderHtml from "react-native-render-html";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -46,20 +51,22 @@ const StreakIcon = ({ size = 14 }: { size?: number }) => (
 // ============================================================================
 
 interface Card1Content {
-  content_type: 'reel';
+  content_type: "reel";
   title: string;
   media_url: string;
+  thumbnail_url?: string; // Background thumbnail for WATCH card
   content: {
     reading_text: string;
   };
 }
 
 interface Card2Content {
-  content_type: 'scrollable_media_view';
+  content_type: "scrollable_media_view";
   title: string;
   inner_image: string;
   inner_voice: string;
   content: string;
+  content_blocks?: ContentBlock[]; // New content_blocks array structure
 }
 
 interface Card3Content {
@@ -67,7 +74,7 @@ interface Card3Content {
   questions: Array<{
     question_id: string;
     question_text: string;
-    question_type: 'mcq' | 'trueFalse';
+    question_type: "mcq" | "trueFalse";
     answers: Array<{
       answer_id: string;
       text: string;
@@ -82,6 +89,9 @@ interface TodayContent {
   card1: Card1Content;
   card2: Card2Content;
   card3: Card3Content;
+  today_title: string;
+  day_number: number;
+  total_days: number;
 }
 
 interface Today {
@@ -94,7 +104,6 @@ interface Today {
 }
 
 interface TodayProgress {
-  id: string;
   user_id: string;
   daily_quest_id: string;
   completed_at: string;
@@ -104,117 +113,14 @@ interface TodayProgress {
 }
 
 // ============================================================================
-// HELPER FUNCTIONS (from ElevenLabsService.ts)
-// ============================================================================
-
-const ELEVENLABS_API_KEY = process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY;
-const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
-
-/**
- * Convert Blob to base64 string
- */
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result as string;
-      const base64 = dataUrl.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-/**
- * Strip HTML tags from text to get plain text for TTS
- */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/**
- * Convert text to speech and return a data URI
- */
-async function textToSpeech(
-  text: string,
-  voiceId: string = '21m00Tcm4TlvDq8ikWAM'
-): Promise<string | null> {
-  console.log('🎤 [ElevenLabs] Starting TTS generation');
-  console.log('   Text length:', text.length);
-  console.log('   Voice ID:', voiceId);
-
-  if (!ELEVENLABS_API_KEY) {
-    console.error('❌ [ElevenLabs] API key not found');
-    return null;
-  }
-
-  try {
-    console.log('🌐 [ElevenLabs] Calling API...');
-    const response = await fetch(
-      `${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': ELEVENLABS_API_KEY,
-        },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_multilingual_v2',
-          output_format: 'mp3_44100_128',
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-          },
-        }),
-      }
-    );
-
-    console.log('📡 [ElevenLabs] Response:', response.status, response.statusText);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ [ElevenLabs] API error:', response.status);
-      console.error('   Error:', errorText);
-      return null;
-    }
-
-    console.log('💾 [ElevenLabs] Converting to blob...');
-    const blob = await response.blob();
-    console.log('   Blob size:', blob.size, 'bytes');
-
-    console.log('🔄 [ElevenLabs] Converting to base64...');
-    const base64 = await blobToBase64(blob);
-    console.log('   Base64 length:', base64.length);
-
-    const dataUri = `data:audio/mpeg;base64,${base64}`;
-    console.log('✅ [ElevenLabs] Success! Data URI ready');
-
-    return dataUri;
-  } catch (error) {
-    console.error('❌ [ElevenLabs] Error:', error);
-    return null;
-  }
-}
-
-// ============================================================================
 // CUSTOM HOOK (from useToday.ts)
 // ============================================================================
 
 function useToday(userId?: string) {
   const [todayQuest, setTodayQuest] = useState<Today | null>(null);
-  const [questProgress, setQuestProgress] = useState<TodayProgress | null>(null);
+  const [questProgress, setQuestProgress] = useState<TodayProgress | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -227,52 +133,58 @@ function useToday(userId?: string) {
       setError(null);
 
       const today = new Date();
-      const todayDate = today.toISOString().split('T')[0];
+      const todayDate = today.toISOString().split("T")[0];
 
       console.log(`🔍 [useToday] Fetching quest for ${todayDate}`);
 
       const { data: questData, error: questError } = await supabase
-        .from('daily_content')
-        .select('*')
-        .eq('date', todayDate)
-        .in('is_active', [true, 'TRUE', 'true'])
+        .from("daily_content")
+        .select("*")
+        .eq("date", todayDate)
+        .in("is_active", [true, "TRUE", "true"])
         .single();
 
       if (questError) {
-        console.error('❌ [useToday] Error fetching quest:', questError);
-        setError('No quest available for today');
+        console.error("❌ [useToday] Error fetching quest:", questError);
+        setError("No quest available for today");
         setTodayQuest(null);
         setLoading(false);
         return;
       }
 
-      console.log('✅ [useToday] Quest fetched:', questData?.content?.card1?.title);
+      console.log(
+        "✅ [useToday] Quest fetched:",
+        questData?.content?.card1?.title,
+      );
       setTodayQuest(questData as Today);
 
       if (userId && questData) {
         try {
           const { data: progressData, error: progressError } = await supabase
-            .from('user_daily_quest_progress')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('daily_quest_id', questData.id)
+            .from("user_daily_quest_progress")
+            .select("*")
+            .eq("user_id", userId)
+            .eq("daily_quest_id", questData.id)
             .maybeSingle();
 
           if (progressError) {
-            console.warn('⚠️ [useToday] Progress query failed:', progressError.message);
+            console.warn(
+              "⚠️ [useToday] Progress query failed:",
+              progressError.message,
+            );
           } else if (progressData) {
-            console.log('✅ [useToday] User already completed this quest');
+            console.log("✅ [useToday] User already completed this quest");
             setQuestProgress(progressData as TodayProgress);
           }
         } catch (err) {
-          console.warn('⚠️ [useToday] Progress check failed:', err);
+          console.warn("⚠️ [useToday] Progress check failed:", err);
         }
       }
 
       setLoading(false);
     } catch (err) {
-      console.error('❌ [useToday] Unexpected error:', err);
-      setError('Failed to load daily quest');
+      console.error("❌ [useToday] Unexpected error:", err);
+      setError("Failed to load daily quest");
       setLoading(false);
     }
   };
@@ -283,23 +195,26 @@ function useToday(userId?: string) {
 
     // Subscribe to realtime changes on daily_content table
     const channel = supabase
-      .channel('daily-content-realtime')
+      .channel("daily-content-realtime")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'daily_content' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "daily_content" },
         (payload) => {
-          console.log('🔄 [useToday] Realtime update received:', payload.eventType);
+          console.log(
+            "🔄 [useToday] Realtime update received:",
+            payload.eventType,
+          );
           // Refetch without showing loading spinner for smoother UX
           fetchTodayQuest(false);
-        }
+        },
       )
       .subscribe((status) => {
-        console.log('📡 [useToday] Realtime subscription status:', status);
+        console.log("📡 [useToday] Realtime subscription status:", status);
       });
 
     // Cleanup subscription on unmount
     return () => {
-      console.log('🔌 [useToday] Unsubscribing from realtime');
+      console.log("🔌 [useToday] Unsubscribing from realtime");
       supabase.removeChannel(channel);
     };
   }, [userId]);
@@ -309,33 +224,60 @@ function useToday(userId?: string) {
     questId: string,
     score: number,
     correctAnswers: number,
-    totalQuestions: number
+    totalQuestions: number,
   ) => {
     try {
-      console.log(`💾 [useToday] Saving completion: ${correctAnswers}/${totalQuestions}`);
+      console.log(
+        `💾 [useToday] Saving completion: ${correctAnswers}/${totalQuestions} (Score: ${score}%)`,
+      );
 
+      // Check if a record already exists
+      const { data: existing } = await supabase
+        .from("user_daily_quest_progress")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("daily_quest_id", questId)
+        .maybeSingle();
+
+      // If exists and new score is lower, keep the better score
+      if (existing && existing.score >= score) {
+        console.log(
+          `✅ [useToday] Keeping existing better score: ${existing.score}%`,
+        );
+        setQuestProgress(existing as TodayProgress);
+        return existing;
+      }
+
+      // Upsert: Insert new or update with better score
       const { data, error } = await supabase
-        .from('user_daily_quest_progress')
-        .insert({
-          user_id: userId,
-          daily_quest_id: questId,
-          score,
-          correct_answers: correctAnswers,
-          total_questions: totalQuestions,
-        })
+        .from("user_daily_quest_progress")
+        .upsert(
+          {
+            user_id: userId,
+            daily_quest_id: questId,
+            score,
+            correct_answers: correctAnswers,
+            total_questions: totalQuestions,
+          },
+          {
+            onConflict: "user_id,daily_quest_id",
+          },
+        )
         .select()
         .single();
 
       if (error) {
-        console.error('❌ [useToday] Error saving completion:', error);
+        console.error("❌ [useToday] Error saving completion:", error);
         throw error;
       }
 
-      console.log('✅ [useToday] Completion saved');
+      console.log(
+        `✅ [useToday] Completion saved (${existing ? "Updated" : "New"})`,
+      );
       setQuestProgress(data as TodayProgress);
       return data;
     } catch (err) {
-      console.error('❌ [useToday] Failed to save completion:', err);
+      console.error("❌ [useToday] Failed to save completion:", err);
       throw err;
     }
   };
@@ -356,7 +298,13 @@ function useToday(userId?: string) {
 
 export default function TodayScreen() {
   const { user } = useUser();
-  const { streak, longestStreak, lastActiveBeforeUpdate, streakBeforeUpdate } = useGamificationOrchestrator();
+  const {
+    streak,
+    longestStreak,
+    lastActiveBeforeUpdate,
+    streakBeforeUpdate,
+    reportTodayComplete,
+  } = useGamificationOrchestrator();
   const { getStreak } = useGamifiedProgress();
   const {
     todayQuest,
@@ -382,31 +330,14 @@ export default function TodayScreen() {
   const [expandedCard, setExpandedCard] = useState<
     "watch" | "explore" | "questions" | null
   >(null);
-  const [showQuiz, setShowQuiz] = useState(false);
-  const [showVideoLesson, setShowVideoLesson] = useState(false);
-  const [showReadingView, setShowReadingView] = useState(false);
-  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
-  // Generated audio state
-  const [generatedAudioUri, setGeneratedAudioUri] = useState<string | null>(null);
-  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  // Single enum state for modal management (prevents flicker during transitions)
+  type ModalState = "none" | "video" | "reading" | "quiz" | "calendar";
+  const [activeModal, setActiveModal] = useState<ModalState>("none");
 
-  // Voice selection state
-  const [selectedVoice, setSelectedVoice] = useState('21m00Tcm4TlvDq8ikWAM'); // Rachel default
-  const [showVoicePicker, setShowVoicePicker] = useState(false);
-
-  // Voice options
-  const voices = [
-    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', gender: 'Female', desc: 'Clear, professional' },
-    { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', gender: 'Female', desc: 'Warm, friendly' },
-    { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', gender: 'Male', desc: 'Deep, narrative' },
-    { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni', gender: 'Male', desc: 'Calm, storytelling' },
-    { id: 'MF3mGyEYCl7XYWbV9V6O', name: 'Elli', gender: 'Female', desc: 'Young, energetic' },
-  ];
-
-  // Audio player for narration (dynamically generated from text or fallback to inner_voice)
+  // Audio player for voiceover (from inner_voice URL in Supabase)
   const player = useAudioPlayer(
-    generatedAudioUri || todayQuest?.content?.card2?.inner_voice || null,
+    todayQuest?.content?.card2?.inner_voice || null,
   );
 
   // Configure audio mode for silent mode playback
@@ -427,140 +358,46 @@ export default function TodayScreen() {
     configureAudio();
   }, []);
 
-  // Load saved voice preference from Supabase
+  // Handle StatusBar for fullscreen Explore modal
   useEffect(() => {
-    const loadVoicePreference = async () => {
-      if (!user?.id) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('gamification_data')
-          .select('data')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) {
-          console.log('📢 [Today] No saved voice preference found');
-          return;
-        }
-
-        const preferredVoiceId = data?.data?.preferred_voice_id;
-        if (preferredVoiceId) {
-          console.log('📢 [Today] Loaded voice preference:', preferredVoiceId);
-          setSelectedVoice(preferredVoiceId);
-        }
-      } catch (error) {
-        console.error('❌ [Today] Error loading voice preference:', error);
+    if (activeModal === "reading") {
+      StatusBar.setBarStyle("dark-content");
+      if (Platform.OS === "android") {
+        StatusBar.setBackgroundColor("transparent");
+        StatusBar.setTranslucent(true);
       }
-    };
-
-    loadVoicePreference();
-  }, [user?.id]);
-
-  // Update player source when generated audio is ready
-  useEffect(() => {
-    if (generatedAudioUri) {
-      console.log('🔄 [Today] Replacing player source with generated audio');
-      player.replace(generatedAudioUri);
-    } else if (todayQuest?.content?.card2?.inner_voice) {
-      console.log('🔄 [Today] Using fallback audio source');
-      player.replace(todayQuest.content.card2.inner_voice);
+    } else {
+      if (Platform.OS === "android") {
+        StatusBar.setTranslucent(false);
+      }
     }
-  }, [generatedAudioUri, todayQuest]);
-
-  // Generate audio from text when reading view opens
-  useEffect(() => {
-    if (showReadingView && todayQuest?.content?.card2?.content && !generatedAudioUri && !isGeneratingAudio) {
-      const generateAudio = async () => {
-        setIsGeneratingAudio(true);
-        console.log('🎤 [Today] Starting voiceover generation...');
-
-        try {
-          // Strip HTML and get plain text
-          const plainText = stripHtml(todayQuest.content.card2.content);
-          console.log('📝 [Today] Text length:', plainText.length);
-
-          // Generate audio
-          const audioUri = await textToSpeech(plainText, selectedVoice);
-
-          if (audioUri) {
-            setGeneratedAudioUri(audioUri);
-            console.log('✅ [Today] Voiceover generated successfully');
-          } else {
-            console.error('❌ [Today] Generation failed, using fallback');
-          }
-        } catch (error) {
-          console.error('❌ [Today] Error:', error);
-        }
-
-        setIsGeneratingAudio(false);
-      };
-
-      generateAudio();
-    }
-  }, [showReadingView, todayQuest, generatedAudioUri, isGeneratingAudio]);
+  }, [activeModal]);
 
   // Toggle audio playback
   const toggleAudio = () => {
-    console.log('🎵 [Today] Toggle audio clicked');
-    console.log('   Player loaded:', player.isLoaded);
-    console.log('   Player playing:', player.playing);
-    console.log('   Generated URI:', generatedAudioUri ? 'Yes' : 'No');
-    console.log('   Fallback URI:', todayQuest?.content?.card2?.inner_voice ? 'Yes' : 'No');
+    console.log("🎵 [Today] Toggle audio clicked");
+    console.log("   Player loaded:", player.isLoaded);
+    console.log("   Player playing:", player.playing);
+    console.log(
+      "   Audio URI:",
+      todayQuest?.content?.card2?.inner_voice ? "Yes" : "No",
+    );
 
     if (!player.isLoaded) {
-      console.log('❌ [Today] Player not loaded yet');
+      console.log("❌ [Today] Player not loaded yet");
       return;
     }
 
     if (player.playing) {
-      console.log('⏸️ [Today] Pausing audio');
+      console.log("⏸️ [Today] Pausing audio");
       player.pause();
     } else {
-      console.log('▶️ [Today] Playing audio');
+      console.log("▶️ [Today] Playing audio");
       player.play();
     }
   };
 
   // Handle voice change and save to Supabase
-  const handleVoiceChange = async (voiceId: string) => {
-    console.log('📢 [Today] Changing voice to:', voiceId);
-    setSelectedVoice(voiceId);
-    setShowVoicePicker(false);
-
-    // Clear generated audio to regenerate with new voice
-    setGeneratedAudioUri(null);
-
-    // Save to Supabase
-    if (user?.id) {
-      try {
-        const { data: existingData } = await supabase
-          .from('gamification_data')
-          .select('data')
-          .eq('user_id', user.id)
-          .single();
-
-        const updatedData = {
-          ...(existingData?.data || {}),
-          preferred_voice_id: voiceId,
-        };
-
-        const { error } = await supabase
-          .from('gamification_data')
-          .update({ data: updatedData })
-          .eq('user_id', user.id);
-
-        if (error) {
-          console.error('❌ [Today] Error saving voice preference:', error);
-        } else {
-          console.log('✅ [Today] Voice preference saved');
-        }
-      } catch (error) {
-        console.error('❌ [Today] Error saving voice preference:', error);
-      }
-    }
-  };
-
   // Get current week dates for calendar
   const getWeekDates = () => {
     const today = new Date();
@@ -581,7 +418,7 @@ export default function TodayScreen() {
     const useHistoricalStreak = longestStreak > streak;
 
     if (useHistoricalStreak && longestStreakDate) {
-      console.log('📅 [Calendar] Using historical streak mode');
+      console.log("📅 [Calendar] Using historical streak mode");
 
       // Add historical longest streak dates (e.g., 47 days ending Jan 24)
       const historicalEnd = new Date(longestStreakDate);
@@ -590,7 +427,7 @@ export default function TodayScreen() {
       for (let i = 0; i < longestStreak; i++) {
         const date = new Date(historicalEnd);
         date.setDate(historicalEnd.getDate() - i);
-        streakDates.add(date.toISOString().split('T')[0]);
+        streakDates.add(date.toISOString().split("T")[0]);
       }
 
       // Calculate current streak start date
@@ -599,14 +436,20 @@ export default function TodayScreen() {
       currentStart.setDate(currentStart.getDate() - (streak - 1));
 
       // Calculate gap between historical end and current start
-      const gapDays = Math.floor((currentStart.getTime() - historicalEnd.getTime()) / (1000 * 60 * 60 * 24)) - 1;
+      const gapDays =
+        Math.floor(
+          (currentStart.getTime() - historicalEnd.getTime()) /
+            (1000 * 60 * 60 * 24),
+        ) - 1;
 
       if (gapDays > 0) {
-        console.log(`📅 [Calendar] Found ${gapDays} missed days between streaks`);
+        console.log(
+          `📅 [Calendar] Found ${gapDays} missed days between streaks`,
+        );
         for (let i = 1; i <= gapDays; i++) {
           const missedDate = new Date(historicalEnd);
           missedDate.setDate(historicalEnd.getDate() + i);
-          missedDates.add(missedDate.toISOString().split('T')[0]);
+          missedDates.add(missedDate.toISOString().split("T")[0]);
         }
       }
 
@@ -615,11 +458,11 @@ export default function TodayScreen() {
         for (let i = 0; i < streak; i++) {
           const date = new Date(currentStart);
           date.setDate(currentStart.getDate() + i);
-          streakDates.add(date.toISOString().split('T')[0]);
+          streakDates.add(date.toISOString().split("T")[0]);
         }
       }
     } else {
-      console.log('📅 [Calendar] Using normal streak mode');
+      console.log("📅 [Calendar] Using normal streak mode");
 
       // Normal mode: show current streak only
       const lastActive = new Date(lastActiveDate);
@@ -629,28 +472,30 @@ export default function TodayScreen() {
         for (let i = 0; i < streak; i++) {
           const streakDate = new Date(lastActive);
           streakDate.setDate(lastActive.getDate() - i);
-          streakDates.add(streakDate.toISOString().split('T')[0]);
+          streakDates.add(streakDate.toISOString().split("T")[0]);
         }
       }
 
       // Missed days: gap between lastActive and today (if gap > 1)
-      const daysDiff = Math.floor((todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+      const daysDiff = Math.floor(
+        (todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24),
+      );
       if (daysDiff > 1) {
         for (let i = 1; i < daysDiff; i++) {
           const missedDate = new Date(lastActive);
           missedDate.setDate(lastActive.getDate() + i);
-          missedDates.add(missedDate.toISOString().split('T')[0]);
+          missedDates.add(missedDate.toISOString().split("T")[0]);
         }
       }
     }
 
-    console.log('📅 [Calendar] Week view:', {
+    console.log("📅 [Calendar] Week view:", {
       streak,
       longestStreak,
       longestStreakDate,
       streakDates: Array.from(streakDates),
       missedDates: Array.from(missedDates),
-      today: today.toISOString().split('T')[0]
+      today: today.toISOString().split("T")[0],
     });
 
     // Calculate start of week (Sunday)
@@ -662,7 +507,7 @@ export default function TodayScreen() {
       const date = new Date(startOfWeek);
       date.setDate(startOfWeek.getDate() + i);
       const dateStart = new Date(date.setHours(0, 0, 0, 0));
-      const dateString = dateStart.toISOString().split('T')[0];
+      const dateString = dateStart.toISOString().split("T")[0];
       const isToday = dateStart.getTime() === todayStart.getTime();
       const isPast = dateStart < todayStart;
       const isFuture = dateStart > todayStart;
@@ -673,11 +518,11 @@ export default function TodayScreen() {
       // Check if this day was missed using the Set
       const isMissed = missedDates.has(dateString);
 
-      // Completed = part of streak OR is today
-      const isCompleted = isInStreak || isToday;
+      // Completed = part of streak only (today shows orange ONLY after actually completing)
+      const isCompleted = isInStreak;
 
       dates.push({
-        day: ["S", "M", "T", "W", "T", "F", "S"][i],
+        day: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][i],
         date: date.getDate(),
         dateObj: dateStart,
         isToday,
@@ -697,18 +542,47 @@ export default function TodayScreen() {
 
   // Handle quiz completion
   const handleQuizComplete = async () => {
-    setShowQuiz(false);
     setQuestCompleted(true);
     console.log("✅ [Today] Quiz completed, quest finished!");
   };
 
+  // ========== Trigger streak update when Today screen reaches 100% ==========
+  // When all three sections are completed, report to orchestrator for streak update
+  useEffect(() => {
+    const checkCompletion = async () => {
+      // Check if all sections are complete (100% progress)
+      // Note: reportTodayComplete() has built-in duplicate prevention via AsyncStorage
+      if (watchCompleted && exploreCompleted && questCompleted) {
+        const progress = calculateProgress();
+        console.log(`✅ [Today] All sections complete! Progress: ${progress}%`);
+
+        if (progress === 100) {
+          console.log(
+            `🔥 [Today] Calling reportTodayComplete for streak update...`,
+          );
+          try {
+            await reportTodayComplete();
+            console.log(`✅ [Today] Streak update triggered successfully`);
+          } catch (error) {
+            console.error(`❌ [Today] Error triggering streak update:`, error);
+          }
+        }
+      }
+    };
+
+    checkCompletion();
+  }, [watchCompleted, exploreCompleted, questCompleted]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Note: reportTodayComplete intentionally excluded to prevent double triggers when function reference changes
+  // ========== END STREAK TRIGGER ==========
+
   // Calculate progress percentage based on actual completion
   const calculateProgress = () => {
     let completed = 0;
-    if (watchCompleted) completed += 33;
-    if (exploreCompleted) completed += 33;
-    if (isCompleted || questCompleted) completed += 34;
-    return completed;
+    if (watchCompleted) completed++;
+    if (exploreCompleted) completed++;
+    if (isCompleted || questCompleted) completed++;
+    return Math.round((completed / 3) * 100);
   };
 
   // SEQUENTIAL UNLOCK LOGIC:
@@ -816,7 +690,7 @@ export default function TodayScreen() {
     const useHistoricalStreak = longestStreak > streak;
 
     if (useHistoricalStreak && longestStreakDate) {
-      console.log('📅 [Calendar Modal] Using historical streak mode');
+      console.log("📅 [Calendar Modal] Using historical streak mode");
 
       // Add historical longest streak dates (e.g., 47 days ending Jan 24)
       const historicalEnd = new Date(longestStreakDate);
@@ -838,16 +712,25 @@ export default function TodayScreen() {
       currentStart.setDate(currentStart.getDate() - (streak - 1));
 
       // Calculate gap between historical end and current start
-      const gapDays = Math.floor((currentStart.getTime() - historicalEnd.getTime()) / (1000 * 60 * 60 * 24)) - 1;
+      const gapDays =
+        Math.floor(
+          (currentStart.getTime() - historicalEnd.getTime()) /
+            (1000 * 60 * 60 * 24),
+        ) - 1;
 
       if (gapDays > 0) {
-        console.log(`📅 [Calendar Modal] Found ${gapDays} missed days between streaks`);
+        console.log(
+          `📅 [Calendar Modal] Found ${gapDays} missed days between streaks`,
+        );
         for (let i = 1; i <= gapDays; i++) {
           const missedDate = new Date(historicalEnd);
           missedDate.setDate(historicalEnd.getDate() + i);
 
           // Only add to set if this day is in the current viewing month
-          if (missedDate.getMonth() === month && missedDate.getFullYear() === year) {
+          if (
+            missedDate.getMonth() === month &&
+            missedDate.getFullYear() === year
+          ) {
             missedDays.add(missedDate.getDate());
           }
         }
@@ -866,7 +749,7 @@ export default function TodayScreen() {
         }
       }
     } else {
-      console.log('📅 [Calendar Modal] Using normal streak mode');
+      console.log("📅 [Calendar Modal] Using normal streak mode");
 
       // Normal mode: show current streak only
       const lastActive = new Date(lastActiveDate);
@@ -878,34 +761,42 @@ export default function TodayScreen() {
           streakDate.setDate(lastActive.getDate() - i);
 
           // Only add to set if this day is in the current viewing month
-          if (streakDate.getMonth() === month && streakDate.getFullYear() === year) {
+          if (
+            streakDate.getMonth() === month &&
+            streakDate.getFullYear() === year
+          ) {
             streakDays.add(streakDate.getDate());
           }
         }
       }
 
       // Missed days: gap between lastActive and today (if gap > 1)
-      const daysDiff = Math.floor((todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+      const daysDiff = Math.floor(
+        (todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24),
+      );
       if (daysDiff > 1) {
         for (let i = 1; i < daysDiff; i++) {
           const missedDate = new Date(lastActive);
           missedDate.setDate(lastActive.getDate() + i);
 
           // Only add to set if this day is in the current viewing month
-          if (missedDate.getMonth() === month && missedDate.getFullYear() === year) {
+          if (
+            missedDate.getMonth() === month &&
+            missedDate.getFullYear() === year
+          ) {
             missedDays.add(missedDate.getDate());
           }
         }
       }
     }
 
-    console.log('📅 [Calendar Modal] Month view:', {
+    console.log("📅 [Calendar Modal] Month view:", {
       streak,
       longestStreak,
       longestStreakDate,
       streakDays: Array.from(streakDays),
       missedDays: Array.from(missedDays),
-      today: today.toISOString().split('T')[0]
+      today: today.toISOString().split("T")[0],
     });
 
     const calendar: Array<{
@@ -965,31 +856,53 @@ export default function TodayScreen() {
         contentContainerStyle={themeStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Title, Streak, Calendar */}
+        {/* Header with Title and Streak */}
         <View style={themeStyles.headerTop}>
           <View style={themeStyles.headerLeft}>
             <Text style={themeStyles.headerTitle}>Today's Story</Text>
-            <View style={themeStyles.divider} />
-            <View style={themeStyles.streakInline}>
-              <StreakIcon size={16} />
-              <Text style={themeStyles.streakText}>{streak} </Text>
-              <Text style={themeStyles.streakText}>days</Text>
-            </View>
           </View>
-          <TouchableOpacity
-            onPress={() => setShowCalendarModal(true)}
-            activeOpacity={0.7}
-          >
-            <Image
-              source={require("@/assets/images/calander.png")}
-              style={{ width: 24, height: 24 }}
-              contentFit="contain"
-            />
-          </TouchableOpacity>
+          <View style={themeStyles.streakInline}>
+            <StreakIcon size={24} />
+            <Text style={themeStyles.streakText}>{streak} </Text>
+            <Text style={themeStyles.streakText}>days</Text>
+          </View>
         </View>
 
+        {/* Subtitle: Day X of 7 - Story Title */}
+        {todayQuest && (
+          <View style={{ marginTop: 8, marginBottom: 8 }}>
+            <Text
+              style={{
+                fontFamily: "DM Sans",
+                fontSize: 18,
+                color: ArchivesTheme.colors.shoeBrown,
+              }}
+            >
+              <Text style={{ fontWeight: "700" }}>
+                Day {todayQuest.content.day_number}
+              </Text>
+              <Text
+                style={{
+                  fontWeight: "600",
+                  color: ArchivesTheme.colors.tweedBeige,
+                }}
+              >
+                {" "}
+                of {todayQuest.content.total_days} -{" "}
+              </Text>
+              <Text style={{ fontWeight: "700" }}>
+                {todayQuest?.content?.today_title}
+              </Text>
+            </Text>
+          </View>
+        )}
+
         {/* Calendar Week View */}
-        <View style={themeStyles.calendarContainer}>
+        <TouchableOpacity
+          style={themeStyles.calendarContainer}
+          onPress={() => setActiveModal("calendar")}
+          activeOpacity={0.7}
+        >
           {weekDates.map((item, index) => {
             return (
               <View key={index} style={themeStyles.calendarDay}>
@@ -997,9 +910,20 @@ export default function TodayScreen() {
                 <View
                   style={[
                     themeStyles.calendarDateCircle,
-                    item.isCompleted && { backgroundColor: ArchivesTheme.colors.persianOrange },
-                    item.isMissed && { backgroundColor: '#999999' },
-                    item.isFuture && { backgroundColor: 'transparent' },
+                    item.isCompleted && {
+                      backgroundColor: ArchivesTheme.colors.persianOrange,
+                    },
+                    item.isMissed && { backgroundColor: "#999999" },
+                    item.isFuture && { backgroundColor: "#222446" },
+                    // item.isToday &&
+                    //   item.isCompleted && {
+                    //     transform: [{ scale: 1.1 }],
+                    //     shadowColor: ArchivesTheme.colors.persianOrange,
+                    //     shadowOpacity: 0.5,
+                    //     shadowRadius: 8,
+                    //     shadowOffset: { width: 0, height: 2 },
+                    //     elevation: 4,
+                    //   },
                   ]}
                 >
                   {item.isCompleted ? (
@@ -1016,21 +940,12 @@ export default function TodayScreen() {
                     >
                       -
                     </Text>
-                  ) : (
-                    <Text
-                      style={[
-                        themeStyles.calendarDateText,
-                        { color: '#999999' },
-                      ]}
-                    >
-                      {item.date}
-                    </Text>
-                  )}
+                  ) : null}
                 </View>
               </View>
             );
           })}
-        </View>
+        </TouchableOpacity>
 
         {/* Progress Tracker */}
         <View style={themeStyles.progressContainer}>
@@ -1045,6 +960,89 @@ export default function TodayScreen() {
           </View>
         </View>
 
+        {/* Completion Banner - Shows when quest is completed, allows replay */}
+        {/* {isCompleted && (
+          <View
+            style={{
+              backgroundColor: ArchivesTheme.colors.persianOrange,
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 16,
+                }}
+              >
+                <Ionicons name="checkmark-circle" size={32} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: "DM Sans",
+                    fontSize: 18,
+                    fontWeight: "700",
+                    color: "#FFFFFF",
+                    marginBottom: 4,
+                  }}
+                >
+                  Quest Complete! 🎉
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: "DM Sans",
+                    fontSize: 14,
+                    fontWeight: "400",
+                    color: "rgba(255,255,255,0.9)",
+                  }}
+                >
+                  {questProgress?.score !== undefined
+                    ? `Best score: ${questProgress.score}%`
+                    : "Great job today!"}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setWatchCompleted(false);
+                setExploreCompleted(false);
+                setQuestCompleted(false);
+                setActiveModal('video');
+              }}
+              style={{
+                backgroundColor: "rgba(255,255,255,0.2)",
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 12,
+                borderWidth: 1.5,
+                borderColor: "rgba(255,255,255,0.4)",
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: "DM Sans",
+                  fontSize: 14,
+                  fontWeight: "700",
+                  color: "#FFFFFF",
+                }}
+              >
+                Replay
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )} */}
+
         {/* WATCH Card */}
         <TouchableOpacity
           style={[
@@ -1056,15 +1054,22 @@ export default function TodayScreen() {
           }
           activeOpacity={0.9}
         >
-          {/* Background Image - TODO: Replace with random image from 3 hardcoded options */}
-          {/* <Image
-            source={{ uri: '' }}
-            style={themeStyles.cardWatchBackground}
-            contentFit="cover"
-          /> */}
+          {/* Background Image */}
+          {(todayQuest?.content?.card1?.thumbnail_url ||
+            todayQuest?.content?.card1?.media_url) && (
+            <Image
+              source={{
+                uri:
+                  todayQuest?.content?.card1?.thumbnail_url ||
+                  todayQuest?.content?.card1?.media_url,
+              }}
+              style={themeStyles.cardWatchBackground}
+              contentFit="cover"
+            />
+          )}
           {/* Dark Overlay */}
           <LinearGradient
-            colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0.6)"]}
+            colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.8)"]}
             style={themeStyles.cardWatchOverlay}
           />
           {/* Content */}
@@ -1077,7 +1082,7 @@ export default function TodayScreen() {
                   onPress={(e) => {
                     e.stopPropagation();
                     if (todayQuest.content.card1.media_url) {
-                      setShowVideoLesson(true);
+                      setActiveModal("video");
                     }
                   }}
                   activeOpacity={0.8}
@@ -1106,7 +1111,7 @@ export default function TodayScreen() {
               >
                 {/* Show duration when collapsed */}
                 {expandedCard !== "watch" && (
-                  <Text style={themeStyles.cardDuration}>1 MIN</Text>
+                  <Text style={themeStyles.cardDuration}>3 MIN</Text>
                 )}
                 <Ionicons
                   name={
@@ -1124,17 +1129,17 @@ export default function TodayScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "flex-end",
-                  marginTop: 12,
-                  gap: 12,
+                  marginTop: 8,
+                  gap: 8,
                 }}
               >
-                <Text style={themeStyles.cardDuration}>1 MIN</Text>
+                <Text style={themeStyles.cardDuration}>3 MIN</Text>
                 <TouchableOpacity
                   style={themeStyles.cardWatchButton}
                   onPress={(e) => {
                     e.stopPropagation();
                     if (todayQuest.content.card1.media_url) {
-                      setShowVideoLesson(true);
+                      setActiveModal("video");
                     }
                   }}
                   activeOpacity={0.8}
@@ -1163,7 +1168,7 @@ export default function TodayScreen() {
           <View style={themeStyles.cardHeader}>
             <View style={themeStyles.cardHeaderLeft}>
               <Ionicons name="book-outline" size={20} color="#FFFFFF" />
-              <Text style={themeStyles.cardTitle}>EXPLORE</Text>
+              <Text style={themeStyles.cardTitle}>Explore</Text>
             </View>
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
@@ -1189,7 +1194,7 @@ export default function TodayScreen() {
                 onPress={(e) => {
                   e.stopPropagation();
                   if (isExploreUnlocked) {
-                    setShowReadingView(true);
+                    setActiveModal("reading");
                   }
                 }}
                 activeOpacity={0.7}
@@ -1208,7 +1213,7 @@ export default function TodayScreen() {
                     name="arrow-forward"
                     size={18}
                     color={ArchivesTheme.colors.mutedNavy}
-                    style={{ transform: [{ rotate: '-45deg' }] }}
+                    style={{ transform: [{ rotate: "-45deg" }] }}
                   />
                 </View>
               </TouchableOpacity>
@@ -1237,7 +1242,7 @@ export default function TodayScreen() {
                   { color: ArchivesTheme.colors.shoeBrown },
                 ]}
               >
-                QUESTIONS
+                Questions
               </Text>
             </View>
             <View
@@ -1276,7 +1281,7 @@ export default function TodayScreen() {
                 onPress={(e) => {
                   e.stopPropagation();
                   if (isQuizUnlocked) {
-                    setShowQuiz(true);
+                    setActiveModal("quiz");
                   }
                 }}
                 activeOpacity={0.7}
@@ -1295,7 +1300,7 @@ export default function TodayScreen() {
                     name="arrow-forward"
                     size={18}
                     color={ArchivesTheme.colors.shoeBrown}
-                    style={{ transform: [{ rotate: '-45deg' }] }}
+                    style={{ transform: [{ rotate: "-45deg" }] }}
                   />
                 </View>
               </TouchableOpacity>
@@ -1308,486 +1313,150 @@ export default function TodayScreen() {
       </ScrollView>
 
       {/* Start My Day Button - Fixed at Bottom with 3D depth effect */}
-      {!isCompleted && (
-        <View style={themeStyles.bottomButtonContainer}>
-          {/* Shadow layer for 3D effect */}
-          <View style={themeStyles.startButtonShadow} />
-          {/* Main button */}
-          <TouchableOpacity
-            style={themeStyles.startButton}
-            onPress={() => {
-              if (!watchCompleted) {
-                // Step 1: Open WATCH if not completed
-                setShowVideoLesson(true);
-              } else if (!exploreCompleted) {
-                // Step 2: Open EXPLORE if WATCH done but EXPLORE not done
-                setShowReadingView(true);
-              } else if (isQuizUnlocked) {
-                // Step 3: Open QUIZ if both WATCH and EXPLORE done
-                setShowQuiz(true);
-              }
-            }}
-            activeOpacity={0.8}
+      <View style={themeStyles.bottomButtonContainer}>
+        {/* Shadow layer for 3D effect */}
+        <View style={themeStyles.startButtonShadow} />
+        {/* Main button */}
+        <TouchableOpacity
+          style={themeStyles.startButton}
+          onPress={() => {
+            if (!watchCompleted) {
+              // Step 1: Open WATCH if not completed
+              setActiveModal("video");
+            } else if (!exploreCompleted) {
+              // Step 2: Open EXPLORE if WATCH done but EXPLORE not done
+              setActiveModal("reading");
+            } else if (isQuizUnlocked) {
+              // Step 3: Open QUIZ if both WATCH and EXPLORE done
+              setActiveModal("quiz");
+            }
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={themeStyles.startButtonText}>Start My Day</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Single Modal for all lesson types - prevents flash on transitions */}
+      {(activeModal === "video" ||
+        activeModal === "reading" ||
+        activeModal === "quiz") &&
+        todayQuest && (
+          <Modal
+            visible={true}
+            animationType="slide"
+            presentationStyle="fullScreen"
+            statusBarTranslucent={true}
           >
-            <Text style={themeStyles.startButtonText}>Start My Day</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Video Lesson Modal (WATCH) */}
-      {showVideoLesson && todayQuest && (
-        <Modal
-          visible={true}
-          animationType="slide"
-          presentationStyle="fullScreen"
-        >
-          <TodayVideoLesson
-            contentItem={
-              {
-                id: todayQuest.id,
-                thumbnail_title: todayQuest.content.card1.title,
-                thumbnail_url: '', // TODO: Replace with random image from 3 hardcoded options
-                media_url: [todayQuest.content.card1.media_url],
-                content_type: "reel",
-                bottom_content: {
-                  title: todayQuest.content.card1.title,
-                  description: todayQuest.content.card1.content.reading_text,
-                  reading_text: todayQuest.content.card1.content.reading_text,
-                },
-                order_by: 0,
-              } as ContentItem
-            }
-            progress={progress}
-            onNext={() => {
-              setShowVideoLesson(false);
-              setWatchCompleted(true);
-              setShowReadingView(true);
-            }}
-            onDismiss={() => setShowVideoLesson(false)}
-          />
-        </Modal>
-      )}
-
-      {/* Reading View Modal (EXPLORE) */}
-      {showReadingView && todayQuest && (
-        <Modal
-          visible={true}
-          animationType="slide"
-          presentationStyle="fullScreen"
-        >
-          <SafeAreaView style={themeStyles.exploreModalContainer}>
-            {/* Header */}
-            <View style={themeStyles.exploreHeader}>
-              <TouchableOpacity
-                onPress={() => setShowReadingView(false)}
-                style={themeStyles.exploreBackButton}
-              >
-                <Ionicons
-                  name="arrow-back"
-                  size={24}
-                  color={ArchivesTheme.colors.shoeBrown}
-                />
-              </TouchableOpacity>
-              <Text style={themeStyles.exploreHeaderTitle}>Explore</Text>
-              <View style={{ width: 24 }} />
-            </View>
-
-            {/* Progress Bar */}
-            <View style={{ paddingHorizontal: 20, paddingVertical: 12, backgroundColor: ArchivesTheme.colors.creamWhite }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: '600', color: ArchivesTheme.colors.shoeBrown }}>
-                  Progress today
-                </Text>
-                <Text style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: '700', color: ArchivesTheme.colors.shoeBrown }}>
-                  {progress}%
-                </Text>
-              </View>
-              <View style={{ height: 4, backgroundColor: 'rgba(77, 57, 46, 0.2)', borderRadius: 2, overflow: 'hidden' }}>
-                <View style={{ height: '100%', width: `${progress}%`, backgroundColor: ArchivesTheme.colors.mutedNavy, borderRadius: 2 }} />
-              </View>
-            </View>
-
-            <ScrollView
-              style={themeStyles.exploreContent}
-              contentContainerStyle={themeStyles.exploreContentInner}
-            >
-              {/* Hero Image */}
-              <View style={themeStyles.exploreHeroContainer}>
-                <Image
-                  source={{ uri: todayQuest.content.card2.inner_image }}
-                  style={themeStyles.exploreHeroImage}
-                  contentFit="cover"
-                />
-                <View style={themeStyles.exploreHeroCaption}>
-                  <Text style={themeStyles.exploreHeroCaptionText}>
-                    {todayQuest.content.card2.title}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Play Voiceover Button - Enhanced UI with TTS */}
-              <View
-                style={{
-                  paddingHorizontal: 20,
-                  marginTop: 16,
-                  marginBottom: 8,
+            {/* Video Lesson (WATCH) */}
+            {activeModal === "video" && (
+              <TodayVideoLesson
+                contentItem={
+                  {
+                    id: todayQuest.id,
+                    thumbnail_title: todayQuest.content.card1.title,
+                    thumbnail_url: "", // TODO: Replace with random image from 3 hardcoded options
+                    media_url: [todayQuest.content.card1.media_url],
+                    content_type: "reel",
+                    bottom_content: {
+                      title: todayQuest.content.card1.title,
+                      description:
+                        todayQuest.content.card1.content.reading_text,
+                      reading_text:
+                        todayQuest.content.card1.content.reading_text,
+                    },
+                    order_by: 0,
+                  } as ContentItem
+                }
+                progress={progress}
+                onNext={() => {
+                  setWatchCompleted(true);
+                  setActiveModal("reading");
                 }}
-              >
-                <TouchableOpacity
-                  onPress={toggleAudio}
-                  activeOpacity={isGeneratingAudio ? 1 : 0.8}
-                  disabled={isGeneratingAudio}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    backgroundColor: isGeneratingAudio
-                      ? ArchivesTheme.colors.mutedNavy
-                      : ArchivesTheme.colors.persianOrange,
-                    paddingVertical: 14,
-                    paddingHorizontal: 20,
-                    borderRadius: 12,
-                    shadowColor: ArchivesTheme.colors.persianOrange,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 4,
-                    elevation: 4,
-                    opacity: isGeneratingAudio ? 0.7 : 1,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: "rgba(255,255,255,0.2)",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginRight: 12,
-                    }}
-                  >
-                    {isGeneratingAudio ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Ionicons
-                        name={player.playing ? "pause" : "play"}
-                        size={20}
-                        color="#FFFFFF"
-                      />
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        fontFamily: "DM Sans",
-                        fontSize: 16,
-                        fontWeight: "600",
-                        color: "#FFFFFF",
-                      }}
-                    >
-                      {isGeneratingAudio
-                        ? "Generating Voiceover..."
-                        : player.playing
-                        ? "Pause Voiceover"
-                        : "Play Voiceover"}
-                    </Text>
-                    <Text
-                      style={{
-                        fontFamily: "DM Sans",
-                        fontSize: 12,
-                        fontWeight: "400",
-                        color: "rgba(255,255,255,0.8)",
-                        marginTop: 2,
-                      }}
-                    >
-                      {isGeneratingAudio
-                        ? "Creating AI narration..."
-                        : "Listen to the story narrated"}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="volume-high-outline"
-                    size={24}
-                    color="rgba(255,255,255,0.8)"
-                  />
-                </TouchableOpacity>
+                onDismiss={() => setActiveModal("none")}
+              />
+            )}
 
-                {/* Voice Selector Button */}
-                <TouchableOpacity
-                  onPress={() => setShowVoicePicker(!showVoicePicker)}
-                  activeOpacity={0.8}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    backgroundColor: ArchivesTheme.colors.shoeBrown,
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    borderRadius: 10,
-                    marginTop: 8,
-                  }}
-                >
-                  <Ionicons
-                    name="mic-outline"
-                    size={20}
-                    color="#FFFFFF"
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text
-                    style={{
-                      fontFamily: "DM Sans",
-                      fontSize: 14,
-                      fontWeight: "600",
-                      color: "#FFFFFF",
-                      flex: 1,
-                    }}
-                  >
-                    Voice: {voices.find(v => v.id === selectedVoice)?.name}
-                  </Text>
-                  <Ionicons
-                    name={showVoicePicker ? "chevron-up" : "chevron-down"}
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                </TouchableOpacity>
-
-                {/* Voice Picker Dropdown */}
-                {showVoicePicker && (
-                  <View
-                    style={{
-                      backgroundColor: "#FFFFFF",
-                      borderRadius: 10,
-                      marginTop: 8,
-                      overflow: "hidden",
-                      borderWidth: 1,
-                      borderColor: ArchivesTheme.colors.shoeBrown,
-                    }}
-                  >
-                    {voices.map((voice, index) => (
-                      <TouchableOpacity
-                        key={voice.id}
-                        onPress={() => handleVoiceChange(voice.id)}
-                        activeOpacity={0.8}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          paddingVertical: 14,
-                          paddingHorizontal: 16,
-                          borderTopWidth: index > 0 ? 1 : 0,
-                          borderTopColor: "rgba(77, 57, 46, 0.1)",
-                          backgroundColor:
-                            selectedVoice === voice.id
-                              ? "rgba(201, 145, 81, 0.1)"
-                              : "#FFFFFF",
-                        }}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={{
-                              fontFamily: "DM Sans",
-                              fontSize: 15,
-                              fontWeight: "600",
-                              color: ArchivesTheme.colors.shoeBrown,
-                            }}
-                          >
-                            {voice.name} ({voice.gender})
-                          </Text>
-                          <Text
-                            style={{
-                              fontFamily: "DM Sans",
-                              fontSize: 12,
-                              fontWeight: "400",
-                              color: "rgba(77, 57, 46, 0.6)",
-                              marginTop: 2,
-                            }}
-                          >
-                            {voice.desc}
-                          </Text>
-                        </View>
-                        {selectedVoice === voice.id && (
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={20}
-                            color={ArchivesTheme.colors.persianOrange}
-                          />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-
-              {/* Main Title */}
-              <Text style={themeStyles.exploreMainTitle}>
-                {todayQuest.content.card2.title}
-              </Text>
-
-              {/* Article Content - Rendered HTML */}
-              <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
-                <RenderHtml
-                  contentWidth={contentWidth - 40}
-                  source={{ html: todayQuest.content.card2.content }}
-                  tagsStyles={{
-                    body: {
-                      color: ArchivesTheme.colors.shoeBrown,
-                      fontFamily: "DM Sans",
-                      fontSize: 16,
-                      lineHeight: 24,
-                      margin: 0,
-                      padding: 0,
-                    },
-                    h1: {
-                      color: ArchivesTheme.colors.shoeBrown,
-                      fontFamily: "DM Sans",
-                      fontSize: 24,
-                      fontWeight: "700",
-                      marginBottom: 12,
-                      marginTop: 0,
-                    },
-                    h2: {
-                      color: ArchivesTheme.colors.shoeBrown,
-                      fontFamily: "DM Sans",
-                      fontSize: 20,
-                      fontWeight: "700",
-                      marginBottom: 10,
-                      marginTop: 16,
-                    },
-                    h3: {
-                      color: ArchivesTheme.colors.shoeBrown,
-                      fontFamily: "DM Sans",
-                      fontSize: 18,
-                      fontWeight: "600",
-                      marginBottom: 8,
-                      marginTop: 12,
-                    },
-                    p: {
-                      color: ArchivesTheme.colors.shoeBrown,
-                      fontFamily: "DM Sans",
-                      fontSize: 16,
-                      lineHeight: 24,
-                      marginBottom: 12,
-                      marginTop: 0,
-                    },
-                    strong: {
-                      fontWeight: "700",
-                      color: ArchivesTheme.colors.shoeBrown,
-                    },
-                    em: {
-                      fontStyle: "italic",
-                      color: ArchivesTheme.colors.shoeBrown,
-                    },
-                    ul: {
-                      marginBottom: 12,
-                      paddingLeft: 20,
-                    },
-                    ol: {
-                      marginBottom: 12,
-                      paddingLeft: 20,
-                    },
-                    li: {
-                      color: ArchivesTheme.colors.shoeBrown,
-                      fontFamily: "DM Sans",
-                      fontSize: 16,
-                      lineHeight: 24,
-                      marginBottom: 6,
-                    },
-                  }}
-                />
-              </View>
-
-              {/* Completion Indicator */}
-              <View style={themeStyles.exploreCompletionBadge}>
-                <Ionicons name="checkmark-circle" size={20} color="#6B7F3D" />
-                <Text style={themeStyles.exploreCompletionText}>
-                  You’ve read the full article
-                </Text>
-              </View>
-            </ScrollView>
-
-            {/* Next Button */}
-            <View style={themeStyles.exploreFooter}>
-              <TouchableOpacity
-                style={themeStyles.exploreNextButton}
-                onPress={() => {
-                  setShowReadingView(false);
+            {/* Reading View (EXPLORE) */}
+            {activeModal === "reading" && (
+              <TodayScrollableLesson
+                contentBlocks={todayQuest.content.card2.content_blocks || []}
+                progress={progress}
+                innerVoiceUrl={todayQuest.content.card2.inner_voice}
+                onContinue={() => {
                   setExploreCompleted(true);
-                  setShowQuiz(true);
+                  setActiveModal("quiz");
                 }}
-              >
-                <Text style={themeStyles.exploreNextText}>Next</Text>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </Modal>
-      )}
+                onBack={() => setActiveModal("none")}
+              />
+            )}
 
-      {/* Quiz Modal */}
-      {showQuiz && todayQuest && user && (
-        <Modal
-          visible={true}
-          animationType="slide"
-          presentationStyle="fullScreen"
-        >
-          <SafeAreaView style={{ flex: 1, backgroundColor: ArchivesTheme.colors.creamWhite }}>
-            {/* Progress Bar */}
-            <View style={{ paddingHorizontal: 20, paddingVertical: 12, backgroundColor: ArchivesTheme.colors.creamWhite }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: '600', color: ArchivesTheme.colors.shoeBrown }}>
-                  Progress today
-                </Text>
-                <Text style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: '700', color: ArchivesTheme.colors.shoeBrown }}>
-                  {progress}%
-                </Text>
-              </View>
-              <View style={{ height: 4, backgroundColor: 'rgba(77, 57, 46, 0.2)', borderRadius: 2, overflow: 'hidden' }}>
-                <View style={{ height: '100%', width: `${progress}%`, backgroundColor: ArchivesTheme.colors.mutedNavy, borderRadius: 2 }} />
-              </View>
-            </View>
-            <Quiz
-            contentItem={
-              {
-                id: todayQuest.id,
-                questions: todayQuest.content.card3.questions,
-                thumbnail_title: todayQuest.content.card3.title,
-                thumbnail_url: '', // TODO: Replace with random image from 3 hardcoded options
-                media_url: [],
-                content_type: "reel",
-                bottom_content: null,
-                order_by: 0,
-              } as ContentItem
-            }
-            adventureId="daily_quest"
-            moduleId={todayQuest.id}
-            eraId="daily_quest"
-            eraName="Daily Quest"
-            isToday={true}
-            onQuizResults={async (score, correctAnswers, totalQuestions) => {
-              try {
-                await saveQuestCompletion(
-                  user.id,
-                  todayQuest.id,
-                  score,
-                  correctAnswers,
-                  totalQuestions,
-                );
-                console.log(
-                  "✅ [Today] Quest completion saved to Supabase",
-                );
-              } catch (error) {
-                console.error(
-                  "❌ [Today] Failed to save completion:",
-                  error,
-                );
-              }
-            }}
-            onContinue={handleQuizComplete}
-            onDismiss={() => setShowQuiz(false)}
-            onBack={() => setShowQuiz(false)}
-          />
-          </SafeAreaView>
-        </Modal>
-      )}
+            {/* Quiz */}
+            {activeModal === "quiz" && user && (
+              <SafeAreaView
+                style={{
+                  flex: 1,
+                  backgroundColor: ArchivesTheme.colors.creamWhite,
+                }}
+                edges={[]}
+              >
+                <Quiz
+                  contentItem={
+                    {
+                      id: todayQuest.id,
+                      questions: todayQuest.content.card3.questions,
+                      thumbnail_title: todayQuest.content.card3.title,
+                      thumbnail_url: "", // TODO: Replace with random image from 3 hardcoded options
+                      media_url: [],
+                      content_type: "reel",
+                      bottom_content: null,
+                      order_by: 0,
+                    } as ContentItem
+                  }
+                  adventureId="daily_quest"
+                  moduleId={todayQuest.id}
+                  eraId="daily_quest"
+                  eraName="Daily Quest"
+                  isToday={true}
+                  progress={progress}
+                  showTodayHeader={true}
+                  onQuizResults={async (
+                    score,
+                    correctAnswers,
+                    totalQuestions,
+                  ) => {
+                    try {
+                      await saveQuestCompletion(
+                        user.id,
+                        todayQuest.id,
+                        score,
+                        correctAnswers,
+                        totalQuestions,
+                      );
+                      console.log(
+                        "✅ [Today] Quest completion saved to Supabase",
+                      );
+                    } catch (error) {
+                      console.error(
+                        "❌ [Today] Failed to save completion:",
+                        error,
+                      );
+                    }
+                  }}
+                  onContinue={async () => {
+                    await handleQuizComplete();
+                    setActiveModal("none");
+                  }}
+                  onDismiss={() => setActiveModal("none")}
+                  onBack={() => setActiveModal("none")}
+                />
+              </SafeAreaView>
+            )}
+          </Modal>
+        )}
 
       {/* Calendar Modal - Full month view with streak stats */}
-      {showCalendarModal && (
+      {activeModal === "calendar" && (
         <Modal
           visible={true}
           animationType="slide"
@@ -1822,7 +1491,7 @@ export default function TodayScreen() {
                 Calendar
               </Text>
               <TouchableOpacity
-                onPress={() => setShowCalendarModal(false)}
+                onPress={() => setActiveModal("none")}
                 activeOpacity={0.7}
               >
                 <Ionicons
@@ -1834,7 +1503,9 @@ export default function TodayScreen() {
             </View>
 
             {/* Calendar Content */}
-            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 140 }}>
+            <ScrollView
+              contentContainerStyle={{ padding: 20, paddingBottom: 140 }}
+            >
               {/* Current Month Calendar - full month grid */}
               <View
                 style={{
@@ -1915,12 +1586,18 @@ export default function TodayScreen() {
                                 borderRadius: 18,
                                 alignItems: "center",
                                 justifyContent: "center",
-                                backgroundColor: item.hasStreak || item.isToday
-                                  ? ArchivesTheme.colors.persianOrange
-                                  : item.isMissed
-                                    ? "#999999"
-                                    : "#FFFFFF", // White background for empty days
-                                borderWidth: item.hasStreak || item.isToday || item.isMissed ? 0 : 2,
+                                backgroundColor:
+                                  item.hasStreak || item.isToday
+                                    ? ArchivesTheme.colors.persianOrange
+                                    : item.isMissed
+                                      ? "#999999"
+                                      : "#FFFFFF", // White background for empty days
+                                borderWidth:
+                                  item.hasStreak ||
+                                  item.isToday ||
+                                  item.isMissed
+                                    ? 0
+                                    : 2,
                                 borderColor: "#E5E5E5", // Light gray border for empty days
                               },
                             ]}
