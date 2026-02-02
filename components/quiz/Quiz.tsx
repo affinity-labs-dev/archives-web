@@ -51,6 +51,9 @@ interface QuizProps {
   // Today mode - skips gamification saving, calls onQuizResults with score
   isToday?: boolean;
   onQuizResults?: (score: number, correctAnswers: number, totalQuestions: number) => Promise<void>;
+  // Today mode UI - floating header with back button and progress
+  progress?: number;           // Today progress percentage (0-100)
+  showTodayHeader?: boolean;   // Show floating back button and progress bar
 }
 
 // MCQ Option Button Design
@@ -292,6 +295,8 @@ export default function Quiz({
   adventureData,
   isToday = false,
   onQuizResults,
+  progress,
+  showTodayHeader = false,
 }: QuizProps) {
   const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
   const { reportQuizComplete } = useGamificationOrchestrator();
@@ -608,9 +613,58 @@ export default function Quiz({
   }
 
   return (
-    <SafeAreaView style={styles.roiContainer} edges={['top']}>
-      {Platform.OS === 'android' && (
-        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+    <SafeAreaView style={styles.roiContainer} edges={showTodayHeader ? [] : ['top']}>
+      {showTodayHeader ? (
+        // Today mode - transparent status bar for fullscreen
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} />
+      ) : (
+        // Adventure mode - normal status bar
+        Platform.OS === 'android' && (
+          <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+        )
+      )}
+
+      {/* Today mode - Fixed Header with Progress Bar */}
+      {showTodayHeader && progress !== undefined && (
+        <View
+          style={{
+            backgroundColor: ArchivesTheme.colors.creamWhite,
+            paddingTop: insets.top + 8,
+            paddingBottom: 12,
+            paddingHorizontal: 16,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          {/* Back Button */}
+          <TouchableOpacity
+            style={ArchivesTheme.common.today.watchBackButton}
+            onPress={onBack || onDismiss}
+          >
+            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
+          </TouchableOpacity>
+
+          {/* Progress Bar */}
+          <View style={{ flex: 1 }}>
+            <View style={ArchivesTheme.common.today.watchProgressContainer}>
+              <Text style={[ArchivesTheme.common.today.watchProgressLabel, { color: ArchivesTheme.colors.shoeBrown }]}>
+                Progress today
+              </Text>
+              <Text style={[ArchivesTheme.common.today.watchProgressPercentage, { color: ArchivesTheme.colors.shoeBrown }]}>
+                {progress}%
+              </Text>
+            </View>
+            <View style={[ArchivesTheme.common.today.watchProgressBar, { backgroundColor: ArchivesTheme.colors.shoeBrown + "30" }]}>
+              <View
+                style={[
+                  ArchivesTheme.common.today.watchProgressFill,
+                  { width: `${progress}%`, backgroundColor: ArchivesTheme.colors.persianOrange },
+                ]}
+              />
+            </View>
+          </View>
+        </View>
       )}
 
       <ScrollView
@@ -620,13 +674,14 @@ export default function Quiz({
         <View style={styles.questionContent}>
           {/* Header */}
           <View style={styles.roiHeader}>
-          {onBack && (
+          {!showTodayHeader && onBack && (
             <TouchableOpacity style={styles.roiBackButton} onPress={onBack}>
               <Ionicons name="chevron-back" size={24} color="#4D392E" />
             </TouchableOpacity>
           )}
           <View style={styles.roiTitleContainer}>
-            <Text style={styles.roiQuizTitle}>{quizTitle}</Text>
+            {/* Hide quiz title for Today screen, show for regular modules */}
+            {!isToday && <Text style={styles.roiQuizTitle}>{quizTitle}</Text>}
             <Text style={styles.roiQuestionCounter}>
               Question {questionNumber} of {totalQuestions}
             </Text>
@@ -882,7 +937,7 @@ const styles = StyleSheet.create({
   },
   mcqOptionLetter: {
     fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
-    fontSize: 16,
+    fontSize: 18,
     color: 'white',
   },
   mcqOptionTextContainer: {
@@ -894,7 +949,7 @@ const styles = StyleSheet.create({
   },
   mcqOptionText: {
     fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
-    fontSize: 16,
+    fontSize: 18,
     color: ArchivesTheme.colors.shoeBrown,
     lineHeight: 22,
     flexWrap: 'wrap',
@@ -944,7 +999,7 @@ const styles = StyleSheet.create({
   },
   trueFalseText: {
     fontFamily: 'DM Sans',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '500',
     color: ArchivesTheme.colors.shoeBrown,
   },

@@ -424,9 +424,9 @@ export const ArchivesTheme = {
         gap: 6,
       },
       headerTitle: {
-        fontFamily: "Cormorant-Bold",
-        fontSize: 30,
-        fontWeight: "700" as const,
+        fontFamily: "DM Sans",
+        fontSize: 24,
+        fontWeight: "600" as const,
         color: "#41425E", // mutedNavy
         lineHeight: 33, // 110% of 30px
         letterSpacing: 0,
@@ -446,10 +446,10 @@ export const ArchivesTheme = {
       },
       streakText: {
         fontFamily: "DM Sans",
-        fontSize: 14,
+        fontSize: 18,
         fontWeight: "700" as const,
         color: "#C99151", // persianOrange - same as flame icon
-        lineHeight: 14, // 100% of 14px
+        // lineHeight: 14, // 100% of 14px
         letterSpacing: 0.14, // 1% of 14px
         textAlignVertical: "center" as const,
       },
@@ -515,14 +515,18 @@ export const ArchivesTheme = {
       progressLabel: {
         fontFamily: "DM Sans",
         fontSize: 14,
-        fontWeight: "600" as const,
-        color: "#4D392E", // shoeBrown
+        fontWeight: "700" as const,
+        color: "#C99151", // shoeBrown
+        // lineHeight: 18, // 100% of 18px
+        letterSpacing: 0.18, // 1% of 18px
       },
       progressPercentage: {
         fontFamily: "DM Sans",
-        fontSize: 14,
-        fontWeight: "600" as const,
-        color: "#C99151", // persianOrange
+        fontSize: 18,
+        fontWeight: "700" as const,
+        color: "#41425E",
+        lineHeight: 18, // 100% of 18px
+        letterSpacing: 0.18, // 1% of 18px
       },
       progressBarBackground: {
         height: 5,
@@ -576,12 +580,12 @@ export const ArchivesTheme = {
       },
       cardWatchSubtitle: {
         fontFamily: "DM Sans",
-        fontSize: 14,
+        fontSize: 18,
         fontWeight: "700" as const,
         color: "#FFFFFF",
-        marginTop: 8,
+        // marginTop: -2,
         marginBottom: 12,
-        lineHeight: 22.26, // 159% of 14px
+        lineHeight: 28, // 159% of 14px
         letterSpacing: 0,
       },
       cardWatchButton: {
@@ -595,8 +599,8 @@ export const ArchivesTheme = {
       },
       cardWatchButtonText: {
         fontFamily: "DM Sans",
-        fontSize: 14,
-        fontWeight: "600" as const,
+        fontSize: 16,
+        fontWeight: "700" as const,
         color: "#FFFFFF",
         letterSpacing: 0,
         lineHeight: 20,
@@ -681,14 +685,14 @@ export const ArchivesTheme = {
       },
       startButtonShadow: {
         position: "absolute" as const,
-        width: 320,
+        width: 340,
         height: 50,
         borderRadius: 16,
         top: 23, // 16px (container padding) + 7px offset = 23px
         backgroundColor: "#6E7300", // mossGreenShadow for 3D depth
       },
       startButton: {
-        width: 320,
+        width: 340,
         height: 50,
         borderRadius: 16,
         backgroundColor: "#959C00", // mossGreen
@@ -702,55 +706,191 @@ export const ArchivesTheme = {
         color: "#FFFFFF",
       },
 
-      // WATCH Modal
+      // WATCH Modal (TodayVideoLesson component)
       watchModalContainer: {
         flex: 1,
         backgroundColor: "#000000", // Black for video player
       },
-      watchProgressBarContainer: {
+      watchVideoContainer: {
         position: "absolute" as const,
         top: 0,
         left: 0,
         right: 0,
-        height: 4,
-        backgroundColor: "rgba(255, 255, 255, 0.3)",
-        zIndex: 10,
+        bottom: 0,
+        zIndex: 1,
       },
-      watchProgressBarFill: {
+      watchTopHeader: {
+        position: "absolute" as const,
+        right: 16,
+        zIndex: 40,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+      },
+      watchProgressContainer: {
+        flexDirection: "row" as const,
+        justifyContent: "space-between" as const,
+        alignItems: "center" as const,
+        marginBottom: 8,
+      },
+      watchProgressLabel: {
+        fontFamily: "DM Sans",
+        fontSize: 14,
+        fontWeight: "600" as const,
+        color: "#C99151", // persianOrange
+      },
+      watchProgressPercentage: {
+        fontFamily: "DM Sans",
+        fontSize: 14,
+        fontWeight: "700" as const,
+        color: "#C99151", // persianOrange
+      },
+      watchProgressBar: {
+        height: 4,
+        backgroundColor: "rgba(255,255,255,0.3)",
+        borderRadius: 2,
+        overflow: "hidden" as const,
+      },
+      watchProgressFill: {
         height: "100%" as const,
         backgroundColor: "#C99151", // persianOrange
+        borderRadius: 2,
       },
-      watchVideoContainer: {
-        flex: 1,
+      watchBackButtonContainer: {
+        position: "absolute" as const,
+        left: 16,
+        zIndex: 50,
+      },
+      watchBackButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "rgba(139, 96, 64, 0.1)",
+        flexDirection: "row" as const,
         justifyContent: "center" as const,
         alignItems: "center" as const,
       },
-      watchNextButtonContainer: {
+      watchCardContainer: {
         position: "absolute" as const,
         bottom: 0,
         left: 0,
         right: 0,
+        zIndex: 30,
+      },
+      watchReadingCard: {
+        flex: 1,
+        backgroundColor: "rgba(77, 57, 46, 0.95)", // shoeBrown with 95% opacity
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingTop: 12,
+      },
+      watchCardHandle: {
+        width: 70,
+        height: 5,
+        backgroundColor: "rgba(255, 255, 255, 0.3)",
+        borderRadius: 3,
+        alignSelf: "center" as const,
+        marginBottom: 16,
+      },
+      watchExpandedContent: {
+        flex: 1,
+      },
+      watchExpandedScroll: {
+        flex: 1,
+      },
+      watchExpandedContentInner: {
         paddingHorizontal: 20,
-        paddingVertical: 20,
-        backgroundColor: "transparent",
+        paddingBottom: 16,
       },
-      watchNextButton: {
-        backgroundColor: "#6B5B95", // Purple
-        paddingVertical: 16,
-        borderRadius: 26,
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
+      watchTitleSection: {
+        marginBottom: 16,
       },
-      watchNextButtonText: {
+      watchSheetTitle: {
         fontFamily: "DM Sans",
-        fontSize: 18,
+        fontSize: 24,
         fontWeight: "700" as const,
         color: "#FFFFFF",
+        marginBottom: 4,
+      },
+      watchHistoricalSection: {
+        marginBottom: 16,
+      },
+      watchFloatingButtonContainer: {
+        position: "absolute" as const,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 20,
+        paddingBottom: 30,
+        zIndex: 40,
+      },
+      watchButtonRow: {
+        flexDirection: "row" as const,
+        justifyContent: "space-between" as const,
+        alignItems: "center" as const,
+        gap: 12,
+      },
+      watchReadButton: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        justifyContent: "center" as const,
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 26,
+        gap: 8,
+      },
+      watchReadButtonText: {
+        fontFamily: "DM Sans",
+        fontSize: 16,
+        fontWeight: "700" as const,
+        color: "#FFFFFF",
+      },
+      watchContinueButton: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        justifyContent: "center" as const,
+        backgroundColor: "#959C00", // mossGreen
+        height: 50,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 26,
+        gap: 8,
+      },
+      watchContinueButtonText: {
+        fontFamily: "DM Sans",
+        fontSize: 16,
+        fontWeight: "700" as const,
+        color: "#FFFFFF",
+      },
+
+      // Scrollable Lesson (Explore)
+      scrollableContainer: {
+        flex: 1,
+        backgroundColor: "#F4EBDB", // creamWhite
+      },
+      scrollableScrollView: {
+        flex: 1,
+      },
+      scrollableContent: {
+        paddingTop: 130,
+        paddingBottom: 230, // Extra space for floating buttons
+      },
+      scrollableMediaSection: {
+        marginBottom: 20,
+      },
+      scrollableMediaContainer: {
+        alignItems: "center" as const,
+        paddingHorizontal: 20,
+      },
+      scrollableMedia: {
+        width: "100%" as const,
+        height: 250,
+        borderRadius: 12,
+      },
+      scrollableTextSection: {
+        marginBottom: 20,
+      },
+      scrollableTextContainer: {
+        paddingHorizontal: 20,
       },
 
       // EXPLORE Modal

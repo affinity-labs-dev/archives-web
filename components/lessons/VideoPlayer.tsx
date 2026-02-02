@@ -195,8 +195,8 @@ export default function VideoPlayer({
 
 const styles = StyleSheet.create({
   container: {
-    width: width,
-    height: height,
+    flex: 1,
+    width: '100%',
     backgroundColor: 'black',
     position: 'relative',
   },

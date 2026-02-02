@@ -100,9 +100,17 @@ export default function StreakCelebrationScreen({
     }
   }, [visible]);
 
+  // Track Rive animation loading
+  useEffect(() => {
+    if (visible && riveRef.current) {
+      console.log('🔥 [StreakCelebration] Rive ref loaded successfully');
+    }
+  }, [visible, riveRef.current]);
+
   // Move flame + number UP from bottom (Duolingo style)
   useEffect(() => {
     if (visible && !skipped) {
+      console.log('🔥 [StreakCelebration] Starting animation sequence');
       // Start from below screen (reasonable bottom position, not extreme)
       translateY.value = SCREEN_HEIGHT * 0.35;
       // Animate up to center position
@@ -123,6 +131,7 @@ export default function StreakCelebrationScreen({
   // Track analytics (no haptic on modal open)
   useEffect(() => {
     if (visible) {
+      console.log('🔥 [StreakCelebration] Modal visible:', { streakCount, weekData });
       analyticsService.trackCustomEvent('streak_celebration_shown', {
         streak_count: streakCount,
         is_milestone: [3, 7, 14, 30, 50, 100].includes(streakCount),
@@ -159,7 +168,7 @@ export default function StreakCelebrationScreen({
   }, [visible, skipped, weekData]);
 
   return (
-    <Modal visible={visible} animationType="none" transparent={false} statusBarTranslucent>
+    <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
       <SafeAreaView style={styles.container}>
           {/* Close Button - Top Right */}
           <TouchableOpacity
@@ -440,7 +449,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#2D3E50',
+    backgroundColor: '#222446',
   },
   motivationalText: {
     position: 'absolute',

@@ -321,6 +321,8 @@ interface GamificationOrchestratorContextType {
   reportQuizComplete: (input: QuizCompleteInput) => Promise<void>;
   /** Report lesson completion - for future triggers */
   reportLessonComplete: (input: LessonCompleteInput) => Promise<void>;
+  /** Report Today screen completion (100% progress) - triggers streak update */
+  reportTodayComplete: () => Promise<void>;
   /** Check if any celebration is currently showing */
   isCelebrating: boolean;
   /** Current streak data */
@@ -686,6 +688,10 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       let newLongest = cloudStreak.longestStreak;
       let newLongestDate = cloudStreak.longestStreakDate;
 
+      // ========== OLD AUTO-INCREMENT LOGIC (COMMENTED OUT - REPLACED WITH ACTIVITY-BASED) ==========
+      // Issue: Auto-incremented streak on app open, causing race conditions and stale closures
+      // New approach: Streak only increments when user completes module/today screen (see reportQuizComplete)
+      /*
       console.log(`🔍 [Orchestrator] Checking streak condition...`);
       if (cloudStreak.lastActiveDate === yesterdayStr) {
         // CONSECUTIVE DAY - Increment
@@ -711,6 +717,14 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         console.log(`🔥 [Orchestrator] ⏸️  SAME DAY - No update needed`);
         console.log(`   Streak remains: ${cloudStreak.currentStreak}`);
       }
+      */
+      // ========== END OLD LOGIC ==========
+
+      // NEW: Just load current streak from cloud, don't auto-increment
+      // Streak will be incremented in reportQuizComplete or reportTodayComplete
+      console.log(`🔥 [Orchestrator] Loading current streak: ${cloudStreak.currentStreak}`);
+      newStreak = cloudStreak.currentStreak || 0;
+      needsUpdate = false; // Will update on activity completion
 
       // STEP 4: Update longest streak if new record
       if (needsUpdate && newStreak > newLongest) {
@@ -1235,8 +1249,12 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       }
     }
 
-    setCurrentCelebration(null);
-    // Next celebration will be picked up by useEffect
+    // Wait for modal fade animation to complete before showing next celebration
+    // Reduced to 100ms to make transitions user-driven (next celebration shows immediately after user clicks continue)
+    setTimeout(() => {
+      setCurrentCelebration(null);
+      console.log(`🎉 [Orchestrator] Celebration dismissed, next in queue will show`);
+    }, 100);
   }, [currentCelebration]);
 
   // Report quiz completion - check all triggers
@@ -1261,6 +1279,107 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     });
 
     const newCelebrations: CelebrationItem[] = [];
+
+    // ========== NEW ACTIVITY-BASED STREAK SYSTEM ==========
+    // Streak increments on first module/today completion of the day (not app open)
+    // Works for quiz retakes - any completion counts as activity
+    console.log(`📊 [Orchestrator] Checking for streak update (activity-based)...`);
+
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const COMPLETION_DATE_KEY = '@last_streak_completion_date';
+
+    try {
+      // Check if this is first completion today
+      const lastCompletionDate = await AsyncStorage.getItem(COMPLETION_DATE_KEY);
+      console.log(`🔍 [Orchestrator] Last completion date: ${lastCompletionDate}, Today: ${today}`);
+
+      if (lastCompletionDate !== today) {
+        console.log(`🔥 [Orchestrator] First completion today! Incrementing streak...`);
+
+        // Get current streak data from cloud
+        const cloudStreak = getCloudStreak();
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+        let newStreak = 1; // Default: first time or after reset
+
+        if (cloudStreak.lastActiveDate === yesterday) {
+          // Consecutive day → increment
+          newStreak = cloudStreak.currentStreak + 1;
+          console.log(`✅ [Orchestrator] Consecutive day detected: ${cloudStreak.currentStreak} → ${newStreak}`);
+        } else if (cloudStreak.lastActiveDate === today) {
+          // Already completed today (edge case, shouldn't happen)
+          newStreak = cloudStreak.currentStreak;
+          console.log(`⚠️ [Orchestrator] Already counted today, maintaining: ${newStreak}`);
+        } else {
+          // Missed days → reset to 1
+          console.log(`⚠️ [Orchestrator] Missed days detected (last: ${cloudStreak.lastActiveDate}), resetting to 1`);
+          newStreak = 1;
+        }
+
+        // Update longest streak if needed
+        const newLongestStreak = Math.max(newStreak, cloudStreak.longestStreak || 0);
+        const longestStreakDate = newStreak > (cloudStreak.longestStreak || 0)
+          ? today
+          : cloudStreak.longestStreakDate;
+
+        // Build updated streak object
+        const updatedStreak: StreakData = {
+          currentStreak: newStreak,
+          longestStreak: newLongestStreak,
+          lastActiveDate: today,
+          longestStreakDate,
+        };
+
+        console.log(`💾 [Orchestrator] Saving updated streak to cloud:`, updatedStreak);
+
+        // Save to state and cloud
+        await syncStreakToState(updatedStreak);
+        await syncToCloud();
+
+        // Update local state variables
+        setStreak(newStreak);
+        setLongestStreak(newLongestStreak);
+
+        // Update analytics
+        analyticsService.updateProgressProperties({
+          current_streak: newStreak,
+          longest_streak: newLongestStreak,
+        });
+
+        console.log(`📊 [Orchestrator] Analytics updated with streak: ${newStreak}`);
+
+        // Queue streak celebration
+        try {
+          const weekData = calculateWeekData(newStreak, cloudStreak.lastActiveDate);
+          newCelebrations.push({
+            type: 'STREAK_CELEBRATION',
+            streakCount: newStreak,
+            weekData,
+          });
+          console.log(`🎉 [Orchestrator] Streak celebration queued for ${newStreak} days`);
+        } catch (error) {
+          console.error('❌ [Orchestrator] Failed to calculate week data:', error);
+          // Still show celebration with empty week data
+          newCelebrations.push({
+            type: 'STREAK_CELEBRATION',
+            streakCount: newStreak,
+            weekData: [],
+          });
+          console.log(`🎉 [Orchestrator] Streak celebration queued (with empty week data fallback)`);
+        }
+
+        // Mark completion date (prevents duplicate celebrations today)
+        await AsyncStorage.setItem(COMPLETION_DATE_KEY, today);
+        console.log(`✅ [Orchestrator] Completion date marked: ${today}`);
+
+      } else {
+        console.log(`✅ [Orchestrator] Already completed today, streak maintained (no celebration)`);
+      }
+    } catch (error) {
+      console.error('❌ [Orchestrator] Error in streak update:', error);
+      // Don't block quiz completion if streak update fails
+    }
+    // ========== END NEW STREAK SYSTEM ==========
 
     // --- Check 1: Adventure Complete (HIGHEST PRIORITY - shows first) ---
     const isAdventureComplete = adventureModulesCompleted >= adventureTotalModules;
@@ -1303,6 +1422,9 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       }
     }
 
+    // ========== OLD STREAK CELEBRATION LOGIC (COMMENTED OUT) ==========
+    // Replaced with activity-based streak system (see new logic at top of function)
+    /*
     // --- Check 3: Streak Celebration (Duolingo pattern) ---
     // Show after module completion if: (1) user has active streak, (2) not shown today
     if (streak > 0) {
@@ -1330,6 +1452,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         console.log(`⏭️ [Orchestrator] Streak celebration already shown today, skipping`);
       }
     }
+    */
+    // ========== END OLD STREAK CELEBRATION LOGIC ==========
 
     // Add to queue
     if (newCelebrations.length > 0) {
@@ -1343,7 +1467,16 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
     // Check time-based achievements (night owl, early bird)
     await checkTimeBasedAchievement();
-  }, [checkAchievements, checkTimeBasedAchievement]);
+  }, [
+    checkAchievements,
+    checkTimeBasedAchievement,
+    getCloudStreak,
+    syncStreakToState,
+    syncToCloud,
+    calculateWeekData,
+    setStreak,
+    setLongestStreak,
+  ]);
 
   // Report lesson completion - for future triggers
   const reportLessonComplete = useCallback(async (_input: LessonCompleteInput) => {
@@ -1351,6 +1484,90 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     // Can be extended for streaks, lesson milestones, etc.
     console.log(`🔄 [Orchestrator] Lesson complete reported (no triggers yet)`);
   }, []);
+
+  /**
+   * Report Today screen completion (video + explore + questions = 100%)
+   * Same streak logic as reportQuizComplete - first completion of day increments streak
+   */
+  const reportTodayComplete = useCallback(async () => {
+    console.log(`📊 [Orchestrator] Today screen completed - checking for streak update`);
+
+    const today = new Date().toISOString().split('T')[0];
+    const COMPLETION_DATE_KEY = '@last_streak_completion_date';
+
+    try {
+      const lastCompletionDate = await AsyncStorage.getItem(COMPLETION_DATE_KEY);
+      console.log(`🔍 [Orchestrator] Last completion date: ${lastCompletionDate}, Today: ${today}`);
+
+      if (lastCompletionDate !== today) {
+        console.log(`🔥 [Orchestrator] First completion today via Today screen! Incrementing streak...`);
+
+        const cloudStreak = getCloudStreak();
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+        let newStreak = 1;
+
+        if (cloudStreak.lastActiveDate === yesterday) {
+          newStreak = cloudStreak.currentStreak + 1;
+          console.log(`✅ [Orchestrator] Consecutive day detected: ${cloudStreak.currentStreak} → ${newStreak}`);
+        } else if (cloudStreak.lastActiveDate === today) {
+          newStreak = cloudStreak.currentStreak;
+          console.log(`⚠️ [Orchestrator] Already counted today, maintaining: ${newStreak}`);
+        } else {
+          console.log(`⚠️ [Orchestrator] Missed days detected, resetting to 1`);
+          newStreak = 1;
+        }
+
+        const newLongestStreak = Math.max(newStreak, cloudStreak.longestStreak || 0);
+
+        const updatedStreak: StreakData = {
+          currentStreak: newStreak,
+          longestStreak: newLongestStreak,
+          lastActiveDate: today,
+          longestStreakDate: newStreak > (cloudStreak.longestStreak || 0) ? today : cloudStreak.longestStreakDate,
+        };
+
+        await syncStreakToState(updatedStreak);
+        await syncToCloud();
+
+        setStreak(newStreak);
+        setLongestStreak(newLongestStreak);
+
+        analyticsService.updateProgressProperties({
+          current_streak: newStreak,
+          longest_streak: newLongestStreak,
+        });
+
+        console.log(`📊 [Orchestrator] Analytics updated with streak: ${newStreak}`);
+
+        // Queue celebration
+        try {
+          const weekData = calculateWeekData(newStreak, cloudStreak.lastActiveDate);
+          setCelebrationQueue((prev) => [...prev, {
+            type: 'STREAK_CELEBRATION',
+            streakCount: newStreak,
+            weekData,
+          }]);
+          console.log(`🎉 [Orchestrator] Streak celebration queued from Today screen: ${newStreak} days`);
+        } catch (error) {
+          console.error('❌ [Orchestrator] Failed to calculate week data:', error);
+          // Fallback with empty week data
+          setCelebrationQueue((prev) => [...prev, {
+            type: 'STREAK_CELEBRATION',
+            streakCount: newStreak,
+            weekData: [],
+          }]);
+        }
+
+        await AsyncStorage.setItem(COMPLETION_DATE_KEY, today);
+        console.log(`✅ [Orchestrator] Completion date marked: ${today}`);
+      } else {
+        console.log(`✅ [Orchestrator] Already completed today via module, streak maintained`);
+      }
+    } catch (error) {
+      console.error('❌ [Orchestrator] Error in Today streak update:', error);
+    }
+  }, [getCloudStreak, syncStreakToState, syncToCloud, calculateWeekData, setStreak, setLongestStreak]);
 
   // TEST FUNCTION: Set lastActiveDate to yesterday in Supabase, then trigger streak check
   const simulateNextDay = useCallback(async () => {
@@ -1427,6 +1644,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       value={{
         reportQuizComplete,
         reportLessonComplete,
+        reportTodayComplete, // ✅ NEW: Report Today screen completion
         isCelebrating,
         streak,
         longestStreak,
