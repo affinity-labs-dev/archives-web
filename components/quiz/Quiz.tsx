@@ -608,6 +608,7 @@ export default function Quiz({
         moduleNumber={moduleNumber}
         questions={questions}
         userAnswers={userAnswers}
+        isToday={isToday}
       />
     );
   }
