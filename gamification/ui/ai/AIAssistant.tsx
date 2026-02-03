@@ -29,8 +29,8 @@ export default function AIAssistant() {
     return null;
   }
 
-  // Don't render on onboarding screens, auth screens, or today screen
-  if (pathname?.startsWith('/onboarding') || pathname?.startsWith('/(onboarding)') || pathname?.startsWith('/auth') || pathname?.startsWith('/(auth)') || pathname === '/(tabs)/today' || pathname === '/today') {
+  // Don't render on onboarding screens, auth screens, today screen, or subscription screen
+  if (pathname?.startsWith('/onboarding') || pathname?.startsWith('/(onboarding)') || pathname?.startsWith('/auth') || pathname?.startsWith('/(auth)') || pathname === '/(tabs)/today' || pathname === '/today' || pathname === '/(tabs)/subscribe' || pathname === '/subscribe') {
     return null;
   }
 
