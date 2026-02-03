@@ -1,8 +1,8 @@
 // Daily Quest Tab - New card-based design with expandable sections
 // Features: Calendar week view, progress tracker, three content cards (WATCH, EXPLORE, QUESTIONS)
 
-import TodayScrollableLesson from "@/components/lessons/TodayScrollableLesson";
-import TodayVideoLesson from "@/components/lessons/TodayVideoLesson";
+import TodayScrollableLesson from "@/components/lessons/today/TodayScrollableLesson";
+import TodayVideoLesson from "@/components/lessons/today/TodayVideoLesson";
 import Quiz from "@/components/quiz/Quiz";
 import type { ContentBlock, ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
@@ -13,12 +13,14 @@ import {
 import { supabase } from "@/hooks/lib/supabase";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  GestureResponderEvent,
   Modal,
   Platform,
   ScrollView,
@@ -34,15 +36,38 @@ import Svg, { Path } from "react-native-svg";
 // Theme styles
 const themeStyles = ArchivesTheme.common.today;
 
-// Streak icon (flame) - orange on white background
-const StreakIcon = ({ size = 14 }: { size?: number }) => (
-  <Svg
-    width={size}
-    height={size}
-    viewBox="0 -960 960 960"
-    fill={ArchivesTheme.colors.persianOrange}
-  >
-    <Path d="M240-400q0 52 21 98.5t60 81.5q-1-5-1-9v-9q0-32 12-60t35-51l113-111 113 111q23 23 35 51t12 60v9q0 4-1 9 39-35 60-81.5t21-98.5q0-50-18.5-94.5T648-574q-20 13-42 19.5t-45 6.5q-62 0-107.5-41T401-690q-39 33-69 68.5t-50.5 72Q261-513 250.5-475T240-400Zm240 52-57 56q-11 11-17 25t-6 29q0 32 23.5 55t56.5 23q33 0 56.5-23t23.5-55q0-16-6-29.5T537-292l-57-56Zm0-492v132q0 34 23.5 57t57.5 23q18 0 33.5-7.5T622-658l18-22q74 42 117 117t43 163q0 134-93 227T480-80q-134 0-227-93t-93-227q0-129 86.5-245T480-840Z" />
+// Streak icon (flame) - accepts color prop for different contexts - OUTLINED version from assets/images/icons/streak.svg
+const StreakIcon = ({
+  size = 14,
+  color = ArchivesTheme.colors.persianOrange,
+}: {
+  size?: number;
+  color?: string;
+}) => (
+  <Svg width={size} height={size} viewBox="0 -960 960 960">
+    <Path
+      fill={color}
+      d="M240-400q0 52 21 98.5t60 81.5q-1-5-1-9v-9q0-32 12-60t35-51l113-111 113 111q23 23 35 51t12 60v9q0 4-1 9 39-35 60-81.5t21-98.5q0-50-18.5-94.5T648-574q-20 13-42 19.5t-45 6.5q-62 0-107.5-41T401-690q-39 33-69 68.5t-50.5 72Q261-513 250.5-475T240-400Zm240 52-57 56q-11 11-17 25t-6 29q0 32 23.5 55t56.5 23q33 0 56.5-23t23.5-55q0-16-6-29.5T537-292l-57-56Zm0-492v132q0 34 23.5 57t57.5 23q18 0 33.5-7.5T622-658l18-22q74 42 117 117t43 163q0 134-93 227T480-80q-134 0-227-93t-93-227q0-129 86.5-245T480-840Z"
+    />
+  </Svg>
+);
+
+// Calendar-specific icons - from assets/images/icons
+const CalendarFlameIcon = ({ size = 14 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 -960 960 960">
+    <Path
+      fill="#FFFFFF"
+      d="M160-400q0-113 67-217t184-182q22-15 45.5-1.5T480-760v52q0 34 23.5 57t57.5 23q17 0 32.5-7.5T621-657q8-10 20.5-12.5T665-664q63 45 99 115t36 149q0 88-43 160.5T644-125q17-24 26.5-52.5T680-238q0-40-15-75.5T622-377L480-516 339-377q-29 29-44 64t-15 75q0 32 9.5 60.5T316-125q-70-42-113-114.5T160-400Zm320-4 85 83q17 17 26 38t9 45q0 49-35 83.5T480-120q-50 0-85-34.5T360-238q0-23 9-44.5t26-38.5l85-83Z"
+    />
+  </Svg>
+);
+
+const CalendarLockIcon = ({ size = 14 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 -960 960 960">
+    <Path
+      fill="#FFFFFF"
+      d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h40v-80q0-83 58.5-141.5T480-920q83 0 141.5 58.5T680-720v80h40q33 0 56.5 23.5T800-560v400q0 33-23.5 56.5T720-80H240Zm240-200q33 0 56.5-23.5T560-360q0-33-23.5-56.5T480-440q-33 0-56.5 23.5T400-360q0 33 23.5 56.5T480-280ZM360-640h240v-80q0-50-35-85t-85-35q-50 0-85 35t-35 85v80Z"
+    />
   </Svg>
 );
 
@@ -63,6 +88,7 @@ interface Card1Content {
 interface Card2Content {
   content_type: "scrollable_media_view";
   title: string;
+  thumbnail_title?: string; // Display title for card2 (explore)
   inner_image: string;
   inner_voice: string;
   content: string;
@@ -335,6 +361,33 @@ export default function TodayScreen() {
   type ModalState = "none" | "video" | "reading" | "quiz" | "calendar";
   const [activeModal, setActiveModal] = useState<ModalState>("none");
 
+  // Week navigation and historical content viewing
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [displayedQuest, setDisplayedQuest] = useState<
+    typeof todayQuest | null
+  >(null);
+  const [isHistoricalView, setIsHistoricalView] = useState(false);
+
+  // Week navigation state (0 = current week, 1 = previous week)
+  const [weekView, setWeekView] = useState<0 | 1>(0);
+
+  // Swipe detection for week navigation
+  const touchStartX = useRef<number>(0);
+
+  // ScrollView ref for calendar horizontal scrolling
+  const calendarScrollRef = useRef<ScrollView>(null);
+
+  // Set displayedQuest when todayQuest loads (for current day)
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const selectedDateStr = selectedDate.toISOString().split("T")[0];
+
+    if (todayQuest && selectedDateStr === today) {
+      setDisplayedQuest(todayQuest);
+      setIsHistoricalView(false);
+    }
+  }, [todayQuest, selectedDate]);
+
   // Audio player for voiceover (from inner_voice URL in Supabase)
   const player = useAudioPlayer(
     todayQuest?.content?.card2?.inner_voice || null,
@@ -397,14 +450,122 @@ export default function TodayScreen() {
     }
   };
 
+  // Fetch historical quest by date from Supabase
+  const fetchQuestByDate = async (dateString: string) => {
+    try {
+      console.log(`📅 [Today] Fetching quest for date: ${dateString}`);
+      const { data, error } = await supabase
+        .from("daily_content")
+        .select("*")
+        .eq("date", dateString)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          `❌ [Today] Error fetching quest for ${dateString}:`,
+          error,
+        );
+        return null;
+      }
+
+      if (!data) {
+        console.log(`📅 [Today] No content found for ${dateString}`);
+        return null;
+      }
+
+      console.log(`✅ [Today] Quest loaded for ${dateString}:`, data);
+      return data;
+    } catch (err) {
+      console.error(`❌ [Today] Exception fetching quest:`, err);
+      return null;
+    }
+  };
+
+  // Handle calendar date click
+  const handleDateClick = async (date: Date) => {
+    const dateStr = date.toISOString().split("T")[0];
+    const today = new Date().toISOString().split("T")[0];
+
+    console.log(`📅 [Today] Date clicked: ${dateStr}`);
+    setSelectedDate(date);
+
+    if (dateStr === today) {
+      // Viewing current day
+      console.log(`✅ [Today] Returning to current day`);
+      setDisplayedQuest(todayQuest);
+      setIsHistoricalView(false);
+    } else {
+      // Viewing historical day
+      console.log(`📜 [Today] Loading historical content for ${dateStr}`);
+      setIsHistoricalView(true);
+      const historicalQuest = await fetchQuestByDate(dateStr);
+      setDisplayedQuest(historicalQuest);
+    }
+  };
+
+  // Handle swipe gestures for week navigation
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    touchStartX.current = e.nativeEvent.pageX;
+  };
+
+  const handleTouchEnd = (e: GestureResponderEvent) => {
+    const touchEndX = e.nativeEvent.pageX;
+    const diff = touchStartX.current - touchEndX;
+    const swipeThreshold = 30; // Reduced threshold for easier swipes
+
+    if (Math.abs(diff) > swipeThreshold) {
+      if (diff > 0) {
+        // Swipe left -> go to current week (only if currently on previous week)
+        if (weekView === 1) {
+          setWeekView(0);
+        }
+      } else {
+        // Swipe right -> go to previous week (only if currently on current week)
+        if (weekView === 0) {
+          setWeekView(1);
+        }
+      }
+    }
+  };
+
+  // Scroll to show current week on mount with today visible
+  useEffect(() => {
+    // Calculate scroll position to show today in visible area
+    // Each day: 48px width + 12px spacing = 60px per day
+    const dayWithSpacing = 48 + 12;
+
+    // Get today's day of week (0 = Sunday, 6 = Saturday)
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+
+    // Calculate position: skip previous week (7 days) + days before today in current week
+    const daysToSkip = 7 + dayOfWeek;
+    const scrollToPosition = dayWithSpacing * daysToSkip;
+
+    // Scroll after layout settles
+    const timer = setTimeout(() => {
+      calendarScrollRef.current?.scrollTo({
+        x: scrollToPosition,
+        animated: false, // Instant on mount
+      });
+    }, 150); // Slightly longer delay for layout
+
+    return () => clearTimeout(timer);
+  }, []);
+
   // Handle voice change and save to Supabase
-  // Get current week dates for calendar
+  // Get 14 days for continuous horizontal scrolling (last week + current week)
   const getWeekDates = () => {
     const today = new Date();
-    const todayStart = new Date(today.setHours(0, 0, 0, 0));
-    const todayDay = today.getDate();
+    today.setHours(0, 0, 0, 0);
+
+    const todayStart = new Date(today); // Keep original today for comparison
     const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
     const dates = [];
+
+    // Start from beginning of previous week (14 days total)
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - dayOfWeek - 7); // Go back to Sunday of last week
 
     // Get full streak data from GamifiedProgress (includes longestStreakDate)
     const fullStreak = getStreak();
@@ -498,14 +659,10 @@ export default function TodayScreen() {
       today: today.toISOString().split("T")[0],
     });
 
-    // Calculate start of week (Sunday)
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek);
-
-    // Generate 7 days (Sun-Sat)
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + i);
+    // Generate 14 days (previous week + current week for continuous scrolling)
+    for (let i = 0; i < 14; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
       const dateStart = new Date(date.setHours(0, 0, 0, 0));
       const dateString = dateStart.toISOString().split("T")[0];
       const isToday = dateStart.getTime() === todayStart.getTime();
@@ -521,8 +678,11 @@ export default function TodayScreen() {
       // Completed = part of streak only (today shows orange ONLY after actually completing)
       const isCompleted = isInStreak;
 
+      // Calculate day of week for this date
+      const dayIndex = date.getDay(); // 0 = Sunday, 6 = Saturday
+
       dates.push({
-        day: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][i],
+        day: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][dayIndex],
         date: date.getDate(),
         dateObj: dateStart,
         isToday,
@@ -535,10 +695,90 @@ export default function TodayScreen() {
     return dates;
   };
 
-  // Track completion state for each section (sequential order enforced)
+  // Track completion state for each section (per quest ID via AsyncStorage)
   const [watchCompleted, setWatchCompleted] = useState(false);
   const [exploreCompleted, setExploreCompleted] = useState(false);
   const [questCompleted, setQuestCompleted] = useState(false);
+
+  // Load progress from AsyncStorage when quest changes
+  useEffect(() => {
+    // CRITICAL: Reset state IMMEDIATELY when quest changes (synchronous)
+    // This prevents showing stale progress from previous date during async load
+    setWatchCompleted(false);
+    setExploreCompleted(false);
+    setQuestCompleted(false);
+
+    const loadProgress = async () => {
+      const currentQuestId = displayedQuest?.id || todayQuest?.id;
+      if (!currentQuestId) return;
+
+      try {
+        // Load watch/explore from AsyncStorage
+        const key = `@today_progress_${currentQuestId}`;
+        const stored = await AsyncStorage.getItem(key);
+
+        if (stored) {
+          const progress = JSON.parse(stored);
+          setWatchCompleted(progress.watch || false);
+          setExploreCompleted(progress.explore || false);
+          console.log(
+            `📖 [Today] Loaded progress for ${currentQuestId}:`,
+            progress,
+          );
+        }
+        // Note: If no stored data, state already reset to false at useEffect start
+
+        // Check Supabase for quiz completion
+        if (user?.id) {
+          const { data } = await supabase
+            .from("user_daily_quest_progress")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("daily_quest_id", currentQuestId)
+            .maybeSingle();
+
+          setQuestCompleted(!!data);
+          if (data) {
+            console.log(
+              `✅ [Today] Quiz already completed for ${currentQuestId}`,
+            );
+          }
+        }
+      } catch (error) {
+        console.error("❌ [Today] Error loading progress:", error);
+      }
+    };
+
+    loadProgress();
+  }, [displayedQuest?.id, todayQuest?.id, user?.id]);
+
+  // Save progress to AsyncStorage (completedDate set in completion check useEffect)
+  const saveProgress = async (section: "watch" | "explore") => {
+    const currentQuestId = displayedQuest?.id || todayQuest?.id;
+    if (!currentQuestId) return;
+
+    try {
+      const key = `@today_progress_${currentQuestId}`;
+
+      // Load existing progress to preserve completedDate if already set
+      const stored = await AsyncStorage.getItem(key);
+      const existing = stored ? JSON.parse(stored) : {};
+
+      const current = {
+        watch: section === "watch" ? true : existing.watch || false,
+        explore: section === "explore" ? true : existing.explore || false,
+        completedDate: existing.completedDate || null, // Preserve existing completedDate
+      };
+
+      await AsyncStorage.setItem(key, JSON.stringify(current));
+      console.log(
+        `💾 [Today] Saved ${section} completion for ${currentQuestId}`,
+        current,
+      );
+    } catch (error) {
+      console.error("❌ [Today] Error saving progress:", error);
+    }
+  };
 
   // Handle quiz completion
   const handleQuizComplete = async () => {
@@ -547,24 +787,52 @@ export default function TodayScreen() {
   };
 
   // ========== Trigger streak update when Today screen reaches 100% ==========
-  // When all three sections are completed, report to orchestrator for streak update
+  // When all three sections are completed, check completedDate stamp to trigger streak
   useEffect(() => {
     const checkCompletion = async () => {
       // Check if all sections are complete (100% progress)
-      // Note: reportTodayComplete() has built-in duplicate prevention via AsyncStorage
       if (watchCompleted && exploreCompleted && questCompleted) {
         const progress = calculateProgress();
         console.log(`✅ [Today] All sections complete! Progress: ${progress}%`);
 
         if (progress === 100) {
-          console.log(
-            `🔥 [Today] Calling reportTodayComplete for streak update...`,
-          );
+          const currentQuestId = displayedQuest?.id || todayQuest?.id;
+          const currentQuest = displayedQuest || todayQuest;
+          if (!currentQuestId || !currentQuest?.date) return;
+
           try {
-            await reportTodayComplete();
-            console.log(`✅ [Today] Streak update triggered successfully`);
+            const today = new Date().toISOString().split("T")[0];
+            const questDate = currentQuest.date; // The quest's actual date (e.g., "2026-02-02")
+            const key = `@today_progress_${currentQuestId}`;
+
+            // Load existing progress
+            const stored = await AsyncStorage.getItem(key);
+            const savedProgress = stored ? JSON.parse(stored) : {};
+
+            // If no completedDate yet, set it to the QUEST'S date (not today)
+            if (!savedProgress.completedDate) {
+              savedProgress.completedDate = questDate;
+              await AsyncStorage.setItem(key, JSON.stringify(savedProgress));
+              console.log(
+                `📅 [Today] Set completedDate to ${questDate} for ${currentQuestId}`,
+              );
+            }
+
+            // CRITICAL: Only trigger streak if quest's completedDate matches today
+            // This is the single source of truth - no need for multiple validations
+            if (savedProgress.completedDate === today) {
+              console.log(
+                `🔥 [Today] Quest completed on today's date (${today}), triggering streak...`,
+              );
+              await reportTodayComplete(today);
+              console.log(`✅ [Today] Streak update triggered successfully`);
+            } else {
+              console.log(
+                `⏭️ [Today] Quest completed on different date (${savedProgress.completedDate}), not today (${today}), skipping streak`,
+              );
+            }
           } catch (error) {
-            console.error(`❌ [Today] Error triggering streak update:`, error);
+            console.error(`❌ [Today] Error checking completion date:`, error);
           }
         }
       }
@@ -573,7 +841,7 @@ export default function TodayScreen() {
     checkCompletion();
   }, [watchCompleted, exploreCompleted, questCompleted]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // Note: reportTodayComplete intentionally excluded to prevent double triggers when function reference changes
+  // Note: reportTodayComplete and displayedQuest intentionally excluded to prevent double triggers
   // ========== END STREAK TRIGGER ==========
 
   // Calculate progress percentage based on actual completion
@@ -619,7 +887,7 @@ export default function TodayScreen() {
     );
   }
 
-  // Error state
+  // Error state - show "No Quest" screen only for today's quest errors
   if (error || !todayQuest) {
     return (
       <SafeAreaView style={themeStyles.container} edges={["top"]}>
@@ -859,17 +1127,33 @@ export default function TodayScreen() {
         {/* Header with Title and Streak */}
         <View style={themeStyles.headerTop}>
           <View style={themeStyles.headerLeft}>
-            <Text style={themeStyles.headerTitle}>Today's Story</Text>
+            <Text style={themeStyles.headerTitle}>
+              {(() => {
+                const currentQuest = displayedQuest || todayQuest;
+                if (!currentQuest?.date) return "Today's Story";
+
+                const today = new Date().toISOString().split("T")[0];
+                if (currentQuest.date === today) return "Today's Story";
+
+                // Historical date: format as "2 Feb's Story"
+                const questDate = new Date(currentQuest.date + "T00:00:00");
+                const day = questDate.getDate();
+                const month = questDate.toLocaleDateString("en-US", {
+                  month: "short",
+                });
+                return `${day} ${month}'s Story`;
+              })()}
+            </Text>
           </View>
           <View style={themeStyles.streakInline}>
             <StreakIcon size={24} />
             <Text style={themeStyles.streakText}>{streak} </Text>
-            <Text style={themeStyles.streakText}>days</Text>
+            <Text style={themeStyles.streakText}>{streak === 1 ? "day" : "days"}</Text>
           </View>
         </View>
 
         {/* Subtitle: Day X of 7 - Story Title */}
-        {todayQuest && (
+        {(displayedQuest || todayQuest) && (
           <View style={{ marginTop: 8, marginBottom: 8 }}>
             <Text
               style={{
@@ -879,7 +1163,7 @@ export default function TodayScreen() {
               }}
             >
               <Text style={{ fontWeight: "700" }}>
-                Day {todayQuest.content.day_number}
+                Day {(displayedQuest || todayQuest)?.content.day_number}
               </Text>
               <Text
                 style={{
@@ -888,69 +1172,157 @@ export default function TodayScreen() {
                 }}
               >
                 {" "}
-                of {todayQuest.content.total_days} -{" "}
+                of {(displayedQuest || todayQuest)?.content.total_days} -{" "}
               </Text>
               <Text style={{ fontWeight: "700" }}>
-                {todayQuest?.content?.today_title}
+                {(displayedQuest || todayQuest)?.content?.today_title}
               </Text>
             </Text>
           </View>
         )}
 
-        {/* Calendar Week View */}
-        <TouchableOpacity
-          style={themeStyles.calendarContainer}
-          onPress={() => setActiveModal("calendar")}
-          activeOpacity={0.7}
+        {/* Calendar Week View - Week-wise navigation with swipe gestures */}
+        <View
+          style={{
+            marginTop: 12,
+            marginBottom: 12,
+            backgroundColor: "#41425E",
+            borderRadius: 16,
+            paddingTop: 20,
+            paddingBottom: 10, // Must be at least 35px to show lock icon (extends ~11px below circle)
+            overflow: "visible", // Ensure lock icon isn't clipped
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
-          {weekDates.map((item, index) => {
-            return (
-              <View key={index} style={themeStyles.calendarDay}>
-                <Text style={themeStyles.calendarDayLabel}>{item.day}</Text>
-                <View
-                  style={[
-                    themeStyles.calendarDateCircle,
-                    item.isCompleted && {
-                      backgroundColor: ArchivesTheme.colors.persianOrange,
-                    },
-                    item.isMissed && { backgroundColor: "#999999" },
-                    item.isFuture && { backgroundColor: "#222446" },
-                    // item.isToday &&
-                    //   item.isCompleted && {
-                    //     transform: [{ scale: 1.1 }],
-                    //     shadowColor: ArchivesTheme.colors.persianOrange,
-                    //     shadowOpacity: 0.5,
-                    //     shadowRadius: 8,
-                    //     shadowOffset: { width: 0, height: 2 },
-                    //     elevation: 4,
-                    //   },
-                  ]}
-                >
-                  {item.isCompleted ? (
-                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                  ) : item.isMissed ? (
-                    <Text
-                      style={{
-                        fontFamily: "DM Sans",
-                        fontSize: 20,
-                        fontWeight: "700",
-                        color: "#FFFFFF",
-                        lineHeight: 32,
-                      }}
+          {/* Week calendar days - Show only current week based on weekView */}
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "center",
+              paddingHorizontal: 16,
+              paddingBottom: 10,
+            }}
+          >
+            {weekDates
+              .slice(weekView === 0 ? 7 : 0, weekView === 0 ? 14 : 7)
+              .map((item, index) => {
+                // Check if this date is currently selected
+                const isSelected =
+                  selectedDate.toISOString().split("T")[0] ===
+                  item.dateObj.toISOString().split("T")[0];
+
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      themeStyles.calendarDay,
+                      {
+                        width: 38, // Fixed width for each day
+                        marginRight: index < 6 ? 12 : 0, // Add spacing between days except last (0-6 = 7 days)
+                        overflow: "visible", // Allow lock icon to extend beyond bounds
+                        zIndex: isSelected ? 1000 : 1, // Much higher z-index for selected date
+                        elevation: isSelected ? 1000 : 1, // Android z-index equivalent
+                      },
+                    ]}
+                    onPress={() =>
+                      !item.isFuture && handleDateClick(item.dateObj)
+                    }
+                    disabled={item.isFuture}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={themeStyles.calendarDayLabel}>{item.day}</Text>
+                    <View
+                      style={[
+                        themeStyles.calendarDateCircle,
+                        item.isCompleted && {
+                          backgroundColor: ArchivesTheme.colors.persianOrange,
+                        },
+                        item.isMissed && {
+                          backgroundColor: "#B8AA92",
+                        },
+                        item.isFuture && { backgroundColor: "#222446" },
+                        // All other past/present days without selection
+                        !isSelected &&
+                          !item.isFuture &&
+                          !item.isCompleted &&
+                          !item.isMissed && {
+                            backgroundColor: "#222446",
+                          },
+                        // Show moss green border for ANY selected date - slightly bigger
+                        // This comes last to override any previous border settings
+                        isSelected && {
+                          borderWidth: 2,
+                          borderColor: ArchivesTheme.colors.mossGreen,
+                          transform: [{ scale: 1.08 }], // Slightly bigger (8% increase)
+                        },
+                        // item.isToday &&
+                        //   item.isCompleted && {
+                        //     transform: [{ scale: 1.1 }],
+                        //     shadowColor: ArchivesTheme.colors.persianOrange,
+                        //     shadowOpacity: 0.5,
+                        //     shadowRadius: 8,
+                        //     shadowOffset: { width: 0, height: 2 },
+                        //     elevation: 4,
+                        //   },
+                      ]}
                     >
-                      -
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })}
-        </TouchableOpacity>
+                      {item.isCompleted ? (
+                        // Completed day: Show white flame icon
+                        <CalendarFlameIcon size={20} />
+                      ) : (
+                        // All days (missed, today, future, past): Show date number
+                        <Text
+                          style={{
+                            fontFamily: "DM Sans",
+                            fontSize: 14,
+                            fontWeight: "600",
+                            color: "#FFFFFF",
+                          }}
+                        >
+                          {item.date}
+                        </Text>
+                      )}
+                    </View>
+                    {/* Lock icon overlapping with bottom circumference for missed days */}
+                    {item.isMissed && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          bottom: -6,
+                          alignSelf: "center",
+                          zIndex: 10,
+                        }}
+                      >
+                        <CalendarLockIcon size={14} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+          </View>
+        </View>
 
         {/* Progress Tracker */}
         <View style={themeStyles.progressContainer}>
           <View style={themeStyles.progressHeader}>
-            <Text style={themeStyles.progressLabel}>Progress today</Text>
+            <Text style={themeStyles.progressLabel}>
+              {(() => {
+                const currentQuest = displayedQuest || todayQuest;
+                if (!currentQuest?.date) return "Progress today";
+
+                const today = new Date().toISOString().split("T")[0];
+                if (currentQuest.date === today) return "Progress today";
+
+                // Historical date: format as "2 Feb's progress"
+                const questDate = new Date(currentQuest.date + "T00:00:00");
+                const day = questDate.getDate();
+                const month = questDate.toLocaleDateString("en-US", {
+                  month: "short",
+                });
+                return `${day} ${month}'s progress`;
+              })()}
+            </Text>
             <Text style={themeStyles.progressPercentage}>{progress}%</Text>
           </View>
           <View style={themeStyles.progressBarBackground}>
@@ -960,8 +1332,53 @@ export default function TodayScreen() {
           </View>
         </View>
 
-        {/* Completion Banner - Shows when quest is completed, allows replay */}
-        {/* {isCompleted && (
+        {/* No Quest Available - Shows inline when viewing historical date with no content */}
+        {isHistoricalView && !displayedQuest ? (
+          <View
+            style={{
+              flex: 1,
+              paddingVertical: 80,
+              paddingHorizontal: 32,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons
+              name="calendar-outline"
+              size={64}
+              color={ArchivesTheme.colors.persianOrange}
+              style={{ marginBottom: 20 }}
+            />
+            <Text
+              style={{
+                fontFamily: "DM Sans",
+                fontSize: 22,
+                fontWeight: "700",
+                color: ArchivesTheme.colors.persianOrange,
+                marginBottom: 12,
+                textAlign: "center",
+              }}
+            >
+              No Quest Available
+            </Text>
+            <Text
+              style={{
+                fontFamily: "DM Sans",
+                fontSize: 15,
+                fontWeight: "400",
+                color: ArchivesTheme.colors.shoeBrown,
+                textAlign: "center",
+                lineHeight: 22,
+              }}
+            >
+              There's no daily content for this date. Try selecting a different
+              day from the calendar.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Completion Banner - Shows when quest is completed, allows replay */}
+            {/* {isCompleted && (
           <View
             style={{
               backgroundColor: ArchivesTheme.colors.persianOrange,
@@ -1014,7 +1431,18 @@ export default function TodayScreen() {
               </View>
             </View>
             <TouchableOpacity
-              onPress={() => {
+              onPress={async () => {
+                // Clear AsyncStorage progress
+                const currentQuestId = displayedQuest?.id || todayQuest?.id;
+                if (currentQuestId) {
+                  const key = `@today_progress_${currentQuestId}`;
+                  await AsyncStorage.removeItem(key);
+                  console.log(`🗑️ [Today] Cleared progress for ${currentQuestId}`);
+                }
+                // Clear celebration shown flag for testing
+                await AsyncStorage.removeItem('@daily_story_end_shown_date');
+                console.log('🗑️ [Today] Cleared daily story end celebration flag');
+                // Reset state
                 setWatchCompleted(false);
                 setExploreCompleted(false);
                 setQuestCompleted(false);
@@ -1043,305 +1471,327 @@ export default function TodayScreen() {
           </View>
         )} */}
 
-        {/* WATCH Card */}
-        <TouchableOpacity
-          style={[
-            themeStyles.cardWatch,
-            expandedCard === "watch" && themeStyles.cardWatchExpanded,
-          ]}
-          onPress={() =>
-            setExpandedCard(expandedCard === "watch" ? null : "watch")
-          }
-          activeOpacity={0.9}
-        >
-          {/* Background Image */}
-          {(todayQuest?.content?.card1?.thumbnail_url ||
-            todayQuest?.content?.card1?.media_url) && (
-            <Image
-              source={{
-                uri:
-                  todayQuest?.content?.card1?.thumbnail_url ||
-                  todayQuest?.content?.card1?.media_url,
-              }}
-              style={themeStyles.cardWatchBackground}
-              contentFit="cover"
-            />
-          )}
-          {/* Dark Overlay */}
-          <LinearGradient
-            colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.8)"]}
-            style={themeStyles.cardWatchOverlay}
-          />
-          {/* Content */}
-          <View style={themeStyles.cardWatchContent}>
-            <View style={themeStyles.cardHeader}>
-              {/* Green Watch button on LEFT when collapsed, Title when expanded */}
-              {!expandedCard || expandedCard !== "watch" ? (
-                <TouchableOpacity
-                  style={themeStyles.cardWatchButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    if (todayQuest.content.card1.media_url) {
-                      setActiveModal("video");
-                    }
+            {/* WATCH Card */}
+            <TouchableOpacity
+              style={[
+                themeStyles.cardWatch,
+                expandedCard === "watch" && themeStyles.cardWatchExpanded,
+              ]}
+              onPress={() =>
+                setExpandedCard(expandedCard === "watch" ? null : "watch")
+              }
+              activeOpacity={0.9}
+            >
+              {/* Background Image */}
+              {((displayedQuest || todayQuest)?.content?.card1?.thumbnail_url ||
+                (displayedQuest || todayQuest)?.content?.card1?.media_url) && (
+                <Image
+                  source={{
+                    uri:
+                      (displayedQuest || todayQuest)?.content?.card1
+                        ?.thumbnail_url ||
+                      (displayedQuest || todayQuest)?.content?.card1?.media_url,
                   }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name="play-outline"
-                    size={16}
-                    color="#FFFFFF"
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text style={themeStyles.cardWatchButtonText}>Watch</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text
-                  style={[
-                    themeStyles.cardWatchSubtitle,
-                    { flex: 1, marginRight: 12 },
-                  ]}
-                >
-                  {todayQuest.content.card1.title}
-                </Text>
-              )}
-
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-              >
-                {/* Show duration when collapsed */}
-                {expandedCard !== "watch" && (
-                  <Text style={themeStyles.cardDuration}>3 MIN</Text>
-                )}
-                <Ionicons
-                  name={
-                    expandedCard === "watch" ? "chevron-up" : "chevron-down"
-                  }
-                  size={28}
-                  color="#FFFFFF"
+                  style={themeStyles.cardWatchBackground}
+                  contentFit="cover"
                 />
-              </View>
-            </View>
+              )}
+              {/* Dark Overlay */}
+              <LinearGradient
+                colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.8)"]}
+                style={themeStyles.cardWatchOverlay}
+              />
+              {/* Content */}
+              <View style={themeStyles.cardWatchContent}>
+                <View style={themeStyles.cardHeader}>
+                  {/* Green Watch button on LEFT when collapsed, Title when expanded */}
+                  {!expandedCard || expandedCard !== "watch" ? (
+                    <TouchableOpacity
+                      style={themeStyles.cardWatchButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        if (
+                          (displayedQuest || todayQuest)?.content.card1
+                            .media_url
+                        ) {
+                          setActiveModal("video");
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name="play-outline"
+                        size={16}
+                        color="#FFFFFF"
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text style={themeStyles.cardWatchButtonText}>Watch</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text
+                      style={[
+                        themeStyles.cardWatchSubtitle,
+                        { flex: 1, marginRight: 12 },
+                      ]}
+                    >
+                      {(displayedQuest || todayQuest)?.content.card1.title}
+                    </Text>
+                  )}
 
-            {expandedCard === "watch" && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                  marginTop: 8,
-                  gap: 8,
-                }}
-              >
-                <Text style={themeStyles.cardDuration}>3 MIN</Text>
-                <TouchableOpacity
-                  style={themeStyles.cardWatchButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    if (todayQuest.content.card1.media_url) {
-                      setActiveModal("video");
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    {/* Show duration when collapsed */}
+                    {expandedCard !== "watch" && (
+                      <Text style={themeStyles.cardDuration}>2 MIN</Text>
+                    )}
+                    <Ionicons
+                      name={
+                        expandedCard === "watch" ? "chevron-up" : "chevron-down"
+                      }
+                      size={28}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                </View>
+
+                {expandedCard === "watch" && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      marginTop: 8,
+                      gap: 8,
+                    }}
+                  >
+                    <Text style={themeStyles.cardDuration}>2 MIN</Text>
+                    <TouchableOpacity
+                      style={themeStyles.cardWatchButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        if (
+                          (displayedQuest || todayQuest)?.content.card1
+                            .media_url
+                        ) {
+                          setActiveModal("video");
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name="play-outline"
+                        size={16}
+                        color="#FFFFFF"
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text style={themeStyles.cardWatchButtonText}>Watch</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+
+            {/* EXPLORE Card */}
+            <TouchableOpacity
+              style={themeStyles.cardExplore}
+              onPress={() =>
+                setExpandedCard(expandedCard === "explore" ? null : "explore")
+              }
+              activeOpacity={0.8}
+            >
+              <View style={themeStyles.cardHeader}>
+                <View style={themeStyles.cardHeaderLeft}>
+                  <Ionicons name="book-outline" size={20} color="#FFFFFF" />
+                  <Text style={themeStyles.cardTitle}>Explore</Text>
+                </View>
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <Text style={themeStyles.cardDuration}>1 MIN</Text>
+                  <Ionicons
+                    name={
+                      expandedCard === "explore" ? "chevron-up" : "chevron-down"
                     }
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name="play-outline"
-                    size={16}
+                    size={20}
                     color="#FFFFFF"
-                    style={{ marginRight: 6 }}
                   />
-                  <Text style={themeStyles.cardWatchButtonText}>Watch</Text>
-                </TouchableOpacity>
+                </View>
               </View>
-            )}
-          </View>
-        </TouchableOpacity>
 
-        {/* EXPLORE Card */}
-        <TouchableOpacity
-          style={themeStyles.cardExplore}
-          onPress={() =>
-            setExpandedCard(expandedCard === "explore" ? null : "explore")
-          }
-          activeOpacity={0.8}
-        >
-          <View style={themeStyles.cardHeader}>
-            <View style={themeStyles.cardHeaderLeft}>
-              <Ionicons name="book-outline" size={20} color="#FFFFFF" />
-              <Text style={themeStyles.cardTitle}>Explore</Text>
-            </View>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              {expandedCard === "explore" && (
+                <>
+                  <Text style={themeStyles.cardSubtitle}>
+                    {
+                      (displayedQuest || todayQuest)?.content?.card2
+                        ?.thumbnail_title
+                    }
+                  </Text>
+                  <TouchableOpacity
+                    style={themeStyles.cardActionButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      if (isExploreUnlocked) {
+                        setActiveModal("reading");
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: "white",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons
+                        name="arrow-forward"
+                        size={18}
+                        color={ArchivesTheme.colors.mutedNavy}
+                        style={{ transform: [{ rotate: "-45deg" }] }}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* QUESTIONS Card */}
+            <TouchableOpacity
+              style={themeStyles.cardQuestions}
+              onPress={() =>
+                setExpandedCard(
+                  expandedCard === "questions" ? null : "questions",
+                )
+              }
+              activeOpacity={0.8}
             >
-              <Text style={themeStyles.cardDuration}>1 MIN</Text>
-              <Ionicons
-                name={
-                  expandedCard === "explore" ? "chevron-up" : "chevron-down"
-                }
-                size={20}
-                color="#FFFFFF"
-              />
-            </View>
-          </View>
-
-          {expandedCard === "explore" && (
-            <>
-              <Text style={themeStyles.cardSubtitle}>
-                Learn about the conquest of Al-Andalus
-              </Text>
-              <TouchableOpacity
-                style={themeStyles.cardActionButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  if (isExploreUnlocked) {
-                    setActiveModal("reading");
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: "white",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
+              <View style={themeStyles.cardHeader}>
+                <View style={themeStyles.cardHeaderLeft}>
                   <Ionicons
-                    name="arrow-forward"
-                    size={18}
-                    color={ArchivesTheme.colors.mutedNavy}
-                    style={{ transform: [{ rotate: "-45deg" }] }}
-                  />
-                </View>
-              </TouchableOpacity>
-            </>
-          )}
-        </TouchableOpacity>
-
-        {/* QUESTIONS Card */}
-        <TouchableOpacity
-          style={themeStyles.cardQuestions}
-          onPress={() =>
-            setExpandedCard(expandedCard === "questions" ? null : "questions")
-          }
-          activeOpacity={0.8}
-        >
-          <View style={themeStyles.cardHeader}>
-            <View style={themeStyles.cardHeaderLeft}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={20}
-                color={ArchivesTheme.colors.shoeBrown}
-              />
-              <Text
-                style={[
-                  themeStyles.cardTitle,
-                  { color: ArchivesTheme.colors.shoeBrown },
-                ]}
-              >
-                Questions
-              </Text>
-            </View>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-            >
-              <Text
-                style={[
-                  themeStyles.cardDuration,
-                  { color: ArchivesTheme.colors.shoeBrown },
-                ]}
-              >
-                2 MIN
-              </Text>
-              <Ionicons
-                name={
-                  expandedCard === "questions" ? "chevron-up" : "chevron-down"
-                }
-                size={20}
-                color={ArchivesTheme.colors.shoeBrown}
-              />
-            </View>
-          </View>
-
-          {expandedCard === "questions" && (
-            <>
-              <Text
-                style={[
-                  themeStyles.cardSubtitle,
-                  { color: ArchivesTheme.colors.shoeBrown },
-                ]}
-              >
-                Test your knowledge
-              </Text>
-              <TouchableOpacity
-                style={themeStyles.cardActionButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  if (isQuizUnlocked) {
-                    setActiveModal("quiz");
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: "white",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons
-                    name="arrow-forward"
-                    size={18}
+                    name="checkmark-circle-outline"
+                    size={20}
                     color={ArchivesTheme.colors.shoeBrown}
-                    style={{ transform: [{ rotate: "-45deg" }] }}
+                  />
+                  <Text
+                    style={[
+                      themeStyles.cardTitle,
+                      { color: ArchivesTheme.colors.shoeBrown },
+                    ]}
+                  >
+                    Questions
+                  </Text>
+                </View>
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <Text
+                    style={[
+                      themeStyles.cardDuration,
+                      { color: ArchivesTheme.colors.shoeBrown },
+                    ]}
+                  >
+                    2 MIN
+                  </Text>
+                  <Ionicons
+                    name={
+                      expandedCard === "questions"
+                        ? "chevron-up"
+                        : "chevron-down"
+                    }
+                    size={20}
+                    color={ArchivesTheme.colors.shoeBrown}
                   />
                 </View>
-              </TouchableOpacity>
-            </>
-          )}
-        </TouchableOpacity>
+              </View>
 
-        {/* Bottom Spacing for fixed button */}
-        <View style={{ height: 100 }} />
+              {expandedCard === "questions" && (
+                <>
+                  <Text
+                    style={[
+                      themeStyles.cardSubtitle,
+                      { color: ArchivesTheme.colors.shoeBrown },
+                    ]}
+                  >
+                    Test your knowledge
+                  </Text>
+                  <TouchableOpacity
+                    style={themeStyles.cardActionButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      if (isQuizUnlocked) {
+                        setActiveModal("quiz");
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: "white",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons
+                        name="arrow-forward"
+                        size={18}
+                        color={ArchivesTheme.colors.shoeBrown}
+                        style={{ transform: [{ rotate: "-45deg" }] }}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Bottom Spacing for fixed button */}
+            <View style={{ height: 100 }} />
+          </>
+        )}
       </ScrollView>
 
       {/* Start My Day Button - Fixed at Bottom with 3D depth effect */}
-      <View style={themeStyles.bottomButtonContainer}>
-        {/* Shadow layer for 3D effect */}
-        <View style={themeStyles.startButtonShadow} />
-        {/* Main button */}
-        <TouchableOpacity
-          style={themeStyles.startButton}
-          onPress={() => {
-            if (!watchCompleted) {
-              // Step 1: Open WATCH if not completed
-              setActiveModal("video");
-            } else if (!exploreCompleted) {
-              // Step 2: Open EXPLORE if WATCH done but EXPLORE not done
-              setActiveModal("reading");
-            } else if (isQuizUnlocked) {
-              // Step 3: Open QUIZ if both WATCH and EXPLORE done
-              setActiveModal("quiz");
-            }
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={themeStyles.startButtonText}>Start My Day</Text>
-        </TouchableOpacity>
-      </View>
+      {!(isHistoricalView && !displayedQuest) && (
+        <View style={themeStyles.bottomButtonContainer}>
+          {/* Shadow layer for 3D effect */}
+          <View style={themeStyles.startButtonShadow} />
+          {/* Main button */}
+          <TouchableOpacity
+            style={themeStyles.startButton}
+            onPress={() => {
+              if (!watchCompleted) {
+                // Step 1: Open WATCH if not completed
+                setActiveModal("video");
+              } else if (!exploreCompleted) {
+                // Step 2: Open EXPLORE if WATCH done but EXPLORE not done
+                setActiveModal("reading");
+              } else if (isQuizUnlocked) {
+                // Step 3: Open QUIZ if both WATCH and EXPLORE done
+                setActiveModal("quiz");
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={themeStyles.startButtonText}>Start My Day</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Single Modal for all lesson types - prevents flash on transitions */}
       {(activeModal === "video" ||
         activeModal === "reading" ||
         activeModal === "quiz") &&
-        todayQuest && (
+        (displayedQuest || todayQuest) && (
           <Modal
             visible={true}
             animationType="slide"
@@ -1353,24 +1803,29 @@ export default function TodayScreen() {
               <TodayVideoLesson
                 contentItem={
                   {
-                    id: todayQuest.id,
-                    thumbnail_title: todayQuest.content.card1.title,
+                    id: (displayedQuest || todayQuest)!.id,
+                    thumbnail_title: (displayedQuest || todayQuest)!.content
+                      .card1.title,
                     thumbnail_url: "", // TODO: Replace with random image from 3 hardcoded options
-                    media_url: [todayQuest.content.card1.media_url],
+                    media_url: [
+                      (displayedQuest || todayQuest)!.content.card1.media_url,
+                    ],
                     content_type: "reel",
                     bottom_content: {
-                      title: todayQuest.content.card1.title,
-                      description:
-                        todayQuest.content.card1.content.reading_text,
-                      reading_text:
-                        todayQuest.content.card1.content.reading_text,
+                      title: (displayedQuest || todayQuest)!.content.card1
+                        .title,
+                      description: (displayedQuest || todayQuest)!.content.card1
+                        .content.reading_text,
+                      reading_text: (displayedQuest || todayQuest)!.content
+                        .card1.content.reading_text,
                     },
                     order_by: 0,
                   } as ContentItem
                 }
                 progress={progress}
-                onNext={() => {
+                onNext={async () => {
                   setWatchCompleted(true);
+                  await saveProgress("watch");
                   setActiveModal("reading");
                 }}
                 onDismiss={() => setActiveModal("none")}
@@ -1380,11 +1835,17 @@ export default function TodayScreen() {
             {/* Reading View (EXPLORE) */}
             {activeModal === "reading" && (
               <TodayScrollableLesson
-                contentBlocks={todayQuest.content.card2.content_blocks || []}
+                contentBlocks={
+                  (displayedQuest || todayQuest)!.content.card2
+                    .content_blocks || []
+                }
                 progress={progress}
-                innerVoiceUrl={todayQuest.content.card2.inner_voice}
-                onContinue={() => {
+                innerVoiceUrl={
+                  (displayedQuest || todayQuest)!.content.card2.inner_voice
+                }
+                onContinue={async () => {
                   setExploreCompleted(true);
+                  await saveProgress("explore");
                   setActiveModal("quiz");
                 }}
                 onBack={() => setActiveModal("none")}
@@ -1403,9 +1864,11 @@ export default function TodayScreen() {
                 <Quiz
                   contentItem={
                     {
-                      id: todayQuest.id,
-                      questions: todayQuest.content.card3.questions,
-                      thumbnail_title: todayQuest.content.card3.title,
+                      id: (displayedQuest || todayQuest)!.id,
+                      questions: (displayedQuest || todayQuest)!.content.card3
+                        .questions,
+                      thumbnail_title: (displayedQuest || todayQuest)!.content
+                        .card3.title,
                       thumbnail_url: "", // TODO: Replace with random image from 3 hardcoded options
                       media_url: [],
                       content_type: "reel",
@@ -1414,7 +1877,7 @@ export default function TodayScreen() {
                     } as ContentItem
                   }
                   adventureId="daily_quest"
-                  moduleId={todayQuest.id}
+                  moduleId={(displayedQuest || todayQuest)!.id}
                   eraId="daily_quest"
                   eraName="Daily Quest"
                   isToday={true}
@@ -1428,7 +1891,7 @@ export default function TodayScreen() {
                     try {
                       await saveQuestCompletion(
                         user.id,
-                        todayQuest.id,
+                        (displayedQuest || todayQuest)!.id,
                         score,
                         correctAnswers,
                         totalQuestions,

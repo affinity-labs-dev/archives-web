@@ -465,6 +465,36 @@ export default function ProfileTab() {
     }
   }
 
+  // DEV HELPER: Clear streak + Today screen AsyncStorage for testing
+  const clearStreakAsyncStorage = async () => {
+    try {
+      // Get all AsyncStorage keys
+      const allKeys = await AsyncStorage.getAllKeys()
+
+      // Filter for Today screen progress keys (format: @today_progress_${questId})
+      const todayProgressKeys = allKeys.filter(key => key.startsWith('@today_progress_'))
+
+      // Remove streak data + all Today screen progress + celebration flags
+      const keysToRemove = [
+        '@last_streak_completion_date',
+        '@frozen_streak_data',
+        '@daily_story_end_shown_date',
+        ...todayProgressKeys
+      ]
+
+      await AsyncStorage.multiRemove(keysToRemove)
+      console.log('✅ Streak + Today screen AsyncStorage cleared!', {
+        streakKeys: ['@last_streak_completion_date', '@frozen_streak_data'],
+        celebrationKeys: ['@daily_story_end_shown_date'],
+        todayKeys: todayProgressKeys
+      })
+      Alert.alert('Dev Helper', `Cleared ${keysToRemove.length} keys:\n- Streak data\n- Celebration flags\n- Today progress (${todayProgressKeys.length} quests)`)
+    } catch (error) {
+      console.error('Error clearing streak data:', error)
+      Alert.alert('Error', 'Failed to clear async storage')
+    }
+  }
+
   const handleDeleteAccount = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
     if (isDeletingAccount) return // Prevent multiple deletion attempts
@@ -693,6 +723,16 @@ export default function ProfileTab() {
               }}
             >
               <Text style={styles.testButtonText}>GAME</Text>
+            </TouchableOpacity> */}
+            {/* DEV HELPER: Clear Streak AsyncStorage */}
+            {/* <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                clearStreakAsyncStorage()
+              }}
+            >
+              <Ionicons name="trash-outline" size={28} color={ArchivesTheme.colors.persianOrange} />
             </TouchableOpacity> */}
             <TouchableOpacity
               style={styles.settingsButton}

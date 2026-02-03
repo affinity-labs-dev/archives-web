@@ -284,7 +284,7 @@ export default function StreakCelebrationScreen({
               <Text style={styles.continueButtonText}>LET&apos;S LEARN</Text>
             </TouchableOpacity>
           </Animated.View>
-        </SafeAreaView>
+      </SafeAreaView>
     </Modal>
   );
 }

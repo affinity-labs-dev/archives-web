@@ -43,6 +43,8 @@ interface QuizResultsProps {
   // AI Explanation data
   questions?: Question[];
   userAnswers?: number[];
+  // Today mode - hide XP display
+  isToday?: boolean;
 }
 
 // Video Reward Player - Score-based celebration videos (3-tier system)
@@ -135,6 +137,7 @@ export default function QuizResults({
   moduleNumber,
   questions = [],
   userAnswers = [],
+  isToday = false,
 }: QuizResultsProps) {
   // Calculate percentage
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
@@ -280,10 +283,12 @@ export default function QuizResults({
                 </View>
 
                 <View style={styles.statsRight}>
-                  <View style={styles.xpRow}>
-                    <Ionicons name="star" size={18} color={ArchivesTheme.colors.shoeBrown} />
-                    <Text style={styles.xpText}>{totalPoints} XP</Text>
-                  </View>
+                  {!isToday && (
+                    <View style={styles.xpRow}>
+                      <Ionicons name="star" size={18} color={ArchivesTheme.colors.shoeBrown} />
+                      <Text style={styles.xpText}>{totalPoints} XP</Text>
+                    </View>
+                  )}
                   <Text style={styles.correctText}>Correct: {correctAnswers}/{totalQuestions}</Text>
                 </View>
               </View>

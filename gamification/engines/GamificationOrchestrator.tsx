@@ -30,6 +30,7 @@ import { calculateTotalXP as calculateTotalXPUtil, useGamifiedProgress } from '.
 // Import celebration screens
 import { AchievementUnlockAnimation } from '@/gamification/ui/achievement/AchievementGrid';
 import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen';
+import DailyStoryEndScreen from '@/gamification/ui/celebrations/DailyStoryEndScreen';
 import StreakCelebrationScreen from '@/gamification/ui/celebrations/StreakCelebrationScreen';
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 
@@ -302,7 +303,11 @@ interface StreakMilestoneCelebration {
 interface StreakCelebration {
   type: 'STREAK_CELEBRATION';
   streakCount: number;
-  weekData: { day: string; completed: boolean; isToday: boolean }[];
+  weekData: { day: string; completed: boolean; missed: boolean; isToday: boolean }[];
+}
+
+interface DailyStoryEndCelebration {
+  type: 'DAILY_STORY_END';
 }
 
 interface AchievementCelebration {
@@ -310,7 +315,7 @@ interface AchievementCelebration {
   achievement: Achievement;
 }
 
-type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | StreakCelebration | AchievementCelebration;
+type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | StreakCelebration | DailyStoryEndCelebration | AchievementCelebration;
 
 // ============================================================
 // CONTEXT
@@ -321,8 +326,8 @@ interface GamificationOrchestratorContextType {
   reportQuizComplete: (input: QuizCompleteInput) => Promise<void>;
   /** Report lesson completion - for future triggers */
   reportLessonComplete: (input: LessonCompleteInput) => Promise<void>;
-  /** Report Today screen completion (100% progress) - triggers streak update */
-  reportTodayComplete: () => Promise<void>;
+  /** Report Today screen completion (100% progress) - triggers streak update if quest date matches today */
+  reportTodayComplete: (questDate: string) => Promise<void>;
   /** Check if any celebration is currently showing */
   isCelebrating: boolean;
   /** Current streak data */
@@ -635,9 +640,16 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       await reloadData();
       console.log(`✅ [Orchestrator] Fresh data loaded from Supabase`);
 
-      // STEP 2: Read the FRESH streak data (now guaranteed to be from Supabase)
-      const cloudStreak = getCloudStreak();
-      console.log(`🔥 [Orchestrator] Current streak: ${cloudStreak.currentStreak}, Last active: ${cloudStreak.lastActiveDate}`);
+      // STEP 2: Read the FRESH streak data (with safety check for race conditions)
+      let cloudStreak;
+      try {
+        cloudStreak = getCloudStreak();
+        console.log(`🔥 [Orchestrator] Current streak: ${cloudStreak.currentStreak}, Last active: ${cloudStreak.lastActiveDate}`);
+      } catch (error) {
+        console.log('⏳ [Orchestrator] State not ready yet, will retry on next initialization');
+        setIsStreakLoading(false);
+        return; // Exit early, will be called again when state is actually ready
+      }
 
       const today = new Date().toISOString().split('T')[0]; // ISO format: YYYY-MM-DD
 
@@ -1283,17 +1295,19 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     // ========== NEW ACTIVITY-BASED STREAK SYSTEM ==========
     // Streak increments on first module/today completion of the day (not app open)
     // Works for quiz retakes - any completion counts as activity
-    console.log(`📊 [Orchestrator] Checking for streak update (activity-based)...`);
+    // SKIP for Today quizzes - streak is handled separately at 100% completion via reportTodayComplete()
+    if (eraId !== 'daily_quest') {
+      console.log(`📊 [Orchestrator] Checking for streak update (activity-based)...`);
 
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const COMPLETION_DATE_KEY = '@last_streak_completion_date';
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const COMPLETION_DATE_KEY = '@last_streak_completion_date';
 
-    try {
-      // Check if this is first completion today
-      const lastCompletionDate = await AsyncStorage.getItem(COMPLETION_DATE_KEY);
-      console.log(`🔍 [Orchestrator] Last completion date: ${lastCompletionDate}, Today: ${today}`);
+      try {
+        // Check if this is first completion today
+        const lastCompletionDate = await AsyncStorage.getItem(COMPLETION_DATE_KEY);
+        console.log(`🔍 [Orchestrator] Last completion date: ${lastCompletionDate}, Today: ${today}`);
 
-      if (lastCompletionDate !== today) {
+        if (lastCompletionDate !== today) {
         console.log(`🔥 [Orchestrator] First completion today! Incrementing streak...`);
 
         // Get current streak data from cloud
@@ -1372,12 +1386,15 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         await AsyncStorage.setItem(COMPLETION_DATE_KEY, today);
         console.log(`✅ [Orchestrator] Completion date marked: ${today}`);
 
-      } else {
-        console.log(`✅ [Orchestrator] Already completed today, streak maintained (no celebration)`);
+        } else {
+          console.log(`✅ [Orchestrator] Already completed today, streak maintained (no celebration)`);
+        }
+      } catch (error) {
+        console.error('❌ [Orchestrator] Error in streak update:', error);
+        // Don't block quiz completion if streak update fails
       }
-    } catch (error) {
-      console.error('❌ [Orchestrator] Error in streak update:', error);
-      // Don't block quiz completion if streak update fails
+    } else {
+      console.log(`⏭️ [Orchestrator] Today quiz - streak handled separately at 100% completion`);
     }
     // ========== END NEW STREAK SYSTEM ==========
 
@@ -1406,20 +1423,25 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     }
 
     // --- Check 2: XP Milestone ---
-    const milestone = checkXPMilestone(oldEraXP, newEraXP);
-    if (milestone) {
-      const alreadySeen = await hasSeenXPMilestone(milestone, eraId);
-      if (!alreadySeen) {
-        newCelebrations.push({
-          type: 'XP_MILESTONE',
-          milestoneXP: milestone,
-          totalXP: newEraXP,
-          eraId,
-        });
-        console.log(`🎯 [Orchestrator] XP milestone ${milestone} queued for era ${eraId}`);
-      } else {
-        console.log(`⏭️ [Orchestrator] XP milestone ${milestone} already seen, skipping`);
+    // SKIP for Today quizzes - they don't award XP or trigger milestones
+    if (eraId !== 'daily_quest') {
+      const milestone = checkXPMilestone(oldEraXP, newEraXP);
+      if (milestone) {
+        const alreadySeen = await hasSeenXPMilestone(milestone, eraId);
+        if (!alreadySeen) {
+          newCelebrations.push({
+            type: 'XP_MILESTONE',
+            milestoneXP: milestone,
+            totalXP: newEraXP,
+            eraId,
+          });
+          console.log(`🎯 [Orchestrator] XP milestone ${milestone} queued for era ${eraId}`);
+        } else {
+          console.log(`⏭️ [Orchestrator] XP milestone ${milestone} already seen, skipping`);
+        }
       }
+    } else {
+      console.log(`⏭️ [Orchestrator] Today quiz - skipping XP milestone check`);
     }
 
     // ========== OLD STREAK CELEBRATION LOGIC (COMMENTED OUT) ==========
@@ -1488,14 +1510,36 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   /**
    * Report Today screen completion (video + explore + questions = 100%)
    * Same streak logic as reportQuizComplete - first completion of day increments streak
+   * @param questDate - The date of the completed quest (YYYY-MM-DD format)
    */
-  const reportTodayComplete = useCallback(async () => {
-    console.log(`📊 [Orchestrator] Today screen completed - checking for streak update`);
+  const reportTodayComplete = useCallback(async (questDate: string) => {
+    console.log(`📊 [Orchestrator] Today screen completed - checking for celebrations`);
 
     const today = new Date().toISOString().split('T')[0];
     const COMPLETION_DATE_KEY = '@last_streak_completion_date';
+    const DAILY_STORY_SHOWN_KEY = '@daily_story_end_shown_date';
+
+    // NOTE: Date validation now happens in today.tsx via completedDate stamp
+    // By the time we reach here, we know it's today's actual date
 
     try {
+      // Check if Daily Story End celebration was already shown today
+      const lastShownDate = await AsyncStorage.getItem(DAILY_STORY_SHOWN_KEY);
+
+      if (lastShownDate !== today) {
+        // Queue Daily Story End celebration first (shows regardless of streak status)
+        setCelebrationQueue((prev) => [...prev, {
+          type: 'DAILY_STORY_END',
+        }]);
+        console.log(`🎬 [Orchestrator] Daily Story End celebration queued`);
+
+        // Mark as shown for today
+        await AsyncStorage.setItem(DAILY_STORY_SHOWN_KEY, today);
+        console.log(`✅ [Orchestrator] Daily Story End marked as shown for ${today}`);
+      } else {
+        console.log(`⏭️ [Orchestrator] Daily Story End already shown today, skipping`);
+      }
+
       const lastCompletionDate = await AsyncStorage.getItem(COMPLETION_DATE_KEY);
       console.log(`🔍 [Orchestrator] Last completion date: ${lastCompletionDate}, Today: ${today}`);
 
@@ -1669,47 +1713,57 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     >
       {children}
 
-      {/* XP Milestone Modal */}
-      <Modal
-        visible={currentCelebration?.type === 'XP_MILESTONE'}
-        animationType="fade"
-        presentationStyle="fullScreen"
-        statusBarTranslucent
-      >
-        {currentCelebration?.type === 'XP_MILESTONE' && (
-          <XPMilestoneScreen
-            milestoneXP={currentCelebration.milestoneXP}
-            totalXP={currentCelebration.totalXP}
-            eraId={currentCelebration.eraId}
-            onContinue={dismissCurrent}
-          />
-        )}
-      </Modal>
+      {/* XP Milestone Modal - Only render when Streak is NOT showing */}
+      {currentCelebration?.type !== 'STREAK_CELEBRATION' && (
+        <Modal
+          visible={currentCelebration?.type === 'XP_MILESTONE'}
+          animationType="fade"
+          presentationStyle="fullScreen"
+          statusBarTranslucent
+        >
+          {currentCelebration?.type === 'XP_MILESTONE' && (
+            <XPMilestoneScreen
+              milestoneXP={currentCelebration.milestoneXP}
+              totalXP={currentCelebration.totalXP}
+              eraId={currentCelebration.eraId}
+              onContinue={dismissCurrent}
+            />
+          )}
+        </Modal>
+      )}
 
-      {/* Adventure Complete Modal */}
-      <Modal
-        visible={currentCelebration?.type === 'ADVENTURE_COMPLETE'}
-        animationType="fade"
-        presentationStyle="fullScreen"
-        statusBarTranslucent
-      >
-        {currentCelebration?.type === 'ADVENTURE_COMPLETE' && (
-          <AdventureCompleteScreen
-            adventureTitle={currentCelebration.adventureTitle}
-            adventureSubtitle={currentCelebration.adventureSubtitle}
-            adventureDescription={currentCelebration.adventureDescription}
-            backgroundImage={currentCelebration.backgroundImage}
-            completedModules={currentCelebration.completedModules}
-            totalModules={currentCelebration.totalModules}
-            totalXP={currentCelebration.totalXP}
-            totalBadges={currentCelebration.totalBadges}
-            onContinue={dismissCurrent}
-            onClose={dismissCurrent}
-          />
-        )}
-      </Modal>
+      {/* Adventure Complete Modal - Only render when Streak is NOT showing */}
+      {currentCelebration?.type !== 'STREAK_CELEBRATION' && (
+        <Modal
+          visible={currentCelebration?.type === 'ADVENTURE_COMPLETE'}
+          animationType="fade"
+          presentationStyle="fullScreen"
+          statusBarTranslucent
+        >
+          {currentCelebration?.type === 'ADVENTURE_COMPLETE' && (
+            <AdventureCompleteScreen
+              adventureTitle={currentCelebration.adventureTitle}
+              adventureSubtitle={currentCelebration.adventureSubtitle}
+              adventureDescription={currentCelebration.adventureDescription}
+              backgroundImage={currentCelebration.backgroundImage}
+              completedModules={currentCelebration.completedModules}
+              totalModules={currentCelebration.totalModules}
+              totalXP={currentCelebration.totalXP}
+              totalBadges={currentCelebration.totalBadges}
+              onContinue={dismissCurrent}
+              onClose={dismissCurrent}
+            />
+          )}
+        </Modal>
+      )}
 
-      {/* Streak Celebration Screen - Shows daily on first app open */}
+      {/* Daily Story End Screen - Shows after Today quest completion */}
+      <DailyStoryEndScreen
+        visible={currentCelebration?.type === 'DAILY_STORY_END'}
+        onContinue={dismissCurrent}
+      />
+
+      {/* Streak Celebration Screen - Shows after Daily Story End (if applicable) */}
       <StreakCelebrationScreen
         visible={currentCelebration?.type === 'STREAK_CELEBRATION'}
         streakCount={currentCelebration?.type === 'STREAK_CELEBRATION' ? currentCelebration.streakCount : 0}
@@ -1717,8 +1771,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         onContinue={dismissCurrent}
       />
 
-      {/* Achievement Unlock Modal */}
-      {currentCelebration?.type === 'ACHIEVEMENT' && (
+      {/* Achievement Unlock Modal - Only render when Streak is NOT showing */}
+      {currentCelebration?.type !== 'STREAK_CELEBRATION' && currentCelebration?.type === 'ACHIEVEMENT' && (
         <AchievementUnlockAnimation
           visible={true}
           achievement={currentCelebration.achievement}
