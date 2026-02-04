@@ -29,9 +29,10 @@ import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen'
 import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
 
+// Used by era quizzes and Today screen (isToday=true, adventureId="daily_quest")
 interface QuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
-  adventureId: string;       // Database adventure readable_id (e.g., "roi_adventure_1")
+  adventureId: string;       // Database adventure readable_id (e.g., "roi_adventure_1") | "daily_quest" for Today
   moduleId: string;          // Database content_list.id (media_id)
   eraId: string;             // Era ID from adventure (e.g., "rise_of_islam", "umayyad")
   eraName: string;           // Era display name (from card_content.era_name)
@@ -49,7 +50,7 @@ interface QuizProps {
     totalBadges?: number;
   };
   // Today mode - skips gamification saving, calls onQuizResults with score
-  isToday?: boolean;
+  isToday?: boolean;         // true when called from Today screen
   onQuizResults?: (score: number, correctAnswers: number, totalQuestions: number) => Promise<void>;
   // Today mode UI - floating header with back button and progress
   progress?: number;           // Today progress percentage (0-100)
@@ -423,26 +424,28 @@ export default function Quiz({
 
       console.log(`📊 [Quiz] Correct answer! XP: ${oldXP} → ${newXP}`);
 
-      // Check if we crossed a milestone (uses orchestrator's function)
-      const milestone = checkXPMilestone(oldXP, newXP);
+      // Check if we crossed a milestone (SKIP for Today mode - no XP awarded for Today quizzes)
+      if (!isToday) {
+        const milestone = checkXPMilestone(oldXP, newXP);
 
-      if (milestone) {
-        console.log(`🎉 [Quiz] MID-QUIZ Milestone crossed: ${milestone} XP for era: ${eraId}`);
+        if (milestone) {
+          console.log(`🎉 [Quiz] MID-QUIZ Milestone crossed: ${milestone} XP for era: ${eraId}`);
 
-        // Check if user already saw this milestone (ERA-SPECIFIC)
-        const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestone, eraId);
-        const hasSeenMilestone = await AsyncStorage.getItem(milestoneKey);
+          // Check if user already saw this milestone (ERA-SPECIFIC)
+          const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestone, eraId);
+          const hasSeenMilestone = await AsyncStorage.getItem(milestoneKey);
 
-        if (hasSeenMilestone !== 'true') {
-          // Show milestone modal (pauses quiz)
-          setMilestoneData({ milestoneXP: milestone, totalXP: newXP });
-          setShowMilestone(true);
+          if (hasSeenMilestone !== 'true') {
+            // Show milestone modal (pauses quiz)
+            setMilestoneData({ milestoneXP: milestone, totalXP: newXP });
+            setShowMilestone(true);
 
-          // Play correct sound + haptics for celebration
-          playCorrect();
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            // Play correct sound + haptics for celebration
+            playCorrect();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-          return; // Don't show feedback yet - milestone takes priority
+            return; // Don't show feedback yet - milestone takes priority
+          }
         }
       }
 

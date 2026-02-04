@@ -15,12 +15,12 @@ import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  GestureResponderEvent,
   Modal,
   Platform,
   ScrollView,
@@ -30,6 +30,13 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -132,10 +139,13 @@ interface Today {
 interface TodayProgress {
   user_id: string;
   daily_quest_id: string;
-  completed_at: string;
+  watch_completed?: boolean;
+  explore_completed?: boolean;
   score: number;
   correct_answers: number;
   total_questions: number;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 // ============================================================================
@@ -330,6 +340,7 @@ export default function TodayScreen() {
     lastActiveBeforeUpdate,
     streakBeforeUpdate,
     reportTodayComplete,
+    showStreakCelebration,
   } = useGamificationOrchestrator();
   const { getStreak } = useGamifiedProgress();
   const {
@@ -358,7 +369,7 @@ export default function TodayScreen() {
   >(null);
 
   // Single enum state for modal management (prevents flicker during transitions)
-  type ModalState = "none" | "video" | "reading" | "quiz" | "calendar";
+  type ModalState = "none" | "video" | "reading" | "quiz";
   const [activeModal, setActiveModal] = useState<ModalState>("none");
 
   // Week navigation and historical content viewing
@@ -371,8 +382,14 @@ export default function TodayScreen() {
   // Week navigation state (0 = current week, 1 = previous week)
   const [weekView, setWeekView] = useState<0 | 1>(0);
 
-  // Swipe detection for week navigation
-  const touchStartX = useRef<number>(0);
+  // Cache for completed quest dates (for calendar display)
+  const [completedDatesCache, setCompletedDatesCache] =
+    useState<Set<string> | null>(null);
+
+  // Animation for iOS Calendar-style week transitions
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const translateX = useSharedValue(0);
+  const startX = useSharedValue(0);
 
   // ScrollView ref for calendar horizontal scrolling
   const calendarScrollRef = useRef<ScrollView>(null);
@@ -503,30 +520,89 @@ export default function TodayScreen() {
     }
   };
 
-  // Handle swipe gestures for week navigation
-  const handleTouchStart = (e: GestureResponderEvent) => {
-    touchStartX.current = e.nativeEvent.pageX;
-  };
+  // Gesture handler for iOS Calendar-style swipe navigation
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      startX.value = translateX.value;
+    })
+    .onUpdate((event) => {
+      // Follow finger during pan
+      translateX.value = startX.value + event.translationX;
+    })
+    .onEnd((event) => {
+      const swipeThreshold = 50; // Minimum distance to trigger transition
+      const velocityThreshold = 500; // Velocity threshold for quick swipes
 
-  const handleTouchEnd = (e: GestureResponderEvent) => {
-    const touchEndX = e.nativeEvent.pageX;
-    const diff = touchStartX.current - touchEndX;
-    const swipeThreshold = 30; // Reduced threshold for easier swipes
+      const shouldTransition =
+        Math.abs(event.translationX) > swipeThreshold ||
+        Math.abs(event.velocityX) > velocityThreshold;
 
-    if (Math.abs(diff) > swipeThreshold) {
-      if (diff > 0) {
-        // Swipe left -> go to current week (only if currently on previous week)
-        if (weekView === 1) {
-          setWeekView(0);
+      if (shouldTransition) {
+        if (event.translationX > 0) {
+          // Swipe RIGHT -> go to previous week (only if on current week)
+          if (weekView === 0) {
+            // Animate to show previous week with smooth spring
+            translateX.value = withSpring(
+              0,
+              {
+                damping: 20,
+                stiffness: 150,
+                mass: 0.8,
+                overshootClamping: false,
+              },
+              () => {
+                runOnJS(setWeekView)(1);
+              },
+            );
+          } else {
+            // Already on previous week, snap back with spring
+            translateX.value = withSpring(0, {
+              damping: 20,
+              stiffness: 150,
+              mass: 0.8,
+            });
+          }
+        } else {
+          // Swipe LEFT -> go to current week (only if on previous week)
+          if (weekView === 1) {
+            // Animate to show current week with smooth spring
+            translateX.value = withSpring(
+              0,
+              {
+                damping: 20,
+                stiffness: 150,
+                mass: 0.8,
+                overshootClamping: false,
+              },
+              () => {
+                runOnJS(setWeekView)(0);
+              },
+            );
+          } else {
+            // Already on current week, snap back with spring
+            translateX.value = withSpring(0, {
+              damping: 20,
+              stiffness: 150,
+              mass: 0.8,
+            });
+          }
         }
       } else {
-        // Swipe right -> go to previous week (only if currently on current week)
-        if (weekView === 0) {
-          setWeekView(1);
-        }
+        // Didn't swipe enough, snap back to original position with spring
+        translateX.value = withSpring(0, {
+          damping: 20,
+          stiffness: 150,
+          mass: 0.8,
+        });
       }
-    }
-  };
+    });
+
+  // Animated style for calendar week transitions
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
 
   // Scroll to show current week on mount with today visible
   useEffect(() => {
@@ -553,6 +629,43 @@ export default function TodayScreen() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Fetch completed quest dates from Supabase for calendar display
+  const fetchCompletedQuestDates = async (
+    startDate: Date,
+    endDate: Date,
+  ): Promise<Set<string>> => {
+    if (!user?.id) return new Set();
+
+    try {
+      const startDateStr = startDate.toISOString().split("T")[0];
+      const endDateStr = endDate.toISOString().split("T")[0];
+
+      const { data, error } = await supabase
+        .from("user_daily_quest_progress")
+        .select("daily_quest_id, daily_content!fk_daily_quest!inner(date)")
+        .eq("user_id", user.id)
+        .gte("daily_content.date", startDateStr)
+        .lte("daily_content.date", endDateStr);
+
+      if (error) {
+        console.error("❌ [Calendar] Error fetching completed dates:", error);
+        return new Set();
+      }
+
+      const completedDates = new Set(
+        data?.map((row: any) => row.daily_content.date) || [],
+      );
+      console.log(
+        "📅 [Calendar] Fetched completed dates:",
+        Array.from(completedDates),
+      );
+      return completedDates;
+    } catch (error) {
+      console.error("❌ [Calendar] Exception fetching completed dates:", error);
+      return new Set();
+    }
+  };
+
   // Handle voice change and save to Supabase
   // Get 14 days for continuous horizontal scrolling (last week + current week)
   const getWeekDates = () => {
@@ -567,95 +680,11 @@ export default function TodayScreen() {
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - dayOfWeek - 7); // Go back to Sunday of last week
 
-    // Get full streak data from GamifiedProgress (includes longestStreakDate)
-    const fullStreak = getStreak();
-    const { longestStreakDate, lastActiveDate } = fullStreak;
+    // Use completed dates from Supabase (cached in state)
+    const completedDates = completedDatesCache || new Set<string>();
 
-    // Build a Set of all streak dates for efficient lookup
-    const streakDates = new Set<string>();
-    const missedDates = new Set<string>();
-
-    // Check if we should show historical longest streak (when it's bigger than current)
-    const useHistoricalStreak = longestStreak > streak;
-
-    if (useHistoricalStreak && longestStreakDate) {
-      console.log("📅 [Calendar] Using historical streak mode");
-
-      // Add historical longest streak dates (e.g., 47 days ending Jan 24)
-      const historicalEnd = new Date(longestStreakDate);
-      historicalEnd.setHours(0, 0, 0, 0);
-
-      for (let i = 0; i < longestStreak; i++) {
-        const date = new Date(historicalEnd);
-        date.setDate(historicalEnd.getDate() - i);
-        streakDates.add(date.toISOString().split("T")[0]);
-      }
-
-      // Calculate current streak start date
-      const currentStart = new Date(lastActiveDate);
-      currentStart.setHours(0, 0, 0, 0);
-      currentStart.setDate(currentStart.getDate() - (streak - 1));
-
-      // Calculate gap between historical end and current start
-      const gapDays =
-        Math.floor(
-          (currentStart.getTime() - historicalEnd.getTime()) /
-            (1000 * 60 * 60 * 24),
-        ) - 1;
-
-      if (gapDays > 0) {
-        console.log(
-          `📅 [Calendar] Found ${gapDays} missed days between streaks`,
-        );
-        for (let i = 1; i <= gapDays; i++) {
-          const missedDate = new Date(historicalEnd);
-          missedDate.setDate(historicalEnd.getDate() + i);
-          missedDates.add(missedDate.toISOString().split("T")[0]);
-        }
-      }
-
-      // Add current streak dates (e.g., 2 days ending today)
-      if (streak > 0) {
-        for (let i = 0; i < streak; i++) {
-          const date = new Date(currentStart);
-          date.setDate(currentStart.getDate() + i);
-          streakDates.add(date.toISOString().split("T")[0]);
-        }
-      }
-    } else {
-      console.log("📅 [Calendar] Using normal streak mode");
-
-      // Normal mode: show current streak only
-      const lastActive = new Date(lastActiveDate);
-      lastActive.setHours(0, 0, 0, 0);
-
-      if (streak > 0) {
-        for (let i = 0; i < streak; i++) {
-          const streakDate = new Date(lastActive);
-          streakDate.setDate(lastActive.getDate() - i);
-          streakDates.add(streakDate.toISOString().split("T")[0]);
-        }
-      }
-
-      // Missed days: gap between lastActive and today (if gap > 1)
-      const daysDiff = Math.floor(
-        (todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      if (daysDiff > 1) {
-        for (let i = 1; i < daysDiff; i++) {
-          const missedDate = new Date(lastActive);
-          missedDate.setDate(lastActive.getDate() + i);
-          missedDates.add(missedDate.toISOString().split("T")[0]);
-        }
-      }
-    }
-
-    console.log("📅 [Calendar] Week view:", {
-      streak,
-      longestStreak,
-      longestStreakDate,
-      streakDates: Array.from(streakDates),
-      missedDates: Array.from(missedDates),
+    console.log("📅 [Calendar] Week view (completion-based):", {
+      completedDates: Array.from(completedDates),
       today: today.toISOString().split("T")[0],
     });
 
@@ -669,14 +698,11 @@ export default function TodayScreen() {
       const isPast = dateStart < todayStart;
       const isFuture = dateStart > todayStart;
 
-      // Check if this day is part of the streak using the Set
-      const isInStreak = streakDates.has(dateString);
+      // Check if this day's quest was completed using the Set
+      const isCompleted = completedDates.has(dateString);
 
-      // Check if this day was missed using the Set
-      const isMissed = missedDates.has(dateString);
-
-      // Completed = part of streak only (today shows orange ONLY after actually completing)
-      const isCompleted = isInStreak;
+      // Missed = past date that was not completed (lock icon)
+      const isMissed = isPast && !isCompleted;
 
       // Calculate day of week for this date
       const dayIndex = date.getDay(); // 0 = Sunday, 6 = Saturday
@@ -699,21 +725,78 @@ export default function TodayScreen() {
   const [watchCompleted, setWatchCompleted] = useState(false);
   const [exploreCompleted, setExploreCompleted] = useState(false);
   const [questCompleted, setQuestCompleted] = useState(false);
+  const [isLoadingProgress, setIsLoadingProgress] = useState(false);
 
   // Load progress from AsyncStorage when quest changes
   useEffect(() => {
     // CRITICAL: Reset state IMMEDIATELY when quest changes (synchronous)
     // This prevents showing stale progress from previous date during async load
+    setIsLoadingProgress(true);
     setWatchCompleted(false);
     setExploreCompleted(false);
     setQuestCompleted(false);
 
     const loadProgress = async () => {
+      // When viewing historical date with no content, don't fall back to today's quest
+      if (isHistoricalView && !displayedQuest) {
+        console.log(
+          "📅 [Today] Historical date with no content - keeping progress at 0%",
+        );
+        setIsLoadingProgress(false);
+        return;
+      }
+
       const currentQuestId = displayedQuest?.id || todayQuest?.id;
-      if (!currentQuestId) return;
+      if (!currentQuestId) {
+        setIsLoadingProgress(false);
+        return;
+      }
 
       try {
-        // Load watch/explore from AsyncStorage
+        // PRIMARY: Load all progress from Supabase (watch, explore, quiz)
+        if (user?.id) {
+          const { data, error } = await supabase
+            .from("user_daily_quest_progress")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("daily_quest_id", currentQuestId)
+            .maybeSingle();
+
+          if (error) {
+            console.warn("⚠️ [Today] Supabase query error:", error.message);
+          }
+
+          if (data) {
+            // Load from Supabase (single source of truth)
+            setWatchCompleted(!!data.watch_completed);
+            setExploreCompleted(!!data.explore_completed);
+            // Quiz is completed if row exists with score data
+            setQuestCompleted(data.score !== undefined && data.score !== null);
+            console.log(
+              `✅ [Today] Loaded progress from Supabase for ${currentQuestId}:`,
+              {
+                watch: !!data.watch_completed,
+                explore: !!data.explore_completed,
+                quiz: data.score !== undefined && data.score !== null,
+                score: data.score,
+              },
+            );
+
+            // BACKUP: Cache to AsyncStorage for offline access
+            const key = `@today_progress_${currentQuestId}`;
+            await AsyncStorage.setItem(
+              key,
+              JSON.stringify({
+                watch: !!data.watch_completed,
+                explore: !!data.explore_completed,
+                completedDate: data.created_at || null,
+              }),
+            );
+            return;
+          }
+        }
+
+        // FALLBACK: If Supabase has no data or user not logged in, try AsyncStorage
         const key = `@today_progress_${currentQuestId}`;
         const stored = await AsyncStorage.getItem(key);
 
@@ -722,58 +805,85 @@ export default function TodayScreen() {
           setWatchCompleted(progress.watch || false);
           setExploreCompleted(progress.explore || false);
           console.log(
-            `📖 [Today] Loaded progress for ${currentQuestId}:`,
+            `📖 [Today] Loaded progress from AsyncStorage (offline) for ${currentQuestId}:`,
             progress,
           );
         }
-        // Note: If no stored data, state already reset to false at useEffect start
-
-        // Check Supabase for quiz completion
-        if (user?.id) {
-          const { data } = await supabase
-            .from("user_daily_quest_progress")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("daily_quest_id", currentQuestId)
-            .maybeSingle();
-
-          setQuestCompleted(!!data);
-          if (data) {
-            console.log(
-              `✅ [Today] Quiz already completed for ${currentQuestId}`,
-            );
-          }
-        }
+        // Note: If no stored data anywhere, state already reset to false at useEffect start
       } catch (error) {
         console.error("❌ [Today] Error loading progress:", error);
+      } finally {
+        setIsLoadingProgress(false);
       }
     };
 
     loadProgress();
-  }, [displayedQuest?.id, todayQuest?.id, user?.id]);
+  }, [
+    displayedQuest?.id,
+    todayQuest?.id,
+    user?.id,
+    isHistoricalView,
+    displayedQuest,
+  ]);
 
-  // Save progress to AsyncStorage (completedDate set in completion check useEffect)
+  // Save watch/explore progress to Supabase (with AsyncStorage backup)
   const saveProgress = async (section: "watch" | "explore") => {
     const currentQuestId = displayedQuest?.id || todayQuest?.id;
-    if (!currentQuestId) return;
+    if (!currentQuestId || !user?.id) {
+      console.warn(
+        "⚠️ [Today] Cannot save progress - missing quest ID or user",
+      );
+      return;
+    }
 
     try {
-      const key = `@today_progress_${currentQuestId}`;
+      const fieldName =
+        section === "watch" ? "watch_completed" : "explore_completed";
 
-      // Load existing progress to preserve completedDate if already set
+      // PRIMARY: Save to Supabase using upsert
+      const { error: upsertError } = await supabase
+        .from("user_daily_quest_progress")
+        .upsert(
+          {
+            user_id: user.id,
+            daily_quest_id: currentQuestId,
+            [fieldName]: true,
+            // Provide defaults for NOT NULL fields when creating new row
+            score: 0,
+            correct_answers: 0,
+            total_questions: 0,
+          },
+          {
+            onConflict: "user_id,daily_quest_id",
+            ignoreDuplicates: false, // Update existing row
+          },
+        );
+
+      if (upsertError) {
+        console.error(
+          `❌ [Today] Supabase upsert error for ${section}:`,
+          upsertError,
+        );
+      } else {
+        console.log(
+          `✅ [Today] Saved ${section} completion to Supabase for ${currentQuestId}`,
+        );
+      }
+
+      // BACKUP: Save to AsyncStorage for offline access
+      const key = `@today_progress_${currentQuestId}`;
       const stored = await AsyncStorage.getItem(key);
       const existing = stored ? JSON.parse(stored) : {};
 
       const current = {
         watch: section === "watch" ? true : existing.watch || false,
         explore: section === "explore" ? true : existing.explore || false,
-        completedDate: existing.completedDate || null, // Preserve existing completedDate
+        completedDate: existing.completedDate || null,
       };
 
       await AsyncStorage.setItem(key, JSON.stringify(current));
       console.log(
-        `💾 [Today] Saved ${section} completion for ${currentQuestId}`,
-        current,
+        `💾 [Today] Cached ${section} completion to AsyncStorage for ${currentQuestId}`,
       );
     } catch (error) {
       console.error("❌ [Today] Error saving progress:", error);
@@ -844,12 +954,39 @@ export default function TodayScreen() {
   // Note: reportTodayComplete and displayedQuest intentionally excluded to prevent double triggers
   // ========== END STREAK TRIGGER ==========
 
+  // Fetch completed quest dates for calendar display
+  useEffect(() => {
+    const loadCompletedDates = async () => {
+      if (!user?.id) {
+        setCompletedDatesCache(new Set());
+        return;
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Fetch for a wider range to cover both week view and month modal
+      // Go back 60 days to cover historical data
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 60);
+
+      const completedDates = await fetchCompletedQuestDates(startDate, today);
+      setCompletedDatesCache(completedDates);
+    };
+
+    loadCompletedDates();
+  }, [user?.id, questCompleted]); // Refetch when user changes or quest completed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   // Calculate progress percentage based on actual completion
   const calculateProgress = () => {
+    // During loading transition, always show 0% to prevent flash of old progress
+    if (isLoadingProgress) return 0;
+
     let completed = 0;
     if (watchCompleted) completed++;
     if (exploreCompleted) completed++;
-    if (isCompleted || questCompleted) completed++;
+    if (questCompleted) completed++; // Only use questCompleted (loaded per date from Supabase)
     return Math.round((completed / 3) * 100);
   };
 
@@ -887,235 +1024,8 @@ export default function TodayScreen() {
     );
   }
 
-  // Error state - show "No Quest" screen only for today's quest errors
-  if (error || !todayQuest) {
-    return (
-      <SafeAreaView style={themeStyles.container} edges={["top"]}>
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            paddingHorizontal: 40,
-          }}
-        >
-          <Ionicons
-            name="calendar-outline"
-            size={64}
-            color={ArchivesTheme.colors.shoeBrown}
-          />
-          <Text
-            style={[
-              themeStyles.headerTitle,
-              { marginTop: 20, textAlign: "center" },
-            ]}
-          >
-            No Quest Today
-          </Text>
-          <Text
-            style={{
-              fontFamily: "DM Sans",
-              fontSize: 14,
-              fontWeight: "400",
-              color: ArchivesTheme.colors.shoeBrown,
-              textAlign: "center",
-              marginTop: 10,
-            }}
-          >
-            Check back tomorrow for a new daily quest!
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const weekDates = getWeekDates();
   const progress = calculateProgress();
-
-  // Get full month calendar data with streak tracking
-  const getMonthCalendar = () => {
-    const today = new Date();
-    const todayStart = new Date(today.setHours(0, 0, 0, 0));
-    const todayDay = today.getDate();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-
-    // First day of month and total days
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
-
-    // Get full streak data from GamifiedProgress (includes longestStreakDate)
-    const fullStreak = getStreak();
-    const { longestStreakDate, lastActiveDate } = fullStreak;
-
-    // Calculate which days were in the streak
-    const streakDays = new Set<number>();
-    const missedDays = new Set<number>();
-
-    // Check if we should show historical longest streak (when it's bigger than current)
-    const useHistoricalStreak = longestStreak > streak;
-
-    if (useHistoricalStreak && longestStreakDate) {
-      console.log("📅 [Calendar Modal] Using historical streak mode");
-
-      // Add historical longest streak dates (e.g., 47 days ending Jan 24)
-      const historicalEnd = new Date(longestStreakDate);
-      historicalEnd.setHours(0, 0, 0, 0);
-
-      for (let i = 0; i < longestStreak; i++) {
-        const date = new Date(historicalEnd);
-        date.setDate(historicalEnd.getDate() - i);
-
-        // Only add to set if this day is in the current viewing month
-        if (date.getMonth() === month && date.getFullYear() === year) {
-          streakDays.add(date.getDate());
-        }
-      }
-
-      // Calculate current streak start date
-      const currentStart = new Date(lastActiveDate);
-      currentStart.setHours(0, 0, 0, 0);
-      currentStart.setDate(currentStart.getDate() - (streak - 1));
-
-      // Calculate gap between historical end and current start
-      const gapDays =
-        Math.floor(
-          (currentStart.getTime() - historicalEnd.getTime()) /
-            (1000 * 60 * 60 * 24),
-        ) - 1;
-
-      if (gapDays > 0) {
-        console.log(
-          `📅 [Calendar Modal] Found ${gapDays} missed days between streaks`,
-        );
-        for (let i = 1; i <= gapDays; i++) {
-          const missedDate = new Date(historicalEnd);
-          missedDate.setDate(historicalEnd.getDate() + i);
-
-          // Only add to set if this day is in the current viewing month
-          if (
-            missedDate.getMonth() === month &&
-            missedDate.getFullYear() === year
-          ) {
-            missedDays.add(missedDate.getDate());
-          }
-        }
-      }
-
-      // Add current streak dates (e.g., 2 days ending today)
-      if (streak > 0) {
-        for (let i = 0; i < streak; i++) {
-          const date = new Date(currentStart);
-          date.setDate(currentStart.getDate() + i);
-
-          // Only add to set if this day is in the current viewing month
-          if (date.getMonth() === month && date.getFullYear() === year) {
-            streakDays.add(date.getDate());
-          }
-        }
-      }
-    } else {
-      console.log("📅 [Calendar Modal] Using normal streak mode");
-
-      // Normal mode: show current streak only
-      const lastActive = new Date(lastActiveDate);
-      lastActive.setHours(0, 0, 0, 0);
-
-      if (streak > 0) {
-        for (let i = 0; i < streak; i++) {
-          const streakDate = new Date(lastActive);
-          streakDate.setDate(lastActive.getDate() - i);
-
-          // Only add to set if this day is in the current viewing month
-          if (
-            streakDate.getMonth() === month &&
-            streakDate.getFullYear() === year
-          ) {
-            streakDays.add(streakDate.getDate());
-          }
-        }
-      }
-
-      // Missed days: gap between lastActive and today (if gap > 1)
-      const daysDiff = Math.floor(
-        (todayStart.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      if (daysDiff > 1) {
-        for (let i = 1; i < daysDiff; i++) {
-          const missedDate = new Date(lastActive);
-          missedDate.setDate(lastActive.getDate() + i);
-
-          // Only add to set if this day is in the current viewing month
-          if (
-            missedDate.getMonth() === month &&
-            missedDate.getFullYear() === year
-          ) {
-            missedDays.add(missedDate.getDate());
-          }
-        }
-      }
-    }
-
-    console.log("📅 [Calendar Modal] Month view:", {
-      streak,
-      longestStreak,
-      longestStreakDate,
-      streakDays: Array.from(streakDays),
-      missedDays: Array.from(missedDays),
-      today: today.toISOString().split("T")[0],
-    });
-
-    const calendar: Array<{
-      date: number | null;
-      isToday: boolean;
-      hasStreak: boolean;
-      isMissed: boolean;
-      isFuture: boolean;
-      isCurrentMonth: boolean;
-    }> = [];
-
-    // Add empty cells for days before month starts
-    for (let i = 0; i < startDayOfWeek; i++) {
-      calendar.push({
-        date: null,
-        isToday: false,
-        hasStreak: false,
-        isMissed: false,
-        isFuture: false,
-        isCurrentMonth: false,
-      });
-    }
-
-    // Add days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      const dateStart = new Date(date.setHours(0, 0, 0, 0));
-      const isToday = dateStart.getTime() === todayStart.getTime();
-      const isPast = dateStart < todayStart;
-      const isFuture = dateStart > todayStart;
-
-      // Check if this day is part of the streak using the Set
-      const hasStreak = streakDays.has(day) || isToday;
-
-      // Check if this day was missed using the Set
-      const isMissed = missedDays.has(day);
-
-      calendar.push({
-        date: day,
-        isToday,
-        hasStreak,
-        isMissed,
-        isFuture,
-        isCurrentMonth: true,
-      });
-    }
-
-    return calendar;
-  };
-
-  const monthCalendar = getMonthCalendar();
 
   return (
     <SafeAreaView style={themeStyles.container} edges={["top"]}>
@@ -1129,6 +1039,15 @@ export default function TodayScreen() {
           <View style={themeStyles.headerLeft}>
             <Text style={themeStyles.headerTitle}>
               {(() => {
+                // When viewing historical date with no content, use selectedDate
+                if (isHistoricalView && !displayedQuest) {
+                  const day = selectedDate.getDate();
+                  const month = selectedDate.toLocaleDateString("en-US", {
+                    month: "short",
+                  });
+                  return `${day} ${month}'s Story`;
+                }
+
                 const currentQuest = displayedQuest || todayQuest;
                 if (!currentQuest?.date) return "Today's Story";
 
@@ -1145,11 +1064,20 @@ export default function TodayScreen() {
               })()}
             </Text>
           </View>
-          <View style={themeStyles.streakInline}>
+          <TouchableOpacity
+            style={themeStyles.streakInline}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              showStreakCelebration();
+            }}
+            activeOpacity={0.7}
+          >
             <StreakIcon size={24} />
             <Text style={themeStyles.streakText}>{streak} </Text>
-            <Text style={themeStyles.streakText}>{streak === 1 ? "day" : "days"}</Text>
-          </View>
+            <Text style={themeStyles.streakText}>
+              {streak === 1 ? "day" : "days"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Subtitle: Day X of 7 - Story Title */}
@@ -1182,132 +1110,147 @@ export default function TodayScreen() {
         )}
 
         {/* Calendar Week View - Week-wise navigation with swipe gestures */}
-        <View
-          style={{
-            marginTop: 12,
-            marginBottom: 12,
-            backgroundColor: "#41425E",
-            borderRadius: 16,
-            paddingTop: 20,
-            paddingBottom: 10, // Must be at least 35px to show lock icon (extends ~11px below circle)
-            overflow: "visible", // Ensure lock icon isn't clipped
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Week calendar days - Show only current week based on weekView */}
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "center",
-              paddingHorizontal: 16,
-              paddingBottom: 10,
-            }}
+        <GestureDetector gesture={panGesture}>
+          <Animated.View
+            style={[
+              {
+                marginTop: 12,
+                marginBottom: 12,
+                backgroundColor: "#41425E",
+                borderRadius: 16,
+                paddingTop: 20,
+                paddingBottom: 10, // Must be at least 35px to show lock icon (extends ~11px below circle)
+                overflow: "visible", // Ensure lock icon isn't clipped
+              },
+              animatedStyle,
+            ]}
           >
-            {weekDates
-              .slice(weekView === 0 ? 7 : 0, weekView === 0 ? 14 : 7)
-              .map((item, index) => {
-                // Check if this date is currently selected
-                const isSelected =
-                  selectedDate.toISOString().split("T")[0] ===
-                  item.dateObj.toISOString().split("T")[0];
+            {/* Week calendar days - Show only current week based on weekView */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "center",
+                paddingHorizontal: 16,
+                paddingBottom: 10,
+              }}
+            >
+              {weekDates
+                .slice(weekView === 0 ? 7 : 0, weekView === 0 ? 14 : 7)
+                .map((item, index) => {
+                  // Check if this date is currently selected
+                  const isSelected =
+                    selectedDate.toISOString().split("T")[0] ===
+                    item.dateObj.toISOString().split("T")[0];
 
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      themeStyles.calendarDay,
-                      {
-                        width: 38, // Fixed width for each day
-                        marginRight: index < 6 ? 12 : 0, // Add spacing between days except last (0-6 = 7 days)
-                        overflow: "visible", // Allow lock icon to extend beyond bounds
-                        zIndex: isSelected ? 1000 : 1, // Much higher z-index for selected date
-                        elevation: isSelected ? 1000 : 1, // Android z-index equivalent
-                      },
-                    ]}
-                    onPress={() =>
-                      !item.isFuture && handleDateClick(item.dateObj)
-                    }
-                    disabled={item.isFuture}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={themeStyles.calendarDayLabel}>{item.day}</Text>
-                    <View
+                  return (
+                    <TouchableOpacity
+                      key={index}
                       style={[
-                        themeStyles.calendarDateCircle,
-                        item.isCompleted && {
-                          backgroundColor: ArchivesTheme.colors.persianOrange,
+                        themeStyles.calendarDay,
+                        {
+                          width: 38, // Fixed width for each day
+                          marginRight: index < 6 ? 12 : 0, // Add spacing between days except last (0-6 = 7 days)
+                          overflow: "visible", // Allow lock icon to extend beyond bounds
+                          zIndex: isSelected ? 1000 : 1, // Much higher z-index for selected date
+                          elevation: isSelected ? 1000 : 1, // Android z-index equivalent
                         },
-                        item.isMissed && {
-                          backgroundColor: "#B8AA92",
-                        },
-                        item.isFuture && { backgroundColor: "#222446" },
-                        // All other past/present days without selection
-                        !isSelected &&
-                          !item.isFuture &&
-                          !item.isCompleted &&
-                          !item.isMissed && {
-                            backgroundColor: "#222446",
-                          },
-                        // Show moss green border for ANY selected date - slightly bigger
-                        // This comes last to override any previous border settings
-                        isSelected && {
-                          borderWidth: 2,
-                          borderColor: ArchivesTheme.colors.mossGreen,
-                          transform: [{ scale: 1.08 }], // Slightly bigger (8% increase)
-                        },
-                        // item.isToday &&
-                        //   item.isCompleted && {
-                        //     transform: [{ scale: 1.1 }],
-                        //     shadowColor: ArchivesTheme.colors.persianOrange,
-                        //     shadowOpacity: 0.5,
-                        //     shadowRadius: 8,
-                        //     shadowOffset: { width: 0, height: 2 },
-                        //     elevation: 4,
-                        //   },
                       ]}
+                      onPress={() =>
+                        !item.isFuture && handleDateClick(item.dateObj)
+                      }
+                      disabled={item.isFuture}
+                      activeOpacity={0.7}
                     >
-                      {item.isCompleted ? (
-                        // Completed day: Show white flame icon
-                        <CalendarFlameIcon size={20} />
-                      ) : (
-                        // All days (missed, today, future, past): Show date number
-                        <Text
+                      <Text style={themeStyles.calendarDayLabel}>
+                        {item.day}
+                      </Text>
+                      <View
+                        style={[
+                          themeStyles.calendarDateCircle,
+                          item.isCompleted && {
+                            backgroundColor: ArchivesTheme.colors.persianOrange,
+                          },
+                          item.isMissed && {
+                            backgroundColor: "#B8AA92",
+                          },
+                          item.isFuture && { backgroundColor: "#222446" },
+                          // All other past/present days without selection
+                          !isSelected &&
+                            !item.isFuture &&
+                            !item.isCompleted &&
+                            !item.isMissed && {
+                              backgroundColor: "#222446",
+                            },
+                          // Show moss green border for ANY selected date - slightly bigger
+                          // This comes last to override any previous border settings
+                          isSelected && {
+                            borderWidth: 2,
+                            borderColor: "#f4ebdb",
+                            // borderColor: ArchivesTheme.colors.mossGreen,
+                            transform: [{ scale: 1.08 }], // Slightly bigger (8% increase)
+                          },
+                          // item.isToday &&
+                          //   item.isCompleted && {
+                          //     transform: [{ scale: 1.1 }],
+                          //     shadowColor: ArchivesTheme.colors.persianOrange,
+                          //     shadowOpacity: 0.5,
+                          //     shadowRadius: 8,
+                          //     shadowOffset: { width: 0, height: 2 },
+                          //     elevation: 4,
+                          //   },
+                        ]}
+                      >
+                        {item.isCompleted ? (
+                          // Completed day: Show white flame icon
+                          <CalendarFlameIcon size={20} />
+                        ) : (
+                          // All days (missed, today, future, past): Show date number
+                          <Text
+                            style={{
+                              fontFamily: "DM Sans",
+                              fontSize: 14,
+                              fontWeight: "600",
+                              color: "#FFFFFF",
+                            }}
+                          >
+                            {item.date}
+                          </Text>
+                        )}
+                      </View>
+                      {/* Lock icon overlapping with bottom circumference for missed days */}
+                      {item.isMissed && (
+                        <View
                           style={{
-                            fontFamily: "DM Sans",
-                            fontSize: 14,
-                            fontWeight: "600",
-                            color: "#FFFFFF",
+                            position: "absolute",
+                            bottom: -6,
+                            alignSelf: "center",
+                            zIndex: 10,
                           }}
                         >
-                          {item.date}
-                        </Text>
+                          <CalendarLockIcon size={14} />
+                        </View>
                       )}
-                    </View>
-                    {/* Lock icon overlapping with bottom circumference for missed days */}
-                    {item.isMissed && (
-                      <View
-                        style={{
-                          position: "absolute",
-                          bottom: -6,
-                          alignSelf: "center",
-                          zIndex: 10,
-                        }}
-                      >
-                        <CalendarLockIcon size={14} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-          </View>
-        </View>
+                    </TouchableOpacity>
+                  );
+                })}
+            </View>
+          </Animated.View>
+        </GestureDetector>
 
         {/* Progress Tracker */}
         <View style={themeStyles.progressContainer}>
           <View style={themeStyles.progressHeader}>
             <Text style={themeStyles.progressLabel}>
               {(() => {
+                // When viewing historical date with no content, use selectedDate
+                if (isHistoricalView && !displayedQuest) {
+                  const day = selectedDate.getDate();
+                  const month = selectedDate.toLocaleDateString("en-US", {
+                    month: "short",
+                  });
+                  return `${day} ${month}'s progress`;
+                }
+
                 const currentQuest = displayedQuest || todayQuest;
                 if (!currentQuest?.date) return "Progress today";
 
@@ -1332,8 +1275,9 @@ export default function TodayScreen() {
           </View>
         </View>
 
-        {/* No Quest Available - Shows inline when viewing historical date with no content */}
-        {isHistoricalView && !displayedQuest ? (
+        {/* No Quest Available - Shows inline when no content exists (historical or today) */}
+        {(isHistoricalView && !displayedQuest) ||
+        (!isHistoricalView && !todayQuest) ? (
           <View
             style={{
               flex: 1,
@@ -1359,7 +1303,7 @@ export default function TodayScreen() {
                 textAlign: "center",
               }}
             >
-              No Quest Available
+              {isHistoricalView ? "No Quest Available" : "No Quest Today"}
             </Text>
             <Text
               style={{
@@ -1371,8 +1315,9 @@ export default function TodayScreen() {
                 lineHeight: 22,
               }}
             >
-              There's no daily content for this date. Try selecting a different
-              day from the calendar.
+              {isHistoricalView
+                ? "There's no daily content for this date. Try selecting a different day from the calendar."
+                : "Check back tomorrow for a new daily quest!"}
             </Text>
           </View>
         ) : (
@@ -1917,325 +1862,6 @@ export default function TodayScreen() {
             )}
           </Modal>
         )}
-
-      {/* Calendar Modal - Full month view with streak stats */}
-      {activeModal === "calendar" && (
-        <Modal
-          visible={true}
-          animationType="slide"
-          presentationStyle="pageSheet"
-        >
-          <SafeAreaView
-            style={{
-              flex: 1,
-              backgroundColor: ArchivesTheme.colors.creamWhite,
-            }}
-          >
-            {/* Header */}
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingHorizontal: 20,
-                paddingVertical: 16,
-                borderBottomWidth: 1,
-                borderBottomColor: "#E0E0E0",
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: "DM Sans",
-                  fontSize: 20,
-                  fontWeight: "700",
-                  color: ArchivesTheme.colors.shoeBrown,
-                }}
-              >
-                Calendar
-              </Text>
-              <TouchableOpacity
-                onPress={() => setActiveModal("none")}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="close"
-                  size={28}
-                  color={ArchivesTheme.colors.shoeBrown}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Calendar Content */}
-            <ScrollView
-              contentContainerStyle={{ padding: 20, paddingBottom: 140 }}
-            >
-              {/* Current Month Calendar - full month grid */}
-              <View
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: 16,
-                  padding: 20,
-                  marginBottom: 20,
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 8,
-                  elevation: 4,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: "DM Sans",
-                    fontSize: 18,
-                    fontWeight: "600",
-                    color: ArchivesTheme.colors.mutedNavy,
-                    textAlign: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  {new Date().toLocaleDateString("en-US", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </Text>
-
-                {/* Day headers (S M T W T F S) */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-around",
-                    marginBottom: 12,
-                  }}
-                >
-                  {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
-                    <View
-                      key={index}
-                      style={{ width: 40, alignItems: "center" }}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: "DM Sans",
-                          fontSize: 12,
-                          fontWeight: "600",
-                          color: ArchivesTheme.colors.mutedNavy,
-                          opacity: 0.6,
-                        }}
-                      >
-                        {day}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Calendar Grid */}
-                <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                  {monthCalendar.map((item, index) => (
-                    <View
-                      key={index}
-                      style={{
-                        width: "14.28%",
-                        alignItems: "center",
-                        marginBottom: 12,
-                      }}
-                    >
-                      {item.date ? (
-                        <View style={{ alignItems: "center" }}>
-                          {/* Date circle */}
-                          <View
-                            style={[
-                              {
-                                width: 36,
-                                height: 36,
-                                borderRadius: 18,
-                                alignItems: "center",
-                                justifyContent: "center",
-                                backgroundColor:
-                                  item.hasStreak || item.isToday
-                                    ? ArchivesTheme.colors.persianOrange
-                                    : item.isMissed
-                                      ? "#999999"
-                                      : "#FFFFFF", // White background for empty days
-                                borderWidth:
-                                  item.hasStreak ||
-                                  item.isToday ||
-                                  item.isMissed
-                                    ? 0
-                                    : 2,
-                                borderColor: "#E5E5E5", // Light gray border for empty days
-                              },
-                            ]}
-                          >
-                            {item.hasStreak || item.isToday ? (
-                              <Text
-                                style={{
-                                  fontFamily: "DM Sans",
-                                  fontSize: 14,
-                                  fontWeight: "700",
-                                  color: "#FFFFFF",
-                                }}
-                              >
-                                {item.date}
-                              </Text>
-                            ) : item.isMissed ? (
-                              <Text
-                                style={{
-                                  fontFamily: "DM Sans",
-                                  fontSize: 20,
-                                  fontWeight: "700",
-                                  color: "#FFFFFF",
-                                  lineHeight: 32,
-                                }}
-                              >
-                                -
-                              </Text>
-                            ) : (
-                              <Text
-                                style={{
-                                  fontFamily: "DM Sans",
-                                  fontSize: 14,
-                                  fontWeight: "600",
-                                  color: "#C3C3C3", // Light gray text on white background
-                                }}
-                              >
-                                {item.date}
-                              </Text>
-                            )}
-                          </View>
-                        </View>
-                      ) : (
-                        <View style={{ width: 36, height: 36 }} />
-                      )}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </ScrollView>
-
-            {/* Streak Stats Card - Fixed at Bottom */}
-            <View
-              style={{
-                position: "absolute",
-                bottom: 20,
-                left: 20,
-                right: 20,
-                backgroundColor: "#FFFFFF",
-                borderRadius: 16,
-                padding: 24,
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 8,
-              }}
-            >
-              {/* Current Streak - Left */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                  flex: 1,
-                }}
-              >
-                {/* Icon - Commented out for now */}
-                {/* <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: ArchivesTheme.colors.persianOrange,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <StreakIcon size={20} />
-                </View> */}
-                <View>
-                  <Text
-                    style={{
-                      fontFamily: "DM Sans",
-                      fontSize: 14,
-                      fontWeight: "600",
-                      color: "#666",
-                    }}
-                  >
-                    Current Streak
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: "DM Sans",
-                      fontSize: 24,
-                      fontWeight: "700",
-                      color: ArchivesTheme.colors.shoeBrown,
-                    }}
-                  >
-                    {streak} {streak === 1 ? "day" : "days"}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Vertical Divider */}
-              <View
-                style={{
-                  width: 1,
-                  height: "60%",
-                  backgroundColor: "#E0E0E0",
-                  marginHorizontal: 16,
-                }}
-              />
-
-              {/* Longest Streak - Right */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                  flex: 1,
-                }}
-              >
-                {/* Icon - Commented out for now */}
-                {/* <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: "#FFD700",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons name="trophy" size={20} color="#FFFFFF" />
-                </View> */}
-                <View>
-                  <Text
-                    style={{
-                      fontFamily: "DM Sans",
-                      fontSize: 14,
-                      fontWeight: "600",
-                      color: "#666",
-                    }}
-                  >
-                    Longest Streak
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: "DM Sans",
-                      fontSize: 24,
-                      fontWeight: "700",
-                      color: ArchivesTheme.colors.shoeBrown,
-                    }}
-                  >
-                    {longestStreak} {longestStreak === 1 ? "day" : "days"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </SafeAreaView>
-        </Modal>
-      )}
     </SafeAreaView>
   );
 }

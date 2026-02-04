@@ -342,6 +342,8 @@ interface GamificationOrchestratorContextType {
   refreshStreak: () => Promise<void>;
   /** TEST: Simulate next day to test streak increment */
   simulateNextDay: () => Promise<void>;
+  /** Show streak celebration on demand (for tappable streak display) */
+  showStreakCelebration: () => void;
   /** Old streak data before loadStreak updated it (for calendar calculation) */
   lastActiveBeforeUpdate: string;
   streakBeforeUpdate: number;
@@ -1671,6 +1673,22 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     console.log(`🧪 [TEST] Result: ${finalStreak.currentStreak === currentStreak.currentStreak + 1 ? '✅ PASS' : '❌ FAIL'}`);
   }, [reloadData, getCloudStreak, syncStreakToState, syncToCloud, loadStreak]);
 
+  // Show streak celebration on demand (for tappable streak display)
+  const showStreakCelebration = useCallback(() => {
+    try {
+      const cloudStreak = getCloudStreak();
+      const weekData = calculateWeekData(streak, cloudStreak.lastActiveDate);
+      setCelebrationQueue((prev) => [...prev, {
+        type: 'STREAK_CELEBRATION',
+        streakCount: streak,
+        weekData,
+      }]);
+      console.log(`🎉 [Orchestrator] Streak celebration queued on demand: ${streak} days`);
+    } catch (error) {
+      console.error('❌ [Orchestrator] Failed to show streak celebration:', error);
+    }
+  }, [streak, getCloudStreak, calculateWeekData]);
+
   const isCelebrating = currentCelebration !== null;
   const streakBonus = calculateStreakBonus(streak);
   const achievements = getAllAchievements();
@@ -1697,6 +1715,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         streakBonus,
         refreshStreak: loadStreak,
         simulateNextDay, // TEST FUNCTION
+        showStreakCelebration, // Show streak celebration on demand
         lastActiveBeforeUpdate, // FROZEN old data for calendar (from AsyncStorage)
         streakBeforeUpdate, // FROZEN old data for calendar (from AsyncStorage)
         // Achievements
