@@ -725,15 +725,15 @@ export default function ProfileTab() {
               <Text style={styles.testButtonText}>GAME</Text>
             </TouchableOpacity> */}
             {/* DEV HELPER: Clear Streak AsyncStorage */}
-            {/* <TouchableOpacity
-              style={styles.settingsButton}
+            <TouchableOpacity
+              style={styles.testButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 clearStreakAsyncStorage()
               }}
             >
-              <Ionicons name="trash-outline" size={28} color={ArchivesTheme.colors.persianOrange} />
-            </TouchableOpacity> */}
+              <Ionicons name="trash-outline" size={24} color={ArchivesTheme.colors.creamWhite} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.settingsButton}
               onPress={() => {

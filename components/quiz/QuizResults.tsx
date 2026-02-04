@@ -26,6 +26,7 @@ import type { Question } from '@/components/shared/types';
 
 const { width } = Dimensions.get('window');
 
+// Handles results for era quizzes and Today screen (isToday=true hides XP display)
 interface QuizResultsProps {
   correctAnswers: number;
   totalQuestions: number;
@@ -44,7 +45,7 @@ interface QuizResultsProps {
   questions?: Question[];
   userAnswers?: number[];
   // Today mode - hide XP display
-  isToday?: boolean;
+  isToday?: boolean;  // true when called from Today screen
 }
 
 // Video Reward Player - Score-based celebration videos (3-tier system)

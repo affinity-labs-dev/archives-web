@@ -1251,6 +1251,111 @@ export const ArchivesTheme = {
         color: "#C99151", // persianOrange
       },
     },
+
+    // DAILY STORY END SCREEN (DailyStoryEndScreen.tsx)
+    // Celebration shown after completing Today's daily quest
+    dailyStoryEnd: {
+      gradientBackground: {
+        flex: 1,
+      },
+      container: {
+        flex: 1,
+        backgroundColor: "transparent",
+        zIndex: 2000,
+        elevation: 2000,
+      },
+      // Note: closeButton already exists in common.closeButton
+      // Use absolute positioning override for top-right placement
+      closeButtonTopRight: {
+        position: "absolute" as const,
+        top: 60, // Will be overridden with SCREEN_HEIGHT calculation in component
+        right: 24,
+        zIndex: 100,
+        elevation: 100,
+        width: 44,
+        height: 44,
+        alignItems: "center" as const,
+        justifyContent: "center" as const,
+      },
+      animationContainer: {
+        flex: 1,
+        justifyContent: "center" as const,
+        alignItems: "center" as const,
+        paddingHorizontal: 20,
+      },
+      riveAnimation: {
+        width: "100%" as const, // Will use SCREEN_WIDTH in component
+        height: "70%" as const, // Will use SCREEN_HEIGHT * 0.7 in component
+        backgroundColor: "transparent",
+      },
+      messageContainer: {
+        position: "absolute" as const,
+        bottom: 140, // Will be overridden with SCREEN_HEIGHT calculation in component
+        left: 0,
+        right: 0,
+        paddingHorizontal: 40,
+        alignItems: "center" as const,
+        zIndex: 25,
+        elevation: 25,
+      },
+      completedText: {
+        fontFamily: "DM Sans",
+        fontSize: 16,
+        fontWeight: "600" as const,
+        color: "#C99151", // persianOrange
+        textAlign: "center" as const,
+        letterSpacing: 0,
+        marginBottom: 4,
+      },
+      heroicText: {
+        fontFamily: "DM Sans",
+        fontSize: 16,
+        fontWeight: "600" as const,
+        color: "#C99151", // persianOrange
+        textAlign: "center" as const,
+        letterSpacing: 0,
+      },
+      ibuText: {
+        fontFamily: "DM Sans",
+        fontSize: 16,
+        fontWeight: "700" as const,
+        color: "#4D392E", // shoeBrown
+        letterSpacing: 0,
+      },
+      // ALL DONE Button - 3D depth effect matching "Start My Day" button
+      allDoneButtonContainer: {
+        position: "absolute" as const,
+        bottom: 50, // Will be overridden with SCREEN_HEIGHT calculation in component
+        left: 0, // Will be centered using calculation in component
+        width: 340,
+        height: 52,
+        zIndex: 30,
+        elevation: 30,
+      },
+      allDoneButtonShadow: {
+        position: "absolute" as const,
+        width: 340,
+        height: 52,
+        borderRadius: 26,
+        top: 3, // 3px offset for 3D depth
+        backgroundColor: "#6E7300", // mossGreenShadow
+      },
+      allDoneButton: {
+        width: 340,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: "#959C00", // mossGreen
+        alignItems: "center" as const,
+        justifyContent: "center" as const,
+      },
+      allDoneButtonText: {
+        fontFamily: "DM Sans",
+        fontSize: 18,
+        fontWeight: "700" as const,
+        color: "#FFFFFF",
+        letterSpacing: -0.18,
+      },
+    },
   },
 };
 
