@@ -768,16 +768,20 @@ export default function TodayScreen() {
 
           if (data) {
             // Load from Supabase (single source of truth)
-            setWatchCompleted(!!data.watch_completed);
-            setExploreCompleted(!!data.explore_completed);
-            // Quiz is completed if row exists with score data
-            setQuestCompleted(data.score !== undefined && data.score !== null);
+            const watchDone = !!data.watch_completed;
+            const exploreDone = !!data.explore_completed;
+            const quizDone = data.score !== undefined && data.score !== null;
+
+            setWatchCompleted(watchDone);
+            setExploreCompleted(exploreDone);
+            setQuestCompleted(quizDone);
+
             console.log(
               `✅ [Today] Loaded progress from Supabase for ${currentQuestId}:`,
               {
-                watch: !!data.watch_completed,
-                explore: !!data.explore_completed,
-                quiz: data.score !== undefined && data.score !== null,
+                watch: watchDone,
+                explore: exploreDone,
+                quiz: quizDone,
                 score: data.score,
               },
             );
@@ -802,8 +806,12 @@ export default function TodayScreen() {
 
         if (stored) {
           const progress = JSON.parse(stored);
-          setWatchCompleted(progress.watch || false);
-          setExploreCompleted(progress.explore || false);
+          const watchDone = progress.watch || false;
+          const exploreDone = progress.explore || false;
+
+          setWatchCompleted(watchDone);
+          setExploreCompleted(exploreDone);
+
           console.log(
             `📖 [Today] Loaded progress from AsyncStorage (offline) for ${currentQuestId}:`,
             progress,
@@ -894,65 +902,19 @@ export default function TodayScreen() {
   const handleQuizComplete = async () => {
     setQuestCompleted(true);
     console.log("✅ [Today] Quiz completed, quest finished!");
+
+    // Trigger celebration immediately when quiz is completed (including replays)
+    const currentQuest = displayedQuest || todayQuest;
+    if (currentQuest?.date && watchCompleted && exploreCompleted) {
+      const questDate = currentQuest.date;
+      console.log(`🎬 [Today] Triggering celebration for ${questDate}...`);
+      await reportTodayComplete(questDate);
+      console.log(`✅ [Today] Celebration triggered`);
+    }
   };
 
-  // ========== Trigger streak update when Today screen reaches 100% ==========
-  // When all three sections are completed, check completedDate stamp to trigger streak
-  useEffect(() => {
-    const checkCompletion = async () => {
-      // Check if all sections are complete (100% progress)
-      if (watchCompleted && exploreCompleted && questCompleted) {
-        const progress = calculateProgress();
-        console.log(`✅ [Today] All sections complete! Progress: ${progress}%`);
-
-        if (progress === 100) {
-          const currentQuestId = displayedQuest?.id || todayQuest?.id;
-          const currentQuest = displayedQuest || todayQuest;
-          if (!currentQuestId || !currentQuest?.date) return;
-
-          try {
-            const today = new Date().toISOString().split("T")[0];
-            const questDate = currentQuest.date; // The quest's actual date (e.g., "2026-02-02")
-            const key = `@today_progress_${currentQuestId}`;
-
-            // Load existing progress
-            const stored = await AsyncStorage.getItem(key);
-            const savedProgress = stored ? JSON.parse(stored) : {};
-
-            // If no completedDate yet, set it to the QUEST'S date (not today)
-            if (!savedProgress.completedDate) {
-              savedProgress.completedDate = questDate;
-              await AsyncStorage.setItem(key, JSON.stringify(savedProgress));
-              console.log(
-                `📅 [Today] Set completedDate to ${questDate} for ${currentQuestId}`,
-              );
-            }
-
-            // CRITICAL: Only trigger streak if quest's completedDate matches today
-            // This is the single source of truth - no need for multiple validations
-            if (savedProgress.completedDate === today) {
-              console.log(
-                `🔥 [Today] Quest completed on today's date (${today}), triggering streak...`,
-              );
-              await reportTodayComplete(today);
-              console.log(`✅ [Today] Streak update triggered successfully`);
-            } else {
-              console.log(
-                `⏭️ [Today] Quest completed on different date (${savedProgress.completedDate}), not today (${today}), skipping streak`,
-              );
-            }
-          } catch (error) {
-            console.error(`❌ [Today] Error checking completion date:`, error);
-          }
-        }
-      }
-    };
-
-    checkCompletion();
-  }, [watchCompleted, exploreCompleted, questCompleted]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  // Note: reportTodayComplete and displayedQuest intentionally excluded to prevent double triggers
-  // ========== END STREAK TRIGGER ==========
+  // Note: Celebration now triggered directly in handleQuizComplete (not useEffect)
+  // This ensures animation shows only when user actively completes quiz, not when loading completed quest
 
   // Fetch completed quest dates for calendar display
   useEffect(() => {

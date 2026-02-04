@@ -27,11 +27,13 @@ const themeStyles = ArchivesTheme.common.dailyStoryEnd;
 
 interface DailyStoryEndScreenProps {
   visible: boolean;
+  questDate: string; // YYYY-MM-DD format
   onContinue: () => void;
 }
 
 export default function DailyStoryEndScreen({
   visible,
+  questDate,
   onContinue,
 }: DailyStoryEndScreenProps) {
   const riveRef = useRef<RiveRef>(null);
@@ -42,6 +44,22 @@ export default function DailyStoryEndScreen({
       console.log("🎬 [DailyStoryEnd] Rive animation loaded successfully");
     }
   }, [visible, riveRef.current]);
+
+  // Dynamic text based on quest date
+  const today = new Date().toISOString().split("T")[0];
+  const isToday = questDate === today;
+
+  const completionText = (() => {
+    if (isToday) {
+      return "Today's story completed!";
+    }
+
+    // Historical date: format as "2 Feb's story completed!"
+    const dateObj = new Date(questDate + "T00:00:00");
+    const day = dateObj.getDate();
+    const month = dateObj.toLocaleDateString("en-US", { month: "short" });
+    return `${day} ${month}'s story completed!`;
+  })();
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -104,7 +122,7 @@ export default function DailyStoryEndScreen({
             ]}
           >
             <Text style={themeStyles.completedText}>
-              Today's story completed!
+              {completionText}
             </Text>
             <Text style={themeStyles.heroicText}>
               That's heroic, just like our{" "}

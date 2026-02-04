@@ -308,6 +308,7 @@ interface StreakCelebration {
 
 interface DailyStoryEndCelebration {
   type: 'DAILY_STORY_END';
+  questDate: string; // YYYY-MM-DD format
 }
 
 interface AchievementCelebration {
@@ -1519,34 +1520,25 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
     const today = new Date().toISOString().split('T')[0];
     const COMPLETION_DATE_KEY = '@last_streak_completion_date';
-    const DAILY_STORY_SHOWN_KEY = '@daily_story_end_shown_date';
 
-    // NOTE: Date validation now happens in today.tsx via completedDate stamp
-    // By the time we reach here, we know it's today's actual date
+    // NOTE: questDate can be today OR a historical date
+    // Animation shows EVERY TIME a quest is completed (including replays)
 
     try {
-      // Check if Daily Story End celebration was already shown today
-      const lastShownDate = await AsyncStorage.getItem(DAILY_STORY_SHOWN_KEY);
+      // Always queue Daily Story End celebration (no caching)
+      setCelebrationQueue((prev) => [...prev, {
+        type: 'DAILY_STORY_END',
+        questDate, // Pass the quest date for dynamic text
+      }]);
+      console.log(`🎬 [Orchestrator] Daily Story End celebration queued for ${questDate}`);
 
-      if (lastShownDate !== today) {
-        // Queue Daily Story End celebration first (shows regardless of streak status)
-        setCelebrationQueue((prev) => [...prev, {
-          type: 'DAILY_STORY_END',
-        }]);
-        console.log(`🎬 [Orchestrator] Daily Story End celebration queued`);
+      // Only update streak if completing TODAY's quest (not historical)
+      if (questDate === today) {
+        const lastCompletionDate = await AsyncStorage.getItem(COMPLETION_DATE_KEY);
+        console.log(`🔍 [Orchestrator] Last completion date: ${lastCompletionDate}, Today: ${today}`);
 
-        // Mark as shown for today
-        await AsyncStorage.setItem(DAILY_STORY_SHOWN_KEY, today);
-        console.log(`✅ [Orchestrator] Daily Story End marked as shown for ${today}`);
-      } else {
-        console.log(`⏭️ [Orchestrator] Daily Story End already shown today, skipping`);
-      }
-
-      const lastCompletionDate = await AsyncStorage.getItem(COMPLETION_DATE_KEY);
-      console.log(`🔍 [Orchestrator] Last completion date: ${lastCompletionDate}, Today: ${today}`);
-
-      if (lastCompletionDate !== today) {
-        console.log(`🔥 [Orchestrator] First completion today via Today screen! Incrementing streak...`);
+        if (lastCompletionDate !== today) {
+          console.log(`🔥 [Orchestrator] First completion today via Today screen! Incrementing streak...`);
 
         const cloudStreak = getCloudStreak();
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -1607,8 +1599,11 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         await AsyncStorage.setItem(COMPLETION_DATE_KEY, today);
         console.log(`✅ [Orchestrator] Completion date marked: ${today}`);
+        } else {
+          console.log(`✅ [Orchestrator] Already completed today via module, streak maintained`);
+        }
       } else {
-        console.log(`✅ [Orchestrator] Already completed today via module, streak maintained`);
+        console.log(`⏭️ [Orchestrator] Historical quest completed (${questDate}), streak not updated`);
       }
     } catch (error) {
       console.error('❌ [Orchestrator] Error in Today streak update:', error);
@@ -1779,6 +1774,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       {/* Daily Story End Screen - Shows after Today quest completion */}
       <DailyStoryEndScreen
         visible={currentCelebration?.type === 'DAILY_STORY_END'}
+        questDate={currentCelebration?.type === 'DAILY_STORY_END' ? currentCelebration.questDate : ''}
         onContinue={dismissCurrent}
       />
 
