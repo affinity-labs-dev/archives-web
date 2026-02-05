@@ -21,8 +21,6 @@ import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
 import { analyticsService } from '@/services/AnalyticsService'
-import CustomerIOService from '@/services/CustomerIOService'
-import PushNotificationService from '@/services/PushNotificationService'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -72,70 +70,6 @@ export default function OnboardingQuestion2Screen() {
     }
   }
 
-  // Request notification permissions using the proper expo-notifications + Customer.io flow
-  // This properly registers with iOS (making toggle appear in Settings) and registers token with Customer.io
-  const requestNotificationPermission = async () => {
-    try {
-      // Use PushNotificationService which properly:
-      // 1. Requests permission via expo-notifications (registers with iOS/Android)
-      // 2. Gets the APNs/FCM device token
-      // 3. Registers the token with Customer.io
-      const result = await PushNotificationService.requestPushNotificationPermission()
-
-      console.log('🔔 [OnboardingQ2] Push permission result:', result.status)
-
-      // Map status to our tracking format
-      const trackingStatus = result.status === 'Granted' ? 'granted' : result.status === 'Denied' ? 'denied' : 'undetermined'
-
-      // Track notification permission request
-      analyticsService.trackPermissionRequested({
-        permission_type: 'push_notifications',
-        screen: 'onboarding_question_2',
-        result: trackingStatus,
-        platform: Platform.OS,
-      })
-
-      // Track specific permission result
-      if (result.status === 'Granted') {
-        analyticsService.trackPushNotificationsEnabled({
-          permission_type: 'push_notifications',
-          screen: 'onboarding_question_2',
-          result: 'granted',
-          platform: Platform.OS,
-        })
-        await AsyncStorage.setItem('notifications_permission_granted', 'true')
-      } else if (result.status === 'Denied') {
-        analyticsService.trackPushNotificationsDeclined({
-          permission_type: 'push_notifications',
-          screen: 'onboarding_question_2',
-          result: 'denied',
-          platform: Platform.OS,
-        })
-        await AsyncStorage.setItem('notifications_permission_granted', 'false')
-      } else {
-        await AsyncStorage.setItem('notifications_permission_granted', 'false')
-      }
-
-      // Update PostHog person property for push notification status
-      analyticsService.updatePushStatus(result.status === 'Granted', result.status)
-
-      // Update Customer.io profile with notification status and token
-      CustomerIOService.setProfileAttributes({
-        push_notifications_enabled: result.status === 'Granted',
-        push_permission_status: result.status,
-        push_permission_updated_at: Math.floor(Date.now() / 1000),
-        cio_push_token: result.token || null,  // Save token as profile attribute for segmentation
-      })
-
-      await AsyncStorage.setItem('notification_permission_asked', 'true')
-    } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error('❌ [OnboardingQ2] Error requesting notifications:', errorMsg)
-      await AsyncStorage.setItem('notifications_permission_granted', 'false')
-      await AsyncStorage.setItem('notification_permission_asked', 'true')
-    }
-  }
-
   // Continue to next question
   const handleContinue = async () => {
     if (selectedOption === null) return
@@ -162,18 +96,7 @@ export default function OnboardingQuestion2Screen() {
       await AsyncStorage.setItem('onboarding_q2_answer', JSON.stringify(answerData))
       console.log('🔥 [OnboardingQ2] Answer saved:', answerData)
 
-      // Check if we've already asked for notification permission
-      const alreadyAsked = await AsyncStorage.getItem('notification_permission_asked')
-
-      if (alreadyAsked !== 'true') {
-        // Request notification permission (shows system modal)
-        console.log('🔥 [OnboardingQ2] Requesting notification permission')
-        await requestNotificationPermission()
-      } else {
-        console.log('🔥 [OnboardingQ2] Already asked for notifications, skipping')
-      }
-
-      // Navigate to next question
+      // Navigate to next question (notification permission moved to Q3's "ENABLE REMINDERS" button)
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-3')
     } catch (error) {
