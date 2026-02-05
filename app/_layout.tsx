@@ -156,6 +156,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Sync push token on sign-in for users who already granted permission
   // This ensures Customer.io always has the latest APNs/FCM token
+  // Also prompts for notification permission if never asked (e.g., existing users after app update)
   // Session tracking - track sign-in/sign-out for analytics
   React.useEffect(() => {
     // Skip on web during SSR
@@ -167,6 +168,77 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       console.log('🔑 [AnalyticsWrapper] User signed in, tracking session');
       analyticsService.trackUserSessionIn('email');
       wasSignedInRef.current = true;
+
+      // Check push notification permission and prompt if never asked
+      // This catches existing users who update the app and never went through Q3 onboarding
+      ;(async () => {
+        try {
+          const { status } = await Notifications.getPermissionsAsync();
+          console.log('🔔 [AnalyticsWrapper] Push permission status:', status);
+
+          if (status === 'undetermined') {
+            // Never asked — show Customer.io permission prompt
+            console.log('🔔 [AnalyticsWrapper] Permission never asked, showing prompt...');
+            try {
+              const { CustomerIO, CioPushPermissionStatus } = require('customerio-reactnative');
+              const result = await CustomerIO.pushMessaging.showPromptForPushNotifications({
+                ios: { sound: true, badge: true },
+              });
+
+              const granted = result === CioPushPermissionStatus.Granted;
+              console.log('🔔 [AnalyticsWrapper] Permission result:', granted ? 'GRANTED' : 'DENIED');
+
+              // Sync permission attributes to Customer.io profile
+              CustomerIOService.setProfileAttributes({
+                push_notifications_enabled: granted,
+                push_permission_status: granted ? 'Granted' : 'Denied',
+                push_permission_updated_at: Math.floor(Date.now() / 1000),
+              });
+
+              // Sync to PostHog
+              analyticsService.updatePushStatus(granted, granted ? 'Granted' : 'Denied');
+
+              // If granted, register device token in background
+              if (granted) {
+                setTimeout(async () => {
+                  try {
+                    const pushToken = await Notifications.getDevicePushTokenAsync();
+                    if (pushToken?.data) {
+                      CustomerIO.registerDeviceToken(pushToken.data);
+                      CustomerIOService.setProfileAttributes({
+                        cio_push_token: pushToken.data,
+                      });
+                      console.log('🔔 [AnalyticsWrapper] Device token registered after sign-in prompt');
+                    }
+                  } catch (tokenErr) {
+                    console.log('🔔 [AnalyticsWrapper] Token registration error:', tokenErr);
+                  }
+                }, 1500);
+              }
+            } catch (sdkErr) {
+              console.log('🔔 [AnalyticsWrapper] Customer.io SDK not available:', sdkErr);
+            }
+          } else if (status === 'granted') {
+            // Already granted — sync token to Customer.io (might have changed)
+            try {
+              const pushToken = await Notifications.getDevicePushTokenAsync();
+              if (pushToken?.data) {
+                CustomerIOService.registerPushToken(pushToken.data);
+                CustomerIOService.setProfileAttributes({
+                  push_notifications_enabled: true,
+                  push_permission_status: 'Granted',
+                  cio_push_token: pushToken.data,
+                });
+                console.log('🔔 [AnalyticsWrapper] Push token synced on sign-in');
+              }
+            } catch (tokenErr) {
+              console.log('🔔 [AnalyticsWrapper] Token sync error:', tokenErr);
+            }
+          }
+        } catch (err) {
+          console.log('🔔 [AnalyticsWrapper] Permission check error:', err);
+        }
+      })();
     } else if (!isSignedIn && wasSignedInRef.current) {
       // Only reset analytics if user was PREVIOUSLY signed in (actual sign-out)
       console.log('👋 [AnalyticsWrapper] User signed out, resetting analytics');

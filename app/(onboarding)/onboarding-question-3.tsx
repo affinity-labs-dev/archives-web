@@ -21,6 +21,7 @@ import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { analyticsService } from '@/services/AnalyticsService'
 import { CustomerIO, CioPushPermissionStatus } from 'customerio-reactnative'
+import CustomerIOService from '@/services/CustomerIOService'
 import Svg, { Path } from 'react-native-svg'
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
@@ -72,6 +73,10 @@ export default function OnboardingRemindersScreen() {
         if (pushToken?.data) {
           // registerDeviceToken is idempotent — safe to call even if SDK already registered
           CustomerIO.registerDeviceToken(pushToken.data as string)
+          // Also save token as profile attribute for easy segmentation
+          CustomerIOService.setProfileAttributes({
+            cio_push_token: pushToken.data as string,
+          })
           console.log('🔔 [OnboardingQ3] Device token registered with Customer.io')
         } else {
           console.log('🔔 [OnboardingQ3] No push token available from system')
@@ -113,6 +118,13 @@ export default function OnboardingRemindersScreen() {
             permissionStatus = 'undetermined'
             console.log('🔔 [OnboardingQ3] Push permission status:', status)
         }
+
+        // Sync push permission attributes to Customer.io profile
+        CustomerIOService.setProfileAttributes({
+          push_notifications_enabled: permissionStatus === 'granted',
+          push_permission_status: permissionStatus === 'granted' ? 'Granted' : 'Denied',
+          push_permission_updated_at: Math.floor(Date.now() / 1000),
+        })
 
         // After permission granted, register device token in background
         // (autoFetchDeviceToken is false in app.json, so we handle it explicitly)
