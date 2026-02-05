@@ -28,7 +28,6 @@ import { usePostHog } from 'posthog-react-native';
 import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
 import CustomerIOService from '@/services/CustomerIOService';
-import PushNotificationService from '@/services/PushNotificationService';
 
 // Gamification imports - unified from @/gamification
 import {
@@ -162,20 +161,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Sync push token on sign-in for users who already granted permission
   // This ensures Customer.io always has the latest APNs/FCM token
-  // IMPORTANT: Must run AFTER CustomerIO.identify() completes
-  React.useEffect(() => {
-    if (isSignedIn && user && Platform.OS !== 'web') {
-      // Small delay to ensure Customer.io identify() has completed first
-      // Token must be registered AFTER user is identified
-      // 1s is sufficient with auto-init (SDK ready before React mounts)
-      const timer = setTimeout(async () => {
-        console.log('🔔 [AnalyticsWrapper] Syncing push token for user:', user.id);
-        await PushNotificationService.syncPushToken();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isSignedIn, user]);
-
   // Session tracking - track sign-in/sign-out for analytics
   React.useEffect(() => {
     // Skip on web during SSR
