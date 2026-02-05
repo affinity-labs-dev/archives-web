@@ -281,7 +281,7 @@ export default function ArchivesAuthScreen() {
             </View>
 
             {/* Spacer to push content down - responsive based on screen height */}
-            <View style={{ height: SCREEN_HEIGHT * 0.42 }} />
+            <View style={{ height: SCREEN_HEIGHT * 0.35 }} />
 
             {/* Auth Toggle - Shared Component */}
             <AuthToggle
