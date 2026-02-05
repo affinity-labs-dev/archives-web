@@ -640,10 +640,15 @@ export default function TodayScreen() {
       const startDateStr = startDate.toISOString().split("T")[0];
       const endDateStr = endDate.toISOString().split("T")[0];
 
+      // Only mark dates as completed if ALL sections are done:
+      // watch_completed = true, explore_completed = true, score > 0 (quiz done)
       const { data, error } = await supabase
         .from("user_daily_quest_progress")
-        .select("daily_quest_id, daily_content!fk_daily_quest!inner(date)")
+        .select("daily_quest_id, daily_content!fk_daily_quest!inner(date), watch_completed, explore_completed, score")
         .eq("user_id", user.id)
+        .eq("watch_completed", true)
+        .eq("explore_completed", true)
+        .gt("score", 0)
         .gte("daily_content.date", startDateStr)
         .lte("daily_content.date", endDateStr);
 
@@ -770,7 +775,8 @@ export default function TodayScreen() {
             // Load from Supabase (single source of truth)
             const watchDone = !!data.watch_completed;
             const exploreDone = !!data.explore_completed;
-            const quizDone = data.score !== undefined && data.score !== null;
+            // Quiz is only completed if score > 0 (not just if the field exists)
+            const quizDone = data.score !== undefined && data.score !== null && data.score > 0;
 
             setWatchCompleted(watchDone);
             setExploreCompleted(exploreDone);
