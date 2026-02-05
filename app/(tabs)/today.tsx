@@ -19,7 +19,7 @@ import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -33,7 +33,6 @@ import {
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -382,8 +381,6 @@ export default function TodayScreen() {
   >(null);
   const [isHistoricalView, setIsHistoricalView] = useState(false);
 
-  // Week navigation state (0 = current week, 1 = previous week)
-  const [weekView, setWeekView] = useState<0 | 1>(0);
 
   // Cache for completed quest dates (for calendar display)
   const [completedDatesCache, setCompletedDatesCache] =
@@ -399,8 +396,45 @@ export default function TodayScreen() {
 
   // Animation for iOS Calendar-style week transitions
   const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const translateX = useSharedValue(0);
+
+  // Responsive calendar dimensions based on screen width
+  const calendarDimensions = useMemo(() => {
+    // Container takes 95% of screen width, max 370px, min for small screens
+    const containerWidth = Math.min(Math.max(SCREEN_WIDTH * 0.95, 280), 370);
+    const containerPadding = 16; // padding on each side
+    const innerWidth = containerWidth - containerPadding * 2;
+
+    // Calculate day width and margin to fit 7 days in inner width
+    // Formula: 7 * dayWidth + 6 * dayMargin = innerWidth
+    // Use ratio: dayMargin ≈ 0.3 * dayWidth (keeps proportions nice)
+    // 7 * dayWidth + 6 * 0.3 * dayWidth = innerWidth
+    // 7 * dayWidth + 1.8 * dayWidth = innerWidth
+    // 8.8 * dayWidth = innerWidth
+    const dayWidth = Math.floor(innerWidth / 8.8);
+    const dayMargin = Math.floor((innerWidth - 7 * dayWidth) / 6);
+
+    // Recalculate exact week width with integer values
+    const weekWidth = dayWidth * 7 + dayMargin * 6;
+    const scrollDistance = weekWidth + dayMargin;
+
+    return {
+      containerWidth,
+      containerPadding,
+      dayWidth,
+      dayMargin,
+      weekWidth,
+      scrollDistance,
+    };
+  }, [SCREEN_WIDTH]);
+
+  // Initialize translation (will be updated in useEffect when dimensions are ready)
+  const translateX = useSharedValue(-350);
   const startX = useSharedValue(0);
+
+  // Update translateX when responsive dimensions change
+  useEffect(() => {
+    translateX.value = -calendarDimensions.scrollDistance;
+  }, [calendarDimensions.scrollDistance]);
 
   // ScrollView ref for calendar horizontal scrolling
   const calendarScrollRef = useRef<ScrollView>(null);
@@ -564,81 +598,50 @@ export default function TodayScreen() {
     }
   };
 
-  // Gesture handler for iOS Calendar-style swipe navigation
+  // Extract responsive calendar dimensions
+  const { dayWidth, dayMargin, weekWidth, scrollDistance, containerWidth, containerPadding } =
+    calendarDimensions;
+
+  // Snap positions: 0 = previous week visible, -scrollDistance = current week visible
+  const POSITION_PREV_WEEK = 0;
+  const POSITION_CURRENT_WEEK = -scrollDistance;
+
+  // Gesture handler for continuous scroll with snap
   const panGesture = Gesture.Pan()
     .onStart(() => {
       startX.value = translateX.value;
     })
     .onUpdate((event) => {
-      // Follow finger during pan
-      translateX.value = startX.value + event.translationX;
+      // Follow finger continuously, but clamp to valid range
+      const newX = startX.value + event.translationX;
+      // Clamp between current week position and 0 (previous week)
+      translateX.value = Math.max(POSITION_CURRENT_WEEK, Math.min(POSITION_PREV_WEEK, newX));
     })
     .onEnd((event) => {
-      const swipeThreshold = 50; // Minimum distance to trigger transition
-      const velocityThreshold = 500; // Velocity threshold for quick swipes
+      // Determine which week to snap to based on:
+      // 1. Current position (which week is more visible)
+      // 2. Swipe velocity (quick flicks override position)
 
-      const shouldTransition =
-        Math.abs(event.translationX) > swipeThreshold ||
-        Math.abs(event.velocityX) > velocityThreshold;
+      const velocityThreshold = 500;
+      const midPoint = POSITION_CURRENT_WEEK / 2; // halfway point (responsive)
 
-      if (shouldTransition) {
-        if (event.translationX > 0) {
-          // Swipe RIGHT -> go to previous week (only if on current week)
-          if (weekView === 0) {
-            // Animate to show previous week with smooth spring
-            translateX.value = withSpring(
-              0,
-              {
-                damping: 20,
-                stiffness: 150,
-                mass: 0.8,
-                overshootClamping: false,
-              },
-              () => {
-                runOnJS(setWeekView)(1);
-              },
-            );
-          } else {
-            // Already on previous week, snap back with spring
-            translateX.value = withSpring(0, {
-              damping: 20,
-              stiffness: 150,
-              mass: 0.8,
-            });
-          }
-        } else {
-          // Swipe LEFT -> go to current week (only if on previous week)
-          if (weekView === 1) {
-            // Animate to show current week with smooth spring
-            translateX.value = withSpring(
-              0,
-              {
-                damping: 20,
-                stiffness: 150,
-                mass: 0.8,
-                overshootClamping: false,
-              },
-              () => {
-                runOnJS(setWeekView)(0);
-              },
-            );
-          } else {
-            // Already on current week, snap back with spring
-            translateX.value = withSpring(0, {
-              damping: 20,
-              stiffness: 150,
-              mass: 0.8,
-            });
-          }
-        }
+      let targetPosition: number;
+
+      if (Math.abs(event.velocityX) > velocityThreshold) {
+        // Quick flick - snap based on direction
+        targetPosition = event.velocityX > 0 ? POSITION_PREV_WEEK : POSITION_CURRENT_WEEK;
       } else {
-        // Didn't swipe enough, snap back to original position with spring
-        translateX.value = withSpring(0, {
-          damping: 20,
-          stiffness: 150,
-          mass: 0.8,
-        });
+        // Slow drag - snap to nearest week
+        targetPosition = translateX.value > midPoint ? POSITION_PREV_WEEK : POSITION_CURRENT_WEEK;
       }
+
+      // Animate to snap position with spring
+      translateX.value = withSpring(targetPosition, {
+        damping: 20,
+        stiffness: 150,
+        mass: 0.8,
+        overshootClamping: false,
+      });
     });
 
   // Animated style for calendar week transitions
@@ -1122,33 +1125,34 @@ export default function TodayScreen() {
         )}
 
         {/* Calendar Week View - Week-wise navigation with swipe gestures */}
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[
-              {
-                marginTop: 12,
-                marginBottom: 12,
-                backgroundColor: "#41425E",
-                borderRadius: 16,
-                paddingTop: 20,
-                paddingBottom: 10, // Must be at least 35px to show lock icon (extends ~11px below circle)
-                overflow: "visible", // Ensure lock icon isn't clipped
-              },
-              animatedStyle,
-            ]}
-          >
-            {/* Week calendar days - Show only current week based on weekView */}
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "center",
-                paddingHorizontal: 16,
-                paddingBottom: 10,
-              }}
+        {/* Outer container has responsive width to show exactly 7 days */}
+        <View
+          style={{
+            marginTop: 12,
+            marginBottom: 12,
+            backgroundColor: "#41425E",
+            borderRadius: 16,
+            paddingTop: 20,
+            paddingBottom: 10,
+            paddingHorizontal: containerPadding,
+            overflow: "hidden", // Clip dates as they slide in/out
+            alignSelf: "center",
+            width: containerWidth, // Responsive: 95% of screen, max 370px
+          }}
+        >
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[
+                {
+                  flexDirection: "row",
+                  // Removed justifyContent and paddingHorizontal - translateX handles positioning
+                  paddingBottom: 10,
+                },
+                animatedStyle,
+              ]}
             >
-              {weekDates
-                .slice(weekView === 0 ? 7 : 0, weekView === 0 ? 14 : 7)
-                .map((item, index) => {
+              {/* Render all 14 days - viewport shows 7, gesture scrolls between weeks */}
+              {weekDates.map((item, index) => {
                   // Check if this date is currently selected
                   const isSelected =
                     selectedDate.toISOString().split("T")[0] ===
@@ -1160,8 +1164,8 @@ export default function TodayScreen() {
                       style={[
                         themeStyles.calendarDay,
                         {
-                          width: 38, // Fixed width for each day
-                          marginRight: index < 6 ? 12 : 0, // Add spacing between days except last (0-6 = 7 days)
+                          width: dayWidth, // Responsive width
+                          marginRight: index < 13 ? dayMargin : 0, // Responsive spacing
                           overflow: "visible", // Allow lock icon to extend beyond bounds
                           zIndex: isSelected ? 1000 : 1, // Much higher z-index for selected date
                           elevation: isSelected ? 1000 : 1, // Android z-index equivalent
@@ -1245,9 +1249,9 @@ export default function TodayScreen() {
                     </TouchableOpacity>
                   );
                 })}
-            </View>
-          </Animated.View>
-        </GestureDetector>
+            </Animated.View>
+          </GestureDetector>
+        </View>
 
         {/* Progress Tracker */}
         <View style={themeStyles.progressContainer}>
