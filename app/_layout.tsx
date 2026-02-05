@@ -130,13 +130,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Track if user was previously signed in (to detect actual sign-out vs fresh install)
   const wasSignedInRef = React.useRef(false);
 
-  // Initialize Customer.io SDK IMMEDIATELY (not dependent on PostHog)
-  // This runs once on mount to ensure Customer.io is ready before any events
-  React.useEffect(() => {
-    console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIO init useEffect running (mount)');
-    CustomerIOService.initialize();
-    console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIO init complete');
-  }, []); // Empty deps = runs once on mount
+  // Customer.io SDK auto-initializes from app.json config
+  // No manual initialization needed - the Expo plugin handles it
 
   // Identify user to Customer.io when signed in (independent of PostHog)
   React.useEffect(() => {
