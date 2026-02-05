@@ -606,16 +606,30 @@ export default function TodayScreen() {
   const POSITION_PREV_WEEK = 0;
   const POSITION_CURRENT_WEEK = -scrollDistance;
 
-  // Gesture handler for continuous scroll with snap
+  // Rubber band resistance factor (0.3 = 30% of finger movement past edge)
+  const RUBBER_BAND_FACTOR = 0.3;
+
+  // Gesture handler for continuous scroll with snap and rubber band edges
   const panGesture = Gesture.Pan()
     .onStart(() => {
       startX.value = translateX.value;
     })
     .onUpdate((event) => {
-      // Follow finger continuously, but clamp to valid range
       const newX = startX.value + event.translationX;
-      // Clamp between current week position and 0 (previous week)
-      translateX.value = Math.max(POSITION_CURRENT_WEEK, Math.min(POSITION_PREV_WEEK, newX));
+
+      // Apply rubber band resistance when past edges (iOS-style overscroll)
+      if (newX > POSITION_PREV_WEEK) {
+        // Overscrolling right past previous week - show blank space with resistance
+        const overscroll = newX - POSITION_PREV_WEEK;
+        translateX.value = POSITION_PREV_WEEK + overscroll * RUBBER_BAND_FACTOR;
+      } else if (newX < POSITION_CURRENT_WEEK) {
+        // Overscrolling left past current week - show blank space with resistance
+        const overscroll = POSITION_CURRENT_WEEK - newX;
+        translateX.value = POSITION_CURRENT_WEEK - overscroll * RUBBER_BAND_FACTOR;
+      } else {
+        // Within bounds - normal 1:1 finger tracking
+        translateX.value = newX;
+      }
     })
     .onEnd((event) => {
       // Determine which week to snap to based on:
@@ -627,7 +641,12 @@ export default function TodayScreen() {
 
       let targetPosition: number;
 
-      if (Math.abs(event.velocityX) > velocityThreshold) {
+      // If past edges, always snap back to nearest valid position
+      if (translateX.value > POSITION_PREV_WEEK) {
+        targetPosition = POSITION_PREV_WEEK;
+      } else if (translateX.value < POSITION_CURRENT_WEEK) {
+        targetPosition = POSITION_CURRENT_WEEK;
+      } else if (Math.abs(event.velocityX) > velocityThreshold) {
         // Quick flick - snap based on direction
         targetPosition = event.velocityX > 0 ? POSITION_PREV_WEEK : POSITION_CURRENT_WEEK;
       } else {
