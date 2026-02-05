@@ -3,9 +3,6 @@
 
 import Constants from 'expo-constants';
 
-const CDP_API_KEY = process.env.EXPO_PUBLIC_CUSTOMERIO_CDP_API_KEY || '';
-const SITE_ID = process.env.EXPO_PUBLIC_CUSTOMERIO_SITE_ID || '';
-
 let CustomerIOModule: any = null;
 let isInitialized = false;
 
@@ -33,8 +30,9 @@ const getCustomerIO = () => {
 };
 
 /**
- * Initialize Customer.io SDK
- * Should be called early in app lifecycle (e.g., in _layout.tsx)
+ * Mark Customer.io SDK as ready
+ * Auto-init from app.json handles actual initialization at native layer
+ * This just sets isInitialized flag so other methods can run
  */
 export const initializeCustomerIO = () => {
   if (isExpoGo) {
@@ -45,35 +43,10 @@ export const initializeCustomerIO = () => {
     return;
   }
 
-  if (!CDP_API_KEY) {
-    console.warn('⚠️ [CustomerIO] CDP API Key not configured');
-    return;
-  }
-
   const module = getCustomerIO();
-  if (!module) {
-    return;
-  }
-
-  try {
-    const { CustomerIO, CioLogLevel, CioRegion } = module;
-
-    const config = {
-      cdpApiKey: CDP_API_KEY,
-      region: CioRegion.EU,
-      logLevel: __DEV__ ? CioLogLevel.Debug : CioLogLevel.Error,
-      flushAt: 1,        // Send events immediately (don't batch)
-      flushInterval: 1,  // Flush every 1 second
-      inApp: {
-        siteId: SITE_ID,
-      },
-    };
-
-    CustomerIO.initialize(config);
+  if (module) {
     isInitialized = true;
-    console.log('✅ [CustomerIO] SDK initialized');
-  } catch (error) {
-    console.error('❌ [CustomerIO] Initialization failed:', error);
+    console.log('✅ [CustomerIO] SDK ready (auto-initialized from app.json)');
   }
 };
 

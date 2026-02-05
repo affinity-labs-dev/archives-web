@@ -165,12 +165,13 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // IMPORTANT: Must run AFTER CustomerIO.identify() completes
   React.useEffect(() => {
     if (isSignedIn && user && Platform.OS !== 'web') {
-      // Longer delay to ensure Customer.io identify() has completed first
+      // Small delay to ensure Customer.io identify() has completed first
       // Token must be registered AFTER user is identified
+      // 1s is sufficient with auto-init (SDK ready before React mounts)
       const timer = setTimeout(async () => {
         console.log('🔔 [AnalyticsWrapper] Syncing push token for user:', user.id);
         await PushNotificationService.syncPushToken();
-      }, 3000);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [isSignedIn, user]);
@@ -356,7 +357,17 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       const messageId = response.notification.request.identifier || `notif_${Date.now()}`;
       analyticsService.trackNotificationClicked(messageId);
 
-      // Handle deep links from Customer.io push notifications
+      // Check if this push came from Customer.io
+      const data = response.notification.request.content.data as Record<string, any> | undefined;
+      const isCioPush = data?.CIO?.push;
+
+      if (isCioPush) {
+        // Let Customer.io SDK handle deep links for its own pushes
+        console.log('🔗 [DeepLink] CIO push — SDK handles deep link');
+        return;
+      }
+
+      // Only handle deep links for non-CIO pushes (e.g., local notifications)
       handleNotificationDeepLink(response);
     });
 

@@ -165,14 +165,13 @@
               "useRichPush": true,
               "showPushAppInForeground": true,
               "disableNotificationRegistration": true,
-              "env": {
-                "cdpApiKey": "66b0dacc49da56e717f5",
-                "region": "eu"
-              }
+              "autoFetchDeviceToken": false,
+              "handleDeeplinkInKilledState": true
             }
           },
           "android": {
             "googleServicesFile": "./google-services.json",
+            "setHighPriorityPushHandler": true,
             "pushClickBehavior": "ActivityPreventRestart",
             "pushNotification": {
               "channel": {
