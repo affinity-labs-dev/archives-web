@@ -35,12 +35,9 @@ import {
   GamifiedProgressProvider,
   GamificationOrchestratorProvider,
   RewardsProvider,
-  useRewards,
   AIProvider,
   CelebrationManager,
 } from "@/gamification";
-import AvatarUnlockAnimation from "@/gamification/ui/celebrations/AvatarUnlockAnimation";
-import AvatarUnlockNotification from "@/gamification/ui/celebrations/AvatarUnlockNotification";
 import AIAssistant from "@/gamification/ui/ai/AIAssistant";
 
 Sentry.init({
@@ -425,82 +422,6 @@ function GamificationWrapper({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Avatar unlock animation wrapper that must be inside RewardsProvider
-function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
-  const { newlyUnlockedItem, clearNewlyUnlockedItem } = useRewards();
-  const [showNotification, setShowNotification] = React.useState(false);
-  const [notificationAvatar, setNotificationAvatar] = React.useState<{ image: any; name: string } | null>(null);
-
-  // Only show animations for avatars (not badges)
-  const newlyUnlockedAvatar = newlyUnlockedItem?.type === 'avatar' ? newlyUnlockedItem : null;
-
-  // Helper to get avatar image - static mapping for require()
-  const AVATAR_IMAGE_MAP: Record<string, any> = {
-    'avatars/Al-Khwarizmi.png': require('@/assets/images/avatars/Al-Khwarizmi.png'),
-    'avatars/Fatima-al-Fihri.png': require('@/assets/images/avatars/Fatima-al-Fihri.png'),
-    'avatars/ibn-sina-avicenna.png': require('@/assets/images/avatars/Ibn-Sina-Avicenna.png'),
-    'avatars/Ziryab.png': require('@/assets/images/avatars/Ziryab.png'),
-    'avatars/Al-Razi.png': require('@/assets/images/avatars/Al-Razi.png'),
-    'avatars/Ibn-Battuta.png': require('@/assets/images/avatars/Ibn-Battuta.png'),
-    'avatars/Lubna-of-Cordoba.png': require('@/assets/images/avatars/Lubna-of-Cordoba.png'),
-    'avatars/Mariam-al-Asturlabi.png': require('@/assets/images/avatars/Mariam-al-Asturlabi.png'),
-    'avatars/Zaynab-al-Shahda.png': require('@/assets/images/avatars/Zaynab-al-Shahda.png'),
-  };
-
-  const getAvatarImage = (imageUrl: string) => {
-    return AVATAR_IMAGE_MAP[imageUrl] || AVATAR_IMAGE_MAP['avatars/Al-Khwarizmi.png'];
-  };
-
-  // TODO: Confetti disabled for now
-  // Trigger confetti when avatar is unlocked
-  // React.useEffect(() => {
-  //   if (newlyUnlockedAvatar) {
-  //     setShowConfetti(true);
-  //   }
-  // }, [newlyUnlockedAvatar]);
-
-  // When animation completes, show notification
-  const handleAnimationComplete = () => {
-    if (newlyUnlockedAvatar) {
-      setNotificationAvatar({
-        image: getAvatarImage(newlyUnlockedAvatar.image_url),
-        name: newlyUnlockedAvatar.display_text,
-      });
-      setShowNotification(true);
-    }
-    clearNewlyUnlockedItem();
-  };
-
-  // When notification completes, clear everything
-  const handleNotificationComplete = () => {
-    setShowNotification(false);
-    setNotificationAvatar(null);
-  };
-
-  return (
-    <>
-      {children}
-      {newlyUnlockedAvatar && (
-        <AvatarUnlockAnimation
-          visible={true}
-          avatarImage={getAvatarImage(newlyUnlockedAvatar.image_url)}
-          avatarName={newlyUnlockedAvatar.display_text}
-          onComplete={handleAnimationComplete}
-        />
-      )}
-      {showNotification && notificationAvatar && (
-        <AvatarUnlockNotification
-          visible={true}
-          avatarImage={notificationAvatar.image}
-          avatarName={notificationAvatar.name}
-          onComplete={handleNotificationComplete}
-        />
-      )}
-    </>
-  );
-}
-
-
 export default Sentry.wrap(function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
@@ -645,7 +566,6 @@ export default Sentry.wrap(function RootLayout() {
                         <PreferencesProvider>
                           <GamificationOrchestratorProvider>
                             <AIProvider>
-                            <AvatarAnimationWrapper>
                               <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
                               <Stack screenOptions={{
                                 gestureEnabled: false,
@@ -662,7 +582,6 @@ export default Sentry.wrap(function RootLayout() {
                               <AIAssistant />
                               <StatusBar style="auto" />
                               </ThemeProvider>
-                            </AvatarAnimationWrapper>
                             </AIProvider>
                           </GamificationOrchestratorProvider>
                         </PreferencesProvider>
