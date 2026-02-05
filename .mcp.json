@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "customerio": {
+      "type": "http",
+      "url": "https://mcp-eu.customer.io/mcp"
+    }
+  }
+}

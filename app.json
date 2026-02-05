@@ -159,6 +159,11 @@
       [
         "customerio-expo-plugin",
         {
+          "config": {
+            "cdpApiKey": "66b0dacc49da56e717f5",
+            "siteId": "acc28dfeb352f6b3af88",
+            "region": "eu"
+          },
           "ios": {
             "useFrameworks": "static",
             "pushNotification": {
