@@ -29,6 +29,11 @@
     <meta-data android:name="io.customer.notification_channel_id" android:value="archives_notifications"/>
     <meta-data android:name="io.customer.notification_channel_importance" android:value="4"/>
     <meta-data android:name="io.customer.notification_channel_name" android:value="Archives Notifications"/>
+    <service android:name="io.customer.messagingpush.CustomerIOFirebaseMessagingService" android:exported="false">
+      <intent-filter>
+        <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+      </intent-filter>
+    </service>
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|locale|layoutDirection" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>

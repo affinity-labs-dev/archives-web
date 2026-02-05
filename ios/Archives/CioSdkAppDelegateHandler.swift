@@ -41,7 +41,7 @@ public class CioSdkAppDelegateHandler: NSObject {
 
     MessagingPushAPN.initialize(
       withConfig: MessagingPushConfigBuilder()
-        .autoFetchDeviceToken(true)
+        .autoFetchDeviceToken(false)
         .showPushAppInForeground(true)
         .autoTrackPushEvents(true)
         .build()
