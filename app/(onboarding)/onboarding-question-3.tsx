@@ -55,6 +55,34 @@ export default function OnboardingRemindersScreen() {
     }
   }, [trackScreenView, screenStartTime])
 
+  // Register device token with Customer.io in background (fire-and-forget)
+  // Separated from the main flow to avoid blocking navigation
+  const registerDeviceTokenInBackground = () => {
+    ;(async () => {
+      try {
+        // Wait for iOS to fetch the APNs token from Apple servers
+        // This delay prevents a race where the token isn't available yet
+        await new Promise(resolve => setTimeout(resolve, 1500))
+
+        // expo-notifications.getDevicePushTokenAsync() waits until
+        // the native APNs/FCM token is ready, so this is reliable
+        const Notifications = await import('expo-notifications')
+        const pushToken = await Notifications.getDevicePushTokenAsync()
+
+        if (pushToken?.data) {
+          // registerDeviceToken is idempotent — safe to call even if SDK already registered
+          CustomerIO.registerDeviceToken(pushToken.data as string)
+          console.log('🔔 [OnboardingQ3] Device token registered with Customer.io')
+        } else {
+          console.log('🔔 [OnboardingQ3] No push token available from system')
+        }
+      } catch (error) {
+        // Non-blocking: if token registration fails, Customer.io will retry on next app launch
+        console.log('🔔 [OnboardingQ3] Background token registration error:', error)
+      }
+    })()
+  }
+
   // Handle enable reminders - request notification permission via Customer.io SDK
   const handleEnableReminders = async () => {
     try {
@@ -84,6 +112,13 @@ export default function OnboardingRemindersScreen() {
           default:
             permissionStatus = 'undetermined'
             console.log('🔔 [OnboardingQ3] Push permission status:', status)
+        }
+
+        // After permission granted, register device token in background
+        // (autoFetchDeviceToken is false in app.json, so we handle it explicitly)
+        // Fire-and-forget: don't block navigation, token registration runs async
+        if (permissionStatus === 'granted') {
+          registerDeviceTokenInBackground()
         }
       } catch (permError) {
         console.log('🔔 [OnboardingQ3] Permission request error (may be Expo Go):', permError)
