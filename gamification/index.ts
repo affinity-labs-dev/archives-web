@@ -90,9 +90,6 @@ export type {
   EraProgressStats, // Progress bar data (correctAnswers/totalQuestions)
 } from './engines/GamificationOrchestrator';
 
-// ========== UI COMPONENTS (Celebrations) ==========
-export { default as CelebrationManager } from './ui/celebrations/CelebrationManager';
-
 // ========== PROVIDERS (Contexts) ==========
 export { RewardsProvider, useRewards } from './engines/RewardsContext';
 export { AIProvider, useAI } from './engines/AIContext';

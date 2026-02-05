@@ -35,7 +35,6 @@ import {
   GamificationOrchestratorProvider,
   RewardsProvider,
   AIProvider,
-  CelebrationManager,
 } from "@/gamification";
 import AIAssistant from "@/gamification/ui/ai/AIAssistant";
 
@@ -576,7 +575,6 @@ export default Sentry.wrap(function RootLayout() {
                                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                                 <Stack.Screen name="+not-found" />
                               </Stack>
-                              <CelebrationManager />
                               <AIAssistant />
                               <StatusBar style="auto" />
                               </ThemeProvider>
