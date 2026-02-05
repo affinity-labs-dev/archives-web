@@ -20,6 +20,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { analyticsService } from '@/services/AnalyticsService'
+import { CustomerIO, CioPushPermissionStatus } from 'customerio-reactnative'
 import Svg, { Path } from 'react-native-svg'
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
@@ -54,29 +55,67 @@ export default function OnboardingRemindersScreen() {
     }
   }, [trackScreenView, screenStartTime])
 
-  // Handle enable reminders - just navigate (notification permission handled elsewhere)
+  // Handle enable reminders - request notification permission via Customer.io SDK
   const handleEnableReminders = async () => {
     try {
       playTap()
       await Haptics.impactAsync()
-      console.log('🔔 [OnboardingQ3] User enabled reminders preference')
+      console.log('🔔 [OnboardingQ3] User tapped ENABLE REMINDERS')
 
-      // Track selection
+      // Request notification permission via Customer.io SDK
+      // This shows the iOS system permission popup
+      let permissionStatus: 'granted' | 'denied' | 'undetermined' = 'undetermined'
+      try {
+        console.log('🔔 [OnboardingQ3] Requesting push notification permission...')
+        const options = { ios: { sound: true, badge: true } }
+        const status = await CustomerIO.pushMessaging.showPromptForPushNotifications(options)
+
+        // Status is CioPushPermissionStatus enum: Granted, Denied, NotDetermined
+        switch (status) {
+          case CioPushPermissionStatus.Granted:
+            permissionStatus = 'granted'
+            console.log('🔔 [OnboardingQ3] Push permission GRANTED')
+            break
+          case CioPushPermissionStatus.Denied:
+            permissionStatus = 'denied'
+            console.log('🔔 [OnboardingQ3] Push permission DENIED')
+            break
+          case CioPushPermissionStatus.NotDetermined:
+          default:
+            permissionStatus = 'undetermined'
+            console.log('🔔 [OnboardingQ3] Push permission status:', status)
+        }
+      } catch (permError) {
+        console.log('🔔 [OnboardingQ3] Permission request error (may be Expo Go):', permError)
+        permissionStatus = 'undetermined'
+      }
+
+      // Track selection with permission result
       analyticsService.trackOnboardingQuestionAnswered({
         screen: 'onboarding_question_3',
         question_number: 3,
         question_text: 'Enable reminders?',
-        answer: 'Enabled',
+        answer: permissionStatus === 'granted' ? 'Enabled' : 'Enabled (permission denied)',
         answer_index: 0,
+      })
+
+      // Track permission request
+      analyticsService.trackPermissionRequested({
+        permission_type: 'push_notifications',
+        screen: 'onboarding_question_3',
+        result: permissionStatus,
+        platform: Platform.OS,
       })
 
       // Save reminder preference
       await AsyncStorage.setItem('onboarding_reminders_enabled', 'true')
+      await AsyncStorage.setItem('notifications_permission_granted', permissionStatus === 'granted' ? 'true' : 'false')
 
-      // Save as q3 answer
+      // Save as q3 answer with permission status
       const answerData = {
         question: 'Enable reminders?',
         answer: 'Enabled',
+        permission_status: permissionStatus,
       }
       await AsyncStorage.setItem('onboarding_q3_answer', JSON.stringify(answerData))
 
