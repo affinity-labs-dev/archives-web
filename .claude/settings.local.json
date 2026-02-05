@@ -1,28 +1,3 @@
 {
-  "alwaysThinkingEnabled": true,
-  "permissions": {
-    "allow": [
-      "Bash(cp:*)",
-      "Bash(mv:*)",
-      "Bash(mkdir:*)",
-      "Bash(touch:*)",
-      "Bash(npm run lint:*)",
-      "Bash(rm:*)",
-      "Bash(xcodebuild:*)",
-      "WebFetch(domain:docs.expo.dev)",
-      "Bash(find:*)",
-      "Bash(grep:*)",
-      "mcp__Ref__ref_search_documentation",
-      "WebSearch",
-      "mcp__Ref__ref_read_url",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
-      "Bash(cat:*)",
-      "Bash(ls:*)",
-      "mcp__posthog__docs-search"
-    ],
-    "deny": [],
-    "defaultMode": "acceptEdits"
-  }
+  "outputStyle": "Explanatory"
 }
