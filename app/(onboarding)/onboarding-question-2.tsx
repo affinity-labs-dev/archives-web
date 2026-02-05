@@ -1,5 +1,5 @@
-// OnboardingQuestion2Screen - Second questionnaire screen
-// "How did you learn about Archives?"
+// OnboardingRemindersScreen - Notification permission request screen
+// "Stay on the path with reminders" - replaces old question 2
 
 import React, { useState, useEffect, useRef } from 'react'
 import {
@@ -10,112 +10,130 @@ import {
   Image,
   StatusBar,
   Platform,
-  ScrollView,
+  Dimensions,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
+import * as Notifications from 'expo-notifications'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
-import { MCQOptionButton } from '@/components/modules/QuizSystem'
+import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { analyticsService } from '@/services/AnalyticsService'
 import Svg, { Path } from 'react-native-svg'
 
-const questionOptions = [
-  "TikTok",
-  "Instagram",
-  "Youtube",
-  "Friends/Family",
-  "Other"
-]
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
 
-export default function OnboardingQuestion2Screen() {
-  const [selectedOption, setSelectedOption] = useState<number | null>(null)
+// Responsive scaling based on screen size
+const scale = (size: number) => (SCREEN_WIDTH / 393) * size // 393 is iPhone 14 Pro width
+const verticalScale = (size: number) => (SCREEN_HEIGHT / 852) * size // 852 is iPhone 14 Pro height
+
+export default function OnboardingRemindersScreen() {
   const [screenStartTime] = useState(Date.now())
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
+  const { playTap } = useOnboardingTapSound()
 
   // Use ref to avoid re-running useEffect when exit action changes
   const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
-  console.log('🔥 [OnboardingQ2] Component initializing...')
+  console.log('🔔 [OnboardingReminders] Component initializing...')
 
   // Track screen view when component mounts
   useEffect(() => {
-    trackScreenView('Onboarding Question 2')
+    trackScreenView('Onboarding Reminders')
 
-    // Track screen exit on unmount only (use ref to avoid duplicate cleanup calls)
+    // Track screen exit on unmount only
     return () => {
       const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
       analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_question_2',
+        screen: 'onboarding_reminders',
         exit_action: exitActionRef.current,
         duration_seconds,
       })
     }
   }, [trackScreenView, screenStartTime])
 
-  // Handle option selection (UI only - tracking happens on Continue)
-  const handleOptionSelect = async (optionIndex: number) => {
+  // Handle enable reminders - request notification permission
+  const handleEnableReminders = async () => {
     try {
-      await Haptics.selectionAsync()
-      setSelectedOption(optionIndex)
-      console.log('🔥 [OnboardingQ2] Selected option:', questionOptions[optionIndex])
-    } catch (error) {
-      console.error('🔥 [OnboardingQ2] Error selecting option:', error)
-      setSelectedOption(optionIndex)
-    }
-  }
-
-  // Continue to next question
-  const handleContinue = async () => {
-    if (selectedOption === null) return
-
-    try {
+      playTap()
       await Haptics.impactAsync()
+      console.log('🔔 [OnboardingReminders] Requesting notification permission...')
 
-      // Track final answer (only track once on Continue, not on every selection)
-      analyticsService.trackOnboardingQuestionAnswered({
-        screen: 'onboarding_question_2',
-        question_number: 2,
-        question_text: "How did you learn about Archives?",
-        answer: questionOptions[selectedOption],
-        answer_index: selectedOption,
-      })
+      // Request notification permission
+      const { status: existingStatus } = await Notifications.getPermissionsAsync()
+      let finalStatus = existingStatus
 
-      // Save answer to storage
-      const answerData = {
-        question: "How did you learn about Archives?",
-        answer: questionOptions[selectedOption],
-        optionIndex: selectedOption
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync()
+        finalStatus = status
       }
 
+      console.log('🔔 [OnboardingReminders] Permission result:', finalStatus)
+
+      // Track permission request
+      analyticsService.trackPermissionRequested({
+        permission_type: 'push_notifications',
+        screen: 'onboarding_reminders',
+        result: finalStatus as 'granted' | 'denied' | 'undetermined' | 'restricted',
+        platform: Platform.OS,
+      })
+
+      // Save reminder preference
+      await AsyncStorage.setItem('onboarding_reminders_enabled', finalStatus === 'granted' ? 'true' : 'false')
+
+      // Also save as q2 answer for backwards compatibility with analytics
+      const answerData = {
+        question: 'Enable reminders?',
+        answer: finalStatus === 'granted' ? 'Enabled' : 'Denied',
+        permission_status: finalStatus,
+      }
       await AsyncStorage.setItem('onboarding_q2_answer', JSON.stringify(answerData))
-      console.log('🔥 [OnboardingQ2] Answer saved:', answerData)
 
       // Navigate to next question
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-3')
     } catch (error) {
-      console.error('🔥 [OnboardingQ2] Error saving answer:', error)
+      console.error('🔔 [OnboardingReminders] Error requesting permission:', error)
       // Continue anyway
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-3')
     }
   }
 
-  // Go back to previous question
-  const handleBack = async () => {
+  // Handle "Maybe Later" - skip without requesting permission
+  const handleMaybeLater = async () => {
     try {
+      playTap()
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      exitActionRef.current = 'back_button'
-      router.back()
+      console.log('🔔 [OnboardingReminders] User skipped reminders')
+
+      // Track skip action
+      analyticsService.trackOnboardingQuestionAnswered({
+        screen: 'onboarding_reminders',
+        question_number: 2,
+        question_text: 'Enable reminders?',
+        answer: 'Skipped',
+        answer_index: -1,
+      })
+
+      // Save as q2 answer for backwards compatibility
+      const answerData = {
+        question: 'Enable reminders?',
+        answer: 'Skipped',
+        permission_status: 'skipped',
+      }
+      await AsyncStorage.setItem('onboarding_q2_answer', JSON.stringify(answerData))
+
+      // Navigate to next question
+      exitActionRef.current = 'continued'
+      router.push('/onboarding-question-3')
     } catch (error) {
-      console.error('🔥 [OnboardingQ2] Error going back:', error)
-      exitActionRef.current = 'back_button'
-      router.back()
+      console.error('🔔 [OnboardingReminders] Error skipping:', error)
+      exitActionRef.current = 'continued'
+      router.push('/onboarding-question-3')
     }
   }
 
@@ -127,17 +145,6 @@ export default function OnboardingQuestion2Screen() {
         translucent={true}
       />
       <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
-        {/* Header with Back Button */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-          </TouchableOpacity>
-        </View>
-
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressSegments}>
@@ -165,8 +172,8 @@ export default function OnboardingQuestion2Screen() {
 
             {/* Speech Bubble on Right */}
             <View style={styles.speechBubble}>
-              <Text style={styles.mainQuestion} selectable={false}>
-                How did you learn{'\n'}about Archives?
+              <Text style={styles.speechText} selectable={false}>
+                Stay on the path{'\n'}with reminders
               </Text>
 
               {/* Speech bubble tail - SVG arrow */}
@@ -212,42 +219,73 @@ export default function OnboardingQuestion2Screen() {
             </View>
           </View>
 
-          {/* Options List */}
-          <ScrollView
-            style={styles.optionsScrollView}
-            contentContainerStyle={styles.optionsContainer}
-            showsVerticalScrollIndicator={false}
-          >
-            {questionOptions.map((option, index) => (
-              <MCQOptionButton
-                key={index}
-                letter={String.fromCharCode(65 + index)} // A, B, C, D, E
-                text={option}
-                isSelected={selectedOption === index}
-                onPress={() => handleOptionSelect(index)}
-              />
-            ))}
-          </ScrollView>
-
-          {/* Continue Button */}
-          <View style={styles.continueContainer}>
-            <TouchableOpacity
-              style={[
-                styles.continueButton,
-                selectedOption === null && styles.continueButtonDisabled
-              ]}
-              onPress={handleContinue}
-              disabled={selectedOption === null}
-              activeOpacity={0.8}
-            >
-              <Text style={[
-                styles.continueText,
-                selectedOption === null && styles.continueTextDisabled
-              ]} selectable={false}>
-                CONTINUE
-              </Text>
-            </TouchableOpacity>
+          {/* Islamic Quote Section */}
+          <View style={styles.quoteSection}>
+            <Text style={styles.quoteText} selectable={false}>
+              {'"Whoever travels a path seeking knowledge, Allah makes easy their path to Paradise"'}
+            </Text>
+            <Text style={styles.quoteAttribution} selectable={false}>
+              The Prophet Mohammed ﷺ
+            </Text>
           </View>
+
+          {/* Stats Section with Laurel Leaves */}
+          <View style={styles.statsSection}>
+            {/* Left Laurel */}
+            <Image
+              source={require('@/assets/images/leaf.png')}
+              style={styles.laurelLeft}
+              resizeMode="contain"
+            />
+
+            {/* Stats Container */}
+            <View style={styles.statsContainer}>
+              {/* Learners Stat */}
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber} selectable={false}>+10,000</Text>
+                <Text style={styles.statLabel} selectable={false}>Learners</Text>
+              </View>
+
+              {/* Lessons Stat */}
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber} selectable={false}>+50,000</Text>
+                <Text style={styles.statLabel} selectable={false}>Lessons Completed</Text>
+              </View>
+            </View>
+
+            {/* Right Laurel (flipped horizontally) */}
+            <Image
+              source={require('@/assets/images/leaf.png')}
+              style={styles.laurelRight}
+              resizeMode="contain"
+            />
+          </View>
+
+        </View>
+
+        {/* Bottom Buttons - Fixed at bottom */}
+        <View style={styles.bottomButtonsContainer}>
+          {/* Enable Reminders Button */}
+          <TouchableOpacity
+            style={styles.enableButton}
+            onPress={handleEnableReminders}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.enableButtonText} selectable={false}>
+              ENABLE REMINDERS
+            </Text>
+          </TouchableOpacity>
+
+          {/* Maybe Later Link */}
+          <TouchableOpacity
+            style={styles.maybeLaterButton}
+            onPress={handleMaybeLater}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.maybeLaterText} selectable={false}>
+              MAYBE LATER
+            </Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     </>
@@ -260,27 +298,10 @@ const styles = StyleSheet.create({
     backgroundColor: ArchivesTheme.colors.creamWhite,
   },
 
-  // Header
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 10 : 20,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
-  },
-
-  // Back Button
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(139,96,64,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
   // Progress Bar
   progressContainer: {
     paddingHorizontal: 0,
-    paddingTop: 10,
+    paddingTop: 20,
     paddingBottom: 20,
   },
   progressSegments: {
@@ -301,27 +322,28 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 20,
   },
 
   // Mascot Section
   mascotSection: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginTop: 20,
-    marginBottom: 30,
-    paddingLeft: 10,
+    marginTop: verticalScale(10),
+    marginBottom: verticalScale(20),
+    paddingLeft: 0,
     paddingRight: 10,
   },
   camelMascot: {
-    width: 135,
-    height: 135,
+    width: scale(110),
+    height: scale(110),
     marginRight: 3,
   },
 
   // Speech Bubble
   speechBubble: {
-    width: 200,
+    flex: 1,
+    maxWidth: scale(220),
     backgroundColor: 'white',
     borderRadius: 20,
     borderWidth: 3,
@@ -335,14 +357,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  mainQuestion: {
+  speechText: {
     fontFamily: 'DM Sans',
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: '600',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'left',
-    lineHeight: 24,
-    flexWrap: 'wrap',
+    lineHeight: scale(24),
   },
   speechTail: {
     position: 'absolute',
@@ -353,21 +374,91 @@ const styles = StyleSheet.create({
     height: 20,
   },
 
-  // Options
-  optionsScrollView: {
-    flex: 1,
+  // Quote Section
+  quoteSection: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: verticalScale(15),
+    marginBottom: verticalScale(8),
   },
-  optionsContainer: {
-    paddingVertical: 20,
+  quoteText: {
+    fontFamily: 'Cormorant',
+    fontSize: scale(20),
+    fontWeight: '500',
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: scale(26),
+    marginBottom: verticalScale(12),
+  },
+  quoteAttribution: {
+    fontFamily: 'Cormorant',
+    fontSize: scale(20),
+    fontWeight: '700',
+    color: '#000000',
+    textAlign: 'center',
+    marginTop: verticalScale(8),
+  },
+
+  // Stats Section
+  statsSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    marginTop: verticalScale(15),
+  },
+  laurelLeft: {
+    width: scale(96),
+    height: verticalScale(192),
+    marginRight: scale(15),
+    marginTop: verticalScale(20),
+  },
+  laurelRight: {
+    width: scale(96),
+    height: verticalScale(192),
+    marginLeft: scale(15),
+    marginTop: verticalScale(20),
+    transform: [{ scaleX: -1 }], // Flip horizontally
+  },
+  statsContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: verticalScale(20),
+  },
+  statItem: {
+    alignItems: 'center',
+    marginVertical: verticalScale(10),
+  },
+  statNumber: {
+    fontFamily: 'DM Sans',
+    fontSize: scale(22),
+    fontWeight: '800',
+    color: ArchivesTheme.colors.persianOrange,
+    textAlign: 'center',
+  },
+  statLabel: {
+    fontFamily: 'DM Sans',
+    fontSize: scale(16),
+    fontWeight: '600',
+    color: ArchivesTheme.colors.shoeBrown,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+
+  // Bottom Buttons Container - Fixed at bottom
+  bottomButtonsContainer: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 40 : 30,
+    left: 20,
+    right: 20,
     alignItems: 'center',
   },
 
-  // Continue Button
-  continueContainer: {
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
-  },
-  continueButton: {
-    width: 345,
+  // Enable Reminders Button
+  enableButton: {
+    width: '100%',
+    maxWidth: 345,
     height: 48,
     backgroundColor: ArchivesTheme.colors.mossGreen,
     borderRadius: 27,
@@ -380,19 +471,25 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  continueButtonDisabled: {
-    backgroundColor: ArchivesTheme.colors.shoeBrown + '40',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  continueText: {
+  enableButtonText: {
     fontFamily: 'DM Sans',
     fontSize: 20,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
   },
-  continueTextDisabled: {
-    color: 'rgba(255,255,255,0.6)',
+
+  // Maybe Later Link
+  maybeLaterButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  maybeLaterText: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.dullBeige,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 })

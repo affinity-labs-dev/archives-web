@@ -13,6 +13,7 @@ export const ArchivesTheme = {
     mossGreenShadow: "#6E7300", // Darker green variant
     concreteGrey: "#E5E5E5", // Light grey for unselected shadows (iOS ConcreteGrey)
     tweedBeige: "#D7C5B6", // Beige for secondary cards
+    dullBeige: "#B8AA92", // Muted beige for secondary text/links
 
     // Semantic Colors
     primary: "#4D392E", // shoeBrown

@@ -14,11 +14,11 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
 import { analyticsService } from '@/services/AnalyticsService'
 import Svg, { Path } from 'react-native-svg'
@@ -36,6 +36,7 @@ export default function OnboardingQuestion4Screen() {
   const [screenStartTime] = useState(Date.now())
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
+  const { playTap } = useOnboardingTapSound()
 
   // Use ref to avoid re-running useEffect when exit action changes
   const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
@@ -60,6 +61,7 @@ export default function OnboardingQuestion4Screen() {
   // Handle option selection (multi-select, UI only - tracking happens on Continue)
   const handleOptionSelect = async (optionIndex: number) => {
     try {
+      playTap()
       await Haptics.selectionAsync()
 
       setSelectedOptions(prev => {
@@ -130,19 +132,6 @@ export default function OnboardingQuestion4Screen() {
     }
   }
 
-  // Go back to previous question
-  const handleBack = async () => {
-    try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      exitActionRef.current = 'back_button'
-      router.back()
-    } catch (error) {
-      console.error('🔥 [OnboardingQ4] Error going back:', error)
-      exitActionRef.current = 'back_button'
-      router.back()
-    }
-  }
-
   return (
     <>
       <StatusBar
@@ -151,17 +140,6 @@ export default function OnboardingQuestion4Screen() {
         translucent={true}
       />
       <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
-        {/* Header with Back Button */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-          </TouchableOpacity>
-        </View>
-
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressSegments}>
@@ -290,26 +268,10 @@ const styles = StyleSheet.create({
   },
 
   // Header
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 10 : 20,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
-  },
-
-  // Back Button
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(139,96,64,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
   // Progress Bar
   progressContainer: {
     paddingHorizontal: 0,
-    paddingTop: 10,
+    paddingTop: 20,
     paddingBottom: 20,
   },
   progressSegments: {

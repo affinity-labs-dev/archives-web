@@ -14,11 +14,11 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
 import { analyticsService } from '@/services/AnalyticsService'
 import Svg, { Path } from 'react-native-svg'
@@ -36,6 +36,7 @@ export default function OnboardingQuestion1Screen() {
   const [screenStartTime] = useState(Date.now())
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
+  const { playTap } = useOnboardingTapSound()
 
   // Use ref to avoid re-running useEffect when exit action changes
   const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
@@ -60,6 +61,7 @@ export default function OnboardingQuestion1Screen() {
   // Handle option selection (UI only - tracking happens on Continue)
   const handleOptionSelect = async (optionIndex: number) => {
     try {
+      playTap()
       await Haptics.selectionAsync()
       setSelectedOption(optionIndex)
       console.log('🔥 [OnboardingQ1] Selected option:', questionOptions[optionIndex])
@@ -241,7 +243,7 @@ const styles = StyleSheet.create({
   // Progress Bar
   progressContainer: {
     paddingHorizontal: 0,
-    paddingTop: 50,
+    paddingTop: 20,
     paddingBottom: 20,
   },
   progressSegments: {
