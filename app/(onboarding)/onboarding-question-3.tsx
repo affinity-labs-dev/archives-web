@@ -15,7 +15,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
-import * as Notifications from 'expo-notifications'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
@@ -55,40 +54,29 @@ export default function OnboardingRemindersScreen() {
     }
   }, [trackScreenView, screenStartTime])
 
-  // Handle enable reminders - request notification permission
+  // Handle enable reminders - just navigate (notification permission handled elsewhere)
   const handleEnableReminders = async () => {
     try {
       playTap()
       await Haptics.impactAsync()
-      console.log('🔔 [OnboardingReminders] Requesting notification permission...')
+      console.log('🔔 [OnboardingQ3] User enabled reminders preference')
 
-      // Request notification permission
-      const { status: existingStatus } = await Notifications.getPermissionsAsync()
-      let finalStatus = existingStatus
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync()
-        finalStatus = status
-      }
-
-      console.log('🔔 [OnboardingReminders] Permission result:', finalStatus)
-
-      // Track permission request
-      analyticsService.trackPermissionRequested({
-        permission_type: 'push_notifications',
+      // Track selection
+      analyticsService.trackOnboardingQuestionAnswered({
         screen: 'onboarding_question_3',
-        result: finalStatus as 'granted' | 'denied' | 'undetermined' | 'restricted',
-        platform: Platform.OS,
+        question_number: 3,
+        question_text: 'Enable reminders?',
+        answer: 'Enabled',
+        answer_index: 0,
       })
 
       // Save reminder preference
-      await AsyncStorage.setItem('onboarding_reminders_enabled', finalStatus === 'granted' ? 'true' : 'false')
+      await AsyncStorage.setItem('onboarding_reminders_enabled', 'true')
 
       // Save as q3 answer
       const answerData = {
         question: 'Enable reminders?',
-        answer: finalStatus === 'granted' ? 'Enabled' : 'Denied',
-        permission_status: finalStatus,
+        answer: 'Enabled',
       }
       await AsyncStorage.setItem('onboarding_q3_answer', JSON.stringify(answerData))
 
@@ -96,8 +84,7 @@ export default function OnboardingRemindersScreen() {
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     } catch (error) {
-      console.error('🔔 [OnboardingQ3] Error requesting permission:', error)
-      // Continue anyway
+      console.error('🔔 [OnboardingQ3] Error:', error)
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     }
