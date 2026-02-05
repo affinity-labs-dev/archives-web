@@ -118,7 +118,7 @@ export default function OnboardingWelcomeScreen() {
           {/* Camel Image */}
           <View style={styles.imageContainer}>
             <Image
-              source={require('@/assets/images/quiz-images/Camel.png')}
+              source={require('@/assets/images/ai-images/hellocharacter.png')}
               style={styles.camelImage}
               resizeMode="contain"
             />
@@ -196,11 +196,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 30,
   },
   camelImage: {
-    width: 180,
-    height: 260,
+    width: 158,
+    height: 229,
   },
   spacer: {
     height: 40,

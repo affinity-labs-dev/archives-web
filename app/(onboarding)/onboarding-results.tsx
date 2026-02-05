@@ -179,7 +179,7 @@ export default function OnboardingResultsScreen() {
           <View style={styles.mascotSection}>
             {/* Camel on Left */}
             <Image
-              source={require('@/assets/images/quiz-images/Camel.png')}
+              source={require('@/assets/images/ai-images/hellocharacter.png')}
               style={styles.camelMascot}
               resizeMode="contain"
             />
@@ -305,9 +305,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   camelMascot: {
-    width: 100,
-    height: 100,
-    marginRight: 20,
+    width: 135,
+    height: 135,
+    marginRight: 3,
   },
 
   // Speech Bubble

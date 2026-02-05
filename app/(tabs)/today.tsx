@@ -11,6 +11,7 @@ import {
   useGamifiedProgress,
 } from "@/gamification";
 import { supabase } from "@/hooks/lib/supabase";
+import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -39,6 +40,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
+import RevenueCatUI from 'react-native-purchases-ui';
 
 // Theme styles
 const themeStyles = ArchivesTheme.common.today;
@@ -334,6 +336,7 @@ function useToday(userId?: string) {
 
 export default function TodayScreen() {
   const { user } = useUser();
+  const { isSubscribed, isLoading: isSubscriptionLoading } = useRevenueCat();
   const {
     streak,
     longestStreak,
@@ -386,6 +389,14 @@ export default function TodayScreen() {
   const [completedDatesCache, setCompletedDatesCache] =
     useState<Set<string> | null>(null);
 
+  // Subscription paywall modal state
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
+  const [pendingDateSelection, setPendingDateSelection] = useState<Date | null>(null);
+
+  // Flag to prevent race condition between purchase completion and subscription state update
+  // Using ref (not state) because we don't need re-renders when this changes
+  const justPurchasedRef = useRef(false);
+
   // Animation for iOS Calendar-style week transitions
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const translateX = useSharedValue(0);
@@ -404,6 +415,25 @@ export default function TodayScreen() {
       setIsHistoricalView(false);
     }
   }, [todayQuest, selectedDate]);
+
+  // Handle subscription expiration while viewing historical content
+  useEffect(() => {
+    // Skip reset if user just completed a purchase (prevents race condition)
+    // The RevenueCat listener hasn't updated isSubscribed yet, but purchase was successful
+    if (justPurchasedRef.current) {
+      console.log('⏳ [Today] Skipping reset - purchase just completed, waiting for subscription state sync');
+      return;
+    }
+
+    // If user is viewing historical content and subscription expires, reset to today
+    if (isHistoricalView && !isSubscribed && !isSubscriptionLoading) {
+      console.log('🔒 [Today] Subscription expired while viewing historical content - resetting to today');
+      const today = new Date();
+      setSelectedDate(today);
+      setIsHistoricalView(false);
+      setDisplayedQuest(todayQuest);
+    }
+  }, [isSubscribed, isSubscriptionLoading, isHistoricalView, todayQuest]);
 
   // Audio player for voiceover (from inner_voice URL in Supabase)
   const player = useAudioPlayer(
@@ -502,18 +532,32 @@ export default function TodayScreen() {
   const handleDateClick = async (date: Date) => {
     const dateStr = date.toISOString().split("T")[0];
     const today = new Date().toISOString().split("T")[0];
+    const isPastDate = dateStr < today;
 
     console.log(`📅 [Today] Date clicked: ${dateStr}`);
-    setSelectedDate(date);
+
+    // Wait for subscription status to load before making gate decisions
+    if (isPastDate && isSubscriptionLoading) {
+      console.log(`⏳ [Today] Waiting for subscription status...`);
+      return;
+    }
 
     if (dateStr === today) {
-      // Viewing current day
+      // Viewing current day - always allowed
       console.log(`✅ [Today] Returning to current day`);
+      setSelectedDate(date);
       setDisplayedQuest(todayQuest);
       setIsHistoricalView(false);
+    } else if (isPastDate && !isSubscribed) {
+      // Past date and not subscribed - show paywall
+      console.log(`🔒 [Today] Subscription required for: ${dateStr}`);
+      setPendingDateSelection(date);
+      setShowPaywallModal(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     } else {
-      // Viewing historical day
+      // Past date and subscribed - load historical content
       console.log(`📜 [Today] Loading historical content for ${dateStr}`);
+      setSelectedDate(date);
       setIsHistoricalView(true);
       const historicalQuest = await fetchQuestByDate(dateStr);
       setDisplayedQuest(historicalQuest);
@@ -1179,8 +1223,8 @@ export default function TodayScreen() {
                           </Text>
                         )}
                       </View>
-                      {/* Lock icon overlapping with bottom circumference for missed days */}
-                      {item.isMissed && (
+                      {/* Lock icon overlapping with bottom circumference for missed days (only for non-subscribers) */}
+                      {item.isMissed && !isSubscribed && (
                         <View
                           style={{
                             position: "absolute",
@@ -1824,6 +1868,119 @@ export default function TodayScreen() {
             )}
           </Modal>
         )}
+
+      {/* Subscription Paywall Modal for Missed Content */}
+      <Modal
+        visible={showPaywallModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setShowPaywallModal(false);
+          setPendingDateSelection(null);
+        }}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: ArchivesTheme.colors.creamWhite }}>
+          {/* Close button */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              zIndex: 10,
+              padding: 8,
+            }}
+            onPress={() => {
+              setShowPaywallModal(false);
+              setPendingDateSelection(null);
+            }}
+          >
+            <Ionicons name="close" size={28} color={ArchivesTheme.colors.mutedNavy} />
+          </TouchableOpacity>
+
+          <RevenueCatUI.Paywall
+            onPurchaseStarted={() => {
+              console.log('💳 [Today Paywall] Purchase started');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }}
+            onPurchaseCompleted={async () => {
+              console.log('✅ [Today Paywall] Purchase completed');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+              // CRITICAL: Set flag BEFORE closing modal and navigating
+              // This prevents the edge case useEffect from firing while isSubscribed is still false
+              // (RevenueCat's CustomerInfoUpdateListener hasn't fired yet)
+              justPurchasedRef.current = true;
+
+              setShowPaywallModal(false);
+
+              // Navigate to the pending date after successful purchase
+              if (pendingDateSelection) {
+                const dateStr = pendingDateSelection.toISOString().split("T")[0];
+                console.log(`📜 [Today Paywall] Unlocking content for: ${dateStr}`);
+                setSelectedDate(pendingDateSelection);
+                setIsHistoricalView(true);
+                const historicalQuest = await fetchQuestByDate(dateStr);
+                setDisplayedQuest(historicalQuest);
+                setPendingDateSelection(null);
+              }
+
+              // Clear the flag after delay to allow subscription state to fully sync
+              // 5 seconds is conservative - RevenueCat listener typically fires within 1-2s
+              setTimeout(() => {
+                justPurchasedRef.current = false;
+                console.log('🔓 [Today] Purchase protection window ended');
+              }, 5000);
+            }}
+            onRestoreStarted={() => {
+              console.log('🔄 [Today Paywall] Restore started');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            onRestoreCompleted={async () => {
+              console.log('✅ [Today Paywall] Restore completed');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+              // CRITICAL: Set flag BEFORE closing modal and navigating
+              // Same race condition protection as onPurchaseCompleted
+              justPurchasedRef.current = true;
+
+              setShowPaywallModal(false);
+
+              // Navigate to the pending date after successful restore
+              if (pendingDateSelection) {
+                const dateStr = pendingDateSelection.toISOString().split("T")[0];
+                console.log(`📜 [Today Paywall] Unlocking content for: ${dateStr}`);
+                setSelectedDate(pendingDateSelection);
+                setIsHistoricalView(true);
+                const historicalQuest = await fetchQuestByDate(dateStr);
+                setDisplayedQuest(historicalQuest);
+                setPendingDateSelection(null);
+              }
+
+              // Clear the flag after delay to allow subscription state to fully sync
+              setTimeout(() => {
+                justPurchasedRef.current = false;
+                console.log('🔓 [Today] Restore protection window ended');
+              }, 5000);
+            }}
+            onPurchaseCancelled={() => {
+              console.log('🚫 [Today Paywall] Purchase cancelled');
+            }}
+            onPurchaseError={() => {
+              console.log('❌ [Today Paywall] Purchase error');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }}
+            onRestoreError={() => {
+              console.log('❌ [Today Paywall] Restore error');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }}
+            onDismiss={() => {
+              console.log('👋 [Today Paywall] Dismissed');
+              setShowPaywallModal(false);
+              setPendingDateSelection(null);
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -10,6 +10,7 @@ import {
   Image,
   StatusBar,
   Platform,
+  ScrollView,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -233,7 +234,7 @@ export default function OnboardingQuestion3Screen() {
           <View style={styles.mascotSection}>
             {/* Camel on Left */}
             <Image
-              source={require('@/assets/images/quiz-images/Camel.png')}
+              source={require('@/assets/images/ai-images/hellocharacter.png')}
               style={styles.camelMascot}
               resizeMode="contain"
             />
@@ -288,7 +289,11 @@ export default function OnboardingQuestion3Screen() {
           </View>
 
           {/* Options List */}
-          <View style={styles.optionsContainer}>
+          <ScrollView
+            style={styles.optionsScrollView}
+            contentContainerStyle={styles.optionsContainer}
+            showsVerticalScrollIndicator={false}
+          >
             {questionOptions.map((option, index) => (
               <MCQOptionButton
                 key={index}
@@ -298,7 +303,7 @@ export default function OnboardingQuestion3Screen() {
                 onPress={() => handleOptionSelect(index)}
               />
             ))}
-          </View>
+          </ScrollView>
 
           {/* Continue Button */}
           <View style={styles.continueContainer}>
@@ -385,9 +390,9 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   camelMascot: {
-    width: 100,
-    height: 100,
-    marginRight: 20,
+    width: 135,
+    height: 135,
+    marginRight: 3,
   },
 
   // Speech Bubble
@@ -425,8 +430,10 @@ const styles = StyleSheet.create({
   },
 
   // Options
-  optionsContainer: {
+  optionsScrollView: {
     flex: 1,
+  },
+  optionsContainer: {
     paddingVertical: 20,
     alignItems: 'center',
   },

@@ -17,7 +17,7 @@ const REVENUECAT_API_KEY = Platform.select({
   default: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || 'appl_oxMRgfHsashdXXOSrczqvnYYIxg'
 }) as string;
 
-const ENTITLEMENT_IDENTIFIER = 'Access of All Eras';
+const ENTITLEMENT_IDENTIFIER = 'Subscribers (monthly and Yearly combine)';
 
 interface UseRevenueCatReturn {
   // Subscription state
