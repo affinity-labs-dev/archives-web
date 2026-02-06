@@ -1,5 +1,5 @@
 // OnboardingRemindersScreen - Notification permission request screen (Question 3)
-// "Stay on the path with reminders"
+// "Get a daily reminder to meet your goal"
 
 import React, { useState, useEffect, useRef } from 'react'
 import {
@@ -246,7 +246,7 @@ export default function OnboardingRemindersScreen() {
             {/* Speech Bubble on Right */}
             <View style={styles.speechBubble}>
               <Text style={styles.speechText} selectable={false}>
-                Stay on the path{'\n'}with reminders
+                Get a daily reminder{'\n'}to meet your goal
               </Text>
 
               {/* Speech bubble tail - SVG arrow */}
