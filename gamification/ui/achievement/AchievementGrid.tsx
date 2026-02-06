@@ -493,9 +493,20 @@ interface NotificationPermissionModalProps {
   description?: string; // Optional custom description
   buttonText?: string; // Optional custom button text
   imageSource?: any; // Optional image source (require() or {uri: ''})
+  gradientColors?: readonly [string, string]; // Optional gradient colors [top, bottom]
   onEnableNotifications: () => void;
   onDismiss: () => void;
 }
+
+// Base gradient colors (these get lightened by 60% like achievement popups)
+const NOTIFICATION_BASE_YELLOW_GREEN = "#959C00"; // Yellow-green (for most variants)
+const NOTIFICATION_BASE_ORANGE = "#D48034"; // Burnt orange (for iOS re-permission)
+const NOTIFICATION_BASE_NAVY = "#41425E"; // Dark navy/blue (for daily story)
+
+// Apply same lightening as achievement popups (60% lighter for subtle gradient)
+const NOTIFICATION_LIGHT_YELLOW_GREEN = lightenColor(NOTIFICATION_BASE_YELLOW_GREEN, 0.6);
+const NOTIFICATION_LIGHT_ORANGE = lightenColor(NOTIFICATION_BASE_ORANGE, 0.6);
+const NOTIFICATION_LIGHT_NAVY = lightenColor(NOTIFICATION_BASE_NAVY, 0.6);
 
 // Default copy variants
 const NOTIFICATION_COPY = {
@@ -505,14 +516,16 @@ const NOTIFICATION_COPY = {
     description:
       "You just got closer to your roots. Want me to remind you when it's time for more?",
     buttonText: "ENABLE NOTIFICATIONS",
-    image: require("@/assets/images/desert-sunset.png"),
+    image: require("@/assets/images/ibu-star.png"),
+    gradient: [NOTIFICATION_LIGHT_YELLOW_GREEN, "#FFFFFF"] as const, // Subtle yellow-green → white
   },
   // Daily Story Complete - After finishing today's quest
   dailyStory: {
     heading: "The story continues tomorrow!",
     description: "Let Ibu remind you when it's time",
     buttonText: "ENABLE NOTIFICATIONS",
-    image: require("@/assets/images/desert-sunrise.png"), // TODO: Replace with night-mosque from Figma
+    image: require("@/assets/images/desert-sunset.png"),
+    gradient: [NOTIFICATION_LIGHT_NAVY, "#FFFFFF"] as const, // EXCEPTION: Subtle navy → white
   },
   // Streak Milestone - After hitting 3/7/14 day streak
   streak: {
@@ -520,14 +533,25 @@ const NOTIFICATION_COPY = {
     description:
       "Ibu can remind you before the day ends so you never miss one.",
     buttonText: "ENABLE NOTIFICATIONS",
-    image: require("@/assets/images/desert-sunset.png"), // TODO: Replace with ibu-flame from Figma
+    image: require("@/assets/images/ibu-flame.png"),
+    gradient: [NOTIFICATION_LIGHT_YELLOW_GREEN, "#FFFFFF"] as const, // Subtle yellow-green → white
   },
   // Return from Lapse - User comes back after 7+ days
   lapse: {
     heading: "Welcome back!",
     description: "Turn on reminders so Ibu can keep you on track.",
     buttonText: "ENABLE NOTIFICATIONS",
-    image: require("@/assets/images/desert-sunrise.png"), // TODO: Replace with ibu-sun from Figma
+    image: require("@/assets/images/ibu-sun.png"),
+    gradient: [NOTIFICATION_LIGHT_YELLOW_GREEN, "#FFFFFF"] as const, // Subtle yellow-green → white
+  },
+  // iOS Re-permission - User denied permission, now has 3+ day streak
+  iosRepermission: {
+    heading: "You're a regular now!",
+    description:
+      "Turn on notifications in Settings so you never miss a day.",
+    buttonText: "OPEN NOTIFICATION SETTINGS",
+    image: require("@/assets/images/ibu-calender.png"),
+    gradient: [NOTIFICATION_LIGHT_ORANGE, "#FFFFFF"] as const, // EXCEPTION: Subtle orange → white
   },
 };
 
@@ -537,6 +561,7 @@ export function NotificationPermissionModal({
   description = NOTIFICATION_COPY.module.description,
   buttonText = NOTIFICATION_COPY.module.buttonText,
   imageSource = NOTIFICATION_COPY.module.image,
+  gradientColors = NOTIFICATION_COPY.module.gradient,
   onEnableNotifications,
   onDismiss,
 }: NotificationPermissionModalProps) {
@@ -559,9 +584,6 @@ export function NotificationPermissionModal({
     }
   }, [visible]);
 
-  // Gradient colors for notification modal (warm golden/orange tones)
-  const gradientColors: readonly [string, string] = ["#FFF4E6", "#FFFFFF"];
-
   return renderAchievementModalWrapper(
     visible,
     onDismiss,
@@ -583,9 +605,9 @@ export function NotificationPermissionModal({
           {/* White Card with Content */}
           <LinearGradient
             colors={gradientColors}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            locations={[0, 0.5]}
+            start={{ x: 0.7, y: 0.04 }}
+            end={{ x: 0.3, y: 0.96 }}
+            locations={[0.027, 0.393]}
             style={notificationStyles.card}
           >
             {/* Heading */}
@@ -609,77 +631,6 @@ export function NotificationPermissionModal({
       </Animated.View>
     </>,
     { style: unlockStyles.backdrop, onPress: onDismiss }, // ✅ Reuse existing style
-  );
-}
-
-// ============================================================
-// FIRST SIGN-IN NOTIFICATION SCREEN (Full Screen)
-// Shows for users who skipped onboarding
-// ============================================================
-
-interface FirstSignInNotificationScreenProps {
-  visible: boolean;
-  onEnableNotifications: () => void;
-  onMaybeLater: () => void;
-}
-
-export function FirstSignInNotificationScreen({
-  visible,
-  onEnableNotifications,
-  onMaybeLater,
-}: FirstSignInNotificationScreenProps) {
-  if (!visible) return null;
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      presentationStyle="fullScreen"
-    >
-      <SafeAreaView style={firstSignInStyles.container}>
-        {/* Desert Sunset Illustration */}
-        <View style={firstSignInStyles.imageContainer}>
-          <Image
-            source={require("@/assets/images/desert-sunset.png")}
-            style={firstSignInStyles.desertImage}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Content */}
-        <View style={firstSignInStyles.content}>
-          <Text style={firstSignInStyles.heading}>
-            Stay on track with reminders
-          </Text>
-
-          <Text style={firstSignInStyles.description}>
-            Get gentle nudges to keep learning. We'll remind you when it's time
-            to continue your journey.
-          </Text>
-        </View>
-
-        {/* Buttons */}
-        <View style={firstSignInStyles.buttonsContainer}>
-          <TouchableOpacity
-            style={firstSignInStyles.enableButton}
-            onPress={onEnableNotifications}
-            activeOpacity={0.8}
-          >
-            <Text style={firstSignInStyles.enableButtonText}>
-              ENABLE REMINDERS
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={firstSignInStyles.maybeLaterButton}
-            onPress={onMaybeLater}
-            activeOpacity={0.7}
-          >
-            <Text style={firstSignInStyles.maybeLaterText}>MAYBE LATER</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    </Modal>
   );
 }
 
@@ -740,9 +691,9 @@ export function IOSRepermissionModal({
           {/* White Card with Content */}
           <LinearGradient
             colors={gradientColors}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            locations={[0, 0.5]}
+            start={{ x: 0.7, y: 0.04 }}
+            end={{ x: 0.3, y: 0.96 }}
+            locations={[0.027, 0.393]}
             style={iosRepermissionStyles.card}
           >
             {/* Heading */}
@@ -960,149 +911,85 @@ const unlockStyles = StyleSheet.create({
 // Reuses unlockStyles for: container, closeButton, backdrop, cardContainer
 // ============================================================
 
+// Notification image dimensions - scales with card width for responsive design
+const NOTIFICATION_IMAGE_WIDTH = CARD_WIDTH * 0.85; // 85% of card width
+const NOTIFICATION_IMAGE_HEIGHT = NOTIFICATION_IMAGE_WIDTH * 0.64; // Maintain 280:180 aspect ratio (0.64)
+const NOTIFICATION_IMAGE_SPACING = SCREEN_WIDTH * 0.05; // 5% of screen width (scales with device)
+
+// Calculated values for perfect half-overlap
+const NOTIFICATION_IMAGE_HALF = NOTIFICATION_IMAGE_HEIGHT / 2;
+const NOTIFICATION_IMAGE_TOP = -NOTIFICATION_IMAGE_HALF; // Exactly half outside
+const NOTIFICATION_CARD_PADDING_TOP = NOTIFICATION_IMAGE_HALF + NOTIFICATION_IMAGE_SPACING; // Half inside + spacing
+
+// Card styling dimensions - all scale proportionally with card width
+const NOTIFICATION_CARD_PADDING_HORIZONTAL = CARD_WIDTH * 0.073; // ~7.3% of card width (~24px on 328px)
+const NOTIFICATION_CARD_PADDING_BOTTOM = CARD_WIDTH * 0.073; // Same as horizontal
+const NOTIFICATION_CARD_BORDER_RADIUS = CARD_WIDTH * 0.076; // ~7.6% of card width (~25px on 328px)
+const NOTIFICATION_CARD_MIN_HEIGHT = CARD_WIDTH * 0.79; // ~79% of card width (~260px on 328px)
+
+// Text sizing - scales with card width
+const NOTIFICATION_HEADING_SIZE = CARD_WIDTH * 0.085; // ~8.5% of card width (~28px on 328px)
+const NOTIFICATION_DESCRIPTION_SIZE = CARD_WIDTH * 0.049; // ~4.9% of card width (~16px on 328px)
+const NOTIFICATION_BUTTON_HEIGHT = CARD_WIDTH * 0.152; // ~15.2% of card width (~50px on 328px)
+const NOTIFICATION_BUTTON_BORDER_RADIUS = NOTIFICATION_BUTTON_HEIGHT / 2; // Perfect pill shape
+
 const notificationStyles = StyleSheet.create({
   imageWrapper: {
     position: "absolute",
-    top: -140, // Desert sunset illustration overlapping card
+    top: NOTIFICATION_IMAGE_TOP, // Auto-calculated: exactly half outside, half inside
+    left: 0,
+    right: 0,
     zIndex: 10,
     elevation: 10,
-    alignItems: "center",
+    alignItems: "center", // Centers image horizontally within wrapper
   },
   desertImage: {
-    width: 280,
-    height: 180,
+    width: NOTIFICATION_IMAGE_WIDTH,
+    height: NOTIFICATION_IMAGE_HEIGHT,
   },
   card: {
     width: CARD_WIDTH,
-    minHeight: 260,
-    borderRadius: 25,
-    paddingTop: 60, // Space for overlapping image
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    minHeight: NOTIFICATION_CARD_MIN_HEIGHT, // Scales with card width
+    borderRadius: NOTIFICATION_CARD_BORDER_RADIUS, // Scales with card width
+    paddingTop: NOTIFICATION_CARD_PADDING_TOP, // Auto-calculated: half image + spacing
+    paddingHorizontal: NOTIFICATION_CARD_PADDING_HORIZONTAL, // Scales with card width
+    paddingBottom: NOTIFICATION_CARD_PADDING_BOTTOM, // Scales with card width
     alignItems: "center",
     ...ArchivesTheme.shadows.medium,
   },
   heading: {
     fontFamily: "DM Sans",
-    fontSize: 28,
+    fontSize: NOTIFICATION_HEADING_SIZE, // Scales with card width
     fontWeight: "700",
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: "center",
-    lineHeight: 34,
-    marginBottom: 12,
+    lineHeight: NOTIFICATION_HEADING_SIZE * 1.21, // 121% of font size (~34px from 28px)
+    marginBottom: CARD_WIDTH * 0.037, // ~3.7% of card width (~12px on 328px)
   },
   description: {
     fontFamily: "DM Sans",
-    fontSize: 16,
+    fontSize: NOTIFICATION_DESCRIPTION_SIZE, // Scales with card width
     fontWeight: "500",
     color: ArchivesTheme.colors.persianOrange,
     textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: NOTIFICATION_DESCRIPTION_SIZE * 1.375, // 137.5% of font size (~22px from 16px)
+    marginBottom: CARD_WIDTH * 0.073, // ~7.3% of card width (~24px on 328px)
   },
   enableButton: {
     width: "100%",
-    height: 50,
+    height: NOTIFICATION_BUTTON_HEIGHT, // Scales with card width
     backgroundColor: ArchivesTheme.colors.mossGreen,
-    borderRadius: 25,
+    borderRadius: NOTIFICATION_BUTTON_BORDER_RADIUS, // Perfect pill shape
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    ...ArchivesTheme.shadows.small, // Use theme's shadow for consistency
   },
   enableButtonText: {
     fontFamily: "DM Sans",
-    fontSize: 16,
+    fontSize: NOTIFICATION_DESCRIPTION_SIZE, // Same as description (16px)
     fontWeight: "700",
     color: "#FFFFFF",
     letterSpacing: 0.5,
-  },
-});
-
-// ============================================================
-// STYLES - First Sign-In Notification Screen (Full Screen)
-// ============================================================
-
-const firstSignInStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-    paddingHorizontal: ArchivesTheme.spacing.lg,
-    justifyContent: "space-between",
-  },
-  imageContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 40,
-  },
-  desertImage: {
-    width: SCREEN_WIDTH * 0.8,
-    height: SCREEN_WIDTH * 0.5,
-    maxWidth: 400,
-    maxHeight: 250,
-  },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  heading: {
-    fontFamily: "DM Sans",
-    fontSize: 32,
-    fontWeight: "700",
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: "center",
-    lineHeight: 40,
-    marginBottom: 16,
-  },
-  description: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "500",
-    color: ArchivesTheme.colors.persianOrange,
-    textAlign: "center",
-    lineHeight: 26,
-  },
-  buttonsContainer: {
-    paddingBottom: 40,
-    width: "100%",
-    alignItems: "center",
-  },
-  enableButton: {
-    width: "100%",
-    height: 52,
-    backgroundColor: ArchivesTheme.colors.mossGreen,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-    marginBottom: 16,
-  },
-  enableButtonText: {
-    fontFamily: "DM Sans",
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    letterSpacing: 0.5,
-  },
-  maybeLaterButton: {
-    paddingVertical: 12,
-  },
-  maybeLaterText: {
-    fontFamily: "DM Sans",
-    fontSize: 16,
-    fontWeight: "600",
-    color: ArchivesTheme.colors.dullBeige,
-    textDecorationLine: "underline",
   },
 });
 
