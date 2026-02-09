@@ -16,7 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { GrayscaleImage } from "./GrayscaleImage";
 
 // Dynamic card width for responsive design
@@ -330,11 +329,7 @@ export function AchievementDetailModal({
           achievement,
           achievement.unlocked,
           gradientColors,
-          {
-            start: { x: 0.7, y: 0.04 },
-            end: { x: 0.3, y: 0.96 },
-            locations: [0.027, 0.393],
-          },
+          DIAGONAL_GRADIENT_CONFIG,
           unlockStyles,
           { useGrayscale: true, width: 234, height: 234 },
           <>
@@ -451,7 +446,7 @@ export function AchievementUnlockAnimation({
             locations: [0.25, 0.75],
           },
           unlockStyles,
-          { useGrayscale: false, width: 234, height: 234 },
+          { useGrayscale: false }, // width/height only used by GrayscaleImage, not regular Image
           <>
             {renderAchievementText(
               achievement.name,
@@ -487,28 +482,27 @@ export function AchievementUnlockAnimation({
 // Triggered after streak milestone
 // ============================================================
 
+// USAGE: <NotificationPermissionModal variant="module" visible={show} onEnableNotifications={handleEnable} onDismiss={handleDismiss} />
 interface NotificationPermissionModalProps {
   visible: boolean;
-  heading?: string; // Optional custom heading
-  description?: string; // Optional custom description
-  buttonText?: string; // Optional custom button text
-  imageSource?: any; // Optional image source (require() or {uri: ''})
-  gradientColors?: readonly [string, string]; // Optional gradient colors [top, bottom]
+  variant?: keyof typeof NOTIFICATION_COPY; // Variant key (e.g., "module", "streak") - looks up all copy
   onEnableNotifications: () => void;
   onDismiss: () => void;
 }
 
-// Base gradient colors (these get lightened by 60% like achievement popups)
-const NOTIFICATION_BASE_YELLOW_GREEN = "#959C00"; // Yellow-green (for most variants)
-const NOTIFICATION_BASE_ORANGE = "#D48034"; // Burnt orange (for iOS re-permission)
-const NOTIFICATION_BASE_NAVY = "#41425E"; // Dark navy/blue (for daily story)
+// Shared diagonal gradient config (used by achievements and notifications)
+const DIAGONAL_GRADIENT_CONFIG = {
+  start: { x: 0.7, y: 0.04 },
+  end: { x: 0.3, y: 0.96 },
+  locations: [0.027, 0.393] as [number, number],
+};
 
-// Apply same lightening as achievement popups (60% lighter for subtle gradient)
-const NOTIFICATION_LIGHT_YELLOW_GREEN = lightenColor(NOTIFICATION_BASE_YELLOW_GREEN, 0.6);
-const NOTIFICATION_LIGHT_ORANGE = lightenColor(NOTIFICATION_BASE_ORANGE, 0.6);
-const NOTIFICATION_LIGHT_NAVY = lightenColor(NOTIFICATION_BASE_NAVY, 0.6);
+// Notification image dimensions (change here to automatically adjust 50/50 positioning)
+const NOTIFICATION_IMAGE_WIDTH = 280;
+const NOTIFICATION_IMAGE_HEIGHT = 200;
+const NOTIFICATION_IMAGE_SPACING = 20; // Space between image and content
 
-// Default copy variants
+// Default copy variants (gradients generated dynamically like achievements)
 const NOTIFICATION_COPY = {
   // Module Complete - After completing a module
   module: {
@@ -517,7 +511,6 @@ const NOTIFICATION_COPY = {
       "You just got closer to your roots. Want me to remind you when it's time for more?",
     buttonText: "ENABLE NOTIFICATIONS",
     image: require("@/assets/images/ibu-star.png"),
-    gradient: [NOTIFICATION_LIGHT_YELLOW_GREEN, "#FFFFFF"] as const, // Subtle yellow-green → white
   },
   // Daily Story Complete - After finishing today's quest
   dailyStory: {
@@ -525,7 +518,6 @@ const NOTIFICATION_COPY = {
     description: "Let Ibu remind you when it's time",
     buttonText: "ENABLE NOTIFICATIONS",
     image: require("@/assets/images/desert-sunset.png"),
-    gradient: [NOTIFICATION_LIGHT_NAVY, "#FFFFFF"] as const, // EXCEPTION: Subtle navy → white
   },
   // Streak Milestone - After hitting 3/7/14 day streak
   streak: {
@@ -534,7 +526,6 @@ const NOTIFICATION_COPY = {
       "Ibu can remind you before the day ends so you never miss one.",
     buttonText: "ENABLE NOTIFICATIONS",
     image: require("@/assets/images/ibu-flame.png"),
-    gradient: [NOTIFICATION_LIGHT_YELLOW_GREEN, "#FFFFFF"] as const, // Subtle yellow-green → white
   },
   // Return from Lapse - User comes back after 7+ days
   lapse: {
@@ -542,30 +533,26 @@ const NOTIFICATION_COPY = {
     description: "Turn on reminders so Ibu can keep you on track.",
     buttonText: "ENABLE NOTIFICATIONS",
     image: require("@/assets/images/ibu-sun.png"),
-    gradient: [NOTIFICATION_LIGHT_YELLOW_GREEN, "#FFFFFF"] as const, // Subtle yellow-green → white
   },
   // iOS Re-permission - User denied permission, now has 3+ day streak
   iosRepermission: {
     heading: "You're a regular now!",
-    description:
-      "Turn on notifications in Settings so you never miss a day.",
+    description: "Turn on notifications in Settings so you never miss a day.",
     buttonText: "OPEN NOTIFICATION SETTINGS",
     image: require("@/assets/images/ibu-calender.png"),
-    gradient: [NOTIFICATION_LIGHT_ORANGE, "#FFFFFF"] as const, // EXCEPTION: Subtle orange → white
   },
 };
 
 export function NotificationPermissionModal({
   visible,
-  heading = NOTIFICATION_COPY.module.heading,
-  description = NOTIFICATION_COPY.module.description,
-  buttonText = NOTIFICATION_COPY.module.buttonText,
-  imageSource = NOTIFICATION_COPY.module.image,
-  gradientColors = NOTIFICATION_COPY.module.gradient,
+  variant = "module",
   onEnableNotifications,
   onDismiss,
 }: NotificationPermissionModalProps) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  // Look up copy from variant
+  const variantCopy = NOTIFICATION_COPY[variant];
 
   useEffect(() => {
     if (visible) {
@@ -584,6 +571,11 @@ export function NotificationPermissionModal({
     }
   }, [visible]);
 
+  // Generate gradient dynamically like achievements (reuses existing function)
+  const baseColor = getAchievementGradientColor(variant);
+  const lightColor = lightenColor(baseColor, 0.6);
+  const gradientColors: readonly [string, string] = [lightColor, "#FFFFFF"];
+
   return renderAchievementModalWrapper(
     visible,
     onDismiss,
@@ -591,143 +583,43 @@ export function NotificationPermissionModal({
     <>
       {/* Close Button - Top Right */}
       {renderModalCloseButton(onDismiss, unlockStyles, true)}
-      {/* Main Card with Gradient */}
+      {/* Main Card - Reuse achievement card structure */}
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <View style={unlockStyles.cardContainer}>
-          {/* Notification Illustration - Overlapping card top */}
-          <View style={notificationStyles.imageWrapper}>
-            <Image
-              source={imageSource}
-              style={notificationStyles.desertImage}
-              resizeMode="contain"
-            />
-          </View>
-          {/* White Card with Content */}
-          <LinearGradient
-            colors={gradientColors}
-            start={{ x: 0.7, y: 0.04 }}
-            end={{ x: 0.3, y: 0.96 }}
-            locations={[0.027, 0.393]}
-            style={notificationStyles.card}
-          >
-            {/* Heading */}
-            <Text style={notificationStyles.heading}>{heading}</Text>
-
-            {/* Description */}
-            <Text style={notificationStyles.description}>{description}</Text>
-
-            {/* Enable Notifications Button */}
+        {renderAchievementCard(
+          { image: variantCopy.image } as unknown as Achievement,
+          true, // Not used since useGrayscale: false, but required by function signature
+          gradientColors,
+          DIAGONAL_GRADIENT_CONFIG,
+          {
+            cardContainer: unlockStyles.cardContainer,
+            imageWrapper: notificationStyles.imageWrapper,
+            achievementImage: notificationStyles.notificationImage,
+            card: {
+              ...unlockStyles.card,
+              alignItems: "center",
+              paddingTop:
+                NOTIFICATION_IMAGE_HEIGHT / 2 + NOTIFICATION_IMAGE_SPACING, // Auto-calculated: half image + spacing
+            },
+          },
+          { useGrayscale: false }, // width/height only used by GrayscaleImage, not regular Image
+          <>
+            <Text style={notificationStyles.heading}>
+              {variantCopy.heading}
+            </Text>
+            <Text style={notificationStyles.description}>
+              {variantCopy.description}
+            </Text>
             <TouchableOpacity
               style={notificationStyles.enableButton}
               onPress={onEnableNotifications}
               activeOpacity={0.8}
             >
               <Text style={notificationStyles.enableButtonText}>
-                {buttonText}
+                {variantCopy.buttonText}
               </Text>
             </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      </Animated.View>
-    </>,
-    { style: unlockStyles.backdrop, onPress: onDismiss }, // ✅ Reuse existing style
-  );
-}
-
-// ============================================================
-// IOS RE-PERMISSION MODAL
-// For users who previously declined iOS notification permission
-// Takes them to iOS Settings
-// ============================================================
-
-interface IOSRepermissionModalProps {
-  visible: boolean;
-  onOpenSettings: () => void;
-  onDismiss: () => void;
-}
-
-export function IOSRepermissionModal({
-  visible,
-  onOpenSettings,
-  onDismiss,
-}: IOSRepermissionModalProps) {
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
-    } else {
-      scaleAnim.setValue(0);
-    }
-  }, [visible]);
-
-  const gradientColors: readonly [string, string] = ["#FFF4E6", "#FFFFFF"];
-
-  return renderAchievementModalWrapper(
-    visible,
-    onDismiss,
-    unlockStyles.container,
-    <>
-      {renderModalCloseButton(onDismiss, unlockStyles, true)}
-
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <View style={unlockStyles.cardContainer}>
-          {/* Desert Sunset Illustration */}
-          <View style={notificationStyles.imageWrapper}>
-            <Image
-              source={require("@/assets/images/desert-sunset.png")}
-              style={notificationStyles.desertImage}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* White Card with Content */}
-          <LinearGradient
-            colors={gradientColors}
-            start={{ x: 0.7, y: 0.04 }}
-            end={{ x: 0.3, y: 0.96 }}
-            locations={[0.027, 0.393]}
-            style={iosRepermissionStyles.card}
-          >
-            {/* Heading */}
-            <Text style={notificationStyles.heading}>
-              Don't lose your streak!
-            </Text>
-
-            {/* Description */}
-            <Text style={notificationStyles.description}>
-              Turn on notifications in Settings to get reminders and protect
-              your progress.
-            </Text>
-
-            {/* Enable in Settings Button */}
-            <TouchableOpacity
-              style={notificationStyles.enableButton}
-              onPress={onOpenSettings}
-              activeOpacity={0.8}
-            >
-              <Text style={notificationStyles.enableButtonText}>
-                ENABLE IN SETTINGS
-              </Text>
-            </TouchableOpacity>
-
-            {/* Not Now Link */}
-            <TouchableOpacity
-              style={iosRepermissionStyles.notNowButton}
-              onPress={onDismiss}
-              activeOpacity={0.7}
-            >
-              <Text style={iosRepermissionStyles.notNowText}>Not now</Text>
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
+          </>,
+        )}
       </Animated.View>
     </>,
     { style: unlockStyles.backdrop, onPress: onDismiss },
@@ -907,107 +799,68 @@ const unlockStyles = StyleSheet.create({
 });
 
 // ============================================================
-// STYLES - Notification Permission Modal (Only unique styles)
-// Reuses unlockStyles for: container, closeButton, backdrop, cardContainer
+// STYLES - Notification Permission Modal
+// Minimal styles - only differences from unlockStyles
+// Reuses unlockStyles for: container, closeButton, backdrop, cardContainer, card base
 // ============================================================
 
-// Notification image dimensions - scales with card width for responsive design
-const NOTIFICATION_IMAGE_WIDTH = CARD_WIDTH * 0.85; // 85% of card width
-const NOTIFICATION_IMAGE_HEIGHT = NOTIFICATION_IMAGE_WIDTH * 0.64; // Maintain 280:180 aspect ratio (0.64)
-const NOTIFICATION_IMAGE_SPACING = SCREEN_WIDTH * 0.05; // 5% of screen width (scales with device)
-
-// Calculated values for perfect half-overlap
-const NOTIFICATION_IMAGE_HALF = NOTIFICATION_IMAGE_HEIGHT / 2;
-const NOTIFICATION_IMAGE_TOP = -NOTIFICATION_IMAGE_HALF; // Exactly half outside
-const NOTIFICATION_CARD_PADDING_TOP = NOTIFICATION_IMAGE_HALF + NOTIFICATION_IMAGE_SPACING; // Half inside + spacing
-
-// Card styling dimensions - all scale proportionally with card width
-const NOTIFICATION_CARD_PADDING_HORIZONTAL = CARD_WIDTH * 0.073; // ~7.3% of card width (~24px on 328px)
-const NOTIFICATION_CARD_PADDING_BOTTOM = CARD_WIDTH * 0.073; // Same as horizontal
-const NOTIFICATION_CARD_BORDER_RADIUS = CARD_WIDTH * 0.076; // ~7.6% of card width (~25px on 328px)
-const NOTIFICATION_CARD_MIN_HEIGHT = CARD_WIDTH * 0.79; // ~79% of card width (~260px on 328px)
-
-// Text sizing - scales with card width
-const NOTIFICATION_HEADING_SIZE = CARD_WIDTH * 0.085; // ~8.5% of card width (~28px on 328px)
-const NOTIFICATION_DESCRIPTION_SIZE = CARD_WIDTH * 0.049; // ~4.9% of card width (~16px on 328px)
-const NOTIFICATION_BUTTON_HEIGHT = CARD_WIDTH * 0.152; // ~15.2% of card width (~50px on 328px)
-const NOTIFICATION_BUTTON_BORDER_RADIUS = NOTIFICATION_BUTTON_HEIGHT / 2; // Perfect pill shape
-
 const notificationStyles = StyleSheet.create({
+  // Image positioning - centered (vs right-aligned for achievements)
   imageWrapper: {
     position: "absolute",
-    top: NOTIFICATION_IMAGE_TOP, // Auto-calculated: exactly half outside, half inside
+    top: -(NOTIFICATION_IMAGE_HEIGHT / 2), // Auto-calculated: half above card
     left: 0,
     right: 0,
     zIndex: 10,
     elevation: 10,
-    alignItems: "center", // Centers image horizontally within wrapper
+    alignItems: "center",
   },
-  desertImage: {
+  // Notification image size (wider aspect ratio than achievement badge)
+  notificationImage: {
     width: NOTIFICATION_IMAGE_WIDTH,
     height: NOTIFICATION_IMAGE_HEIGHT,
   },
-  card: {
-    width: CARD_WIDTH,
-    minHeight: NOTIFICATION_CARD_MIN_HEIGHT, // Scales with card width
-    borderRadius: NOTIFICATION_CARD_BORDER_RADIUS, // Scales with card width
-    paddingTop: NOTIFICATION_CARD_PADDING_TOP, // Auto-calculated: half image + spacing
-    paddingHorizontal: NOTIFICATION_CARD_PADDING_HORIZONTAL, // Scales with card width
-    paddingBottom: NOTIFICATION_CARD_PADDING_BOTTOM, // Scales with card width
-    alignItems: "center",
-    ...ArchivesTheme.shadows.medium,
-  },
+  // Text styles - center-aligned (vs left-aligned for achievements)
   heading: {
     fontFamily: "DM Sans",
-    fontSize: NOTIFICATION_HEADING_SIZE, // Scales with card width
+    fontSize: 28,
     fontWeight: "700",
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: "center",
-    lineHeight: NOTIFICATION_HEADING_SIZE * 1.21, // 121% of font size (~34px from 28px)
-    marginBottom: CARD_WIDTH * 0.037, // ~3.7% of card width (~12px on 328px)
+    lineHeight: 34,
+    marginBottom: 12,
   },
   description: {
     fontFamily: "DM Sans",
-    fontSize: NOTIFICATION_DESCRIPTION_SIZE, // Scales with card width
+    fontSize: 16,
     fontWeight: "500",
     color: ArchivesTheme.colors.persianOrange,
     textAlign: "center",
-    lineHeight: NOTIFICATION_DESCRIPTION_SIZE * 1.375, // 137.5% of font size (~22px from 16px)
-    marginBottom: CARD_WIDTH * 0.073, // ~7.3% of card width (~24px on 328px)
+    lineHeight: 22,
+    marginBottom: 24,
   },
+  // Unique button (doesn't exist in achievements)
   enableButton: {
     width: "100%",
-    height: NOTIFICATION_BUTTON_HEIGHT, // Scales with card width
+    height: 50,
     backgroundColor: ArchivesTheme.colors.mossGreen,
-    borderRadius: NOTIFICATION_BUTTON_BORDER_RADIUS, // Perfect pill shape
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
-    ...ArchivesTheme.shadows.small, // Use theme's shadow for consistency
+    shadowColor: "#6E7300",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
   },
   enableButtonText: {
     fontFamily: "DM Sans",
-    fontSize: NOTIFICATION_DESCRIPTION_SIZE, // Same as description (16px)
+    fontSize: 16,
     fontWeight: "700",
     color: "#FFFFFF",
     letterSpacing: 0.5,
   },
-});
-
-// ============================================================
-// STYLES - iOS Re-Permission Modal (Extends notification styles)
-// ============================================================
-
-const iosRepermissionStyles = StyleSheet.create({
-  card: {
-    width: CARD_WIDTH,
-    minHeight: 280, // Slightly taller for "Not now" link
-    borderRadius: 25,
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    alignItems: "center",
-    ...ArchivesTheme.shadows.medium,
-  },
+  // iOS re-permission specific
   notNowButton: {
     marginTop: 12,
     paddingVertical: 8,
