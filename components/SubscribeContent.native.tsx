@@ -22,7 +22,12 @@ export default function SubscribeContent() {
   const {
     isSubscribed,
     isLoading,
+    customerInfo,
   } = useRevenueCat();
+
+  // Founding members purchased the Lifetime Subscription via web billing
+  const isFoundingMember = customerInfo?.entitlements.active['Access of All Eras - Yearly']
+    ?.productIdentifier === 'Archives_Lifetime_Offer';
 
   // Track page views with focus/blur
   useFocusEffect(
@@ -50,6 +55,87 @@ export default function SubscribeContent() {
           <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
           <Text style={styles.loadingText}>Loading subscription options...</Text>
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Founding members get a special thank you screen
+  if (isFoundingMember) {
+    return (
+      <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <View style={styles.subscribedContainer}>
+            <Ionicons
+              name="sparkles"
+              size={70}
+              color={ArchivesTheme.colors.persianOrange}
+              style={styles.subscribedIcon}
+            />
+            <Text style={styles.subscribedTitle}>Founding Member</Text>
+            <Text style={styles.subscribedMessage}>
+              Thank you for believing in Archives before anyone else. Your early support helped turn a vision into reality, and we{'\u2019'}re grateful you{'\u2019'}re part of this journey from the very beginning.
+            </Text>
+
+            <View style={styles.explorerPassSection}>
+              <Text style={styles.featuresHeader}>
+                Lifetime Access
+              </Text>
+              <Text style={styles.foundingMemberDescription}>
+                Your support helped build Archives from the ground up. As a founding member, you have permanent access to every era, adventure, and feature {'\u2014'} forever.
+              </Text>
+            </View>
+
+            <View style={styles.explorerPassSection}>
+              <Text style={styles.featuresHeader}>
+                Your Founding Member Perks:
+              </Text>
+
+              <View style={styles.featuresList}>
+                <View style={styles.featureItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={ArchivesTheme.colors.persianOrange}
+                  />
+                  <Text style={styles.featureText}>
+                    Lifetime Access to All Eras
+                  </Text>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={ArchivesTheme.colors.persianOrange}
+                  />
+                  <Text style={styles.featureText}>Early Access to New Content</Text>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={ArchivesTheme.colors.persianOrange}
+                  />
+                  <Text style={styles.featureText}>Founding Member Recognition</Text>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={ArchivesTheme.colors.persianOrange}
+                  />
+                  <Text style={styles.featureText}>All Future Features Included</Text>
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.foundingMemberFooter}>
+              One of the first to believe in Archives
+            </Text>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -256,5 +342,23 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: ArchivesTheme.colors.mutedNavy,
     marginLeft: 12,
+  },
+
+  // Founding Member styles
+  foundingMemberDescription: {
+    fontFamily: "DM Sans",
+    fontSize: 15,
+    color: ArchivesTheme.colors.mutedNavy,
+    lineHeight: 22,
+    opacity: 0.8,
+  },
+  foundingMemberFooter: {
+    fontFamily: "DM Sans",
+    fontSize: 14,
+    fontWeight: "500",
+    fontStyle: "italic",
+    color: ArchivesTheme.colors.persianOrange,
+    textAlign: "center",
+    marginTop: 24,
   },
 });
