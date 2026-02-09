@@ -28,6 +28,7 @@ import { usePostHog } from 'posthog-react-native';
 import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
 import CustomerIOService from '@/services/CustomerIOService';
+import Purchases from 'react-native-purchases';
 
 // Gamification imports - unified from @/gamification
 import {
@@ -151,6 +152,64 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       // Clear Customer.io identity when signed out
       CustomerIOService.clearIdentify();
     }
+  }, [isSignedIn, user]);
+
+  // Sync RevenueCat identity with Clerk user (independent of PostHog)
+  // Runs for ALL users — free and paid — so every user has real profile data in RevenueCat
+  React.useEffect(() => {
+    // RevenueCat only works on iOS/Android
+    if (Platform.OS === 'web') return;
+
+    const syncRevenueCatIdentity = async () => {
+      if (isSignedIn && user) {
+        try {
+          // Log in to RevenueCat with Clerk user ID
+          // This merges any anonymous purchases with this identified user
+          const { customerInfo } = await Purchases.logIn(user.id);
+          console.log('💰 [RevenueCat] User identified:', user.id,
+            'Active entitlements:', Object.keys(customerInfo.entitlements.active));
+
+          // Set subscriber attributes for ALL users (visible in RevenueCat dashboard)
+          Purchases.setAttributes({
+            '$email': user.primaryEmailAddress?.emailAddress ?? '',
+            '$displayName': [user.firstName, user.lastName].filter(Boolean).join(' '),
+            'clerk_id': user.id,
+          });
+
+          // Set ATT status as attribute (iOS only)
+          if (Platform.OS === 'ios') {
+            try {
+              const { getTrackingPermissionsAsync } = require('expo-tracking-transparency');
+              const { status } = await getTrackingPermissionsAsync();
+              Purchases.setAttributes({
+                'att_status': status,
+              });
+              console.log('💰 [RevenueCat] ATT status set:', status);
+            } catch (attError) {
+              console.log('💰 [RevenueCat] Could not get ATT status:', attError);
+            }
+          }
+
+          // Collect device identifiers (IDFA/GAID) for attribution
+          Purchases.collectDeviceIdentifiers();
+
+          console.log('💰 [RevenueCat] Subscriber attributes synced for user:', user.id);
+        } catch (error) {
+          console.error('❌ [RevenueCat] Failed to sync identity:', error);
+        }
+      } else if (!isSignedIn && wasSignedInRef.current) {
+        // User signed out — reset RevenueCat to anonymous
+        try {
+          await Purchases.logOut();
+          console.log('💰 [RevenueCat] User logged out, reset to anonymous');
+        } catch {
+          // logOut() throws if already anonymous — safe to ignore
+          console.log('💰 [RevenueCat] LogOut skipped (already anonymous)');
+        }
+      }
+    };
+
+    syncRevenueCatIdentity();
   }, [isSignedIn, user]);
 
   // Sync push token on sign-in for users who already granted permission

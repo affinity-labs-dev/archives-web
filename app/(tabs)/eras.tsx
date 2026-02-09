@@ -24,6 +24,7 @@ import { useEras, Era, isEraAccessible } from '@/hooks/useEras';
 import { EraCard, EraSelectionSkeleton } from '@/components/EraSelection';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { analyticsService } from '@/services/AnalyticsService';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 
 export default function EraSelection() {
   const router = useRouter();
@@ -37,9 +38,12 @@ export default function EraSelection() {
 
   const [selectedEraId, setSelectedEraId] = useState<string | null>(null);
 
-  // TODO: Get these from RevenueCat
-  const hasSubscription = false;
-  const isFoundingMember = false;
+  // Get subscription status from RevenueCat (now linked to Clerk identity)
+  const { isSubscribed, customerInfo } = useRevenueCat();
+  const hasSubscription = isSubscribed;
+
+  // Founding members purchased the Lifetime Subscription via web billing
+  const isFoundingMember = customerInfo?.entitlements.active['Access of All Eras - Yearly']?.productIdentifier === 'Archives_Lifetime_Offer';
 
   // Set user properties for analytics (fallback for onboarding)
   React.useEffect(() => {
