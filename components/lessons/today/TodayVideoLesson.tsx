@@ -51,6 +51,7 @@ export default function TodayVideoLesson({
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
   const cardHeight = useRef(new Animated.Value(0)).current;
+  const cardOpacity = useRef(new Animated.Value(0)).current;
 
   // Video state
   const [videoCompleted, setVideoCompleted] = useState(false);
@@ -74,23 +75,37 @@ export default function TodayVideoLesson({
 
   // Expand/collapse card
   const expandCard = () => {
-    Animated.spring(cardHeight, {
-      toValue: EXPANDED_HEIGHT,
-      tension: 80,
-      friction: 12,
-      useNativeDriver: false,
-    }).start();
     setIsCardExpanded(true);
+    Animated.parallel([
+      Animated.spring(cardHeight, {
+        toValue: EXPANDED_HEIGHT,
+        tension: 100,
+        friction: 15,
+        useNativeDriver: false,
+      }),
+      Animated.timing(cardOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: false,
+      }),
+    ]).start();
   };
 
   const collapseCard = () => {
-    Animated.spring(cardHeight, {
-      toValue: 0, // Hide completely
-      tension: 80,
-      friction: 12,
-      useNativeDriver: false,
-    }).start();
     setIsCardExpanded(false);
+    Animated.parallel([
+      Animated.spring(cardHeight, {
+        toValue: 0, // Hide completely
+        tension: 100,
+        friction: 15,
+        useNativeDriver: false,
+      }),
+      Animated.timing(cardOpacity, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: false,
+      }),
+    ]).start();
   };
 
   // Handle swipe gesture
@@ -203,23 +218,26 @@ export default function TodayVideoLesson({
             </View>
           </View>
 
-          {/* Reading Card - Hidden initially, expands on "Read" click */}
-          {isCardExpanded &&
-            (Platform.OS === "ios" ? (
-              <PanGestureHandler
-                ref={panGestureRef}
-                onGestureEvent={handleSwipeGesture}
-                onHandlerStateChange={handleSwipeGesture}
-                activeOffsetY={[-10, 10]}
-                failOffsetX={[-20, 20]}
+          {/* Reading Card - Always rendered, animated visibility */}
+          {Platform.OS === "ios" ? (
+            <PanGestureHandler
+              ref={panGestureRef}
+              onGestureEvent={handleSwipeGesture}
+              onHandlerStateChange={handleSwipeGesture}
+              activeOffsetY={[-10, 10]}
+              failOffsetX={[-20, 20]}
+            >
+              <Animated.View
+                style={[
+                  ArchivesTheme.common.today.watchCardContainer,
+                  { height: cardHeight, opacity: cardOpacity },
+                ]}
               >
-                <Animated.View
-                  style={[
-                    ArchivesTheme.common.today.watchCardContainer,
-                    { height: cardHeight },
-                  ]}
-                >
-                  <View style={ArchivesTheme.common.today.watchReadingCard}>
+                  <TouchableOpacity
+                    style={ArchivesTheme.common.today.watchReadingCard}
+                    activeOpacity={1}
+                    onPress={collapseCard}
+                  >
                     {/* Card Handle */}
                     <View style={ArchivesTheme.common.today.watchCardHandle} />
 
@@ -232,6 +250,8 @@ export default function TodayVideoLesson({
                         showsVerticalScrollIndicator={false}
                         onScroll={handleReadingScroll}
                         scrollEventThrottle={100}
+                        bounces={false}
+                        waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                       >
                         <View
                           style={
@@ -239,6 +259,7 @@ export default function TodayVideoLesson({
                           }
                         >
                           {/* Title */}
+                          <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
                           <View
                             style={ArchivesTheme.common.today.watchTitleSection}
                           >
@@ -248,9 +269,11 @@ export default function TodayVideoLesson({
                               {contentItem.thumbnail_title || "Content"}
                             </Text>
                           </View>
+                          </TouchableOpacity>
 
                           {/* HTML Content */}
                           {contentItem.bottom_content?.reading_text && (
+                            <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
                             <View
                               style={
                                 ArchivesTheme.common.today
@@ -305,13 +328,14 @@ export default function TodayVideoLesson({
                                 }}
                               />
                             </View>
+                            </TouchableOpacity>
                           )}
 
                           <View style={{ height: 100 }} />
                         </View>
                       </GestureHandlerScrollView>
                     </Animated.View>
-                  </View>
+                  </TouchableOpacity>
                 </Animated.View>
               </PanGestureHandler>
             ) : (
@@ -325,10 +349,14 @@ export default function TodayVideoLesson({
                 <Animated.View
                   style={[
                     ArchivesTheme.common.today.watchCardContainer,
-                    { height: cardHeight },
+                    { height: cardHeight, opacity: cardOpacity },
                   ]}
                 >
-                  <View style={ArchivesTheme.common.today.watchReadingCard}>
+                  <TouchableOpacity
+                    style={ArchivesTheme.common.today.watchReadingCard}
+                    activeOpacity={1}
+                    onPress={collapseCard}
+                  >
                     {/* Card Handle */}
                     <View style={ArchivesTheme.common.today.watchCardHandle} />
 
@@ -341,6 +369,8 @@ export default function TodayVideoLesson({
                         showsVerticalScrollIndicator={false}
                         onScroll={handleReadingScroll}
                         scrollEventThrottle={100}
+                        bounces={false}
+                        waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
                       >
                         <View
                           style={
@@ -348,6 +378,7 @@ export default function TodayVideoLesson({
                           }
                         >
                           {/* Title */}
+                          <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
                           <View
                             style={ArchivesTheme.common.today.watchTitleSection}
                           >
@@ -357,9 +388,11 @@ export default function TodayVideoLesson({
                               {contentItem.thumbnail_title || "Content"}
                             </Text>
                           </View>
+                          </TouchableOpacity>
 
                           {/* HTML Content */}
                           {contentItem.bottom_content?.reading_text && (
+                            <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
                             <View
                               style={
                                 ArchivesTheme.common.today
@@ -414,16 +447,17 @@ export default function TodayVideoLesson({
                                 }}
                               />
                             </View>
+                            </TouchableOpacity>
                           )}
 
                           <View style={{ height: 100 }} />
                         </View>
                       </GestureHandlerScrollView>
                     </Animated.View>
-                  </View>
+                  </TouchableOpacity>
                 </Animated.View>
               </PanGestureHandler>
-            ))}
+            )}
 
           {/* Fixed Bottom Buttons - Float over video, always visible */}
           <View
@@ -436,7 +470,13 @@ export default function TodayVideoLesson({
               {/* Read Button - Left */}
               <TouchableOpacity
                 style={ArchivesTheme.common.today.watchReadButton}
-                onPress={expandCard}
+                onPress={() => {
+                  if (isCardExpanded) {
+                    collapseCard();
+                  } else {
+                    expandCard();
+                  }
+                }}
                 activeOpacity={0.8}
               >
                 <Ionicons name="menu" size={20} color="white" />

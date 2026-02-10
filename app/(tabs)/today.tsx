@@ -32,14 +32,15 @@ import {
   View,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 // Theme styles
 const themeStyles = ArchivesTheme.common.today;
@@ -265,7 +266,7 @@ function useToday(userId?: string) {
   ) => {
     try {
       console.log(
-        `💾 [useToday] Saving completion: ${correctAnswers}/${totalQuestions} (Score: ${score}%)`,
+        `💾 [useToday] Saving completion: ${correctAnswers}/${totalQuestions} (Score: ${score})`,
       );
 
       // Check if a record already exists
@@ -279,7 +280,7 @@ function useToday(userId?: string) {
       // If exists and new score is lower, keep the better score
       if (existing && existing.score >= score) {
         console.log(
-          `✅ [useToday] Keeping existing better score: ${existing.score}%`,
+          `✅ [useToday] Keeping existing better score: ${existing.score}`,
         );
         setQuestProgress(existing as TodayProgress);
         return existing;
@@ -370,9 +371,77 @@ export default function TodayScreen() {
     "watch" | "explore" | "questions" | null
   >(null);
 
+  // Animated values for card heights using reanimated
+  const watchCardHeight = useSharedValue(80);
+  const exploreCardHeight = useSharedValue(61);
+  const questionsCardHeight = useSharedValue(61);
+
+  // Animated values for expanded content opacity (smooth fade-in)
+  const watchExpandOpacity = useSharedValue(0);
+  const exploreExpandOpacity = useSharedValue(0);
+  const questionsExpandOpacity = useSharedValue(0);
+
+  // Animate card expansions with smooth spring (no bounce, fluid motion)
+  useEffect(() => {
+    if (expandedCard === "watch") {
+      watchCardHeight.value = withSpring(140, {
+        damping: 30,
+        stiffness: 200,
+        overshootClamping: true,
+        mass: 1,
+      });
+      watchExpandOpacity.value = withTiming(1, { duration: 300 });
+    } else {
+      watchCardHeight.value = withSpring(80, {
+        damping: 30,
+        stiffness: 200,
+        overshootClamping: true,
+        mass: 1,
+      });
+      watchExpandOpacity.value = withTiming(0, { duration: 200 });
+    }
+
+    if (expandedCard === "explore") {
+      exploreCardHeight.value = withSpring(151, {
+        damping: 30,
+        stiffness: 200,
+        overshootClamping: true,
+        mass: 1,
+      });
+      exploreExpandOpacity.value = withTiming(1, { duration: 300 });
+    } else {
+      exploreCardHeight.value = withSpring(61, {
+        damping: 30,
+        stiffness: 200,
+        overshootClamping: true,
+        mass: 1,
+      });
+      exploreExpandOpacity.value = withTiming(0, { duration: 200 });
+    }
+
+    if (expandedCard === "questions") {
+      questionsCardHeight.value = withSpring(151, {
+        damping: 30,
+        stiffness: 200,
+        overshootClamping: true,
+        mass: 1,
+      });
+      questionsExpandOpacity.value = withTiming(1, { duration: 300 });
+    } else {
+      questionsCardHeight.value = withSpring(61, {
+        damping: 30,
+        stiffness: 200,
+        overshootClamping: true,
+        mass: 1,
+      });
+      questionsExpandOpacity.value = withTiming(0, { duration: 200 });
+    }
+  }, [expandedCard]);
+
   // Single enum state for modal management (prevents flicker during transitions)
   type ModalState = "none" | "video" | "reading" | "quiz";
   const [activeModal, setActiveModal] = useState<ModalState>("none");
+  const [previousModal, setPreviousModal] = useState<ModalState>("none");
 
   // Week navigation and historical content viewing
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -380,7 +449,6 @@ export default function TodayScreen() {
     typeof todayQuest | null
   >(null);
   const [isHistoricalView, setIsHistoricalView] = useState(false);
-
 
   // Cache for completed quest dates (for calendar display)
   const [completedDatesCache, setCompletedDatesCache] =
@@ -400,7 +468,9 @@ export default function TodayScreen() {
       switch (result) {
         case PAYWALL_RESULT.PURCHASED:
         case PAYWALL_RESULT.RESTORED:
-          console.log(`✅ [Today Paywall] ${result === PAYWALL_RESULT.PURCHASED ? 'Purchase' : 'Restore'} completed`);
+          console.log(
+            `✅ [Today Paywall] ${result === PAYWALL_RESULT.PURCHASED ? "Purchase" : "Restore"} completed`,
+          );
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           justPurchasedRef.current = true;
 
@@ -415,12 +485,12 @@ export default function TodayScreen() {
           // Clear the flag after delay to allow subscription state to fully sync
           setTimeout(() => {
             justPurchasedRef.current = false;
-            console.log('🔓 [Today] Purchase protection window ended');
+            console.log("🔓 [Today] Purchase protection window ended");
           }, 5000);
           break;
 
         case PAYWALL_RESULT.CANCELLED:
-          console.log('🚫 [Today Paywall] Purchase cancelled');
+          console.log("🚫 [Today Paywall] Purchase cancelled");
           break;
         case PAYWALL_RESULT.NOT_PRESENTED:
         case PAYWALL_RESULT.ERROR:
@@ -429,7 +499,7 @@ export default function TodayScreen() {
           break;
       }
     } catch (error) {
-      console.error('❌ [Today Paywall] Error presenting paywall:', error);
+      console.error("❌ [Today Paywall] Error presenting paywall:", error);
     }
   };
 
@@ -494,13 +564,17 @@ export default function TodayScreen() {
     // Skip reset if user just completed a purchase (prevents race condition)
     // The RevenueCat listener hasn't updated isSubscribed yet, but purchase was successful
     if (justPurchasedRef.current) {
-      console.log('⏳ [Today] Skipping reset - purchase just completed, waiting for subscription state sync');
+      console.log(
+        "⏳ [Today] Skipping reset - purchase just completed, waiting for subscription state sync",
+      );
       return;
     }
 
     // If user is viewing historical content and subscription expires, reset to today
     if (isHistoricalView && !isSubscribed && !isSubscriptionLoading) {
-      console.log('🔒 [Today] Subscription expired while viewing historical content - resetting to today');
+      console.log(
+        "🔒 [Today] Subscription expired while viewing historical content - resetting to today",
+      );
       const today = new Date();
       setSelectedDate(today);
       setIsHistoricalView(false);
@@ -636,8 +710,14 @@ export default function TodayScreen() {
   };
 
   // Extract responsive calendar dimensions
-  const { dayWidth, dayMargin, weekWidth, scrollDistance, containerWidth, containerPadding } =
-    calendarDimensions;
+  const {
+    dayWidth,
+    dayMargin,
+    weekWidth,
+    scrollDistance,
+    containerWidth,
+    containerPadding,
+  } = calendarDimensions;
 
   // Snap positions: 0 = previous week visible, -scrollDistance = current week visible
   const POSITION_PREV_WEEK = 0;
@@ -662,7 +742,8 @@ export default function TodayScreen() {
       } else if (newX < POSITION_CURRENT_WEEK) {
         // Overscrolling left past current week - show blank space with resistance
         const overscroll = POSITION_CURRENT_WEEK - newX;
-        translateX.value = POSITION_CURRENT_WEEK - overscroll * RUBBER_BAND_FACTOR;
+        translateX.value =
+          POSITION_CURRENT_WEEK - overscroll * RUBBER_BAND_FACTOR;
       } else {
         // Within bounds - normal 1:1 finger tracking
         translateX.value = newX;
@@ -685,10 +766,14 @@ export default function TodayScreen() {
         targetPosition = POSITION_CURRENT_WEEK;
       } else if (Math.abs(event.velocityX) > velocityThreshold) {
         // Quick flick - snap based on direction
-        targetPosition = event.velocityX > 0 ? POSITION_PREV_WEEK : POSITION_CURRENT_WEEK;
+        targetPosition =
+          event.velocityX > 0 ? POSITION_PREV_WEEK : POSITION_CURRENT_WEEK;
       } else {
         // Slow drag - snap to nearest week
-        targetPosition = translateX.value > midPoint ? POSITION_PREV_WEEK : POSITION_CURRENT_WEEK;
+        targetPosition =
+          translateX.value > midPoint
+            ? POSITION_PREV_WEEK
+            : POSITION_CURRENT_WEEK;
       }
 
       // Animate to snap position with spring
@@ -701,9 +786,50 @@ export default function TodayScreen() {
     });
 
   // Animated style for calendar week transitions
-  const animatedStyle = useAnimatedStyle(() => {
+  const calendarAnimatedStyle = useAnimatedStyle(() => {
     return {
       transform: [{ translateX: translateX.value }],
+    };
+  });
+
+  // Animated styles for card expansions
+  const watchAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: watchCardHeight.value,
+      marginBottom: 7,
+    };
+  });
+
+  const exploreAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: exploreCardHeight.value,
+      marginBottom: 7,
+    };
+  });
+
+  const questionsAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: questionsCardHeight.value,
+      marginBottom: 16,
+    };
+  });
+
+  // Animated styles for expanded content (fade-in effect)
+  const watchExpandedContentStyle = useAnimatedStyle(() => {
+    return {
+      opacity: watchExpandOpacity.value,
+    };
+  });
+
+  const exploreExpandedContentStyle = useAnimatedStyle(() => {
+    return {
+      opacity: exploreExpandOpacity.value,
+    };
+  });
+
+  const questionsExpandedContentStyle = useAnimatedStyle(() => {
+    return {
+      opacity: questionsExpandOpacity.value,
     };
   });
 
@@ -747,7 +873,9 @@ export default function TodayScreen() {
       // watch_completed = true, explore_completed = true, score > 0 (quiz done)
       const { data, error } = await supabase
         .from("user_daily_quest_progress")
-        .select("daily_quest_id, daily_content!fk_daily_quest!inner(date), watch_completed, explore_completed, score")
+        .select(
+          "daily_quest_id, daily_content!fk_daily_quest!inner(date), watch_completed, explore_completed, score",
+        )
         .eq("user_id", user.id)
         .eq("watch_completed", true)
         .eq("explore_completed", true)
@@ -879,7 +1007,8 @@ export default function TodayScreen() {
             const watchDone = !!data.watch_completed;
             const exploreDone = !!data.explore_completed;
             // Quiz is only completed if score > 0 (not just if the field exists)
-            const quizDone = data.score !== undefined && data.score !== null && data.score > 0;
+            const quizDone =
+              data.score !== undefined && data.score !== null && data.score > 0;
 
             setWatchCompleted(watchDone);
             setExploreCompleted(exploreDone);
@@ -1204,107 +1333,105 @@ export default function TodayScreen() {
                   // Removed justifyContent and paddingHorizontal - translateX handles positioning
                   paddingBottom: 10,
                 },
-                animatedStyle,
+                calendarAnimatedStyle,
               ]}
             >
               {/* Render all 14 days - viewport shows 7, gesture scrolls between weeks */}
               {weekDates.map((item, index) => {
-                  // Check if this date is currently selected
-                  const isSelected =
-                    selectedDate.toISOString().split("T")[0] ===
-                    item.dateObj.toISOString().split("T")[0];
+                // Check if this date is currently selected
+                const isSelected =
+                  selectedDate.toISOString().split("T")[0] ===
+                  item.dateObj.toISOString().split("T")[0];
 
-                  return (
-                    <TouchableOpacity
-                      key={index}
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      themeStyles.calendarDay,
+                      {
+                        width: dayWidth, // Responsive width
+                        marginRight: index < 13 ? dayMargin : 0, // Responsive spacing
+                        overflow: "visible", // Allow lock icon to extend beyond bounds
+                        zIndex: isSelected ? 1000 : 1, // Much higher z-index for selected date
+                        elevation: isSelected ? 1000 : 1, // Android z-index equivalent
+                      },
+                    ]}
+                    onPress={() =>
+                      !item.isFuture && handleDateClick(item.dateObj)
+                    }
+                    disabled={item.isFuture}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={themeStyles.calendarDayLabel}>{item.day}</Text>
+                    <View
                       style={[
-                        themeStyles.calendarDay,
-                        {
-                          width: dayWidth, // Responsive width
-                          marginRight: index < 13 ? dayMargin : 0, // Responsive spacing
-                          overflow: "visible", // Allow lock icon to extend beyond bounds
-                          zIndex: isSelected ? 1000 : 1, // Much higher z-index for selected date
-                          elevation: isSelected ? 1000 : 1, // Android z-index equivalent
+                        themeStyles.calendarDateCircle,
+                        item.isCompleted && {
+                          backgroundColor: ArchivesTheme.colors.persianOrange,
                         },
+                        item.isMissed && {
+                          backgroundColor: "#B8AA92",
+                        },
+                        item.isFuture && { backgroundColor: "#222446" },
+                        // All other past/present days without selection
+                        !isSelected &&
+                          !item.isFuture &&
+                          !item.isCompleted &&
+                          !item.isMissed && {
+                            backgroundColor: "#222446",
+                          },
+                        // Show moss green border for ANY selected date - slightly bigger
+                        // This comes last to override any previous border settings
+                        isSelected && {
+                          borderWidth: 2,
+                          borderColor: "#f4ebdb",
+                          // borderColor: ArchivesTheme.colors.mossGreen,
+                          transform: [{ scale: 1.08 }], // Slightly bigger (8% increase)
+                        },
+                        // item.isToday &&
+                        //   item.isCompleted && {
+                        //     transform: [{ scale: 1.1 }],
+                        //     shadowColor: ArchivesTheme.colors.persianOrange,
+                        //     shadowOpacity: 0.5,
+                        //     shadowRadius: 8,
+                        //     shadowOffset: { width: 0, height: 2 },
+                        //     elevation: 4,
+                        //   },
                       ]}
-                      onPress={() =>
-                        !item.isFuture && handleDateClick(item.dateObj)
-                      }
-                      disabled={item.isFuture}
-                      activeOpacity={0.7}
                     >
-                      <Text style={themeStyles.calendarDayLabel}>
-                        {item.day}
-                      </Text>
-                      <View
-                        style={[
-                          themeStyles.calendarDateCircle,
-                          item.isCompleted && {
-                            backgroundColor: ArchivesTheme.colors.persianOrange,
-                          },
-                          item.isMissed && {
-                            backgroundColor: "#B8AA92",
-                          },
-                          item.isFuture && { backgroundColor: "#222446" },
-                          // All other past/present days without selection
-                          !isSelected &&
-                            !item.isFuture &&
-                            !item.isCompleted &&
-                            !item.isMissed && {
-                              backgroundColor: "#222446",
-                            },
-                          // Show moss green border for ANY selected date - slightly bigger
-                          // This comes last to override any previous border settings
-                          isSelected && {
-                            borderWidth: 2,
-                            borderColor: "#f4ebdb",
-                            // borderColor: ArchivesTheme.colors.mossGreen,
-                            transform: [{ scale: 1.08 }], // Slightly bigger (8% increase)
-                          },
-                          // item.isToday &&
-                          //   item.isCompleted && {
-                          //     transform: [{ scale: 1.1 }],
-                          //     shadowColor: ArchivesTheme.colors.persianOrange,
-                          //     shadowOpacity: 0.5,
-                          //     shadowRadius: 8,
-                          //     shadowOffset: { width: 0, height: 2 },
-                          //     elevation: 4,
-                          //   },
-                        ]}
-                      >
-                        {item.isCompleted ? (
-                          // Completed day: Show white flame icon
-                          <CalendarFlameIcon size={20} />
-                        ) : (
-                          // All days (missed, today, future, past): Show date number
-                          <Text
-                            style={{
-                              fontFamily: "DM Sans",
-                              fontSize: 14,
-                              fontWeight: "600",
-                              color: "#FFFFFF",
-                            }}
-                          >
-                            {item.date}
-                          </Text>
-                        )}
-                      </View>
-                      {/* Lock icon overlapping with bottom circumference for missed days (only for non-subscribers) */}
-                      {item.isMissed && !isSubscribed && (
-                        <View
+                      {item.isCompleted ? (
+                        // Completed day: Show white flame icon
+                        <CalendarFlameIcon size={20} />
+                      ) : (
+                        // All days (missed, today, future, past): Show date number
+                        <Text
                           style={{
-                            position: "absolute",
-                            bottom: -6,
-                            alignSelf: "center",
-                            zIndex: 10,
+                            fontFamily: "DM Sans",
+                            fontSize: 14,
+                            fontWeight: "600",
+                            color: "#FFFFFF",
                           }}
                         >
-                          <CalendarLockIcon size={14} />
-                        </View>
+                          {item.date}
+                        </Text>
                       )}
-                    </TouchableOpacity>
-                  );
-                })}
+                    </View>
+                    {/* Lock icon overlapping with bottom circumference for missed days (only for non-subscribers) */}
+                    {item.isMissed && !isSubscribed && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          bottom: -6,
+                          alignSelf: "center",
+                          zIndex: 10,
+                        }}
+                      >
+                        <CalendarLockIcon size={14} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </Animated.View>
           </GestureDetector>
         </View>
@@ -1489,10 +1616,11 @@ export default function TodayScreen() {
         )} */}
 
             {/* WATCH Card */}
+            <Animated.View style={watchAnimatedStyle}>
             <TouchableOpacity
               style={[
                 themeStyles.cardWatch,
-                expandedCard === "watch" && themeStyles.cardWatchExpanded,
+                { height: '100%' },
               ]}
               onPress={() =>
                 setExpandedCard(expandedCard === "watch" ? null : "watch")
@@ -1564,7 +1692,9 @@ export default function TodayScreen() {
                   >
                     {/* Show duration when collapsed */}
                     {expandedCard !== "watch" && (
-                      <Text style={themeStyles.cardDuration}>2 MIN</Text>
+                      <Text style={themeStyles.cardDuration}>
+                        {watchCompleted ? "DONE" : "2 MIN"}
+                      </Text>
                     )}
                     <Ionicons
                       name={
@@ -1576,46 +1706,46 @@ export default function TodayScreen() {
                   </View>
                 </View>
 
-                {expandedCard === "watch" && (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      marginTop: 8,
-                      gap: 8,
+                <Animated.View style={[watchExpandedContentStyle, {
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  marginTop: 8,
+                  gap: 8,
+                }]}>
+                  <Text style={themeStyles.cardDuration}>
+                    {watchCompleted ? "DONE" : "2 MIN"}
+                  </Text>
+                  <TouchableOpacity
+                    style={themeStyles.cardWatchButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      if (
+                        (displayedQuest || todayQuest)?.content.card1
+                          .media_url
+                      ) {
+                        setActiveModal("video");
+                      }
                     }}
+                    activeOpacity={0.8}
                   >
-                    <Text style={themeStyles.cardDuration}>2 MIN</Text>
-                    <TouchableOpacity
-                      style={themeStyles.cardWatchButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        if (
-                          (displayedQuest || todayQuest)?.content.card1
-                            .media_url
-                        ) {
-                          setActiveModal("video");
-                        }
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons
-                        name="play-outline"
-                        size={16}
-                        color="#FFFFFF"
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text style={themeStyles.cardWatchButtonText}>Watch</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                    <Ionicons
+                      name="play-outline"
+                      size={16}
+                      color="#FFFFFF"
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={themeStyles.cardWatchButtonText}>Watch</Text>
+                  </TouchableOpacity>
+                </Animated.View>
               </View>
             </TouchableOpacity>
+            </Animated.View>
 
             {/* EXPLORE Card */}
+            <Animated.View style={exploreAnimatedStyle}>
             <TouchableOpacity
-              style={themeStyles.cardExplore}
+              style={[themeStyles.cardExplore, { height: '100%' }]}
               onPress={() =>
                 setExpandedCard(expandedCard === "explore" ? null : "explore")
               }
@@ -1629,7 +1759,9 @@ export default function TodayScreen() {
                 <View
                   style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
                 >
-                  <Text style={themeStyles.cardDuration}>1 MIN</Text>
+                  <Text style={themeStyles.cardDuration}>
+                    {exploreCompleted ? "DONE" : "1 MIN"}
+                  </Text>
                   <Ionicons
                     name={
                       expandedCard === "explore" ? "chevron-up" : "chevron-down"
@@ -1640,49 +1772,49 @@ export default function TodayScreen() {
                 </View>
               </View>
 
-              {expandedCard === "explore" && (
-                <>
-                  <Text style={themeStyles.cardSubtitle}>
-                    {
-                      (displayedQuest || todayQuest)?.content?.card2
-                        ?.thumbnail_title
+              <Animated.View style={exploreExpandedContentStyle}>
+                <Text style={themeStyles.cardSubtitle}>
+                  {
+                    (displayedQuest || todayQuest)?.content?.card2
+                      ?.thumbnail_title
+                  }
+                </Text>
+                <TouchableOpacity
+                  style={themeStyles.cardActionButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (isExploreUnlocked) {
+                      setActiveModal("reading");
                     }
-                  </Text>
-                  <TouchableOpacity
-                    style={themeStyles.cardActionButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      if (isExploreUnlocked) {
-                        setActiveModal("reading");
-                      }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: "white",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
-                    activeOpacity={0.7}
                   >
-                    <View
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 16,
-                        backgroundColor: "white",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Ionicons
-                        name="arrow-forward"
-                        size={18}
-                        color={ArchivesTheme.colors.mutedNavy}
-                        style={{ transform: [{ rotate: "-45deg" }] }}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                </>
-              )}
+                    <Ionicons
+                      name="arrow-forward"
+                      size={18}
+                      color={ArchivesTheme.colors.mutedNavy}
+                      style={{ transform: [{ rotate: "-45deg" }] }}
+                    />
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
             </TouchableOpacity>
+            </Animated.View>
 
             {/* QUESTIONS Card */}
+            <Animated.View style={questionsAnimatedStyle}>
             <TouchableOpacity
-              style={themeStyles.cardQuestions}
+              style={[themeStyles.cardQuestions, { height: '100%' }]}
               onPress={() =>
                 setExpandedCard(
                   expandedCard === "questions" ? null : "questions",
@@ -1715,7 +1847,7 @@ export default function TodayScreen() {
                       { color: ArchivesTheme.colors.shoeBrown },
                     ]}
                   >
-                    2 MIN
+                    {questCompleted ? "DONE" : "2 MIN"}
                   </Text>
                   <Ionicons
                     name={
@@ -1729,47 +1861,46 @@ export default function TodayScreen() {
                 </View>
               </View>
 
-              {expandedCard === "questions" && (
-                <>
-                  <Text
-                    style={[
-                      themeStyles.cardSubtitle,
-                      { color: ArchivesTheme.colors.shoeBrown },
-                    ]}
-                  >
-                    Test your knowledge
-                  </Text>
-                  <TouchableOpacity
-                    style={themeStyles.cardActionButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      if (isQuizUnlocked) {
-                        setActiveModal("quiz");
-                      }
+              <Animated.View style={questionsExpandedContentStyle}>
+                <Text
+                  style={[
+                    themeStyles.cardSubtitle,
+                    { color: ArchivesTheme.colors.shoeBrown },
+                  ]}
+                >
+                  Test your knowledge
+                </Text>
+                <TouchableOpacity
+                  style={themeStyles.cardActionButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (isQuizUnlocked) {
+                      setActiveModal("quiz");
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: "white",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
-                    activeOpacity={0.7}
                   >
-                    <View
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 16,
-                        backgroundColor: "white",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Ionicons
-                        name="arrow-forward"
-                        size={18}
-                        color={ArchivesTheme.colors.shoeBrown}
-                        style={{ transform: [{ rotate: "-45deg" }] }}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                </>
-              )}
+                    <Ionicons
+                      name="arrow-forward"
+                      size={18}
+                      color={ArchivesTheme.colors.shoeBrown}
+                      style={{ transform: [{ rotate: "-45deg" }] }}
+                    />
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
             </TouchableOpacity>
+            </Animated.View>
 
             {/* Bottom Spacing for fixed button */}
             <View style={{ height: 100 }} />
@@ -1786,7 +1917,10 @@ export default function TodayScreen() {
           <TouchableOpacity
             style={themeStyles.startButton}
             onPress={() => {
-              if (!watchCompleted) {
+              if (progress === 100) {
+                // Day Complete - reopen WATCH to replay
+                setActiveModal("video");
+              } else if (!watchCompleted) {
                 // Step 1: Open WATCH if not completed
                 setActiveModal("video");
               } else if (!exploreCompleted) {
@@ -1799,7 +1933,9 @@ export default function TodayScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Text style={themeStyles.startButtonText}>Start My Day</Text>
+            <Text style={themeStyles.startButtonText}>
+              {progress === 100 ? "Day Complete!" : "Start My Day"}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1843,9 +1979,13 @@ export default function TodayScreen() {
                 onNext={async () => {
                   setWatchCompleted(true);
                   await saveProgress("watch");
+                  setPreviousModal("video");
                   setActiveModal("reading");
                 }}
-                onDismiss={() => setActiveModal("none")}
+                onDismiss={() => {
+                  setActiveModal("none");
+                  setPreviousModal("none");
+                }}
               />
             )}
 
@@ -1863,9 +2003,18 @@ export default function TodayScreen() {
                 onContinue={async () => {
                   setExploreCompleted(true);
                   await saveProgress("explore");
+                  setPreviousModal("reading");
                   setActiveModal("quiz");
                 }}
-                onBack={() => setActiveModal("none")}
+                onBack={() => {
+                  if (previousModal === "video") {
+                    setActiveModal("video");
+                    setPreviousModal("none");
+                  } else {
+                    setActiveModal("none");
+                    setPreviousModal("none");
+                  }
+                }}
               />
             )}
 
@@ -1926,15 +2075,31 @@ export default function TodayScreen() {
                   onContinue={async () => {
                     await handleQuizComplete();
                     setActiveModal("none");
+                    setPreviousModal("none");
                   }}
-                  onDismiss={() => setActiveModal("none")}
-                  onBack={() => setActiveModal("none")}
+                  onDismiss={() => {
+                    if (previousModal === "reading") {
+                      setActiveModal("reading");
+                      setPreviousModal("video");
+                    } else {
+                      setActiveModal("none");
+                      setPreviousModal("none");
+                    }
+                  }}
+                  onBack={() => {
+                    if (previousModal === "reading") {
+                      setActiveModal("reading");
+                      setPreviousModal("video");
+                    } else {
+                      setActiveModal("none");
+                      setPreviousModal("none");
+                    }
+                  }}
                 />
               </SafeAreaView>
             )}
           </Modal>
         )}
-
     </SafeAreaView>
   );
 }
