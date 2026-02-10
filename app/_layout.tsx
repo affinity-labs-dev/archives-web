@@ -131,7 +131,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const wasSignedInRef = React.useRef(false);
 
   // Customer.io SDK auto-initializes from app.json config
-  // No manual initialization needed - the Expo plugin handles it
+  // Mark JS wrapper as ready so identify/registerPushToken calls work
+  CustomerIOService.initialize();
 
   // Identify user to Customer.io when signed in (independent of PostHog)
   React.useEffect(() => {

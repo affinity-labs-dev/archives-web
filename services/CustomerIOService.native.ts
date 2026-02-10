@@ -1,32 +1,24 @@
 // CustomerIOService.native.ts - Customer.io SDK for iOS and Android
 // Note: Customer.io requires native modules - only works in dev builds, not Expo Go
+// Uses top-level import to avoid duplicate native view registration errors
+// that occur with lazy require() when SDK is auto-initialized from app.json
 
 import Constants from 'expo-constants';
+import { CustomerIO, CioPushPermissionStatus } from 'customerio-reactnative';
 
-let CustomerIOModule: any = null;
 let isInitialized = false;
 
 // Check if running in Expo Go (no native modules available)
 const isExpoGo = Constants.appOwnership === 'expo';
 
 /**
- * Get Customer.io module lazily (only when needed)
+ * Get Customer.io SDK instance
  */
 const getCustomerIO = () => {
   if (isExpoGo) {
     return null;
   }
-
-  if (!CustomerIOModule) {
-    try {
-      CustomerIOModule = require('customerio-reactnative');
-    } catch (error) {
-      console.log('📧 [CustomerIO] Native module not available');
-      return null;
-    }
-  }
-
-  return CustomerIOModule;
+  return { CustomerIO };
 };
 
 /**
@@ -212,7 +204,7 @@ export const trackScreen = (screenName: string) => {
  * Returns: 'Granted' | 'Denied' | 'NotDetermined'
  */
 export const showPromptForPushNotifications = async (options?: {
-  ios?: { sound?: boolean; badge?: boolean };
+  ios?: { sound: boolean; badge: boolean };
 }): Promise<'Granted' | 'Denied' | 'NotDetermined' | null> => {
   if (isExpoGo || !isInitialized) {
     if (__DEV__) {
@@ -228,9 +220,11 @@ export const showPromptForPushNotifications = async (options?: {
     // Default options: enable sound and badge on iOS
     const promptOptions = options || { ios: { sound: true, badge: true } };
 
-    const status = await module.CustomerIO.showPromptForPushNotifications(promptOptions);
+    const status = await module.CustomerIO.pushMessaging.showPromptForPushNotifications(promptOptions);
     console.log('🔔 [CustomerIO] Push permission status:', status);
-    return status;
+    if (status === CioPushPermissionStatus.Granted) return 'Granted';
+    if (status === CioPushPermissionStatus.Denied) return 'Denied';
+    return 'NotDetermined';
   } catch (error) {
     console.error('❌ [CustomerIO] Failed to show push prompt:', error);
     return null;
@@ -253,9 +247,11 @@ export const getPushPermissionStatus = async (): Promise<'Granted' | 'Denied' | 
   if (!module) return null;
 
   try {
-    const status = await module.CustomerIO.getPushPermissionStatus();
+    const status = await module.CustomerIO.pushMessaging.getPushPermissionStatus();
     console.log('🔔 [CustomerIO] Current push permission status:', status);
-    return status;
+    if (status === CioPushPermissionStatus.Granted) return 'Granted';
+    if (status === CioPushPermissionStatus.Denied) return 'Denied';
+    return 'NotDetermined';
   } catch (error) {
     console.error('❌ [CustomerIO] Failed to get push permission status:', error);
     return null;
