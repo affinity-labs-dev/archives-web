@@ -506,9 +506,9 @@ const NOTIFICATION_IMAGE_SPACING = 20; // Space between image and content
 const NOTIFICATION_COPY = {
   // Module Complete - After completing a module
   module: {
-    heading: "Mabrouk on the streak!",
+    heading: "Stay on the path",
     description:
-      "You just got closer to your roots. Want me to remind you when it's time for more?",
+      "\u201CWhoever travels a path seeking knowledge, Allah makes easy their path to Paradise\u201D\n\nProphet Mohammed \uFDFA",
     buttonText: "ENABLE NOTIFICATIONS",
     image: require("@/assets/images/ibu-star.png"),
   },
