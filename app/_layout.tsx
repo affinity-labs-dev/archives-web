@@ -239,12 +239,11 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
             // Never asked — show Customer.io permission prompt
             console.log('🔔 [AnalyticsWrapper] Permission never asked, showing prompt...');
             try {
-              const { CustomerIO, CioPushPermissionStatus } = require('customerio-reactnative');
-              const result = await CustomerIO.pushMessaging.showPromptForPushNotifications({
+              const result = await CustomerIOService.showPromptForPushNotifications({
                 ios: { sound: true, badge: true },
               });
 
-              const granted = result === CioPushPermissionStatus.Granted;
+              const granted = result === 'Granted';
               console.log('🔔 [AnalyticsWrapper] Permission result:', granted ? 'GRANTED' : 'DENIED');
 
               // Sync permission attributes to Customer.io profile
@@ -263,7 +262,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
                   try {
                     const pushToken = await Notifications.getDevicePushTokenAsync();
                     if (pushToken?.data) {
-                      CustomerIO.registerDeviceToken(pushToken.data);
+                      CustomerIOService.registerPushToken(pushToken.data);
                       CustomerIOService.setProfileAttributes({
                         cio_push_token: pushToken.data,
                       });
