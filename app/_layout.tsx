@@ -28,6 +28,7 @@ import { usePostHog } from 'posthog-react-native';
 import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
 import CustomerIOService from '@/services/CustomerIOService';
+import { NotificationPermissionModal } from '@/gamification/ui/achievement/AchievementGrid';
 import Purchases from 'react-native-purchases';
 
 // Gamification imports - unified from @/gamification
@@ -129,6 +130,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Track if user was previously signed in (to detect actual sign-out vs fresh install)
   const wasSignedInRef = React.useRef(false);
+
+  // Custom notification permission modal (shown before native iOS prompt)
+  const [showNotificationModal, setShowNotificationModal] = React.useState(false);
 
   // Customer.io SDK auto-initializes from app.json config
   // Mark JS wrapper as ready so identify/registerPushToken calls work
@@ -236,46 +240,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           console.log('🔔 [AnalyticsWrapper] Push permission status:', status);
 
           if (status === 'undetermined') {
-            // Never asked — show Customer.io permission prompt
-            console.log('🔔 [AnalyticsWrapper] Permission never asked, showing prompt...');
-            try {
-              const result = await CustomerIOService.showPromptForPushNotifications({
-                ios: { sound: true, badge: true },
-              });
-
-              const granted = result === 'Granted';
-              console.log('🔔 [AnalyticsWrapper] Permission result:', granted ? 'GRANTED' : 'DENIED');
-
-              // Sync permission attributes to Customer.io profile
-              CustomerIOService.setProfileAttributes({
-                push_notifications_enabled: granted,
-                push_permission_status: granted ? 'Granted' : 'Denied',
-                push_permission_updated_at: Math.floor(Date.now() / 1000),
-              });
-
-              // Sync to PostHog
-              analyticsService.updatePushStatus(granted, granted ? 'Granted' : 'Denied');
-
-              // If granted, register device token in background
-              if (granted) {
-                setTimeout(async () => {
-                  try {
-                    const pushToken = await Notifications.getDevicePushTokenAsync();
-                    if (pushToken?.data) {
-                      CustomerIOService.registerPushToken(pushToken.data);
-                      CustomerIOService.setProfileAttributes({
-                        cio_push_token: pushToken.data,
-                      });
-                      console.log('🔔 [AnalyticsWrapper] Device token registered after sign-in prompt');
-                    }
-                  } catch (tokenErr) {
-                    console.log('🔔 [AnalyticsWrapper] Token registration error:', tokenErr);
-                  }
-                }, 1500);
-              }
-            } catch (sdkErr) {
-              console.log('🔔 [AnalyticsWrapper] Customer.io SDK not available:', sdkErr);
-            }
+            // Never asked — show custom modal first, then native prompt on button tap
+            console.log('🔔 [AnalyticsWrapper] Permission never asked, showing custom modal...');
+            setShowNotificationModal(true);
           } else if (status === 'granted') {
             // Already granted — sync token to Customer.io (might have changed)
             try {
@@ -468,7 +435,57 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     };
   }, [posthog]);
 
-  return <>{children}</>;
+  // Handle "Enable Notifications" button tap from custom modal
+  const handleEnableNotifications = React.useCallback(async () => {
+    console.log('🔔 [AnalyticsWrapper] Enable Notifications button tapped!');
+    setShowNotificationModal(false);
+    try {
+      console.log('🔔 [AnalyticsWrapper] Calling showPromptForPushNotifications...');
+      const result = await CustomerIOService.showPromptForPushNotifications({
+        ios: { sound: true, badge: true },
+      });
+      console.log('🔔 [AnalyticsWrapper] showPromptForPushNotifications returned:', result);
+
+      const granted = result === 'Granted';
+      console.log('🔔 [AnalyticsWrapper] Permission result:', granted ? 'GRANTED' : 'DENIED');
+
+      CustomerIOService.setProfileAttributes({
+        push_notifications_enabled: granted,
+        push_permission_status: granted ? 'Granted' : 'Denied',
+        push_permission_updated_at: Math.floor(Date.now() / 1000),
+      });
+      analyticsService.updatePushStatus(granted, granted ? 'Granted' : 'Denied');
+
+      if (granted) {
+        setTimeout(async () => {
+          try {
+            const pushToken = await Notifications.getDevicePushTokenAsync();
+            if (pushToken?.data) {
+              CustomerIOService.registerPushToken(pushToken.data);
+              CustomerIOService.setProfileAttributes({ cio_push_token: pushToken.data });
+              console.log('🔔 [AnalyticsWrapper] Device token registered after sign-in prompt');
+            }
+          } catch (tokenErr) {
+            console.log('🔔 [AnalyticsWrapper] Token registration error:', tokenErr);
+          }
+        }, 1500);
+      }
+    } catch (sdkErr) {
+      console.log('🔔 [AnalyticsWrapper] Push prompt error:', sdkErr);
+    }
+  }, []);
+
+  return (
+    <>
+      {children}
+      <NotificationPermissionModal
+        visible={showNotificationModal}
+        variant="module"
+        onEnableNotifications={handleEnableNotifications}
+        onDismiss={() => setShowNotificationModal(false)}
+      />
+    </>
+  );
 }
 
 // Gamification wrapper - GamifiedProgressProvider handles all initialization internally

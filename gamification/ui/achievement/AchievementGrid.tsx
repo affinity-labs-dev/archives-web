@@ -584,7 +584,7 @@ export function NotificationPermissionModal({
       {/* Close Button - Top Right */}
       {renderModalCloseButton(onDismiss, unlockStyles, true)}
       {/* Main Card - Reuse achievement card structure */}
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }], zIndex: 2, elevation: 2 }}>
         {renderAchievementCard(
           { image: variantCopy.image } as unknown as Achievement,
           true, // Not used since useGrayscale: false, but required by function signature
