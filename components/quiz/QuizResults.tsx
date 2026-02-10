@@ -241,21 +241,21 @@ export default function QuizResults({
   };
 
   return (
-    <>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {Platform.OS === 'android' && (
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
-      <View style={styles.container}>
-        {/* Back button for results */}
-        {onBack && (
-          <SafeAreaView style={styles.backButtonContainer}>
-            <TouchableOpacity style={styles.backButton} onPress={onBack}>
-              <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-            </TouchableOpacity>
-          </SafeAreaView>
-        )}
 
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      {/* Header with back button */}
+      {onBack && (
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
             {/* Video Reward Player */}
             <VideoRewardPlayer percentage={percentage} />
@@ -345,8 +345,7 @@ export default function QuizResults({
             </View>
           </View>
         </ScrollView>
-      </View>
-    </>
+    </SafeAreaView>
   );
 }
 
@@ -359,18 +358,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingTop: 60,
+    paddingTop: 20,
     paddingHorizontal: 20,
   },
 
-  // Back button
-  backButtonContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    zIndex: 20,
-    paddingTop: 8,
-    paddingLeft: 16,
+  // Header with back button
+  header: {
+    paddingTop: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
   backButton: {
     width: 40,
