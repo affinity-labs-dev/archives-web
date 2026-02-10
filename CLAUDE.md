@@ -8,8 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install                           # Install dependencies (requires Node 20.19.4)
 npx expo start                        # Dev server (i=iOS, a=Android, w=web)
-npm run lint                          # REQUIRED before commits
+npm run lint                          # REQUIRED before commits (expo lint)
 npx expo start --clear                # Clear Metro cache
+npx expo run:ios                      # Run on iOS (native build)
+npx expo run:android                  # Run on Android (native build)
 eas build --platform ios --profile development  # Dev build
 eas update --branch production        # Push OTA update
 ```
@@ -20,7 +22,7 @@ eas update --branch production        # Push OTA update
 - `gamification/engines/GamificationOrchestrator.tsx` - Achievements, celebrations, milestone tracking
 - `gamification/index.ts` - Public API exports for all gamification features
 - `constants/ArchivesTheme.ts` - Design system colors/spacing (ALWAYS use)
-- `components/modules/adventure1/Adventure1_Module1_Lesson1.tsx` - Best lesson implementation reference
+- `components/lessons/ReelLesson.tsx` - Reusable video + reading lesson component (best reference)
 
 **Common code patterns:**
 ```typescript
@@ -67,13 +69,15 @@ color: '#C99151'                 // ❌ Use ArchivesTheme
 SafeAreaProvider + GestureHandlerRootView
 └── PostHogProvider (analytics from app launch)
     └── ClerkProvider (authentication)
-        └── AnalyticsWrapper (PostHog init + Customer.io + Sentry + session tracking)
-            └── AdventuresContentProvider (Supabase content fetching)
-                └── RewardsProvider (badges + avatars system)
-                    └── GamifiedProgressProvider (unified progress + cloud sync)
-                        └── GamificationOrchestratorProvider (achievements, celebrations, milestones)
-                            └── AIProvider (Gemini AI features)
-                                └── ThemeProvider + Stack Navigation + AIAssistant
+        └── AnalyticsWrapper (PostHog init + Customer.io + RevenueCat + Sentry + session tracking)
+            └── GamificationWrapper (empty, reserved for future use)
+                └── AdventuresContentProvider (Supabase content fetching)
+                    └── RewardsProvider (badges + avatars system)
+                        └── GamifiedProgressProvider (unified progress + cloud sync)
+                            └── PreferencesProvider (user preferences)
+                                └── GamificationOrchestratorProvider (achievements, celebrations, milestones)
+                                    └── AIProvider (Gemini AI features)
+                                        └── ThemeProvider + Stack Navigation + AIAssistant
 ```
 
 **Critical initialization sequence:**
@@ -88,6 +92,8 @@ SafeAreaProvider + GestureHandlerRootView
 - **Centralized XP calculation** in GamifiedProgress (`calculateXPForEra`, `calculateTotalXP`) with era-specific rules
 - **Unified cloud sync** - GamifiedProgress handles both local state and Supabase sync (debounced 2s)
 - **Font loading critical path**: DM Sans + Cormorant must load before splash screen hides (prevents flash)
+- **Metro config**: Uses Sentry integration (`getSentryExpoConfig`) and adds `.riv` to asset extensions for Rive animations
+- **Babel**: `babel-preset-expo` + `react-native-reanimated/plugin` (reanimated plugin must be last)
 
 ### Progress System Architecture
 
@@ -168,12 +174,12 @@ await reportQuizComplete({
 
 ```
 app/
-├── _layout.tsx                    # Root providers
+├── _layout.tsx                    # Root providers (Sentry.wrap)
 ├── index.tsx                      # Smart routing (onboarding vs main app)
+├── sso-callback.tsx               # Clerk SSO callback handler
 ├── (auth)/                        # Auth screens
-├── (tabs)/                        # Main app (5 tabs)
-├── onboarding-*.tsx               # 8-screen onboarding flow
-└── era-selection.tsx
+├── (onboarding)/                  # 8-screen onboarding flow (welcome, videos, questions, results)
+└── (tabs)/                        # Main app (5 tabs: today, eras, era-view, subscribe, profile)
 
 gamification/                      # Unified gamification module
 ├── engines/                       # Core contexts and logic
@@ -201,24 +207,41 @@ gamification/                      # Unified gamification module
 
 components/
 ├── modules/
-│   ├── adventure1/                # Umayyad Dynasty Adventure 1
-│   ├── adventure2/                # Umayyad Dynasty Adventure 2
-│   ├── adventure3/                # Umayyad Dynasty Adventure 3
-│   ├── adventure4/                # Umayyad Dynasty Adventure 4
-│   ├── adventure5/                # Umayyad Dynasty Adventure 5
-│   ├── ModuleModal.tsx            # Umayyad wrapper
 │   └── QuizSystem.tsx             # Legacy quiz engine
-├── lessons/                       # Reusable lesson components
+├── lessons/                       # Reusable lesson components (all eras)
 │   ├── LessonPlayer.tsx           # Unified lesson orchestrator
 │   ├── ReelLesson.tsx             # Video + reading
 │   ├── ImageCarouselLesson.tsx    # Image galleries
 │   ├── VideoCarouselLesson.tsx    # Video series
-│   └── ScrollableMediaViewLesson.tsx
+│   ├── ScrollableMediaViewLesson.tsx
+│   ├── VideoPlayer.tsx            # Shared video player
+│   ├── LessonConstants.ts        # Lesson configuration
+│   └── renderers/                 # Lesson content renderers
 ├── quiz/                          # Modern quiz system
 │   ├── Quiz.tsx                   # Universal quiz component
-│   └── QuizResults.tsx            # Results screen
-├── adventures/                    # Adventure-specific components
+│   ├── QuizResults.tsx            # Results screen
+│   └── AIQuizExplanation.tsx      # AI-powered quiz explanations
+├── adventure/                     # Adventure components
+│   ├── shared/                    # AdventureComponent, AdventureSummary
+│   └── types/bento-grid/          # AdventureCard, BentoGridScreen
 └── eras/                          # Era selection screens
+
+context/                              # React contexts
+├── AdventuresContentProvider.tsx  # Supabase content fetching
+└── PreferencesContext.tsx          # User preferences
+
+hooks/                                # Reusable hooks
+├── useLessonBase.ts               # Shared lesson logic
+├── useAdventures.ts               # Adventure data hooks
+├── useEras.ts                     # Era data hooks
+├── useRevenueCat.ts               # Subscription hooks
+├── useBackgroundMusic.tsx         # Background audio control
+└── ...                            # Various feature hooks
+
+services/                             # External service integrations
+├── AnalyticsService.ts            # PostHog wrapper
+├── CustomerIOService.native.ts    # Push notifications (native)
+└── ...
 ```
 
 ## Environment Configuration
@@ -237,6 +260,7 @@ components/
   - `EXPO_PUBLIC_GEMINI_API_KEY` - Gemini AI features
   - `EXPO_PUBLIC_CUSTOMERIO_CDP_API_KEY` - Customer.io analytics
   - `EXPO_PUBLIC_CUSTOMERIO_SITE_ID` - Customer.io site identifier
+  - `SENTRY_AUTH_TOKEN` - Sentry source map uploads (build-time only)
 
 ## Common Development Tasks
 
@@ -328,18 +352,18 @@ await atomicProgressUpdate(adventureId, moduleId, {
 
 | Type | Best Reference | Key Features |
 |------|---------------|-------------|
-| **Video + Reading** | `Adventure1_Module1_Lesson1.tsx` | expo-video player, expandable card, ultra-smooth progress animations |
-| **Image Carousel** | `Adventure1_Module2_Lesson1.tsx` | Swipeable gallery, background music, caption overlays |
-| **Video Carousel** | `components/ROI/ROIVideoCarouselLesson.tsx` | Multiple videos, modern useVideoPlayer hooks |
+| **Video + Reading** | `components/lessons/ReelLesson.tsx` | expo-video player, expandable card, progress animations |
+| **Image Carousel** | `components/lessons/ImageCarouselLesson.tsx` | Swipeable gallery, background music, caption overlays |
+| **Video Carousel** | `components/lessons/VideoCarouselLesson.tsx` | Multiple videos, modern useVideoPlayer hooks |
 | **Static Image Reading** | See lesson docs | Hero image + scrollable text |
 | **Scrollable Media View** | See lesson docs | Mixed media storytelling |
 | **Quiz System** | `QuizSystem.tsx` | MCQ/True-False/Drag-drop, sound effects, star ratings |
 
-**Best reference lesson:** `Adventure1_Module1_Lesson1.tsx` has complete animation system, cross-platform gestures, video completion detection, progress tracking integration.
+**Best reference lesson:** `components/lessons/ReelLesson.tsx` — reusable across all eras with animation system, cross-platform gestures, video completion detection, and progress tracking.
 
 **Reusable lesson hooks and components:**
 - `hooks/useLessonBase.ts` - Shared lesson logic (video state, progress tracking, navigation)
-- `components/LessonPlayer.tsx` - Unified orchestrator for all lesson types
+- `components/lessons/LessonPlayer.tsx` - Unified orchestrator for all lesson types
 - `components/eras/` - Generic era components (can be reused for new eras)
 
 **Content status:**
@@ -364,9 +388,9 @@ await atomicProgressUpdate(adventureId, moduleId, {
 - Save flag on lesson completion via `AsyncStorage.setItem(WALKTHROUGH_KEYS.REEL/CAROUSEL, 'true')`
 
 **Reference implementations:**
-- `components/modules/adventure1/Adventure1_Module1_Lesson1.tsx` (reel with percentage timing)
-- `components/modules/adventure1/Adventure1_Module2_Lesson1.tsx` (image carousel)
-- `components/ROI/ROIReelLesson.tsx`, `ROIImageCarouselLesson.tsx`, `ROIVideoCarouselLesson.tsx` (reusable)
+- `components/lessons/ReelLesson.tsx` (video + reading with percentage timing)
+- `components/lessons/ImageCarouselLesson.tsx` (image carousel)
+- `components/lessons/VideoCarouselLesson.tsx` (video carousel)
 
 ### Specialized Claude Code Agents
 
@@ -486,13 +510,13 @@ console.log('🔔 Notification')    // Push notifications
 
 **Shared:**
 - EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `3.4.0` | Runtime: `1.0.0` | Expo SDK: 54
-- iOS buildNumber: `126` | Android versionCode: `40` (auto-incremented on production builds)
-- New Architecture: Enabled (React Native 0.81.5)
+- App version: `3.5.0` | Runtime: `1.0.0` | Expo SDK: 54
+- iOS buildNumber: `150` | Android versionCode: `45` (auto-incremented on production builds)
+- New Architecture: Enabled (React Native 0.81.5, React 19.1.0)
 
 ## Important Patterns & Development Context
 
-**Current status:** Branch `feature/achievements` | Both platforms LIVE in production
+**Current status:** Branch `3.5.0` | Both platforms LIVE in production
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus
