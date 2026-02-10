@@ -131,6 +131,10 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Track if user was previously signed in (to detect actual sign-out vs fresh install)
   const wasSignedInRef = React.useRef(false);
 
+  // Guard against concurrent RevenueCat logIn calls (Clerk user object updates multiple times)
+  const rcLoginInProgressRef = React.useRef(false);
+  const rcLoggedInUserRef = React.useRef<string | null>(null);
+
   // Custom notification permission modal (shown before native iOS prompt)
   const [showNotificationModal, setShowNotificationModal] = React.useState(false);
 
@@ -167,10 +171,23 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
     const syncRevenueCatIdentity = async () => {
       if (isSignedIn && user) {
+        // Skip if already logged in as this user or login is in progress
+        if (rcLoggedInUserRef.current === user.id || rcLoginInProgressRef.current) {
+          // Still update attributes (email/name may have loaded later)
+          Purchases.setAttributes({
+            '$email': user.primaryEmailAddress?.emailAddress ?? '',
+            '$displayName': [user.firstName, user.lastName].filter(Boolean).join(' '),
+            'clerk_id': user.id,
+          });
+          return;
+        }
+
+        rcLoginInProgressRef.current = true;
         try {
           // Log in to RevenueCat with Clerk user ID
           // This merges any anonymous purchases with this identified user
           const { customerInfo } = await Purchases.logIn(user.id);
+          rcLoggedInUserRef.current = user.id;
           console.log('💰 [RevenueCat] User identified:', user.id,
             'Active entitlements:', Object.keys(customerInfo.entitlements.active));
 
@@ -201,9 +218,12 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           console.log('💰 [RevenueCat] Subscriber attributes synced for user:', user.id);
         } catch (error) {
           console.error('❌ [RevenueCat] Failed to sync identity:', error);
+        } finally {
+          rcLoginInProgressRef.current = false;
         }
       } else if (!isSignedIn && wasSignedInRef.current) {
         // User signed out — reset RevenueCat to anonymous
+        rcLoggedInUserRef.current = null;
         try {
           await Purchases.logOut();
           console.log('💰 [RevenueCat] User logged out, reset to anonymous');
