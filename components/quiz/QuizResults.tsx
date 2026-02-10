@@ -241,24 +241,24 @@ export default function QuizResults({
   };
 
   return (
-    <>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {Platform.OS === 'android' && (
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
-      <View style={styles.container}>
-        {/* Back button for results */}
-        {onBack && (
-          <SafeAreaView style={styles.backButtonContainer}>
-            <TouchableOpacity style={styles.backButton} onPress={onBack}>
-              <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-            </TouchableOpacity>
-          </SafeAreaView>
-        )}
 
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
-            {/* Video Reward Player */}
-            <VideoRewardPlayer percentage={percentage} />
+            {/* Video Reward Player with overlaid back button */}
+            <View style={styles.videoWrapper}>
+              <VideoRewardPlayer percentage={percentage} />
+
+              {/* Back button overlaid on video */}
+              {onBack && (
+                <TouchableOpacity style={styles.backButtonOverlay} onPress={onBack}>
+                  <Ionicons name="chevron-back" size={24} color="white" />
+                </TouchableOpacity>
+              )}
+            </View>
 
             {/* Title */}
             <Text style={[styles.title, { color: messages.themeColor }]}>
@@ -345,8 +345,7 @@ export default function QuizResults({
             </View>
           </View>
         </ScrollView>
-      </View>
-    </>
+      </SafeAreaView>
   );
 }
 
@@ -359,26 +358,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingTop: 60,
+    paddingTop: 10,
     paddingHorizontal: 20,
   },
 
-  // Back button
-  backButtonContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    zIndex: 20,
-    paddingTop: 8,
-    paddingLeft: 16,
+  // Video wrapper with overlaid back button
+  videoWrapper: {
+    position: 'relative',
+    marginBottom: 32,
   },
-  backButton: {
+  backButtonOverlay: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(139,96,64,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
 
   // Video Reward Player
@@ -388,7 +387,6 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 9,
     borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 32,
     backgroundColor: 'transparent',
   },
   videoRewardPlayer: {
