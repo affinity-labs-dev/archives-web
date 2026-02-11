@@ -180,7 +180,6 @@ export default function AdventureCompleteScreen({
   const videoSource = require('@/assets/videos/advend.mp4');
   const player = useCelebrationVideoPlayer(videoSource, (player) => {
     player.loop = true;
-    player.play();
   });
 
   // Cleanup video player on unmount

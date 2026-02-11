@@ -466,7 +466,6 @@ export function VideoRewardPlayer({ correctAnswers }: VideoRewardPlayerProps) {
 
   const player = useCelebrationVideoPlayer(videoSource, player => {
     player.loop = false
-    player.play()
   })
 
   // Track when video is ready

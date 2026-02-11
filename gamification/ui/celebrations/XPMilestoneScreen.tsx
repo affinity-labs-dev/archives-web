@@ -37,7 +37,6 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
   const videoSource = require('@/assets/videos/xp1.mp4');
   const player = useCelebrationVideoPlayer(videoSource, (player) => {
     player.loop = false; // Play once only
-    player.play();
   });
 
   // Track milestone reached on mount and persist to Supabase
