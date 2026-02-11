@@ -1277,9 +1277,15 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           newStreak = cloudStreak.currentStreak + 1;
           console.log(`✅ [Orchestrator] Consecutive day detected: ${cloudStreak.currentStreak} → ${newStreak}`);
         } else if (cloudStreak.lastActiveDate === today) {
-          // Already completed today (edge case, shouldn't happen)
-          newStreak = cloudStreak.currentStreak;
-          console.log(`⚠️ [Orchestrator] Already counted today, maintaining: ${newStreak}`);
+          if (cloudStreak.currentStreak === 0) {
+            // First ever completion — default state sets lastActiveDate=today but currentStreak=0
+            newStreak = 1;
+            console.log(`✅ [Orchestrator] First ever completion (default state): starting streak at 1`);
+          } else {
+            // Already completed today (edge case, shouldn't happen due to COMPLETION_DATE_KEY guard)
+            newStreak = cloudStreak.currentStreak;
+            console.log(`⚠️ [Orchestrator] Already counted today, maintaining: ${newStreak}`);
+          }
         } else {
           // Missed days → reset to 1
           console.log(`⚠️ [Orchestrator] Missed days detected (last: ${cloudStreak.lastActiveDate}), resetting to 1`);
@@ -1502,8 +1508,13 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           newStreak = cloudStreak.currentStreak + 1;
           console.log(`✅ [Orchestrator] Consecutive day detected: ${cloudStreak.currentStreak} → ${newStreak}`);
         } else if (cloudStreak.lastActiveDate === today) {
-          newStreak = cloudStreak.currentStreak;
-          console.log(`⚠️ [Orchestrator] Already counted today, maintaining: ${newStreak}`);
+          if (cloudStreak.currentStreak === 0) {
+            newStreak = 1;
+            console.log(`✅ [Orchestrator] First ever completion via Today (default state): starting streak at 1`);
+          } else {
+            newStreak = cloudStreak.currentStreak;
+            console.log(`⚠️ [Orchestrator] Already counted today, maintaining: ${newStreak}`);
+          }
         } else {
           console.log(`⚠️ [Orchestrator] Missed days detected, resetting to 1`);
           newStreak = 1;
