@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "158",
+      "buildNumber": "159",
       "associatedDomains": [
         "applinks:link.archiveszone.app"
       ],
@@ -46,7 +46,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 45,
+      "versionCode": 46,
       "intentFilters": [
         {
           "action": "VIEW",
