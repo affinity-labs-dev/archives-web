@@ -246,6 +246,59 @@ interface ModuleCompletedEvent {
   total_time_seconds?: number;
 }
 
+// ==================== DAILY STORY EVENT INTERFACES ====================
+
+interface DailyStoryViewedEvent {
+  story_id: string;
+  story_date: string;
+  story_title: string;
+  entry_source: 'today_tab' | 'notification' | 'rewind' | 'deep_link';
+  is_today: boolean;
+}
+
+interface DailyStoryDismissedEvent {
+  story_id: string;
+  time_spent_seconds: number;
+  scroll_depth_pct: number;
+  cards_seen: number;
+  completed: boolean;
+}
+
+interface DailyStoryCardViewedEvent {
+  story_id: string;
+  card_index: number;
+}
+
+interface DailyStoryCompletedEvent {
+  story_id: string;
+  story_date: string;
+  time_spent_seconds: number;
+  entry_source: 'today_tab' | 'notification' | 'rewind' | 'deep_link';
+}
+
+interface DailyStoryMediaPlayedEvent {
+  story_id: string;
+  media_type: 'audio' | 'video';
+  media_id: string;
+}
+
+interface DailyStoryRewindTappedEvent {
+  story_date: string;
+  is_subscribed: boolean;
+  days_ago: number;
+}
+
+interface DailyStoryRewindBlockedEvent {
+  story_date: string;
+  days_ago: number;
+}
+
+interface DailyStoryStreakIncrementedEvent {
+  story_id: string;
+  current_streak: number;
+  is_first_action_today: boolean;
+}
+
 // ==================== ANALYTICS SERVICE ====================
 
 class AnalyticsService {
@@ -337,6 +390,7 @@ class AnalyticsService {
       'subscription_details',
       'push_notifications_enabled',
       'push_notifications_declined',
+      'daily_story_completed',
     ];
 
     const shouldTrack = customerIOEvents.includes(eventName);
@@ -1125,6 +1179,66 @@ class AnalyticsService {
     this.trackCustomEvent('module_completed', properties);
   }
 
+  // ==================== DAILY STORY EVENTS ====================
+
+  /**
+   * Track daily story screen viewed
+   */
+  trackDailyStoryViewed(properties: DailyStoryViewedEvent) {
+    this.trackCustomEvent('daily_story_viewed', properties);
+  }
+
+  /**
+   * Track daily story dismissed (user navigated away)
+   */
+  trackDailyStoryDismissed(properties: DailyStoryDismissedEvent) {
+    this.trackCustomEvent('daily_story_dismissed', properties);
+  }
+
+  /**
+   * Track daily story card/section viewed (WATCH=1, EXPLORE=2, QUESTIONS=3)
+   */
+  trackDailyStoryCardViewed(properties: DailyStoryCardViewedEvent) {
+    this.trackCustomEvent('daily_story_card_viewed', properties);
+  }
+
+  /**
+   * Track daily story completed (all sections finished)
+   */
+  trackDailyStoryCompleted(properties: DailyStoryCompletedEvent) {
+    this.trackCustomEvent('daily_story_completed', properties);
+  }
+
+  /**
+   * Track media played within a daily story (video or audio)
+   */
+  trackDailyStoryMediaPlayed(properties: DailyStoryMediaPlayedEvent) {
+    this.trackCustomEvent('daily_story_media_played', properties);
+  }
+
+  /**
+   * Track user tapping a past story from the calendar
+   */
+  trackDailyStoryRewindTapped(properties: DailyStoryRewindTappedEvent) {
+    this.trackCustomEvent('daily_story_rewind_tapped', properties);
+  }
+
+  /**
+   * Track non-subscriber blocked from accessing past story
+   */
+  trackDailyStoryRewindBlocked(properties: DailyStoryRewindBlockedEvent) {
+    this.trackCustomEvent('daily_story_rewind_blocked', properties);
+  }
+
+  /**
+   * Track streak incremented from daily story completion
+   */
+  trackDailyStoryStreakIncremented(properties: DailyStoryStreakIncrementedEvent) {
+    this.trackCustomEvent('daily_story_streak_incremented', properties);
+  }
+
+  // ==================== END DAILY STORY EVENTS ====================
+
   // ==================== END NEW TRACKING EVENTS ====================
 
   // ==================== PERSON PROPERTIES ====================
@@ -1170,12 +1284,16 @@ class AnalyticsService {
       subscription_product_id: null,
       subscription_billing_cycle: null,
       rc_subscription_status: null,
+      // Daily story properties
+      last_daily_story_date: null,
+      daily_stories_read_count: null,
+      daily_story_completion_rate: null,
     };
 
     this.posthog.capture('$set', {
       $set: nullProperties,
     });
-    console.log('📊 [Analytics] Initialized all 21 person properties with null');
+    console.log('📊 [Analytics] Initialized all 24 person properties with null');
   }
 
   /**
@@ -1306,6 +1424,33 @@ class AnalyticsService {
       $set: properties,
     });
     console.log('📊 [Analytics] Updated subscription properties:', properties);
+  }
+
+  /**
+   * Update daily story person properties
+   */
+  updateDailyStoryProperties(data: {
+    last_daily_story_date?: string;
+    daily_stories_read_count?: number;
+    daily_story_completion_rate?: number;
+  }) {
+    if (!this.posthog) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Skipping updateDailyStoryProperties (PostHog not ready)');
+      }
+      return;
+    }
+
+    const properties = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    );
+
+    if (Object.keys(properties).length === 0) return;
+
+    this.posthog.capture('$set', {
+      $set: properties,
+    });
+    console.log('📊 [Analytics] Updated daily story properties:', properties);
   }
 
   // ==================== USER IDENTIFICATION ====================

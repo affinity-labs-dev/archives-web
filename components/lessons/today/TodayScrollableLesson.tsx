@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Dimensions,
   Platform,
@@ -99,6 +99,7 @@ interface TodayScrollableLessonProps {
   contentBlocks: ContentBlock[];
   progress: number;
   innerVoiceUrl?: string;
+  onMediaPlayed?: () => void;
   onContinue: () => void;
   onBack: () => void;
 }
@@ -107,6 +108,7 @@ export default function TodayScrollableLesson({
   contentBlocks,
   progress,
   innerVoiceUrl,
+  onMediaPlayed,
   onContinue,
   onBack,
 }: TodayScrollableLessonProps) {
@@ -116,6 +118,7 @@ export default function TodayScrollableLesson({
   // Audio player
   const player = useAudioPlayer(innerVoiceUrl || null);
   const status = useAudioPlayerStatus(player);
+  const hasTrackedMediaRef = useRef(false);
 
   // Sort content blocks by order
   const sortedBlocks = (contentBlocks || []).sort((a, b) => a.order - b.order);
@@ -150,6 +153,11 @@ export default function TodayScrollableLesson({
       player.pause();
     } else {
       player.play();
+      // Track media played on first play
+      if (!hasTrackedMediaRef.current) {
+        hasTrackedMediaRef.current = true;
+        onMediaPlayed?.();
+      }
     }
   };
 

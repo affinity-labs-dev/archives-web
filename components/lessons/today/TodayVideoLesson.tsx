@@ -35,6 +35,7 @@ const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.75;
 interface TodayVideoLessonProps {
   contentItem: ContentItem;
   progress: number; // Overall today progress 0-100
+  onMediaPlayed?: () => void;
   onNext: () => void;
   onDismiss: () => void;
 }
@@ -42,6 +43,7 @@ interface TodayVideoLessonProps {
 export default function TodayVideoLesson({
   contentItem,
   progress,
+  onMediaPlayed,
   onNext,
   onDismiss,
 }: TodayVideoLessonProps) {
@@ -55,6 +57,7 @@ export default function TodayVideoLesson({
 
   // Video state
   const [videoCompleted, setVideoCompleted] = useState(false);
+  const hasTrackedMediaRef = useRef(false);
 
   // Gesture refs
   const panGestureRef = useRef(null);
@@ -134,6 +137,11 @@ export default function TodayVideoLesson({
   // Video status handler
   const handleVideoStatus = (status: any) => {
     if (status.isLoaded && status.durationMillis && status.positionMillis) {
+      // Track media played on first play
+      if (!hasTrackedMediaRef.current && status.isPlaying) {
+        hasTrackedMediaRef.current = true;
+        onMediaPlayed?.();
+      }
       const watchedPercentage =
         (status.positionMillis / status.durationMillis) * 100;
       if (watchedPercentage >= 95 && !videoCompleted) {

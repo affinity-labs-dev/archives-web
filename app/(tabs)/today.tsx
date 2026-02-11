@@ -10,7 +10,9 @@ import {
   useGamificationOrchestrator,
   useGamifiedProgress,
 } from "@/gamification";
+import { useDailyStoryTracking } from "@/hooks/useDailyStoryTracking";
 import { supabase } from "@/hooks/lib/supabase";
+import { analyticsService } from "@/services/AnalyticsService";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
@@ -450,6 +452,16 @@ export default function TodayScreen() {
   >(null);
   const [isHistoricalView, setIsHistoricalView] = useState(false);
 
+  // Daily story PostHog tracking
+  const tracking = useDailyStoryTracking({
+    storyId: (displayedQuest || todayQuest)?.id || null,
+    storyDate: (displayedQuest || todayQuest)?.date || null,
+    storyTitle: (displayedQuest || todayQuest)?.content?.today_title || (displayedQuest || todayQuest)?.content?.card1?.title || null,
+    entrySource: isHistoricalView ? 'rewind' : 'today_tab',
+    isToday: !isHistoricalView,
+    isSubscribed,
+  });
+
   // Cache for completed quest dates (for calendar display)
   const [completedDatesCache, setCompletedDatesCache] =
     useState<Set<string> | null>(null);
@@ -461,6 +473,12 @@ export default function TodayScreen() {
   // Present paywall using imperative API (avoids Android crash from Compose inside RN Modal)
   const handleShowPaywall = async (date: Date) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+    // Track paywall view triggered from daily story rewind
+    analyticsService.trackCustomEvent('subscribe_screen_viewed', {
+      trigger: 'daily_story_rewind',
+      story_date: date.toISOString().split('T')[0],
+    });
 
     try {
       const result = await RevenueCatUI.presentPaywall();
@@ -683,6 +701,12 @@ export default function TodayScreen() {
 
     console.log(`📅 [Today] Date clicked: ${dateStr}`);
 
+    // Track rewind tapped for past dates
+    if (isPastDate) {
+      const daysAgo = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+      tracking.trackRewindTapped(dateStr, daysAgo);
+    }
+
     // Wait for subscription status to load before making gate decisions
     if (isPastDate && isSubscriptionLoading) {
       console.log(`⏳ [Today] Waiting for subscription status...`);
@@ -696,7 +720,9 @@ export default function TodayScreen() {
       setDisplayedQuest(todayQuest);
       setIsHistoricalView(false);
     } else if (isPastDate && !isSubscribed) {
-      // Past date and not subscribed - show paywall
+      // Past date and not subscribed - track block and show paywall
+      const daysAgo = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+      tracking.trackRewindBlocked(dateStr, daysAgo);
       console.log(`🔒 [Today] Subscription required for: ${dateStr}`);
       await handleShowPaywall(date);
     } else {
@@ -1141,6 +1167,9 @@ export default function TodayScreen() {
     setQuestCompleted(true);
     console.log("✅ [Today] Quiz completed, quest finished!");
 
+    // Track daily story completed
+    await tracking.trackCompleted();
+
     // Trigger celebration immediately when quiz is completed (including replays)
     const currentQuest = displayedQuest || todayQuest;
     if (currentQuest?.date && watchCompleted && exploreCompleted) {
@@ -1149,6 +1178,14 @@ export default function TodayScreen() {
       await reportTodayComplete(questDate);
       console.log(`✅ [Today] Celebration triggered`);
     }
+  };
+
+  // Modal opener with card-viewed tracking
+  const openModal = (modal: ModalState) => {
+    setActiveModal(modal);
+    if (modal === "video") tracking.trackCardViewed(1);
+    if (modal === "reading") tracking.trackCardViewed(2);
+    if (modal === "quiz") tracking.trackCardViewed(3);
   };
 
   // Note: Celebration now triggered directly in handleQuizComplete (not useEffect)
@@ -1659,7 +1696,7 @@ export default function TodayScreen() {
                           (displayedQuest || todayQuest)?.content.card1
                             .media_url
                         ) {
-                          setActiveModal("video");
+                          openModal("video");
                         }
                       }}
                       activeOpacity={0.8}
@@ -1724,7 +1761,7 @@ export default function TodayScreen() {
                         (displayedQuest || todayQuest)?.content.card1
                           .media_url
                       ) {
-                        setActiveModal("video");
+                        openModal("video");
                       }
                     }}
                     activeOpacity={0.8}
@@ -1784,7 +1821,7 @@ export default function TodayScreen() {
                   onPress={(e) => {
                     e.stopPropagation();
                     if (isExploreUnlocked) {
-                      setActiveModal("reading");
+                      openModal("reading");
                     }
                   }}
                   activeOpacity={0.7}
@@ -1875,7 +1912,7 @@ export default function TodayScreen() {
                   onPress={(e) => {
                     e.stopPropagation();
                     if (isQuizUnlocked) {
-                      setActiveModal("quiz");
+                      openModal("quiz");
                     }
                   }}
                   activeOpacity={0.7}
@@ -1919,16 +1956,16 @@ export default function TodayScreen() {
             onPress={() => {
               if (progress === 100) {
                 // Day Complete - reopen WATCH to replay
-                setActiveModal("video");
+                openModal("video");
               } else if (!watchCompleted) {
                 // Step 1: Open WATCH if not completed
-                setActiveModal("video");
+                openModal("video");
               } else if (!exploreCompleted) {
                 // Step 2: Open EXPLORE if WATCH done but EXPLORE not done
-                setActiveModal("reading");
+                openModal("reading");
               } else if (isQuizUnlocked) {
                 // Step 3: Open QUIZ if both WATCH and EXPLORE done
-                setActiveModal("quiz");
+                openModal("quiz");
               }
             }}
             activeOpacity={0.8}
@@ -1976,11 +2013,12 @@ export default function TodayScreen() {
                   } as ContentItem
                 }
                 progress={progress}
+                onMediaPlayed={() => tracking.trackMediaPlayed('video', (displayedQuest || todayQuest)!.id)}
                 onNext={async () => {
                   setWatchCompleted(true);
                   await saveProgress("watch");
                   setPreviousModal("video");
-                  setActiveModal("reading");
+                  openModal("reading");
                 }}
                 onDismiss={() => {
                   setActiveModal("none");
@@ -2000,11 +2038,12 @@ export default function TodayScreen() {
                 innerVoiceUrl={
                   (displayedQuest || todayQuest)!.content.card2.inner_voice
                 }
+                onMediaPlayed={() => tracking.trackMediaPlayed('audio', (displayedQuest || todayQuest)!.id)}
                 onContinue={async () => {
                   setExploreCompleted(true);
                   await saveProgress("explore");
                   setPreviousModal("reading");
-                  setActiveModal("quiz");
+                  openModal("quiz");
                 }}
                 onBack={() => {
                   if (previousModal === "video") {

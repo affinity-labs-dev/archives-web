@@ -1540,6 +1540,13 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           longest_streak: newLongestStreak,
         });
 
+        // Track streak increment from daily story
+        analyticsService.trackDailyStoryStreakIncremented({
+          story_id: questDate,
+          current_streak: newStreak,
+          is_first_action_today: lastCompletionDate !== today,
+        });
+
         console.log(`📊 [Orchestrator] Analytics updated with streak: ${newStreak}`);
 
         // Queue celebration

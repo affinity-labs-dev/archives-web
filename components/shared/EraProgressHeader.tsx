@@ -201,7 +201,7 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
               <StreakIcon size={16} />
             </View>
             <Text style={styles.statValue}>{streak} </Text>
-            <Text style={styles.statLabel}>days</Text>
+            <Text style={styles.statLabel}>{streak === 1 ? "day" : "days"}</Text>
           </View>
           {/* XP row */}
           <View style={styles.statRow}>
