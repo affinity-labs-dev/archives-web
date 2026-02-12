@@ -1205,11 +1205,14 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
   // Process queue - show next celebration when current is dismissed
   useEffect(() => {
+    console.log(`🔍 [Orchestrator Queue Processor] currentCelebration=${currentCelebration?.type || 'null'}, queue length=${celebrationQueue.length}`);
     if (!currentCelebration && celebrationQueue.length > 0) {
       const [next, ...rest] = celebrationQueue;
+      console.log(`⚠️ [Orchestrator] ========== SHOWING ${next.type} VIA ORCHESTRATOR QUEUE ==========`);
       setCurrentCelebration(next);
       setCelebrationQueue(rest);
-      console.log(`🎉 [Orchestrator] Showing celebration: ${next.type}`);
+      console.log(`🎉 [Orchestrator] Celebration set: ${next.type}, remaining in queue: ${rest.length}`);
+      console.log(`⚠️ [Orchestrator] If BentoGrid also shows adventure screen, BOTH MODALS RENDER = iOS FREEZE!`);
     }
   }, [celebrationQueue, currentCelebration]);
 
@@ -1360,27 +1363,35 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     }
     // ========== END NEW STREAK SYSTEM ==========
 
-    // --- Check 1: Adventure Complete (HIGHEST PRIORITY - shows first) ---
+    // --- Check 1: Adventure Complete ---
     const isAdventureComplete = adventureModulesCompleted >= adventureTotalModules;
-    if (isAdventureComplete && adventureData) {
-      const alreadySeen = await hasSeenAdventureComplete(adventureId);
-      if (!alreadySeen) {
-        newCelebrations.push({
-          type: 'ADVENTURE_COMPLETE',
-          adventureId,
-          adventureTitle: adventureData.title,
-          adventureSubtitle: adventureData.subtitle,
-          adventureDescription: adventureData.description,
-          backgroundImage: adventureData.backgroundImage,
-          completedModules: adventureModulesCompleted,
-          totalModules: adventureTotalModules,
-          totalXP: newEraXP,
-          totalBadges: adventureData.totalBadges || 3,
-          eraId,
-        });
-        console.log(`🎯 [Orchestrator] Adventure ${adventureId} complete queued (FIRST)`);
-      } else {
-        console.log(`⏭️ [Orchestrator] Adventure ${adventureId} complete already seen, skipping`);
+
+    if (isAdventureComplete) {
+      try {
+        const adventures = await getAdventures(eraId);
+        const adventure = adventures.find(a => a.readable_id === adventureId);
+
+        if (adventure) {
+          const alreadySeen = await hasSeenAdventureComplete(adventureId);
+          if (!alreadySeen) {
+            newCelebrations.push({
+              type: 'ADVENTURE_COMPLETE',
+              adventureId,
+              adventureTitle: adventure.adventure_title || adventureId,
+              adventureSubtitle: adventure.adventure_description,
+              adventureDescription: adventure.adventure_description,
+              backgroundImage: adventure.card_content?.background_image,
+              completedModules: adventureModulesCompleted,
+              totalModules: adventureTotalModules,
+              totalXP: newEraXP,
+              totalBadges: adventureData?.totalBadges || 0,  // ✅ Use calculated value from Quiz.tsx
+              eraId,
+            });
+            console.log(`🎉 [Orchestrator] Adventure complete queued: ${adventureId} (${adventureModulesCompleted}/${adventureTotalModules})`);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ [Orchestrator] Error fetching adventure data:`, error);
       }
     }
 
@@ -1441,8 +1452,11 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
     // Add to queue
     if (newCelebrations.length > 0) {
+      const celebrationTypes = newCelebrations.map(c => c.type).join(', ');
+      console.log(`📋 [Orchestrator] ========== ADDING TO QUEUE: [${celebrationTypes}] ==========`);
       setCelebrationQueue((prev) => [...prev, ...newCelebrations]);
-      console.log(`📋 [Orchestrator] Added ${newCelebrations.length} celebrations to queue`);
+      console.log(`📋 [Orchestrator] Queue now has ${newCelebrations.length} celebration(s)`);
+      console.log(`⚠️ [Orchestrator] These will render via orchestrator queue. If BentoGrid also shows adventure screen, CONFLICT!`);
     }
 
     // --- Check 4: Achievements ---
@@ -1460,6 +1474,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     calculateWeekData,
     setStreak,
     setLongestStreak,
+    getAdventures,
   ]);
 
   // Report lesson completion - for future triggers

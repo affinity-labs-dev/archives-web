@@ -254,7 +254,7 @@ export default function QuizResults({
               {/* Back button overlaid on video */}
               {onBack && (
                 <TouchableOpacity style={styles.backButtonOverlay} onPress={onBack}>
-                  <Ionicons name="chevron-back" size={24} color="white" />
+                  <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
                 </TouchableOpacity>
               )}
             </View>
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,

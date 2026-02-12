@@ -1,11 +1,9 @@
 import AdventureComponent from '@/components/adventure/shared/AdventureComponent';
-import AdventureCompleteScreen from '@/gamification/ui/celebrations/AdventureCompleteScreen';
-import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 import LessonPlayer from '@/components/lessons/LessonPlayer';
 import Quiz from '@/components/quiz/Quiz';
 import type { Adventure, ContentItem } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { ADVENTURE_KEYS, WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
+import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
 import { analyticsService } from '@/services/AnalyticsService';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
@@ -51,17 +49,6 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   } | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [selectedAdventureCard, setSelectedAdventureCard] = useState<Adventure | null>(null);
-  const [adventureSummary, setAdventureSummary] = useState<{
-    adventure: Adventure;
-    totalModules: number;
-    totalXP: number;
-    totalStars: number;
-  } | null>(null);
-  const [streakMilestone, setStreakMilestone] = useState<{
-    milestoneXP: number;
-    totalXP: number;
-    eraId: string;
-  } | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -121,89 +108,14 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     }
   };
 
-  // Handle quiz continue - check if adventure is complete
+  // Handle quiz continue - just refresh and close
   const handleQuizContinue = async () => {
-    console.log('✅ Quiz completed, checking if adventure complete');
-
-    // Reload progress to show stars immediately in UI (await to prevent race condition)
+    // Reload progress to show stars immediately in UI
     if (onProgressUpdate) {
       await onProgressUpdate();
     }
 
-    // Read FRESH progress data from AsyncStorage to avoid race condition
-    const progressData = await AsyncStorage.getItem('new_user_progress');
-    const freshUserProgress: UserProgress[] = progressData ? JSON.parse(progressData) : [];
-    console.log('📊 Fresh progress data loaded:', freshUserProgress.length, 'modules');
-
-    // Check if adventure is complete (all modules in content_list are done)
-    if (selectedLesson) {
-      const adventure = adventures.find(a => a.readable_id === selectedLesson.adventureId);
-
-      if (adventure && adventure.content_list) {
-        // Get displayed content (must match AdventureComponent display logic)
-        const sortedContent = [...adventure.content_list]
-          .sort((a, b) => a.order_by - b.order_by)
-          .slice(0, 5);  // Match UI - only first 5 modules count
-
-        // Get all completed modules for this adventure using FRESH data
-        const completedModules = freshUserProgress.filter(
-          p => p.adventureId === selectedLesson.adventureId &&
-               p.isCompleted &&
-               p.quizCompleted
-        );
-
-        // Check if all displayed modules are complete
-        const totalModules = sortedContent.length;  // Should always be 5
-        const isAdventureComplete = completedModules.length === totalModules;
-
-        console.log(`📊 Adventure completion check:`, {
-          adventureId: selectedLesson.adventureId,
-          completedModules: completedModules.length,
-          totalModules,
-          displayedContent: sortedContent.length,
-          isComplete: isAdventureComplete
-        });
-
-        if (isAdventureComplete) {
-          // Check if user has already seen this adventure complete screen
-          const adventureCompleteKey = ADVENTURE_KEYS.getAdventureCompleteKey(selectedLesson.adventureId);
-          const hasSeenScreen = await AsyncStorage.getItem(adventureCompleteKey);
-
-          if (hasSeenScreen === 'true') {
-            console.log(`✅ User already saw adventure complete screen for ${selectedLesson.adventureId} - skipping`);
-            setSelectedLesson(null);
-            setShowQuiz(false);
-            return; // Don't show modal again
-          }
-
-          // Calculate stats
-          const totalStars = completedModules.reduce((sum, m) => sum + (m.quizScore || 0), 0);
-          const totalXP = completedModules.reduce((sum, m) => {
-            const correctAnswers = (m as any).quizCorrectAnswers !== undefined
-              ? (m as any).quizCorrectAnswers
-              : (m.quizScore ? m.quizScore - 1 : 0);
-            return sum + (correctAnswers * 10);
-          }, 0);
-
-          console.log('🎉 Adventure complete! Showing summary (FIRST TIME)');
-
-          // Close lesson/quiz modal first
-          setSelectedLesson(null);
-          setShowQuiz(false);
-
-          // Show adventure summary
-          setAdventureSummary({
-            adventure,
-            totalModules,
-            totalXP,
-            totalStars
-          });
-          return;
-        }
-      }
-    }
-
-    // If not complete, just close the modal
+    // Close the modal - Orchestrator handles all celebrations
     setSelectedLesson(null);
     setShowQuiz(false);
   };
@@ -215,39 +127,6 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     setShowQuiz(false);
   };
 
-  // Handle XP milestone reached (era-specific)
-  const handleMilestoneReached = async (milestoneXP: number, totalXP: number, eraId: string) => {
-    console.log(`🎉 XP Milestone reached: ${milestoneXP} XP for era: ${eraId}`);
-
-    // Check if user has already seen this milestone screen (era-specific)
-    const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP, eraId);
-    const hasSeenMilestone = await AsyncStorage.getItem(milestoneKey);
-
-    if (hasSeenMilestone === 'true') {
-      console.log(`✅ User already saw XP milestone screen for ${milestoneXP} XP (era: ${eraId}) - skipping`);
-      setSelectedLesson(null);
-      setShowQuiz(false);
-      return; // Don't show modal again
-    }
-
-    console.log(`🎉 Showing XP milestone screen for ${milestoneXP} XP (era: ${eraId}) - FIRST TIME`);
-
-    // Reload progress to show stars immediately (await to prevent race condition)
-    if (onProgressUpdate) {
-      await onProgressUpdate();
-    }
-
-    // Close lesson/quiz modal first
-    setSelectedLesson(null);
-    setShowQuiz(false);
-
-    // Show streak milestone modal (with era info for saving)
-    setStreakMilestone({
-      milestoneXP,
-      totalXP,
-      eraId,
-    });
-  };
 
   // Handle adventure started (when adventure card/summary is opened)
   const handleAdventureStarted = (adventure: Adventure) => {
@@ -415,35 +294,6 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
         adventure={selectedAdventureCard}
         onDismiss={() => setSelectedAdventureCard(null)}
       />
-
-      {/* Adventure Summary Modal (Adventure completion) */}
-      {adventureSummary && (
-        <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
-          <AdventureCompleteScreen
-            adventure={adventureSummary.adventure}
-            totalXP={adventureSummary.totalXP}
-            completedModules={adventureSummary.totalModules}
-            totalModules={adventureSummary.totalModules}
-            onContinue={() => setAdventureSummary(null)}
-            onClose={() => setAdventureSummary(null)}
-          />
-        </Modal>
-      )}
-
-      {/* Streak Milestone Modal (XP milestones - era-specific) */}
-      {streakMilestone && (
-        <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
-          <XPMilestoneScreen
-            totalXP={streakMilestone.totalXP}
-            milestoneXP={streakMilestone.milestoneXP}
-            eraId={streakMilestone.eraId}
-            onContinue={() => {
-              setStreakMilestone(null);
-              handleQuizContinue(); // Check if adventure is complete
-            }}
-          />
-        </Modal>
-      )}
 
       {/* Development Only: Walkthrough Reset Button */}
       {__DEV__ && (
