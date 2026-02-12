@@ -555,6 +555,26 @@ export default function Quiz({
       .reduce((sum: number, m: any) => sum + ((m.quizCorrectAnswers || 0) * 10), 0);
     console.log(`📊 New Era XP (${eraId} after quiz): ${newEraXP}`);
 
+    // Calculate FRESH adventure completion from AsyncStorage (not stale props)
+    const adventureModulesInProgress = updatedNewModules.filter((m: any) =>
+      m.adventureId === adventureId && m.quizCompleted === true
+    );
+    const actualCompletedModules = adventureModulesInProgress.length;
+    const actualTotalModules = adventureData?.totalModules || 5; // Default to 5 modules per adventure
+
+    console.log(`🔍 [Quiz] FRESH adventure completion data from AsyncStorage:`, {
+      adventureId,
+      completedModules: actualCompletedModules,
+      totalModules: actualTotalModules,
+      isComplete: actualCompletedModules >= actualTotalModules,
+      oldStaleData: { completed: (adventureData?.completedModules || 0) + 1, total: adventureData?.totalModules || 3 }
+    });
+
+    // Calculate total badges from FRESH data (quizScore 3 = perfect quiz = badge)
+    const totalBadges = adventureModulesInProgress.filter(
+      (m: any) => m.quizScore === 3
+    ).length;
+
     // Report quiz completion to orchestrator - it handles milestone checks and celebrations
     await reportQuizComplete({
       eraId,
@@ -562,15 +582,15 @@ export default function Quiz({
       moduleId,
       oldEraXP,
       newEraXP,
-      // This module completion increments the count
-      adventureModulesCompleted: (adventureData?.completedModules || 0) + 1,
-      adventureTotalModules: adventureData?.totalModules || 3,
+      // Use FRESH data from AsyncStorage (not stale props)
+      adventureModulesCompleted: actualCompletedModules,
+      adventureTotalModules: actualTotalModules,
       adventureData: adventureData ? {
         title: adventureData.title,
         subtitle: adventureData.subtitle,
         description: adventureData.description,
         backgroundImage: adventureData.backgroundImage,
-        totalBadges: adventureData.totalBadges,
+        totalBadges,  // ✅ Use FRESH calculated value (not stale prop)
       } : undefined,
     });
     console.log(`📋 [Quiz] Reported to orchestrator - XP: ${oldEraXP} → ${newEraXP}`);

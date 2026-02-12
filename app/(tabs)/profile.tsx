@@ -474,21 +474,26 @@ export default function ProfileTab() {
       // Filter for Today screen progress keys (format: @today_progress_${questId})
       const todayProgressKeys = allKeys.filter(key => key.startsWith('@today_progress_'))
 
+      // Filter for adventure complete celebration flags (format: hasSeenAdventureComplete_${adventureId})
+      const adventureCompleteKeys = allKeys.filter(key => key.startsWith('hasSeenAdventureComplete_'))
+
       // Remove streak data + all Today screen progress + celebration flags
       const keysToRemove = [
         '@last_streak_completion_date',
         '@frozen_streak_data',
         '@daily_story_end_shown_date',
-        ...todayProgressKeys
+        ...todayProgressKeys,
+        ...adventureCompleteKeys
       ]
 
       await AsyncStorage.multiRemove(keysToRemove)
       console.log('✅ Streak + Today screen AsyncStorage cleared!', {
         streakKeys: ['@last_streak_completion_date', '@frozen_streak_data'],
         celebrationKeys: ['@daily_story_end_shown_date'],
-        todayKeys: todayProgressKeys
+        todayKeys: todayProgressKeys,
+        adventureKeys: adventureCompleteKeys
       })
-      Alert.alert('Dev Helper', `Cleared ${keysToRemove.length} keys:\n- Streak data\n- Celebration flags\n- Today progress (${todayProgressKeys.length} quests)`)
+      Alert.alert('Dev Helper', `Cleared ${keysToRemove.length} keys:\n- Streak data\n- Celebration flags\n- Today progress (${todayProgressKeys.length} quests)\n- Adventure complete flags (${adventureCompleteKeys.length})`)
     } catch (error) {
       console.error('Error clearing streak data:', error)
       Alert.alert('Error', 'Failed to clear async storage')

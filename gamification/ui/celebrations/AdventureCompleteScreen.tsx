@@ -227,7 +227,6 @@ export default function AdventureCompleteScreen({
       try {
         const adventureCompleteKey = ADVENTURE_KEYS.getAdventureCompleteKey(adventure.readable_id);
         await AsyncStorage.setItem(adventureCompleteKey, 'true');
-        console.log(`✅ Marked adventure complete screen as seen: ${adventure.readable_id}`);
       } catch (error) {
         console.error('❌ Error saving adventure complete flag:', error);
       }

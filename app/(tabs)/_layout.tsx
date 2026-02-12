@@ -156,6 +156,11 @@ export default function TabLayout() {
             borderRadius: 8,
             paddingHorizontal: 4,
             marginRight: -12,
+            textAlign: "center",
+            lineHeight: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           },
         }}
       />
