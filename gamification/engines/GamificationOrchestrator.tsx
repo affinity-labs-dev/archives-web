@@ -516,7 +516,7 @@ function calculateStreakBonus(streak: number): number {
  * Calculate week progress data for calendar widget.
  * Returns 7 days (Mo-Su) with completion status based on current streak.
  */
-function calculateWeekData(currentStreak: number, lastActiveDate: string): { day: string; completed: boolean; missed: boolean; isToday: boolean }[] {
+function calculateWeekData(currentStreak: number, newLastActiveDate: string, oldLastActiveDate: string, oldStreakCount?: number): { day: string; completed: boolean; missed: boolean; isToday: boolean }[] {
   const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
   const today = new Date();
   const todayDay = today.getDate();
@@ -524,38 +524,59 @@ function calculateWeekData(currentStreak: number, lastActiveDate: string): { day
 
   console.log('🔥 [calculateWeekData] ===== STREAK CALENDAR CALCULATION =====');
   console.log('   Current Streak:', currentStreak);
-  console.log('   Last Active Date:', lastActiveDate);
+  console.log('   NEW Last Active Date:', newLastActiveDate);
+  console.log('   OLD Last Active Date:', oldLastActiveDate);
+  console.log('   OLD Streak Count:', oldStreakCount);
   console.log('   Today:', today.toISOString().split('T')[0]);
   console.log('   Today Day Number:', todayDay);
 
-  // Parse lastActiveDate
-  const lastActive = new Date(lastActiveDate);
-  lastActive.setHours(0, 0, 0, 0);
+  // Use NEW lastActiveDate for streak calculation
+  const newLastActive = new Date(newLastActiveDate);
+  newLastActive.setHours(0, 0, 0, 0);
 
-  // Calculate days difference (gap between lastActive and today)
-  const daysDiff = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+  // Use OLD lastActiveDate for missed days calculation
+  const oldLastActive = new Date(oldLastActiveDate);
+  oldLastActive.setHours(0, 0, 0, 0);
 
-  console.log('   Days Difference:', daysDiff);
+  // Calculate days difference (gap between OLD lastActive and today)
+  const daysDiff = Math.floor((today.getTime() - oldLastActive.getTime()) / (1000 * 60 * 60 * 24));
+
+  console.log('   Days Difference (from old):', daysDiff);
 
   // Build a Set of all streak dates for efficient lookup (works across months)
   const streakDates = new Set<string>();
   const missedDates = new Set<string>();
 
+  // ✅ Add NEW streak dates (current active streak)
   if (currentStreak > 0) {
-    // Go back currentStreak days from lastActive and mark each date
+    console.log('   Building NEW streak dates...');
     for (let i = 0; i < currentStreak; i++) {
-      const streakDate = new Date(lastActive);
-      streakDate.setDate(lastActive.getDate() - i);
+      const streakDate = new Date(newLastActive);
+      streakDate.setDate(newLastActive.getDate() - i);
       streakDates.add(streakDate.toISOString().split('T')[0]);
     }
   }
 
-  // Missed days: gap between lastActive and today (if gap > 1)
+  // ✅ Add OLD streak dates (historical context) if different period
+  if (oldStreakCount && oldStreakCount > 0 && oldLastActiveDate !== newLastActiveDate) {
+    console.log('   Building OLD streak dates for historical context...');
+    for (let i = 0; i < oldStreakCount; i++) {
+      const streakDate = new Date(oldLastActive);
+      streakDate.setDate(oldLastActive.getDate() - i);
+      streakDates.add(streakDate.toISOString().split('T')[0]);
+    }
+  }
+
+  // Missed days: gap between OLD lastActive and today (if gap > 1)
   if (daysDiff > 1) {
     for (let i = 1; i < daysDiff; i++) {
-      const missedDate = new Date(lastActive);
-      missedDate.setDate(lastActive.getDate() + i);
-      missedDates.add(missedDate.toISOString().split('T')[0]);
+      const missedDate = new Date(oldLastActive);
+      missedDate.setDate(oldLastActive.getDate() + i);
+      const missedStr = missedDate.toISOString().split('T')[0];
+      // Only mark as missed if NOT in current streak
+      if (!streakDates.has(missedStr)) {
+        missedDates.add(missedStr);
+      }
     }
   }
 
@@ -580,11 +601,11 @@ function calculateWeekData(currentStreak: number, lastActiveDate: string): { day
     // Check if this is today
     const isToday = dateString === todayString;
 
-    console.log(`   ${day} (${dateString}): completed=${isInStreak || isToday}, missed=${isMissed}, isToday=${isToday}`);
+    console.log(`   ${day} (${dateString}): completed=${isInStreak}, missed=${isMissed}, isToday=${isToday}`);
 
     return {
       day,
-      completed: isInStreak || isToday, // Orange checkmark - part of streak or today
+      completed: isInStreak, // Orange checkmark - part of streak (today is already in streakDates)
       missed: isMissed, // Grey dash - days missed between lastActive and today
       isToday,
     };
@@ -1329,7 +1350,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         // Queue streak celebration
         try {
-          const weekData = calculateWeekData(newStreak, cloudStreak.lastActiveDate);
+          const weekData = calculateWeekData(newStreak, today, cloudStreak.lastActiveDate, cloudStreak.currentStreak);
           newCelebrations.push({
             type: 'STREAK_CELEBRATION',
             streakCount: newStreak,
@@ -1384,7 +1405,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
               completedModules: adventureModulesCompleted,
               totalModules: adventureTotalModules,
               totalXP: newEraXP,
-              totalBadges: adventureData?.totalBadges || 0,  // ✅ Use calculated value from Quiz.tsx
+              totalBadges: adventureData?.totalBadges || 3,  // ✅ Default to 3 badges (matches component default)
               eraId,
             });
             console.log(`🎉 [Orchestrator] Adventure complete queued: ${adventureId} (${adventureModulesCompleted}/${adventureTotalModules})`);
@@ -1566,7 +1587,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         // Queue celebration
         try {
-          const weekData = calculateWeekData(newStreak, cloudStreak.lastActiveDate);
+          const weekData = calculateWeekData(newStreak, today, cloudStreak.lastActiveDate, cloudStreak.currentStreak);
           setCelebrationQueue((prev) => [...prev, {
             type: 'STREAK_CELEBRATION',
             streakCount: newStreak,
@@ -1658,7 +1679,12 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const showStreakCelebration = useCallback(() => {
     try {
       const cloudStreak = getCloudStreak();
-      const weekData = calculateWeekData(streak, cloudStreak.lastActiveDate);
+      const weekData = calculateWeekData(
+        streak,
+        cloudStreak.lastActiveDate,  // NEW (current in DB)
+        lastActiveBeforeUpdate || cloudStreak.lastActiveDate,  // OLD (frozen before update)
+        streakBeforeUpdate || streak  // OLD streak count (frozen before update)
+      );
       setCelebrationQueue((prev) => [...prev, {
         type: 'STREAK_CELEBRATION',
         streakCount: streak,
@@ -1668,7 +1694,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     } catch (error) {
       console.error('❌ [Orchestrator] Failed to show streak celebration:', error);
     }
-  }, [streak, getCloudStreak, calculateWeekData]);
+  }, [streak, getCloudStreak, calculateWeekData, lastActiveBeforeUpdate, streakBeforeUpdate]);
 
   const isCelebrating = currentCelebration !== null;
   const streakBonus = calculateStreakBonus(streak);
@@ -1800,6 +1826,6 @@ export function useGamificationOrchestrator(): GamificationOrchestratorContextTy
 // EXPORTS
 // ============================================================
 
-export { ACHIEVEMENTS, calculateStreakBonus, checkStreakMilestone, checkXPMilestone };
+export { ACHIEVEMENTS, calculateStreakBonus, checkStreakMilestone, checkXPMilestone, calculateWeekData };
 export type { AchievementCelebration, AdventureCompleteCelebration, CelebrationItem, StreakMilestoneCelebration, XPMilestoneCelebration };
 

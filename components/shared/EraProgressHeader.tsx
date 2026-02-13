@@ -4,6 +4,7 @@
 
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useGamificationOrchestrator, useGamifiedProgress } from '@/gamification';
+import { calculateWeekData } from '@/gamification/engines/GamificationOrchestrator';
 import StreakCelebrationScreen from '@/gamification/ui/celebrations/StreakCelebrationScreen';
 import React, { useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -39,77 +40,14 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
   totalXP = 0,
 }) => {
   const { streak, lastActiveBeforeUpdate, streakBeforeUpdate } = useGamificationOrchestrator();
+  const { getStreak } = useGamifiedProgress();
   const insets = useSafeAreaInsets();
 
   // TEST MODE: Show celebration when clicking streak
   const [showTestCelebration, setShowTestCelebration] = useState(false);
 
-  // Calculate week data for test - using date Sets for accurate cross-month calculation
-  const calculateWeekData = (currentStreak: number, lastActiveDateParam: string) => {
-    const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-    const today = new Date();
-    const todayDay = today.getDate();
-    const todayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1; // Convert to Mo-Su (0-6)
-
-    // Use the preserved old lastActiveDate (before loadStreak updated it)
-    const lastActiveDate = lastActiveDateParam || today.toISOString().split('T')[0];
-    const lastActive = new Date(lastActiveDate);
-    lastActive.setHours(0, 0, 0, 0);
-
-    // Calculate days difference (gap between lastActive and today)
-    const daysDiff = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
-
-    // Build a Set of all streak dates for efficient lookup (works across months)
-    const streakDates = new Set<string>();
-    const missedDates = new Set<string>();
-
-    if (currentStreak > 0) {
-      // Go back currentStreak days from lastActive and mark each date
-      for (let i = 0; i < currentStreak; i++) {
-        const streakDate = new Date(lastActive);
-        streakDate.setDate(lastActive.getDate() - i);
-        streakDates.add(streakDate.toISOString().split('T')[0]);
-      }
-    }
-
-    // Missed days: gap between lastActive and today (if gap > 1)
-    if (daysDiff > 1) {
-      for (let i = 1; i < daysDiff; i++) {
-        const missedDate = new Date(lastActive);
-        missedDate.setDate(lastActive.getDate() + i);
-        missedDates.add(missedDate.toISOString().split('T')[0]);
-      }
-    }
-
-    return days.map((day, index) => {
-      // Get the actual date for this day of the week
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - todayIndex); // Go to Monday of this week
-      const dayDate = new Date(weekStart);
-      dayDate.setDate(weekStart.getDate() + index);
-      const dateString = dayDate.toISOString().split('T')[0];
-      const todayString = today.toISOString().split('T')[0];
-
-      // Check if this day is part of the streak using the Set (works across months)
-      const isInStreak = streakDates.has(dateString);
-
-      // Check if this day was missed using the Set
-      const isMissed = missedDates.has(dateString);
-
-      // Check if this is today
-      const isToday = dateString === todayString;
-
-      return {
-        day,
-        completed: isInStreak || isToday, // Orange checkmark - part of streak or today
-        missed: isMissed, // Grey dash - days missed between lastActive and today
-        isToday,
-      };
-    });
-
-    console.log('🔥 [EraProgressHeader] ===== END =====');
-    return weekData;
-  };
+  // Get actual cloud streak data for manual trigger
+  const cloudStreak = getStreak();
 
   // Dynamic top padding based on safe area + breathing room
   const topPadding = insets.top + 16;
@@ -217,10 +155,12 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
       {/* TEST MODE: Streak Celebration Screen */}
       <StreakCelebrationScreen
         visible={showTestCelebration}
-        streakCount={streak}
+        streakCount={cloudStreak.currentStreak}
         weekData={calculateWeekData(
-          streakBeforeUpdate || streak,
-          lastActiveBeforeUpdate
+          cloudStreak.currentStreak,              // NEW streak count (from cloud)
+          cloudStreak.lastActiveDate,             // NEW lastActiveDate (ACTUAL last completion)
+          lastActiveBeforeUpdate || cloudStreak.lastActiveDate,  // OLD (frozen before update)
+          streakBeforeUpdate || cloudStreak.currentStreak        // OLD streak count (frozen before update)
         )}
         onContinue={() => setShowTestCelebration(false)}
       />
