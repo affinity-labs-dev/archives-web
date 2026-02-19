@@ -2,7 +2,7 @@
   "expo": {
     "name": "Archives",
     "slug": "archives",
-    "version": "3.5.3",
+    "version": "3.5.4",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
     "scheme": "archives",
@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "163",
+      "buildNumber": "164",
       "associatedDomains": [
         "applinks:link.archiveszone.app"
       ],
@@ -46,7 +46,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 49,
+      "versionCode": 50,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -188,7 +188,19 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1421963112813789",
+          "clientToken": "021e8072d5ebfe3e28526cb3254f85eb",
+          "displayName": "Archives",
+          "scheme": "fb1421963112813789",
+          "advertiserIDCollectionEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "isAutoInitEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
