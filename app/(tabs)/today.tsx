@@ -16,14 +16,16 @@ import { analyticsService } from "@/services/AnalyticsService";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Modal,
   Platform,
   ScrollView,
@@ -34,7 +36,7 @@ import {
   View,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
+import RevenueCatUI from "react-native-purchases-ui";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -466,12 +468,70 @@ export default function TodayScreen() {
   const [completedDatesCache, setCompletedDatesCache] =
     useState<Set<string> | null>(null);
 
+  // Paywall overlay state (replaces imperative modal to avoid crashes)
+  const [showPaywallOverlay, setShowPaywallOverlay] = useState(false);
+  const [gatedDate, setGatedDate] = useState<Date | null>(null);
+
   // Flag to prevent race condition between purchase completion and subscription state update
   // Using ref (not state) because we don't need re-renders when this changes
   const justPurchasedRef = useRef(false);
 
-  // Present paywall using imperative API (avoids Android crash from Compose inside RN Modal)
-  const handleShowPaywall = async (date: Date) => {
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      console.log('🧹 [Today] Component unmounting, cancelling pending operations');
+    };
+  }, []);
+
+  // Manage StatusBar visibility based on paywall state
+  useEffect(() => {
+    if (!showPaywallOverlay) {
+      // Restore status bar when paywall closes
+      StatusBar.setHidden(false);
+    }
+  }, [showPaywallOverlay]);
+
+  // Close paywall when app backgrounds to prevent Android lifecycle crash
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' && showPaywallOverlay) {
+        console.log('📱 [Today Paywall] App backgrounding - closing paywall');
+        if (isMountedRef.current) {
+          setShowPaywallOverlay(false);
+          setGatedDate(null);
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [showPaywallOverlay]);
+
+  // Close paywall and reset to today when user navigates to another tab
+  useFocusEffect(
+    useCallback(() => {
+      // This runs when tab gains focus (no-op on mount)
+      return () => {
+        // This runs when tab loses focus (user navigates away)
+        if (showPaywallOverlay) {
+          console.log('🚪 [Today Paywall] Tab navigation detected - closing paywall and resetting to today');
+          setShowPaywallOverlay(false);
+          setGatedDate(null);
+          setSelectedDate(new Date());
+          setIsHistoricalView(false);
+        }
+      };
+    }, [showPaywallOverlay])
+  );
+
+  // Show paywall overlay (true fullscreen takeover)
+  const handleShowPaywall = (date: Date) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
     // Track paywall view triggered from daily story rewind
@@ -480,44 +540,55 @@ export default function TodayScreen() {
       story_date: date.toISOString().split('T')[0],
     });
 
-    try {
-      const result = await RevenueCatUI.presentPaywall();
+    // Show overlay and save gated date for post-purchase unlock
+    setGatedDate(date);
+    setShowPaywallOverlay(true);
+  };
 
-      switch (result) {
-        case PAYWALL_RESULT.PURCHASED:
-        case PAYWALL_RESULT.RESTORED:
-          console.log(
-            `✅ [Today Paywall] ${result === PAYWALL_RESULT.PURCHASED ? "Purchase" : "Restore"} completed`,
-          );
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          justPurchasedRef.current = true;
+  // Handle successful purchase - unlock the gated date
+  const handlePurchaseComplete = async () => {
+    console.log('✅ [Today Paywall] Purchase completed');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    justPurchasedRef.current = true;
 
-          // Navigate to the selected date after successful purchase/restore
-          const dateStr = date.toISOString().split("T")[0];
-          console.log(`📜 [Today Paywall] Unlocking content for: ${dateStr}`);
-          setSelectedDate(date);
-          setIsHistoricalView(true);
-          const historicalQuest = await fetchQuestByDate(dateStr);
-          setDisplayedQuest(historicalQuest);
+    // Close paywall overlay
+    if (isMountedRef.current) {
+      setShowPaywallOverlay(false);
+    }
 
-          // Clear the flag after delay to allow subscription state to fully sync
-          setTimeout(() => {
-            justPurchasedRef.current = false;
-            console.log("🔓 [Today] Purchase protection window ended");
-          }, 5000);
-          break;
+    // Unlock the gated date
+    if (gatedDate) {
+      const dateStr = gatedDate.toISOString().split('T')[0];
+      console.log(`📜 [Today Paywall] Unlocking content for: ${dateStr}`);
 
-        case PAYWALL_RESULT.CANCELLED:
-          console.log("🚫 [Today Paywall] Purchase cancelled");
-          break;
-        case PAYWALL_RESULT.NOT_PRESENTED:
-        case PAYWALL_RESULT.ERROR:
-          console.log(`❌ [Today Paywall] ${result}`);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          break;
+      // Fetch historical quest
+      const historicalQuest = await fetchQuestByDate(dateStr);
+
+      // Guard: Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setSelectedDate(gatedDate);
+        setIsHistoricalView(true);
+        setDisplayedQuest(historicalQuest);
+      } else {
+        console.log('⚠️ [Today Paywall] Component unmounted during unlock, skipping state update');
       }
-    } catch (error) {
-      console.error("❌ [Today Paywall] Error presenting paywall:", error);
+    }
+
+    // Clear the flag after delay to allow subscription state to fully sync
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        justPurchasedRef.current = false;
+        console.log('🔓 [Today] Purchase protection window ended');
+      }
+    }, 5000);
+  };
+
+  // Handle paywall dismissal
+  const handlePaywallDismiss = () => {
+    console.log('🚫 [Today Paywall] Dismissed');
+    if (isMountedRef.current) {
+      setShowPaywallOverlay(false);
+      setGatedDate(null);
     }
   };
 
@@ -2139,6 +2210,55 @@ export default function TodayScreen() {
             )}
           </Modal>
         )}
+
+      {/* Paywall Fullscreen Overlay - True fullscreen takeover (blocks tab bar & all navigation) */}
+      {showPaywallOverlay && (
+        <>
+          {/* Make status bar hidden for true fullscreen */}
+          <StatusBar hidden={true} />
+
+          <View
+            style={{
+              position: 'absolute',
+              top: -100,  // Extend beyond safe area
+              left: 0,
+              right: 0,
+              bottom: -100,  // Cover tab bar
+              backgroundColor: ArchivesTheme.colors.creamWhite,
+              zIndex: 99999,  // Higher than any other element
+            }}
+            pointerEvents="box-none"  // Block touches to underlying content
+          >
+            {/* RevenueCat Paywall Component (fullscreen, includes built-in close button) */}
+            <View style={{ flex: 1, marginTop: 100, marginBottom: 100 }} pointerEvents="auto">
+              <RevenueCatUI.Paywall
+                onPurchaseStarted={() => {
+                  console.log('💳 [Today Paywall] Purchase started');
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }}
+                onPurchaseCompleted={handlePurchaseComplete}
+                onPurchaseError={() => {
+                  console.log('❌ [Today Paywall] Purchase error');
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                }}
+                onPurchaseCancelled={() => {
+                  console.log('🚫 [Today Paywall] Purchase cancelled');
+                }}
+                onRestoreStarted={() => {
+                  console.log('🔄 [Today Paywall] Restore started');
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                onRestoreCompleted={handlePurchaseComplete}
+                onRestoreError={() => {
+                  console.log('❌ [Today Paywall] Restore error');
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                }}
+                onDismiss={handlePaywallDismiss}
+              />
+            </View>
+          </View>
+        </>
+      )}
     </SafeAreaView>
   );
 }
