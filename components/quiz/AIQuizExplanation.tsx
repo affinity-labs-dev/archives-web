@@ -91,6 +91,7 @@ export default function AIQuizExplanation({
       module_id: moduleId,
       era_name: eraName,
       total_questions: questions.length,
+      correct_questions: explanations.filter((e) => e.isCorrect).length,
       incorrect_questions: explanations.filter((e) => !e.isCorrect).length,
     });
 
@@ -152,12 +153,6 @@ export default function AIQuizExplanation({
     }
   };
 
-  // Don't show if all answers are correct
-  const incorrectCount = explanations.filter((e) => !e.isCorrect).length;
-  if (incorrectCount === 0) {
-    return null;
-  }
-
   return (
     <View style={styles.container}>
       {!showExplanations ? (
@@ -172,10 +167,10 @@ export default function AIQuizExplanation({
               <Ionicons name="bulb" size={28} color={ArchivesTheme.colors.persianOrange} />
             </View>
             <View style={styles.promptTextContainer}>
-              <Text style={styles.promptTitle}>Want to understand your mistakes?</Text>
-              {/* <Text style={styles.promptSubtitle}>
-                Get AI-powered explanations for {incorrectCount} incorrect {incorrectCount === 1 ? 'answer' : 'answers'}
-              </Text> */}
+              <Text style={styles.promptTitle}>Get AI-powered explanations</Text>
+              <Text style={styles.promptSubtitle}>
+                Understand all {questions.length} questions with personalized insights
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color={ArchivesTheme.colors.shoeBrown} />
           </View>
@@ -201,47 +196,53 @@ export default function AIQuizExplanation({
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled={true}
             >
-              {explanations
-                .filter((item) => !item.isCorrect) // Only show incorrect answers
-                .map((item) => (
-                  <View key={item.questionNumber} style={styles.explanationCard}>
-                    {/* Question number badge */}
-                    <View style={styles.questionBadge}>
-                      <Text style={styles.questionBadgeText}>Q{item.questionNumber}</Text>
+              {explanations.map((item) => (
+                <View key={item.questionNumber} style={styles.explanationCard}>
+                  {/* Question number badge */}
+                  <View style={styles.questionBadge}>
+                    <Text style={styles.questionBadgeText}>Q{item.questionNumber}</Text>
+                  </View>
+
+                  {/* Question text */}
+                  <Text style={styles.questionText}>{item.questionText}</Text>
+
+                  {/* User vs Correct answer */}
+                  <View style={styles.answersContainer}>
+                    <View style={styles.answerRow}>
+                      <Ionicons
+                        name={item.isCorrect ? "checkmark-circle" : "close-circle"}
+                        size={18}
+                        color={item.isCorrect ? "#27AE60" : "#E74C3C"}
+                      />
+                      <Text style={styles.answerLabel}>Your answer:</Text>
+                      <Text style={[styles.userAnswerText, item.isCorrect && styles.correctAnswerText]}>
+                        {item.userAnswer}
+                      </Text>
                     </View>
-
-                    {/* Question text */}
-                    <Text style={styles.questionText}>{item.questionText}</Text>
-
-                    {/* User vs Correct answer */}
-                    <View style={styles.answersContainer}>
-                      <View style={styles.answerRow}>
-                        <Ionicons name="close-circle" size={18} color="#E74C3C" />
-                        <Text style={styles.answerLabel}>Your answer:</Text>
-                        <Text style={styles.userAnswerText}>{item.userAnswer}</Text>
-                      </View>
+                    {!item.isCorrect && (
                       <View style={styles.answerRow}>
                         <Ionicons name="checkmark-circle" size={18} color="#27AE60" />
                         <Text style={styles.answerLabel}>Correct:</Text>
                         <Text style={styles.correctAnswerText}>{item.correctAnswer}</Text>
                       </View>
-                    </View>
-
-                    {/* AI Explanation */}
-                    {item.loading ? (
-                      <View style={styles.explanationLoading}>
-                        <ActivityIndicator size="small" color={ArchivesTheme.colors.persianOrange} />
-                      </View>
-                    ) : item.error ? (
-                      <Text style={styles.errorText}>{item.error}</Text>
-                    ) : item.aiExplanation ? (
-                      <View style={styles.aiExplanationContainer}>
-                        <Ionicons name="bulb-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
-                        {renderMarkdownText(item.aiExplanation, styles.aiExplanationText)}
-                      </View>
-                    ) : null}
+                    )}
                   </View>
-                ))}
+
+                  {/* AI Explanation */}
+                  {item.loading ? (
+                    <View style={styles.explanationLoading}>
+                      <ActivityIndicator size="small" color={ArchivesTheme.colors.persianOrange} />
+                    </View>
+                  ) : item.error ? (
+                    <Text style={styles.errorText}>{item.error}</Text>
+                  ) : item.aiExplanation ? (
+                    <View style={styles.aiExplanationContainer}>
+                      <Ionicons name="bulb-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
+                      {renderMarkdownText(item.aiExplanation, styles.aiExplanationText)}
+                    </View>
+                  ) : null}
+                </View>
+              ))}
             </ScrollView>
           )}
         </Animated.View>
