@@ -28,6 +28,7 @@ import { usePostHog } from 'posthog-react-native';
 import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
 import CustomerIOService from '@/services/CustomerIOService';
+import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { NotificationPermissionModal } from '@/gamification/ui/achievement/AchievementGrid';
 import Purchases from 'react-native-purchases';
 
@@ -295,6 +296,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Update last_active_at on initial app launch
   React.useEffect(() => {
     analyticsService.updateLastActiveAt();
+    NotificationBadgeService.clearBadge(); // Clear any stale badge on fresh launch
   }, []);
 
   // Monitor app state changes for updating last_active_at - Native only
@@ -306,6 +308,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         analyticsService.updateLastActiveAt();
+        NotificationBadgeService.clearBadge(); // Clear red dot when app opens
       }
     };
 
