@@ -33,6 +33,7 @@ interface QuizExplanationRequest {
   eraName: string;
   adventureName?: string;
   userLevel?: 'beginner' | 'intermediate' | 'advanced';
+  isCorrect?: boolean;
 }
 
 // Content-related topics that may benefit from web search (Islamic/Middle Eastern history)
@@ -195,9 +196,31 @@ class AIService {
    * Build the prompt for Gemini
    */
   private buildQuizExplanationPrompt(request: QuizExplanationRequest): string {
-    const { questionText, correctAnswer, userAnswer, questionType, eraName, userLevel = 'intermediate' } = request;
+    const { questionText, correctAnswer, userAnswer, questionType, eraName, userLevel = 'intermediate', isCorrect } = request;
 
-    return `You're explaining ${eraName} history to a ${userLevel} student.
+    if (isCorrect) {
+      // Prompt for correct answers - reinforce and deepen understanding
+      return `You're explaining ${eraName} history to a ${userLevel} student who answered correctly.
+
+Question: ${questionText}
+Their answer: ${correctAnswer} ✓ (Correct)
+
+Write a helpful explanation in 3-4 sentences that:
+1. Reinforces why this answer is correct
+2. Provides deeper historical context or an interesting related fact
+3. Helps them understand the significance of this concept
+
+STRICT RULES:
+- NEVER start with "Actually", "Well", "So", or similar filler words
+- Start directly with the historical explanation
+- NO praise like "Great job!" or "You got it right!" - they already know it's correct
+- End with the historical insight, not fluff
+- Be concise and informative only
+
+Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
+    } else {
+      // Prompt for incorrect answers - explain the mistake
+      return `You're explaining ${eraName} history to a ${userLevel} student.
 
 Question: ${questionText}
 They answered: ${userAnswer}
@@ -215,6 +238,7 @@ STRICT RULES:
 - Be concise and informative only
 
 Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
+    }
   }
 
   /**
@@ -272,16 +296,9 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
       const correctAnswerIndex = question.answers.findIndex((a) => a.is_correct);
       const correctAnswer = question.answers[correctAnswerIndex]?.text || 'Unknown';
       const userAnswer = question.answers[userAnswerIndex]?.text || 'No answer';
+      const isCorrect = userAnswerIndex === correctAnswerIndex;
 
-      // Skip if user answered correctly
-      if (userAnswerIndex === correctAnswerIndex) {
-        explanations.push({
-          explanation: '✅ You got this right!',
-        });
-        continue;
-      }
-
-      // Get AI explanation for wrong answer
+      // Get AI explanation for ALL answers (both correct and incorrect)
       const explanation = await this.getQuizExplanation({
         questionText: question.question_text,
         correctAnswer,
@@ -290,6 +307,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
         eraName: context.eraName,
         adventureName: context.adventureName,
         userLevel: context.userLevel,
+        isCorrect, // Pass whether answer was correct
       });
 
       explanations.push(explanation);
