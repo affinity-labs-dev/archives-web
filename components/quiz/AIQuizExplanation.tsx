@@ -1,13 +1,16 @@
 // AIQuizExplanation.tsx - AI-powered quiz explanation component
-// Shows personalized explanations for incorrect quiz answers
+// Shows personalized explanations for all quiz answers
+// 🔒 First Q1 card is partially shown → faded → paywall overlay for the rest
 
 import { Question } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { aiService } from '@/gamification';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -17,7 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { renderMarkdownText } from '@/utils/markdownText';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 interface AIQuizExplanationProps {
   questions: Question[];
@@ -40,6 +43,58 @@ interface ExplanationItem {
   error?: string;
 }
 
+// ─── Small reusable card ────────────────────────────────────────────────────
+
+function ExplanationCard({ item }: { item: ExplanationItem }) {
+  return (
+    <View style={styles.explanationCard}>
+      <View style={styles.questionBadge}>
+        <Text style={styles.questionBadgeText}>Q{item.questionNumber}</Text>
+      </View>
+
+      <Text style={styles.questionText}>{item.questionText}</Text>
+
+      <View style={styles.answersContainer}>
+        <View style={styles.answerRow}>
+          <Ionicons
+            name={item.isCorrect ? 'checkmark-circle' : 'close-circle'}
+            size={18}
+            color={item.isCorrect ? '#27AE60' : '#E74C3C'}
+          />
+          <Text style={styles.answerLabel}>Your answer:</Text>
+          <Text style={[styles.userAnswerText, item.isCorrect && styles.correctAnswerText]}>
+            {item.userAnswer}
+          </Text>
+        </View>
+        {!item.isCorrect && (
+          <View style={styles.answerRow}>
+            <Ionicons name="checkmark-circle" size={18} color="#27AE60" />
+            <Text style={styles.answerLabel}>Correct:</Text>
+            <Text style={styles.correctAnswerText}>{item.correctAnswer}</Text>
+          </View>
+        )}
+      </View>
+
+      {item.loading ? (
+        <View style={styles.explanationLoading}>
+          <ActivityIndicator size="small" color={ArchivesTheme.colors.persianOrange} />
+        </View>
+      ) : item.error ? (
+        <Text style={styles.errorText}>{item.error}</Text>
+      ) : item.aiExplanation ? (
+        <View style={styles.aiExplanationContainer}>
+          <Ionicons name="bulb-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
+          <Text style={styles.aiExplanationText}>
+            {item.aiExplanation}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────
+
 export default function AIQuizExplanation({
   questions,
   userAnswers,
@@ -52,7 +107,29 @@ export default function AIQuizExplanation({
   const [explanations, setExplanations] = useState<ExplanationItem[]>([]);
   const [showExplanations, setShowExplanations] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
-  const fadeAnim = useState(new Animated.Value(0))[0];
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const paywallAnim = useRef(new Animated.Value(0)).current;
+  const isPaywallPresentedRef = useRef(false);
+
+  // Subscription check for paywall
+  const { isSubscribed } = useRevenueCat();
+
+  // Cleanup: Dismiss paywall on unmount to prevent crashes on tab switching
+  useEffect(() => {
+    return () => {
+      if (isPaywallPresentedRef.current) {
+        console.log('🧹 [AIQuizExplanation] Unmounting - dismissing paywall');
+        try {
+          // Note: RevenueCat doesn't have a direct dismiss method for imperative API
+          // The paywall auto-dismisses when user taps X or completes purchase
+          // This ref just tracks state for debugging
+          isPaywallPresentedRef.current = false;
+        } catch (error) {
+          console.error('❌ [AIQuizExplanation] Error during cleanup:', error);
+        }
+      }
+    };
+  }, []);
 
   // Prepare explanation items on mount
   useEffect(() => {
@@ -73,6 +150,63 @@ export default function AIQuizExplanation({
 
     setExplanations(items);
   }, [questions, userAnswers]);
+
+  // Present paywall using imperative API (Android-safe)
+  const handleShowPaywall = async () => {
+    // Prevent multiple simultaneous presentations
+    if (isPaywallPresentedRef.current) {
+      console.log('⚠️ [AIQuizExplanation] Paywall already presented, skipping');
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Track paywall view
+    analyticsService.trackCustomEvent('ai_explanation_paywall_viewed', {
+      adventure_id: adventureId,
+      module_id: moduleId,
+      era_name: eraName,
+      total_questions: explanations.length,
+    });
+
+    try {
+      isPaywallPresentedRef.current = true;
+      const result = await RevenueCatUI.presentPaywall();
+
+      switch (result) {
+        case PAYWALL_RESULT.PURCHASED:
+        case PAYWALL_RESULT.RESTORED:
+          console.log(
+            `✅ [AIQuizExplanation] ${result === PAYWALL_RESULT.PURCHASED ? 'Purchase' : 'Restore'} completed`
+          );
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          analyticsService.trackCustomEvent('ai_explanation_subscription_completed', {
+            adventure_id: adventureId,
+            module_id: moduleId,
+            era_name: eraName,
+            subscription_type: result === PAYWALL_RESULT.PURCHASED ? 'new' : 'restored',
+          });
+          // Questions will unlock automatically via isSubscribed state change
+          break;
+
+        case PAYWALL_RESULT.CANCELLED:
+          console.log('🚫 [AIQuizExplanation] Paywall cancelled');
+          break;
+
+        case PAYWALL_RESULT.NOT_PRESENTED:
+        case PAYWALL_RESULT.ERROR:
+          console.log(`❌ [AIQuizExplanation] Paywall ${result}`);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          break;
+      }
+    } catch (error) {
+      console.error('❌ [AIQuizExplanation] Error presenting paywall:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      // Always mark as not presented after result is returned
+      isPaywallPresentedRef.current = false;
+    }
+  };
 
   // Generate AI explanations
   const handleGetExplanations = async () => {
@@ -103,6 +237,16 @@ export default function AIQuizExplanation({
       duration: 300,
       useNativeDriver: true,
     }).start();
+
+    // Animate paywall in slightly after content fades in
+    setTimeout(() => {
+      Animated.spring(paywallAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 9,
+      }).start();
+    }, 400);
 
     try {
       // Get explanations for all questions
@@ -190,60 +334,92 @@ export default function AIQuizExplanation({
               <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
               <Text style={styles.loadingText}>Generating explanations...</Text>
             </View>
-          ) : (
-            <ScrollView
-              style={styles.explanationsList}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled={true}
-            >
+          ) : isSubscribed ? (
+            // ── 🔓 PREMIUM: show all explanations normally ────────────────
+            <ScrollView style={styles.explanationsList} showsVerticalScrollIndicator={false} nestedScrollEnabled>
               {explanations.map((item) => (
-                <View key={item.questionNumber} style={styles.explanationCard}>
-                  {/* Question number badge */}
-                  <View style={styles.questionBadge}>
-                    <Text style={styles.questionBadgeText}>Q{item.questionNumber}</Text>
-                  </View>
-
-                  {/* Question text */}
-                  <Text style={styles.questionText}>{item.questionText}</Text>
-
-                  {/* User vs Correct answer */}
-                  <View style={styles.answersContainer}>
-                    <View style={styles.answerRow}>
-                      <Ionicons
-                        name={item.isCorrect ? "checkmark-circle" : "close-circle"}
-                        size={18}
-                        color={item.isCorrect ? "#27AE60" : "#E74C3C"}
-                      />
-                      <Text style={styles.answerLabel}>Your answer:</Text>
-                      <Text style={[styles.userAnswerText, item.isCorrect && styles.correctAnswerText]}>
-                        {item.userAnswer}
-                      </Text>
-                    </View>
-                    {!item.isCorrect && (
-                      <View style={styles.answerRow}>
-                        <Ionicons name="checkmark-circle" size={18} color="#27AE60" />
-                        <Text style={styles.answerLabel}>Correct:</Text>
-                        <Text style={styles.correctAnswerText}>{item.correctAnswer}</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* AI Explanation */}
-                  {item.loading ? (
-                    <View style={styles.explanationLoading}>
-                      <ActivityIndicator size="small" color={ArchivesTheme.colors.persianOrange} />
-                    </View>
-                  ) : item.error ? (
-                    <Text style={styles.errorText}>{item.error}</Text>
-                  ) : item.aiExplanation ? (
-                    <View style={styles.aiExplanationContainer}>
-                      <Ionicons name="bulb-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
-                      {renderMarkdownText(item.aiExplanation, styles.aiExplanationText)}
-                    </View>
-                  ) : null}
-                </View>
+                <ExplanationCard key={item.questionNumber} item={item} />
               ))}
             </ScrollView>
+          ) : (
+            // ── 🔒 FREE: show Q1 partially faded + paywall ───────────────
+            <View style={styles.paywallWrapper}>
+
+              {/* Q1 card — clipped to ~3 lines height */}
+              <View style={styles.previewClip} pointerEvents="none">
+                {explanations[0] && <ExplanationCard item={explanations[0]} />}
+              </View>
+
+              {/* Fade gradient over the preview */}
+              <LinearGradient
+                colors={['transparent', 'rgba(255,255,255,0.92)', '#ffffff']}
+                style={styles.previewFade}
+                pointerEvents="none"
+              />
+
+              {/* Paywall card */}
+              <Animated.View
+                style={[
+                  styles.paywallCard,
+                  {
+                    opacity: paywallAnim,
+                    transform: [
+                      {
+                        translateY: paywallAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                {/* Lock badge */}
+                <View style={styles.lockBadge}>
+                  <Text style={styles.lockEmoji}>🔒</Text>
+                </View>
+
+                <Text style={styles.paywallTitle}>Unlock All Explanations</Text>
+                <Text style={styles.paywallSubtitle}>
+                  You are seeing a preview of Q1. Upgrade to get personalized insights for all {questions.length} questions.
+                </Text>
+
+                {/* Feature rows */}
+                <View style={styles.featureBox}>
+                  {[
+                    '✦  AI explanations for every question',
+                    '✦  Understand your mistakes deeply',
+                    '✦  Personalized study tips',
+                    '✦  Unlimited quiz attempts',
+                  ].map((f) => (
+                    <Text key={f} style={styles.featureRow}>{f}</Text>
+                  ))}
+                </View>
+
+                {/* CTA */}
+                <TouchableOpacity
+                  style={styles.ctaButton}
+                  onPress={handleShowPaywall}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={[ArchivesTheme.colors.persianOrange, '#FF8C42']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.ctaGradient}
+                  >
+                    <Text style={styles.ctaText}>Upgrade to Premium</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleShowPaywall}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.restoreText}>Already subscribed? Restore purchase</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
           )}
         </Animated.View>
       )}
@@ -256,7 +432,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  // Prompt Card (before explanations shown)
+  // Prompt Card
   promptCard: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -299,7 +475,7 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.shoeBrown,
   },
 
-  // Explanations Container
+  // Explanations Wrapper
   explanationsContainer: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -309,7 +485,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
-    maxHeight: 500,
   },
   explanationsHeader: {
     marginBottom: 16,
@@ -327,7 +502,7 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.shoeBrown,
   },
 
-  // Loading State
+  // Loading
   loadingContainer: {
     paddingVertical: 40,
     alignItems: 'center',
@@ -339,10 +514,121 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
 
-  // Explanations List
+  // Premium: full list
   explanationsList: {
     maxHeight: 400,
   },
+
+  // ── Paywall layout ──────────────────────────────────────────────────────
+
+  paywallWrapper: {
+    position: 'relative',
+  },
+
+  // Clips the preview content to ~3 lines of Q1
+  previewClip: {
+    maxHeight: 220,   // ← tweak this to show more/less of Q1
+    overflow: 'hidden',
+  },
+
+  // Ghost card (Q2) shown dimly so user knows there's more
+  ghostCard: {
+    opacity: 0.25,
+    marginTop: 4,
+  },
+
+  // Gradient fade over the preview
+  previewFade: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+  },
+
+  // Paywall card sits below the fade
+  paywallCard: {
+    backgroundColor: ArchivesTheme.colors.creamWhite ?? '#FDFCF9',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(201,145,81,0.2)',
+    shadowColor: 'black',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  lockBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(201,145,81,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  lockEmoji: {
+    fontSize: 22,
+  },
+  paywallTitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
+    fontWeight: '700',
+    color: ArchivesTheme.colors.mutedNavy,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  paywallSubtitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    color: ArchivesTheme.colors.shoeBrown,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  featureBox: {
+    alignSelf: 'stretch',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 18,
+    gap: 6,
+  },
+  featureRow: {
+    fontFamily: 'DM Sans',
+    fontSize: 13,
+    fontWeight: '500',
+    color: ArchivesTheme.colors.mutedNavy,
+    lineHeight: 20,
+  },
+  ctaButton: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  ctaGradient: {
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  ctaText: {
+    fontFamily: 'DM Sans',
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  restoreText: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: ArchivesTheme.colors.shoeBrown,
+  },
+
+  // Explanation Card (shared between premium + preview)
   explanationCard: {
     backgroundColor: ArchivesTheme.colors.creamWhite,
     borderRadius: 12,
@@ -370,8 +656,6 @@ const styles = StyleSheet.create({
     color: ArchivesTheme.colors.mutedNavy,
     marginBottom: 12,
   },
-
-  // Answers
   answersContainer: {
     marginBottom: 12,
   },
@@ -400,8 +684,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '500',
   },
-
-  // AI Explanation
   aiExplanationContainer: {
     flexDirection: 'row',
     backgroundColor: 'white',
@@ -417,8 +699,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
-
-  // Error State
   explanationLoading: {
     padding: 12,
     alignItems: 'center',

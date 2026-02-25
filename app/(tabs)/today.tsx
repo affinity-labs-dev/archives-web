@@ -89,12 +89,13 @@ const CalendarLockIcon = ({ size = 14 }: { size?: number }) => (
 // ============================================================================
 
 interface Card1Content {
-  content_type: "reel";
+  content_type: "reel" | "video_carousel" | "image_carousel";
   title: string;
-  media_url: string;
+  media_url: string | string[]; // Single URL for reel, array for carousels
   thumbnail_url?: string; // Background thumbnail for WATCH card
   content: {
     reading_text: string;
+    captions?: string[]; // Optional captions for carousel items
   };
 }
 
@@ -1736,19 +1737,25 @@ export default function TodayScreen() {
               activeOpacity={0.9}
             >
               {/* Background Image */}
-              {((displayedQuest || todayQuest)?.content?.card1?.thumbnail_url ||
-                (displayedQuest || todayQuest)?.content?.card1?.media_url) && (
-                <Image
-                  source={{
-                    uri:
-                      (displayedQuest || todayQuest)?.content?.card1
-                        ?.thumbnail_url ||
-                      (displayedQuest || todayQuest)?.content?.card1?.media_url,
-                  }}
-                  style={themeStyles.cardWatchBackground}
-                  contentFit="cover"
-                />
-              )}
+              {(() => {
+                const card1 = (displayedQuest || todayQuest)?.content?.card1;
+                if (!card1) return null;
+
+                // Get first media URL if array, otherwise use as-is
+                const thumbnailUri = card1.thumbnail_url ||
+                  (Array.isArray(card1.media_url) ? card1.media_url[0] : card1.media_url);
+
+                if (!thumbnailUri) return null;
+
+                return (
+                  <Image
+                    source={{ uri: thumbnailUri }}
+                    style={themeStyles.cardWatchBackground}
+                    contentFit="cover"
+                  />
+                );
+              })()}
+
               {/* Dark Overlay */}
               <LinearGradient
                 colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.8)"]}
@@ -2059,44 +2066,46 @@ export default function TodayScreen() {
             presentationStyle="fullScreen"
             statusBarTranslucent={true}
           >
-            {/* Video Lesson (WATCH) */}
-            {activeModal === "video" && (
-              <TodayVideoLesson
-                contentItem={
-                  {
+            {/* Video/Carousel Lesson (WATCH) - TodayVideoLesson handles all types */}
+            {activeModal === "video" && (() => {
+              const card1 = (displayedQuest || todayQuest)!.content.card1;
+
+              // Normalize media_url to array
+              const mediaUrls = Array.isArray(card1.media_url)
+                ? card1.media_url
+                : [card1.media_url];
+
+              return (
+                <TodayVideoLesson
+                  contentItem={{
                     id: (displayedQuest || todayQuest)!.id,
-                    thumbnail_title: (displayedQuest || todayQuest)!.content
-                      .card1.title,
-                    thumbnail_url: "", // TODO: Replace with random image from 3 hardcoded options
-                    media_url: [
-                      (displayedQuest || todayQuest)!.content.card1.media_url,
-                    ],
-                    content_type: "reel",
+                    thumbnail_title: card1.title,
+                    thumbnail_url: "",
+                    media_url: mediaUrls,
+                    content_type: card1.content_type || "reel",
                     bottom_content: {
-                      title: (displayedQuest || todayQuest)!.content.card1
-                        .title,
-                      description: (displayedQuest || todayQuest)!.content.card1
-                        .content.reading_text,
-                      reading_text: (displayedQuest || todayQuest)!.content
-                        .card1.content.reading_text,
+                      title: card1.title,
+                      description: card1.content.reading_text,
+                      reading_text: card1.content.reading_text,
+                      captions: card1.content.captions || [],
                     },
                     order_by: 0,
-                  } as ContentItem
-                }
-                progress={progress}
-                onMediaPlayed={() => tracking.trackMediaPlayed('video', (displayedQuest || todayQuest)!.id)}
-                onNext={async () => {
-                  setWatchCompleted(true);
-                  await saveProgress("watch");
-                  setPreviousModal("video");
-                  openModal("reading");
-                }}
-                onDismiss={() => {
-                  setActiveModal("none");
-                  setPreviousModal("none");
-                }}
-              />
-            )}
+                  } as ContentItem}
+                  progress={progress}
+                  onMediaPlayed={() => tracking.trackMediaPlayed('video', (displayedQuest || todayQuest)!.id)}
+                  onNext={async () => {
+                    setWatchCompleted(true);
+                    await saveProgress("watch");
+                    setPreviousModal("video");
+                    openModal("reading");
+                  }}
+                  onDismiss={() => {
+                    setActiveModal("none");
+                    setPreviousModal("none");
+                  }}
+                />
+              );
+            })()}
 
             {/* Reading View (EXPLORE) */}
             {activeModal === "reading" && (
