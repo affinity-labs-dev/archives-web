@@ -1,15 +1,18 @@
-// TodayVideoLesson.tsx - Custom video player for Today screen only
-// Simplified from ReelLesson with progress bar top and Next button always visible
+// TodayVideoLesson.tsx - Custom media player for Today screen
+// Supports: reel (single video), video_carousel (multiple videos), image_carousel (multiple images)
 
 import type { ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useRef, useState } from "react";
+import { Image } from "expo-image";
+import { useVideoPlayer, VideoView, VideoSource } from "expo-video";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   Animated,
   Dimensions,
   Platform,
+  ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
@@ -26,11 +29,88 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import VideoPlayer from "../VideoPlayer";
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+// Static dimensions - Use "screen" for Android, "window" for iOS (matches adventure pattern)
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get(
+  Platform.OS === 'android' ? "screen" : "window"
+);
 
 const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.75;
+
+// Video item component for carousel (matches VideoCarouselLesson pattern)
+interface TodayVideoItemProps {
+  videoUrl: string;
+  isActive: boolean;
+  shouldLoop: boolean;
+  onStatusUpdate?: (status: any) => void;
+}
+
+const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
+  videoUrl,
+  isActive,
+  shouldLoop,
+  onStatusUpdate,
+}) => {
+  const videoSource: VideoSource = useMemo(
+    () => ({
+      uri: videoUrl,
+    }),
+    [videoUrl]
+  );
+
+  const player = useVideoPlayer(videoSource, (player) => {
+    player.loop = shouldLoop;
+    if (isActive) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  });
+
+  // Control playback when isActive changes
+  useEffect(() => {
+    // Ensure loop is always set (defensive)
+    player.loop = shouldLoop;
+
+    if (isActive) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [isActive, player, shouldLoop]);
+
+  // Status updates for progress tracking
+  useEffect(() => {
+    if (!onStatusUpdate) return;
+
+    const interval = setInterval(() => {
+      if (player.status === "readyToPlay" && isActive) {
+        const status = {
+          isLoaded: true,
+          isPlaying: player.playing,
+          durationMillis: player.duration * 1000,
+          positionMillis: player.currentTime * 1000,
+        };
+        onStatusUpdate(status);
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, [player, onStatusUpdate, isActive]);
+
+  return (
+    <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}>
+      <VideoView
+        player={player}
+        style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}
+        nativeControls={false}
+        contentFit={Platform.OS === "android" ? "fill" : "cover"}
+        useExoShutter={Platform.OS === "android" ? false : undefined}
+        surfaceType={Platform.OS === "android" ? "surfaceView" : undefined}
+      />
+    </View>
+  );
+};
 
 interface TodayVideoLessonProps {
   contentItem: ContentItem;
@@ -49,6 +129,17 @@ export default function TodayVideoLesson({
 }: TodayVideoLessonProps) {
   const insets = useSafeAreaInsets();
 
+  // Determine content type and media URLs
+  const contentType = contentItem.content_type || "reel";
+  const mediaUrls = Array.isArray(contentItem.media_url)
+    ? contentItem.media_url
+    : [contentItem.media_url];
+  const captions = (contentItem.bottom_content as any)?.captions || [];
+  const isCarousel = mediaUrls.length > 1;
+
+  // Carousel state
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+
   // Card state - Initially hidden (height 0)
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
@@ -61,6 +152,17 @@ export default function TodayVideoLesson({
 
   // Gesture refs
   const panGestureRef = useRef(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Carousel scroll handler (like adventure carousels)
+  const handleCarouselScroll = (event: any) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / SCREEN_WIDTH);
+    if (index !== currentMediaIndex && index >= 0 && index < mediaUrls.length) {
+      setCurrentMediaIndex(index);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
 
   // Make status bar transparent for fullscreen experience
   useEffect(() => {
@@ -156,16 +258,86 @@ export default function TodayVideoLesson({
       edges={[]}
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
+        {/* Android StatusBar - Match adventure lesson pattern */}
+        {Platform.OS === "android" && (
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        )}
+
         {/* Main Content Area - Video fills entire screen */}
-        <View style={ArchivesTheme.common.today.watchModalContainer}>
-          {/* Video Background */}
+        <View style={[
+          ArchivesTheme.common.today.watchModalContainer,
+          Platform.OS === 'android' && { width: SCREEN_WIDTH, height: SCREEN_HEIGHT }
+        ]}>
+          {/* Media Background - Swipeable Carousel */}
           <View style={ArchivesTheme.common.today.watchVideoContainer}>
-            <VideoPlayer
-              videoSource={{ uri: contentItem.media_url?.[0] || "" }}
-              onPlaybackStatusUpdate={handleVideoStatus}
-              autoPlay={true}
-              shouldLoop={true}
-            />
+            <ScrollView
+              ref={scrollViewRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={handleCarouselScroll}
+              scrollEnabled={!isCardExpanded}
+              style={{ flex: 1 }}
+            >
+              {mediaUrls.map((mediaUrl, index) => {
+                // LAZY LOADING for videos: Only render current and next video
+                // (Images are lightweight, so render all)
+                const shouldRenderMedia =
+                  contentType === "image_carousel" ||
+                  index === currentMediaIndex ||
+                  index === currentMediaIndex + 1;
+
+                return (
+                  <View key={index} style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}>
+                    {contentType === "image_carousel" ? (
+                      <Image
+                        source={{ uri: mediaUrl || "" }}
+                        style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}
+                        contentFit="cover"
+                      />
+                    ) : shouldRenderMedia ? (
+                      <TodayVideoItem
+                        videoUrl={mediaUrl || ""}
+                        isActive={index === currentMediaIndex}
+                        shouldLoop={true}
+                        onStatusUpdate={index === currentMediaIndex ? handleVideoStatus : undefined}
+                      />
+                    ) : (
+                      // Placeholder for videos not near current
+                      <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, backgroundColor: "black" }} />
+                    )}
+
+                    {/* Caption Overlay for this media item */}
+                    {captions[index] && index === currentMediaIndex && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          bottom: 100,
+                          left: 16,
+                          right: 16,
+                          backgroundColor: "rgba(0, 0, 0, 0.6)",
+                          borderRadius: 8,
+                          padding: 12,
+                          zIndex: 5,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "white",
+                            fontFamily: "DM Sans",
+                            fontSize: 14,
+                            lineHeight: 20,
+                            textAlign: "center",
+                          }}
+                        >
+                          {captions[index]}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
           </View>
 
           {/* Fixed Header - Progress Bar (Absolute positioned over video) */}
@@ -226,6 +398,37 @@ export default function TodayVideoLesson({
             </View>
           </View>
 
+          {/* Progress Dots - Only for carousels */}
+          {isCarousel && (
+            <View
+              style={{
+                position: "absolute",
+                top: Platform.OS === "ios" ? 110 : 100,
+                left: 0,
+                right: 0,
+                flexDirection: "row",
+                justifyContent: "center",
+                gap: 8,
+                zIndex: 90,
+              }}
+            >
+              {mediaUrls.map((_, index) => (
+                <View
+                  key={index}
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor:
+                      index === currentMediaIndex
+                        ? "white"
+                        : "rgba(255, 255, 255, 0.4)",
+                  }}
+                />
+              ))}
+            </View>
+          )}
+
           {/* Reading Card - Always rendered, animated visibility */}
           {Platform.OS === "ios" ? (
             <PanGestureHandler
@@ -259,7 +462,7 @@ export default function TodayVideoLesson({
                         onScroll={handleReadingScroll}
                         scrollEventThrottle={100}
                         bounces={false}
-                        waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
+                        waitFor={Platform.select({ ios: panGestureRef, default: undefined })}
                       >
                         <View
                           style={
@@ -378,7 +581,7 @@ export default function TodayVideoLesson({
                         onScroll={handleReadingScroll}
                         scrollEventThrottle={100}
                         bounces={false}
-                        waitFor={Platform.OS === 'ios' ? panGestureRef : undefined}
+                        waitFor={Platform.select({ ios: panGestureRef, default: undefined })}
                       >
                         <View
                           style={
