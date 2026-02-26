@@ -12,6 +12,7 @@ import BentoGridScreen from '@/components/adventure/types/bento-grid/BentoGridSc
 import EraProgressHeader from '@/components/shared/EraProgressHeader';
 import ComingSoonView from '@/components/eras/ComingSoonView';
 import ArchivesTheme from '@/constants/ArchivesTheme';
+import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from '@clerk/clerk-expo';
 import { analyticsService } from '@/services/AnalyticsService';
@@ -51,6 +52,7 @@ export default function AdventuresScreen() {
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showPullToRefreshHint, setShowPullToRefreshHint] = useState(true);
 
   // Puzzle FAB state
   const [showGameHub, setShowGameHub] = useState(false);
@@ -93,6 +95,24 @@ export default function AdventuresScreen() {
       console.log('🤖 [Adventures] Updated AI context for era:', selectedEraData.title);
     }
   }, [selectedEraData, supabaseEraId, updateContext]);
+
+  // Check if user has seen pull-to-refresh hint (hide after first use)
+  useEffect(() => {
+    const checkPullToRefreshHint = async () => {
+      try {
+        const hasSeenHint = await AsyncStorage.getItem(WALKTHROUGH_KEYS.PULL_TO_REFRESH);
+        if (hasSeenHint === 'true') {
+          setShowPullToRefreshHint(false);
+          console.log('🔄 [Adventures] Pull-to-refresh hint already seen, hiding');
+        } else {
+          console.log('🔄 [Adventures] Showing pull-to-refresh hint (first time)');
+        }
+      } catch (error) {
+        console.error('❌ [Adventures] Error checking pull-to-refresh hint:', error);
+      }
+    };
+    checkPullToRefreshHint();
+  }, []);
 
   // Calculate completed adventures count
   const completedAdventuresCount = useMemo(() => {
@@ -266,6 +286,18 @@ export default function AdventuresScreen() {
   const handleRefresh = useCallback(async () => {
     console.log(`🔄 [Adventures] Pull-to-refresh for era: ${selectedEra}`);
     setRefreshing(true);
+
+    // Hide hint after first use (walkthrough pattern)
+    if (showPullToRefreshHint) {
+      try {
+        await AsyncStorage.setItem(WALKTHROUGH_KEYS.PULL_TO_REFRESH, 'true');
+        setShowPullToRefreshHint(false);
+        console.log('✅ [Adventures] Pull-to-refresh hint marked as seen');
+      } catch (error) {
+        console.error('❌ [Adventures] Error saving pull-to-refresh hint:', error);
+      }
+    }
+
     try {
       await refreshAdventures();
       await loadProgress();
@@ -275,7 +307,7 @@ export default function AdventuresScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [refreshAdventures, loadProgress, selectedEra]);
+  }, [refreshAdventures, loadProgress, selectedEra, showPullToRefreshHint]);
 
   // Handle puzzle FAB press
   const handlePuzzleFABPress = useCallback(async () => {
@@ -404,6 +436,7 @@ export default function AdventuresScreen() {
         onProgressUpdate={loadProgress}
         refreshing={refreshing}
         onRefresh={handleRefresh}
+        showPullToRefreshHint={showPullToRefreshHint}
       />
 
       {/* Floating Action Button for Puzzles - Commented out for release */}

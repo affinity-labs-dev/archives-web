@@ -5,6 +5,7 @@
 export const WALKTHROUGH_KEYS = {
   REEL: 'hasSeenReelWalkthrough',
   CAROUSEL: 'hasSeenCarouselWalkthrough',
+  PULL_TO_REFRESH: 'hasSeenPullToRefreshHint',
 } as const;
 
 // AsyncStorage keys for adventure completion screens and XP milestones
