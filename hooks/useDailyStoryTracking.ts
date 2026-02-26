@@ -100,9 +100,9 @@ export function useDailyStoryTracking({
     });
   }, [storyId]);
 
-  // Track story completed
+  // Track story completed (deduplicated: fires once per session per story)
   const trackCompleted = useCallback(async () => {
-    if (!storyId || !storyDate) return;
+    if (!storyId || !storyDate || completedRef.current) return;
 
     completedRef.current = true;
     const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
