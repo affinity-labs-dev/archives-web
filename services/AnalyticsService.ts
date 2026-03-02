@@ -175,6 +175,53 @@ interface SubscriptionEvent {
   // timestamp removed - PostHog auto-captures $timestamp
 }
 
+// Subscribe flow trigger contexts (paywall placement IDs)
+export type SubscribeTrigger =
+  | 'subscribe_tab'
+  | 'daily_story_rewind'
+  | 'ai_quiz_explanation'
+  | 'era_locked';
+
+interface SubscribeScreenViewedEvent {
+  trigger: SubscribeTrigger;
+}
+
+interface SubscribePlanEvent {
+  trigger: SubscribeTrigger;
+  plan: SubscriptionType;
+}
+
+interface SubscribePurchaseCompletedEvent {
+  trigger: SubscribeTrigger;
+  plan: SubscriptionType;
+  revenue?: number;
+}
+
+interface SubscribePurchaseFailedEvent {
+  trigger: SubscribeTrigger;
+  plan?: SubscriptionType;
+  error_code?: string;
+}
+
+interface SubscribeRestoreEvent {
+  trigger: SubscribeTrigger;
+}
+
+interface SubscribeRestoreFailedEvent {
+  trigger: SubscribeTrigger;
+  error_code?: string;
+}
+
+interface SubscriptionPurchasedEvent {
+  product_id: string;
+  plan_type: SubscriptionType;
+  price_usd?: number;
+  currency?: string;
+  offering_id?: string;
+  is_trial: boolean;
+  source_placement?: SubscribeTrigger;
+}
+
 interface AdventureStartedEvent {
   era_id: string;
   era_name: string;
@@ -391,6 +438,12 @@ class AnalyticsService {
       'push_notifications_enabled',
       'push_notifications_declined',
       'daily_story_completed',
+      // Subscribe flow events (AFF-111)
+      'subscribe_screen_viewed',
+      'subscribe_purchase_completed',
+      'subscribe_purchase_failed',
+      'subscribe_restore_success',
+      'subscription_purchased',
     ];
 
     const shouldTrack = customerIOEvents.includes(eventName);
@@ -1100,6 +1153,63 @@ class AnalyticsService {
     this.posthog?.capture('subscription_details', event);
     this.trackToCustomerIO('subscription_details', event);
     console.log('📊 [Analytics] Subscription:', event);
+  }
+
+  /**
+   * Track subscribe screen viewed (paywall shown to user)
+   */
+  trackSubscribeScreenViewed(data: SubscribeScreenViewedEvent) {
+    this.trackCustomEvent('subscribe_screen_viewed', data);
+  }
+
+  /**
+   * Track purchase completed from paywall UI
+   */
+  trackSubscribePurchaseCompleted(data: SubscribePurchaseCompletedEvent) {
+    this.trackCustomEvent('subscribe_purchase_completed', data);
+  }
+
+  /**
+   * Track purchase failed from paywall UI
+   */
+  trackSubscribePurchaseFailed(data: SubscribePurchaseFailedEvent) {
+    this.trackCustomEvent('subscribe_purchase_failed', data);
+  }
+
+  /**
+   * Track purchase cancelled by user
+   */
+  trackSubscribePurchaseCancelled(data: { trigger: SubscribeTrigger }) {
+    this.trackCustomEvent('subscribe_purchase_cancelled', data);
+  }
+
+  /**
+   * Track restore tapped
+   */
+  trackSubscribeRestoreTapped(data: SubscribeRestoreEvent) {
+    this.trackCustomEvent('subscribe_restore_tapped', data);
+  }
+
+  /**
+   * Track restore success
+   */
+  trackSubscribeRestoreSuccess(data: SubscribeRestoreEvent) {
+    this.trackCustomEvent('subscribe_restore_success', data);
+  }
+
+  /**
+   * Track restore failed
+   */
+  trackSubscribeRestoreFailed(data: SubscribeRestoreFailedEvent) {
+    this.trackCustomEvent('subscribe_restore_failed', data);
+  }
+
+  /**
+   * Track authoritative subscription_purchased event
+   * Fires from RevenueCat purchase confirmation, NOT paywall UI
+   */
+  trackSubscriptionPurchased(data: SubscriptionPurchasedEvent) {
+    this.trackCustomEvent('subscription_purchased', data);
   }
 
   // ==================== UTILITY METHODS ====================
