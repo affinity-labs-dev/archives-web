@@ -186,11 +186,6 @@ interface SubscribeScreenViewedEvent {
   trigger: SubscribeTrigger;
 }
 
-interface SubscribePlanEvent {
-  trigger: SubscribeTrigger;
-  plan: SubscriptionType;
-}
-
 interface SubscribePurchaseCompletedEvent {
   trigger: SubscribeTrigger;
   plan: SubscriptionType;
