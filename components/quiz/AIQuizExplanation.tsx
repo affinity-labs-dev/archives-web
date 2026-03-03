@@ -161,12 +161,9 @@ export default function AIQuizExplanation({
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Track paywall view
-    analyticsService.trackCustomEvent('ai_explanation_paywall_viewed', {
-      adventure_id: adventureId,
-      module_id: moduleId,
-      era_name: eraName,
-      total_questions: explanations.length,
+    // Track paywall view with standardized event
+    analyticsService.trackSubscribeScreenViewed({
+      trigger: 'ai_quiz_explanation',
     });
 
     try {
@@ -175,35 +172,47 @@ export default function AIQuizExplanation({
 
       switch (result) {
         case PAYWALL_RESULT.PURCHASED:
-        case PAYWALL_RESULT.RESTORED:
-          console.log(
-            `✅ [AIQuizExplanation] ${result === PAYWALL_RESULT.PURCHASED ? 'Purchase' : 'Restore'} completed`
-          );
+          console.log('✅ [AIQuizExplanation] Purchase completed');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          analyticsService.trackCustomEvent('ai_explanation_subscription_completed', {
-            adventure_id: adventureId,
-            module_id: moduleId,
-            era_name: eraName,
-            subscription_type: result === PAYWALL_RESULT.PURCHASED ? 'new' : 'restored',
+          analyticsService.trackSubscribePurchaseCompleted({
+            trigger: 'ai_quiz_explanation',
+            plan: 'yearly',
           });
-          // Questions will unlock automatically via isSubscribed state change
+          break;
+
+        case PAYWALL_RESULT.RESTORED:
+          console.log('✅ [AIQuizExplanation] Restore completed');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          analyticsService.trackSubscribeRestoreSuccess({
+            trigger: 'ai_quiz_explanation',
+          });
           break;
 
         case PAYWALL_RESULT.CANCELLED:
           console.log('🚫 [AIQuizExplanation] Paywall cancelled');
+          analyticsService.trackSubscribePurchaseCancelled({
+            trigger: 'ai_quiz_explanation',
+          });
           break;
 
         case PAYWALL_RESULT.NOT_PRESENTED:
         case PAYWALL_RESULT.ERROR:
           console.log(`❌ [AIQuizExplanation] Paywall ${result}`);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          analyticsService.trackSubscribePurchaseFailed({
+            trigger: 'ai_quiz_explanation',
+            error_code: result,
+          });
           break;
       }
     } catch (error) {
       console.error('❌ [AIQuizExplanation] Error presenting paywall:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      analyticsService.trackSubscribePurchaseFailed({
+        trigger: 'ai_quiz_explanation',
+        error_code: error instanceof Error ? error.message : 'unknown',
+      });
     } finally {
-      // Always mark as not presented after result is returned
       isPaywallPresentedRef.current = false;
     }
   };
