@@ -5,9 +5,9 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,43 +54,28 @@ export default function StreakCelebrationScreen({
   onContinue,
 }: StreakCelebrationScreenProps) {
   const riveRef = useRef<RiveRef>(null);
-  const celebrationSound = useRef<Audio.Sound | null>(null);
-  const tickSound = useRef<Audio.Sound | null>(null);
   const [skipped, setSkipped] = useState(false);
 
   // Animated value for moving flame + number upward (Duolingo style)
   const translateY = useSharedValue(0);
 
-  // Load sounds on mount
-  useEffect(() => {
-    const loadSounds = async () => {
-      try {
-        // Load celebration sound (reuse quiz correct sound)
-        const { sound: celebSound } = await Audio.Sound.createAsync(
-          require('../../../assets/audio/quiz/correct.wav'),
-          { volume: 0.5 }
-        );
-        celebrationSound.current = celebSound;
+  // Audio players - hooks manage lifecycle automatically (no manual load/unload)
+  const celebrationPlayer = useAudioPlayer(require('../../../assets/audio/quiz/correct.wav'));
+  const tickPlayer = useAudioPlayer(require('../../../assets/audio/quiz/tap.wav'));
 
-        // Load tick sound (reuse quiz tap sound)
-        const { sound: tickSnd } = await Audio.Sound.createAsync(
-          require('../../../assets/audio/quiz/tap.wav'),
-          { volume: 0.3 }
-        );
-        tickSound.current = tickSnd;
-      } catch (error) {
-        console.log('❌ Error loading celebration sounds:', error);
-      }
-    };
+  // Set volumes once loaded
+  if (celebrationPlayer.isLoaded) celebrationPlayer.volume = 0.5;
+  if (tickPlayer.isLoaded) tickPlayer.volume = 0.3;
 
-    loadSounds();
-
-    // Cleanup sounds on unmount
-    return () => {
-      celebrationSound.current?.unloadAsync();
-      tickSound.current?.unloadAsync();
-    };
-  }, []);
+  // Replay helper - seekTo(0) + play() replaces expo-av's replayAsync()
+  const playCelebration = useCallback(() => {
+    try {
+      celebrationPlayer.seekTo(0);
+      celebrationPlayer.play();
+    } catch (error) {
+      console.log('❌ Error playing celebration sound:', error);
+    }
+  }, [celebrationPlayer]);
 
   // Reset skipped state when modal closes
   useEffect(() => {
@@ -160,12 +145,12 @@ export default function StreakCelebrationScreen({
         if (day.completed) {
           const delay = 1600 + index * 50; // Match checkmark animation timing
           setTimeout(() => {
-            celebrationSound.current?.replayAsync();
+            playCelebration();
           }, delay);
         }
       });
     }
-  }, [visible, skipped, weekData]);
+  }, [visible, skipped, weekData, playCelebration]);
 
   return (
     <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
