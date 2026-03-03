@@ -139,17 +139,25 @@ export default function StreakCelebrationScreen({
   }, [visible, skipped]);
 
   // Play celebration sounds for checkmarks (staggered with animation)
+  // Fixes REACT-NATIVE-97: track timeout IDs and clear on unmount/dismiss
   useEffect(() => {
+    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+
     if (visible && !skipped) {
       weekData.forEach((day, index) => {
         if (day.completed) {
           const delay = 1600 + index * 50; // Match checkmark animation timing
-          setTimeout(() => {
+          const id = setTimeout(() => {
             playCelebration();
           }, delay);
+          timeoutIds.push(id);
         }
       });
     }
+
+    return () => {
+      timeoutIds.forEach(clearTimeout);
+    };
   }, [visible, skipped, weekData, playCelebration]);
 
   return (
