@@ -5,7 +5,7 @@ import { analyticsService } from "@/services/AnalyticsService";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import * as Haptics from 'expo-haptics';
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -25,6 +25,7 @@ export default function SubscribeContent() {
     customerInfo,
   } = useRevenueCat();
   const isFocused = useIsFocused();
+  const [isTransacting, setIsTransacting] = useState(false);
 
   // Founding members purchased the Lifetime Subscription via web billing
   const isFoundingMember = customerInfo?.entitlements.active['Access of All Eras - Yearly']
@@ -213,7 +214,7 @@ export default function SubscribeContent() {
   // This prevents the CompatComposeView lifecycle crash (DESTROYED → CREATED)
   // caused by React Navigation detaching/reattaching the view on tab switches.
   // iOS uses native UITabBarController which handles view lifecycle correctly.
-  if (!isFocused && Platform.OS === 'android') {
+  if (!isFocused && Platform.OS === 'android' && !isTransacting) {
     return (
       <SafeAreaView style={[styles.safeArea, { paddingTop: 20 }]}>
         <View style={styles.loadingContainer}>
@@ -230,29 +231,36 @@ export default function SubscribeContent() {
     <RevenueCatUI.Paywall
       onPurchaseStarted={() => {
         console.log('💳 Purchase started');
+        setIsTransacting(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }}
       onPurchaseCompleted={() => {
         console.log('✅ Purchase completed!');
+        setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }}
       onPurchaseError={() => {
         console.log('❌ Purchase error');
+        setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }}
       onPurchaseCancelled={() => {
         console.log('🚫 Purchase cancelled');
+        setIsTransacting(false);
       }}
       onRestoreStarted={() => {
         console.log('🔄 Restore started');
+        setIsTransacting(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }}
       onRestoreCompleted={() => {
         console.log('✅ Restore completed!');
+        setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }}
       onRestoreError={() => {
         console.log('❌ Restore error');
+        setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }}
       onDismiss={() => {
