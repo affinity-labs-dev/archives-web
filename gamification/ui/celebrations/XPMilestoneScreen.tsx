@@ -166,7 +166,7 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
           style={styles.video}
           nativeControls={false}
           contentFit="contain"
-          allowsFullscreen={false}
+          fullscreenOptions={{ enable: false }}
           allowsPictureInPicture={false}
         />
       </View>

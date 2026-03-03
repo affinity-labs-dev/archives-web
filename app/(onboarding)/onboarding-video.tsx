@@ -163,7 +163,7 @@ export default function OnboardingVideoScreen() {
             style={styles.fullScreenVideo}
             contentFit="cover"
             nativeControls={false}
-            allowsFullscreen={false}
+            fullscreenOptions={{ enable: false }}
             allowsPictureInPicture={false}
             allowsVideoFrameAnalysis={false}
           />

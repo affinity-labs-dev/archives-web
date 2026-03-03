@@ -487,7 +487,7 @@ export function VideoRewardPlayer({ correctAnswers }: VideoRewardPlayerProps) {
         style={styles.videoRewardPlayer}
         nativeControls={false}
         contentFit="contain"
-        allowsFullscreen={false}
+        fullscreenOptions={{ enable: false }}
         allowsPictureInPicture={false}
       />
     </View>
