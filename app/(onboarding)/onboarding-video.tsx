@@ -84,18 +84,22 @@ export default function OnboardingVideoScreen() {
 
     try {
       const statusSubscription = player.addListener('statusChange', (status) => {
-        if (status.status === 'readyToPlay' && !videoLoaded) {
-          trackVideoPlayed('Intro_archives.mp4')
-          setVideoLoaded(true)
+        try {
+          if (status.status === 'readyToPlay' && !videoLoaded) {
+            trackVideoPlayed('Intro_archives.mp4')
+            setVideoLoaded(true)
 
-          // Auto-play when ready
-          try {
-            player.play()
-          } catch (error) {
-            console.error('Auto-play failed:', error)
+            // Auto-play when ready
+            try {
+              player.play()
+            } catch (error) {
+              console.error('Auto-play failed:', error)
+            }
+          } else if (status.status === 'error') {
+            console.error('Video player error:', status.error)
           }
-        } else if (status.status === 'error') {
-          console.error('Video player error:', status.error)
+        } catch (err) {
+          console.warn('🎬 [OnboardingVideo] statusChange error:', err)
         }
       })
 

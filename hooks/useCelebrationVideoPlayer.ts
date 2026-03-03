@@ -24,6 +24,7 @@ export function useCelebrationVideoPlayer(
   useEffect(() => {
     if (!player) return;
     hasStartedRef.current = false;
+    let released = false;
 
     // Check if already ready (fast local assets may resolve before effect runs)
     if (player.status === 'readyToPlay' && !hasStartedRef.current) {
@@ -34,14 +35,20 @@ export function useCelebrationVideoPlayer(
 
     // Listen for status changes (primary auto-play mechanism)
     const subscription = player.addListener('statusChange', ({ status }: { status: string }) => {
-      if (status === 'readyToPlay' && !hasStartedRef.current) {
-        hasStartedRef.current = true;
-        player.play();
-        console.log('▶️ [CelebrationVideo] Auto-play: readyToPlay event fired');
+      if (released) return;
+      try {
+        if (status === 'readyToPlay' && !hasStartedRef.current) {
+          hasStartedRef.current = true;
+          player.play();
+          console.log('▶️ [CelebrationVideo] Auto-play: readyToPlay event fired');
+        }
+      } catch (err) {
+        console.warn('🎬 [CelebrationVideo] statusChange error (player released):', err);
       }
     });
 
     return () => {
+      released = true;
       subscription?.remove();
     };
   }, [player]);

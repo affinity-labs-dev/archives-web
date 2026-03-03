@@ -34,6 +34,9 @@ export default function VideoPlayer({
   // Track if we've already logged the source (prevent spam)
   const hasLoggedSource = useRef(false)
 
+  // Guard against stale statusChange events after player cleanup
+  const isReleasedRef = useRef(false)
+
   // PERFORMANCE: Optimize videoSource with useMemo
   const optimizedVideoSource: VideoSource = useMemo(() => {
     // Remote URL object
@@ -94,34 +97,48 @@ export default function VideoPlayer({
     isPlaying: player.playing,
   })
 
+  // Reset released flag when player changes; mark as released on cleanup
+  useEffect(() => {
+    isReleasedRef.current = false;
+    return () => {
+      isReleasedRef.current = true;
+    };
+  }, [player]);
+
   // ✅ FIXED: Correct event listener signature (receives single payload object)
   useEffect(() => {
+    if (isReleasedRef.current) return;
+
     const statusSubscription = player.addListener('statusChange', (payload) => {
-      const { status, oldStatus, error } = payload;
+      if (isReleasedRef.current) return;
 
-      console.log(`🎬 [${Platform.OS}] Status: ${oldStatus} → ${status}`);
+      try {
+        const { status, oldStatus, error } = payload;
 
-      if (error) {
-        // Log full error object to debug
-        console.error('🎬 ERROR - Full error object:', JSON.stringify(error, null, 2));
-        console.error('🎬 ERROR - Video URL:', typeof videoSource === 'object' ? videoSource?.uri : videoSource);
-      }
+        console.log(`🎬 [${Platform.OS}] Status: ${oldStatus} → ${status}`);
 
-      if (status === 'readyToPlay') {
-        console.log('🎬 Video ready to play!');
-        if (!isVideoLoaded) {
-          setIsVideoLoaded(true);
+        if (error) {
+          console.error('🎬 ERROR - Full error object:', JSON.stringify(error, null, 2));
+          console.error('🎬 ERROR - Video URL:', typeof videoSource === 'object' ? videoSource?.uri : videoSource);
         }
-        // Ensure playback starts on Android
-        if (autoPlay && !player.playing) {
-          console.log('🎬 [Android] Forcing play after readyToPlay');
-          player.play();
-        }
-      }
 
-      if (status === 'error') {
-        console.error('🎬 Player entered error state');
-        console.error('🎬 Video URL that failed:', typeof videoSource === 'object' ? videoSource?.uri : videoSource);
+        if (status === 'readyToPlay') {
+          console.log('🎬 Video ready to play!');
+          if (!isVideoLoaded) {
+            setIsVideoLoaded(true);
+          }
+          if (autoPlay && !player.playing) {
+            console.log('🎬 [Android] Forcing play after readyToPlay');
+            player.play();
+          }
+        }
+
+        if (status === 'error') {
+          console.error('🎬 Player entered error state');
+          console.error('🎬 Video URL that failed:', typeof videoSource === 'object' ? videoSource?.uri : videoSource);
+        }
+      } catch (err) {
+        console.warn('🎬 statusChange handler error (player likely released):', err);
       }
     });
 

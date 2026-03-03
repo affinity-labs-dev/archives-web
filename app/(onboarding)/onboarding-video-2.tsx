@@ -73,16 +73,20 @@ export default function OnboardingVideo2Screen() {
 
     try {
       const statusSubscription = player.addListener('statusChange', (status) => {
-        if (status.status === 'readyToPlay' && !videoLoaded) {
-          trackVideoPlayed('archives_intro.mp4')
-          setVideoLoaded(true)
+        try {
+          if (status.status === 'readyToPlay' && !videoLoaded) {
+            trackVideoPlayed('archives_intro.mp4')
+            setVideoLoaded(true)
 
-          // Auto-play when ready
-          try {
-            player.play()
-          } catch (error) {
-            // Auto-play failed silently
+            // Auto-play when ready
+            try {
+              player.play()
+            } catch (error) {
+              console.warn('🎬 [OnboardingVideo2] Auto-play failed:', error)
+            }
           }
+        } catch (err) {
+          console.warn('🎬 [OnboardingVideo2] statusChange error:', err)
         }
       })
 
@@ -90,7 +94,7 @@ export default function OnboardingVideo2Screen() {
         statusSubscription?.remove()
       }
     } catch (error) {
-      // Video listener setup failed
+      console.warn('🎬 [OnboardingVideo2] Video listener setup failed:', error)
     }
   }, [player, videoLoaded, videoCompleted, trackVideoPlayed])
 
@@ -117,7 +121,7 @@ export default function OnboardingVideo2Screen() {
       setExitAction('continued')
       router.replace('/onboarding-welcome')
     } catch (error) {
-      // Continue anyway to avoid blocking user
+      console.warn('🎬 [OnboardingVideo2] handleGetStarted failed, continuing anyway:', error)
       setExitAction('continued')
       router.replace('/onboarding-welcome')
     }
