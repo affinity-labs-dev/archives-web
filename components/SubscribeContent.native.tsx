@@ -3,9 +3,9 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { analyticsService } from "@/services/AnalyticsService";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import * as Haptics from 'expo-haptics';
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -24,6 +24,8 @@ export default function SubscribeContent() {
     isLoading,
     customerInfo,
   } = useRevenueCat();
+  const isFocused = useIsFocused();
+  const [isTransacting, setIsTransacting] = useState(false);
 
   // Founding members purchased the Lifetime Subscription via web billing
   const isFoundingMember = customerInfo?.entitlements.active['Access of All Eras - Yearly']
@@ -213,6 +215,20 @@ export default function SubscribeContent() {
     );
   }
 
+  // Guard: On Android, unmount the native PaywallView when tab is not focused.
+  // This prevents the CompatComposeView lifecycle crash (DESTROYED → CREATED)
+  // caused by React Navigation detaching/reattaching the view on tab switches.
+  // iOS uses native UITabBarController which handles view lifecycle correctly.
+  if (!isFocused && Platform.OS === 'android' && !isTransacting) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { paddingTop: 20 }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // Show RevenueCat Paywall UI for non-subscribed users
   // This automatically uses the paywall attached to the current offering
   // Note: Close button is controlled in RevenueCat dashboard paywall template, not via code
@@ -220,10 +236,12 @@ export default function SubscribeContent() {
     <RevenueCatUI.Paywall
       onPurchaseStarted={() => {
         console.log('💳 Purchase started');
+        setIsTransacting(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }}
       onPurchaseCompleted={() => {
         console.log('✅ Purchase completed!');
+        setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         analyticsService.trackSubscribePurchaseCompleted({
           trigger: 'subscribe_tab',
@@ -232,6 +250,7 @@ export default function SubscribeContent() {
       }}
       onPurchaseError={() => {
         console.log('❌ Purchase error');
+        setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         analyticsService.trackSubscribePurchaseFailed({
           trigger: 'subscribe_tab',
@@ -239,12 +258,14 @@ export default function SubscribeContent() {
       }}
       onPurchaseCancelled={() => {
         console.log('🚫 Purchase cancelled');
+        setIsTransacting(false);
         analyticsService.trackSubscribePurchaseCancelled({
           trigger: 'subscribe_tab',
         });
       }}
       onRestoreStarted={() => {
         console.log('🔄 Restore started');
+        setIsTransacting(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         analyticsService.trackSubscribeRestoreTapped({
           trigger: 'subscribe_tab',
@@ -252,6 +273,7 @@ export default function SubscribeContent() {
       }}
       onRestoreCompleted={() => {
         console.log('✅ Restore completed!');
+        setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         analyticsService.trackSubscribeRestoreSuccess({
           trigger: 'subscribe_tab',
@@ -259,6 +281,7 @@ export default function SubscribeContent() {
       }}
       onRestoreError={() => {
         console.log('❌ Restore error');
+        setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         analyticsService.trackSubscribeRestoreFailed({
           trigger: 'subscribe_tab',
