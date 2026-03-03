@@ -84,32 +84,36 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
 
   // Handle video end - dismiss screen
   const handleVideoEnd = useCallback(() => {
-    if (videoEnded) return; // Prevent double dismissal
-    setVideoEnded(true);
+    try {
+      if (videoEnded) return; // Prevent double dismissal
+      setVideoEnded(true);
 
-    console.log('🎬 [XPMilestoneScreen] Video finished, auto-dismissing...');
+      console.log('🎬 [XPMilestoneScreen] Video finished, auto-dismissing...');
 
-    // Track milestone dismissed
-    if (milestoneXP) {
-      analyticsService.trackCustomEvent('xp_milestone_dismissed', {
-        milestone_xp: milestoneXP,
-      });
-      console.log(`📊 [Analytics] XP Milestone Dismissed: ${milestoneXP} XP`);
-    }
-
-    // Save flag to mark this XP milestone as seen (ERA-SPECIFIC)
-    if (milestoneXP) {
-      AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP, eraId), 'true')
-        .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP for era: ${eraId || 'global'}`))
-        .catch((error) => console.error('❌ Error saving XP milestone flag:', error));
-    }
-
-    // Dismiss screen after short delay for smooth transition
-    setTimeout(() => {
-      if (onContinue) {
-        onContinue();
+      // Track milestone dismissed
+      if (milestoneXP) {
+        analyticsService.trackCustomEvent('xp_milestone_dismissed', {
+          milestone_xp: milestoneXP,
+        });
+        console.log(`📊 [Analytics] XP Milestone Dismissed: ${milestoneXP} XP`);
       }
-    }, 300);
+
+      // Save flag to mark this XP milestone as seen (ERA-SPECIFIC)
+      if (milestoneXP) {
+        AsyncStorage.setItem(ADVENTURE_KEYS.getXPMilestoneKey(milestoneXP, eraId), 'true')
+          .then(() => console.log(`✅ Marked XP milestone screen as seen: ${milestoneXP} XP for era: ${eraId || 'global'}`))
+          .catch((error) => console.error('❌ Error saving XP milestone flag:', error));
+      }
+
+      // Dismiss screen after short delay for smooth transition
+      setTimeout(() => {
+        if (onContinue) {
+          onContinue();
+        }
+      }, 300);
+    } catch (err) {
+      console.warn('🎬 [XPMilestoneScreen] handleVideoEnd error:', err);
+    }
   }, [videoEnded, milestoneXP, eraId, onContinue]);
 
   // Listen for video end - Auto-dismiss screen when video finishes
