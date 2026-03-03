@@ -5,7 +5,7 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
-import { useAudioPlayer } from 'expo-audio';
+import { createAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -20,6 +20,9 @@ const streakFlame = require('../../../assets/rive/flamefinal.riv');
 
 // Import checkmark PNG
 const checkmarkIcon = require('../../../assets/images/streak/check_small.png');
+
+// Audio source constant defined outside component to avoid re-evaluation on every render
+const CELEBRATION_SOUND = require('../../../assets/audio/quiz/correct.wav');
 
 // Week day data structure
 interface WeekDay {
@@ -59,23 +62,21 @@ export default function StreakCelebrationScreen({
   // Animated value for moving flame + number upward (Duolingo style)
   const translateY = useSharedValue(0);
 
-  // Audio players - hooks manage lifecycle automatically (no manual load/unload)
-  const celebrationPlayer = useAudioPlayer(require('../../../assets/audio/quiz/correct.wav'));
-  const tickPlayer = useAudioPlayer(require('../../../assets/audio/quiz/tap.wav'));
-
-  // Set volumes once loaded
-  if (celebrationPlayer.isLoaded) celebrationPlayer.volume = 0.5;
-  if (tickPlayer.isLoaded) tickPlayer.volume = 0.3;
-
-  // Replay helper - seekTo(0) + play() replaces expo-av's replayAsync()
+  // Fire-and-forget: create a fresh player per play call.
+  // Avoids Android ENDED state issues entirely — each player is always brand-new.
   const playCelebration = useCallback(() => {
     try {
-      celebrationPlayer.seekTo(0);
-      celebrationPlayer.play();
+      const player = createAudioPlayer(CELEBRATION_SOUND);
+      player.volume = 0.5;
+      player.play();
+      // Release player after sound finishes (~1s is enough for correct.wav)
+      setTimeout(() => {
+        try { player.remove(); } catch (_) {}
+      }, 1000);
     } catch (error) {
       console.log('❌ Error playing celebration sound:', error);
     }
-  }, [celebrationPlayer]);
+  }, []);
 
   // Reset skipped state when modal closes
   useEffect(() => {
