@@ -323,7 +323,7 @@ export default function EmailDetailsScreen() {
                       setShowPassword(!showPassword)
                     }}>
                       <Ionicons
-                        name={showPassword ? "eye-off" : "eye"}
+                        name={showPassword ? "eye" : "eye-off"}
                         size={20}
                         color={ArchivesTheme.colors.mutedNavy + '99'}
                       />
@@ -350,7 +350,7 @@ export default function EmailDetailsScreen() {
                         setShowConfirmPassword(!showConfirmPassword)
                       }}>
                         <Ionicons
-                          name={showConfirmPassword ? "eye-off" : "eye"}
+                          name={showConfirmPassword ? "eye" : "eye-off"}
                           size={20}
                           color={ArchivesTheme.colors.mutedNavy + '99'}
                         />
