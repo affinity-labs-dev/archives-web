@@ -183,7 +183,7 @@ export default function VideoPlayer({
         <VideoView
           player={player}
           style={styles.video}
-          allowsFullscreen={false}
+          fullscreenOptions={{ enable: false }}
           allowsPictureInPicture={false}
           nativeControls={false}
           contentFit="cover"

@@ -301,7 +301,7 @@ export default function AdventureCompleteScreen({
             style={styles.characterImage}
             nativeControls={false}
             contentFit="cover"
-            allowsFullscreen={false}
+            fullscreenOptions={{ enable: false }}
             allowsPictureInPicture={false}
           />
         </View>

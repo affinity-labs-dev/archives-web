@@ -276,7 +276,7 @@ export default function ArchivesAuthScreen() {
                 style={styles.video}
                 nativeControls={false}
                 contentFit="contain"
-                allowsFullscreen={false}
+                fullscreenOptions={{ enable: false }}
               />
             </View>
 
