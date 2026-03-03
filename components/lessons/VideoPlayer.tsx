@@ -150,6 +150,7 @@ export default function VideoPlayer({
     if (!onPlaybackStatusUpdate) return;
 
     const interval = setInterval(() => {
+      if (isReleasedRef.current) return;
       if (player.status === 'readyToPlay') {
         const currentTime = player.currentTime;
         const duration = player.duration;

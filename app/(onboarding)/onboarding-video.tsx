@@ -105,12 +105,16 @@ export default function OnboardingVideoScreen() {
 
       // Listen for video completion - playToEnd is the official expo-video v3 event
       const playbackSubscription = player.addListener('playToEnd', () => {
-        if (!videoCompleted) {
-          setVideoCompleted(true)
-          // Auto-continue when video completes
-          setTimeout(() => {
-            handleContinue()
-          }, 1000) // 1 second delay for smooth transition
+        try {
+          if (!videoCompleted) {
+            setVideoCompleted(true)
+            // Auto-continue when video completes
+            setTimeout(() => {
+              handleContinue()
+            }, 1000) // 1 second delay for smooth transition
+          }
+        } catch (err) {
+          console.warn('🎬 [OnboardingVideo] playToEnd handler error:', err)
         }
       })
 
