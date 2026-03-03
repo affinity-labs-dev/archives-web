@@ -126,11 +126,15 @@ export default function XPMilestoneScreen({ milestoneXP, eraId, onContinue }: XP
     // Backup for Android: statusChange to 'idle' means video finished
     // On Android, playToEnd may not fire reliably
     const statusSubscription = player.addListener('statusChange', ({ status }) => {
-      // 'idle' status means the video is done playing (not loading, not playing)
-      // Only trigger if we haven't already dismissed
-      if (status === 'idle' && Platform.OS === 'android') {
-        console.log('🎬 [XPMilestoneScreen] Android: Status changed to idle, triggering dismissal');
-        handleVideoEnd();
+      try {
+        // 'idle' status means the video is done playing (not loading, not playing)
+        // Only trigger if we haven't already dismissed
+        if (status === 'idle' && Platform.OS === 'android') {
+          console.log('🎬 [XPMilestoneScreen] Android: Status changed to idle, triggering dismissal');
+          handleVideoEnd();
+        }
+      } catch (err) {
+        console.warn('🎬 [XPMilestoneScreen] statusChange error:', err);
       }
     });
 

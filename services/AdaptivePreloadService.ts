@@ -386,18 +386,35 @@ export async function preloadVideos(
  */
 export function releaseVideoPreloads(urls?: string[]): void {
   const urlsToRelease = urls ?? Array.from(state.videoPlayers.keys());
+  const playersToRelease: VideoPlayer[] = [];
 
   for (const url of urlsToRelease) {
     const player = state.videoPlayers.get(url);
     if (player) {
-      try {
-        player.release();
-      } catch (error) {
-        // Silently ignore cleanup errors
-      }
+      // Remove from tracking maps immediately (prevents reuse)
       state.videoPlayers.delete(url);
       state.preloadedVideos.delete(url);
+
+      // Pause synchronously to stop generating new native events
+      try { player.pause(); } catch (err) {
+        console.warn('📹 [Preload] player.pause() failed before deferred release:', err);
+      }
+
+      playersToRelease.push(player);
     }
+  }
+
+  // ← 50ms delay: lets AVFoundation KVO queue drain before release() frees native memory
+  // Prevents EXC_BAD_ACCESS (REACT-NATIVE-17/1P) from use-after-free on iOS
+  if (playersToRelease.length > 0) {
+    setTimeout(() => {
+      for (const player of playersToRelease) {
+        try { player.release(); } catch (err) {
+          console.warn('📹 [Preload] player.release() failed (deferred 50ms):', err);
+        }
+      }
+      console.log(`📹 [Preload] Released ${playersToRelease.length} players (deferred)`);
+    }, 50);
   }
 
   if (!urls) {
