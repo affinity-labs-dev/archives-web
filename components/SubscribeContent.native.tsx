@@ -37,11 +37,16 @@ export default function SubscribeContent() {
       console.log('📊 [SubscribeContent] Screen focused - starting page view tracking')
       analyticsService.startPageView('subscription', '/subscribe')
 
+      // Track subscribe screen viewed (only for non-subscribed users seeing the paywall)
+      if (!isSubscribed && !isLoading) {
+        analyticsService.trackSubscribeScreenViewed({ trigger: 'subscribe_tab' });
+      }
+
       return () => {
         console.log('📊 [SubscribeContent] Screen blurred - ending page view tracking')
         analyticsService.endPageView('subscription')
       }
-    }, [])
+    }, [isSubscribed, isLoading])
   )
 
   console.log('💎 SubscribeContent rendered with RevenueCat state:', {
@@ -238,30 +243,49 @@ export default function SubscribeContent() {
         console.log('✅ Purchase completed!');
         setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        analyticsService.trackSubscribePurchaseCompleted({
+          trigger: 'subscribe_tab',
+          plan: 'yearly',
+        });
       }}
       onPurchaseError={() => {
         console.log('❌ Purchase error');
         setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        analyticsService.trackSubscribePurchaseFailed({
+          trigger: 'subscribe_tab',
+        });
       }}
       onPurchaseCancelled={() => {
         console.log('🚫 Purchase cancelled');
         setIsTransacting(false);
+        analyticsService.trackSubscribePurchaseCancelled({
+          trigger: 'subscribe_tab',
+        });
       }}
       onRestoreStarted={() => {
         console.log('🔄 Restore started');
         setIsTransacting(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        analyticsService.trackSubscribeRestoreTapped({
+          trigger: 'subscribe_tab',
+        });
       }}
       onRestoreCompleted={() => {
         console.log('✅ Restore completed!');
         setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        analyticsService.trackSubscribeRestoreSuccess({
+          trigger: 'subscribe_tab',
+        });
       }}
       onRestoreError={() => {
         console.log('❌ Restore error');
         setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        analyticsService.trackSubscribeRestoreFailed({
+          trigger: 'subscribe_tab',
+        });
       }}
       onDismiss={() => {
         console.log('👋 Paywall dismissed');

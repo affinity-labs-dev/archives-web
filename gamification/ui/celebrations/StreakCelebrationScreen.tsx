@@ -59,17 +59,20 @@ export default function StreakCelebrationScreen({
   // Animated value for moving flame + number upward (Duolingo style)
   const translateY = useSharedValue(0);
 
-  // Audio players - hooks manage lifecycle automatically (no manual load/unload)
+  // Audio player - hook manages lifecycle automatically (no manual load/unload)
   const celebrationPlayer = useAudioPlayer(require('../../../assets/audio/quiz/correct.wav'));
-  const tickPlayer = useAudioPlayer(require('../../../assets/audio/quiz/tap.wav'));
 
-  // Set volumes once loaded
-  if (celebrationPlayer.isLoaded) celebrationPlayer.volume = 0.5;
-  if (tickPlayer.isLoaded) tickPlayer.volume = 0.3;
+  // Set volume once when player finishes loading
+  useEffect(() => {
+    if (celebrationPlayer.isLoaded) {
+      celebrationPlayer.volume = 0.5;
+    }
+  }, [celebrationPlayer.isLoaded]);
 
   // Replay helper - seekTo(0) + play() replaces expo-av's replayAsync()
   const playCelebration = useCallback(() => {
     try {
+      if (!celebrationPlayer.isLoaded) return;
       celebrationPlayer.seekTo(0);
       celebrationPlayer.play();
     } catch (error) {

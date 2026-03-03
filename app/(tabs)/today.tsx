@@ -536,9 +536,8 @@ export default function TodayScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
     // Track paywall view triggered from daily story rewind
-    analyticsService.trackCustomEvent('subscribe_screen_viewed', {
+    analyticsService.trackSubscribeScreenViewed({
       trigger: 'daily_story_rewind',
-      story_date: date.toISOString().split('T')[0],
     });
 
     // Show overlay and save gated date for post-purchase unlock
@@ -2245,22 +2244,47 @@ export default function TodayScreen() {
                   console.log('💳 [Today Paywall] Purchase started');
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 }}
-                onPurchaseCompleted={handlePurchaseComplete}
+                onPurchaseCompleted={() => {
+                  console.log('✅ [Today Paywall] Purchase completed');
+                  analyticsService.trackSubscribePurchaseCompleted({
+                    trigger: 'daily_story_rewind',
+                    plan: 'yearly',
+                  });
+                  handlePurchaseComplete();
+                }}
                 onPurchaseError={() => {
                   console.log('❌ [Today Paywall] Purchase error');
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                  analyticsService.trackSubscribePurchaseFailed({
+                    trigger: 'daily_story_rewind',
+                  });
                 }}
                 onPurchaseCancelled={() => {
                   console.log('🚫 [Today Paywall] Purchase cancelled');
+                  analyticsService.trackSubscribePurchaseCancelled({
+                    trigger: 'daily_story_rewind',
+                  });
                 }}
                 onRestoreStarted={() => {
                   console.log('🔄 [Today Paywall] Restore started');
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  analyticsService.trackSubscribeRestoreTapped({
+                    trigger: 'daily_story_rewind',
+                  });
                 }}
-                onRestoreCompleted={handlePurchaseComplete}
+                onRestoreCompleted={() => {
+                  console.log('✅ [Today Paywall] Restore completed');
+                  analyticsService.trackSubscribeRestoreSuccess({
+                    trigger: 'daily_story_rewind',
+                  });
+                  handlePurchaseComplete();
+                }}
                 onRestoreError={() => {
                   console.log('❌ [Today Paywall] Restore error');
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                  analyticsService.trackSubscribeRestoreFailed({
+                    trigger: 'daily_story_rewind',
+                  });
                 }}
                 onDismiss={handlePaywallDismiss}
               />
