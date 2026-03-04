@@ -12,7 +12,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import AdventureCard from './AdventureCard';
@@ -178,6 +178,30 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     return firstLocked?.readable_id || null;
   }, [adventures, adventureUnlockStatus]);
 
+  // Calculate dynamic overlay height based on number of locked adventures
+  // instead of hardcoding 5000px (which causes GPU memory exhaustion → SIGABRT on Android)
+  const lockOverlayHeight = useMemo(() => {
+    if (!firstLockedAdventureId) return 0;
+
+    const firstLockedIndex = adventures.findIndex((adv) => adv.readable_id === firstLockedAdventureId);
+    const lockedCount = adventures.length - firstLockedIndex;
+
+    // Replicate AdventureComponent's height calculation:
+    // cardWidth = (screenWidth - padding*2 - gap) / 2
+    // containerHeight = cardWidth * 2.08
+    // Per-adventure height = eraBadge(34) + titleSection(56) + timeline(40) + bentoGrid(containerHeight + 50) + container margin(24)
+    const screenWidth = Dimensions.get('window').width;
+    const containerPadding = screenWidth * 0.034;
+    const gap = screenWidth * 0.021;
+    const cardWidth = (screenWidth - containerPadding * 2 - gap) / 2;
+    const containerHeight = cardWidth * 2.08;
+    const estimatedAdventureHeight = 34 + 56 + 40 + containerHeight + 50 + 24;
+
+    const totalHeight = lockedCount * estimatedAdventureHeight + 200; // 200px buffer for scrollContent padding
+    console.log('🔒 Lock overlay:', { lockedCount, estimatedAdventureHeight, totalHeight, screenWidth });
+    return totalHeight;
+  }, [adventures, firstLockedAdventureId]);
+
   // Render function for FlatList items (memoized for performance)
   const renderAdventureItem = useCallback(({ item: adventure }: { item: Adventure }) => {
     const isLocked = !adventureUnlockStatus[adventure.readable_id];
@@ -198,7 +222,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
           <BlurView
             intensity={2.3}
             tint="dark"
-            style={styles.continuousLockOverlay}
+            style={[styles.continuousLockOverlay, { height: lockOverlayHeight }]}
             pointerEvents="box-none"
           >
             <LinearGradient
@@ -220,7 +244,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
         )}
       </View>
     );
-  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId]);
+  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, lockOverlayHeight]);
 
   // Key extractor for FlatList (memoized)
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);
@@ -402,12 +426,12 @@ const styles = StyleSheet.create({
   },
 
   // Continuous Lock Overlay - single overlay extending down to cover all locked adventures
+  // Height is now calculated dynamically based on locked adventure count (set via inline style)
   continuousLockOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 5000, // Extremely large height to guarantee coverage of all locked adventures
     zIndex: 50,
   },
   lockBannerContainer: {
