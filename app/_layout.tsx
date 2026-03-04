@@ -13,7 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider, useUser } from "@clerk/clerk-expo";
-import { tokenCache } from "@clerk/clerk-expo/token-cache";
+import { tokenCache, flushPendingTokenCacheEvents } from "@/services/ClerkTokenCache";
 import { PostHogProvider } from 'posthog-react-native';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
@@ -22,7 +22,7 @@ import { PreferencesProvider } from "@/context/PreferencesContext";
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
-import { analyticsService } from "@/services/AnalyticsService";
+import { analyticsService, type LoginMethod } from "@/services/AnalyticsService";
 import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
 import { usePostHog } from 'posthog-react-native';
 import LoadingScreen from "@/components/LoadingScreen";
@@ -136,8 +136,19 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const rcLoginInProgressRef = React.useRef(false);
   const rcLoggedInUserRef = React.useRef<string | null>(null);
 
+  // AFF-151: Track auth state change timing
+  const lastAuthChangeRef = React.useRef<number>(Date.now());
+
   // Custom notification permission modal (shown before native iOS prompt)
   const [showNotificationModal, setShowNotificationModal] = React.useState(false);
+
+  // Derive login method from Clerk user object (fixes hardcoded 'email')
+  const getLoginMethod = (clerkUser: typeof user): LoginMethod => {
+    const accounts = clerkUser?.externalAccounts || [];
+    if (accounts.some((a) => a.provider === 'apple')) return 'apple';
+    if (accounts.some((a) => a.provider === 'google')) return 'google';
+    return 'email';
+  };
 
   // Customer.io SDK auto-initializes from app.json config
   // Mark JS wrapper as ready so identify/registerPushToken calls work
@@ -248,9 +259,27 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // AFF-151: Track every auth state transition for full timeline visibility
+    const previousState = wasSignedInRef.current ? 'signed_in' : 'signed_out';
+    const newState = isSignedIn ? 'signed_in' : 'signed_out';
+
+    if (previousState !== newState || (isSignedIn && user)) {
+      ;(async () => {
+        const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era').catch(() => null));
+        analyticsService.trackAuthStateChange({
+          previous_state: previousState,
+          new_state: newState,
+          user_id: user?.id ?? null,
+          had_selected_era: hadSelectedEra,
+          app_state: AppState.currentState,
+        });
+        lastAuthChangeRef.current = Date.now();
+      })();
+    }
+
     if (isSignedIn && user) {
       console.log('🔑 [AnalyticsWrapper] User signed in, tracking session');
-      analyticsService.trackUserSessionIn('email');
+      analyticsService.trackUserSessionIn(getLoginMethod(user));
       wasSignedInRef.current = true;
 
       // Check push notification permission and prompt if never asked
@@ -286,9 +315,17 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         }
       })();
     } else if (!isSignedIn && wasSignedInRef.current) {
-      // Only reset analytics if user was PREVIOUSLY signed in (actual sign-out)
-      console.log('👋 [AnalyticsWrapper] User signed out, resetting analytics');
-      analyticsService.reset();
+      // AFF-151: Capture session-out BEFORE reset (so event is attributed to the user)
+      console.log('👋 [AnalyticsWrapper] User signed out, tracking session out + resetting analytics');
+      ;(async () => {
+        const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era').catch(() => null));
+        analyticsService.trackUserSessionOut({
+          trigger: 'clerk_session_ended',
+          session_duration_seconds: null,
+          had_selected_era: hadSelectedEra,
+        });
+        analyticsService.reset();
+      })();
       wasSignedInRef.current = false;
     }
   }, [isSignedIn, user]);
@@ -325,6 +362,10 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     if (posthog) {
       console.log('🔍 [AnalyticsWrapper DEBUG] PostHog available, initializing analytics...');
       analyticsService.initialize(posthog);
+
+      // AFF-151: Flush any token cache events that were buffered before PostHog was ready
+      flushPendingTokenCacheEvents((event) => analyticsService.trackTokenCacheEvent(event));
+
       // Note: Session replay starts automatically via enableSessionReplay: true config
 
       // Identify user if signed in - this merges all anonymous events to the authenticated user
