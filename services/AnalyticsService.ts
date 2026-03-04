@@ -5,6 +5,7 @@
  */
 
 import { usePostHog } from 'posthog-react-native';
+import * as Sentry from '@sentry/react-native';
 import CustomerIOService from './CustomerIOService';
 
 // ==================== EVENT TYPES ====================
@@ -385,6 +386,14 @@ class AnalyticsService {
   private anonymousId: string | null = null;
 
   /**
+   * AFF-151: Flag to prevent duplicate user_session_out events.
+   * Set to true BEFORE calling signOut()/user.delete() in profile.tsx,
+   * so _layout.tsx skips its own clerk_session_ended event.
+   * Automatically reset after _layout.tsx reads it.
+   */
+  manualSignOutInProgress = false;
+
+  /**
    * Initialize PostHog instance (call from root component)
    */
   async initialize(posthogInstance: ReturnType<typeof usePostHog>) {
@@ -523,6 +532,14 @@ class AnalyticsService {
       login_method: loginMethod,
       // PostHog auto-captures $os (device type)
     };
+
+    // AFF-151: Sentry breadcrumb fallback for early lifecycle
+    Sentry.addBreadcrumb({
+      category: 'auth',
+      message: `user_session_in: ${loginMethod}`,
+      level: 'info',
+      data: event,
+    });
 
     this.posthog?.capture('user_session_in', event);
     console.log('📊 [Analytics] User Session In:', event);
@@ -694,6 +711,14 @@ class AnalyticsService {
       had_selected_era: data.had_selected_era,
     };
 
+    // AFF-151: Sentry breadcrumb ensures event is captured even if PostHog isn't ready
+    Sentry.addBreadcrumb({
+      category: 'auth',
+      message: `user_session_out: ${data.trigger}`,
+      level: 'info',
+      data: event,
+    });
+
     this.posthog?.capture('user_session_out', event);
     this.trackToCustomerIO('user_session_out', event);
     console.log('📊 [Analytics] User Session Out:', event);
@@ -707,6 +732,15 @@ class AnalyticsService {
       ...data,
       ...this.getBaseProperties(),
     };
+
+    // AFF-151: Sentry breadcrumb as fallback — Sentry inits before PostHog,
+    // so this captures auth events even during the early app lifecycle
+    Sentry.addBreadcrumb({
+      category: 'auth',
+      message: `auth_state_change: ${data.previous_state} → ${data.new_state}`,
+      level: 'info',
+      data: event,
+    });
 
     this.posthog?.capture('auth_state_change', event);
     console.log('📊 [Analytics] Auth State Change:', event);

@@ -136,8 +136,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const rcLoginInProgressRef = React.useRef(false);
   const rcLoggedInUserRef = React.useRef<string | null>(null);
 
-  // AFF-151: Track auth state change timing
-  const lastAuthChangeRef = React.useRef<number>(Date.now());
+  // AFF-151: Track the previous isSignedIn value to detect actual transitions
+  // (not user object reference changes from token refreshes)
+  const prevSignedInRef = React.useRef<boolean | null>(null);
 
   // Custom notification permission modal (shown before native iOS prompt)
   const [showNotificationModal, setShowNotificationModal] = React.useState(false);
@@ -253,17 +254,25 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // This ensures Customer.io always has the latest APNs/FCM token
   // Also prompts for notification permission if never asked (e.g., existing users after app update)
   // Session tracking - track sign-in/sign-out for analytics
+  //
+  // AFF-151 fixes:
+  // - Depend on isSignedIn only (not user object which changes reference on every re-render)
+  // - Use prevSignedInRef to detect actual boolean transitions
+  // - Check manualSignOutInProgress flag to prevent duplicate user_session_out events
   React.useEffect(() => {
     // Skip on web during SSR
     if (Platform.OS === 'web' && typeof window === 'undefined') {
       return;
     }
 
-    // AFF-151: Track every auth state transition for full timeline visibility
-    const previousState = wasSignedInRef.current ? 'signed_in' : 'signed_out';
-    const newState = isSignedIn ? 'signed_in' : 'signed_out';
+    const currentSignedIn = !!isSignedIn;
 
-    if (previousState !== newState || (isSignedIn && user)) {
+    // AFF-151: Only track auth_state_change on actual boolean transitions
+    // (not on every user object reference change from token refreshes)
+    if (prevSignedInRef.current !== null && prevSignedInRef.current !== currentSignedIn) {
+      const previousState = prevSignedInRef.current ? 'signed_in' : 'signed_out';
+      const newState = currentSignedIn ? 'signed_in' : 'signed_out';
+
       ;(async () => {
         const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era').catch(() => null));
         analyticsService.trackAuthStateChange({
@@ -273,62 +282,73 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           had_selected_era: hadSelectedEra,
           app_state: AppState.currentState,
         });
-        lastAuthChangeRef.current = Date.now();
       })();
     }
+    prevSignedInRef.current = currentSignedIn;
 
-    if (isSignedIn && user) {
-      console.log('🔑 [AnalyticsWrapper] User signed in, tracking session');
-      analyticsService.trackUserSessionIn(getLoginMethod(user));
-      wasSignedInRef.current = true;
+    if (currentSignedIn && user) {
+      // Only fire session-in on actual sign-in transition (not on re-renders)
+      if (!wasSignedInRef.current) {
+        console.log('🔑 [AnalyticsWrapper] User signed in, tracking session');
+        // AFF-151: Login method via externalAccounts may not be populated immediately;
+        // default to 'email' and let PostHog person properties update on next render
+        analyticsService.trackUserSessionIn(getLoginMethod(user));
+        wasSignedInRef.current = true;
 
-      // Check push notification permission and prompt if never asked
-      // This catches existing users who update the app and never went through Q3 onboarding
-      ;(async () => {
-        try {
-          const { status } = await Notifications.getPermissionsAsync();
-          console.log('🔔 [AnalyticsWrapper] Push permission status:', status);
+        // Check push notification permission and prompt if never asked
+        // This catches existing users who update the app and never went through Q3 onboarding
+        ;(async () => {
+          try {
+            const { status } = await Notifications.getPermissionsAsync();
+            console.log('🔔 [AnalyticsWrapper] Push permission status:', status);
 
-          if (status === 'undetermined') {
-            // Never asked — show custom modal first, then native prompt on button tap
-            console.log('🔔 [AnalyticsWrapper] Permission never asked, showing custom modal...');
-            setShowNotificationModal(true);
-          } else if (status === 'granted') {
-            // Already granted — sync token to Customer.io (might have changed)
-            try {
-              const pushToken = await Notifications.getDevicePushTokenAsync();
-              if (pushToken?.data) {
-                CustomerIOService.registerPushToken(pushToken.data);
-                CustomerIOService.setProfileAttributes({
-                  push_notifications_enabled: true,
-                  push_permission_status: 'Granted',
-                  cio_push_token: pushToken.data,
-                });
-                console.log('🔔 [AnalyticsWrapper] Push token synced on sign-in');
+            if (status === 'undetermined') {
+              // Never asked — show custom modal first, then native prompt on button tap
+              console.log('🔔 [AnalyticsWrapper] Permission never asked, showing custom modal...');
+              setShowNotificationModal(true);
+            } else if (status === 'granted') {
+              // Already granted — sync token to Customer.io (might have changed)
+              try {
+                const pushToken = await Notifications.getDevicePushTokenAsync();
+                if (pushToken?.data) {
+                  CustomerIOService.registerPushToken(pushToken.data);
+                  CustomerIOService.setProfileAttributes({
+                    push_notifications_enabled: true,
+                    push_permission_status: 'Granted',
+                    cio_push_token: pushToken.data,
+                  });
+                  console.log('🔔 [AnalyticsWrapper] Push token synced on sign-in');
+                }
+              } catch (tokenErr) {
+                console.log('🔔 [AnalyticsWrapper] Token sync error:', tokenErr);
               }
-            } catch (tokenErr) {
-              console.log('🔔 [AnalyticsWrapper] Token sync error:', tokenErr);
             }
+          } catch (err) {
+            console.log('🔔 [AnalyticsWrapper] Permission check error:', err);
           }
-        } catch (err) {
-          console.log('🔔 [AnalyticsWrapper] Permission check error:', err);
-        }
-      })();
-    } else if (!isSignedIn && wasSignedInRef.current) {
-      // AFF-151: Capture session-out BEFORE reset (so event is attributed to the user)
-      console.log('👋 [AnalyticsWrapper] User signed out, tracking session out + resetting analytics');
-      ;(async () => {
-        const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era').catch(() => null));
-        analyticsService.trackUserSessionOut({
-          trigger: 'clerk_session_ended',
-          session_duration_seconds: null,
-          had_selected_era: hadSelectedEra,
-        });
-        analyticsService.reset();
-      })();
+        })();
+      }
+    } else if (!currentSignedIn && wasSignedInRef.current) {
+      // AFF-151: Skip if profile.tsx already fired user_session_out (manual sign-out or account deletion)
+      if (analyticsService.manualSignOutInProgress) {
+        console.log('👋 [AnalyticsWrapper] Skipping duplicate session-out (manual sign-out handled it)');
+        analyticsService.manualSignOutInProgress = false;
+      } else {
+        // Clerk session expired or was revoked — fire clerk_session_ended
+        console.log('👋 [AnalyticsWrapper] User signed out, tracking session out + resetting analytics');
+        ;(async () => {
+          const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era').catch(() => null));
+          analyticsService.trackUserSessionOut({
+            trigger: 'clerk_session_ended',
+            session_duration_seconds: null,
+            had_selected_era: hadSelectedEra,
+          });
+        })();
+      }
+      analyticsService.reset();
       wasSignedInRef.current = false;
     }
-  }, [isSignedIn, user]);
+  }, [isSignedIn]);
 
   // Update last_active_at on initial app launch
   React.useEffect(() => {
