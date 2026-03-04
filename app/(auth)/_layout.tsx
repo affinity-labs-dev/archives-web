@@ -5,6 +5,7 @@ export default function AuthRoutesLayout() {
   const { isSignedIn } = useAuth()
 
   if (isSignedIn) {
+    console.log('🔑 [AuthLayout] User already signed in, redirecting → /(tabs)')
     return <Redirect href={'/(tabs)'} />
   }
 

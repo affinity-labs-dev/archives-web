@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { usePostHog } from 'posthog-react-native'
 import { Platform } from 'react-native'
 import LoadingScreen from '@/components/LoadingScreen'
+import { analyticsService } from '@/services/AnalyticsService'
 
 export default function Index() {
   const { isSignedIn, isLoaded } = useUser()
@@ -23,7 +24,7 @@ export default function Index() {
         is_signed_in: isSignedIn ?? false,
         is_loaded: isLoaded ?? false,
       })
-      console.log('🎥 [PostHog] App entry point tracked for session replay')
+      console.log('🔑 [Index] App entry point tracked')
     }
   }, [posthog])
 
@@ -35,15 +36,34 @@ export default function Index() {
     try {
       // Wait for Clerk to load
       if (!isLoaded) {
+        console.log('🔑 [Index] Clerk not loaded yet, waiting...')
         return
       }
 
       // Check if user has completed onboarding
       const hasSelectedEra = await AsyncStorage.getItem('selected_era')
 
+      // AFF-151: Track routing decision through analytics (visible in PostHog)
+      const route = (isSignedIn && hasSelectedEra) ? '/(tabs)' : '/onboarding-video'
+      analyticsService.trackAuthStateChange({
+        previous_state: 'unknown',
+        new_state: isSignedIn ? 'signed_in' : 'signed_out',
+        user_id: null,
+        had_selected_era: !!hasSelectedEra,
+        app_state: `routing_to:${route}`,
+      })
+
+      console.log('🔑 [Index] Auth check:', {
+        isSignedIn,
+        isLoaded,
+        hasSelectedEra: !!hasSelectedEra,
+        selectedEraValue: hasSelectedEra,
+        route,
+      })
+
       setHasCompletedOnboarding(!!hasSelectedEra)
     } catch (error) {
-      console.error('Error checking user state:', error)
+      console.error('🔑 [Index] Error checking user state:', error)
       setHasCompletedOnboarding(false)
     } finally {
       setIsChecking(false)
@@ -57,11 +77,11 @@ export default function Index() {
 
   // Returning user: signed in AND has completed onboarding
   if (isSignedIn && hasCompletedOnboarding) {
-    console.log('🏠 Returning user - routing to Home tab')
+    console.log('🔑 [Index] Routing → /(tabs)')
     return <Redirect href="/(tabs)" />
   }
 
   // New user or incomplete onboarding: start comprehensive onboarding
-  console.log('👋 New user - routing to onboarding videos')
+  console.log('🔑 [Index] Routing → /onboarding-video (isSignedIn:', isSignedIn, ', hasCompletedOnboarding:', hasCompletedOnboarding, ')')
   return <Redirect href="/onboarding-video" />
 }

@@ -431,6 +431,14 @@ export default function ProfileTab() {
     try {
       console.log('👋 User logging out - clearing all local data...')
 
+      // AFF-151: Track session out BEFORE clearing data (so event is attributed to the user)
+      const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era'))
+      analyticsService.trackUserSessionOut({
+        trigger: 'manual_profile',
+        session_duration_seconds: null,
+        had_selected_era: hadSelectedEra,
+      })
+
       // Clear ALL AsyncStorage to prevent any data leakage between accounts
       await AsyncStorage.clear()
       console.log('✅ All local data cleared')
@@ -541,6 +549,14 @@ export default function ProfileTab() {
               const roiAdventuresComplete = newUserProgress.filter(m => m.isCompleted).length
 
               const totalAdventuresCompleted = umayyedAdventuresComplete + roiAdventuresComplete
+
+              // AFF-151: Track session out for account deletion
+              const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era'))
+              analyticsService.trackUserSessionOut({
+                trigger: 'account_deleted',
+                session_duration_seconds: null,
+                had_selected_era: hadSelectedEra,
+              })
 
               // Track account deletion event BEFORE clearing data
               analyticsService.trackUserAccountDeleted({
