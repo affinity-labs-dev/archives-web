@@ -282,7 +282,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
             />
           }
           // Performance optimizations - reduced to ensure lock overlay renders correctly
-          // removeClippedSubviews disabled to prevent clipping lock overlay
+          removeClippedSubviews={false} // Prevent IllegalStateException in ReactViewGroup.updateClippingToRect (REACT-NATIVE-7R)
           maxToRenderPerBatch={10}
           updateCellsBatchingPeriod={50}
           initialNumToRender={10}
