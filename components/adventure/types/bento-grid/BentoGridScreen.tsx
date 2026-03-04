@@ -5,6 +5,7 @@ import type { Adventure, ContentItem } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
+import { useVideoPreloader, extractVideoUrls } from '@/hooks/useVideoPreloader';
 import { analyticsService } from '@/services/AnalyticsService';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -155,6 +156,23 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   const adventureUnlockStatus = useMemo(() => {
     return getAdventureUnlockStatus(adventures, userProgress);
   }, [adventures, userProgress]);
+
+  // Video preloading: only preload the first two unlocked adventures (active + next)
+  // instead of every AdventureComponent creating 6 players each (~30 total → ~12 max)
+  const preloadVideoUrls = useMemo(() => {
+    const unlockedAdventures = adventures.filter(
+      (adv) => adventureUnlockStatus[adv.readable_id]
+    );
+    // Take the last 2 unlocked adventures (most recently available = most likely in progress)
+    const toPreload = unlockedAdventures.slice(-2);
+    const urls: string[] = [];
+    for (const adv of toPreload) {
+      urls.push(...extractVideoUrls(adv.content_list || []));
+    }
+    return urls;
+  }, [adventures, adventureUnlockStatus]);
+
+  useVideoPreloader(preloadVideoUrls, { maxVideos: 6 });
 
   // Adaptive content preloading based on device capabilities and progress
   // Preloads next adventure when user is 60%+ through current adventure

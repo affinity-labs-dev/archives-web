@@ -1,5 +1,4 @@
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { useVideoPreloader, extractVideoUrls } from '@/hooks/useVideoPreloader';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -196,13 +195,6 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
   const sortedContent = [...(adventure.content_list || [])]
     .sort((a, b) => a.order_by - b.order_by)
     .slice(0, 5);
-
-  // Preload all video URLs when adventure is displayed
-  const videoUrls = React.useMemo(
-    () => extractVideoUrls(adventure.content_list || []),
-    [adventure.content_list]
-  );
-  useVideoPreloader(videoUrls);
 
   // Responsive card positions based on screen width
   const { width: screenWidth } = Dimensions.get('window');
