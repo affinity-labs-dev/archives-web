@@ -112,7 +112,30 @@ export default function OnboardingVideo2Screen() {
       // Sign out if user has a stale session (e.g., reinstalled app but Keychain persisted)
       // This ensures users go through proper auth flow after onboarding
       if (isSignedIn) {
-        await signOut()
+        // AFF-151: Track stale session detection — this is a suspected "stealth sign-out" path
+        const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era'))
+
+        analyticsService.trackUserSessionOut({
+          trigger: 'stale_session_onboarding',
+          session_duration_seconds: null,
+          had_selected_era: hadSelectedEra,
+        })
+
+        let signOutResult: 'success' | 'error' = 'success'
+        let signOutError: string | undefined
+        try {
+          await signOut()
+        } catch (err) {
+          signOutResult = 'error'
+          signOutError = err instanceof Error ? err.message : String(err)
+        }
+
+        analyticsService.trackOnboardingStaleSession({
+          user_id: null, // already signed out at this point
+          had_selected_era: hadSelectedEra,
+          sign_out_result: signOutResult,
+          error_message: signOutError,
+        })
       }
 
       // Mark both videos as viewed

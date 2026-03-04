@@ -102,6 +102,38 @@ interface AuthScreenExitedEvent {
   mode: 'signin' | 'signup';
 }
 
+// ==================== SESSION TELEMETRY INTERFACES (AFF-151) ====================
+
+export type SessionOutTrigger = 'manual_profile' | 'stale_session_onboarding' | 'clerk_session_ended' | 'account_deleted';
+
+interface UserSessionOutEvent {
+  trigger: SessionOutTrigger;
+  session_duration_seconds: number | null;
+  had_selected_era: boolean;
+}
+
+interface AuthStateChangeEvent {
+  previous_state: 'signed_in' | 'signed_out' | 'unknown';
+  new_state: 'signed_in' | 'signed_out';
+  user_id: string | null;
+  had_selected_era: boolean;
+  app_state: string;
+}
+
+interface TokenCacheEvent {
+  type: 'read_null' | 'read_error' | 'write_error' | 'clear_error';
+  key: string;
+  error_message?: string;
+  platform: string;
+}
+
+interface OnboardingStaleSessionEvent {
+  user_id: string | null;
+  had_selected_era: boolean;
+  sign_out_result: 'success' | 'error';
+  error_message?: string;
+}
+
 interface VideoProgressEvent {
   video_name: string;
   screen: string;
@@ -642,6 +674,76 @@ class AnalyticsService {
 
     this.posthog?.capture('auth_screen_exited', event);
     console.log('📊 [Analytics] Auth Screen Exited:', event);
+  }
+
+  // ==================== SESSION TELEMETRY (AFF-151) ====================
+
+  /**
+   * Track user session end — fires BEFORE posthog.reset() so the event is attributed to the user.
+   * Call this at every sign-out path, then call reset() separately.
+   */
+  trackUserSessionOut(data: UserSessionOutEvent) {
+    const sessionDuration = this.sessionStartTime
+      ? Math.floor((Date.now() - this.sessionStartTime) / 1000)
+      : null;
+
+    const event = {
+      ...this.getBaseProperties(),
+      trigger: data.trigger,
+      session_duration_seconds: data.session_duration_seconds ?? sessionDuration,
+      had_selected_era: data.had_selected_era,
+    };
+
+    this.posthog?.capture('user_session_out', event);
+    this.trackToCustomerIO('user_session_out', event);
+    console.log('📊 [Analytics] User Session Out:', event);
+  }
+
+  /**
+   * Track auth state transitions (signed_in ↔ signed_out) for full timeline visibility.
+   */
+  trackAuthStateChange(data: AuthStateChangeEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('auth_state_change', event);
+    console.log('📊 [Analytics] Auth State Change:', event);
+  }
+
+  /**
+   * Track token cache events (errors + null reads) from ClerkTokenCache.
+   * These are buffered and flushed after PostHog initializes.
+   */
+  trackTokenCacheEvent(data: TokenCacheEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('token_cache_event', event);
+    console.log('📊 [Analytics] Token Cache Event:', event);
+  }
+
+  /**
+   * Track when onboarding-video-2 detects a stale signed-in session and forces sign-out.
+   */
+  trackOnboardingStaleSession(data: OnboardingStaleSessionEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('onboarding_stale_session_detected', event);
+    console.log('📊 [Analytics] Onboarding Stale Session Detected:', event);
+  }
+
+  /**
+   * Getter for session start time (used by callers to compute session_duration_seconds).
+   */
+  getSessionStartTime(): number | null {
+    return this.sessionStartTime;
   }
 
   // ==================== LESSON EVENTS ====================
