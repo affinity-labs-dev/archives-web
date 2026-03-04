@@ -88,8 +88,8 @@ function needsWebSearch(query: string): boolean {
 
 class AIService {
   private ai: GoogleGenAI | null = null;
-  // Text model for chat and quiz explanations
-  private textModel = 'gemini-3-pro-preview';
+  // Flash model for all text operations (chat, quiz, RAG, image analysis)
+  private textModel = 'gemini-3-flash-preview';
   // Image model for generating historical images
   private imageModel = 'gemini-3-pro-image-preview';
 
@@ -126,7 +126,7 @@ class AIService {
       console.log('🤖 [AIService] Requesting explanation from Gemini...');
       console.log('📝 Question:', request.questionText);
 
-      // Call Gemini API using SDK (text model for explanations)
+      // Call Gemini API using SDK (Flash model for explanations)
       // Note: Gemini 3 uses dynamic thinking by default (high), which consumes tokens
       // Setting thinkingLevel to "low" ensures tokens are used for output, not internal reasoning
       const response = await this.ai.models.generateContent({
@@ -1069,7 +1069,7 @@ Generate the edited image.`;
 
       // Call Gemini API with multimodal input (text + image)
       const response = await this.ai.models.generateContent({
-        model: this.textModel, // Text model supports vision
+        model: this.textModel, // Supports vision
         contents: [
           {
             parts: [

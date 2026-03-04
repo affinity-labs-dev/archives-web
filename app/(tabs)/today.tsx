@@ -1763,7 +1763,7 @@ export default function TodayScreen() {
               {/* Content */}
               <View style={themeStyles.cardWatchContent}>
                 <View style={themeStyles.cardHeader}>
-                  {/* Green Watch button on LEFT when collapsed, Title when expanded */}
+                  {/* Green Start button on LEFT when collapsed, Title when expanded */}
                   {!expandedCard || expandedCard !== "watch" ? (
                     <TouchableOpacity
                       style={themeStyles.cardWatchButton}
@@ -1784,7 +1784,7 @@ export default function TodayScreen() {
                         color="#FFFFFF"
                         style={{ marginRight: 6 }}
                       />
-                      <Text style={themeStyles.cardWatchButtonText}>Watch</Text>
+                      <Text style={themeStyles.cardWatchButtonText}>Start</Text>
                     </TouchableOpacity>
                   ) : (
                     <Text
@@ -1849,7 +1849,7 @@ export default function TodayScreen() {
                       color="#FFFFFF"
                       style={{ marginRight: 6 }}
                     />
-                    <Text style={themeStyles.cardWatchButtonText}>Watch</Text>
+                    <Text style={themeStyles.cardWatchButtonText}>Start</Text>
                   </TouchableOpacity>
                 </Animated.View>
               </View>
