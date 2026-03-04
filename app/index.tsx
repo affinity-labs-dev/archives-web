@@ -5,6 +5,7 @@ import { useUser } from '@clerk/clerk-expo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { usePostHog } from 'posthog-react-native'
 import { Platform } from 'react-native'
+import * as Sentry from '@sentry/react-native'
 import LoadingScreen from '@/components/LoadingScreen'
 import { analyticsService } from '@/services/AnalyticsService'
 
@@ -43,15 +44,27 @@ export default function Index() {
       // Check if user has completed onboarding
       const hasSelectedEra = await AsyncStorage.getItem('selected_era')
 
-      // AFF-151: Track routing decision through analytics (visible in PostHog)
+      // AFF-151: Track routing decision — uses Sentry breadcrumb as fallback since
+      // PostHog may not be initialized yet (especially on iOS where ATT is required first).
+      // analyticsService.trackAuthStateChange already writes a Sentry breadcrumb internally.
       const route = (isSignedIn && hasSelectedEra) ? '/(tabs)' : '/onboarding-video'
-      analyticsService.trackAuthStateChange({
-        previous_state: 'unknown',
-        new_state: isSignedIn ? 'signed_in' : 'signed_out',
+      const newState: 'signed_in' | 'signed_out' = isSignedIn ? 'signed_in' : 'signed_out'
+      const routingData = {
+        previous_state: 'unknown' as const,
+        new_state: newState,
         user_id: null,
         had_selected_era: !!hasSelectedEra,
         app_state: `routing_to:${route}`,
+      }
+
+      // Sentry breadcrumb is always captured (even pre-PostHog), PostHog event is best-effort
+      Sentry.addBreadcrumb({
+        category: 'navigation',
+        message: `App routing decision: ${route}`,
+        level: 'info',
+        data: routingData,
       })
+      analyticsService.trackAuthStateChange(routingData)
 
       console.log('🔑 [Index] Auth check:', {
         isSignedIn,

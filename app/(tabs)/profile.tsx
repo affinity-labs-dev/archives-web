@@ -439,6 +439,9 @@ export default function ProfileTab() {
         had_selected_era: hadSelectedEra,
       })
 
+      // AFF-151: Prevent _layout.tsx from firing a duplicate clerk_session_ended event
+      analyticsService.manualSignOutInProgress = true
+
       // Clear ALL AsyncStorage to prevent any data leakage between accounts
       await AsyncStorage.clear()
       console.log('✅ All local data cleared')
@@ -557,6 +560,9 @@ export default function ProfileTab() {
                 session_duration_seconds: null,
                 had_selected_era: hadSelectedEra,
               })
+
+              // AFF-151: Prevent _layout.tsx from firing a duplicate clerk_session_ended event
+              analyticsService.manualSignOutInProgress = true
 
               // Track account deletion event BEFORE clearing data
               analyticsService.trackUserAccountDeleted({
