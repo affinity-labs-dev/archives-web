@@ -1,0 +1,23 @@
+diff --git a/node_modules/expo-video/ios/VideoPlayer.swift b/node_modules/expo-video/ios/VideoPlayer.swift
+index 847500d..3f96978 100644
+--- a/node_modules/expo-video/ios/VideoPlayer.swift
++++ b/node_modules/expo-video/ios/VideoPlayer.swift
+@@ -416,7 +416,17 @@ internal final class VideoPlayer: SharedRef<AVPlayer>, Hashable, VideoPlayerObse
+ 
+   func safeEmit(event: String, payload: Record? = nil) {
+     if self.appContext != nil {
+-      self.emit(event: event, arguments: payload?.toDictionary(appContext: appContext))
++      // Wrap toDictionary in ObjC exception handler to prevent crashes from
++      // ExpoModulesCore Record serialization bugs (e.g. VideoTrack fieldsOf crash)
++      var arguments: [String: Any]?
++      do {
++        try EXUtilities.catchException {
++          arguments = payload?.toDictionary(appContext: self.appContext)
++        }
++      } catch {
++        return
++      }
++      self.emit(event: event, arguments: arguments)
+     }
+   }
+ 
