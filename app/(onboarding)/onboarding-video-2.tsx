@@ -113,7 +113,9 @@ export default function OnboardingVideo2Screen() {
       // This ensures users go through proper auth flow after onboarding
       if (isSignedIn) {
         // AFF-151: Track stale session detection — this is a suspected "stealth sign-out" path
+        console.warn('🔑 [OnboardingVideo2] Stale session detected! User is signed in during onboarding — forcing sign-out')
         const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era'))
+        console.log('🔑 [OnboardingVideo2] had_selected_era:', hadSelectedEra)
 
         analyticsService.trackUserSessionOut({
           trigger: 'stale_session_onboarding',
