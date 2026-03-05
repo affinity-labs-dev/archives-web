@@ -6,7 +6,7 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
-import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
+import { useBackgroundMusicV2 } from "@/hooks/useBackgroundMusicV2";
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import {
   Animated,
@@ -178,7 +178,7 @@ export default function VideoCarouselLesson({
   const cardTranslateY = useRef(new Animated.Value(0)).current;
 
   // Background music hook - Auto-play immediately if URL exists
-  const backgroundMusic = useBackgroundMusic(
+  const backgroundMusic = useBackgroundMusicV2(
     contentItem.background_music_url ? { uri: contentItem.background_music_url } : null,
     { volume: 0.5, shouldLoop: true }
   );
