@@ -23,7 +23,8 @@ export const useBackgroundMusicV2 = (
   const { volume = 0.5, shouldLoop = true } = options;
 
   const soundRef = useRef<Sound | null>(null);
-  const generationRef = useRef(0); // Increments on each new sound to invalidate stale callbacks
+  const uriRef = useRef<string | null>(null);
+  const generationRef = useRef(0);
   const backgroundMusicEnabledRef = useRef(backgroundMusicEnabled);
   const shouldLoopRef = useRef(shouldLoop);
   const volumeRef = useRef(volume);
@@ -36,57 +37,124 @@ export const useBackgroundMusicV2 = (
   shouldLoopRef.current = shouldLoop;
   volumeRef.current = volume;
 
-  // Play sound with manual looping for Android remote URL reliability
-  const playSoundLoop = useCallback((sound: Sound, gen: number) => {
-    sound.play((success) => {
-      // Stale callback from a previous sound instance — ignore
-      if (gen !== generationRef.current) return;
-
-      if (!success) {
-        console.error('🎵 Playback finished with error, attempting restart');
+  // Recreate sound from scratch (used when MediaPlayer enters error state)
+  const recreateAndPlay = useCallback((uri: string, gen: number) => {
+    console.log('🎵 [BGMusic] Recreating sound from scratch...', { gen });
+    const newSound = new Sound(uri, undefined, (error) => {
+      if (gen !== generationRef.current) {
+        console.log('🎵 [BGMusic] Stale recreate callback, ignoring', { gen, current: generationRef.current });
+        newSound.release();
+        return;
       }
+      if (error) {
+        console.error('🎵 [BGMusic] Failed to recreate sound:', error);
+        setIsPlaying(false);
+        return;
+      }
+      // Replace old sound ref
+      const oldSound = soundRef.current;
+      if (oldSound) {
+        try { oldSound.stop(); oldSound.release(); } catch (_e) { /* already released */ }
+      }
+      soundRef.current = newSound;
+      newSound.setVolume(volumeRef.current);
+      if (Platform.OS === 'ios') {
+        newSound.setNumberOfLoops(shouldLoopRef.current ? -1 : 0);
+      }
+      console.log('🎵 [BGMusic] Sound recreated successfully, starting playback');
+      startPlayLoop(newSound, gen);
+    });
+  }, []);
 
-      // If still supposed to loop, seek to start and play again
-      if (shouldLoopRef.current && backgroundMusicEnabledRef.current) {
-        sound.setCurrentTime(0);
-        // Small delay to let Android MediaPlayer reset after completion
-        setTimeout(() => {
-          if (gen !== generationRef.current) return;
-          playSoundLoop(sound, gen);
-        }, Platform.OS === 'android' ? 50 : 0);
+  // Core play loop - handles manual looping on Android
+  const startPlayLoop = useCallback((sound: Sound, gen: number) => {
+    console.log('🎵 [BGMusic] startPlayLoop called', { gen, current: generationRef.current });
+    sound.play((success) => {
+      if (gen !== generationRef.current) {
+        console.log('🎵 [BGMusic] Stale play callback, ignoring', { gen, current: generationRef.current });
         return;
       }
 
-      setIsPlaying(false);
+      console.log('🎵 [BGMusic] Play callback fired', {
+        success,
+        shouldLoop: shouldLoopRef.current,
+        musicEnabled: backgroundMusicEnabledRef.current,
+        gen,
+      });
+
+      if (!shouldLoopRef.current || !backgroundMusicEnabledRef.current) {
+        console.log('🎵 [BGMusic] Not looping or music disabled, stopping');
+        setIsPlaying(false);
+        return;
+      }
+
+      // Need to loop - try restart
+      if (success) {
+        // Normal completion, just seek and replay
+        console.log('🎵 [BGMusic] Normal loop completion, restarting...');
+        sound.setCurrentTime(0);
+        startPlayLoop(sound, gen);
+      } else {
+        // Playback failed (audio focus loss, decoder error, etc.)
+        console.log('🎵 [BGMusic] Playback failed, attempting simple restart...');
+        sound.setCurrentTime(0);
+        sound.play((retrySuccess) => {
+          if (gen !== generationRef.current) return;
+
+          if (retrySuccess) {
+            console.log('🎵 [BGMusic] Simple restart succeeded');
+            startPlayLoop(sound, gen);
+          } else {
+            // MediaPlayer is broken — recreate from scratch
+            const uri = uriRef.current;
+            if (uri) {
+              console.log('🎵 [BGMusic] Simple restart failed, MediaPlayer broken. Recreating...');
+              recreateAndPlay(uri, gen);
+            } else {
+              console.log('🎵 [BGMusic] No URI available, giving up');
+              setIsPlaying(false);
+            }
+          }
+        });
+      }
     });
-  }, []);
+  }, [recreateAndPlay]);
 
   // Load audio when source changes
   useEffect(() => {
     if (!audioSource?.uri) {
+      console.log('🎵 [BGMusic] No audio source, skipping');
       setIsLoaded(false);
       setIsPlaying(false);
       setIsLoading(false);
       return;
     }
 
-    // Increment generation to invalidate any callbacks from previous sound
     const gen = ++generationRef.current;
+    uriRef.current = audioSource.uri;
     setIsLoading(true);
+    console.log('🎵 [BGMusic] Loading sound...', { uri: audioSource.uri.substring(audioSource.uri.lastIndexOf('/') + 1), gen });
 
     const sound = new Sound(audioSource.uri, undefined, (error) => {
-      // Stale load callback
-      if (gen !== generationRef.current) return;
+      if (gen !== generationRef.current) {
+        console.log('🎵 [BGMusic] Stale load callback, ignoring', { gen, current: generationRef.current });
+        return;
+      }
 
       if (error) {
-        console.error('🎵 Failed to load sound:', error);
+        console.error('🎵 [BGMusic] Failed to load sound:', error);
         setIsLoading(false);
         return;
       }
 
+      console.log('🎵 [BGMusic] Sound loaded successfully', {
+        duration: sound.getDuration(),
+        musicEnabled: backgroundMusicEnabledRef.current,
+        gen,
+      });
+
       soundRef.current = sound;
       sound.setVolume(volumeRef.current);
-      // Use native looping on iOS (reliable), manual looping on Android
       if (Platform.OS === 'ios') {
         sound.setNumberOfLoops(shouldLoopRef.current ? -1 : 0);
       }
@@ -94,21 +162,25 @@ export const useBackgroundMusicV2 = (
       setIsLoading(false);
 
       if (backgroundMusicEnabledRef.current) {
-        playSoundLoop(sound, gen);
+        console.log('🎵 [BGMusic] Starting initial playback');
+        startPlayLoop(sound, gen);
         setIsPlaying(true);
+      } else {
+        console.log('🎵 [BGMusic] Music disabled, not starting playback');
       }
     });
 
     return () => {
-      // Set generation past this effect's gen so stale callbacks are ignored
+      console.log('🎵 [BGMusic] Cleanup: stopping and releasing sound', { gen });
       generationRef.current = gen + 1;
+      uriRef.current = null;
       sound.stop();
       sound.release();
       soundRef.current = null;
       setIsLoaded(false);
       setIsPlaying(false);
     };
-  }, [audioSource?.uri, playSoundLoop]);
+  }, [audioSource?.uri, startPlayLoop]);
 
   // React to backgroundMusicEnabled preference changes
   useEffect(() => {
@@ -116,16 +188,18 @@ export const useBackgroundMusicV2 = (
     if (!sound || !isLoaded) return;
 
     if (backgroundMusicEnabled) {
+      console.log('🎵 [BGMusic] Music preference enabled, resuming');
       sound.setVolume(volumeRef.current);
       if (!isPlaying) {
-        playSoundLoop(sound, generationRef.current);
+        startPlayLoop(sound, generationRef.current);
         setIsPlaying(true);
       }
     } else {
+      console.log('🎵 [BGMusic] Music preference disabled, pausing');
       sound.pause();
       setIsPlaying(false);
     }
-  }, [backgroundMusicEnabled, isLoaded, isPlaying, playSoundLoop]);
+  }, [backgroundMusicEnabled, isLoaded, isPlaying, startPlayLoop]);
 
   // React to volume changes
   useEffect(() => {
@@ -137,14 +211,15 @@ export const useBackgroundMusicV2 = (
   const play = useCallback(() => {
     const sound = soundRef.current;
     if (!sound || !isLoaded || !backgroundMusicEnabled || isPlaying) return;
-    playSoundLoop(sound, generationRef.current);
+    console.log('🎵 [BGMusic] Manual play() called');
+    startPlayLoop(sound, generationRef.current);
     setIsPlaying(true);
-  }, [isLoaded, backgroundMusicEnabled, isPlaying, playSoundLoop]);
+  }, [isLoaded, backgroundMusicEnabled, isPlaying, startPlayLoop]);
 
   const stop = useCallback(() => {
     const sound = soundRef.current;
     if (!sound || !isLoaded) return;
-    // Increment generation to stop any pending restart loops
+    console.log('🎵 [BGMusic] Manual stop() called');
     generationRef.current++;
     sound.pause();
     setIsPlaying(false);
@@ -163,6 +238,6 @@ export const useBackgroundMusicV2 = (
     play,
     stop,
     setVolume,
-    loadAudio: () => {}, // No-op for backwards compatibility
+    loadAudio: () => {},
   };
 };

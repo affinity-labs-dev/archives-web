@@ -82,11 +82,11 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
   }), [videoUrl]);
 
   const player = useVideoPlayer(videoSource, (player) => {
-    // Always set loop - must be outside isActive check
     player.loop = true;
-    // Mute video audio — background music provides the audio for carousel lessons
     player.muted = true;
-    // Prevent video from stealing audio focus from background music
+    // CRITICAL: mixWithOthers prevents ExoPlayer from requesting audio focus
+    // Without this, every play() call steals focus from react-native-sound
+    player.audioMixingMode = 'mixWithOthers';
     player.showNowPlayingNotification = false;
     if (isActive) {
       player.play();
