@@ -509,6 +509,14 @@ export default function Quiz({
       .reduce((sum: number, m: any) => sum + ((m.quizCorrectAnswers || 0) * 10), 0);
     console.log(`📊 Old Era XP (${eraId} before quiz): ${oldEraXP}`);
 
+    // ✅ Check if adventure was already complete BEFORE this quiz completion
+    // This prevents celebration from showing when user retakes quizzes or completes modules in already-finished adventures
+    const adventureModulesBeforeQuiz = newModules.filter((m: any) =>
+      m.adventureId === adventureId && m.quizCompleted === true
+    );
+    const wasAlreadyComplete = adventureModulesBeforeQuiz.length >= (adventureData?.totalModules || 5);
+    console.log(`🔍 [Quiz] Adventure ${adventureId} was already complete BEFORE this quiz: ${wasAlreadyComplete} (${adventureModulesBeforeQuiz.length}/${adventureData?.totalModules || 5} modules)`);
+
     // Get existing module from React state (SOURCE OF TRUTH)
     // This avoids race conditions with AsyncStorage reads
     const existingModule = getProgressByStringIds(adventureId, moduleId);
@@ -585,6 +593,7 @@ export default function Quiz({
       // Use FRESH data from AsyncStorage (not stale props)
       adventureModulesCompleted: actualCompletedModules,
       adventureTotalModules: actualTotalModules,
+      wasAlreadyComplete, // ✅ Prevents celebration repeat on already-complete adventures
       adventureData: adventureData ? {
         title: adventureData.title,
         subtitle: adventureData.subtitle,

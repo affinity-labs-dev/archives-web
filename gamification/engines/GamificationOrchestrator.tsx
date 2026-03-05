@@ -238,6 +238,7 @@ export interface QuizCompleteInput {
   newEraXP: number; // Era-specific XP after this quiz
   adventureModulesCompleted: number; // How many modules done in this adventure
   adventureTotalModules: number; // Total modules in this adventure
+  wasAlreadyComplete?: boolean; // ✅ If true, adventure was complete before this quiz (skip celebration)
   adventureData?: {
     title: string;
     subtitle?: string;
@@ -412,7 +413,9 @@ async function hasSeenXPMilestone(milestoneXP: number, eraId?: string): Promise<
 }
 
 /**
- * Check if user has already seen adventure complete celebration.
+ * Check if user has already seen adventure complete celebration (FAILSAFE).
+ * Primary check: wasAlreadyComplete in Quiz.tsx (uses cloud-synced progress data)
+ * Failsafe check: This AsyncStorage flag (survives cloud sync failures)
  */
 async function hasSeenAdventureComplete(adventureId: string): Promise<boolean> {
   try {
@@ -420,7 +423,7 @@ async function hasSeenAdventureComplete(adventureId: string): Promise<boolean> {
     const seen = await AsyncStorage.getItem(key);
     return seen === 'true';
   } catch (error) {
-    console.error('❌ [Orchestrator] Error checking adventure complete:', error);
+    console.error('❌ [Orchestrator] Error checking adventure complete failsafe:', error);
     return false;
   }
 }
@@ -1259,6 +1262,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       newEraXP,
       adventureModulesCompleted,
       adventureTotalModules,
+      wasAlreadyComplete = false, // ✅ Default to false if not provided
       adventureData,
     } = input;
 
@@ -1388,14 +1392,17 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     // --- Check 1: Adventure Complete ---
     const isAdventureComplete = adventureModulesCompleted >= adventureTotalModules;
 
-    if (isAdventureComplete) {
-      try {
-        const adventures = await getAdventures(eraId);
-        const adventure = adventures.find(a => a.readable_id === adventureId);
+    // ✅ Two-layer defense: Primary check (cloud data) + Failsafe check (local flag)
+    if (isAdventureComplete && !wasAlreadyComplete) {
+      // Double-check with local failsafe flag (catches cloud sync failures)
+      const localFlag = await hasSeenAdventureComplete(adventureId);
 
-        if (adventure) {
-          const alreadySeen = await hasSeenAdventureComplete(adventureId);
-          if (!alreadySeen) {
+      if (!localFlag) {
+        try {
+          const adventures = await getAdventures(eraId);
+          const adventure = adventures.find(a => a.readable_id === adventureId);
+
+          if (adventure) {
             newCelebrations.push({
               type: 'ADVENTURE_COMPLETE',
               adventureId,
@@ -1409,12 +1416,16 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
               totalBadges: adventureData?.totalBadges || 3,  // ✅ Default to 3 badges (matches component default)
               eraId,
             });
-            console.log(`🎉 [Orchestrator] Adventure complete queued: ${adventureId} (${adventureModulesCompleted}/${adventureTotalModules})`);
+            console.log(`🎉 [Orchestrator] Adventure complete queued: ${adventureId} (${adventureModulesCompleted}/${adventureTotalModules}) - First completion!`);
           }
+        } catch (error) {
+          console.error(`❌ [Orchestrator] Error fetching adventure data:`, error);
         }
-      } catch (error) {
-        console.error(`❌ [Orchestrator] Error fetching adventure data:`, error);
+      } else {
+        console.log(`⏭️ [Orchestrator] Failsafe flag prevented repeat celebration (cloud data may be out of sync): ${adventureId}`);
       }
+    } else if (isAdventureComplete && wasAlreadyComplete) {
+      console.log(`⏭️ [Orchestrator] Adventure ${adventureId} already complete - skipping celebration`);
     }
 
     // --- Check 2: XP Milestone ---
@@ -1769,6 +1780,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         >
           {currentCelebration?.type === 'ADVENTURE_COMPLETE' && (
             <AdventureCompleteScreen
+              adventureId={currentCelebration.adventureId}
               adventureTitle={currentCelebration.adventureTitle}
               adventureSubtitle={currentCelebration.adventureSubtitle}
               adventureDescription={currentCelebration.adventureDescription}

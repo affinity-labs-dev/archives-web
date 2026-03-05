@@ -29,6 +29,7 @@ interface AdventureCompleteScreenProps {
   adventure?: Adventure;
 
   // Option 2: Pass individual props (overrides adventure object)
+  adventureId?: string; // Adventure readable_id (REQUIRED for tracking flag)
   adventureSubtitle?: string; // Small title (e.g., "The New Capital")
   adventureTitle?: string; // Large title (e.g., "Damascus")
   adventureDescription?: string; // Description after badge
@@ -115,6 +116,7 @@ const getLineSpacing = (firstLine: string): number => {
 
 export default function AdventureCompleteScreen({
   adventure,
+  adventureId: propAdventureId,
   adventureSubtitle: propSubtitle,
   adventureTitle: propTitle,
   adventureDescription: propDescription,
@@ -209,7 +211,10 @@ export default function AdventureCompleteScreen({
   const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // Track continue button click
+    // Get adventure ID from prop or adventure object
+    const adventureId = propAdventureId || adventure?.readable_id;
+
+    // Track continue button click (best effort - uses adventure object if available)
     if (adventure?.readable_id) {
       analyticsService.trackCustomEvent('adventure_complete_continue', {
         adventure_id: adventure.readable_id,
@@ -220,15 +225,25 @@ export default function AdventureCompleteScreen({
         // $current_url auto-captured by PostHog
       });
       console.log(`📊 [Analytics] Adventure Complete Continue: ${adventure.readable_id}`);
+    } else if (adventureId) {
+      // Fallback: Track with just adventureId if full object not available
+      analyticsService.trackCustomEvent('adventure_complete_continue', {
+        adventure_id: adventureId,
+      });
+      console.log(`📊 [Analytics] Adventure Complete Continue (minimal): ${adventureId}`);
     }
 
-    // Save flag to mark this adventure complete screen as seen
-    if (adventure?.readable_id) {
+    // ✅ FAILSAFE: Save local flag for edge case protection
+    // Primary protection: wasAlreadyComplete check in Quiz.tsx (uses cloud-synced progress data)
+    // Failsafe protection: AsyncStorage flag (survives cloud sync failures before reinstall)
+    // This defends against: slow internet → cloud sync fails → user reinstalls app
+    if (adventureId) {
       try {
-        const adventureCompleteKey = ADVENTURE_KEYS.getAdventureCompleteKey(adventure.readable_id);
+        const adventureCompleteKey = ADVENTURE_KEYS.getAdventureCompleteKey(adventureId);
         await AsyncStorage.setItem(adventureCompleteKey, 'true');
+        console.log(`🔒 [Failsafe] Saved local celebration flag for ${adventureId}`);
       } catch (error) {
-        console.error('❌ Error saving adventure complete flag:', error);
+        console.error('❌ Error saving failsafe flag:', error);
       }
     }
 
