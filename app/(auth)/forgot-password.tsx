@@ -108,6 +108,7 @@ export default function ForgotPasswordScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder="basel@archiveszone.app"
+                    placeholderTextColor={ArchivesTheme.colors.mutedNavy + '99'}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
