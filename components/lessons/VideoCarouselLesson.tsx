@@ -83,6 +83,10 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
   const player = useVideoPlayer(videoSource, (player) => {
     // Always set loop - must be outside isActive check
     player.loop = true;
+    // Mute video audio — background music provides the audio for carousel lessons
+    player.muted = true;
+    // Prevent video from stealing audio focus from background music
+    player.showNowPlayingNotification = false;
     if (isActive) {
       player.play();
     } else {

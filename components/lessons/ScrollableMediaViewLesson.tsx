@@ -36,6 +36,9 @@ interface VideoBlockProps {
 function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockProps) {
   const player = useVideoPlayer({ uri: url }, (player) => {
     player.loop = loop;
+    // Mute video — background music provides audio for this lesson type
+    player.muted = true;
+    player.showNowPlayingNotification = false;
     // Note: autoplay handled in effect to ensure proper initialization
   });
 
