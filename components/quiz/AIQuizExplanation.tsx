@@ -7,7 +7,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import { aiService } from '@/gamification';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { analyticsService } from '@/services/AnalyticsService';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
@@ -385,7 +385,7 @@ export default function AIQuizExplanation({
               >
                 {/* Lock badge */}
                 <View style={styles.lockBadge}>
-                  <Text style={styles.lockEmoji}>🔒</Text>
+                  <MaterialIcons name="lock" size={24} color={ArchivesTheme.colors.persianOrange} />
                 </View>
 
                 <Text style={styles.paywallTitle}>Unlock All Explanations</Text>
@@ -411,14 +411,9 @@ export default function AIQuizExplanation({
                   onPress={handleShowPaywall}
                   activeOpacity={0.85}
                 >
-                  <LinearGradient
-                    colors={[ArchivesTheme.colors.persianOrange, '#FF8C42']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.ctaGradient}
-                  >
+                  <View style={styles.ctaContent}>
                     <Text style={styles.ctaText}>Upgrade to Premium</Text>
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -579,9 +574,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-  lockEmoji: {
-    fontSize: 22,
-  },
   paywallTitle: {
     fontFamily: 'DM Sans',
     fontSize: 18,
@@ -620,9 +612,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 10,
   },
-  ctaGradient: {
+  ctaContent: {
     paddingVertical: 15,
     alignItems: 'center',
+    backgroundColor: ArchivesTheme.colors.persianOrange,
   },
   ctaText: {
     fontFamily: 'DM Sans',
