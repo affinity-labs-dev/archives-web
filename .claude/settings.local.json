@@ -1,7 +1,45 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /Users/huypham/Desktop/affinity/Archives_Expo/app/\\\\\\(tabs\\\\\\)/today.tsx)",
+      "Bash(grep -n \"VideoTrack\\\\|toDictionary\\\\|fieldsOf\" node_modules/expo-video/ios/Records/*.swift)",
+      "Bash(grep -n \"VideoSize\\\\|struct VideoSize\" node_modules/expo-video/ios/Records/*.swift)",
+      "Bash(npm view expo-video versions --json)",
+      "Bash(python3 -c \"import sys,json; v=json.load\\(sys.stdin\\); [print\\(x\\) for x in v[-10:]]\")",
+      "Bash(npm view expo-video@3 versions --json)",
+      "Bash(python3 -c \"import sys,json; v=json.load\\(sys.stdin\\); [print\\(x\\) for x in v]\")",
+      "Bash(python3 -c \"import sys,json; v=json.load\\(sys.stdin\\); [print\\(x\\) for x in v if not ''canary'' in x and x.startswith\\(''3.''\\)]\")",
+      "Bash(python3 -c \"import sys,json; v=json.load\\(sys.stdin\\); [print\\(x\\) for x in v if ''canary'' not in x and x.startswith\\(''3.''\\)]\")",
+      "Bash(npm view expo-video@3.0.16 --json)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\(''gitHead'',''N/A''\\)\\)\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Read(//private/tmp/package/ios/Records/**)",
+      "Read(//private/tmp/package/ios/**)",
+      "Bash(npx patch-package expo-video --exclude 'nothing')",
+      "Bash(npx patch-package)",
+      "Bash(grep -n \"useAudioPlayer\\\\|export function\" node_modules/expo-audio/src/*.ts node_modules/expo-audio/src/*.tsx)",
+      "Bash(npm run lint)",
+      "Bash(npx patch-package expo-video)",
+      "Read(//app\\\\/_layout\\\\.tsx/{found=1} found{print} /^$/**)",
+      "Read(//app\\\\/index\\\\.tsx/{found=1} found{print} /^$/**)",
+      "Read(//services\\\\/AnalyticsService\\\\.ts/{found=1} found{print} /^$/**)",
+      "mcp__linear-server__list_teams",
+      "mcp__linear-server__list_cycles",
+      "mcp__linear-server__list_issues",
+      "Bash(python3 -c \":*)",
+      "Bash(head -10 /Users/huypham/Desktop/affinity/Archives_Expo/app/\\\\\\(tabs\\\\\\)/today.tsx)",
+      "Bash(npx expo lint -- --max-warnings=0 app/\\\\\\(tabs\\\\\\)/today.tsx)",
+      "Bash(npx expo lint -- app/\\\\\\(tabs\\\\\\)/today.tsx)",
+      "Bash(npx expo lint -- --format compact app/\\\\\\(tabs\\\\\\)/today.tsx)",
+      "Bash(npx expo lint app/\\\\\\(tabs\\\\\\)/today.tsx)",
+      "mcp__linear-server__get_issue",
+      "WebSearch",
+      "Bash(npx expo install react-native-sound)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "customerio"
   ],
-  "outputStyle": "Explanatory",
-  "enableAllProjectMcpServers": true
+  "outputStyle": "Explanatory"
 }

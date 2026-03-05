@@ -23,6 +23,7 @@ export const useBackgroundMusicV2 = (
 
   const soundRef = useRef<Sound | null>(null);
   const isPlayingRef = useRef(false);
+  const stoppedRef = useRef(false); // Only true when explicitly stopped by user/unmount
   const volumeRef = useRef(volume);
   const shouldLoopRef = useRef(shouldLoop);
   const backgroundMusicEnabledRef = useRef(backgroundMusicEnabled);
@@ -35,19 +36,33 @@ export const useBackgroundMusicV2 = (
   shouldLoopRef.current = shouldLoop;
   backgroundMusicEnabledRef.current = backgroundMusicEnabled;
 
-  // Helper to start playback
+  // Helper to start playback with auto-restart on unexpected interruption
   const startPlayback = useCallback((sound: Sound) => {
     if (isPlayingRef.current) return;
+    stoppedRef.current = false;
     sound.setNumberOfLoops(shouldLoopRef.current ? -1 : 0);
-    sound.play((success) => {
-      // With loops=-1, this callback only fires on error or manual stop
-      if (!success) {
-        console.error('🎵 Playback failed due to audio decoding errors');
-      }
-      if (!isPlayingRef.current) return;
-      isPlayingRef.current = false;
-      setIsPlaying(false);
-    });
+
+    const playWithRestart = () => {
+      sound.play((success) => {
+        // If we explicitly stopped or component unmounted, do nothing
+        if (stoppedRef.current) return;
+
+        // If looping and playback ended unexpectedly (gesture/audio focus), restart
+        if (shouldLoopRef.current && backgroundMusicEnabledRef.current) {
+          sound.setCurrentTime(0);
+          playWithRestart();
+          return;
+        }
+
+        if (!success) {
+          console.error('🎵 Playback failed due to audio decoding errors');
+        }
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+      });
+    };
+
+    playWithRestart();
     isPlayingRef.current = true;
     setIsPlaying(true);
   }, []);
@@ -82,6 +97,7 @@ export const useBackgroundMusicV2 = (
     });
 
     return () => {
+      stoppedRef.current = true;
       isPlayingRef.current = false;
       sound.stop();
       sound.release();
@@ -100,6 +116,7 @@ export const useBackgroundMusicV2 = (
       sound.setVolume(volumeRef.current);
       startPlayback(sound);
     } else {
+      stoppedRef.current = true;
       isPlayingRef.current = false;
       sound.pause();
       setIsPlaying(false);
@@ -122,6 +139,7 @@ export const useBackgroundMusicV2 = (
   const stop = useCallback(() => {
     const sound = soundRef.current;
     if (!sound || !isLoaded) return;
+    stoppedRef.current = true;
     isPlayingRef.current = false;
     sound.pause();
     setIsPlaying(false);
