@@ -256,6 +256,7 @@ export default function EmailDetailsScreen() {
                         <TextInput
                           style={styles.textInput}
                           placeholder="Basel"
+                          placeholderTextColor={ArchivesTheme.colors.mutedNavy + '99'}
                           value={firstName}
                           onChangeText={setFirstName}
                           autoCapitalize="words"
@@ -271,6 +272,7 @@ export default function EmailDetailsScreen() {
                         <TextInput
                           style={styles.textInput}
                           placeholder="Ghazi"
+                          placeholderTextColor={ArchivesTheme.colors.mutedNavy + '99'}
                           value={lastName}
                           onChangeText={setLastName}
                           autoCapitalize="words"
@@ -289,6 +291,7 @@ export default function EmailDetailsScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="basel@archiveszone.app"
+                      placeholderTextColor={ArchivesTheme.colors.mutedNavy + '99'}
                       value={email}
                       onChangeText={setEmail}
                       keyboardType="email-address"
@@ -313,6 +316,7 @@ export default function EmailDetailsScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="Enter your password"
+                      placeholderTextColor={ArchivesTheme.colors.mutedNavy + '99'}
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry={!showPassword}
@@ -340,6 +344,7 @@ export default function EmailDetailsScreen() {
                       <TextInput
                         style={styles.textInput}
                         placeholder="Confirm your password"
+                        placeholderTextColor={ArchivesTheme.colors.mutedNavy + '99'}
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
                         secureTextEntry={!showConfirmPassword}

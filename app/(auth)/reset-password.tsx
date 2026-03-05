@@ -148,6 +148,7 @@ export default function ResetPasswordScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="Enter 6-digit code"
+                      placeholderTextColor={ArchivesTheme.colors.mutedNavy + '99'}
                       value={code}
                       onChangeText={setCode}
                       keyboardType="number-pad"
@@ -165,6 +166,7 @@ export default function ResetPasswordScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="Enter new password"
+                      placeholderTextColor={ArchivesTheme.colors.mutedNavy + '99'}
                       value={newPassword}
                       onChangeText={setNewPassword}
                       secureTextEntry={!showPassword}
@@ -191,6 +193,7 @@ export default function ResetPasswordScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="Confirm new password"
+                      placeholderTextColor={ArchivesTheme.colors.mutedNavy + '99'}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
                       secureTextEntry={!showConfirmPassword}
