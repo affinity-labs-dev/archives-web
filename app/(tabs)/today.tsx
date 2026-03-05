@@ -6,6 +6,7 @@ import TodayVideoLesson from "@/components/lessons/today/TodayVideoLesson";
 import Quiz from "@/components/quiz/Quiz";
 import type { ContentBlock, ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import { toLocalDateString } from "@/utils/dateUtils";
 import {
   useGamificationOrchestrator,
   useGamifiedProgress,
@@ -83,15 +84,6 @@ const CalendarLockIcon = ({ size = 14 }: { size?: number }) => (
     />
   </Svg>
 );
-
-// Helper: format a Date as "YYYY-MM-DD" in the **local** timezone.
-// Using toISOString() returns UTC which can drift ±1 day for non-UTC timezones.
-function toLocalDateString(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 // ============================================================================
 // TYPES & INTERFACES (from useToday.ts)

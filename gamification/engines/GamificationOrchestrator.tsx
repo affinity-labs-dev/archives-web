@@ -19,6 +19,7 @@
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import { useAdventuresContent } from '@/context/AdventuresContentProvider';
 import { analyticsService } from '@/services/AnalyticsService';
+import { toLocalDateString } from '@/utils/dateUtils';
 import { useUser } from '@clerk/clerk-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -468,7 +469,7 @@ async function markStreakMilestoneSeen(streakDays: number): Promise<void> {
 async function hasShownStreakCelebrationToday(): Promise<boolean> {
   try {
     const lastShown = await AsyncStorage.getItem('streak_celebration_last_shown');
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = toLocalDateString(new Date()); // YYYY-MM-DD
     return lastShown === today;
   } catch (error) {
     console.error('❌ [Orchestrator] Error checking streak celebration:', error);
@@ -481,7 +482,7 @@ async function hasShownStreakCelebrationToday(): Promise<boolean> {
  */
 async function markStreakCelebrationShown(): Promise<void> {
   try {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = toLocalDateString(new Date()); // YYYY-MM-DD
     await AsyncStorage.setItem('streak_celebration_last_shown', today);
     console.log(`✅ [Orchestrator] Streak celebration marked as shown for ${today}`);
   } catch (error) {
@@ -527,7 +528,7 @@ function calculateWeekData(currentStreak: number, newLastActiveDate: string, old
   console.log('   NEW Last Active Date:', newLastActiveDate);
   console.log('   OLD Last Active Date:', oldLastActiveDate);
   console.log('   OLD Streak Count:', oldStreakCount);
-  console.log('   Today:', today.toISOString().split('T')[0]);
+  console.log('   Today:', toLocalDateString(today));
   console.log('   Today Day Number:', todayDay);
 
   // Use NEW lastActiveDate for streak calculation
@@ -553,7 +554,7 @@ function calculateWeekData(currentStreak: number, newLastActiveDate: string, old
     for (let i = 0; i < currentStreak; i++) {
       const streakDate = new Date(newLastActive);
       streakDate.setDate(newLastActive.getDate() - i);
-      streakDates.add(streakDate.toISOString().split('T')[0]);
+      streakDates.add(toLocalDateString(streakDate));
     }
   }
 
@@ -563,7 +564,7 @@ function calculateWeekData(currentStreak: number, newLastActiveDate: string, old
     for (let i = 0; i < oldStreakCount; i++) {
       const streakDate = new Date(oldLastActive);
       streakDate.setDate(oldLastActive.getDate() - i);
-      streakDates.add(streakDate.toISOString().split('T')[0]);
+      streakDates.add(toLocalDateString(streakDate));
     }
   }
 
@@ -572,7 +573,7 @@ function calculateWeekData(currentStreak: number, newLastActiveDate: string, old
     for (let i = 1; i < daysDiff; i++) {
       const missedDate = new Date(oldLastActive);
       missedDate.setDate(oldLastActive.getDate() + i);
-      const missedStr = missedDate.toISOString().split('T')[0];
+      const missedStr = toLocalDateString(missedDate);
       // Only mark as missed if NOT in current streak
       if (!streakDates.has(missedStr)) {
         missedDates.add(missedStr);
@@ -589,8 +590,8 @@ function calculateWeekData(currentStreak: number, newLastActiveDate: string, old
     weekStart.setDate(today.getDate() - todayIndex); // Go to Monday of this week
     const dayDate = new Date(weekStart);
     dayDate.setDate(weekStart.getDate() + index);
-    const dateString = dayDate.toISOString().split('T')[0];
-    const todayString = today.toISOString().split('T')[0];
+    const dateString = toLocalDateString(dayDate);
+    const todayString = toLocalDateString(today);
 
     // Check if this day is part of the streak using the Set (works across months)
     const isInStreak = streakDates.has(dateString);
@@ -673,7 +674,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         return; // Exit early, will be called again when state is actually ready
       }
 
-      const today = new Date().toISOString().split('T')[0]; // ISO format: YYYY-MM-DD
+      const today = toLocalDateString(new Date()); // ISO format: YYYY-MM-DD
 
       // CRITICAL: Load and manage frozen streak data from AsyncStorage (persists across refreshes)
       // This data is used for calendar display - only updates once per day
@@ -709,7 +710,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       }
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0]; // ISO format: YYYY-MM-DD
+      const yesterdayStr = toLocalDateString(yesterday); // ISO format: YYYY-MM-DD
 
       console.log(`📅 [Orchestrator] Date comparison:`);
       console.log(`   Today: ${today}`);
@@ -1279,7 +1280,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     if (eraId !== 'daily_quest') {
       console.log(`📊 [Orchestrator] Checking for streak update (activity-based)...`);
 
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const today = toLocalDateString(new Date()); // YYYY-MM-DD
       const COMPLETION_DATE_KEY = '@last_streak_completion_date';
 
       try {
@@ -1292,7 +1293,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         // Get current streak data from cloud
         const cloudStreak = getCloudStreak();
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const yesterday = toLocalDateString(new Date(Date.now() - 86400000));
 
         let newStreak = 1; // Default: first time or after reset
 
@@ -1513,7 +1514,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const reportTodayComplete = useCallback(async (questDate: string) => {
     console.log(`📊 [Orchestrator] Today screen completed - checking for celebrations`);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalDateString(new Date());
     const COMPLETION_DATE_KEY = '@last_streak_completion_date';
 
     // NOTE: questDate can be today OR a historical date
@@ -1536,7 +1537,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           console.log(`🔥 [Orchestrator] First completion today via Today screen! Incrementing streak...`);
 
         const cloudStreak = getCloudStreak();
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const yesterday = toLocalDateString(new Date(Date.now() - 86400000));
 
         let newStreak = 1;
 
@@ -1628,7 +1629,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0]; // ISO format: YYYY-MM-DD
+    const yesterdayStr = toLocalDateString(yesterday); // ISO format: YYYY-MM-DD
 
     console.log(`🧪 [TEST] Setting lastActiveDate to yesterday (${yesterdayStr}) in Supabase...`);
 
