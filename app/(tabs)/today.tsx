@@ -84,6 +84,15 @@ const CalendarLockIcon = ({ size = 14 }: { size?: number }) => (
   </Svg>
 );
 
+// Helper: format a Date as "YYYY-MM-DD" in the **local** timezone.
+// Using toISOString() returns UTC which can drift ±1 day for non-UTC timezones.
+function toLocalDateString(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 // ============================================================================
 // TYPES & INTERFACES (from useToday.ts)
 // ============================================================================
@@ -176,7 +185,7 @@ function useToday(userId?: string) {
       setError(null);
 
       const today = new Date();
-      const todayDate = today.toISOString().split("T")[0];
+      const todayDate = toLocalDateString(today);
 
       console.log(`🔍 [useToday] Fetching quest for ${todayDate}`);
 
@@ -639,8 +648,8 @@ export default function TodayScreen() {
 
   // Set displayedQuest when todayQuest loads (for current day)
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    const selectedDateStr = selectedDate.toISOString().split("T")[0];
+    const today = toLocalDateString(new Date());
+    const selectedDateStr = toLocalDateString(selectedDate);
 
     if (todayQuest && selectedDateStr === today) {
       setDisplayedQuest(todayQuest);
@@ -766,8 +775,8 @@ export default function TodayScreen() {
 
   // Handle calendar date click
   const handleDateClick = async (date: Date) => {
-    const dateStr = date.toISOString().split("T")[0];
-    const today = new Date().toISOString().split("T")[0];
+    const dateStr = toLocalDateString(date);
+    const today = toLocalDateString(new Date());
     const isPastDate = dateStr < today;
 
     console.log(`📅 [Today] Date clicked: ${dateStr}`);
@@ -963,8 +972,8 @@ export default function TodayScreen() {
     if (!user?.id) return new Set();
 
     try {
-      const startDateStr = startDate.toISOString().split("T")[0];
-      const endDateStr = endDate.toISOString().split("T")[0];
+      const startDateStr = toLocalDateString(startDate);
+      const endDateStr = toLocalDateString(endDate);
 
       // Only mark dates as completed if ALL sections are done:
       // watch_completed = true, explore_completed = true, score > 0 (quiz done)
@@ -1018,7 +1027,7 @@ export default function TodayScreen() {
 
     console.log("📅 [Calendar] Week view (completion-based):", {
       completedDates: Array.from(completedDates),
-      today: today.toISOString().split("T")[0],
+      today: toLocalDateString(today),
     });
 
     // Generate 14 days (previous week + current week for continuous scrolling)
@@ -1026,7 +1035,7 @@ export default function TodayScreen() {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
       const dateStart = new Date(date.setHours(0, 0, 0, 0));
-      const dateString = dateStart.toISOString().split("T")[0];
+      const dateString = toLocalDateString(dateStart);
       const isToday = dateStart.getTime() === todayStart.getTime();
       const isPast = dateStart < todayStart;
       const isFuture = dateStart > todayStart;
@@ -1359,7 +1368,7 @@ export default function TodayScreen() {
                 const currentQuest = displayedQuest || todayQuest;
                 if (!currentQuest?.date) return "Today's Story";
 
-                const today = new Date().toISOString().split("T")[0];
+                const today = toLocalDateString(new Date());
                 if (currentQuest.date === today) return "Today's Story";
 
                 // Historical date: format as "2 Feb's Story"
@@ -1448,8 +1457,8 @@ export default function TodayScreen() {
               {weekDates.map((item, index) => {
                 // Check if this date is currently selected
                 const isSelected =
-                  selectedDate.toISOString().split("T")[0] ===
-                  item.dateObj.toISOString().split("T")[0];
+                  toLocalDateString(selectedDate) ===
+                  toLocalDateString(item.dateObj);
 
                 return (
                   <TouchableOpacity
@@ -1561,7 +1570,7 @@ export default function TodayScreen() {
                 const currentQuest = displayedQuest || todayQuest;
                 if (!currentQuest?.date) return "Progress today";
 
-                const today = new Date().toISOString().split("T")[0];
+                const today = toLocalDateString(new Date());
                 if (currentQuest.date === today) return "Progress today";
 
                 // Historical date: format as "2 Feb's progress"
