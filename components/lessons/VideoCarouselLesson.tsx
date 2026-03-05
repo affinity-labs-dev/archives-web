@@ -5,6 +5,7 @@
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useEvent } from 'expo';
 import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
 import { useBackgroundMusicV2 } from "@/hooks/useBackgroundMusicV2";
 import React, { useRef, useState, useEffect, useMemo } from "react";
@@ -94,6 +95,10 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     }
   });
 
+  // Track player status for loading indicator
+  const { status } = useEvent(player, 'statusChange', { status: player.status });
+  const isVideoReady = status === 'readyToPlay';
+
   useEffect(() => {
     if (isActive) {
       player.play();
@@ -104,11 +109,10 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
 
   // Notify parent when video is ready (call once)
   useEffect(() => {
-    if (player && onReady) {
+    if (isVideoReady && onReady) {
       onReady();
-      console.log('📹 Video player ready');
     }
-  }, [player, onReady]);
+  }, [isVideoReady, onReady]);
 
   return (
     <View style={styles.videoContainer}>
@@ -402,31 +406,16 @@ export default function VideoCarouselLesson({
             scrollEnabled={!isCardGestureActive}
             style={styles.carousel}
           >
-            {videos.map((videoUrl, index) => {
-              // LAZY LOADING: Only create players for current and next video
-              // This prevents iOS from choking on multiple simultaneous HLS streams
-              const shouldRenderPlayer = index === currentVideoIndex || index === currentVideoIndex + 1;
-
-              if (!shouldRenderPlayer) {
-                // Placeholder for videos not near current - maintains scroll position
-                return (
-                  <View key={index} style={styles.videoContainer}>
-                    <View style={styles.videoPlaceholder} />
-                  </View>
-                );
-              }
-
-              return (
-                <VideoCarouselItem
-                  key={index}
-                  videoUrl={videoUrl}
-                  caption={captions[index] || ''}
-                  index={index}
-                  isActive={currentVideoIndex === index}
-                  onReady={index === 0 ? () => setIsFirstVideoReady(true) : undefined}
-                />
-              );
-            })}
+            {videos.map((videoUrl, index) => (
+              <VideoCarouselItem
+                key={index}
+                videoUrl={videoUrl}
+                caption={captions[index] || ''}
+                index={index}
+                isActive={currentVideoIndex === index}
+                onReady={index === 0 ? () => setIsFirstVideoReady(true) : undefined}
+              />
+            ))}
           </ScrollView>
 
           <LoadingOverlay visible={!isFirstVideoReady} />
