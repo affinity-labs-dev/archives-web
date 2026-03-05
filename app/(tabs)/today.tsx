@@ -567,7 +567,7 @@ export default function TodayScreen() {
 
     // Unlock the gated date
     if (gatedDate) {
-      const dateStr = gatedDate.toISOString().split('T')[0];
+      const dateStr = toLocalDateString(gatedDate);
       console.log(`📜 [Today Paywall] Unlocking content for: ${dateStr}`);
 
       // Fetch historical quest
