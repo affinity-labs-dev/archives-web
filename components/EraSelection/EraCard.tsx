@@ -247,6 +247,8 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 18,
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
     shadowColor: 'black',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
@@ -254,7 +256,6 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   gridCardSelected: {
-    borderWidth: 2,
     borderColor: ArchivesTheme.colors.mossGreen,
     shadowColor: ArchivesTheme.colors.mossGreen,
     shadowOffset: { width: 0, height: 8 },
