@@ -3,6 +3,7 @@
 // Drop-in replacement for useBackgroundMusic with the same interface
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import Sound from 'react-native-sound';
 import { usePreferences } from '@/context/PreferencesContext';
 
@@ -22,49 +23,42 @@ export const useBackgroundMusicV2 = (
   const { volume = 0.5, shouldLoop = true } = options;
 
   const soundRef = useRef<Sound | null>(null);
-  const isPlayingRef = useRef(false);
-  const stoppedRef = useRef(false); // Only true when explicitly stopped by user/unmount
-  const volumeRef = useRef(volume);
-  const shouldLoopRef = useRef(shouldLoop);
+  const generationRef = useRef(0); // Increments on each new sound to invalidate stale callbacks
   const backgroundMusicEnabledRef = useRef(backgroundMusicEnabled);
+  const shouldLoopRef = useRef(shouldLoop);
+  const volumeRef = useRef(volume);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Keep refs in sync
-  volumeRef.current = volume;
-  shouldLoopRef.current = shouldLoop;
   backgroundMusicEnabledRef.current = backgroundMusicEnabled;
+  shouldLoopRef.current = shouldLoop;
+  volumeRef.current = volume;
 
-  // Helper to start playback with auto-restart on unexpected interruption
-  const startPlayback = useCallback((sound: Sound) => {
-    if (isPlayingRef.current) return;
-    stoppedRef.current = false;
-    sound.setNumberOfLoops(shouldLoopRef.current ? -1 : 0);
+  // Play sound with manual looping for Android remote URL reliability
+  const playSoundLoop = useCallback((sound: Sound, gen: number) => {
+    sound.play((success) => {
+      // Stale callback from a previous sound instance — ignore
+      if (gen !== generationRef.current) return;
 
-    const playWithRestart = () => {
-      sound.play((success) => {
-        // If we explicitly stopped or component unmounted, do nothing
-        if (stoppedRef.current) return;
+      if (!success) {
+        console.error('🎵 Playback finished with error, attempting restart');
+      }
 
-        // If looping and playback ended unexpectedly (gesture/audio focus), restart
-        if (shouldLoopRef.current && backgroundMusicEnabledRef.current) {
-          sound.setCurrentTime(0);
-          playWithRestart();
-          return;
-        }
+      // If still supposed to loop, seek to start and play again
+      if (shouldLoopRef.current && backgroundMusicEnabledRef.current) {
+        sound.setCurrentTime(0);
+        // Small delay to let Android MediaPlayer reset after completion
+        setTimeout(() => {
+          if (gen !== generationRef.current) return;
+          playSoundLoop(sound, gen);
+        }, Platform.OS === 'android' ? 50 : 0);
+        return;
+      }
 
-        if (!success) {
-          console.error('🎵 Playback failed due to audio decoding errors');
-        }
-        isPlayingRef.current = false;
-        setIsPlaying(false);
-      });
-    };
-
-    playWithRestart();
-    isPlayingRef.current = true;
-    setIsPlaying(true);
+      setIsPlaying(false);
+    });
   }, []);
 
   // Load audio when source changes
@@ -73,13 +67,17 @@ export const useBackgroundMusicV2 = (
       setIsLoaded(false);
       setIsPlaying(false);
       setIsLoading(false);
-      isPlayingRef.current = false;
       return;
     }
 
+    // Increment generation to invalidate any callbacks from previous sound
+    const gen = ++generationRef.current;
     setIsLoading(true);
 
     const sound = new Sound(audioSource.uri, undefined, (error) => {
+      // Stale load callback
+      if (gen !== generationRef.current) return;
+
       if (error) {
         console.error('🎵 Failed to load sound:', error);
         setIsLoading(false);
@@ -88,24 +86,29 @@ export const useBackgroundMusicV2 = (
 
       soundRef.current = sound;
       sound.setVolume(volumeRef.current);
+      // Use native looping on iOS (reliable), manual looping on Android
+      if (Platform.OS === 'ios') {
+        sound.setNumberOfLoops(shouldLoopRef.current ? -1 : 0);
+      }
       setIsLoaded(true);
       setIsLoading(false);
 
       if (backgroundMusicEnabledRef.current) {
-        startPlayback(sound);
+        playSoundLoop(sound, gen);
+        setIsPlaying(true);
       }
     });
 
     return () => {
-      stoppedRef.current = true;
-      isPlayingRef.current = false;
+      // Set generation past this effect's gen so stale callbacks are ignored
+      generationRef.current = gen + 1;
       sound.stop();
       sound.release();
       soundRef.current = null;
       setIsLoaded(false);
       setIsPlaying(false);
     };
-  }, [audioSource?.uri, startPlayback]);
+  }, [audioSource?.uri, playSoundLoop]);
 
   // React to backgroundMusicEnabled preference changes
   useEffect(() => {
@@ -114,14 +117,15 @@ export const useBackgroundMusicV2 = (
 
     if (backgroundMusicEnabled) {
       sound.setVolume(volumeRef.current);
-      startPlayback(sound);
+      if (!isPlaying) {
+        playSoundLoop(sound, generationRef.current);
+        setIsPlaying(true);
+      }
     } else {
-      stoppedRef.current = true;
-      isPlayingRef.current = false;
       sound.pause();
       setIsPlaying(false);
     }
-  }, [backgroundMusicEnabled, isLoaded, startPlayback]);
+  }, [backgroundMusicEnabled, isLoaded, isPlaying, playSoundLoop]);
 
   // React to volume changes
   useEffect(() => {
@@ -132,15 +136,16 @@ export const useBackgroundMusicV2 = (
 
   const play = useCallback(() => {
     const sound = soundRef.current;
-    if (!sound || !isLoaded || !backgroundMusicEnabled) return;
-    startPlayback(sound);
-  }, [isLoaded, backgroundMusicEnabled, startPlayback]);
+    if (!sound || !isLoaded || !backgroundMusicEnabled || isPlaying) return;
+    playSoundLoop(sound, generationRef.current);
+    setIsPlaying(true);
+  }, [isLoaded, backgroundMusicEnabled, isPlaying, playSoundLoop]);
 
   const stop = useCallback(() => {
     const sound = soundRef.current;
     if (!sound || !isLoaded) return;
-    stoppedRef.current = true;
-    isPlayingRef.current = false;
+    // Increment generation to stop any pending restart loops
+    generationRef.current++;
     sound.pause();
     setIsPlaying(false);
   }, [isLoaded]);
