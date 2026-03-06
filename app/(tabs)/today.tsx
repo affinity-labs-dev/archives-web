@@ -94,6 +94,7 @@ interface Card1Content {
   title: string;
   media_url: string | string[]; // Single URL for reel, array for carousels
   thumbnail_url?: string; // Background thumbnail for WATCH card
+  background_music_url?: string; // Background music for ambient audio
   content: {
     reading_text: string;
     captions?: string[]; // Optional captions for carousel items
@@ -2083,6 +2084,7 @@ export default function TodayScreen() {
                     thumbnail_url: "",
                     media_url: mediaUrls,
                     content_type: card1.content_type || "reel",
+                    background_music_url: card1.background_music_url,
                     bottom_content: {
                       title: card1.title,
                       description: card1.content.reading_text,
