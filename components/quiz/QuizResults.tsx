@@ -95,6 +95,7 @@ function VideoRewardPlayer({ percentage }: VideoRewardPlayerProps) {
         contentFit="contain"
         fullscreenOptions={{ enable: false }}
         allowsPictureInPicture={false}
+        surfaceType="textureView"
       />
     </View>
   );
