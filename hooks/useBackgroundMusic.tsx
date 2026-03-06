@@ -3,7 +3,7 @@
 // Drop-in replacement for useBackgroundMusic with the same interface
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import Sound from 'react-native-sound';
 import { usePreferences } from '@/context/PreferencesContext';
 
@@ -25,6 +25,7 @@ export const useBackgroundMusic = (
   const backgroundMusicEnabledRef = useRef(backgroundMusicEnabled);
   const shouldLoopRef = useRef(shouldLoop);
   const volumeRef = useRef(volume);
+  const pausedByBackgroundRef = useRef(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -174,6 +175,7 @@ export const useBackgroundMusic = (
       console.log('🎵 [BGMusic] Cleanup: stopping and releasing sound', { gen });
       generationRef.current = gen + 1;
       uriRef.current = null;
+      pausedByBackgroundRef.current = false;
       sound.stop();
       sound.release();
       soundRef.current = null;
@@ -188,6 +190,8 @@ export const useBackgroundMusic = (
     if (!sound || !isLoaded) return;
 
     if (backgroundMusicEnabled) {
+      // Don't resume if audio was stopped by app going to background
+      if (pausedByBackgroundRef.current) return;
       console.log('🎵 [BGMusic] Music preference enabled, resuming');
       sound.setVolume(volumeRef.current);
       if (!isPlaying) {
@@ -196,10 +200,29 @@ export const useBackgroundMusic = (
       }
     } else {
       console.log('🎵 [BGMusic] Music preference disabled, pausing');
+      pausedByBackgroundRef.current = false;
       sound.pause();
       setIsPlaying(false);
     }
   }, [backgroundMusicEnabled, isLoaded, isPlaying, startPlayLoop]);
+
+  // Stop audio when app goes to background/lock screen (no auto-resume)
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        const sound = soundRef.current;
+        if (!sound || !isLoaded || !isPlaying) return;
+        console.log('🎵 [BGMusic] App backgrounded, stopping playback');
+        pausedByBackgroundRef.current = true;
+        generationRef.current++;
+        sound.pause();
+        setIsPlaying(false);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [isLoaded, isPlaying]);
 
   // React to volume changes
   useEffect(() => {
@@ -212,6 +235,7 @@ export const useBackgroundMusic = (
     const sound = soundRef.current;
     if (!sound || !isLoaded || !backgroundMusicEnabled || isPlaying) return;
     console.log('🎵 [BGMusic] Manual play() called');
+    pausedByBackgroundRef.current = false;
     startPlayLoop(sound, generationRef.current);
     setIsPlaying(true);
   }, [isLoaded, backgroundMusicEnabled, isPlaying, startPlayLoop]);
