@@ -3,7 +3,7 @@
 // Videos auto-play and loop, dynamically rendered from content_blocks array
 
 import ArchivesTheme from "@/constants/ArchivesTheme";
-import { useBackgroundMusicV2 } from "@/hooks/useBackgroundMusicV2";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { useLessonBase } from "@/hooks/useLessonBase";
 import { Ionicons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -133,7 +133,7 @@ export default function ScrollableMediaViewLesson({
   const sortedBlocks = (contentItem.content_blocks || []).sort((a, b) => a.order - b.order);
 
   // Background music hook
-  const backgroundMusic = useBackgroundMusicV2(
+  const backgroundMusic = useBackgroundMusic(
     contentItem.background_music_url ? { uri: contentItem.background_music_url } : null,
     { volume: 0.5, shouldLoop: true }
   );
