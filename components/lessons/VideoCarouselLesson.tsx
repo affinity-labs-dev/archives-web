@@ -5,6 +5,7 @@
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useEvent } from 'expo';
 import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import React, { useRef, useState, useEffect, useMemo } from "react";
@@ -81,14 +82,22 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
   }), [videoUrl]);
 
   const player = useVideoPlayer(videoSource, (player) => {
-    // Always set loop - must be outside isActive check
     player.loop = true;
+    player.muted = true;
+    // CRITICAL: mixWithOthers prevents ExoPlayer from requesting audio focus
+    // Without this, every play() call steals focus from react-native-sound
+    player.audioMixingMode = 'mixWithOthers';
+    player.showNowPlayingNotification = false;
     if (isActive) {
       player.play();
     } else {
       player.pause();
     }
   });
+
+  // Track player status for loading indicator
+  const { status } = useEvent(player, 'statusChange', { status: player.status });
+  const isVideoReady = status === 'readyToPlay';
 
   useEffect(() => {
     if (isActive) {
@@ -100,11 +109,10 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
 
   // Notify parent when video is ready (call once)
   useEffect(() => {
-    if (player && onReady) {
+    if (isVideoReady && onReady) {
       onReady();
-      console.log('📹 Video player ready');
     }
-  }, [player, onReady]);
+  }, [isVideoReady, onReady]);
 
   return (
     <View style={styles.videoContainer}>

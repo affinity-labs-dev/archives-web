@@ -36,6 +36,10 @@ interface VideoBlockProps {
 function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockProps) {
   const player = useVideoPlayer({ uri: url }, (player) => {
     player.loop = loop;
+    player.muted = true;
+    // CRITICAL: mixWithOthers prevents ExoPlayer from requesting audio focus
+    player.audioMixingMode = 'mixWithOthers';
+    player.showNowPlayingNotification = false;
     // Note: autoplay handled in effect to ensure proper initialization
   });
 
