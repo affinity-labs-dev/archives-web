@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView, VideoSource } from "expo-video";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   Animated,
@@ -60,6 +61,11 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
 
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = shouldLoop;
+    player.muted = true;
+    // CRITICAL: mixWithOthers prevents ExoPlayer from requesting audio focus
+    // Without this, every play() call steals focus from react-native-sound
+    player.audioMixingMode = 'mixWithOthers';
+    player.showNowPlayingNotification = false;
     if (isActive) {
       player.play();
     } else {
@@ -128,6 +134,14 @@ export default function TodayVideoLesson({
   onDismiss,
 }: TodayVideoLessonProps) {
   const insets = useSafeAreaInsets();
+
+  // Background music hook - Auto-play when modal opens
+  const backgroundMusic = useBackgroundMusic(
+    (contentItem as any).background_music_url
+      ? { uri: (contentItem as any).background_music_url }
+      : null,
+    { volume: 0.5, shouldLoop: true }
+  );
 
   // Determine content type and media URLs
   const contentType = contentItem.content_type || "reel";
