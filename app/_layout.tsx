@@ -29,6 +29,7 @@ import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
 import CustomerIOService from '@/services/CustomerIOService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
+import { useOTAUpdates } from '@/hooks/useOTAUpdates';
 import { NotificationPermissionModal } from '@/gamification/ui/achievement/AchievementGrid';
 import Purchases from 'react-native-purchases';
 
@@ -150,6 +151,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     if (accounts.some((a) => a.provider === 'google')) return 'google';
     return 'email';
   };
+
+  // Initialize OTA update checks (foreground check + Sentry tags + PostHog tracking)
+  useOTAUpdates();
 
   // Customer.io SDK auto-initializes from app.json config
   // Mark JS wrapper as ready so identify/registerPushToken calls work
