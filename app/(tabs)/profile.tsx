@@ -442,11 +442,14 @@ export default function ProfileTab() {
       // AFF-151: Prevent _layout.tsx from firing a duplicate clerk_session_ended event
       analyticsService.manualSignOutInProgress = true
 
-      // Clear ALL AsyncStorage to prevent any data leakage between accounts
+      // AFF-309: Sign out via Clerk FIRST (needs token from AsyncStorage to revoke session on server),
+      // THEN clear local data. Previous order (clear → signOut) wiped the token before Clerk could use it.
+      await signOut()
+      console.log('✅ Clerk sign out complete')
+
+      // Now safe to clear all local data (token already revoked)
       await AsyncStorage.clear()
       console.log('✅ All local data cleared')
-
-      await signOut()
       router.replace('/onboarding-video')
     } catch (error) {
       console.error('Sign out error:', error)

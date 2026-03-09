@@ -12,7 +12,7 @@ import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ClerkProvider, useUser } from "@clerk/clerk-expo";
+import { ClerkProvider, ClerkLoaded, useUser } from "@clerk/clerk-expo";
 import { tokenCache, flushPendingTokenCacheEvents } from "@/services/ClerkTokenCache";
 import { PostHogProvider } from 'posthog-react-native';
 
@@ -715,8 +715,9 @@ export default Sentry.wrap(function RootLayout() {
       }}>
         <PostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-            <AnalyticsWrapper>
-              <GamificationWrapper>
+            <ClerkLoaded>
+              <AnalyticsWrapper>
+                <GamificationWrapper>
                   <AdventuresContentProvider>
                     <RewardsProvider>
                       <GamifiedProgressProvider>
@@ -741,11 +742,12 @@ export default Sentry.wrap(function RootLayout() {
                             </AIProvider>
                           </GamificationOrchestratorProvider>
                         </PreferencesProvider>
-                    </GamifiedProgressProvider>
-                </RewardsProvider>
-              </AdventuresContentProvider>
-          </GamificationWrapper>
-          </AnalyticsWrapper>
+                      </GamifiedProgressProvider>
+                    </RewardsProvider>
+                  </AdventuresContentProvider>
+                </GamificationWrapper>
+              </AnalyticsWrapper>
+            </ClerkLoaded>
           </ClerkProvider>
         </PostHogProvider>
       </GestureHandlerRootView>

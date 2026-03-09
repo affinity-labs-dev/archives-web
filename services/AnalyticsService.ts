@@ -122,10 +122,11 @@ interface AuthStateChangeEvent {
 }
 
 interface TokenCacheEvent {
-  type: 'read_null' | 'read_error' | 'write_error' | 'clear_error';
+  type: 'read_ok' | 'read_null' | 'read_error' | 'read_migrated' | 'write_ok' | 'write_error' | 'clear_ok' | 'clear_error';
   key: string;
   error_message?: string;
   platform: string;
+  source?: 'async_storage' | 'secure_store';
 }
 
 interface OnboardingStaleSessionEvent {
