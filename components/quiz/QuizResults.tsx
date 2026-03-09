@@ -21,6 +21,7 @@ import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useGamifiedProgress } from '@/gamification';
 import ArchivesTheme from '@/constants/ArchivesTheme';
+import AppLogger from '@/services/AppLogger';
 import AIQuizExplanation from './AIQuizExplanation';
 import type { Question } from '@/components/shared/types';
 
@@ -83,7 +84,7 @@ function VideoRewardPlayer({ percentage }: VideoRewardPlayerProps) {
 
   // Debug logging
   useEffect(() => {
-    console.log('🎬 Quiz reward video status:', player.status);
+    if (__DEV__) console.log('🎬 Quiz reward video status:', player.status);
   }, [player.status]);
 
   return (
@@ -158,7 +159,7 @@ export default function QuizResults({
           setNewUserProgress(JSON.parse(data));
         }
       } catch (error) {
-        console.error('📊 [QuizResults] Error loading new user progress:', error);
+        AppLogger.error('quiz', 'Failed to load new user progress', {}, error);
       }
     };
     loadNewProgress();
@@ -192,7 +193,7 @@ export default function QuizResults({
         adventure_number: adventureNumber,
         module_number: moduleNumber,
       });
-      console.log(`📊 [Analytics] Quiz Results Viewed: ${adventureId}, ${percentage}%, ${getPerformanceTier(percentage)}, Total XP: ${totalXP}`);
+      AppLogger.info('quiz', 'Quiz results viewed', { percentage });
     }
   }, [totalXP, newUserProgress, moduleProgress]);
 
@@ -213,7 +214,7 @@ export default function QuizResults({
       total_points: totalPoints,
       total_xp_after: totalXP,
     });
-    console.log(`📊 [Analytics] Quiz Results Retake Clicked: ${adventureId}, ${percentage}%, Total XP: ${totalXP}`);
+    AppLogger.info('quiz', 'Quiz results retake clicked');
 
     onRetake();
   };
@@ -235,7 +236,7 @@ export default function QuizResults({
       total_points: totalPoints,
       total_xp_after: totalXP,
     });
-    console.log(`📊 [Analytics] Quiz Results Continue Clicked: ${adventureId}, ${percentage}%, Total XP: ${totalXP}`);
+    AppLogger.info('quiz', 'Quiz results continue clicked');
 
     onContinue();
   };
