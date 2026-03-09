@@ -140,7 +140,9 @@
             "useFrameworks": "static"
           },
           "android": {
-            "largeHeap": true
+            "largeHeap": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],
