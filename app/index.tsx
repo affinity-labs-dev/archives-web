@@ -5,9 +5,9 @@ import { useUser } from '@clerk/clerk-expo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { usePostHog } from 'posthog-react-native'
 import { Platform } from 'react-native'
-import * as Sentry from '@sentry/react-native'
 import LoadingScreen from '@/components/LoadingScreen'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 
 export default function Index() {
   const { isSignedIn, isLoaded } = useUser()
@@ -25,7 +25,7 @@ export default function Index() {
         is_signed_in: isSignedIn ?? false,
         is_loaded: isLoaded ?? false,
       })
-      console.log('🔑 [Index] App entry point tracked')
+      AppLogger.info('navigation', 'App entry point tracked')
     }
   }, [posthog])
 
@@ -37,7 +37,7 @@ export default function Index() {
     try {
       // Wait for Clerk to load
       if (!isLoaded) {
-        console.log('🔑 [Index] Clerk not loaded yet, waiting...')
+        AppLogger.info('auth', 'Clerk not loaded yet, waiting...')
         return
       }
 
@@ -57,26 +57,17 @@ export default function Index() {
         app_state: `routing_to:${route}`,
       }
 
-      // Sentry breadcrumb is always captured (even pre-PostHog), PostHog event is best-effort
-      Sentry.addBreadcrumb({
-        category: 'navigation',
-        message: `App routing decision: ${route}`,
-        level: 'info',
-        data: routingData,
+      // AppLogger breadcrumb is always captured (even pre-PostHog), PostHog event is best-effort
+      AppLogger.info('navigation', `App routing decision: ${route}`, {
+        isSignedIn: !!isSignedIn,
+        hasSelectedEra: !!hasSelectedEra,
+        route,
       })
       analyticsService.trackAuthStateChange(routingData)
 
-      console.log('🔑 [Index] Auth check:', {
-        isSignedIn,
-        isLoaded,
-        hasSelectedEra: !!hasSelectedEra,
-        selectedEraValue: hasSelectedEra,
-        route,
-      })
-
       setHasCompletedOnboarding(!!hasSelectedEra)
     } catch (error) {
-      console.error('🔑 [Index] Error checking user state:', error)
+      AppLogger.error('navigation', 'Error checking user state', {}, error)
       setHasCompletedOnboarding(false)
     } finally {
       setIsChecking(false)
@@ -90,11 +81,11 @@ export default function Index() {
 
   // Returning user: signed in AND has completed onboarding
   if (isSignedIn && hasCompletedOnboarding) {
-    console.log('🔑 [Index] Routing → /(tabs)')
+    AppLogger.info('navigation', 'Routing to /(tabs)')
     return <Redirect href="/(tabs)" />
   }
 
   // New user or incomplete onboarding: start comprehensive onboarding
-  console.log('🔑 [Index] Routing → /onboarding-video (isSignedIn:', isSignedIn, ', hasCompletedOnboarding:', hasCompletedOnboarding, ')')
+  AppLogger.info('navigation', 'Routing to /onboarding-video', { isSignedIn: !!isSignedIn, hasCompletedOnboarding: !!hasCompletedOnboarding })
   return <Redirect href="/onboarding-video" />
 }

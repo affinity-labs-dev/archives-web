@@ -20,6 +20,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useAppTrackingTransparency } from '@/hooks/useAppTrackingTransparency'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 import Svg, { Path } from 'react-native-svg'
 
 export default function OnboardingResultsScreen() {
@@ -33,7 +34,7 @@ export default function OnboardingResultsScreen() {
   const hasTrackedCompletionRef = useRef(false)
   const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
-  console.log('🎯 [OnboardingResults] Component initializing...')
+  AppLogger.info('navigation', 'OnboardingResults initializing')
 
   // Track screen view and onboarding completion when component mounts (ONCE only)
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function OnboardingResultsScreen() {
   // Track onboarding completion with all answers
   const trackOnboardingCompletion = async () => {
     try {
-      console.log('🎯 [OnboardingResults] Tracking onboarding completion...')
+      AppLogger.info('navigation', 'Tracking onboarding completion')
 
       // Get start time
       const startTime = await AsyncStorage.getItem('onboarding_start_time')
@@ -100,15 +101,9 @@ export default function OnboardingResultsScreen() {
         onboarding_result: 'Rise of Islam',               // Recommended era
       })
 
-      console.log('🎯 [OnboardingResults] Onboarding completion tracked:', {
-        timeToComplete,
-        q1: q1Data.answer,
-        q2: q2Data.answer,
-        q3: q3Data.answer,
-        q4: q4Data.answers,
-      })
+      AppLogger.info('navigation', 'Onboarding completion tracked', { timeToComplete })
     } catch (error) {
-      console.error('🎯 [OnboardingResults] Error tracking onboarding completion:', error)
+      AppLogger.error('navigation', 'Error tracking onboarding completion', {}, error)
     }
   }
 
@@ -124,13 +119,13 @@ export default function OnboardingResultsScreen() {
         q4: await AsyncStorage.getItem('onboarding_q4_answer'),
       }
 
-      console.log('🎯 [OnboardingResults] Quiz answers:', answers)
+      AppLogger.info('navigation', 'Loaded onboarding quiz answers')
 
       // Based on answers, we could recommend different eras
       // For now, always recommend Rise of Islam
       setRecommendedEra('Rise of Islam')
     } catch (error) {
-      console.error('🎯 [OnboardingResults] Error loading answers:', error)
+      AppLogger.error('navigation', 'Error loading onboarding answers', {}, error)
       setRecommendedEra('Rise of Islam')
     }
   }
@@ -139,11 +134,11 @@ export default function OnboardingResultsScreen() {
   const handleCreateAccount = async () => {
     try {
       await Haptics.impactAsync()
-      console.log('🎯 [OnboardingResults] User tapped CREATE ACCOUNT - requesting ATT permission')
+      AppLogger.info('auth', 'User tapped CREATE ACCOUNT - requesting ATT permission')
 
       // Request ATT permission - popup shows here
       const attStatus = await requestPermission()
-      console.log('🎯 [OnboardingResults] ATT permission result:', attStatus)
+      AppLogger.info('auth', 'ATT permission result', { attStatus })
 
       // Track ATT permission request
       analyticsService.trackPermissionRequested({
@@ -155,11 +150,11 @@ export default function OnboardingResultsScreen() {
 
       // Navigate to authentication page after ATT response
       // Note: The authentication screen will handle routing to appropriate tab after successful auth
-      console.log('🎯 [OnboardingResults] Navigating to authentication page')
+      AppLogger.info('navigation', 'Navigating to authentication page')
       exitActionRef.current = 'continued'
       router.push('/(auth)/archives-auth')
     } catch (error) {
-      console.error('🎯 [OnboardingResults] Error during ATT request or navigation:', error)
+      AppLogger.error('auth', 'Error during ATT request or navigation', {}, error)
       // Even if ATT fails, continue to authentication
       exitActionRef.current = 'continued'
       router.push('/(auth)/archives-auth')

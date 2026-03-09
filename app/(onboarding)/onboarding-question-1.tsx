@@ -21,6 +21,7 @@ import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -41,7 +42,7 @@ export default function OnboardingQuestion1Screen() {
   // Use ref to avoid re-running useEffect when exit action changes
   const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
-  console.log('🔥 [OnboardingQ1] Component initializing...')
+  AppLogger.info('navigation', 'OnboardingQ1 initializing')
 
   // Track screen view when component mounts
   useEffect(() => {
@@ -64,9 +65,9 @@ export default function OnboardingQuestion1Screen() {
       playTap()
       await Haptics.selectionAsync()
       setSelectedOption(optionIndex)
-      console.log('🔥 [OnboardingQ1] Selected option:', questionOptions[optionIndex])
+      AppLogger.info('navigation', 'OnboardingQ1 selected option', { option: questionOptions[optionIndex] })
     } catch (error) {
-      console.error('🔥 [OnboardingQ1] Error selecting option:', error)
+      AppLogger.error('navigation', 'OnboardingQ1 option select error', {}, error)
       setSelectedOption(optionIndex)
     }
   }
@@ -95,13 +96,13 @@ export default function OnboardingQuestion1Screen() {
       }
 
       await AsyncStorage.setItem('onboarding_q1_answer', JSON.stringify(answerData))
-      console.log('🔥 [OnboardingQ1] Answer saved:', answerData)
+      AppLogger.info('navigation', 'OnboardingQ1 answer saved', { answer: answerData.answer })
 
       // Navigate to next question
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-2')
     } catch (error) {
-      console.error('🔥 [OnboardingQ1] Error saving answer:', error)
+      AppLogger.error('navigation', 'OnboardingQ1 error saving answer', {}, error)
       // Continue anyway
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-2')

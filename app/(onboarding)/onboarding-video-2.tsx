@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
@@ -43,12 +44,12 @@ export default function OnboardingVideo2Screen() {
         try {
           player.play()
         } catch (playError) {
-          console.error('Video play error:', playError)
+          AppLogger.error('video', 'Onboarding video 2 play error', {}, playError)
         }
       }, 100)
 
     } catch (error) {
-      console.error('Video player setup error:', error)
+      AppLogger.error('video', 'Onboarding video 2 player setup error', {}, error)
     }
   })
 
@@ -82,11 +83,11 @@ export default function OnboardingVideo2Screen() {
             try {
               player.play()
             } catch (error) {
-              console.warn('🎬 [OnboardingVideo2] Auto-play failed:', error)
+              AppLogger.error('video', 'Onboarding video 2 auto-play failed', {}, error)
             }
           }
         } catch (err) {
-          console.warn('🎬 [OnboardingVideo2] statusChange error:', err)
+          AppLogger.error('video', 'Onboarding video 2 statusChange error', {}, err)
         }
       })
 
@@ -94,7 +95,7 @@ export default function OnboardingVideo2Screen() {
         statusSubscription?.remove()
       }
     } catch (error) {
-      console.warn('🎬 [OnboardingVideo2] Video listener setup failed:', error)
+      AppLogger.error('video', 'Onboarding video 2 listener setup failed', {}, error)
     }
   }, [player, videoLoaded, videoCompleted, trackVideoPlayed])
 
@@ -113,9 +114,9 @@ export default function OnboardingVideo2Screen() {
       // This ensures users go through proper auth flow after onboarding
       if (isSignedIn) {
         // AFF-151: Track stale session detection — this is a suspected "stealth sign-out" path
-        console.warn('🔑 [OnboardingVideo2] Stale session detected! User is signed in during onboarding — forcing sign-out')
+        AppLogger.warn('auth', 'Stale session detected during onboarding — forcing sign-out')
         const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era'))
-        console.log('🔑 [OnboardingVideo2] had_selected_era:', hadSelectedEra)
+        AppLogger.info('auth', 'Stale session context', { hadSelectedEra })
 
         analyticsService.trackUserSessionOut({
           trigger: 'stale_session_onboarding',
@@ -146,7 +147,7 @@ export default function OnboardingVideo2Screen() {
       setExitAction('continued')
       router.replace('/onboarding-welcome')
     } catch (error) {
-      console.warn('🎬 [OnboardingVideo2] handleGetStarted failed, continuing anyway:', error)
+      AppLogger.error('navigation', 'OnboardingVideo2 handleGetStarted failed', {}, error)
       setExitAction('continued')
       router.replace('/onboarding-welcome')
     }

@@ -20,6 +20,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 import { CustomerIO, CioPushPermissionStatus } from 'customerio-reactnative'
 import CustomerIOService from '@/services/CustomerIOService'
 import Svg, { Path } from 'react-native-svg'
@@ -39,7 +40,7 @@ export default function OnboardingRemindersScreen() {
   // Use ref to avoid re-running useEffect when exit action changes
   const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
-  console.log('🔔 [OnboardingReminders] Component initializing...')
+  AppLogger.info('notification', 'OnboardingReminders initializing')
 
   // Track screen view when component mounts
   useEffect(() => {
@@ -77,13 +78,13 @@ export default function OnboardingRemindersScreen() {
           CustomerIOService.setProfileAttributes({
             cio_push_token: pushToken.data as string,
           })
-          console.log('🔔 [OnboardingQ3] Device token registered with Customer.io')
+          AppLogger.info('notification', 'Device token registered with Customer.io')
         } else {
-          console.log('🔔 [OnboardingQ3] No push token available from system')
+          AppLogger.warn('notification', 'No push token available from system')
         }
       } catch (error) {
         // Non-blocking: if token registration fails, Customer.io will retry on next app launch
-        console.log('🔔 [OnboardingQ3] Background token registration error:', error)
+        AppLogger.warn('notification', 'Background token registration error', { error: String(error) })
       }
     })()
   }
@@ -93,13 +94,13 @@ export default function OnboardingRemindersScreen() {
     try {
       playTap()
       await Haptics.impactAsync()
-      console.log('🔔 [OnboardingQ3] User tapped ENABLE REMINDERS')
+      AppLogger.info('notification', 'User tapped ENABLE REMINDERS')
 
       // Request notification permission via Customer.io SDK
       // This shows the iOS system permission popup
       let permissionStatus: 'granted' | 'denied' | 'undetermined' = 'undetermined'
       try {
-        console.log('🔔 [OnboardingQ3] Requesting push notification permission...')
+        AppLogger.info('notification', 'Requesting push notification permission')
         const options = { ios: { sound: true, badge: true } }
         const status = await CustomerIO.pushMessaging.showPromptForPushNotifications(options)
 
@@ -107,16 +108,16 @@ export default function OnboardingRemindersScreen() {
         switch (status) {
           case CioPushPermissionStatus.Granted:
             permissionStatus = 'granted'
-            console.log('🔔 [OnboardingQ3] Push permission GRANTED')
+            AppLogger.info('notification', 'Push permission GRANTED')
             break
           case CioPushPermissionStatus.Denied:
             permissionStatus = 'denied'
-            console.log('🔔 [OnboardingQ3] Push permission DENIED')
+            AppLogger.info('notification', 'Push permission DENIED')
             break
           case CioPushPermissionStatus.NotDetermined:
           default:
             permissionStatus = 'undetermined'
-            console.log('🔔 [OnboardingQ3] Push permission status:', status)
+            AppLogger.info('notification', 'Push permission status', { status: String(status) })
         }
 
         // Sync push permission attributes to Customer.io profile
@@ -133,7 +134,7 @@ export default function OnboardingRemindersScreen() {
           registerDeviceTokenInBackground()
         }
       } catch (permError) {
-        console.log('🔔 [OnboardingQ3] Permission request error (may be Expo Go):', permError)
+        AppLogger.warn('notification', 'Permission request error (may be Expo Go)', { error: String(permError) })
         permissionStatus = 'undetermined'
       }
 
@@ -170,7 +171,7 @@ export default function OnboardingRemindersScreen() {
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     } catch (error) {
-      console.error('🔔 [OnboardingQ3] Error:', error)
+      AppLogger.error('notification', 'OnboardingQ3 enable reminders error', {}, error)
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     }
@@ -181,7 +182,7 @@ export default function OnboardingRemindersScreen() {
     try {
       playTap()
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      console.log('🔔 [OnboardingQ3] User skipped reminders')
+      AppLogger.info('notification', 'User skipped reminders')
 
       // Track skip action
       analyticsService.trackOnboardingQuestionAnswered({
@@ -204,7 +205,7 @@ export default function OnboardingRemindersScreen() {
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     } catch (error) {
-      console.error('🔔 [OnboardingQ3] Error skipping:', error)
+      AppLogger.error('notification', 'OnboardingQ3 skip error', {}, error)
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     }
