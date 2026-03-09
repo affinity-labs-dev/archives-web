@@ -1,8 +1,8 @@
 // Main Tab Navigation - Native iOS Bottom Tabs with automatic iOS 18+ floating behavior
 // 5 tabs: Home, Eras, Subscribe, Today, Profile with Archives styling
 
+import BookIcon from "@/components/icons/BookIcon";
 import ErasIcon from "@/components/icons/ErasIcon";
-import HomeIcon from "@/components/icons/HomeIcon";
 import ProfileIcon from "@/components/icons/ProfileIcon";
 import SubscribeIcon from "@/components/icons/SubscribeIcon";
 import TodayIcon from "@/components/icons/TodayIcon";
@@ -107,7 +107,7 @@ export default function TabLayout() {
       <TabComponent.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Learn",
           headerShown: false,
           tabBarIcon: ({
             color,
@@ -115,7 +115,7 @@ export default function TabLayout() {
           }: {
             color: string;
             focused: boolean;
-          }) => <HomeIcon size={24} color={color} />,
+          }) => <BookIcon size={24} color={color} />,
         }}
       />
       <TabComponent.Screen
