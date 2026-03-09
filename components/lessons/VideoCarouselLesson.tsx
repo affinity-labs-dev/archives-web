@@ -36,6 +36,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image as ExpoImage } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
+import AppLogger from '@/services/AppLogger';
 
 // Static dimensions (module-level) - Umayyad Dynasty pattern
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
@@ -199,7 +200,9 @@ export default function VideoCarouselLesson({
   useEffect(() => {
     if (walkthroughEnabled && currentVideoIndex === videos.length - 1) {
       setShowContinueHint(true);
-      console.log('👁️ Continue hint shown - last video reached');
+      if (__DEV__) {
+        console.log('👁️ Continue hint shown - last video reached');
+      }
     } else {
       setShowContinueHint(false);
     }
@@ -207,20 +210,22 @@ export default function VideoCarouselLesson({
 
   // Debug logging for carousel scroll state
   useEffect(() => {
-    console.log(
-      `🎠 Carousel scroll state: ${
-        isCardGestureActive
-          ? "🔒 BLOCKED (card gesture active)"
-          : "✅ ENABLED (can swipe videos)"
-      }`
-    );
+    if (__DEV__) {
+      console.log(
+        `🎠 Carousel scroll state: ${
+          isCardGestureActive
+            ? "🔒 BLOCKED (card gesture active)"
+            : "✅ ENABLED (can swipe videos)"
+        }`
+      );
+    }
   }, [isCardGestureActive]);
 
   // Safety mechanism: Reset gesture state if stuck
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isCardGestureActive) {
-        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        AppLogger.warn('content', 'Safety reset: clearing stuck gesture state');
         setIsCardGestureActive(false);
       }
     }, 100);
@@ -242,7 +247,9 @@ export default function VideoCarouselLesson({
   // Tap Gesture Handler (cross-platform)
   const handleTapGesture = (event: any) => {
     if (event.nativeEvent.state === State.END) {
-      console.log('👆 Tap detected on reading card');
+      if (__DEV__) {
+        console.log('👆 Tap detected on reading card');
+      }
       if (isCardExpanded) {
         collapseCard();
       } else {
@@ -258,15 +265,19 @@ export default function VideoCarouselLesson({
 
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 Card gesture started - blocking carousel");
+      if (__DEV__) {
+        console.log("📱 Card gesture started - blocking carousel");
+      }
     }
 
     if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      console.log("📱 Gesture state:", state, {
-        translationY,
-        velocityY,
-        isCardExpanded,
-      });
+      if (__DEV__) {
+        console.log("📱 Gesture state:", state, {
+          translationY,
+          velocityY,
+          isCardExpanded,
+        });
+      }
 
       if (state === State.END) {
         const minDistance = 20;
@@ -276,7 +287,9 @@ export default function VideoCarouselLesson({
           !isCardExpanded &&
           (translationY < -minDistance || velocityY < -minVelocity)
         ) {
-          console.log("📱 Swipe up detected - expanding card");
+          if (__DEV__) {
+            console.log("📱 Swipe up detected - expanding card");
+          }
           expandCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           return;
@@ -284,7 +297,9 @@ export default function VideoCarouselLesson({
           isCardExpanded &&
           (translationY > minDistance || velocityY > minVelocity)
         ) {
-          console.log("📱 Swipe down detected - collapsing card");
+          if (__DEV__) {
+            console.log("📱 Swipe down detected - collapsing card");
+          }
           collapseCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           return;
@@ -292,13 +307,17 @@ export default function VideoCarouselLesson({
       }
 
       setIsCardGestureActive(false);
-      console.log("📱 Gesture ended - carousel re-enabled");
+      if (__DEV__) {
+        console.log("📱 Gesture ended - carousel re-enabled");
+      }
     }
   };
 
   // Expand card
   const expandCard = () => {
-    console.log("🎬 Card expansion starting...");
+    if (__DEV__) {
+      console.log("🎬 Card expansion starting...");
+    }
     setIsCardExpanded(true);
     setShowReadContent(true);
 
@@ -306,7 +325,9 @@ export default function VideoCarouselLesson({
     trackCardExpanded();
 
     setIsCardGestureActive(false);
-    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    if (__DEV__) {
+      console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    }
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -325,12 +346,16 @@ export default function VideoCarouselLesson({
 
   // Collapse card
   const collapseCard = () => {
-    console.log("🎬 Card collapse starting...");
+    if (__DEV__) {
+      console.log("🎬 Card collapse starting...");
+    }
     setIsCardExpanded(false);
     setShowReadContent(false);
 
     setIsCardGestureActive(false);
-    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    if (__DEV__) {
+      console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    }
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -365,13 +390,17 @@ export default function VideoCarouselLesson({
 
       // Swipe right -> Continue (next lesson) - only when on last video
       if (currentVideoIndex === videos.length - 1 && translationX > minDistance && velocityX > minVelocity) {
-        console.log('👉 Swipe right detected - continuing to next');
+        if (__DEV__) {
+          console.log('👉 Swipe right detected - continuing to next');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         handleLessonComplete();
       }
       // Swipe left -> Go back (dismiss)
       else if (translationX < -minDistance && velocityX < -minVelocity) {
-        console.log('👈 Swipe left detected - going back');
+        if (__DEV__) {
+          console.log('👈 Swipe left detected - going back');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onDismiss();
       }

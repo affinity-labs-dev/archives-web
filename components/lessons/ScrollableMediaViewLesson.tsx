@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import RenderHtml from 'react-native-render-html';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AppLogger from '@/services/AppLogger';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -48,7 +49,7 @@ function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockPro
     if (autoplay && player) {
       const timer = setTimeout(() => {
         player.play();
-        console.log('📺 Video auto-playing');
+        AppLogger.info('video', 'ScrollableMediaView video auto-playing');
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -60,7 +61,7 @@ function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockPro
       if (player) {
         try {
           player.pause();
-          console.log('📺 Video cleaned up');
+          AppLogger.info('video', 'ScrollableMediaView video cleaned up');
         } catch (error) {
           // Silently handle cleanup errors
         }

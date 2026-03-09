@@ -153,12 +153,16 @@ export default function ReelLesson({
         (videoProgress >= 0.95)) {
       if (!showReadHint) {
         setShowReadHint(true);
-        console.log(`👁️ Read hint shown at ${Math.round(videoProgress * 100)}%`);
+        if (__DEV__) {
+          console.log(`👁️ Read hint shown at ${Math.round(videoProgress * 100)}%`);
+        }
       }
     } else {
       if (showReadHint) {
         setShowReadHint(false);
-        console.log(`👁️ Read hint hidden at ${Math.round(videoProgress * 100)}%`);
+        if (__DEV__) {
+          console.log(`👁️ Read hint hidden at ${Math.round(videoProgress * 100)}%`);
+        }
       }
     }
 
@@ -168,12 +172,16 @@ export default function ReelLesson({
         (videoProgress >= 1.0)) {
       if (!showContinueHint) {
         setShowContinueHint(true);
-        console.log(`👁️ Continue hint shown at ${Math.round(videoProgress * 100)}%`);
+        if (__DEV__) {
+          console.log(`👁️ Continue hint shown at ${Math.round(videoProgress * 100)}%`);
+        }
       }
     } else {
       if (showContinueHint && videoProgress < 1.0) {
         setShowContinueHint(false);
-        console.log(`👁️ Continue hint hidden at ${Math.round(videoProgress * 100)}%`);
+        if (__DEV__) {
+          console.log(`👁️ Continue hint hidden at ${Math.round(videoProgress * 100)}%`);
+        }
       }
     }
   }, [videoProgress, walkthroughEnabled, hasEverExpandedCard, showReadHint, showContinueHint]);
@@ -184,7 +192,9 @@ export default function ReelLesson({
       setShowReadHint(false);
       setShowContinueHint(false);
       setHasEverExpandedCard(true);
-      console.log('👁️ Both hints hidden - card expanded');
+      if (__DEV__) {
+        console.log('👁️ Both hints hidden - card expanded');
+      }
     }
   }, [isCardExpanded, hasEverExpandedCard]);
 
@@ -247,7 +257,9 @@ export default function ReelLesson({
   // Tap Gesture Handler (cross-platform)
   const handleTapGesture = (event: any) => {
     if (event.nativeEvent.state === State.END) {
-      console.log('👆 Tap detected on reading card');
+      if (__DEV__) {
+        console.log('👆 Tap detected on reading card');
+      }
       if (isCardExpanded) {
         collapseCard();
       } else {
@@ -267,13 +279,17 @@ export default function ReelLesson({
 
       if (!isCardExpanded &&
           (translationY < -minDistance || velocityY < -minVelocity)) {
-        console.log('👆 Swipe up detected - expanding card');
+        if (__DEV__) {
+          console.log('👆 Swipe up detected - expanding card');
+        }
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       else if (isCardExpanded &&
                (translationY > minDistance || velocityY > minVelocity)) {
-        console.log('👇 Swipe down detected - collapsing card');
+        if (__DEV__) {
+          console.log('👇 Swipe down detected - collapsing card');
+        }
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
@@ -290,13 +306,17 @@ export default function ReelLesson({
 
       // Swipe right -> Continue (next lesson)
       if (hasFinishedReading && translationX > minDistance && velocityX > minVelocity) {
-        console.log('👉 Swipe right detected - continuing to next');
+        if (__DEV__) {
+          console.log('👉 Swipe right detected - continuing to next');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         handleLessonComplete();
       }
       // Swipe left -> Go back (dismiss)
       else if (translationX < -minDistance && velocityX < -minVelocity) {
-        console.log('👈 Swipe left detected - going back');
+        if (__DEV__) {
+          console.log('👈 Swipe left detected - going back');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onDismiss();
       }
