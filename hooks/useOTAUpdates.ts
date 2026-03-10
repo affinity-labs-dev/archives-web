@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { AppState, AppStateStatus, Platform } from 'react-native';
+import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 import * as Updates from 'expo-updates';
 import { useUpdates } from 'expo-updates';
 import * as Sentry from '@sentry/react-native';
@@ -110,6 +110,32 @@ export function useOTAUpdates() {
           message: 'OTA update downloaded, ready to apply',
           level: 'info',
         });
+
+        // Show native alert prompting user to restart
+        Alert.alert(
+          'New Version Available',
+          'A new update was downloaded for your app. Restart the app to install the update.',
+          [
+            {
+              text: 'Restart App',
+              style: 'cancel',
+              onPress: async () => {
+                try {
+                  posthog?.capture('ota_update_applied', {
+                    platform: Platform.OS,
+                    previous_update_id: updatesState.currentlyRunning.updateId ?? 'embedded',
+                  });
+                  posthog?.capture('$set', {
+                    $set: { ota_update_pending: false },
+                  });
+                  await Updates.reloadAsync();
+                } catch (reloadError) {
+                  console.error('❌ [OTA] Failed to reload:', reloadError);
+                }
+              },
+            },
+          ],
+        );
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
