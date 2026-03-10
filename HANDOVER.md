@@ -254,9 +254,35 @@ eas build:list --limit 10
 
 ### OTA updates (no native rebuild needed)
 
+The app uses `expo-updates` with `appVersion` runtime policy — OTA updates are delivered to builds matching the same `expo.version` in `app.json`. The `useOTAUpdates` hook in `hooks/useOTAUpdates.ts` handles auto-checking on foreground, downloading, and prompting users to restart via a native Alert.
+
+**Important:** Do NOT use `--platform all` — web export fails due to `customerio-reactnative` native imports. Always publish iOS and Android separately.
+
 ```bash
-eas update --branch production --message "Your update message"
+# Publish to production (both platforms)
+eas update --branch production --platform ios --message "Description of changes"
+eas update --branch production --platform android --message "Description of changes"
+
+# Publish to preview first (internal testing only)
+eas update --branch preview --platform ios --message "Testing: description"
+eas update --branch preview --platform android --message "Testing: description"
+
+# Staged rollout to 10% of production users
+eas update --branch production --platform ios --rollout-percentage 10 --message "Staged: description"
+eas update --branch production --platform android --rollout-percentage 10 --message "Staged: description"
+
+# Increase rollout percentage
+eas update:edit --rollout-percentage 50
+eas update:edit --rollout-percentage 100
+
+# Rollback — republish previous known-good update
+eas update:republish --branch production
+
+# List recent updates
+eas update:list
 ```
+
+**Recommended workflow:** Push to `preview` first → test on preview builds → push to `production` with staged rollout → monitor Sentry + PostHog → expand to 100%.
 
 OTA works for JS/asset changes only. If you change `app.json`, native modules, or add/remove dependencies, you need a full native build.
 
