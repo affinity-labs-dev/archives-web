@@ -43,7 +43,9 @@ function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockPro
     if (autoplay && player) {
       const timer = setTimeout(() => {
         player.play();
-        console.log('📺 Video auto-playing');
+        if (__DEV__) {
+          console.log('📺 Video auto-playing');
+        }
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -54,7 +56,9 @@ function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockPro
       if (player) {
         try {
           player.pause();
-          console.log('📺 Video cleaned up');
+          if (__DEV__) {
+            console.log('📺 Video cleaned up');
+          }
         } catch (error) {
           // Silently handle cleanup errors
         }

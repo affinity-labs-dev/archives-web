@@ -13,6 +13,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native'
+import AppLogger from '@/services/AppLogger'
 
 const { width, height } = Dimensions.get('window')
 
@@ -53,11 +54,13 @@ export default function VideoPlayer({
 
       // Log only once
       if (!hasLoggedSource.current && Platform.OS === 'android') {
-        console.log('🎬 [Android] VideoPlayer source:', {
-          uri: uri.substring(0, 80) + '...',
-          contentType: source.contentType,
-          detectedFormat: isHLS ? 'HLS' : 'Progressive',
-        });
+        if (__DEV__) {
+          console.log('🎬 [Android] VideoPlayer source:', {
+            uri: uri.substring(0, 80) + '...',
+            contentType: source.contentType,
+            detectedFormat: isHLS ? 'HLS' : 'Progressive',
+          });
+        }
         hasLoggedSource.current = true;
       }
 
@@ -85,7 +88,9 @@ export default function VideoPlayer({
   const player = useVideoPlayer(optimizedVideoSource, player => {
     player.loop = shouldLoop;
 
-    console.log('🎬 [' + Platform.OS + '] Player created, autoPlay:', autoPlay);
+    if (__DEV__) {
+      console.log('🎬 [' + Platform.OS + '] Player created, autoPlay:', autoPlay);
+    }
 
     if (autoPlay) {
       player.play();
@@ -115,30 +120,30 @@ export default function VideoPlayer({
       try {
         const { status, oldStatus, error } = payload;
 
-        console.log(`🎬 [${Platform.OS}] Status: ${oldStatus} → ${status}`);
+        AppLogger.info('video', 'Video player status changed', { oldStatus: oldStatus, newStatus: status });
 
         if (error) {
-          console.error('🎬 ERROR - Full error object:', JSON.stringify(error, null, 2));
-          console.error('🎬 ERROR - Video URL:', typeof videoSource === 'object' ? videoSource?.uri : videoSource);
+          AppLogger.error('video', 'Video player error', { uri: typeof videoSource === 'object' ? videoSource?.uri : videoSource }, error);
         }
 
         if (status === 'readyToPlay') {
-          console.log('🎬 Video ready to play!');
+          AppLogger.info('video', 'Video ready to play');
           if (!isVideoLoaded) {
             setIsVideoLoaded(true);
           }
           if (autoPlay && !player.playing) {
-            console.log('🎬 [Android] Forcing play after readyToPlay');
+            if (__DEV__) {
+              console.log('🎬 [Android] Forcing play after readyToPlay');
+            }
             player.play();
           }
         }
 
         if (status === 'error') {
-          console.error('🎬 Player entered error state');
-          console.error('🎬 Video URL that failed:', typeof videoSource === 'object' ? videoSource?.uri : videoSource);
+          AppLogger.error('video', 'Video player entered error state', { uri: typeof videoSource === 'object' ? videoSource?.uri : videoSource });
         }
       } catch (err) {
-        console.warn('🎬 statusChange handler error (player likely released):', err);
+        AppLogger.error('video', 'Video statusChange handler error', {}, err);
       }
     });
 
@@ -191,7 +196,7 @@ export default function VideoPlayer({
         player.play();
       }
     } catch (error) {
-      console.error('🎬 ERROR: Failed to toggle playback:', error);
+      AppLogger.error('video', 'Failed to toggle playback', {}, error);
     }
   };
 

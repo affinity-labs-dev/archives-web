@@ -5,8 +5,8 @@
  */
 
 import { usePostHog } from 'posthog-react-native';
-import * as Sentry from '@sentry/react-native';
 import CustomerIOService from './CustomerIOService';
+import AppLogger from './AppLogger';
 
 // ==================== EVENT TYPES ====================
 
@@ -119,14 +119,6 @@ interface AuthStateChangeEvent {
   user_id: string | null;
   had_selected_era: boolean;
   app_state: string;
-}
-
-interface TokenCacheEvent {
-  type: 'read_ok' | 'read_null' | 'read_error' | 'read_migrated' | 'write_ok' | 'write_error' | 'clear_ok' | 'clear_error';
-  key: string;
-  error_message?: string;
-  platform: string;
-  source?: 'async_storage' | 'secure_store';
 }
 
 interface OnboardingStaleSessionEvent {
@@ -403,8 +395,8 @@ class AnalyticsService {
     // Generate or retrieve anonymous ID for tracking users before signup
     await this.initializeAnonymousId();
 
-    console.log('📊 [Analytics] Service initialized');
-    console.log('📊 [Analytics] Anonymous ID:', this.anonymousId);
+    AppLogger.info('startup', 'Analytics service initialized');
+    AppLogger.info('startup', 'Analytics anonymous ID set', { anonymousId: this.anonymousId });
   }
 
   /**
@@ -420,7 +412,7 @@ class AnalyticsService {
       // Generate a new anonymous ID
       storedAnonymousId = `anon_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       await AsyncStorage.setItem('analytics_anonymous_id', storedAnonymousId);
-      console.log('📊 [Analytics] Generated new anonymous ID:', storedAnonymousId);
+      AppLogger.info('startup', 'Generated new anonymous ID');
     }
 
     this.anonymousId = storedAnonymousId;
@@ -431,7 +423,7 @@ class AnalyticsService {
    */
   setUserId(userId: string | null) {
     this.currentUserId = userId;
-    console.log('📊 [Analytics] User ID set:', userId);
+    AppLogger.info('auth', 'Analytics user ID set', { userId });
   }
 
   /**
@@ -458,7 +450,9 @@ class AnalyticsService {
    * Only sends key events that are useful for segmentation/campaigns
    */
   private trackToCustomerIO(eventName: string, properties?: Record<string, unknown>) {
-    console.log('🔍 [Analytics] trackToCustomerIO called with:', eventName);
+    if (__DEV__) {
+      console.log('🔍 [Analytics] trackToCustomerIO called with:', eventName);
+    }
 
     // Only track key events to Customer.io to avoid noise
     const customerIOEvents = [
@@ -484,10 +478,14 @@ class AnalyticsService {
     ];
 
     const shouldTrack = customerIOEvents.includes(eventName);
-    console.log('🔍 [Analytics] Event in customerIOEvents list:', shouldTrack);
+    if (__DEV__) {
+      console.log('🔍 [Analytics] Event in customerIOEvents list:', shouldTrack);
+    }
 
     if (shouldTrack) {
-      console.log('🔍 [Analytics] Calling CustomerIOService.track()...');
+      if (__DEV__) {
+        console.log('🔍 [Analytics] Calling CustomerIOService.track()...');
+      }
       CustomerIOService.track(eventName, properties);
     }
   }
@@ -504,10 +502,7 @@ class AnalyticsService {
     // PostHog's alias() assigns an alias to the current user
     if (this.anonymousId) {
       this.posthog?.alias(userId);
-      console.log('📊 [Analytics] Aliased current user to user ID:', {
-        previousAnonymousId: this.anonymousId,
-        userId: userId
-      });
+      AppLogger.info('auth', 'Aliased user to PostHog', { userId });
     }
 
     const event = {
@@ -519,7 +514,9 @@ class AnalyticsService {
 
     this.posthog?.capture('user_signed_up', event);
     this.trackToCustomerIO('user_signed_up', event);
-    console.log('📊 [Analytics] User Signed Up:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] User Signed Up:', event);
+    }
   }
 
   /**
@@ -534,16 +531,10 @@ class AnalyticsService {
       // PostHog auto-captures $os (device type)
     };
 
-    // AFF-151: Sentry breadcrumb fallback for early lifecycle
-    Sentry.addBreadcrumb({
-      category: 'auth',
-      message: `user_session_in: ${loginMethod}`,
-      level: 'info',
-      data: event,
-    });
+    // AFF-151: AppLogger breadcrumb fallback for early lifecycle (Sentry inits before PostHog)
+    AppLogger.info('auth', `user_session_in: ${loginMethod}`, event as Record<string, unknown>);
 
     this.posthog?.capture('user_session_in', event);
-    console.log('📊 [Analytics] User Session In:', event);
   }
 
   // ==================== ONBOARDING EVENTS ====================
@@ -559,7 +550,9 @@ class AnalyticsService {
 
     this.posthog?.capture('onboarding_completed', event);
     this.trackToCustomerIO('onboarding_completed', event);
-    console.log('📊 [Analytics] Onboarding Completed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Onboarding Completed:', event);
+    }
   }
 
   /**
@@ -572,7 +565,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('era_selected', event);
-    console.log('📊 [Analytics] Era Selected:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Era Selected:', event);
+    }
   }
 
   /**
@@ -585,7 +580,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('permission_requested', event);
-    console.log('📊 [Analytics] Permission Requested:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Permission Requested:', event);
+    }
   }
 
   /**
@@ -598,7 +595,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('onboarding_question_answered', event);
-    console.log('📊 [Analytics] Onboarding Question Answered:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Onboarding Question Answered:', event);
+    }
   }
 
   /**
@@ -611,7 +610,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('onboarding_screen_exited', event);
-    console.log('📊 [Analytics] Onboarding Screen Exited:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Onboarding Screen Exited:', event);
+    }
   }
 
   /**
@@ -624,7 +625,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_progress', event);
-    console.log('📊 [Analytics] Video Progress:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Progress:', event);
+    }
   }
 
   // ==================== AUTH EVENTS ====================
@@ -639,7 +642,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('auth_screen_viewed', event);
-    console.log('📊 [Analytics] Auth Screen Viewed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Auth Screen Viewed:', event);
+    }
   }
 
   /**
@@ -652,7 +657,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('auth_method_selected', event);
-    console.log('📊 [Analytics] Auth Method Selected:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Auth Method Selected:', event);
+    }
   }
 
   /**
@@ -665,7 +672,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('auth_succeeded', event);
-    console.log('📊 [Analytics] Auth Succeeded:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Auth Succeeded:', event);
+    }
   }
 
   /**
@@ -678,7 +687,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('auth_failed', event);
-    console.log('📊 [Analytics] Auth Failed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Auth Failed:', event);
+    }
   }
 
   /**
@@ -691,7 +702,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('auth_screen_exited', event);
-    console.log('📊 [Analytics] Auth Screen Exited:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Auth Screen Exited:', event);
+    }
   }
 
   // ==================== SESSION TELEMETRY (AFF-151) ====================
@@ -712,17 +725,11 @@ class AnalyticsService {
       had_selected_era: data.had_selected_era,
     };
 
-    // AFF-151: Sentry breadcrumb ensures event is captured even if PostHog isn't ready
-    Sentry.addBreadcrumb({
-      category: 'auth',
-      message: `user_session_out: ${data.trigger}`,
-      level: 'info',
-      data: event,
-    });
+    // AFF-151: AppLogger breadcrumb ensures event is captured even if PostHog isn't ready
+    AppLogger.info('auth', `user_session_out: ${data.trigger}`, event as Record<string, unknown>);
 
     this.posthog?.capture('user_session_out', event);
     this.trackToCustomerIO('user_session_out', event);
-    console.log('📊 [Analytics] User Session Out:', event);
   }
 
   /**
@@ -734,31 +741,11 @@ class AnalyticsService {
       ...this.getBaseProperties(),
     };
 
-    // AFF-151: Sentry breadcrumb as fallback — Sentry inits before PostHog,
+    // AFF-151: AppLogger breadcrumb as fallback — Sentry inits before PostHog,
     // so this captures auth events even during the early app lifecycle
-    Sentry.addBreadcrumb({
-      category: 'auth',
-      message: `auth_state_change: ${data.previous_state} → ${data.new_state}`,
-      level: 'info',
-      data: event,
-    });
+    AppLogger.info('auth', `auth_state_change: ${data.previous_state} → ${data.new_state}`, event as Record<string, unknown>);
 
     this.posthog?.capture('auth_state_change', event);
-    console.log('📊 [Analytics] Auth State Change:', event);
-  }
-
-  /**
-   * Track token cache events (errors + null reads) from ClerkTokenCache.
-   * These are buffered and flushed after PostHog initializes.
-   */
-  trackTokenCacheEvent(data: TokenCacheEvent) {
-    const event = {
-      ...data,
-      ...this.getBaseProperties(),
-    };
-
-    this.posthog?.capture('token_cache_event', event);
-    console.log('📊 [Analytics] Token Cache Event:', event);
   }
 
   /**
@@ -770,8 +757,8 @@ class AnalyticsService {
       ...this.getBaseProperties(),
     };
 
+    AppLogger.warn('auth', 'Onboarding stale session detected', event as Record<string, unknown>);
     this.posthog?.capture('onboarding_stale_session_detected', event);
-    console.log('📊 [Analytics] Onboarding Stale Session Detected:', event);
   }
 
   /**
@@ -794,7 +781,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('first_lesson', event);
-    console.log('📊 [Analytics] First Lesson:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] First Lesson:', event);
+    }
   }
 
   /**
@@ -811,16 +800,22 @@ class AnalyticsService {
     module_number?: number;
     $screen_name?: string; // Custom screen name for PostHog activity view
   }) {
-    console.log('🔍 [Analytics] trackLessonStarted called with:', data);
+    if (__DEV__) {
+      console.log('🔍 [Analytics] trackLessonStarted called with:', data);
+    }
     const event = {
       ...data,
       ...this.getBaseProperties(),
     };
 
-    console.log('🔍 [Analytics] About to capture lesson_started, posthog exists:', !!this.posthog);
+    if (__DEV__) {
+      console.log('🔍 [Analytics] About to capture lesson_started, posthog exists:', !!this.posthog);
+    }
     this.posthog?.capture('lesson_started', event);
     this.trackToCustomerIO('lesson_started', event);
-    console.log('📊 [Analytics] Lesson Started:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Lesson Started:', event);
+    }
   }
 
   /**
@@ -844,7 +839,9 @@ class AnalyticsService {
 
     this.posthog?.capture('lesson_completed', event);
     this.trackToCustomerIO('lesson_completed', event);
-    console.log('📊 [Analytics] Lesson Completed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Lesson Completed:', event);
+    }
   }
 
   /**
@@ -871,7 +868,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_played', event);
-    console.log('📊 [Analytics] Video Played:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Played:', event);
+    }
   }
 
   /**
@@ -901,7 +900,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_paused', event);
-    console.log('📊 [Analytics] Video Paused:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Paused:', event);
+    }
   }
 
   /**
@@ -928,7 +929,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_completed', event);
-    console.log('📊 [Analytics] Video Completed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Completed:', event);
+    }
   }
 
   /**
@@ -949,7 +952,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('reading_card_expanded', event);
-    console.log('📊 [Analytics] Reading Card Expanded:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Reading Card Expanded:', event);
+    }
   }
 
   /**
@@ -973,7 +978,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_buffering', event);
-    console.log('📊 [Analytics] Video Buffering:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Buffering:', event);
+    }
   }
 
   /**
@@ -998,7 +1005,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('carousel_image_view', event);
-    console.log('📊 [Analytics] Carousel Image View:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Carousel Image View:', event);
+    }
   }
 
   /**
@@ -1021,7 +1030,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('screen_press', event);
-    console.log('📊 [Analytics] Screen Press:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Screen Press:', event);
+    }
   }
 
   /**
@@ -1034,7 +1045,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('module_tracking', event);
-    console.log('📊 [Analytics] Module Tracking:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Module Tracking:', event);
+    }
   }
 
   // ==================== QUIZ EVENTS ====================
@@ -1062,7 +1075,9 @@ class AnalyticsService {
 
     this.posthog?.capture('quiz_started', event);
     this.trackToCustomerIO('quiz_started', event);
-    console.log('📊 [Analytics] Quiz Started:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Quiz Started:', event);
+    }
   }
 
   /**
@@ -1095,7 +1110,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_question_answered', event);
-    console.log('📊 [Analytics] Quiz Question Answered:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Quiz Question Answered:', event);
+    }
   }
 
   /**
@@ -1128,7 +1145,9 @@ class AnalyticsService {
 
     this.posthog?.capture('quiz_completed', event);
     this.trackToCustomerIO('quiz_completed', event);
-    console.log('📊 [Analytics] Quiz Completed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Quiz Completed:', event);
+    }
   }
 
   /**
@@ -1152,7 +1171,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_retake', event);
-    console.log('📊 [Analytics] Quiz Retake:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Quiz Retake:', event);
+    }
   }
 
   // ==================== DROP-OFF TRACKING ====================
@@ -1179,7 +1200,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('drop_off', event);
-    console.log('📊 [Analytics] Drop Off:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Drop Off:', event);
+    }
   }
 
   // ==================== PAGE VIEW TRACKING ====================
@@ -1193,7 +1216,9 @@ class AnalyticsService {
     this.pageStartTimes.set(pageName, Date.now());
     this.pageClicks.set(pageName, 0);
     this.pageUrls.set(pageName, screenUrl);
-    console.log(`📊 [Analytics] Started tracking ${pageName} page (${screenUrl})`);
+    if (__DEV__) {
+      console.log(`📊 [Analytics] Started tracking ${pageName} page (${screenUrl})`);
+    }
   }
 
   /**
@@ -1210,7 +1235,7 @@ class AnalyticsService {
   endPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home') {
     const startTime = this.pageStartTimes.get(pageName);
     if (!startTime) {
-      console.warn(`⚠️ [Analytics] No start time for ${pageName} page`);
+      AppLogger.warn('navigation', 'No start time for page view', { pageName });
       return;
     }
 
@@ -1227,7 +1252,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('page_view', event);
-    console.log(`📊 [Analytics] ${pageName} Page View:`, event);
+    if (__DEV__) {
+      console.log(`📊 [Analytics] ${pageName} Page View:`, event);
+    }
 
     // Clean up
     this.pageStartTimes.delete(pageName);
@@ -1248,7 +1275,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('notification_sent', event);
-    console.log('📊 [Analytics] Notification Sent:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Notification Sent:', event);
+    }
   }
 
   /**
@@ -1256,9 +1285,7 @@ class AnalyticsService {
    */
   trackNotificationClicked(messageId: string) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping event (PostHog not ready): notification_clicked');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping event', { eventName: 'notification_clicked' });
       return;
     }
 
@@ -1268,7 +1295,9 @@ class AnalyticsService {
     };
 
     this.posthog.capture('notification_clicked', event);
-    console.log('📊 [Analytics] Notification Clicked:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Notification Clicked:', event);
+    }
   }
 
   // ==================== SUBSCRIPTION EVENTS ====================
@@ -1284,7 +1313,9 @@ class AnalyticsService {
 
     this.posthog?.capture('subscription_details', event);
     this.trackToCustomerIO('subscription_details', event);
-    console.log('📊 [Analytics] Subscription:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Subscription:', event);
+    }
   }
 
   /**
@@ -1351,16 +1382,16 @@ class AnalyticsService {
    */
   trackCustomEvent(eventName: string, properties: Record<string, any>) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log(`📊 [Analytics] Skipping event (PostHog not ready): ${eventName}`);
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping event', { eventName });
       return;
     }
 
     this.posthog.capture(eventName, properties);
     this.trackToCustomerIO(eventName, properties);
     // PostHog auto-captures $timestamp on every event
-    console.log(`📊 [Analytics] Custom Event (${eventName}):`, properties);
+    if (__DEV__) {
+      console.log(`📊 [Analytics] Custom Event (${eventName}):`, properties);
+    }
   }
 
   // ==================== NEW TRACKING EVENTS ====================
@@ -1492,9 +1523,7 @@ class AnalyticsService {
    */
   initializePersonProperties() {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping initializePersonProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping initializePersonProperties', {});
       return;
     }
 
@@ -1535,7 +1564,7 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: nullProperties,
     });
-    console.log('📊 [Analytics] Initialized all 24 person properties with null');
+    AppLogger.info('startup', 'Initialized person properties with null');
   }
 
   /**
@@ -1549,9 +1578,7 @@ class AnalyticsService {
     onboarding_result?: string;
   }) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping updateOnboardingProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping updateOnboardingProperties', {});
       return;
     }
 
@@ -1565,7 +1592,9 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: properties,
     });
-    console.log('📊 [Analytics] Updated onboarding properties:', properties);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated onboarding properties:', properties);
+    }
   }
 
   /**
@@ -1573,9 +1602,7 @@ class AnalyticsService {
    */
   updatePushStatus(isEnabled: boolean, permissionStatus?: string) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping updatePushStatus (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping updatePushStatus', {});
       return;
     }
 
@@ -1586,7 +1613,9 @@ class AnalyticsService {
         push_permission_updated_at: new Date().toISOString(),
       },
     });
-    console.log('📊 [Analytics] Updated push status:', isEnabled, permissionStatus);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated push status:', isEnabled, permissionStatus);
+    }
   }
 
   /**
@@ -1601,7 +1630,9 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: { last_active_at: timestamp },
     });
-    console.log('📊 [Analytics] Updated last_active_at:', timestamp);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated last_active_at:', timestamp);
+    }
   }
 
   /**
@@ -1621,9 +1652,7 @@ class AnalyticsService {
     era_xp?: Record<string, number>; // Dynamic: { "umayyad": 200, "rise_of_islam": 80 } - keys are era_ids from Supabase
   }) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping updateProgressProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping updateProgressProperties', {});
       return;
     }
 
@@ -1637,7 +1666,9 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: properties,
     });
-    console.log('📊 [Analytics] Updated progress properties:', properties);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated progress properties:', properties);
+    }
   }
 
   /**
@@ -1649,9 +1680,7 @@ class AnalyticsService {
     rc_subscription_status?: string | null;
   }) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping updateSubscriptionProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping updateSubscriptionProperties', {});
       return;
     }
 
@@ -1665,7 +1694,9 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: properties,
     });
-    console.log('📊 [Analytics] Updated subscription properties:', properties);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated subscription properties:', properties);
+    }
   }
 
   /**
@@ -1677,9 +1708,7 @@ class AnalyticsService {
     daily_story_completion_rate?: number;
   }) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping updateDailyStoryProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping updateDailyStoryProperties', {});
       return;
     }
 
@@ -1692,7 +1721,9 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: properties,
     });
-    console.log('📊 [Analytics] Updated daily story properties:', properties);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated daily story properties:', properties);
+    }
   }
 
   // ==================== USER IDENTIFICATION ====================
@@ -1702,9 +1733,7 @@ class AnalyticsService {
    */
   identifyUser(userId: string, properties?: Record<string, any>) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping identify (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping identify', {});
       return;
     }
 
@@ -1717,7 +1746,7 @@ class AnalyticsService {
       ) : {};
 
     this.posthog.identify(userId, sanitizedProperties);
-    console.log('📊 [Analytics] User Identified:', userId, sanitizedProperties);
+    AppLogger.info('auth', 'User identified in PostHog', { userId });
   }
 
   /**
@@ -1725,9 +1754,7 @@ class AnalyticsService {
    */
   setUserProperties(clerkUserId: string, properties?: Record<string, any>) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping setUserProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping setUserProperties', {});
       return;
     }
 
@@ -1747,7 +1774,7 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: allProperties,
     });
-    console.log('📊 [Analytics] User Properties Set:', allProperties);
+    AppLogger.info('auth', 'User properties set in PostHog', { clerkUserId });
   }
 
   /**
@@ -1760,7 +1787,7 @@ class AnalyticsService {
     this.pageStartTimes.clear();
     this.pageClicks.clear();
     // Note: We keep anonymousId - it persists across sessions
-    console.log('📊 [Analytics] Reset (anonymous ID preserved)');
+    AppLogger.info('auth', 'Analytics reset (anonymous ID preserved)');
   }
 }
 

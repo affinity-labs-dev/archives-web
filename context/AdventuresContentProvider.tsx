@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { adventuresContentService } from '@/services/AdventuresContentService';
+import AppLogger from '@/services/AppLogger';
 import type { Adventure } from '@/components/shared/types';
 
 interface AdventuresContentContextType {
@@ -38,7 +39,7 @@ export function AdventuresContentProvider({ children }: { children: React.ReactN
       return data;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load adventures';
-      console.error('❌ Error loading adventures:', errorMsg);
+      AppLogger.error('content', 'Failed to load adventures', { eraId }, err);
       setError(errorMsg);
       setIsLoading(false);
       throw err;
@@ -50,13 +51,13 @@ export function AdventuresContentProvider({ children }: { children: React.ReactN
    */
   const refreshAdventures = useCallback(async (eraId: string) => {
     try {
-      console.log(`🔄 Force refresh for era: ${eraId}`);
+      AppLogger.info('content', 'Force refresh started', { eraId });
       const fresh = await adventuresContentService.fetchFromSupabase(eraId);
       adventuresContentService.saveToCache(eraId, fresh);
       setAdventures(prev => ({ ...prev, [eraId]: fresh }));
-      console.log(`✅ Refresh complete for era: ${eraId}`);
+      AppLogger.info('content', 'Refresh complete', { eraId });
     } catch (err) {
-      console.error('❌ Refresh error:', err);
+      AppLogger.error('content', 'Refresh failed', { eraId }, err);
     }
   }, []);
 

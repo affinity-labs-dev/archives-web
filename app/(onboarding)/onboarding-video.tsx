@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
@@ -42,12 +43,12 @@ export default function OnboardingVideoScreen() {
         try {
           player.play()
         } catch (playError) {
-          console.error('🎬 Error calling play():', playError)
+          AppLogger.error('video', 'Onboarding video 1 play error', {}, playError)
         }
       }, 100) // Small delay to ensure player is ready
 
     } catch (error) {
-      console.error('🎬 Error during player setup:', error)
+      AppLogger.error('video', 'Onboarding video 1 player setup error', {}, error)
     }
   })
 
@@ -61,7 +62,7 @@ export default function OnboardingVideoScreen() {
         const startTime = Date.now().toString()
         await AsyncStorage.setItem('onboarding_start_time', startTime)
       } catch (error) {
-        console.error('Error storing start time:', error)
+        AppLogger.error('navigation', 'Error storing onboarding start time', {}, error)
       }
     }
 
@@ -93,13 +94,13 @@ export default function OnboardingVideoScreen() {
             try {
               player.play()
             } catch (error) {
-              console.error('Auto-play failed:', error)
+              AppLogger.error('video', 'Onboarding video 1 auto-play failed', {}, error)
             }
           } else if (status.status === 'error') {
-            console.error('Video player error:', status.error)
+            AppLogger.error('video', 'Onboarding video 1 player error', { error: String(status.error) })
           }
         } catch (err) {
-          console.warn('🎬 [OnboardingVideo] statusChange error:', err)
+          AppLogger.error('video', 'Onboarding video 1 statusChange error', {}, err)
         }
       })
 
@@ -114,7 +115,7 @@ export default function OnboardingVideoScreen() {
             }, 1000) // 1 second delay for smooth transition
           }
         } catch (err) {
-          console.warn('🎬 [OnboardingVideo] playToEnd handler error:', err)
+          AppLogger.error('video', 'Onboarding video 1 playToEnd handler error', {}, err)
         }
       })
 
@@ -123,7 +124,7 @@ export default function OnboardingVideoScreen() {
         playbackSubscription?.remove()
       }
     } catch (error) {
-      console.warn('Video listener error:', error)
+      AppLogger.error('video', 'Onboarding video 1 listener setup error', {}, error)
     }
   }, [player, videoLoaded, videoCompleted, trackVideoPlayed])
 
@@ -149,7 +150,7 @@ export default function OnboardingVideoScreen() {
       setExitAction('continued')
       router.replace('/onboarding-video-2')
     } catch (error) {
-      console.error('Error navigating:', error)
+      AppLogger.error('navigation', 'Onboarding video 1 navigation error', {}, error)
       // Continue anyway to avoid blocking user
       setExitAction('continued')
       router.replace('/onboarding-video-2')

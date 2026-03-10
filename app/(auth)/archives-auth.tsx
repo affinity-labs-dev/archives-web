@@ -25,6 +25,7 @@ import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -84,8 +85,10 @@ export default function ArchivesAuthScreen() {
 
   // Debug: Log video player status
   React.useEffect(() => {
-    console.log('Video source:', videoSource)
-    console.log('Video player status:', player.status)
+    if (__DEV__) {
+      console.log('Video source:', videoSource)
+      console.log('Video player status:', player.status)
+    }
   }, [player.status])
 
   // Navigation handlers
@@ -102,15 +105,15 @@ export default function ArchivesAuthScreen() {
 
       if (hasSelectedEra) {
         // Returning user - go directly to main app
-        console.log('🏠 Returning user after auth - routing to main app')
+        AppLogger.info('auth', 'Returning user after auth - routing to tabs')
         router.replace('/(tabs)')
       } else {
         // New user - go to era selection for onboarding
-        console.log('👋 New user after auth - routing to era selection')
+        AppLogger.info('auth', 'New user after auth - routing to era selection')
         router.replace('/(tabs)/eras?mode=onboarding')
       }
     } catch (error) {
-      console.error('Error checking onboarding status:', error)
+      AppLogger.error('auth', 'Error checking onboarding status', {}, error)
       // Default to era selection on error
       router.replace('/(tabs)/eras?mode=onboarding')
     }
@@ -337,7 +340,7 @@ export default function ArchivesAuthScreen() {
 
                   setErrorMessage('Apple Sign In failed. Please try again.')
                   setShowError(true)
-                  console.error('Apple Sign In Error:', error)
+                  AppLogger.error('auth', 'Apple Sign In error', { mode: isSignInMode ? 'signin' : 'signup' }, error)
                 }}
               />
 
@@ -379,7 +382,7 @@ export default function ArchivesAuthScreen() {
 
                   setErrorMessage('Google Sign In failed. Please try again.')
                   setShowError(true)
-                  console.error('Google Sign In Error:', error)
+                  AppLogger.error('auth', 'Google Sign In error', { mode: isSignInMode ? 'signin' : 'signup' }, error)
                 }}
               />
 

@@ -1,11 +1,12 @@
 import { Redirect, Stack } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
+import AppLogger from '@/services/AppLogger'
 
 export default function AuthRoutesLayout() {
   const { isSignedIn } = useAuth()
 
   if (isSignedIn) {
-    console.log('🔑 [AuthLayout] User already signed in, redirecting → /(tabs)')
+    AppLogger.info('auth', 'AuthLayout: user already signed in, redirecting to tabs')
     return <Redirect href={'/(tabs)'} />
   }
 
