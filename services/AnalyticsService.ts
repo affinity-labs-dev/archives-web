@@ -210,22 +210,30 @@ export type SubscribeTrigger =
 
 interface SubscribeScreenViewedEvent {
   trigger: SubscribeTrigger;
+  era_id?: string;
+  era_name?: string;
 }
 
 interface SubscribePurchaseCompletedEvent {
   trigger: SubscribeTrigger;
   plan: SubscriptionType;
   revenue?: number;
+  era_id?: string;
+  era_name?: string;
 }
 
 interface SubscribePurchaseFailedEvent {
   trigger: SubscribeTrigger;
   plan?: SubscriptionType;
   error_code?: string;
+  era_id?: string;
+  era_name?: string;
 }
 
 interface SubscribeRestoreEvent {
   trigger: SubscribeTrigger;
+  era_id?: string;
+  era_name?: string;
 }
 
 interface SubscribeRestoreFailedEvent {
@@ -1342,7 +1350,7 @@ class AnalyticsService {
   /**
    * Track purchase cancelled by user
    */
-  trackSubscribePurchaseCancelled(data: { trigger: SubscribeTrigger }) {
+  trackSubscribePurchaseCancelled(data: { trigger: SubscribeTrigger; era_id?: string; era_name?: string }) {
     this.trackCustomEvent('subscribe_purchase_cancelled', data);
   }
 

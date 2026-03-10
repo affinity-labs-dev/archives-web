@@ -2,7 +2,7 @@
 // Handles both onboarding (first-time) and switching (returning user) modes
 // Data fetched from Supabase via useEras hook
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 import { useGamifiedProgress } from '@/gamification';
 import { useEras, Era, isEraAccessible } from '@/hooks/useEras';
@@ -37,6 +38,9 @@ export default function EraSelection() {
   const { eras, loading, error } = useEras();
 
   const [selectedEraId, setSelectedEraId] = useState<string | null>(null);
+
+  // Ref to prevent multiple simultaneous paywall presentations
+  const isPaywallPresentedRef = useRef(false);
 
   // Get subscription status from RevenueCat (now linked to Clerk identity)
   const { isSubscribed, customerInfo } = useRevenueCat();
@@ -94,10 +98,92 @@ export default function EraSelection() {
     }
   }, [era, eras, loading, error, hasSubscription, isFoundingMember]);
 
+  // Present paywall for locked premium eras
+  const handleShowPaywall = async (era: Era) => {
+    if (isPaywallPresentedRef.current) {
+      console.log('⚠️ [Eras Paywall] Already presented, skipping');
+      return;
+    }
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+    analyticsService.trackSubscribeScreenViewed({
+      trigger: 'era_locked',
+      era_id: era.era_id,
+      era_name: era.title,
+    });
+
+    try {
+      isPaywallPresentedRef.current = true;
+      const result = await RevenueCatUI.presentPaywall();
+
+      switch (result) {
+        case PAYWALL_RESULT.PURCHASED:
+        case PAYWALL_RESULT.RESTORED: {
+          console.log(`✅ [Eras Paywall] ${result === PAYWALL_RESULT.PURCHASED ? 'Purchase' : 'Restore'} completed`);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+          if (result === PAYWALL_RESULT.PURCHASED) {
+            analyticsService.trackSubscribePurchaseCompleted({
+              trigger: 'era_locked',
+              plan: 'yearly',
+              era_id: era.era_id,
+              era_name: era.title,
+            });
+          } else {
+            analyticsService.trackSubscribeRestoreSuccess({
+              trigger: 'era_locked',
+              era_id: era.era_id,
+              era_name: era.title,
+            });
+          }
+
+          // Auto-select the era after successful purchase
+          // RevenueCat hook will update isSubscribed, making era accessible
+          setSelectedEraId(era.era_id);
+          break;
+        }
+
+        case PAYWALL_RESULT.CANCELLED:
+          console.log('🚫 [Eras Paywall] Cancelled');
+          analyticsService.trackSubscribePurchaseCancelled({
+            trigger: 'era_locked',
+            era_id: era.era_id,
+            era_name: era.title,
+          });
+          break;
+
+        case PAYWALL_RESULT.NOT_PRESENTED:
+        case PAYWALL_RESULT.ERROR:
+          console.log(`❌ [Eras Paywall] Issue: ${result}`);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          analyticsService.trackSubscribePurchaseFailed({
+            trigger: 'era_locked',
+            era_id: era.era_id,
+            era_name: era.title,
+          });
+          break;
+      }
+    } catch (err) {
+      console.error('❌ [Eras Paywall] Error presenting paywall:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      analyticsService.trackSubscribePurchaseFailed({
+        trigger: 'era_locked',
+        era_id: era.era_id,
+        error_code: err instanceof Error ? err.message : 'unknown',
+      });
+    } finally {
+      isPaywallPresentedRef.current = false;
+    }
+  };
+
   const handleEraSelect = (era: Era) => {
     const canSelect = isEraAccessible(era.status, hasSubscription, isFoundingMember);
     if (!canSelect) {
-      // TODO: Show subscription/upgrade modal
+      // Premium eras → show paywall; founding/coming_soon → ignore
+      if (era.status === 'premium') {
+        handleShowPaywall(era);
+      }
       return;
     }
 
