@@ -56,9 +56,11 @@ Sentry.init({
   // Enable Logs
   enableLogs: true,
 
-  // Configure Session Replay
+  // Session Replay disabled - causes EXC_BAD_ACCESS crash due to race condition
+  // between Sentry's view controller introspection and expo-video's concurrent
+  // Swift event emission (swift_conformsToProtocol thread safety issue)
   replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1,
+  replaysOnErrorSampleRate: 0.5,
   integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
 
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
