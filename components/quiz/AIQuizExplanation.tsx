@@ -21,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import AppLogger from '@/services/AppLogger';
 
 interface AIQuizExplanationProps {
   questions: Question[];
@@ -118,14 +119,14 @@ export default function AIQuizExplanation({
   useEffect(() => {
     return () => {
       if (isPaywallPresentedRef.current) {
-        console.log('🧹 [AIQuizExplanation] Unmounting - dismissing paywall');
+        AppLogger.info('ai', 'AIQuizExplanation unmounting');
         try {
           // Note: RevenueCat doesn't have a direct dismiss method for imperative API
           // The paywall auto-dismisses when user taps X or completes purchase
           // This ref just tracks state for debugging
           isPaywallPresentedRef.current = false;
         } catch (error) {
-          console.error('❌ [AIQuizExplanation] Error during cleanup:', error);
+          AppLogger.error('ai', 'AIQuizExplanation cleanup error', {}, error);
         }
       }
     };
@@ -155,7 +156,7 @@ export default function AIQuizExplanation({
   const handleShowPaywall = async () => {
     // Prevent multiple simultaneous presentations
     if (isPaywallPresentedRef.current) {
-      console.log('⚠️ [AIQuizExplanation] Paywall already presented, skipping');
+      if (__DEV__) console.log('⚠️ [AIQuizExplanation] Paywall already presented, skipping');
       return;
     }
 
@@ -172,7 +173,7 @@ export default function AIQuizExplanation({
 
       switch (result) {
         case PAYWALL_RESULT.PURCHASED:
-          console.log('✅ [AIQuizExplanation] Purchase completed');
+          AppLogger.info('subscription', 'Premium purchase completed via quiz explanation');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           analyticsService.trackSubscribePurchaseCompleted({
             trigger: 'ai_quiz_explanation',
@@ -181,7 +182,7 @@ export default function AIQuizExplanation({
           break;
 
         case PAYWALL_RESULT.RESTORED:
-          console.log('✅ [AIQuizExplanation] Restore completed');
+          AppLogger.info('subscription', 'Subscription restore completed via quiz explanation');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           analyticsService.trackSubscribeRestoreSuccess({
             trigger: 'ai_quiz_explanation',
@@ -189,7 +190,7 @@ export default function AIQuizExplanation({
           break;
 
         case PAYWALL_RESULT.CANCELLED:
-          console.log('🚫 [AIQuizExplanation] Paywall cancelled');
+          if (__DEV__) console.log('🚫 [AIQuizExplanation] Paywall cancelled');
           analyticsService.trackSubscribePurchaseCancelled({
             trigger: 'ai_quiz_explanation',
           });
@@ -197,7 +198,7 @@ export default function AIQuizExplanation({
 
         case PAYWALL_RESULT.NOT_PRESENTED:
         case PAYWALL_RESULT.ERROR:
-          console.log(`❌ [AIQuizExplanation] Paywall ${result}`);
+          AppLogger.warn('subscription', 'Paywall presentation issue', { result });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           analyticsService.trackSubscribePurchaseFailed({
             trigger: 'ai_quiz_explanation',
@@ -206,7 +207,7 @@ export default function AIQuizExplanation({
           break;
       }
     } catch (error) {
-      console.error('❌ [AIQuizExplanation] Error presenting paywall:', error);
+      AppLogger.error('subscription', 'Error presenting paywall', {}, error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       analyticsService.trackSubscribePurchaseFailed({
         trigger: 'ai_quiz_explanation',
@@ -238,7 +239,7 @@ export default function AIQuizExplanation({
       incorrect_questions: explanations.filter((e) => !e.isCorrect).length,
     });
 
-    console.log('🤖 [AIQuizExplanation] Requesting explanations for', questions.length, 'questions');
+    AppLogger.info('ai', 'Requesting AI quiz explanations', { totalQuestions: questions.length });
 
     // Animate in
     Animated.timing(fadeAnim, {
@@ -282,9 +283,9 @@ export default function AIQuizExplanation({
         explanations_count: aiExplanations.length,
       });
 
-      console.log('✅ [AIQuizExplanation] Generated', aiExplanations.length, 'explanations');
+      AppLogger.info('ai', 'AI explanations generated', { count: aiExplanations.length });
     } catch (error) {
-      console.error('❌ [AIQuizExplanation] Error generating explanations:', error);
+      AppLogger.error('ai', 'Failed to generate AI explanations', {}, error);
 
       // Track error
       analyticsService.trackCustomEvent('ai_quiz_explanation_error', {

@@ -21,6 +21,7 @@ import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -40,7 +41,7 @@ export default function OnboardingQuestion2Screen() {
   // Use ref to avoid re-running useEffect when exit action changes
   const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
-  console.log('🔥 [OnboardingQ2] Component initializing...')
+  AppLogger.info('navigation', 'OnboardingQ2 initializing')
 
   // Track screen view when component mounts
   useEffect(() => {
@@ -63,9 +64,9 @@ export default function OnboardingQuestion2Screen() {
       playTap()
       await Haptics.selectionAsync()
       setSelectedOption(optionIndex)
-      console.log('🔥 [OnboardingQ2] Selected option:', questionOptions[optionIndex])
+      AppLogger.info('navigation', 'OnboardingQ2 selected option', { option: questionOptions[optionIndex] })
     } catch (error) {
-      console.error('🔥 [OnboardingQ2] Error selecting option:', error)
+      AppLogger.error('navigation', 'OnboardingQ2 option select error', {}, error)
       setSelectedOption(optionIndex)
     }
   }
@@ -94,13 +95,13 @@ export default function OnboardingQuestion2Screen() {
       }
 
       await AsyncStorage.setItem('onboarding_q2_answer', JSON.stringify(answerData))
-      console.log('🔥 [OnboardingQ2] Answer saved:', answerData)
+      AppLogger.info('navigation', 'OnboardingQ2 answer saved', { answer: answerData.answer })
 
       // Navigate to next question (notification permission moved to Q3's "ENABLE REMINDERS" button)
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-3')
     } catch (error) {
-      console.error('🔥 [OnboardingQ2] Error saving answer:', error)
+      AppLogger.error('navigation', 'OnboardingQ2 error saving answer', {}, error)
       // Continue anyway
       exitActionRef.current = 'continued'
       router.push('/onboarding-question-3')

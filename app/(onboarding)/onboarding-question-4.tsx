@@ -21,6 +21,7 @@ import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 import Svg, { Path } from 'react-native-svg'
 
 const questionOptions = [
@@ -41,7 +42,7 @@ export default function OnboardingQuestion4Screen() {
   // Use ref to avoid re-running useEffect when exit action changes
   const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
-  console.log('🔥 [OnboardingQ4] Component initializing...')
+  AppLogger.info('navigation', 'OnboardingQ4 initializing')
 
   // Track screen view when component mounts
   useEffect(() => {
@@ -68,17 +69,15 @@ export default function OnboardingQuestion4Screen() {
         if (prev.includes(optionIndex)) {
           // Remove if already selected
           const newSelection = prev.filter(index => index !== optionIndex)
-          console.log('🔥 [OnboardingQ4] Deselected option:', questionOptions[optionIndex])
           return newSelection
         } else {
           // Add if not selected
           const newSelection = [...prev, optionIndex]
-          console.log('🔥 [OnboardingQ4] Selected option:', questionOptions[optionIndex])
           return newSelection
         }
       })
     } catch (error) {
-      console.error('🔥 [OnboardingQ4] Error selecting option:', error)
+      AppLogger.error('navigation', 'OnboardingQ4 option select error', {}, error)
       // Still update selection even if haptic fails
       setSelectedOptions(prev => {
         if (prev.includes(optionIndex)) {
@@ -114,17 +113,17 @@ export default function OnboardingQuestion4Screen() {
       }
 
       await AsyncStorage.setItem('onboarding_q4_answer', JSON.stringify(answerData))
-      console.log('🔥 [OnboardingQ4] Answer saved:', answerData)
+      AppLogger.info('navigation', 'OnboardingQ4 answer saved')
 
       // Mark onboarding as completed
       await AsyncStorage.setItem('onboarding_completed', 'true')
-      console.log('🔥 [OnboardingQ4] Onboarding completed!')
+      AppLogger.info('navigation', 'Onboarding completed - all questions answered')
 
       // Navigate to results screen
       exitActionRef.current = 'continued'
       router.push('/onboarding-results')
     } catch (error) {
-      console.error('🔥 [OnboardingQ4] Error in handleContinue:', error)
+      AppLogger.error('navigation', 'OnboardingQ4 handleContinue error', {}, error)
       // Navigate anyway
       await AsyncStorage.setItem('onboarding_completed', 'true')
       exitActionRef.current = 'continued'

@@ -13,7 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider, ClerkLoaded, useUser } from "@clerk/clerk-expo";
-import { tokenCache, flushPendingTokenCacheEvents } from "@/services/ClerkTokenCache";
+import { tokenCache } from "@/services/ClerkTokenCache";
 import { PostHogProvider } from 'posthog-react-native';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
@@ -29,6 +29,7 @@ import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
 import CustomerIOService from '@/services/CustomerIOService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
+import AppLogger from '@/services/AppLogger';
 import { NotificationPermissionModal } from '@/gamification/ui/achievement/AchievementGrid';
 import Purchases from 'react-native-purchases';
 
@@ -74,44 +75,38 @@ Sentry.init({
 const handleNotificationDeepLink = (response: Notifications.NotificationResponse) => {
   try {
     const data = response.notification.request.content.data;
-    console.log('🔔 [DeepLink] Notification data:', data);
+    AppLogger.info('deeplink', 'Processing notification deep link', { data: data as Record<string, unknown> });
 
     // Customer.io deep link can be in 'link', 'url', or 'deep_link' field
     const deepLink = data?.link || data?.url || data?.deep_link;
 
     if (deepLink && typeof deepLink === 'string') {
-      console.log('🔗 [DeepLink] Found:', deepLink);
-
       // Handle different URL formats
       if (deepLink.startsWith('archives://')) {
-        // Custom scheme - extract path and navigate
         const path = deepLink.replace('archives://', '/');
-        console.log('🔗 [DeepLink] Custom scheme path:', path);
+        AppLogger.info('deeplink', 'Navigating via custom scheme', { deepLink, path });
         router.push(path as any);
       } else if (deepLink.startsWith('https://link.archiveszone.app')) {
-        // Universal link - extract path
         try {
           const url = new URL(deepLink);
           const path = url.pathname;
-          console.log('🔗 [DeepLink] Universal link path:', path);
+          AppLogger.info('deeplink', 'Navigating via universal link', { deepLink, path });
           if (path && path !== '/') {
             router.push(path as any);
           }
         } catch {
-          console.error('🔗 [DeepLink] Invalid URL:', deepLink);
+          AppLogger.error('deeplink', 'Invalid universal link URL', { deepLink });
         }
       } else if (deepLink.startsWith('/')) {
-        // Direct path - navigate directly
-        console.log('🔗 [DeepLink] Direct path:', deepLink);
+        AppLogger.info('deeplink', 'Navigating via direct path', { deepLink });
         router.push(deepLink as any);
       } else {
-        // External URL - open in browser
-        console.log('🔗 [DeepLink] Opening external URL:', deepLink);
+        AppLogger.info('deeplink', 'Opening external URL', { deepLink });
         Linking.openURL(deepLink);
       }
     }
   } catch (error) {
-    console.error('❌ [DeepLink] Error handling:', error);
+    AppLogger.error('deeplink', 'Error handling notification deep link', {}, error);
   }
 };
 
@@ -157,10 +152,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Identify user to Customer.io when signed in (independent of PostHog)
   React.useEffect(() => {
-    console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIO identify useEffect, isSignedIn:', isSignedIn, 'user:', !!user);
+    AppLogger.info('notification', 'CustomerIO identify check', { isSignedIn: !!isSignedIn, hasUser: !!user });
 
     if (isSignedIn && user) {
-      console.log('🔍 [AnalyticsWrapper DEBUG] Calling CustomerIOService.identify()...');
       CustomerIOService.identify(user.id, {
         email: user.primaryEmailAddress?.emailAddress,
         first_name: user.firstName,
@@ -169,7 +163,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         created_at: user.createdAt ? Math.floor(new Date(user.createdAt).getTime() / 1000) : undefined,
         device_type: Platform.OS,
       });
-      console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIOService.identify() returned');
     } else {
       // Clear Customer.io identity when signed out
       CustomerIOService.clearIdentify();
@@ -201,8 +194,10 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           // This merges any anonymous purchases with this identified user
           const { customerInfo } = await Purchases.logIn(user.id);
           rcLoggedInUserRef.current = user.id;
-          console.log('💰 [RevenueCat] User identified:', user.id,
-            'Active entitlements:', Object.keys(customerInfo.entitlements.active));
+          AppLogger.info('subscription', 'RevenueCat user identified', {
+            userId: user.id,
+            activeEntitlements: Object.keys(customerInfo.entitlements.active),
+          });
 
           // Set subscriber attributes for ALL users (visible in RevenueCat dashboard)
           Purchases.setAttributes({
@@ -219,18 +214,18 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
               Purchases.setAttributes({
                 'att_status': status,
               });
-              console.log('💰 [RevenueCat] ATT status set:', status);
+              AppLogger.info('subscription', 'RevenueCat ATT status set', { status });
             } catch (attError) {
-              console.log('💰 [RevenueCat] Could not get ATT status:', attError);
+              AppLogger.warn('subscription', 'Could not get ATT status', { error: String(attError) });
             }
           }
 
           // Collect device identifiers (IDFA/GAID) for attribution
           Purchases.collectDeviceIdentifiers();
 
-          console.log('💰 [RevenueCat] Subscriber attributes synced for user:', user.id);
+          AppLogger.info('subscription', 'RevenueCat subscriber attributes synced', { userId: user.id });
         } catch (error) {
-          console.error('❌ [RevenueCat] Failed to sync identity:', error);
+          AppLogger.error('subscription', 'RevenueCat identity sync failed', { userId: user.id }, error);
         } finally {
           rcLoginInProgressRef.current = false;
         }
@@ -239,10 +234,10 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         rcLoggedInUserRef.current = null;
         try {
           await Purchases.logOut();
-          console.log('💰 [RevenueCat] User logged out, reset to anonymous');
+          AppLogger.info('subscription', 'RevenueCat user logged out, reset to anonymous');
         } catch {
           // logOut() throws if already anonymous — safe to ignore
-          console.log('💰 [RevenueCat] LogOut skipped (already anonymous)');
+          AppLogger.info('subscription', 'RevenueCat logout skipped (already anonymous)');
         }
       }
     };
@@ -289,7 +284,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     if (currentSignedIn && user) {
       // Only fire session-in on actual sign-in transition (not on re-renders)
       if (!wasSignedInRef.current) {
-        console.log('🔑 [AnalyticsWrapper] User signed in, tracking session');
+        AppLogger.info('auth', 'User signed in, tracking session', { userId: user.id, method: getLoginMethod(user) });
         // AFF-151: Login method via externalAccounts may not be populated immediately;
         // default to 'email' and let PostHog person properties update on next render
         analyticsService.trackUserSessionIn(getLoginMethod(user));
@@ -300,14 +295,12 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         ;(async () => {
           try {
             const { status } = await Notifications.getPermissionsAsync();
-            console.log('🔔 [AnalyticsWrapper] Push permission status:', status);
+            AppLogger.info('notification', 'Push permission status checked', { status });
 
             if (status === 'undetermined') {
-              // Never asked — show custom modal first, then native prompt on button tap
-              console.log('🔔 [AnalyticsWrapper] Permission never asked, showing custom modal...');
+              AppLogger.info('notification', 'Permission never asked, showing custom modal');
               setShowNotificationModal(true);
             } else if (status === 'granted') {
-              // Already granted — sync token to Customer.io (might have changed)
               try {
                 const pushToken = await Notifications.getDevicePushTokenAsync();
                 if (pushToken?.data) {
@@ -317,25 +310,25 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
                     push_permission_status: 'Granted',
                     cio_push_token: pushToken.data,
                   });
-                  console.log('🔔 [AnalyticsWrapper] Push token synced on sign-in');
+                  AppLogger.info('notification', 'Push token synced on sign-in');
                 }
               } catch (tokenErr) {
-                console.log('🔔 [AnalyticsWrapper] Token sync error:', tokenErr);
+                AppLogger.error('notification', 'Push token sync failed', {}, tokenErr);
               }
             }
           } catch (err) {
-            console.log('🔔 [AnalyticsWrapper] Permission check error:', err);
+            AppLogger.error('notification', 'Permission check failed', {}, err);
           }
         })();
       }
     } else if (!currentSignedIn && wasSignedInRef.current) {
       // AFF-151: Skip if profile.tsx already fired user_session_out (manual sign-out or account deletion)
       if (analyticsService.manualSignOutInProgress) {
-        console.log('👋 [AnalyticsWrapper] Skipping duplicate session-out (manual sign-out handled it)');
+        AppLogger.info('auth', 'Skipping duplicate session-out (manual sign-out handled it)');
         analyticsService.manualSignOutInProgress = false;
       } else {
         // Clerk session expired or was revoked — fire clerk_session_ended
-        console.log('👋 [AnalyticsWrapper] User signed out, tracking session out + resetting analytics');
+        AppLogger.warn('auth', 'User signed out unexpectedly (Clerk session ended)');
         ;(async () => {
           const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era').catch(() => null));
           analyticsService.trackUserSessionOut({
@@ -377,20 +370,16 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Initialize PostHog analytics + set user properties when both PostHog and Clerk user are ready
   React.useEffect(() => {
-    console.log('🔍 [AnalyticsWrapper DEBUG] PostHog useEffect running, posthog:', !!posthog, 'isSignedIn:', isSignedIn);
+    AppLogger.info('startup', 'PostHog init check', { posthogReady: !!posthog, isSignedIn: !!isSignedIn });
 
     if (posthog) {
-      console.log('🔍 [AnalyticsWrapper DEBUG] PostHog available, initializing analytics...');
       analyticsService.initialize(posthog);
-
-      // AFF-151: Flush any token cache events that were buffered before PostHog was ready
-      flushPendingTokenCacheEvents((event) => analyticsService.trackTokenCacheEvent(event));
 
       // Note: Session replay starts automatically via enableSessionReplay: true config
 
       // Identify user if signed in - this merges all anonymous events to the authenticated user
       if (isSignedIn && user) {
-        console.log('🔍 [AnalyticsWrapper DEBUG] User signed in:', user.id);
+        AppLogger.info('auth', 'Identifying user in PostHog + Sentry', { userId: user.id });
         analyticsService.identifyUser(user.id, {
           email: user.primaryEmailAddress?.emailAddress,
           firstName: user.firstName,
@@ -405,6 +394,13 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           username: user.username || undefined,
         });
 
+        // Set app_state context so every Sentry error includes session info
+        AppLogger.setContext('app_state', {
+          isSignedIn: true,
+          userId: user.id,
+          loginMethod: getLoginMethod(user),
+        });
+
         // Initialize all 17 person properties with null (only once per user)
         // This establishes the property schema in PostHog for cohort analysis
         const initPersonProperties = async () => {
@@ -417,7 +413,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
               await AsyncStorage.setItem(initKey, 'true');
             }
           } catch (error) {
-            console.error('❌ [Analytics] Error initializing person properties:', error);
+            AppLogger.error('startup', 'Error initializing person properties', {}, error);
             // Don't block app - this is non-critical
           }
         };
@@ -425,6 +421,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       } else {
         // Clear Sentry user when signed out
         Sentry.setUser(null);
+        AppLogger.setContext('app_state', { isSignedIn: false });
       }
     }
   }, [posthog, isSignedIn, user]);
@@ -459,7 +456,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
       if (isCioPush) {
         // Let Customer.io SDK handle deep links for its own pushes
-        console.log('🔗 [DeepLink] CIO push — SDK handles deep link');
+        AppLogger.info('deeplink', 'CIO push — SDK handles deep link');
         return;
       }
 
@@ -521,17 +518,14 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Handle "Enable Notifications" button tap from custom modal
   const handleEnableNotifications = React.useCallback(async () => {
-    console.log('🔔 [AnalyticsWrapper] Enable Notifications button tapped!');
+    AppLogger.info('notification', 'Enable Notifications button tapped');
     setShowNotificationModal(false);
     try {
-      console.log('🔔 [AnalyticsWrapper] Calling showPromptForPushNotifications...');
       const result = await CustomerIOService.showPromptForPushNotifications({
         ios: { sound: true, badge: true },
       });
-      console.log('🔔 [AnalyticsWrapper] showPromptForPushNotifications returned:', result);
-
       const granted = result === 'Granted';
-      console.log('🔔 [AnalyticsWrapper] Permission result:', granted ? 'GRANTED' : 'DENIED');
+      AppLogger.info('notification', 'Push permission prompt result', { granted, result });
 
       CustomerIOService.setProfileAttributes({
         push_notifications_enabled: granted,
@@ -547,15 +541,15 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
             if (pushToken?.data) {
               CustomerIOService.registerPushToken(pushToken.data);
               CustomerIOService.setProfileAttributes({ cio_push_token: pushToken.data });
-              console.log('🔔 [AnalyticsWrapper] Device token registered after sign-in prompt');
+              AppLogger.info('notification', 'Device token registered after sign-in prompt');
             }
           } catch (tokenErr) {
-            console.log('🔔 [AnalyticsWrapper] Token registration error:', tokenErr);
+            AppLogger.error('notification', 'Token registration failed after prompt', {}, tokenErr);
           }
         }, 1500);
       }
     } catch (sdkErr) {
-      console.log('🔔 [AnalyticsWrapper] Push prompt error:', sdkErr);
+      AppLogger.error('notification', 'Push prompt error', {}, sdkErr);
     }
   }, []);
 

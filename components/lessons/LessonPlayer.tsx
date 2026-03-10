@@ -4,6 +4,7 @@
 
 import React from 'react';
 import type { ContentItem } from '@/components/shared/types';
+import AppLogger from '@/services/AppLogger';
 
 // Import all lesson renderers
 import ReelLesson from './ReelLesson';
@@ -97,7 +98,7 @@ export default function LessonPlayer({
 
     default:
       // Fallback for unknown content types - log warning and show reel
-      console.warn(`⚠️ [LessonPlayer] Unknown content_type: "${contentItem.content_type}", falling back to reel`);
+      AppLogger.warn('content', 'Unknown content_type encountered', { contentType: contentItem.content_type });
       return <ReelLesson {...commonProps} />;
   }
 }

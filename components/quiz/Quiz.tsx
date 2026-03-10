@@ -28,6 +28,7 @@ import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
+import AppLogger from '@/services/AppLogger';
 
 // Used by era quizzes and Today screen (isToday=true, adventureId="daily_quest")
 interface QuizProps {
@@ -358,13 +359,13 @@ export default function Quiz({
             .filter((p: any) => p.era_id === eraId)
             .reduce((sum: number, p: any) => sum + ((p.quizCorrectAnswers || 0) * 10), 0);
           setInitialXP(eraXP);
-          console.log(`📊 [Quiz] Quiz started with ${eraXP} XP for era: ${eraId}`);
+          AppLogger.info('quiz', 'Quiz started', { eraXP, eraId });
         } else {
           setInitialXP(0);
-          console.log(`📊 [Quiz] Quiz started with 0 XP for era: ${eraId} (no progress data)`);
+          AppLogger.info('quiz', 'Quiz started with no progress data', { eraId });
         }
       } catch (error) {
-        console.error('❌ [Quiz] Error loading era XP:', error);
+        AppLogger.error('quiz', 'Failed to load era XP', { eraId }, error);
         setInitialXP(0);
       }
     };
@@ -374,7 +375,7 @@ export default function Quiz({
 
   // Early return if no questions
   if (questions.length === 0) {
-    console.error('❌ No questions found in contentItem');
+    AppLogger.error('quiz', 'No questions found in contentItem');
     return null;
   }
 
@@ -422,14 +423,14 @@ export default function Quiz({
       const oldXP = initialXP + (correctAnswers * 10); // Before this answer
       const newXP = initialXP + (newCorrectAnswers * 10); // After this answer
 
-      console.log(`📊 [Quiz] Correct answer! XP: ${oldXP} → ${newXP}`);
+      AppLogger.info('quiz', 'Correct answer', { oldXP, newXP, eraId });
 
       // Check if we crossed a milestone (SKIP for Today mode - no XP awarded for Today quizzes)
       if (!isToday) {
         const milestone = checkXPMilestone(oldXP, newXP);
 
         if (milestone) {
-          console.log(`🎉 [Quiz] MID-QUIZ Milestone crossed: ${milestone} XP for era: ${eraId}`);
+          AppLogger.info('quiz', 'Mid-quiz XP milestone crossed', { milestone, eraId });
 
           // Check if user already saw this milestone (ERA-SPECIFIC)
           const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestone, eraId);
@@ -478,7 +479,7 @@ export default function Quiz({
 
   // Handle quiz completion from results screen
   const handleQuizCompletion = async () => {
-    console.log(`🚀 Quiz completion: ${eraName} - ${adventureId}`);
+    AppLogger.info('quiz', 'Quiz completion initiated', { eraName, adventureId, moduleId });
 
     // Percentage-based star calculation (database-agnostic)
     // 0-49% = 1★, 50-99% = 2★, 100% = 3★ (perfect score only)
@@ -490,7 +491,7 @@ export default function Quiz({
 
     // TODAY MODE - Skip gamification saving, call custom callback
     if (isToday) {
-      console.log('📋 [Quiz] Today mode - skipping gamification save');
+      AppLogger.info('quiz', 'Today mode - skipping gamification save');
       if (onQuizResults) {
         await onQuizResults(quizScore, correctAnswers, totalQuestions);
       }
@@ -507,7 +508,7 @@ export default function Quiz({
     const oldEraXP = newModules
       .filter((m: any) => m.era_id === eraId)
       .reduce((sum: number, m: any) => sum + ((m.quizCorrectAnswers || 0) * 10), 0);
-    console.log(`📊 Old Era XP (${eraId} before quiz): ${oldEraXP}`);
+    AppLogger.info('quiz', 'Calculating era XP', { oldEraXP, eraId });
 
     // ✅ Check if adventure was already complete BEFORE this quiz completion
     // This prevents celebration from showing when user retakes quizzes or completes modules in already-finished adventures
@@ -515,7 +516,7 @@ export default function Quiz({
       m.adventureId === adventureId && m.quizCompleted === true
     );
     const wasAlreadyComplete = adventureModulesBeforeQuiz.length >= (adventureData?.totalModules || 5);
-    console.log(`🔍 [Quiz] Adventure ${adventureId} was already complete BEFORE this quiz: ${wasAlreadyComplete} (${adventureModulesBeforeQuiz.length}/${adventureData?.totalModules || 5} modules)`);
+    AppLogger.info('quiz', 'Adventure completion status before quiz', { adventureId, wasAlreadyComplete });
 
     // Get existing module from React state (SOURCE OF TRUTH)
     // This avoids race conditions with AsyncStorage reads
@@ -535,7 +536,7 @@ export default function Quiz({
       lessonsCompleted: existingLessons // Preserve lessons already completed, backfill will handle if empty
     };
 
-    console.log('💾 [NEW] Saving quiz completion:', moduleData);
+    AppLogger.info('quiz', 'Saving quiz completion', { adventureId, moduleId });
     await saveNewProgressData(moduleData);
 
     // Track module completed event (critical for funnel analysis, era-agnostic)
@@ -551,7 +552,7 @@ export default function Quiz({
       module_number: moduleNumber,
       $current_url: `/${eraId}/${adventureId}/${moduleId}/quiz`,
     });
-    console.log('📊 [Analytics] Module completed event tracked');
+    AppLogger.info('quiz', 'Module completion event tracked');
 
     // Load updated progress to calculate era-specific XP (AFTER saving)
     const updatedNewModulesData = await AsyncStorage.getItem('new_user_progress');
@@ -561,7 +562,7 @@ export default function Quiz({
     const newEraXP = updatedNewModules
       .filter((m: any) => m.era_id === eraId)
       .reduce((sum: number, m: any) => sum + ((m.quizCorrectAnswers || 0) * 10), 0);
-    console.log(`📊 New Era XP (${eraId} after quiz): ${newEraXP}`);
+    AppLogger.info('quiz', 'Updated era XP after quiz', { newEraXP, eraId });
 
     // Calculate FRESH adventure completion from AsyncStorage (not stale props)
     const adventureModulesInProgress = updatedNewModules.filter((m: any) =>
@@ -570,13 +571,7 @@ export default function Quiz({
     const actualCompletedModules = adventureModulesInProgress.length;
     const actualTotalModules = adventureData?.totalModules || 5; // Default to 5 modules per adventure
 
-    console.log(`🔍 [Quiz] FRESH adventure completion data from AsyncStorage:`, {
-      adventureId,
-      completedModules: actualCompletedModules,
-      totalModules: actualTotalModules,
-      isComplete: actualCompletedModules >= actualTotalModules,
-      oldStaleData: { completed: (adventureData?.completedModules || 0) + 1, total: adventureData?.totalModules || 3 }
-    });
+    AppLogger.info('quiz', 'Fresh adventure completion data', { completedModules: actualCompletedModules, totalModules: actualTotalModules });
 
     // Calculate total badges from FRESH data (quizScore 3 = perfect quiz = badge)
     const totalBadges = adventureModulesInProgress.filter(
@@ -602,9 +597,9 @@ export default function Quiz({
         totalBadges,  // ✅ Use FRESH calculated value (not stale prop)
       } : undefined,
     });
-    console.log(`📋 [Quiz] Reported to orchestrator - XP: ${oldEraXP} → ${newEraXP}`);
+    AppLogger.info('quiz', 'Reported to orchestrator', { oldEraXP, newEraXP });
 
-    console.log(`✅ Quiz completed - Correct: ${correctAnswers}/${totalQuestions} (${percentage.toFixed(0)}%), Stars: ${quizScore}★`);
+    AppLogger.info('quiz', 'Quiz completed', { correctAnswers, totalQuestions });
     onContinue();
   };
 
@@ -830,7 +825,7 @@ export default function Quiz({
             eraId={eraId}
             onContinue={() => {
               // Video finished, close modal and show feedback
-              console.log('🎬 [Quiz] Milestone video finished, resuming quiz');
+              AppLogger.info('quiz', 'Milestone video finished, resuming quiz');
               setShowMilestone(false);
               setMilestoneData(null);
               setShowFeedback(true);

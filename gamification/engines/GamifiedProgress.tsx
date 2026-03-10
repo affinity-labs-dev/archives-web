@@ -30,6 +30,7 @@ import { Platform } from 'react-native';
 import { useUser } from '@clerk/clerk-expo';
 import { supabase } from '@/hooks/lib/supabase';
 import { analyticsService } from '@/services/AnalyticsService';
+import AppLogger from '@/services/AppLogger';
 import { EraType } from '@/gamification/types/gamification';
 import type { ModuleProgress, AdventureProgress } from '@/gamification/types/gamification';
 
@@ -448,7 +449,7 @@ class WebCompatibleStorage {
     try {
       return await AsyncStorage.getItem(key);
     } catch (error) {
-      console.warn(`Storage getItem error for key ${key}:`, error);
+      AppLogger.error('sync', `Storage getItem error for key ${key}`, { key }, error);
       return null;
     }
   }
@@ -460,7 +461,7 @@ class WebCompatibleStorage {
     try {
       await AsyncStorage.setItem(key, value);
     } catch (error) {
-      console.warn(`Storage setItem error for key ${key}:`, error);
+      AppLogger.error('sync', `Storage setItem error for key ${key}`, { key }, error);
     }
   }
 }
@@ -553,7 +554,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
           // index.tsx checks this key to determine if onboarding is complete
           if (cloudData.selectedEra) {
             await WebCompatibleStorage.setItem(LEGACY_KEYS.SELECTED_ERA, cloudData.selectedEra);
-            console.log('✅ [GamifiedProgress] Synced selectedEra to legacy key:', cloudData.selectedEra);
+            AppLogger.info('sync', 'Synced selectedEra to legacy key', { selectedEra: cloudData.selectedEra });
           }
         } else {
           // Step 2: Check for legacy data and migrate
@@ -583,13 +584,13 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
           // CRITICAL: Sync selectedEra back to legacy 'selected_era' key
           if (migratedData.selectedEra) {
             await WebCompatibleStorage.setItem(LEGACY_KEYS.SELECTED_ERA, migratedData.selectedEra);
-            console.log('✅ [GamifiedProgress] Synced selectedEra to legacy key (migration):', migratedData.selectedEra);
+            AppLogger.info('sync', 'Synced selectedEra to legacy key (migration)', { selectedEra: migratedData.selectedEra });
           }
         }
 
         setIsInitialized(true);
       } catch (error) {
-        console.error('❌ [GamifiedProgress] Initialization error:', error);
+        AppLogger.error('sync', 'GamifiedProgress initialization error', {}, error);
         // Fallback to empty state
         const emptyState = createEmptyState(user.id);
         setState(emptyState);
@@ -606,7 +607,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
   const fetchFromCloud = async (userId: string): Promise<GamifiedProgressState | null> => {
     try {
-      console.log('🔄 [GamifiedProgress] Fetching from Supabase...');
+      AppLogger.info('sync', 'Fetching from Supabase');
       const { data, error } = await supabase
         .from(SUPABASE_TABLE)
         .select('data')
@@ -615,18 +616,18 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
       if (error) {
         if (error.code !== 'PGRST116') {
-          console.error('❌ [GamifiedProgress] Cloud fetch error:', error);
+          AppLogger.error('sync', 'Cloud fetch error', { errorCode: error.code }, error);
         }
         return null;
       }
 
       const cloudData = data?.data as GamifiedProgressState;
       if (cloudData?.streak) {
-        console.log('✅ [GamifiedProgress] Fetched streak from Supabase:', JSON.stringify(cloudData.streak));
+        AppLogger.info('sync', 'Fetched streak from Supabase', { currentStreak: cloudData.streak.currentStreak });
       }
       return cloudData;
     } catch (error) {
-      console.error('❌ [GamifiedProgress] Cloud fetch error:', error);
+      AppLogger.error('sync', 'Cloud fetch error', {}, error);
       return null;
     }
   };
@@ -634,8 +635,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   const saveToCloud = async (data: GamifiedProgressState): Promise<void> => {
     if (!data.user_id) return;
 
-    console.log('🔄 [GamifiedProgress] Saving to Supabase...');
-    console.log('📤 [GamifiedProgress] Streak being saved:', JSON.stringify(data.streak));
+    AppLogger.info('sync', 'Saving to Supabase', { currentStreak: data.streak?.currentStreak });
 
     try {
       const { error } = await supabase
@@ -647,12 +647,12 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         }, { onConflict: 'user_id' });
 
       if (error) {
-        console.error('❌ [GamifiedProgress] Cloud save error:', error);
+        AppLogger.error('sync', 'Cloud save error (upsert)', { userId: data.user_id }, error);
       } else {
-        console.log('✅ [GamifiedProgress] Successfully saved to Supabase');
+        AppLogger.info('sync', 'Successfully saved to Supabase');
       }
     } catch (error) {
-      console.error('❌ [GamifiedProgress] Cloud save error:', error);
+      AppLogger.error('sync', 'Cloud save error', {}, error);
     }
   };
 
@@ -660,7 +660,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     try {
       await WebCompatibleStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (error) {
-      console.error('❌ [GamifiedProgress] Local save error:', error);
+      AppLogger.error('sync', 'Local save error', {}, error);
     }
   };
 
@@ -681,7 +681,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     const oldProgressCount = stateRef.current?.progress?.length || 0;
     const newProgressCount = newState.progress?.length || 0;
     if (newProgressCount < oldProgressCount) {
-      console.error(`❌ [GamifiedProgress] PROGRESS LOST! ${oldProgressCount} → ${newProgressCount}`);
+      AppLogger.error('progress', `Progress data regression detected: ${oldProgressCount} → ${newProgressCount}`, { oldProgressCount, newProgressCount });
     }
 
     // Update ref FIRST (synchronous) - prevents stale closure in rapid saves
@@ -949,7 +949,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     // UPDATE 3: Save to Supabase IMMEDIATELY (fire and forget - don't block navigation)
     // This ensures cloud has latest era, but doesn't block if Supabase is slow
     saveToCloud(newState).catch(err => {
-      console.error('❌ [GamifiedProgress] Era cloud save failed (non-critical):', err);
+      AppLogger.error('sync', 'Era cloud save failed (non-critical)', {}, err);
     });
 
     // Also save to legacy key for backward compatibility
@@ -1002,7 +1002,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     const currentState = stateRef.current;
 
     if (!currentState) {
-      console.error('❌ [GamifiedProgress] Cannot save: Not initialized');
+      AppLogger.error('progress', 'Cannot save: GamifiedProgress not initialized');
       return;
     }
 
@@ -1238,7 +1238,9 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       throw new Error('❌ [GamifiedProgress] getStreak called before state initialized! Wait for isInitialized flag.');
     }
 
-    console.log('📖 [GamifiedProgress] Reading streak from stateRef:', JSON.stringify(currentState.streak));
+    if (__DEV__) {
+      console.log('📖 [GamifiedProgress] Reading streak from stateRef:', JSON.stringify(currentState.streak));
+    }
     return currentState.streak;
   }, []);
 
@@ -1248,13 +1250,11 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     // Use stateRef for LATEST state - prevents stale closure overwriting progress
     const currentState = stateRef.current;
     if (!currentState) {
-      console.warn('⚠️ [GamifiedProgress] syncStreakToState called but state is null - skipping');
+      AppLogger.warn('sync', 'syncStreakToState called but state is null - skipping');
       return;
     }
 
-    console.log('🔄 [GamifiedProgress] ========== SYNC STREAK TO STATE ==========');
-    console.log('📝 [GamifiedProgress] Incoming streak data:', JSON.stringify(streakData));
-    console.log('📊 [GamifiedProgress] Current stateRef.streak:', JSON.stringify(currentState.streak));
+    AppLogger.info('sync', 'Syncing streak to state', { incoming: streakData.currentStreak, current: currentState.streak.currentStreak });
 
     const newState = {
       ...currentState,
@@ -1262,9 +1262,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       metadata: { ...currentState.metadata, last_updated: new Date().toISOString() },
     };
 
-    console.log('💾 [GamifiedProgress] Calling saveState with new streak:', JSON.stringify(newState.streak));
     await saveState(newState);
-    console.log('📊 [GamifiedProgress] After saveState, stateRef.streak:', JSON.stringify(stateRef.current?.streak));
   }, [saveState]);
 
   // ========== ACHIEVEMENTS & MILESTONES ==========
@@ -1328,7 +1326,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
   const reloadData = useCallback(async (): Promise<void> => {
     if (!user?.id) return;
-    console.log('🔄 [GamifiedProgress] ========== RELOAD DATA FROM SUPABASE ==========');
+    AppLogger.info('sync', 'Reloading data from Supabase');
     setIsLoading(true);
 
     try {
@@ -1345,28 +1343,23 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
           const cloudTime = new Date(cloudTimestamp).getTime();
 
           if (localTime > cloudTime) {
-            console.log('⚠️ [GamifiedProgress] LOCAL DATA IS NEWER - skipping cloud overwrite');
-            console.log(`   Local: ${localTimestamp} (${localTime})`);
-            console.log(`   Cloud: ${cloudTimestamp} (${cloudTime})`);
-            console.log(`   Difference: ${(localTime - cloudTime) / 1000}s newer locally`);
+            AppLogger.warn('sync', 'Local data is newer - skipping cloud overwrite', { localTimestamp, cloudTimestamp, diffSeconds: (localTime - cloudTime) / 1000 });
             // Don't overwrite - local has unsaved changes that will sync soon
             setIsLoading(false);
             return;
           }
         }
 
-        console.log('📥 [GamifiedProgress] Cloud data is newer or local is empty, applying cloud data');
-        console.log('📥 [GamifiedProgress] Reloaded streak from Supabase:', JSON.stringify(cloudData.streak));
+        AppLogger.info('sync', 'Cloud data is newer, applying', { currentStreak: cloudData.streak?.currentStreak });
         // Update ref FIRST (synchronous) - prevents stale closure
         stateRef.current = cloudData;
         // Then update React state (async)
         setState(cloudData);
         await saveToLocal(cloudData);
-        console.log('✅ [GamifiedProgress] Data reloaded and stateRef updated');
-        console.log('📊 [GamifiedProgress] stateRef.current.streak:', JSON.stringify(stateRef.current?.streak));
+        AppLogger.info('sync', 'Data reloaded from Supabase');
       }
     } catch (error) {
-      console.error('❌ [GamifiedProgress] Reload error:', error);
+      AppLogger.error('sync', 'Reload from Supabase failed', {}, error);
     } finally {
       setIsLoading(false);
     }
@@ -1376,11 +1369,10 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     // Use stateRef for LATEST state - prevents stale closure in testing scenarios
     const currentState = stateRef.current;
     if (!currentState) {
-      console.error('❌ [GamifiedProgress] syncToCloud called but stateRef is null!');
+      AppLogger.error('sync', 'syncToCloud called but stateRef is null');
       return;
     }
-    console.log('🔄 [GamifiedProgress] ========== FORCE IMMEDIATE CLOUD SYNC ==========');
-    console.log('📤 [GamifiedProgress] stateRef.streak being synced:', JSON.stringify(currentState.streak));
+    AppLogger.info('sync', 'Force immediate cloud sync', { currentStreak: currentState.streak?.currentStreak });
     await saveToCloud(currentState);
   }, []);
 

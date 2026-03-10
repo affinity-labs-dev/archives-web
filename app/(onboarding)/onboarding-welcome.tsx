@@ -4,6 +4,7 @@
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
@@ -25,7 +26,7 @@ export default function OnboardingWelcomeScreen() {
   const [screenStartTime] = useState(Date.now())
   const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
-  console.log('📱 [OnboardingWelcome] Component initializing...')
+  AppLogger.info('navigation', 'OnboardingWelcome initializing')
 
   // Track screen view when component mounts
   useEffect(() => {
@@ -49,11 +50,11 @@ export default function OnboardingWelcomeScreen() {
       if (Platform.OS === 'ios') {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
       }
-      console.log('📱 [OnboardingWelcome] Continuing to first question')
+      AppLogger.info('navigation', 'OnboardingWelcome continuing to Q1')
       setExitAction('continued')
       router.replace('/onboarding-question-1')
     } catch (error) {
-      console.error('📱 [OnboardingWelcome] Error navigating:', error)
+      AppLogger.error('navigation', 'OnboardingWelcome navigation error', {}, error)
       setExitAction('continued')
       router.replace('/onboarding-question-1')
     }
