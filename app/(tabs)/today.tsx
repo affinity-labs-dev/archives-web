@@ -14,6 +14,7 @@ import {
 import { useDailyStoryTracking } from "@/hooks/useDailyStoryTracking";
 import { supabase } from "@/hooks/lib/supabase";
 import { analyticsService } from "@/services/AnalyticsService";
+import AppLogger from "@/services/AppLogger";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
@@ -479,7 +480,7 @@ export default function TodayScreen() {
   // Present paywall using imperative API (Android-safe, no overlay needed)
   const handleShowPaywall = async (date: Date) => {
     if (isPaywallPresentedRef.current) {
-      console.log('⚠️ [Today Paywall] Already presented, skipping');
+      AppLogger.warn('subscription', 'Paywall already presented, skipping');
       return;
     }
 
@@ -497,14 +498,22 @@ export default function TodayScreen() {
       switch (result) {
         case PAYWALL_RESULT.PURCHASED:
         case PAYWALL_RESULT.RESTORED: {
-          console.log(`✅ [Today Paywall] ${result === PAYWALL_RESULT.PURCHASED ? 'Purchase' : 'Restore'} completed`);
+          const action = result === PAYWALL_RESULT.PURCHASED ? 'Purchase' : 'Restore';
+          AppLogger.info('subscription', `${action} completed`, { trigger: 'daily_story_rewind' });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+          // Set flag and schedule cleanup BEFORE async work so it always clears
+          // even if fetchQuestByDate throws
           justPurchasedRef.current = true;
+          setTimeout(() => {
+            justPurchasedRef.current = false;
+            AppLogger.info('subscription', 'Purchase protection window ended');
+          }, 5000);
 
           if (result === PAYWALL_RESULT.PURCHASED) {
             analyticsService.trackSubscribePurchaseCompleted({
               trigger: 'daily_story_rewind',
-              plan: 'yearly',
+              plan: 'yearly', // TODO: imperative API doesn't return purchased plan; update if monthly added
             });
           } else {
             analyticsService.trackSubscribeRestoreSuccess({
@@ -514,38 +523,40 @@ export default function TodayScreen() {
 
           // Unlock the gated date immediately
           const dateStr = toLocalDateString(date);
-          console.log(`📜 [Today Paywall] Unlocking content for: ${dateStr}`);
+          AppLogger.info('subscription', `Unlocking content for: ${dateStr}`);
           const historicalQuest = await fetchQuestByDate(dateStr);
           setSelectedDate(date);
           setIsHistoricalView(true);
           setDisplayedQuest(historicalQuest);
-
-          // Clear flag after delay to allow subscription state to fully sync
-          setTimeout(() => {
-            justPurchasedRef.current = false;
-            console.log('🔓 [Today] Purchase protection window ended');
-          }, 5000);
           break;
         }
 
         case PAYWALL_RESULT.CANCELLED:
-          console.log('🚫 [Today Paywall] Cancelled');
+          AppLogger.info('subscription', 'Paywall cancelled');
           analyticsService.trackSubscribePurchaseCancelled({
             trigger: 'daily_story_rewind',
           });
           break;
 
         case PAYWALL_RESULT.NOT_PRESENTED:
+          AppLogger.warn('subscription', 'Paywall not presented (no offerings or config issue)', { result });
+          analyticsService.trackSubscribePurchaseFailed({
+            trigger: 'daily_story_rewind',
+            error_code: 'NOT_PRESENTED',
+          });
+          break;
+
         case PAYWALL_RESULT.ERROR:
-          console.log(`❌ [Today Paywall] Issue: ${result}`);
+          AppLogger.error('subscription', 'Paywall error', { result });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           analyticsService.trackSubscribePurchaseFailed({
             trigger: 'daily_story_rewind',
+            error_code: 'ERROR',
           });
           break;
       }
     } catch (error) {
-      console.error('❌ [Today Paywall] Error presenting paywall:', error);
+      AppLogger.error('subscription', 'Error presenting paywall', { trigger: 'daily_story_rewind' }, error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       analyticsService.trackSubscribePurchaseFailed({
         trigger: 'daily_story_rewind',
@@ -617,17 +628,13 @@ export default function TodayScreen() {
     // Skip reset if user just completed a purchase (prevents race condition)
     // The RevenueCat listener hasn't updated isSubscribed yet, but purchase was successful
     if (justPurchasedRef.current) {
-      console.log(
-        "⏳ [Today] Skipping reset - purchase just completed, waiting for subscription state sync",
-      );
+      AppLogger.info('subscription', 'Skipping reset - purchase just completed, waiting for subscription state sync');
       return;
     }
 
     // If user is viewing historical content and subscription expires, reset to today
     if (isHistoricalView && !isSubscribed && !isSubscriptionLoading) {
-      console.log(
-        "🔒 [Today] Subscription expired while viewing historical content - resetting to today",
-      );
+      AppLogger.warn('subscription', 'Subscription expired while viewing historical content - resetting to today');
       const today = new Date();
       setSelectedDate(today);
       setIsHistoricalView(false);
