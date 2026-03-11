@@ -3,6 +3,7 @@
 
 import { GoogleGenAI, FunctionCallingConfigMode, Type, FunctionDeclaration, ThinkingLevel } from '@google/genai';
 import { Question } from '@/components/shared/types';
+import AppLogger from '@/services/AppLogger';
 import { aiToolsService, type AIToolsContext } from './AIToolsService';
 
 // Response type from Gemini API
@@ -123,8 +124,8 @@ class AIService {
       // Build the prompt for Gemini
       const prompt = this.buildQuizExplanationPrompt(request);
 
-      console.log('🤖 [AIService] Requesting explanation from Gemini...');
-      console.log('📝 Question:', request.questionText);
+      if (__DEV__) console.log('🤖 [AIService] Requesting explanation from Gemini...');
+      if (__DEV__) console.log('📝 Question:', request.questionText);
 
       // Call Gemini API using SDK (Flash model for explanations)
       // Note: Gemini 3 uses dynamic thinking by default (high), which consumes tokens
@@ -141,7 +142,7 @@ class AIService {
         }
       });
 
-      console.log('📦 [AIService] Full response:', JSON.stringify(response, null, 2));
+      if (__DEV__) console.log('📦 [AIService] Full response:', JSON.stringify(response, null, 2));
 
       // Extract text from response (with safety handling)
       let aiResponse = '';
@@ -177,8 +178,8 @@ class AIService {
         }
       }
 
-      console.log('📝 [AIService] Extracted text:', aiResponse);
-      console.log('✅ [AIService] Received explanation from Gemini');
+      if (__DEV__) console.log('📝 [AIService] Extracted text:', aiResponse);
+      if (__DEV__) console.log('✅ [AIService] Received explanation from Gemini');
 
       // Parse the response (expecting JSON format)
       return this.parseAIResponse(aiResponse);
@@ -261,7 +262,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
         };
       } catch {
         // Not JSON - treat as plain text (expected format now)
-        console.log('✅ [AIService] Using plain text explanation format');
+        if (__DEV__) console.log('✅ [AIService] Using plain text explanation format');
         return {
           explanation: cleanedResponse,
         };
@@ -275,7 +276,170 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
   }
 
   /**
-   * Generate explanations for multiple questions (batch)
+   * Build a single prompt for batched quiz explanations (all questions at once)
+   */
+  private buildBatchExplanationPrompt(
+    questions: Question[],
+    userAnswers: number[],
+    context: { eraName: string; adventureName?: string; userLevel?: string }
+  ): string {
+    const { eraName, adventureName, userLevel = 'intermediate' } = context;
+
+    let questionsBlock = '';
+    for (let i = 0; i < questions.length; i++) {
+      const question = questions[i];
+      const userAnswerIndex = userAnswers[i];
+      const correctAnswerIndex = question.answers.findIndex((a) => a.is_correct);
+      const correctAnswer = question.answers[correctAnswerIndex]?.text || 'Unknown';
+      const userAnswer = question.answers[userAnswerIndex]?.text || 'No answer';
+      const isCorrect = userAnswerIndex === correctAnswerIndex;
+
+      questionsBlock += `\nQ${i + 1}: ${question.question_text}\n`;
+      if (isCorrect) {
+        questionsBlock += `User answered: ${correctAnswer} ✓ (Correct)\n`;
+      } else {
+        questionsBlock += `User answered: ${userAnswer} ✗ (Incorrect, correct answer: ${correctAnswer})\n`;
+      }
+    }
+
+    return `You are explaining ${eraName}${adventureName ? ` (${adventureName})` : ''} history to a ${userLevel} student who just completed a quiz.
+Provide a brief explanation for each question below.
+${questionsBlock}
+For each question, write 3-4 sentences:
+- If the student answered correctly: reinforce why that answer is right and add deeper historical context
+- If the student answered incorrectly: explain why the correct answer is right and add an interesting historical fact
+
+STRICT RULES:
+- NEVER start any explanation with "Actually", "Well", "So", or similar filler words
+- Start directly with the historical explanation
+- NO praise, motivational phrases, encouragement, or "keep learning" endings
+- Be concise and informative only
+
+Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 first, Q2 second, etc.):
+[{ "explanation": "3-4 sentence explanation" }, { "explanation": "..." }, ...]`;
+  }
+
+  /**
+   * Generate explanations for all questions in a single API call (batched).
+   * Falls back to sequential calls via getMultipleExplanations() if:
+   * - the response is blocked by content safety filters,
+   * - JSON parsing of the batch response fails, or
+   * - a non-network error occurs during the API call.
+   * Network/auth/rate-limit errors are re-thrown for the caller to handle.
+   */
+  async getBatchedExplanations(
+    questions: Question[],
+    userAnswers: number[],
+    context: {
+      eraName: string;
+      adventureName?: string;
+      userLevel?: 'beginner' | 'intermediate' | 'advanced';
+    }
+  ): Promise<AIExplanationResponse[]> {
+    if (!this.isAvailable() || !this.ai) {
+      throw new Error('AI Service is not available. Please configure EXPO_PUBLIC_GEMINI_API_KEY.');
+    }
+
+    try {
+      const prompt = this.buildBatchExplanationPrompt(questions, userAnswers, context);
+
+      if (__DEV__) console.log('🤖 [AIService] Requesting batched explanations for', questions.length, 'questions');
+
+      const response = await this.ai.models.generateContent({
+        model: this.textModel,
+        contents: [{ text: prompt }],
+        config: {
+          maxOutputTokens: 2048,
+          temperature: 1.0,
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.LOW,
+          },
+        },
+      });
+
+      // Extract text from response
+      let aiResponse = '';
+      const candidate = response.candidates?.[0];
+      if (candidate?.content?.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.text) {
+            aiResponse += part.text;
+          }
+        }
+      }
+
+      // Handle blocked responses — allow MAX_TOKENS (truncated but parseable)
+      // through to the JSON parser; fall back on safety/recitation blocks
+      const finishReason = candidate?.finishReason;
+      if (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS') {
+        AppLogger.warn('ai', 'Batched response blocked by safety filter', { finishReason });
+        return this.getMultipleExplanations(questions, userAnswers, context);
+      }
+
+      if (__DEV__) console.log('✅ [AIService] Batched response received, parsing JSON array...');
+
+      // Parse JSON array
+      const parsed = this.parseBatchResponse(aiResponse, questions.length);
+      if (parsed) {
+        return parsed;
+      }
+
+      // JSON parsing failed — fall back to sequential calls
+      AppLogger.warn('ai', 'Batch JSON parse failed, falling back to sequential calls');
+      return this.getMultipleExplanations(questions, userAnswers, context);
+    } catch (error) {
+      // Network/auth/rate-limit errors will also fail sequentially — propagate them
+      if (error instanceof Error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('network') || msg.includes('fetch') || msg.includes('401') ||
+            msg.includes('403') || msg.includes('429') || msg.includes('quota')) {
+          AppLogger.error('ai', 'Batched explanation network/auth error', {}, error);
+          throw error;
+        }
+      }
+      AppLogger.warn('ai', 'Batched explanation error, falling back to sequential', {
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      return this.getMultipleExplanations(questions, userAnswers, context);
+    }
+  }
+
+  /**
+   * Parse a batched JSON array response from Gemini.
+   * Returns null if JSON parsing fails or the array length does not match
+   * expectedCount (caller should fall back to sequential calls).
+   */
+  private parseBatchResponse(aiResponse: string, expectedCount: number): AIExplanationResponse[] | null {
+    try {
+      let cleaned = aiResponse.trim();
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+
+      const parsed = JSON.parse(cleaned);
+
+      if (!Array.isArray(parsed) || parsed.length !== expectedCount) {
+        AppLogger.warn('ai', 'Batch response shape mismatch', {
+          expectedCount,
+          actualType: typeof parsed,
+          actualLength: Array.isArray(parsed) ? parsed.length : -1,
+        });
+        return null;
+      }
+
+      return parsed.map((item: any) => ({
+        explanation: typeof item.explanation === 'string' ? item.explanation : String(item.explanation || ''),
+      }));
+    } catch {
+      AppLogger.warn('ai', 'Batch response JSON parse failed', {
+        responsePreview: aiResponse?.substring(0, 200) ?? '(empty)',
+        expectedCount,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Generate explanations for multiple questions sequentially (one API call per question).
+   * Primarily used as a fallback when getBatchedExplanations() fails.
    */
   async getMultipleExplanations(
     questions: Question[],

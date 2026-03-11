@@ -1,6 +1,7 @@
 // AIQuizExplanation.tsx - AI-powered quiz explanation component
-// Shows personalized explanations for all quiz answers
-// 🔒 First Q1 card is partially shown → faded → paywall overlay for the rest
+// Premium users: batch-fetches all explanations in a single API call
+// Free users: fetches Q1 only, shows faded preview + paywall overlay for Q2-Q5
+// Includes 15s timeout with retry CTA (max 2 retries)
 
 import { Question } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -94,6 +95,9 @@ function ExplanationCard({ item }: { item: ExplanationItem }) {
   );
 }
 
+const MAX_RETRIES = 2;
+const TIMEOUT_MS = 15_000;
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function AIQuizExplanation({
@@ -108,16 +112,25 @@ export default function AIQuizExplanation({
   const [explanations, setExplanations] = useState<ExplanationItem[]>([]);
   const [showExplanations, setShowExplanations] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const paywallAnim = useRef(new Animated.Value(0)).current;
   const isPaywallPresentedRef = useRef(false);
+  const timeoutIdRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isMountedRef = useRef(true);
 
   // Subscription check for paywall
   const { isSubscribed } = useRevenueCat();
+  const isSubscribedRef = useRef(isSubscribed);
+  isSubscribedRef.current = isSubscribed;
+  const prevSubscribedRef = useRef(isSubscribed);
 
-  // Cleanup: Dismiss paywall on unmount to prevent crashes on tab switching
+  // Cleanup: Dismiss paywall on unmount, clear pending timeout
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
+      if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
       if (isPaywallPresentedRef.current) {
         AppLogger.info('ai', 'AIQuizExplanation unmounting');
         try {
@@ -151,6 +164,17 @@ export default function AIQuizExplanation({
 
     setExplanations(items);
   }, [questions, userAnswers]);
+
+  // Re-fetch all explanations when user subscribes mid-session
+  useEffect(() => {
+    if (isSubscribed && !prevSubscribedRef.current && showExplanations && explanations.length > 0 && !loadingAll) {
+      AppLogger.info('ai', 'User subscribed mid-session, fetching all explanations');
+      setRetryCount(0);
+      handleGetExplanations();
+    }
+    prevSubscribedRef.current = isSubscribed;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubscribed]);
 
   // Present paywall using imperative API (Android-safe)
   const handleShowPaywall = async () => {
@@ -218,16 +242,21 @@ export default function AIQuizExplanation({
     }
   };
 
-  // Generate AI explanations
+  // Generate AI explanations (subscription-aware + timeout)
+  // Reads isSubscribedRef.current to avoid stale closure issues
   const handleGetExplanations = async () => {
     if (!aiService.isAvailable()) {
       alert('AI explanations are not available. Please contact support.');
       return;
     }
 
+    const subscribed = isSubscribedRef.current;
+    const fetchMode = subscribed ? 'batch' : 'single';
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowExplanations(true);
     setLoadingAll(true);
+    setTimedOut(false);
 
     // Track AI explanation request
     analyticsService.trackCustomEvent('ai_quiz_explanation_requested', {
@@ -237,9 +266,14 @@ export default function AIQuizExplanation({
       total_questions: questions.length,
       correct_questions: explanations.filter((e) => e.isCorrect).length,
       incorrect_questions: explanations.filter((e) => !e.isCorrect).length,
+      is_subscriber: subscribed,
+      fetch_mode: fetchMode,
     });
 
-    AppLogger.info('ai', 'Requesting AI quiz explanations', { totalQuestions: questions.length });
+    AppLogger.info('ai', 'Requesting AI quiz explanations', {
+      totalQuestions: questions.length,
+      fetchMode,
+    });
 
     // Animate in
     Animated.timing(fadeAnim, {
@@ -248,23 +282,62 @@ export default function AIQuizExplanation({
       useNativeDriver: true,
     }).start();
 
-    // Animate paywall in slightly after content fades in
-    setTimeout(() => {
-      Animated.spring(paywallAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 80,
-        friction: 9,
-      }).start();
-    }, 400);
+    // Animate paywall in slightly after content fades in (free users only)
+    if (!subscribed) {
+      setTimeout(() => {
+        Animated.spring(paywallAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 80,
+          friction: 9,
+        }).start();
+      }, 400);
+    }
+
+    const startTime = Date.now();
 
     try {
-      // Get explanations for all questions
-      const aiExplanations = await aiService.getMultipleExplanations(questions, userAnswers, {
-        eraName,
-        adventureName,
-        userLevel: 'intermediate', // TODO: Get from user profile
+      // Wrap API call with 15s timeout.
+      // Note: getBatchedExplanations() may internally fall back to sequential
+      // calls if batch parsing fails, which could take 4-5s. The 15s timeout covers both paths.
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutIdRef.current = setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_MS);
       });
+
+      let apiPromise: Promise<{ explanation: string }[]>;
+
+      if (subscribed) {
+        // Premium: batch all questions in one call
+        apiPromise = aiService.getBatchedExplanations(questions, userAnswers, {
+          eraName,
+          adventureName,
+          userLevel: 'intermediate',
+        });
+      } else {
+        // Free: only fetch Q1 (Q2-Q5 are behind the paywall, no need to call the API for them)
+        const q1 = questions[0];
+        const q1UserAnswerIndex = userAnswers[0];
+        const q1CorrectIndex = q1.answers.findIndex((a) => a.is_correct);
+        apiPromise = aiService.getQuizExplanation({
+          questionText: q1.question_text,
+          correctAnswer: q1.answers[q1CorrectIndex]?.text || 'Unknown',
+          userAnswer: q1.answers[q1UserAnswerIndex]?.text || 'No answer',
+          questionType: q1.question_type,
+          eraName,
+          adventureName,
+          userLevel: 'intermediate',
+          isCorrect: q1UserAnswerIndex === q1CorrectIndex,
+        }).then((r) => [r]);
+      }
+
+      // Prevent unhandled rejection if the losing promise rejects after timeout wins
+      apiPromise.catch(() => {});
+
+      const aiExplanations = await Promise.race([apiPromise, timeoutPromise]);
+
+      if (!isMountedRef.current) return;
+
+      const generationTimeMs = Date.now() - startTime;
 
       // Update explanations with AI responses
       setExplanations((prev) =>
@@ -275,35 +348,77 @@ export default function AIQuizExplanation({
         }))
       );
 
-      // Track successful generation
+      // Track successful generation with timing
       analyticsService.trackCustomEvent('ai_quiz_explanation_generated', {
         adventure_id: adventureId,
         module_id: moduleId,
         era_name: eraName,
         explanations_count: aiExplanations.length,
+        generation_time_ms: generationTimeMs,
+        fetch_mode: fetchMode,
+        is_subscriber: subscribed,
       });
 
-      AppLogger.info('ai', 'AI explanations generated', { count: aiExplanations.length });
+      AppLogger.info('ai', 'AI explanations generated', {
+        count: aiExplanations.length,
+        timeMs: generationTimeMs,
+        fetchMode,
+      });
     } catch (error) {
-      AppLogger.error('ai', 'Failed to generate AI explanations', {}, error);
+      if (!isMountedRef.current) return;
 
-      // Track error
-      analyticsService.trackCustomEvent('ai_quiz_explanation_error', {
-        adventure_id: adventureId,
-        module_id: moduleId,
-        era_name: eraName,
-        error: String(error),
-      });
+      const isTimeout = error instanceof Error && error.message === 'TIMEOUT';
 
+      if (isTimeout) {
+        AppLogger.warn('ai', 'AI explanation request timed out', { retryCount });
+        setTimedOut(true);
+
+        analyticsService.trackCustomEvent('ai_quiz_explanation_error', {
+          adventure_id: adventureId,
+          module_id: moduleId,
+          era_name: eraName,
+          error: 'timeout',
+          retry_count: retryCount,
+        });
+      } else {
+        AppLogger.error('ai', 'Failed to generate AI explanations', {}, error);
+
+        analyticsService.trackCustomEvent('ai_quiz_explanation_error', {
+          adventure_id: adventureId,
+          module_id: moduleId,
+          era_name: eraName,
+          error: String(error),
+        });
+
+        setExplanations((prev) =>
+          prev.map((item) => ({
+            ...item,
+            loading: false,
+            error: 'Could not generate explanation. Please try again.',
+          }))
+        );
+      }
+    } finally {
+      if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
+      if (isMountedRef.current) setLoadingAll(false);
+    }
+  };
+
+  // Retry handler for timeout
+  const handleRetryExplanations = () => {
+    if (retryCount < MAX_RETRIES) {
+      setRetryCount((prev) => prev + 1);
+      handleGetExplanations();
+    } else {
+      // Max retries reached — show fallback
       setExplanations((prev) =>
         prev.map((item) => ({
           ...item,
           loading: false,
-          error: 'Could not generate explanation. Please try again.',
+          error: 'Could not generate explanation. Please try again later.',
         }))
       );
-    } finally {
-      setLoadingAll(false);
+      setTimedOut(false);
     }
   };
 
@@ -339,10 +454,28 @@ export default function AIQuizExplanation({
             </Text>
           </View>
 
-          {loadingAll ? (
+          {loadingAll || timedOut ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
-              <Text style={styles.loadingText}>Generating explanations...</Text>
+              {timedOut ? (
+                <>
+                  <Ionicons name="time-outline" size={40} color={ArchivesTheme.colors.shoeBrown} />
+                  <Text style={styles.timeoutTitle}>Taking longer than expected</Text>
+                  <Text style={styles.timeoutSubtitle}>
+                    The AI is still working. You can try again{retryCount < MAX_RETRIES ? '' : ' later'}.
+                  </Text>
+                  {retryCount < MAX_RETRIES && (
+                    <TouchableOpacity style={styles.retryButton} onPress={handleRetryExplanations}>
+                      <Ionicons name="refresh" size={18} color="white" />
+                      <Text style={styles.retryButtonText}>Try Again</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : (
+                <>
+                  <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
+                  <Text style={styles.loadingText}>Generating explanations...</Text>
+                </>
+              )}
             </View>
           ) : isSubscribed ? (
             // ── 🔓 PREMIUM: show all explanations normally ────────────────
@@ -711,5 +844,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#E74C3C',
     textAlign: 'center',
+  },
+  // Timeout state
+  timeoutTitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.mutedNavy,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  timeoutSubtitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    color: ArchivesTheme.colors.shoeBrown,
+    marginTop: 4,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: ArchivesTheme.colors.persianOrange,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 6,
+  },
+  retryButtonText: {
+    fontFamily: 'DM Sans',
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
   },
 });
