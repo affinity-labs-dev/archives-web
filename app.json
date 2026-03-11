@@ -202,7 +202,8 @@
           "autoLogAppEventsEnabled": true,
           "isAutoInitEnabled": true
         }
-      ]
+      ],
+      "./plugins/withDisableFontScaling"
     ],
     "experiments": {
       "typedRoutes": true

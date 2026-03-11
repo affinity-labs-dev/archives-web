@@ -65,6 +65,7 @@ const getScreenOptions = (bottomInset: number): BottomTabNavigationOptions => ({
   tabBarIconStyle: {
     marginBottom: -2,
   },
+  tabBarAllowFontScaling: false,
   headerShown: false,
 });
 

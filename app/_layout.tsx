@@ -6,7 +6,7 @@ import {
 import { useFonts } from "expo-font";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, Text, Platform, Linking, AppState, AppStateStatus } from "react-native";
+import { View, Platform, Linking, AppState, AppStateStatus } from "react-native";
 import React from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -42,6 +42,8 @@ import {
   AIProvider,
 } from "@/gamification";
 import AIAssistant from "@/gamification/ui/ai/AIAssistant";
+
+// Font scaling disabled globally via Babel plugin (plugins/babel-plugin-font-scaling.js) (AFF-331)
 
 Sentry.init({
   dsn: 'https://87a73fd4ec7ba02d87dccedcce85a9fa@o4510499177889792.ingest.de.sentry.io/4510499179790416',
