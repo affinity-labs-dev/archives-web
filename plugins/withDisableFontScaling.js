@@ -49,6 +49,9 @@ function withDisableFontScalingAndroid(config) {
     const mainActivity = config.modResults.contents;
 
     // Override getResources() to force fontScale = 1.0f
+    // Note: updateConfiguration() is deprecated since API 25 but still works on all current
+    // Android versions. Modern alternatives (attachBaseContext/applyOverrideConfiguration)
+    // don't work reliably with Expo's ReactActivity. TODO: revisit when a working alternative is found.
     const overrideCode = `
     override fun getResources(): android.content.res.Resources {
         val resources = super.getResources()
