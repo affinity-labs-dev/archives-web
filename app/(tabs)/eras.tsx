@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
 
   // Header
   headerSection: {
-    height: 120,
+    height: 80,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
