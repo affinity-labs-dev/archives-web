@@ -25,6 +25,7 @@ import { useEras, Era, isEraAccessible } from '@/hooks/useEras';
 import { EraCard, EraSelectionSkeleton } from '@/components/EraSelection';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { analyticsService } from '@/services/AnalyticsService';
+import AppLogger from '@/services/AppLogger';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 
 export default function EraSelection() {
@@ -101,7 +102,7 @@ export default function EraSelection() {
   // Present paywall for locked premium eras
   const handleShowPaywall = async (era: Era) => {
     if (isPaywallPresentedRef.current) {
-      console.log('⚠️ [Eras Paywall] Already presented, skipping');
+      AppLogger.warn('subscription', 'Era paywall already presented, skipping');
       return;
     }
 
@@ -120,7 +121,7 @@ export default function EraSelection() {
       switch (result) {
         case PAYWALL_RESULT.PURCHASED:
         case PAYWALL_RESULT.RESTORED: {
-          console.log(`✅ [Eras Paywall] ${result === PAYWALL_RESULT.PURCHASED ? 'Purchase' : 'Restore'} completed`);
+          AppLogger.info('subscription', `Era paywall ${result === PAYWALL_RESULT.PURCHASED ? 'purchase' : 'restore'} completed`, { era_id: era.era_id });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
           if (result === PAYWALL_RESULT.PURCHASED) {
@@ -145,7 +146,7 @@ export default function EraSelection() {
         }
 
         case PAYWALL_RESULT.CANCELLED:
-          console.log('🚫 [Eras Paywall] Cancelled');
+          AppLogger.info('subscription', 'Era paywall cancelled', { era_id: era.era_id });
           analyticsService.trackSubscribePurchaseCancelled({
             trigger: 'era_locked',
             era_id: era.era_id,
@@ -154,22 +155,27 @@ export default function EraSelection() {
           break;
 
         case PAYWALL_RESULT.NOT_PRESENTED:
+          AppLogger.warn('subscription', 'Paywall not presented for era', { era_id: era.era_id });
+          break;
+
         case PAYWALL_RESULT.ERROR:
-          console.log(`❌ [Eras Paywall] Issue: ${result}`);
+          AppLogger.error('subscription', 'Paywall error for era', { era_id: era.era_id });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           analyticsService.trackSubscribePurchaseFailed({
             trigger: 'era_locked',
             era_id: era.era_id,
             era_name: era.title,
+            error_code: 'paywall_error',
           });
           break;
       }
     } catch (err) {
-      console.error('❌ [Eras Paywall] Error presenting paywall:', err);
+      AppLogger.error('subscription', 'Error presenting era paywall', { era_id: era.era_id }, err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       analyticsService.trackSubscribePurchaseFailed({
         trigger: 'era_locked',
         era_id: era.era_id,
+        era_name: era.title,
         error_code: err instanceof Error ? err.message : 'unknown',
       });
     } finally {
