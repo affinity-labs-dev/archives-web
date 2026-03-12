@@ -23,10 +23,7 @@ function withDisableFontScalingIOS(config) {
     const swizzleCode = `
     // AFF-331: Cap Dynamic Type to default size for consistent UI
     if #available(iOS 15.0, *) {
-      UIApplication.shared.connectedScenes
-        .compactMap { $0 as? UIWindowScene }
-        .flatMap { $0.windows }
-        .forEach { $0.maximumContentSizeCategory = .large }
+      window?.maximumContentSizeCategory = .large
     }
 `;
 
