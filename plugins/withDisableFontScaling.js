@@ -16,28 +16,38 @@ function withDisableFontScalingIOS(config) {
   return withAppDelegate(config, (config) => {
     const appDelegate = config.modResults.contents;
 
-    // Add the font scaling override in didFinishLaunchingWithOptions
-    // We cap contentSizeCategory to .large (the system default) so Dynamic Type
-    // cannot make fonts larger than the default size
-    const swizzleCode = `
-    // AFF-331: Cap Dynamic Type to default size for consistent UI
-    if #available(iOS 15.0, *) {
-      UIApplication.shared.connectedScenes
-        .compactMap { $0 as? UIWindowScene }
-        .flatMap { $0.windows }
-        .forEach { $0.maximumContentSizeCategory = .large }
+    // Already patched — skip
+    if (appDelegate.includes("maximumContentSizeCategory")) {
+      return config;
     }
-`;
 
-    // Insert after the opening of didFinishLaunchingWithOptions
-    if (!appDelegate.includes("maximumContentSizeCategory")) {
-      const didFinishPattern = "super.application(application, didFinishLaunchingWithOptions: launchOptions)";
-      if (appDelegate.includes(didFinishPattern)) {
-        config.modResults.contents = appDelegate.replace(
-          didFinishPattern,
-          `${didFinishPattern}\n${swizzleCode}`
-        );
-      }
+    // Cap Dynamic Type to .large (system default) so font scaling cannot exceed it.
+    // Uses the AppDelegate's own `window` property (set earlier in the same function
+    // via `window = UIWindow(frame: UIScreen.main.bounds)`), so it is always available
+    // at this insertion point.
+    // Requires iOS 15+ for maximumContentSizeCategory; guarded with #available.
+    const swizzleCode = `
+    // AFF-331: Cap Dynamic Type to default size for consistent UI (iOS 15+)
+    if #available(iOS 15.0, *) {
+      window?.maximumContentSizeCategory = .large
+    }`;
+
+    // Use a regex to match the `return super.application(application, didFinishLaunchingWithOptions: ...)`
+    // line regardless of the parameter name. The customerio-expo-plugin (which runs before this
+    // plugin in app.json) rewrites the parameter from `launchOptions` to `modifiedLaunchOptions`,
+    // so a hard-coded string match would fail. The regex handles both cases.
+    const returnPattern = /return super\.application\(application, didFinishLaunchingWithOptions:[^)]+\)/;
+    const match = appDelegate.match(returnPattern);
+
+    if (match) {
+      config.modResults.contents = appDelegate.replace(
+        match[0],
+        `${swizzleCode}\n    ${match[0]}`
+      );
+    } else {
+      console.warn(
+        "[withDisableFontScaling] iOS: Could not find 'return super.application(application, didFinishLaunchingWithOptions:...)' in AppDelegate.swift. Font scaling override was NOT applied."
+      );
     }
 
     return config;
@@ -48,17 +58,14 @@ function withDisableFontScalingAndroid(config) {
   return withMainActivity(config, (config) => {
     const mainActivity = config.modResults.contents;
 
-    // Override getResources() to force fontScale = 1.0f
-    // Note: updateConfiguration() is deprecated since API 25 but still works on all current
-    // Android versions. Modern alternatives (attachBaseContext/applyOverrideConfiguration)
-    // don't work reliably with Expo's ReactActivity. TODO: revisit when a working alternative is found.
+    // Override attachBaseContext() to force fontScale = 1.0f
+    // Uses createConfigurationContext() — the modern replacement for deprecated updateConfiguration()
     const overrideCode = `
-    override fun getResources(): android.content.res.Resources {
-        val resources = super.getResources()
-        val configuration = resources.configuration
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val configuration = android.content.res.Configuration(newBase.resources.configuration)
         configuration.fontScale = 1.0f
-        resources.updateConfiguration(configuration, resources.displayMetrics)
-        return resources
+        val context = newBase.createConfigurationContext(configuration)
+        super.attachBaseContext(context)
     }
 `;
 
