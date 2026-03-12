@@ -22,14 +22,23 @@ function withDisableFontScalingIOS(config) {
     }
 
     // Cap Dynamic Type to .large (system default) so font scaling cannot exceed it.
-    // Uses the AppDelegate's own `window` property (set earlier in the same function
-    // via `window = UIWindow(frame: UIScreen.main.bounds)`), so it is always available
-    // at this insertion point.
+    // We use UIWindow.didBecomeVisibleNotification instead of setting on `self.window` directly
+    // because in Expo SDK 54 with Scene lifecycle, `window` is nil in didFinishLaunchingWithOptions
+    // (UIWindow is created by UISceneDelegate, not AppDelegate). The notification approach also
+    // catches windows created by third-party SDKs (e.g. RevenueCat Paywall, modals).
     // Requires iOS 15+ for maximumContentSizeCategory; guarded with #available.
     const swizzleCode = `
     // AFF-331: Cap Dynamic Type to default size for consistent UI (iOS 15+)
     if #available(iOS 15.0, *) {
-      window?.maximumContentSizeCategory = .large
+      NotificationCenter.default.addObserver(
+        forName: UIWindow.didBecomeVisibleNotification,
+        object: nil,
+        queue: .main
+      ) { notification in
+        if let window = notification.object as? UIWindow {
+          window.maximumContentSizeCategory = .large
+        }
+      }
     }`;
 
     // Use a regex to match the `return super.application(application, didFinishLaunchingWithOptions: ...)`
