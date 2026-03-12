@@ -5,3 +5,10 @@ declare module '*.svg' {
   const content: React.FC<SvgProps>;
   export default content;
 }
+
+// PNG imports declaration
+declare module '*.png' {
+  import { ImageSourcePropType } from 'react-native';
+  const content: ImageSourcePropType;
+  export default content;
+}

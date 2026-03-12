@@ -20,19 +20,54 @@ import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
 
+// Avatar image imports
+import AlKhwarizmiAvatar from '@/assets/images/avatars/Al-Khwarizmi.png'
+import FatimaAlFihriAvatar from '@/assets/images/avatars/Fatima-al-Fihri.png'
+import IbnSinaAvicennaAvatar from '@/assets/images/avatars/Ibn-Sina-Avicenna.png'
+import ZiryabAvatar from '@/assets/images/avatars/Ziryab.png'
+import AlRaziAvatar from '@/assets/images/avatars/Al-Razi.png'
+import IbnBattutaAvatar from '@/assets/images/avatars/Ibn-Battuta.png'
+import LubnaOfCordobaAvatar from '@/assets/images/avatars/Lubna-of-Cordoba.png'
+import MariamAlAsturlabiAvatar from '@/assets/images/avatars/Mariam-al-Asturlabi.png'
+import ZaynabAlShahdaAvatar from '@/assets/images/avatars/Zaynab-al-Shahda.png'
+
+// Badge image imports (XP badges)
+import AchEarnedXP1 from '@/assets/images/badges/ACH_EarnedXP_1.png'
+import AchEarnedXP2 from '@/assets/images/badges/ACH_EarnedXP_2.png'
+import AchEarnedXP3 from '@/assets/images/badges/ACH_EarnedXP_3.png'
+import AchEarnedXP4 from '@/assets/images/badges/ACH_EarnedXP_4.png'
+
+// Monthly badge image imports (quiz images)
+import MapImage from '@/assets/images/quiz-images/Map.png'
+import EngineersImage from '@/assets/images/quiz-images/engineers.png'
+import ExplorerImage from '@/assets/images/quiz-images/explorer.png'
+import MosqueImage from '@/assets/images/quiz-images/mosque.png'
+import NavigationImage from '@/assets/images/quiz-images/navigation.png'
+import ScrollImage from '@/assets/images/quiz-images/scroll.png'
+import TokenImage from '@/assets/images/quiz-images/token.png'
+import WriterImage from '@/assets/images/quiz-images/writer.png'
+import BilingualImage from '@/assets/images/quiz-images/Bilingual.png'
+import ShipImage from '@/assets/images/quiz-images/ship.png'
+import ReaderImage from '@/assets/images/quiz-images/Reader.png'
+import BooksImage from '@/assets/images/quiz-images/books.png'
+
+// Other image imports
+import CamelImage from '@/assets/images/quiz-images/Camel.png'
+import ModulesIconImage from '@/assets/images/icons/modules-icon.png'
+
 const { width: screenWidth } = Dimensions.get('window')
 
 // Helper to get avatar image - static mapping (database image_url → actual file)
 const AVATAR_IMAGE_MAP: Record<string, any> = {
-  'avatars/Al-Khwarizmi.png': require('@/assets/images/avatars/Al-Khwarizmi.png'),
-  'avatars/Fatima-al-Fihri.png': require('@/assets/images/avatars/Fatima-al-Fihri.png'),
-  'avatars/ibn-sina-avicenna.png': require('@/assets/images/avatars/Ibn-Sina-Avicenna.png'),
-  'avatars/Ziryab.png': require('@/assets/images/avatars/Ziryab.png'),
-  'avatars/Al-Razi.png': require('@/assets/images/avatars/Al-Razi.png'),
-  'avatars/Ibn-Battuta.png': require('@/assets/images/avatars/Ibn-Battuta.png'),
-  'avatars/Lubna-of-Cordoba.png': require('@/assets/images/avatars/Lubna-of-Cordoba.png'),
-  'avatars/Mariam-al-Asturlabi.png': require('@/assets/images/avatars/Mariam-al-Asturlabi.png'),
-  'avatars/Zaynab-al-Shahda.png': require('@/assets/images/avatars/Zaynab-al-Shahda.png'),
+  'avatars/Al-Khwarizmi.png': AlKhwarizmiAvatar,
+  'avatars/Fatima-al-Fihri.png': FatimaAlFihriAvatar,
+  'avatars/ibn-sina-avicenna.png': IbnSinaAvicennaAvatar,
+  'avatars/Ziryab.png': ZiryabAvatar,
+  'avatars/Al-Razi.png': AlRaziAvatar,
+  'avatars/Ibn-Battuta.png': IbnBattutaAvatar,
+  'avatars/Lubna-of-Cordoba.png': LubnaOfCordobaAvatar,
+  'avatars/Mariam-al-Asturlabi.png': MariamAlAsturlabiAvatar,
+  'avatars/Zaynab-al-Shahda.png': ZaynabAlShahdaAvatar,
 }
 
 const getAvatarImage = (imageUrl: string) => {
@@ -41,23 +76,23 @@ const getAvatarImage = (imageUrl: string) => {
 
 // Helper to get badge image - static mapping for require()
 const BADGE_IMAGE_MAP: Record<string, any> = {
-  'ACH_EarnedXP_1.png': require('@/assets/images/badges/ACH_EarnedXP_1.png'),
-  'ACH_EarnedXP_2.png': require('@/assets/images/badges/ACH_EarnedXP_2.png'),
-  'ACH_EarnedXP_3.png': require('@/assets/images/badges/ACH_EarnedXP_3.png'),
-  'ACH_EarnedXP_4.png': require('@/assets/images/badges/ACH_EarnedXP_4.png'),
+  'ACH_EarnedXP_1.png': AchEarnedXP1,
+  'ACH_EarnedXP_2.png': AchEarnedXP2,
+  'ACH_EarnedXP_3.png': AchEarnedXP3,
+  'ACH_EarnedXP_4.png': AchEarnedXP4,
   // Monthly badges: 1-9 use quiz images, 10-12 use original Oct/Nov/Dec badges
-  'ACH_MonthlyActive_1.png': require('@/assets/images/quiz-images/Map.png'),
-  'ACH_MonthlyActive_2.png': require('@/assets/images/quiz-images/engineers.png'),
-  'ACH_MonthlyActive_3.png': require('@/assets/images/quiz-images/explorer.png'),
-  'ACH_MonthlyActive_4.png': require('@/assets/images/quiz-images/mosque.png'),
-  'ACH_MonthlyActive_5.png': require('@/assets/images/quiz-images/navigation.png'),
-  'ACH_MonthlyActive_6.png': require('@/assets/images/quiz-images/scroll.png'),
-  'ACH_MonthlyActive_7.png': require('@/assets/images/quiz-images/token.png'),
-  'ACH_MonthlyActive_8.png': require('@/assets/images/quiz-images/writer.png'),
-  'ACH_MonthlyActive_9.png': require('@/assets/images/quiz-images/Bilingual.png'),
-  'ACH_MonthlyActive_10.png': require('@/assets/images/quiz-images/ship.png'),
-  'ACH_MonthlyActive_11.png': require('@/assets/images/quiz-images/Reader.png'),
-  'ACH_MonthlyActive_12.png': require('@/assets/images/quiz-images/books.png'),
+  'ACH_MonthlyActive_1.png': MapImage,
+  'ACH_MonthlyActive_2.png': EngineersImage,
+  'ACH_MonthlyActive_3.png': ExplorerImage,
+  'ACH_MonthlyActive_4.png': MosqueImage,
+  'ACH_MonthlyActive_5.png': NavigationImage,
+  'ACH_MonthlyActive_6.png': ScrollImage,
+  'ACH_MonthlyActive_7.png': TokenImage,
+  'ACH_MonthlyActive_8.png': WriterImage,
+  'ACH_MonthlyActive_9.png': BilingualImage,
+  'ACH_MonthlyActive_10.png': ShipImage,
+  'ACH_MonthlyActive_11.png': ReaderImage,
+  'ACH_MonthlyActive_12.png': BooksImage,
 }
 
 const getBadgeImage = (imagePath: string) => {
@@ -806,7 +841,7 @@ export default function ProfileTab() {
             </View>
             <Text style={styles.achievementText} allowFontScaling={false}>Modules finished!</Text>
             <View style={styles.achievementIcons}>
-              <Image source={require('@/assets/images/icons/modules-icon.png')} style={styles.largeModuleIcon} />
+              <Image source={ModulesIconImage} style={styles.largeModuleIcon} />
             </View>
           </View>
         </View>
@@ -888,7 +923,7 @@ export default function ProfileTab() {
               >
                 <View style={styles.achievementIconContainer}>
                   <GrayscaleImage
-                    source={achievement.image || require('@/assets/images/quiz-images/Camel.png')}
+                    source={achievement.image || CamelImage}
                     style={styles.achievementImage}
                     width={styles.achievementImage.width}
                     height={styles.achievementImage.height}
@@ -1425,7 +1460,7 @@ export default function ProfileTab() {
                   >
                     <View style={styles.badgeModalIconContainer} pointerEvents="none">
                       <GrayscaleImage
-                        source={achievement.image || require('@/assets/images/quiz-images/Camel.png')}
+                        source={achievement.image || CamelImage}
                         style={styles.badgeModalImage}
                         width={100}
                         height={100}
