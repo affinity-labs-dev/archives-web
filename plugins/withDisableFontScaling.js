@@ -22,13 +22,25 @@ function withDisableFontScalingIOS(config) {
     }
 
     // Cap Dynamic Type to .large (system default) so font scaling cannot exceed it.
-    // We use UIWindow.didBecomeVisibleNotification instead of setting on `self.window` directly
-    // because in Expo SDK 54 with Scene lifecycle, `window` is nil in didFinishLaunchingWithOptions
-    // (UIWindow is created by UISceneDelegate, not AppDelegate). The notification approach also
-    // catches windows created by third-party SDKs (e.g. RevenueCat Paywall, modals).
-    // Requires iOS 15+ for maximumContentSizeCategory; guarded with #available.
-    const swizzleCode = `
+    //
+    // TWO-PRONGED APPROACH:
+    //
+    // 1. UIWindow.didBecomeVisibleNotification (registered in didFinishLaunchingWithOptions):
+    //    Catches every UIWindow as it becomes visible, including any windows created by
+    //    third-party SDKs. This covers the initial app window.
+    //
+    // 2. applicationDidBecomeActive override (new method added to AppDelegate class):
+    //    Re-applies the cap to ALL windows in ALL connected scenes every time the app
+    //    becomes active. This handles:
+    //    - RevenueCat's PaywallViewController (UIHostingController, deferred init in layoutSubviews)
+    //    - Windows already visible when user changes system font size in Settings
+    //    - Any SDK that creates windows before the notification can fire
+    //
+    // Requires iOS 15+ for maximumContentSizeCategory; both blocks are guarded with #available.
+
+    const notificationCode = `
     // AFF-331: Cap Dynamic Type to default size for consistent UI (iOS 15+)
+    // Observer 1: catches each UIWindow as it first becomes visible
     if #available(iOS 15.0, *) {
       NotificationCenter.default.addObserver(
         forName: UIWindow.didBecomeVisibleNotification,
@@ -41,6 +53,23 @@ function withDisableFontScalingIOS(config) {
       }
     }`;
 
+    // applicationDidBecomeActive re-applies the cap to every window on every app activation.
+    // Inserted just before the closing brace of the AppDelegate class so it becomes a proper
+    // method override alongside the existing didFinishLaunchingWithOptions override.
+    const becomeActiveCode = `
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    super.applicationDidBecomeActive(application)
+    // AFF-331: Re-apply Dynamic Type cap to all windows on every app activation (iOS 15+)
+    // This covers RevenueCat PaywallViewController and any SDK using deferred UIHostingController init
+    if #available(iOS 15.0, *) {
+      UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .flatMap { $0.windows }
+        .forEach { $0.maximumContentSizeCategory = .large }
+    }
+  }
+`;
+
     // Use a regex to match the `return super.application(application, didFinishLaunchingWithOptions: ...)`
     // line regardless of the parameter name. The customerio-expo-plugin (which runs before this
     // plugin in app.json) rewrites the parameter from `launchOptions` to `modifiedLaunchOptions`,
@@ -49,10 +78,22 @@ function withDisableFontScalingIOS(config) {
     const match = appDelegate.match(returnPattern);
 
     if (match) {
-      config.modResults.contents = appDelegate.replace(
+      // Step 1: insert notification observer before the return statement
+      let patched = appDelegate.replace(
         match[0],
-        `${swizzleCode}\n    ${match[0]}`
+        `${notificationCode}\n    ${match[0]}`
       );
+
+      // Step 2: insert applicationDidBecomeActive before the class closing brace
+      const lastBraceIndex = patched.lastIndexOf("}");
+      if (lastBraceIndex !== -1) {
+        patched =
+          patched.slice(0, lastBraceIndex) +
+          becomeActiveCode +
+          patched.slice(lastBraceIndex);
+      }
+
+      config.modResults.contents = patched;
     } else {
       console.warn(
         "[withDisableFontScaling] iOS: Could not find 'return super.application(application, didFinishLaunchingWithOptions:...)' in AppDelegate.swift. Font scaling override was NOT applied."
