@@ -31,7 +31,6 @@ import CustomerIOService from '@/services/CustomerIOService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
 import AppLogger from '@/services/AppLogger';
-import { NotificationPermissionModal } from '@/gamification/ui/achievement/AchievementGrid';
 import Purchases from 'react-native-purchases';
 
 // Gamification imports - unified from @/gamification
@@ -40,6 +39,7 @@ import {
   GamificationOrchestratorProvider,
   RewardsProvider,
   AIProvider,
+  NotificationPromptProvider,
 } from "@/gamification";
 import AIAssistant from "@/gamification/ui/ai/AIAssistant";
 
@@ -139,9 +139,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // AFF-151: Track the previous isSignedIn value to detect actual transitions
   // (not user object reference changes from token refreshes)
   const prevSignedInRef = React.useRef<boolean | null>(null);
-
-  // Custom notification permission modal (shown before native iOS prompt)
-  const [showNotificationModal, setShowNotificationModal] = React.useState(false);
 
   // Derive login method from Clerk user object (fixes hardcoded 'email')
   const getLoginMethod = (clerkUser: typeof user): LoginMethod => {
@@ -298,17 +295,14 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         analyticsService.trackUserSessionIn(getLoginMethod(user));
         wasSignedInRef.current = true;
 
-        // Check push notification permission and prompt if never asked
-        // This catches existing users who update the app and never went through Q3 onboarding
+        // Sync push token on sign-in for users who already granted permission
+        // Notification prompting is now handled by NotificationPromptProvider (AFF-117)
         ;(async () => {
           try {
             const { status } = await Notifications.getPermissionsAsync();
             AppLogger.info('notification', 'Push permission status checked', { status });
 
-            if (status === 'undetermined') {
-              AppLogger.info('notification', 'Permission never asked, showing custom modal');
-              setShowNotificationModal(true);
-            } else if (status === 'granted') {
+            if (status === 'granted') {
               try {
                 const pushToken = await Notifications.getDevicePushTokenAsync();
                 if (pushToken?.data) {
@@ -524,54 +518,10 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     };
   }, [posthog]);
 
-  // Handle "Enable Notifications" button tap from custom modal
-  const handleEnableNotifications = React.useCallback(async () => {
-    AppLogger.info('notification', 'Enable Notifications button tapped');
-    setShowNotificationModal(false);
-    try {
-      const result = await CustomerIOService.showPromptForPushNotifications({
-        ios: { sound: true, badge: true },
-      });
-      const granted = result === 'Granted';
-      AppLogger.info('notification', 'Push permission prompt result', { granted, result });
+  // Notification prompting moved to NotificationPromptProvider (AFF-117)
+  // Permission request + token registration now handled via celebration queue
 
-      CustomerIOService.setProfileAttributes({
-        push_notifications_enabled: granted,
-        push_permission_status: granted ? 'Granted' : 'Denied',
-        push_permission_updated_at: Math.floor(Date.now() / 1000),
-      });
-      analyticsService.updatePushStatus(granted, granted ? 'Granted' : 'Denied');
-
-      if (granted) {
-        setTimeout(async () => {
-          try {
-            const pushToken = await Notifications.getDevicePushTokenAsync();
-            if (pushToken?.data) {
-              CustomerIOService.registerPushToken(pushToken.data);
-              CustomerIOService.setProfileAttributes({ cio_push_token: pushToken.data });
-              AppLogger.info('notification', 'Device token registered after sign-in prompt');
-            }
-          } catch (tokenErr) {
-            AppLogger.error('notification', 'Token registration failed after prompt', {}, tokenErr);
-          }
-        }, 1500);
-      }
-    } catch (sdkErr) {
-      AppLogger.error('notification', 'Push prompt error', {}, sdkErr);
-    }
-  }, []);
-
-  return (
-    <>
-      {children}
-      <NotificationPermissionModal
-        visible={showNotificationModal}
-        variant="module"
-        onEnableNotifications={handleEnableNotifications}
-        onDismiss={() => setShowNotificationModal(false)}
-      />
-    </>
-  );
+  return <>{children}</>;
 }
 
 // Gamification wrapper - GamifiedProgressProvider handles all initialization internally
@@ -724,25 +674,27 @@ export default Sentry.wrap(function RootLayout() {
                     <RewardsProvider>
                       <GamifiedProgressProvider>
                         <PreferencesProvider>
-                          <GamificationOrchestratorProvider>
-                            <AIProvider>
-                              <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
-                              <Stack screenOptions={{
-                                gestureEnabled: false,
-                                animation: 'none',
-                                fullScreenGestureEnabled: false
-                              }}>
-                                <Stack.Screen name="index" options={{ headerShown: false }} />
-                                <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                <Stack.Screen name="+not-found" />
-                              </Stack>
-                              <AIAssistant />
-                              <StatusBar style="auto" />
-                              </ThemeProvider>
-                            </AIProvider>
-                          </GamificationOrchestratorProvider>
+                          <NotificationPromptProvider>
+                            <GamificationOrchestratorProvider>
+                              <AIProvider>
+                                <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                                <Stack screenOptions={{
+                                  gestureEnabled: false,
+                                  animation: 'none',
+                                  fullScreenGestureEnabled: false
+                                }}>
+                                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                                  <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+                                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                  <Stack.Screen name="+not-found" />
+                                </Stack>
+                                <AIAssistant />
+                                <StatusBar style="auto" />
+                                </ThemeProvider>
+                              </AIProvider>
+                            </GamificationOrchestratorProvider>
+                          </NotificationPromptProvider>
                         </PreferencesProvider>
                       </GamifiedProgressProvider>
                     </RewardsProvider>
