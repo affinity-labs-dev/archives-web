@@ -447,6 +447,12 @@ export default function ProfileTab() {
       await signOut()
       console.log('✅ Clerk sign out complete')
 
+      // Wait for React to finish the re-render cascade triggered by signOut().
+      // Without this delay, AsyncStorage.clear() races with provider unmount/remount
+      // on Android Fabric, causing "child already has a parent" IllegalStateException
+      // when Modal components get re-parented during rapid state changes.
+      await new Promise(resolve => setTimeout(resolve, 300))
+
       // Now safe to clear all local data (token already revoked)
       await AsyncStorage.clear()
       console.log('✅ All local data cleared')
