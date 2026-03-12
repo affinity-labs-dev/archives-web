@@ -33,6 +33,9 @@ import DailyStoryEndScreen from '@/gamification/ui/celebrations/DailyStoryEndScr
 import StreakCelebrationScreen from '@/gamification/ui/celebrations/StreakCelebrationScreen';
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
 
+// Import notification prompt provider
+import { useNotificationPrompt, type NotificationPromptVariant } from './NotificationPromptProvider';
+
 // ============================================================
 // CONSTANTS
 // ============================================================
@@ -316,7 +319,12 @@ interface AchievementCelebration {
   achievement: Achievement;
 }
 
-type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | StreakCelebration | DailyStoryEndCelebration | AchievementCelebration;
+interface NotificationPromptCelebration {
+  type: 'NOTIFICATION_PROMPT';
+  variant: NotificationPromptVariant;
+}
+
+type CelebrationItem = XPMilestoneCelebration | AdventureCompleteCelebration | StreakMilestoneCelebration | StreakCelebration | DailyStoryEndCelebration | AchievementCelebration | NotificationPromptCelebration;
 
 // ============================================================
 // CONTEXT
@@ -656,6 +664,9 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const { getAdventures } = useAdventuresContent();
   const { user } = useUser();
   const [previousUserId, setPreviousUserId] = useState<string | null>(null);
+
+  // Notification prompt logic (AFF-117)
+  const { showPrompt, shouldPrompt, getBestVariant, isStreakPromptMilestone, isReturningFromLapse } = useNotificationPrompt();
 
   // Load and update streak - DIRECT SUPABASE READ/WRITE (no local state confusion)
   const loadStreak = useCallback(async () => {
@@ -1253,6 +1264,34 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     }, 100);
   }, [currentCelebration]);
 
+  // ========== NOTIFICATION PROMPT (AFF-117) ==========
+
+  /**
+   * When the queue processes a NOTIFICATION_PROMPT item, delegate to the provider.
+   * The provider renders the modal and calls dismissCurrent when done.
+   */
+  useEffect(() => {
+    if (currentCelebration?.type === 'NOTIFICATION_PROMPT') {
+      showPrompt(currentCelebration.variant, dismissCurrent);
+    }
+  }, [currentCelebration, showPrompt, dismissCurrent]);
+
+  /**
+   * Try to queue a notification prompt after celebrations.
+   * Checks all cooldown rules via shouldPrompt(), then picks the best variant.
+   * Called at the end of reportQuizComplete and reportTodayComplete.
+   */
+  const maybeQueueNotificationPrompt = useCallback(async (eligibleVariants: NotificationPromptVariant[]) => {
+    const canShow = await shouldPrompt();
+    if (!canShow) return;
+
+    const variant = getBestVariant(eligibleVariants);
+    if (!variant) return;
+
+    console.log(`🔔 [Orchestrator] Queuing notification prompt: "${variant}"`);
+    setCelebrationQueue((prev) => [...prev, { type: 'NOTIFICATION_PROMPT', variant }]);
+  }, [shouldPrompt, getBestVariant]);
+
   // Report quiz completion - check all triggers
   const reportQuizComplete = useCallback(async (input: QuizCompleteInput) => {
     const {
@@ -1498,6 +1537,28 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
     // Check time-based achievements (night owl, early bird)
     await checkTimeBasedAchievement();
+
+    // --- Check 5: Notification Prompt (AFF-117) ---
+    // Queue AFTER all celebrations so it shows last in the queue
+    if (eraId !== 'daily_quest') {
+      const eligibleVariants: NotificationPromptVariant[] = [];
+
+      // Module completion is always eligible after a quiz
+      eligibleVariants.push('module');
+
+      // Streak milestone (3/7/14 days) — use the streak we just calculated
+      const cloudStreak = getCloudStreak();
+      if (isStreakPromptMilestone(cloudStreak.currentStreak)) {
+        eligibleVariants.push('streak');
+      }
+
+      // Return from lapse (7+ days inactive before this session)
+      if (lastActiveBeforeUpdate && isReturningFromLapse(lastActiveBeforeUpdate)) {
+        eligibleVariants.push('lapse');
+      }
+
+      await maybeQueueNotificationPrompt(eligibleVariants);
+    }
   }, [
     checkAchievements,
     checkTimeBasedAchievement,
@@ -1508,6 +1569,10 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     setStreak,
     setLongestStreak,
     getAdventures,
+    isStreakPromptMilestone,
+    isReturningFromLapse,
+    maybeQueueNotificationPrompt,
+    lastActiveBeforeUpdate,
   ]);
 
   // Report lesson completion - for future triggers
@@ -1627,7 +1692,17 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     } catch (error) {
       console.error('❌ [Orchestrator] Error in Today streak update:', error);
     }
-  }, [getCloudStreak, syncStreakToState, syncToCloud, calculateWeekData, setStreak, setLongestStreak]);
+
+    // --- Notification Prompt (AFF-117) - after daily story celebrations ---
+    const eligibleVariants: NotificationPromptVariant[] = ['dailyStory'];
+
+    // Also check lapse on daily story completion
+    if (lastActiveBeforeUpdate && isReturningFromLapse(lastActiveBeforeUpdate)) {
+      eligibleVariants.push('lapse');
+    }
+
+    await maybeQueueNotificationPrompt(eligibleVariants);
+  }, [getCloudStreak, syncStreakToState, syncToCloud, calculateWeekData, setStreak, setLongestStreak, isReturningFromLapse, maybeQueueNotificationPrompt, lastActiveBeforeUpdate]);
 
   // TEST FUNCTION: Set lastActiveDate to yesterday in Supabase, then trigger streak check
   const simulateNextDay = useCallback(async () => {
