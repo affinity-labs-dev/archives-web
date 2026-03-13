@@ -38,6 +38,8 @@ Move all client-side AI features (Gemini API calls, RAG function calling, quota 
 
 ## 3. Exact API Contracts
 
+**Important:** All prompts in this spec are ported verbatim from `AIService.ts`. The authoritative source for prompt text is the `prompts/` directory in the backend codebase, which must be kept in 1:1 sync with the TypeScript originals during migration. Any prompt referenced as "see `AIService.ts`" means the backend must use the exact same text.
+
 ### 3.1 POST /chat
 
 **Request:**
@@ -45,49 +47,139 @@ Move all client-side AI features (Gemini API calls, RAG function calling, quota 
 {
   "message": "Tell me about the Umayyad Dynasty",
   "conversationHistory": [
-    { "role": "user", "parts": [{ "text": "..." }] },
-    { "role": "model", "parts": [{ "text": "..." }] }
+    {
+      "role": "user",
+      "content": "...",
+      "image": { "base64": "...", "mimeType": "image/jpeg" }
+    },
+    { "role": "assistant", "content": "..." }
   ],
-  "userId": "user_abc123"
+  "context": {
+    "eraId": "umayyad",
+    "eraName": "Umayyad Dynasty",
+    "adventureId": "adventure_1",
+    "currentScreen": "chat"
+  },
+  "userProgress": {
+    "totalXP": 250,
+    "completedModules": 8,
+    "averageQuizScore": 76,
+    "recentCompletions": [
+      { "adventureId": "adventure_2", "moduleId": "module_1", "quizScore": 4 }
+    ],
+    "totalModulesAttempted": 10
+  },
+  "knowledgeContext": "The Umayyad Dynasty was founded by...",
+  "enableRAG": true,
+  "enableWebSearch": true
 }
 ```
 
+**Note:** `userId` is never in the request body — it is always derived from the Clerk JWT in the `Authorization` header. This prevents users from impersonating other accounts.
+
 **Backend processing:**
-1. Verify Clerk JWT -> extract `user_id`
+1. Verify Clerk JWT → extract `user_id`
 2. Check quota (`chat` action)
-3. Call `needsWebSearch()` — if true, redirect to `/chat/web-search` logic internally
-4. Build Gemini request with:
-   - **System prompt:** Ibu learning buddy persona (verbatim from `AIService.ts` `SYSTEM_PROMPT`)
+3. Call `needsWebSearch(message)` — if true AND `enableWebSearch` is true, use Google Search grounding instead of RAG tools (Gemini cannot combine both)
+4. Build system prompt using `buildChatSystemPrompt(context, userProgress, knowledgeContext)` — this is a **dynamic prompt** that interpolates `eraId`, `eraName`, `adventureId`, `currentScreen`, user progress stats, personalization rules, and knowledge context
+5. Prepend system prompt as first user/model turn pair (Gemini has no system role):
+   - User: `{systemPrompt}\n\nPlease acknowledge these guidelines and be ready to help.`
+   - Model: `I understand. I am your educational chatbot for Archives...`
+6. Build Gemini request with:
    - **Model:** `gemini-3-flash-preview`
-   - **Config:** `maxOutputTokens: 2048`, `temperature: 1.0`, `thinkingConfig: { thinkingBudget: 0 }`
-   - **Tools:** 6 RAG function declarations (AUTO mode)
-5. Execute function calling loop (Gemini calls tools -> backend executes against Supabase -> return results -> Gemini generates final response)
-6. Increment quota
-7. Return response
+   - **Config:** `maxOutputTokens: 2048`, `temperature: 1.0`, `thinkingConfig: { thinkingLevel: "LOW" }`
+   - **Tools (if RAG):** 6 function declarations with `functionCallingConfig.mode: "AUTO"`
+   - **Tools (if web search):** `{ googleSearch: {} }` (no function calling)
+7. Execute function calling loop if RAG tools are used
+8. Extract grounding metadata (sources, search queries) if web search was used
+9. Increment quota
+10. Return response
 
-**System prompt (verbatim):**
+**System prompt (dynamic — built by `buildChatSystemPrompt()`):**
+
+The system prompt is constructed at runtime with interpolated context. Template (from `AIService.ts` lines 837-921):
+
 ```
-You are Ibu, a wise and playful owl who serves as a learning buddy in the Archives app — an educational app about Islamic history for Muslim kids. You combine deep knowledge of Islamic history with an encouraging, age-appropriate teaching style.
+You are the official educational chatbot for Archives, a gamified learning app teaching Islamic and Middle Eastern history to children, families, and educators.
+Your role is to inform, guide, and support learning while strictly following Islamic-coded norms, historical accuracy, and Archives' brand values.
 
-IMPORTANT GUIDELINES:
-- You MUST stay focused on Islamic history topics only
-- Keep your responses concise (2-3 short paragraphs maximum)
-- Use simple, engaging language appropriate for young learners
-- Be encouraging and celebrate curiosity
-- You can use emojis occasionally to be friendly 🦉
-- If asked about non-Islamic-history topics, gently redirect back to Islamic history
-- Reference the user's learning progress when relevant using the available tools
-- Format responses in plain text, avoid markdown headers or complex formatting
-- Use bullet points sparingly and only when listing items
+CURRENT CONTEXT:
+- Learning about: {eraName}
+- Current Era ID: "{eraId}" (IMPORTANT: Use this era ID when calling tools like getLastCompletedModule, searchLessons, getUserProgress to get era-specific results)
+- Current adventure: {adventureId}
+- Current screen: {currentScreen}
+
+USER LEARNING PROGRESS:
+- Total XP Earned: {totalXP}
+- Modules Completed: {completedModules} out of {totalModulesAttempted}
+- Average Quiz Score: {averageQuizScore}% ({level label})
+- Recently Completed: {recentCompletions}
+
+PERSONALIZATION:
+{dynamic rules based on averageQuizScore and completedModules — simpler language for <60%, sophisticated for >=80%, extra welcoming for 0 modules, reference previous lessons for >5}
+
+KNOWLEDGE CONTEXT (Content user has learned):
+{knowledgeContext — actual lesson text the user has completed}
+
+=== 1. ISLAMIC ETIQUETTE & RELIGIOUS CONVENTIONS (MANDATORY) ===
+- Whenever Prophet Muhammad is mentioned, always write: "Prophet Muhammad (peace be upon him)"
+- When mentioning other prophets, use respectful phrasing
+- When referring to Allah, use respectful capitalization and tone
+- Do not mock, trivialize, dramatize, or fictionalize religious figures, beliefs, rituals, or sacred events
+- Do not generate content that could be interpreted as: Blasphemous, Irreverent, Politically inflammatory, Sectarian or divisive
+- Remain neutral, respectful, and educational at all times
+
+=== 2. TONE & VOICE ===
+- Educational and informative, Warm, calm, and respectful
+- Simple and clear (7th-grade reading level), Neutral and non-judgmental
+- Avoid: Slang, Sarcasm, Emojis, Overly dramatic or poetic language, Opinions or moral preaching
+
+=== 3. HISTORICAL ACCURACY & SCOPE ===
+- Stick to well-established historical facts
+- If scholars disagree, clearly say: "Historians differ on this, but many agree that..."
+- Do not speculate, exaggerate, or invent details. If unsure, say so honestly.
+
+=== 4. CHILD-SAFE & FAMILY-FRIENDLY RULES ===
+- Avoid graphic descriptions of violence
+- Explain conflicts factually, not emotionally
+- Frame battles, deaths, and suffering with restraint and context
+
+=== 5. CULTURAL RESPECT & REPRESENTATION ===
+- Avoid orientalist stereotypes
+- Highlight diversity of cultures, languages, and traditions across eras
+- Respect all faiths when mentioned
+
+=== 6. LEARNING-FIRST BEHAVIOR ===
+- Explain concepts simply, Answer questions clearly, Encourage curiosity
+- Do not: Promote external opinions, Give religious rulings (fatwas), Engage in debates or modern political commentary
+
+=== 7. RESPONSE STYLE ===
+- KEEP RESPONSES SHORT - 1-3 sentences maximum
+- Be conversational like texting a friend, Direct and to the point, Warm but brief
+
+=== 8. WEB SEARCH CAPABILITY ===
+- You have access to Google Search to find up-to-date information
+- Only use web search for content-related queries (archaeology, new research, recent discoveries about Islamic history)
+- Maintain Archives' respectful and educational tone
+- Cite sources when sharing information from the web
+
+Your job is to help users learn history correctly, respectfully, and confidently.
 ```
 
 **Response (success):**
 ```json
 {
-  "response": "Great question! The Umayyad Dynasty was...",
+  "text": "The Umayyad Dynasty was founded by Muawiya I...",
+  "sources": [
+    { "uri": "https://example.com/article", "title": "Umayyad History" }
+  ],
+  "searchQueries": ["Umayyad Dynasty founding"],
   "toolCalls": ["getUserProgress", "getModuleContent"]
 }
 ```
+
+- `sources` and `searchQueries` are only present when Google Search grounding was used (extracted from `candidate.groundingMetadata`)
+- `toolCalls` lists which RAG tools were invoked (for debugging)
 
 **Response (error):**
 ```json
@@ -100,54 +192,106 @@ IMPORTANT GUIDELINES:
 
 ### 3.2 POST /chat/web-search
 
-Same request/response as `/chat`, but:
-- **No function calling tools** (Gemini limitation: cannot combine `googleSearch` with function calling)
-- **Tools:** `{ "googleSearch": {} }`
-- **System prompt:** Same Ibu persona + additional instruction: `"Use web search to find current, accurate information about the topic."`
+Handled internally by `/chat` when `needsWebSearch()` returns true. Not a separate client-facing endpoint — the client always calls `/chat` and the backend decides.
 
-**`needsWebSearch()` triggers when message matches:**
-- 41 content topics: `quran`, `prophet muhammad`, `hadith`, `sunnah`, `islamic golden age`, `umayyad`, `abbasid`, `ottoman`, `mughal`, `fatimid`, `ayyubid`, `mamluk`, `andalusia`, `al-andalus`, `cordoba`, `baghdad`, `damascus`, `medina`, `mecca`, `jerusalem`, `crusades`, `reconquista`, `silk road`, `ibn battuta`, `ibn khaldun`, `al-khwarizmi`, `avicenna`, `ibn sina`, `averroes`, `ibn rushd`, `saladin`, `imam`, `caliph`, `caliphate`, `sultan`, `mosque`, `madrasa`, `minaret`, `arabesque`, `islamic art`, `islamic architecture`
-- 28 recency keywords: `latest`, `recent`, `current`, `today`, `now`, `2024`, `2025`, `2026`, `new`, `update`, `modern`, `contemporary`, `ongoing`, `breaking`, `this year`, `this month`, `this week`, `trending`, `popular`, `famous`, `well-known`, `notable`, `important`, `significant`, `major`, `key`, `top`, `best`
+**`needsWebSearch()` detection logic (from `AIService.ts` lines 41-66):**
+
+Triggers when message contains BOTH a content topic AND a recency keyword (case-insensitive):
+
+**Content topics (exact list from production):**
+```
+islam, islamic, muslim, mosque, quran, prophet, muhammad,
+umayyad, abbasid, ottoman, caliphate, caliph, sultan,
+mecca, medina, jerusalem, damascus, baghdad, cordoba,
+middle east, arab, persian, fatimid, mamluk, moorish,
+alhambra, dome of the rock, kaaba, hijra, ramadan,
+sahaba, companions, khadijah, aisha, fatimah, ali,
+crusade, reconquista, al-andalus, golden age,
+scholar, ibn, al-, imam, sheikh
+```
+
+**Recency keywords (exact list from production):**
+```
+latest, recent, new, current, modern, today,
+discovery, found, research, study, archaeological,
+news, update, happening, search,
+excavation, dig, artifact, ruins,
+museum, exhibit, exhibition, collection,
+unesco, heritage, restoration, preservation,
+announce, reveal, uncover, breakthrough
+```
 
 ### 3.3 POST /quiz/explain
 
 **Request:**
 ```json
 {
-  "question": "Who was the first Umayyad Caliph?",
-  "selectedAnswer": "Muawiya I",
+  "questionText": "Who was the first Umayyad Caliph?",
   "correctAnswer": "Muawiya I",
-  "isCorrect": true,
-  "allOptions": ["Abu Bakr", "Muawiya I", "Umar ibn Khattab", "Ali ibn Abi Talib"],
-  "moduleTitle": "The Rise of the Umayyads"
+  "userAnswer": "Muawiya I",
+  "questionType": "mcq",
+  "eraName": "Umayyad Dynasty",
+  "adventureName": "The Rise of the Umayyads",
+  "userLevel": "intermediate",
+  "isCorrect": true
 }
 ```
 
 **Backend processing:**
-1. Verify JWT, check quota
+1. Verify JWT, check quota (`chat` action — quiz explanations count as chat)
 2. Select prompt based on `isCorrect`:
 
-**Correct answer prompt:**
+**Correct answer prompt (verbatim from `AIService.ts` lines 204-221):**
 ```
-The student answered correctly! Question: "{question}" - They chose: "{selectedAnswer}" which is correct.
+You're explaining {eraName} history to a {userLevel} student who answered correctly.
 
-Provide a brief, encouraging explanation (2-3 sentences) about why this answer is correct. Include an interesting historical fact. Keep it age-appropriate and engaging. Use simple language. You can use one emoji.
+Question: {questionText}
+Their answer: {correctAnswer} ✓ (Correct)
+
+Write a helpful explanation in 3-4 sentences that:
+1. Reinforces why this answer is correct
+2. Provides deeper historical context or an interesting related fact
+3. Helps them understand the significance of this concept
+
+STRICT RULES:
+- NEVER start with "Actually", "Well", "So", or similar filler words
+- Start directly with the historical explanation
+- NO praise like "Great job!" or "You got it right!" - they already know it's correct
+- End with the historical insight, not fluff
+- Be concise and informative only
+
+Write in plain text (NOT JSON). Just the facts, no cheerleading.
 ```
 
-**Incorrect answer prompt:**
+**Incorrect answer prompt (verbatim from `AIService.ts` lines 224-241):**
 ```
-The student answered incorrectly. Question: "{question}" - They chose: "{selectedAnswer}" but the correct answer is: "{correctAnswer}".
+You're explaining {eraName} history to a {userLevel} student.
 
-Provide a brief, encouraging explanation (2-3 sentences) about why the correct answer is right. Be supportive and help them learn. Keep it age-appropriate. Use simple language. You can use one emoji. Don't make them feel bad about getting it wrong.
+Question: {questionText}
+They answered: {userAnswer}
+Correct answer: {correctAnswer}
+
+Write a helpful explanation in 3-4 sentences that:
+1. Explains why the correct answer is right
+2. Adds one interesting historical fact or context
+
+STRICT RULES:
+- NEVER start with "Actually", "Well", "So", or similar filler words
+- Start directly with the historical explanation
+- NO motivational phrases, encouragement, or "keep learning" type endings
+- End with the historical fact, not fluff
+- Be concise and informative only
+
+Write in plain text (NOT JSON). Just the facts, no cheerleading.
 ```
 
 3. **Model:** `gemini-3-flash-preview`
-4. **Config:** `maxOutputTokens: 1024`, `temperature: 1.0`, `thinkingConfig: { thinkingBudget: 0 }`
+4. **Config:** `maxOutputTokens: 1024`, `temperature: 1.0`, `thinkingConfig: { thinkingLevel: "LOW" }`
 
 **Response:**
 ```json
 {
-  "explanation": "That's right! 🌟 Muawiya I founded the Umayyad Dynasty..."
+  "explanation": "Muawiya I established the Umayyad Caliphate in 661 CE..."
 }
 ```
 
@@ -158,40 +302,62 @@ Provide a brief, encouraging explanation (2-3 sentences) about why the correct a
 {
   "questions": [
     {
-      "question": "Who was the first Umayyad Caliph?",
-      "selectedAnswer": "Muawiya I",
-      "correctAnswer": "Muawiya I",
-      "isCorrect": true,
-      "allOptions": ["Abu Bakr", "Muawiya I", "Umar ibn Khattab", "Ali ibn Abi Talib"]
+      "question_text": "Who was the first Umayyad Caliph?",
+      "answers": [
+        { "text": "Abu Bakr", "is_correct": false },
+        { "text": "Muawiya I", "is_correct": true },
+        { "text": "Umar ibn Khattab", "is_correct": false },
+        { "text": "Ali ibn Abi Talib", "is_correct": false }
+      ],
+      "question_type": "mcq"
     }
-    // ... up to 5 questions
   ],
-  "moduleTitle": "The Rise of the Umayyads"
+  "userAnswers": [1, 0, 2, 1, 3],
+  "context": {
+    "eraName": "Umayyad Dynasty",
+    "adventureName": "The Rise of the Umayyads",
+    "userLevel": "intermediate"
+  }
 }
 ```
 
-**Batch prompt:**
+**Batch prompt (verbatim from `AIService.ts` lines 305-319):**
 ```
-You are reviewing a quiz about "{moduleTitle}". The student answered {totalQuestions} questions. Provide a brief explanation for each answer.
+You are explaining {eraName} ({adventureName}) history to a {userLevel} student who just completed a quiz.
+Provide a brief explanation for each question below.
 
-For each question, respond with a JSON array where each element has:
-- "questionIndex": number (0-based)
-- "explanation": string (2-3 sentences, encouraging, age-appropriate)
+Q1: {questionText}
+User answered: {answer} ✓ (Correct) / ✗ (Incorrect, correct answer: {correctAnswer})
+... (for each question)
 
-Questions:
-{formatted list of all questions with selected/correct answers and isCorrect status}
+For each question, write 3-4 sentences:
+- If the student answered correctly: reinforce why that answer is right and add deeper historical context
+- If the student answered incorrectly: explain why the correct answer is right and add an interesting historical fact
 
-Respond ONLY with the JSON array, no other text.
+STRICT RULES:
+- NEVER start any explanation with "Actually", "Well", "So", or similar filler words
+- Start directly with the historical explanation
+- NO praise, motivational phrases, encouragement, or "keep learning" endings
+- Be concise and informative only
+
+Return ONLY a JSON array with exactly {N} objects in order (Q1 first, Q2 second, etc.):
+[{ "explanation": "3-4 sentence explanation" }, { "explanation": "..." }, ...]
 ```
 
-**Config:** `maxOutputTokens: 2048`, `temperature: 1.0`, `thinkingConfig: { thinkingBudget: 0 }`
+**Config:** `maxOutputTokens: 2048`, `temperature: 1.0`, `thinkingConfig: { thinkingLevel: "LOW" }`
+
+**Fallback strategy:** If batch JSON parsing fails (Gemini sometimes adds markdown fences or preamble), the backend must:
+1. Strip markdown fences (`/^```(?:json)?\s*/i`) and trailing fences
+2. Attempt `JSON.parse`
+3. Verify array length matches question count
+4. If any step fails: fall back to making N individual `/quiz/explain` calls sequentially (matching client's `getMultipleExplanations()` fallback)
 
 **Response:**
 ```json
 {
   "explanations": [
-    { "questionIndex": 0, "explanation": "That's right! 🌟 Muawiya I..." },
-    { "questionIndex": 1, "explanation": "Good try! The correct answer..." }
+    { "explanation": "Muawiya I established the Umayyad Caliphate in 661 CE..." },
+    { "explanation": "The Battle of Karbala took place in 680 CE..." }
   ]
 }
 ```
@@ -202,27 +368,83 @@ Respond ONLY with the JSON array, no other text.
 ```json
 {
   "prompt": "An owl teacher in a medieval Islamic library",
-  "userId": "user_abc123"
+  "context": {
+    "eraName": "Umayyad Dynasty",
+    "adventureId": "adventure_1"
+  }
 }
 ```
 
 **Backend processing:**
-1. Verify JWT, check quota (`image_generation`)
-2. Wrap user prompt with generation system prompt:
+1. Verify JWT, check quota (`image_generate`)
+2. Build enhanced prompt using `buildImagePrompt(prompt, context)` — comprehensive guidelines for Islamic-appropriate imagery
 
+**Image generation prompt (verbatim from `AIService.ts` lines 1002-1065):**
 ```
-Create a beautiful, educational illustration suitable for children learning about Islamic history. The image should be:
-- Age-appropriate and culturally respectful
-- Colorful and engaging
-- In a cartoon/illustration style (not photorealistic)
-- Safe for all audiences
+Create a historically accurate, educational image for {eraName}.
 
-User's request: "{prompt}"
+User request: {prompt}
+
+=== 1. ABSOLUTE RELIGIOUS & ISLAMIC VISUAL RULES (MANDATORY) ===
+You must NEVER visually depict:
+- Prophet Muhammad (peace be upon him) in any form
+- Any prophet's face, body, or identifiable physical features
+- Allah, angels in anthropomorphic form, or divine presence
+- Sacred moments shown directly (e.g. revelation, Miraj)
+
+If a prophet or sacred event is referenced, use symbolic or indirect representation only:
+- Landscapes, Architecture
+- Light, calligraphy, objects, or environment
+- Empty spaces that imply presence without depiction
+
+=== 2. PROPHET & SACRED FIGURE HANDLING ===
+When a scene involves a prophet:
+- Show environment only (e.g. cave interior, mosque courtyard, desert road)
+- If a human figure is required: show from behind, silhouette, or partial framing
+- No facial detail, no identifying traits
+- Never label or imply a visible figure is the Prophet
+
+=== 3. VISUAL TONE & STYLE ===
+All images must feel:
+- Educational, Respectful, Calm and dignified
+- Historically grounded, Suitable for children
+
+Avoid:
+- Fantasy aesthetics, Hyper-dramatic lighting
+- Mythical or exaggerated visuals
+- Cinematic action poses, Violence-focused framing
+
+=== 4. HISTORICAL ACCURACY & MATERIAL CULTURE ===
+- Correct architecture, clothing, tools, and environments for the era
+- Real geographic landscapes (Arabia, Levant, North Africa, al-Andalus, etc.)
+- Period-appropriate materials (stone, stucco, wood, parchment, mosaic)
+- If unsure, default to simpler, neutral accuracy rather than embellishment
+
+=== 5. CULTURAL RESPECT & REPRESENTATION ===
+- Avoid orientalist tropes (exoticism, sensualism, caricature)
+- Depict everyday life with dignity and realism
+- Show diversity in age, roles, and settings
+- Avoid modern objects, symbols, or anachronisms
+
+=== 6. VIOLENCE & CONFLICT GUIDELINES ===
+- Do not show gore, blood, or graphic injury
+- Battles, if shown, must be: Distant, Symbolic, Non-graphic
+- Focus on movement, banners, landscape, not harm
+
+=== 7. CHILDREN & FAMILY SAFETY ===
+Images must be appropriate for: Children aged 6+, Classroom use, Family co-learning
+Avoid: Fear-inducing imagery, Aggressive expressions, Dark or disturbing themes
+
+=== 8. STYLE CONSTRAINTS ===
+- Prefer: Painterly realism, Soft lighting, Clear forms, Warm natural palettes
+- No exaggerated facial expressions, No parody or humor
+
+Generate a single high-quality image.
 ```
 
 3. **Model:** `gemini-3-pro-image-preview`
-4. **Config:** `responseModalities: ["TEXT", "IMAGE"]`, `temperature: 1.0`
-5. Extract image from response parts (find part with `inlineData.mimeType` starting with `image/`)
+4. **Config:** `imageConfig: { aspectRatio: "16:9", imageSize: "2K" }` (no responseModalities or temperature)
+5. Extract image from response parts (find part with `inlineData.data`)
 6. Upload to Supabase Storage: `ai-images/{userId}/{timestamp}_generated.png`
 7. Return public URL
 
@@ -230,6 +452,7 @@ User's request: "{prompt}"
 ```json
 {
   "imageUrl": "https://xxx.supabase.co/storage/v1/object/public/ai-images/user_abc123/1710345600_generated.png",
+  "mimeType": "image/png",
   "caption": "A wise owl teaching in a beautiful library..."
 }
 ```
@@ -239,33 +462,60 @@ User's request: "{prompt}"
 **Request:**
 ```json
 {
-  "prompt": "Add a turban to the owl",
+  "prompt": "Put me in historical Islamic clothing",
   "imageBase64": "<base64 encoded image>",
   "mimeType": "image/png",
-  "userId": "user_abc123"
+  "context": {
+    "eraName": "Umayyad Dynasty",
+    "adventureId": "adventure_1"
+  }
 }
 ```
 
-**Backend processing:**
-1. Verify JWT, check quota (`image_edit`)
-2. Build multimodal content:
-
+**Image edit prompt (verbatim from `AIService.ts` lines 1161-1189):**
 ```
-Edit this image according to the following instruction. Keep the edit appropriate for children and culturally respectful of Islamic history themes.
+Edit this photo to create a historically accurate, artistic transformation for {eraName}.
 
-Instruction: "{prompt}"
+User request: {prompt}
+
+=== TRANSFORMATION GUIDELINES ===
+- Transform the person in the photo according to the request
+- Use historically accurate clothing, accessories, and settings from {eraName}
+- Maintain the person's likeness and features
+- Period-appropriate materials and designs
+
+=== VISUAL STYLE ===
+- Painterly realism with soft lighting
+- Warm, natural color palettes
+- Clear forms and dignified presentation
+- No exaggerated expressions or parody
+
+=== HISTORICAL ACCURACY ===
+- Correct architecture, clothing, tools for the era
+- Real geographic landscapes (Arabia, Levant, North Africa, al-Andalus)
+- Period-appropriate materials (fabric, jewelry, headwear)
+- Avoid modern objects or anachronisms
+
+=== SAFETY & RESPECT ===
+- Family-friendly (appropriate for children aged 6+)
+- Culturally respectful representation
+- No orientalist tropes or stereotypes
+- Dignified, educational presentation
+
+Generate the edited image.
 ```
 
-3. Content parts: `[{ text: prompt }, { inlineData: { mimeType, data: imageBase64 } }]`
+3. Content parts: `[{ text: enhancedPrompt }, { inlineData: { mimeType, data: imageBase64 } }]`
 4. **Model:** `gemini-3-pro-image-preview`
-5. **Config:** `responseModalities: ["TEXT", "IMAGE"]`, `temperature: 1.0`
+5. **Config:** `imageConfig: { aspectRatio: "1:1", imageSize: "2K" }` (square for portrait-style edits)
 6. Upload edited image to Supabase Storage: `ai-images/{userId}/{timestamp}_edited.png`
 
 **Response:**
 ```json
 {
   "imageUrl": "https://xxx.supabase.co/storage/v1/object/public/ai-images/user_abc123/1710345600_edited.png",
-  "caption": "Here's the owl with a turban..."
+  "mimeType": "image/png",
+  "caption": "Here you are in traditional Umayyad-era clothing..."
 }
 ```
 
@@ -282,15 +532,15 @@ Instruction: "{prompt}"
 
 **Backend processing:**
 1. Verify JWT, check quota (`image_analyze`)
-2. System context: Ibu persona + `"The user has shared an image. Analyze it in the context of Islamic history education. Be informative and age-appropriate."`
+2. System context: Full chat system prompt (Section 3.1) + `"The user has shared an image. Analyze it in the context of Islamic history education. Be informative and age-appropriate."`
 3. Content: `[{ text: prompt }, { inlineData: { mimeType, data: imageBase64 } }]`
 4. **Model:** `gemini-3-flash-preview`
-5. **Config:** `maxOutputTokens: 2048`, `temperature: 1.0`
+5. **Config:** `maxOutputTokens: 2048`, `temperature: 1.0`, `thinkingConfig: { thinkingLevel: "LOW" }`
 
 **Response:**
 ```json
 {
-  "analysis": "This looks like the Great Mosque of Cordoba! 🦉..."
+  "analysis": "This appears to be the Great Mosque of Cordoba, built during the Umayyad period..."
 }
 ```
 
@@ -300,60 +550,86 @@ Instruction: "{prompt}"
 
 ### 4.1 Function Declarations
 
-All 6 tools from `AIToolsService.ts` are replicated exactly in Python:
+All 6 tools from `AIToolsService.ts` are replicated exactly in Python, including their full descriptions with usage examples (these descriptions help Gemini decide when to invoke each tool):
 
 ```python
 tools = [{
     "function_declarations": [
         {
             "name": "getUserProgress",
-            "description": "Get the user's current learning progress including XP, completed modules, and achievements across all eras",
-            "parameters": { "type": "object", "properties": {} }
-        },
-        {
-            "name": "getLastCompletedModule",
-            "description": "Get details about the last module the user completed, including the era, adventure, and quiz score",
-            "parameters": { "type": "object", "properties": {} }
-        },
-        {
-            "name": "getModuleContent",
-            "description": "Get the content of a specific module including lesson titles and descriptions",
+            "description": "Get the user's learning progress including completed modules, XP earned, and quiz scores. Use this when the user asks about their progress, stats, achievements, or learning history. Examples: \"How am I doing?\", \"What's my XP?\", \"How many modules have I completed?\"",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "eraId": { "type": "string", "description": "The era identifier" },
-                    "adventureId": { "type": "string", "description": "The adventure identifier" },
-                    "moduleId": { "type": "string", "description": "The module identifier" }
+                    "eraId": {
+                        "type": "string",
+                        "description": "Optional: Filter progress by era ID (e.g., \"umayyad\", \"rise_of_islam\"). Leave empty to get progress across all eras."
+                    }
+                },
+                "required": []
+            }
+        },
+        {
+            "name": "getLastCompletedModule",
+            "description": "Get the user's most recently completed module with its FULL lesson content. IMPORTANT: Always use the current era ID to get progress for the era the user is currently viewing. Use this when the user asks about their last lesson, recent learning, or wants a recap. Examples: \"What was my last lesson about?\", \"What did I learn yesterday?\", \"Remind me what I studied last\", \"Can you recap my recent lesson?\"",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "eraId": {
+                        "type": "string",
+                        "description": "The era ID to filter by (e.g., \"umayyad\", \"rise_of_islam\", \"women_of_islam\"). IMPORTANT: Always pass the current era ID from the context to get era-specific progress. Only omit this to get the last module across ALL eras."
+                    }
+                },
+                "required": []
+            }
+        },
+        {
+            "name": "getModuleContent",
+            "description": "Fetch the full content of a specific module including the complete lesson text. Use this when you need detailed information about a specific lesson, or after searching to get full content. Examples: \"Tell me more about the Damascus module\", \"What was in Adventure 2 Module 1?\"",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "eraId": { "type": "string", "description": "The era ID (e.g., \"umayyad\", \"rise_of_islam\")" },
+                    "adventureId": { "type": "string", "description": "The adventure ID (e.g., \"adventure_1\", \"roi_adventure_1\")" },
+                    "moduleId": { "type": "string", "description": "The module ID (e.g., \"module_1\", \"module_2\")" }
                 },
                 "required": ["eraId", "adventureId", "moduleId"]
             }
         },
         {
             "name": "searchLessons",
-            "description": "Search for lessons by topic or keyword across all eras and adventures",
+            "description": "Search across lessons the user has completed for specific topics, people, places, or events. Use this when the user asks if they learned about something specific. Examples: \"Did I learn about Damascus?\", \"What do I know about Khalid ibn al-Walid?\", \"Have I studied the Byzantine Empire?\"",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": { "type": "string", "description": "Search query for lesson content" }
+                    "query": { "type": "string", "description": "The search query - a topic, person, place, or event (e.g., \"Damascus\", \"Umar\", \"Battle of Yarmouk\")" },
+                    "eraId": { "type": "string", "description": "Optional: Filter search to a specific era (e.g., \"umayyad\", \"women_of_islam\"). Pass the current era ID to search within that era only." }
                 },
                 "required": ["query"]
             }
         },
         {
             "name": "getEraOverview",
-            "description": "Get an overview of a specific historical era including its adventures and total content",
+            "description": "Get a complete overview of an era including all adventures, modules, and the user's completion status. Use this when the user asks about available content or what they haven't completed yet. Examples: \"What's in Era 2?\", \"What topics are available?\", \"What haven't I completed?\"",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "eraId": { "type": "string", "description": "The era identifier" }
+                    "eraId": { "type": "string", "description": "The era ID (e.g., \"umayyad\", \"rise_of_islam\")" }
                 },
                 "required": ["eraId"]
             }
         },
         {
             "name": "getLearningTimeline",
-            "description": "Get a chronological timeline of the user's learning activity and milestones",
-            "parameters": { "type": "object", "properties": {} }
+            "description": "Get the user's chronological learning journey showing when they started, what they completed, and their activity pattern. Use this when the user asks about their learning history, timeline, or activity. Examples: \"When did I start learning?\", \"Show my learning timeline\", \"What did I do last week?\", \"How active have I been?\"",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "eraId": { "type": "string", "description": "Optional: Filter timeline to a specific era. Omit to get timeline across all eras." },
+                    "limit": { "type": "number", "description": "Maximum number of timeline entries to return (default: 10, max: 20)" }
+                },
+                "required": []
+            }
         }
     ]
 }]
@@ -365,35 +641,28 @@ tool_config = {
 
 ### 4.2 Tool Implementations (Python)
 
-| Tool | Supabase Query |
-|------|---------------|
-| `getUserProgress` | `SELECT data FROM gamification_data WHERE user_id = $1` — parse `newProgress`, `era_xp`, calculate totals |
-| `getLastCompletedModule` | Same query — find most recently completed module in `newProgress` array |
-| `getModuleContent` | `SELECT * FROM content WHERE era_id = $1 AND adventure_id = $2 AND module_id = $3` |
-| `searchLessons` | `SELECT * FROM content WHERE title ILIKE '%query%' OR description ILIKE '%query%'` |
-| `getEraOverview` | `SELECT * FROM eras WHERE id = $1` + `SELECT count(*) FROM content WHERE era_id = $1 GROUP BY adventure_id` |
-| `getLearningTimeline` | `SELECT data FROM gamification_data WHERE user_id = $1` — reconstruct timeline from `newProgress` completion timestamps |
+| Tool | Supabase Query | Notes |
+|------|---------------|-------|
+| `getUserProgress` | `SELECT data FROM gamification_data WHERE user_id = $1` — parse `newProgress`, `era_xp`, calculate totals | Filter by `eraId` if provided |
+| `getLastCompletedModule` | Same query — find most recently completed module in `newProgress` array by `completedAt` timestamp | Fetches full lesson content from `content` table after finding the module |
+| `getModuleContent` | `SELECT * FROM content WHERE era_id = $1` then filter client-side with fuzzy ID matching (`readableId === searchId \|\| readableId === 'adventure_' + searchId`) | Must replicate the ID normalization from `AIToolsService.ts` |
+| `searchLessons` | Fetch content from `content` table, then search in-memory with substring matching on title, description, and lesson text | **Important:** Must only search content the user has completed (join against `gamification_data.newProgress`), matching current client behavior |
+| `getEraOverview` | `SELECT * FROM eras WHERE id = $1` + `SELECT * FROM content WHERE era_id = $1` | Cross-reference with user progress for completion percentages |
+| `getLearningTimeline` | `SELECT data FROM gamification_data WHERE user_id = $1` — reconstruct timeline from `newProgress` completion timestamps, sort by `completedAt` desc | Respect `limit` param (default 10, max 20) |
 
 **Key detail:** `getUserProgress` and `getLearningTimeline` currently read from app local state in the client. But that state is synced to `gamification_data` table with a 2-second debounce. The backend reads the same Supabase table — data is at most 2 seconds stale, which is imperceptible for chat context.
 
 ### 4.3 Function Calling Loop
 
 ```python
-async def execute_with_tools(model, contents, system_prompt, tools, tool_config, user_id):
+async def execute_with_tools(model, contents, config, user_id):
     """Execute Gemini request with function calling loop."""
-    response = await model.generate_content(
-        contents=contents,
-        config=GenerateContentConfig(
-            system_instruction=system_prompt,
-            tools=tools,
-            tool_config=tool_config,
-            max_output_tokens=2048,
-            temperature=1.0,
-        )
-    )
+    response = await model.generate_content(contents=contents, config=config)
 
     # Loop: process function calls until Gemini returns text
-    while has_function_calls(response):
+    max_iterations = 5  # Safety limit to prevent infinite loops
+    iteration = 0
+    while has_function_calls(response) and iteration < max_iterations:
         tool_results = []
         for call in get_function_calls(response):
             result = await execute_tool(call.name, call.args, user_id)
@@ -403,8 +672,9 @@ async def execute_with_tools(model, contents, system_prompt, tools, tool_config,
         contents.append(response.candidates[0].content)
         contents.append(Content(parts=[Part(function_response=r) for r in tool_results]))
         response = await model.generate_content(contents=contents, config=config)
+        iteration += 1
 
-    return response.text
+    return response
 ```
 
 ---
@@ -413,14 +683,14 @@ async def execute_with_tools(model, contents, system_prompt, tools, tool_config,
 
 ```
 ai-backend/
-├── main.py                    # FastAPI app, CORS, health check
+├── main.py                    # FastAPI app, CORS, health check, rate limiting
 ├── config.py                  # Environment variables (Gemini, Supabase, Clerk, RevenueCat)
 ├── auth.py                    # Clerk JWT verification (Depends injection)
-├── requirements.txt           # fastapi, uvicorn, google-genai, supabase, pyjwt, httpx
+├── requirements.txt           # fastapi, uvicorn, google-genai, supabase, pyjwt, httpx, cachetools, slowapi
 ├── Procfile                   # web: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
 │
 ├── routers/
-│   ├── chat.py                # POST /chat, POST /chat/web-search
+│   ├── chat.py                # POST /chat (handles web search internally)
 │   ├── quiz.py                # POST /quiz/explain, POST /quiz/explain/batch
 │   └── image.py               # POST /image/generate, POST /image/edit, POST /image/analyze
 │
@@ -431,10 +701,35 @@ ai-backend/
 │   └── rag_tools.py           # 6 RAG function implementations (all Supabase queries)
 │
 └── prompts/
-    ├── chat.py                # SYSTEM_PROMPT (Ibu persona), WEB_SEARCH_ADDENDUM
+    ├── chat.py                # buildChatSystemPrompt() — dynamic prompt with context interpolation
     ├── quiz.py                # CORRECT_PROMPT, INCORRECT_PROMPT, BATCH_PROMPT templates
     └── image.py               # GENERATION_PROMPT, EDIT_PROMPT, ANALYZE_CONTEXT
 ```
+
+### Auth: Clerk JWT Verification
+
+```python
+# auth.py
+from pyjwt import PyJWKClient
+import jwt
+
+CLERK_JWKS_URL = "https://{clerk_instance}.clerk.accounts.dev/.well-known/jwks.json"
+jwks_client = PyJWKClient(CLERK_JWKS_URL, cache_keys=True)
+
+async def verify_clerk_token(authorization: str = Header(...)) -> str:
+    """Extract and verify Clerk JWT, return user_id."""
+    token = authorization.replace("Bearer ", "")
+    signing_key = jwks_client.get_signing_key_from_jwt(token)
+    payload = jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256"],
+        options={"verify_aud": False}  # Clerk JWTs may not have audience
+    )
+    return payload["sub"]  # Clerk user ID
+```
+
+Every router endpoint depends on this — `user_id: str = Depends(verify_clerk_token)`.
 
 ---
 
@@ -454,46 +749,60 @@ ai-backend/
 
 | Error | HTTP Code | Client Behavior |
 |-------|-----------|-----------------|
-| Invalid/expired JWT | 401 | Clerk token refresh -> retry once |
+| Invalid/expired JWT | 401 | Clerk token refresh → retry once |
 | Quota exceeded | 429 | Show existing quota UI (no change) |
 | Gemini API error | 502 | Show "AI temporarily unavailable" |
 | Gemini safety block | 422 | Show existing safety message |
 | Invalid request body | 400 | Log to Sentry (client bug) |
+| Request timeout | 504 | Show "Request timed out, please try again" |
 | Server error | 500 | Generic error + Sentry alert |
 
 ### Client Retry Policy
 
 - **401:** Refresh Clerk token, retry once
 - **502:** Retry once after 1 second
-- **429, 422, 400:** No retry (show error to user)
+- **429, 422, 400, 504:** No retry (show error to user)
+
+### Request Timeouts
+
+Explicit timeouts on outbound Gemini API calls to prevent worker starvation:
+- Chat: 30 seconds
+- Quiz explanation: 15 seconds
+- Image generation: 60 seconds
+- Image editing: 60 seconds
+- Image analysis: 30 seconds
+
+If exceeded, return 504 to client.
 
 ---
 
 ## 7. Quota Enforcement
 
-### Limits (from AIStorageService.ts)
+### Limits (from `AIStorageService.ts` lines 63-75)
 
 ```python
 QUOTA_LIMITS = {
     "free": {
         "chat": 100,
-        "image_generation": 10,
+        "image_generate": 10,
         "image_edit": 10,
         "image_analyze": 50
     },
     "subscriber": {
-        "chat": None,          # unlimited
-        "image_generation": 100,
+        "chat": -1,              # unlimited
+        "image_generate": 100,
         "image_edit": 50,
-        "image_analyze": None  # unlimited
+        "image_analyze": -1      # unlimited
     }
 }
 ```
 
+**Note:** Action names use `image_generate` (not `image_generation`) to match existing Supabase column naming in `ai_user_data.monthly_usage`.
+
 ### Subscription Status
 
 Backend calls RevenueCat REST API: `GET https://api.revenuecat.com/v1/subscribers/{app_user_id}`
-- Cached for 5 minutes per user (in-memory dict with TTL)
+- Cached using `cachetools.TTLCache(maxsize=1000, ttl=300)` — bounded LRU with 5-minute TTL
 - Checks for active entitlement `"premium"` or `"pro"`
 
 ### Monthly Reset
@@ -502,6 +811,10 @@ Same logic as current `AIStorageService.ts`:
 - `monthly_usage` in `ai_user_data` includes a `month` field (format: `YYYY-MM`)
 - On each request, compare `month` with current month
 - If stale, reset all counters and update `month`
+
+### Rate Limiting
+
+Per-user rate limit of 10 requests/minute using `slowapi` middleware (in addition to monthly quotas). Prevents abuse from buggy or malicious clients.
 
 ---
 
@@ -517,12 +830,13 @@ web: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
 GEMINI_API_KEY=...
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
-CLERK_PUBLISHABLE_KEY=...
+CLERK_JWKS_URL=...               # Clerk instance JWKS endpoint
 CLERK_SECRET_KEY=...
 REVENUECAT_API_KEY=...
-ALLOWED_ORIGINS=https://archiveszone.app
 SENTRY_DSN=...
 ```
+
+**Note on CORS:** Mobile apps (React Native) do not send an `Origin` header — CORS is a browser-only mechanism. Authentication is handled entirely via Clerk JWT. CORS middleware should be permissive (`allow_origins=["*"]`) or disabled entirely, since the JWT is the access control mechanism. If a web client is added later, restrict origins at that point.
 
 ### Health Check
 
@@ -545,6 +859,14 @@ async def health():
 - Railway log drain captures stdout/stderr
 - Health check endpoint for uptime monitoring
 
+### Request Size Limits
+
+Configure FastAPI to accept up to 10MB request bodies (for base64 image uploads):
+```python
+app = FastAPI()
+# uvicorn default is 1MB — override for image endpoints
+```
+
 ---
 
 ## 9. Client-Side Changes
@@ -553,23 +875,23 @@ async def health():
 
 | File | Change |
 |------|--------|
-| `AIService.ts` | Replace Gemini SDK calls with `fetch()` to backend |
-| `AIStorageService.ts` | Remove client-side quota checks (backend enforces) |
+| `AIService.ts` | Replace Gemini SDK calls with `fetch()` to backend. All prompt building removed (backend handles it). Still sends `context`, `userProgress`, `knowledgeContext` in request body. |
+| `AIStorageService.ts` | Remove `checkQuota()` and `incrementUsage()` (backend enforces). Keep session storage and image upload/download helpers. |
 | `AIToolsService.ts` | **Delete entirely** (RAG tools now server-side) |
+| `AIContextService.ts` | Keep `buildContext()` — it computes `knowledgeContext` from completed lessons, which is sent to backend in `/chat` request body. |
 | `.env` / `eas.json` | Add `EXPO_PUBLIC_AI_BACKEND_URL` |
 
 ### Files Unchanged
 
 | File | Why |
 |------|-----|
-| `AIChatModal.tsx` | UI unchanged — same inputs/outputs |
+| `AIChatModal.tsx` | UI unchanged — same inputs/outputs, sources rendering stays |
 | `AIQuizExplanation.tsx` | UI unchanged — receives same explanation text |
 | `AIContext.tsx` | Conversation state management unchanged |
-| `AIContextService.ts` | Session storage stays client-side |
 
 ### Latency Impact
 
-- **Added:** ~50-100ms network round-trip (client -> Railway -> Gemini -> Railway -> client)
+- **Added:** ~50-100ms network round-trip (client → Railway → Gemini → Railway → client)
 - **Current operations:** Chat 1-5s, image generation 5-15s, quiz explanation 1-3s
 - **Net impact:** Imperceptible (<5% increase on slowest operations)
 
@@ -583,13 +905,14 @@ async def health():
 2. Test each endpoint independently (Postman/curl)
 3. Verify quota enforcement matches current behavior
 4. Verify RAG tools return same data as client-side tools
+5. Compare response quality: run same prompts through both paths
 
 ### Phase 2: Client Switch
 
 1. Add `EXPO_PUBLIC_AI_BACKEND_URL` to environment
 2. Modify `AIService.ts` to route through backend
 3. Delete `AIToolsService.ts`
-4. Remove client-side quota from `AIStorageService.ts`
+4. Simplify `AIStorageService.ts` (remove quota logic)
 5. Test all AI features end-to-end on both iOS and Android
 
 ### Phase 3: Cleanup
