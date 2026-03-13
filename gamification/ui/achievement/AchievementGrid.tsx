@@ -18,6 +18,14 @@ import {
 } from "react-native";
 import { GrayscaleImage } from "./GrayscaleImage";
 
+// PNG image imports
+import CamelImage from "@/assets/images/quiz-images/Camel.png";
+import IbuStarImage from "@/assets/images/ibu-star.png";
+import DesertSunsetImage from "@/assets/images/desert-sunset.png";
+import IbuFlameImage from "@/assets/images/ibu-flame.png";
+import IbuSunImage from "@/assets/images/ibu-sun.png";
+import IbuCalenderImage from "@/assets/images/ibu-calender.png";
+
 // Dynamic card width for responsive design
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 328); // 90% of screen width, max 328
@@ -204,8 +212,7 @@ const renderAchievementCard = (
         {imageConfig.useGrayscale ? (
           <GrayscaleImage
             source={
-              achievement.image ||
-              require("@/assets/images/quiz-images/Camel.png")
+              achievement.image || CamelImage
             }
             style={styles.achievementImage}
             width={imageConfig.width || 234}
@@ -216,8 +223,7 @@ const renderAchievementCard = (
         ) : (
           <Image
             source={
-              achievement.image ||
-              require("@/assets/images/quiz-images/Camel.png")
+              achievement.image || CamelImage
             }
             style={styles.achievementImage}
             resizeMode="contain"
@@ -510,14 +516,14 @@ const NOTIFICATION_COPY = {
     description:
       "\u201CWhoever travels a path seeking knowledge, Allah makes easy their path to Paradise\u201D\n\nProphet Mohammed \uFDFA",
     buttonText: "ENABLE NOTIFICATIONS",
-    image: require("@/assets/images/ibu-star.png"),
+    image: IbuStarImage,
   },
   // Daily Story Complete - After finishing today's quest
   dailyStory: {
     heading: "The story continues tomorrow!",
     description: "Let Ibu remind you when it's time",
     buttonText: "ENABLE NOTIFICATIONS",
-    image: require("@/assets/images/desert-sunset.png"),
+    image: DesertSunsetImage,
   },
   // Streak Milestone - After hitting 3/7/14 day streak
   streak: {
@@ -525,21 +531,21 @@ const NOTIFICATION_COPY = {
     description:
       "Ibu can remind you before the day ends so you never miss one.",
     buttonText: "ENABLE NOTIFICATIONS",
-    image: require("@/assets/images/ibu-flame.png"),
+    image: IbuFlameImage,
   },
   // Return from Lapse - User comes back after 7+ days
   lapse: {
     heading: "Welcome back!",
     description: "Turn on reminders so Ibu can keep you on track.",
     buttonText: "ENABLE NOTIFICATIONS",
-    image: require("@/assets/images/ibu-sun.png"),
+    image: IbuSunImage,
   },
   // iOS Re-permission - User denied permission, now has 3+ day streak
   iosRepermission: {
     heading: "You're a regular now!",
     description: "Turn on notifications in Settings so you never miss a day.",
     buttonText: "OPEN NOTIFICATION SETTINGS",
-    image: require("@/assets/images/ibu-calender.png"),
+    image: IbuCalenderImage,
   },
 };
 
