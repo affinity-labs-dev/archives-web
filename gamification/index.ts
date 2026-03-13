@@ -90,6 +90,10 @@ export type {
   EraProgressStats, // Progress bar data (correctAnswers/totalQuestions)
 } from './engines/GamificationOrchestrator';
 
+// ========== NOTIFICATION PROMPT (AFF-117) ==========
+export { NotificationPromptProvider, useNotificationPrompt, NOTIFICATION_STREAK_MILESTONES } from './engines/NotificationPromptProvider';
+export type { NotificationPromptVariant } from './engines/NotificationPromptProvider';
+
 // ========== PROVIDERS (Contexts) ==========
 export { RewardsProvider, useRewards } from './engines/RewardsContext';
 export { AIProvider, useAI } from './engines/AIContext';
