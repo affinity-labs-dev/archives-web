@@ -26,7 +26,7 @@ Move all client-side AI features (Gemini API calls, RAG function calling, quota 
 | Endpoint | Method | Purpose | Gemini Model |
 |----------|--------|---------|--------------|
 | `/chat` | POST | AI chat with RAG function calling | `gemini-3-flash-preview` |
-| `/chat/web-search` | POST | AI chat with Google Search grounding | `gemini-3-flash-preview` |
+| `/chat` (web search mode) | — | Handled internally when `needsWebSearch()` triggers | `gemini-3-flash-preview` |
 | `/quiz/explain` | POST | Single quiz answer explanation | `gemini-3-flash-preview` |
 | `/quiz/explain/batch` | POST | Batch explanation for all 5 quiz answers | `gemini-3-flash-preview` |
 | `/image/generate` | POST | AI image generation | `gemini-3-pro-image-preview` |
@@ -532,10 +532,30 @@ Generate the edited image.
 
 **Backend processing:**
 1. Verify JWT, check quota (`image_analyze`)
-2. System context: Full chat system prompt (Section 3.1) + `"The user has shared an image. Analyze it in the context of Islamic history education. Be informative and age-appropriate."`
-3. Content: `[{ text: prompt }, { inlineData: { mimeType, data: imageBase64 } }]`
+2. Build prompt using `buildImageAnalysisPrompt(prompt, context)`:
+
+**Image analysis prompt (verbatim from `AIService.ts` lines 1297-1310):**
+```
+You are a knowledgeable Islamic history tutor. Analyze this image and provide helpful, educational information.
+
+CONTEXT:
+- The user is learning about {eraName}
+- Focus on historical accuracy and educational value
+- Be respectful of Islamic traditions and culture
+
+USER'S QUESTION: {prompt}
+(If no prompt: "Please describe what you see in this image and provide any relevant historical context.")
+
+RESPONSE GUIDELINES:
+- Keep response concise (2-4 sentences)
+- If the image relates to Islamic history, provide historical context
+- If the image is unrelated, politely explain and offer to help with Islamic history topics
+- Be warm and encouraging
+```
+
+3. Content: `[{ text: analysisPrompt }, { inlineData: { mimeType, data: imageBase64 } }]`
 4. **Model:** `gemini-3-flash-preview`
-5. **Config:** `maxOutputTokens: 2048`, `temperature: 1.0`, `thinkingConfig: { thinkingLevel: "LOW" }`
+5. **Config:** `maxOutputTokens: 1024`, `temperature: 1.0`, `thinkingConfig: { thinkingLevel: "LOW" }`
 
 **Response:**
 ```json
@@ -659,8 +679,11 @@ async def execute_with_tools(model, contents, config, user_id):
     """Execute Gemini request with function calling loop."""
     response = await model.generate_content(contents=contents, config=config)
 
-    # Loop: process function calls until Gemini returns text
-    max_iterations = 5  # Safety limit to prevent infinite loops
+    # Process function calls (single round, matching production behavior)
+    # Production code does one round of tool calls then a final generation.
+    # A while loop with max_iterations is shown for robustness, but in practice
+    # Gemini typically returns text after one round of tool results.
+    max_iterations = 3  # Safety limit
     iteration = 0
     while has_function_calls(response) and iteration < max_iterations:
         tool_results = []
