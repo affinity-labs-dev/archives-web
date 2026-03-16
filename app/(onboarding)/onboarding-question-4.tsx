@@ -8,15 +8,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  StatusBar,
   Platform,
   ScrollView,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import OnboardingQuestionLayout from '@/components/onboarding/OnboardingQuestionLayout'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { MCQOptionButton } from '@/components/modules/QuizSystem'
@@ -132,163 +131,113 @@ export default function OnboardingQuestion4Screen() {
   }
 
   return (
-    <>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={ArchivesTheme.colors.creamWhite}
-        translucent={true}
-      />
-      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressSegments}>
-            {[1, 2, 3, 4].map((step) => (
-              <View
-                key={step}
-                style={[
-                  styles.progressSegment,
-                  styles.progressSegmentActive // All segments active for final question
-                ]}
-              />
-            ))}
-          </View>
-        </View>
+    <OnboardingQuestionLayout activeStep={4} screenName="onboarding_question_4">
+      <View style={styles.content}>
+        {/* Camel Mascot with Speech Bubble */}
+        <View style={styles.mascotSection}>
+          {/* Camel on Left */}
+          <Image
+            source={require('@/assets/images/ai-images/hellocharacter.png')}
+            style={styles.camelMascot}
+            resizeMode="contain"
+          />
 
-        <View style={styles.content}>
-          {/* Camel Mascot with Speech Bubble */}
-          <View style={styles.mascotSection}>
-            {/* Camel on Left */}
-            <Image
-              source={require('@/assets/images/ai-images/hellocharacter.png')}
-              style={styles.camelMascot}
-              resizeMode="contain"
-            />
+          {/* Speech Bubble on Right */}
+          <View style={styles.speechBubble}>
+            <Text style={styles.mainQuestion} selectable={false}>
+              Why are you{'\n'}learning about{'\n'}Islamic{'\n'}history?
+            </Text>
 
-            {/* Speech Bubble on Right */}
-            <View style={styles.speechBubble}>
-              <Text style={styles.mainQuestion} selectable={false}>
-                Why are you{'\n'}learning about{'\n'}Islamic{'\n'}history?
-              </Text>
+            {/* Speech bubble tail - SVG arrow */}
+            <View style={styles.speechTail}>
+              <Svg width="15" height="20" viewBox="0 0 15 20" style={{ position: 'absolute' }}>
+                {/* White filled triangle (no stroke) */}
+                <Path
+                  d="M0 10 L15 0 L15 20 Z"
+                  fill="white"
+                />
 
-              {/* Speech bubble tail - SVG arrow */}
-              <View style={styles.speechTail}>
-                <Svg width="15" height="20" viewBox="0 0 15 20" style={{ position: 'absolute' }}>
-                  {/* White filled triangle (no stroke) */}
-                  <Path
-                    d="M0 10 L15 0 L15 20 Z"
-                    fill="white"
-                  />
+                {/* Green line on top diagonal edge */}
+                <Path
+                  d="M0 10 L15 0"
+                  stroke={ArchivesTheme.colors.mossGreen}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
 
-                  {/* Green line on top diagonal edge */}
-                  <Path
-                    d="M0 10 L15 0"
-                    stroke={ArchivesTheme.colors.mossGreen}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
+                {/* Green line on bottom diagonal edge */}
+                <Path
+                  d="M0 10 L15 20"
+                  stroke={ArchivesTheme.colors.mossGreen}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
 
-                  {/* Green line on bottom diagonal edge */}
-                  <Path
-                    d="M0 10 L15 20"
-                    stroke={ArchivesTheme.colors.mossGreen}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-
-                  {/* White line on vertical base - blends with background */}
-                  <Path
-                    d="M15 0 L15 20"
-                    stroke="white"
-                    strokeWidth="1"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </Svg>
-              </View>
+                {/* White line on vertical base - blends with background */}
+                <Path
+                  d="M15 0 L15 20"
+                  stroke="white"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </Svg>
             </View>
           </View>
-
-          {/* Multi-select instruction */}
-          <Text style={styles.instructionText} selectable={false}>
-            Pick as many as you like
-          </Text>
-
-          {/* Options List */}
-          <ScrollView
-            style={styles.optionsScrollView}
-            contentContainerStyle={styles.optionsContainer}
-            showsVerticalScrollIndicator={false}
-          >
-            {questionOptions.map((option, index) => (
-              <MCQOptionButton
-                key={index}
-                letter={String.fromCharCode(65 + index)} // A, B, C, D, E
-                text={option}
-                isSelected={selectedOptions.includes(index)}
-                onPress={() => handleOptionSelect(index)}
-              />
-            ))}
-          </ScrollView>
-
-          {/* Continue Button */}
-          <View style={styles.continueContainer}>
-            <TouchableOpacity
-              style={[
-                styles.continueButton,
-                selectedOptions.length === 0 && styles.continueButtonDisabled
-              ]}
-              onPress={handleContinue}
-              disabled={selectedOptions.length === 0}
-              activeOpacity={0.8}
-            >
-              <Text style={[
-                styles.continueText,
-                selectedOptions.length === 0 && styles.continueTextDisabled
-              ]} selectable={false}>
-                CONTINUE
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
-      </SafeAreaView>
-    </>
+
+        {/* Multi-select instruction */}
+        <Text style={styles.instructionText} selectable={false}>
+          Pick as many as you like
+        </Text>
+
+        {/* Options List */}
+        <ScrollView
+          style={styles.optionsScrollView}
+          contentContainerStyle={styles.optionsContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {questionOptions.map((option, index) => (
+            <MCQOptionButton
+              key={index}
+              letter={String.fromCharCode(65 + index)} // A, B, C, D, E
+              text={option}
+              isSelected={selectedOptions.includes(index)}
+              onPress={() => handleOptionSelect(index)}
+            />
+          ))}
+        </ScrollView>
+
+        {/* Continue Button */}
+        <View style={styles.continueContainer}>
+          <TouchableOpacity
+            style={[
+              styles.continueButton,
+              selectedOptions.length === 0 && styles.continueButtonDisabled
+            ]}
+            onPress={handleContinue}
+            disabled={selectedOptions.length === 0}
+            activeOpacity={0.8}
+          >
+            <Text style={[
+              styles.continueText,
+              selectedOptions.length === 0 && styles.continueTextDisabled
+            ]} selectable={false}>
+              CONTINUE
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </OnboardingQuestionLayout>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-  },
-
-  // Header
-  // Progress Bar
-  progressContainer: {
-    paddingHorizontal: 0,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  progressSegments: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  progressSegment: {
-    flex: 1,
-    height: 4,
-    backgroundColor: 'rgba(139,96,64,0.2)',
-    borderRadius: 2,
-    marginHorizontal: 2,
-  },
-  progressSegmentActive: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-  },
-
   content: {
     flex: 1,
     paddingHorizontal: 10,
