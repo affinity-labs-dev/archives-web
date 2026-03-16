@@ -34,8 +34,8 @@ export default function SSOCallback() {
         AppLogger.info('auth', 'SSO callback routing', { hasSelectedEra: !!hasSelectedEra });
 
         if (hasSelectedEra) {
-          // User has already completed era selection - go to main app
-          router.replace('/(tabs)');
+          // User has already completed era selection - go to Today tab (AFF-319)
+          router.replace('/(tabs)/today');
         } else {
           // New user or hasn't selected era - go to era selection
           router.replace('/(tabs)/eras?mode=onboarding');
