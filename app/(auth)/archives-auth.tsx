@@ -106,7 +106,7 @@ export default function ArchivesAuthScreen() {
       if (hasSelectedEra) {
         // Returning user - go directly to main app
         AppLogger.info('auth', 'Returning user after auth - routing to tabs')
-        router.replace('/(tabs)')
+        router.replace('/(tabs)/today')
       } else {
         // New user - go to era selection for onboarding
         AppLogger.info('auth', 'New user after auth - routing to era selection')

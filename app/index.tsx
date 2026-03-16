@@ -47,7 +47,7 @@ export default function Index() {
       // AFF-151: Track routing decision — uses Sentry breadcrumb as fallback since
       // PostHog may not be initialized yet (especially on iOS where ATT is required first).
       // analyticsService.trackAuthStateChange already writes a Sentry breadcrumb internally.
-      const route = (isSignedIn && hasSelectedEra) ? '/(tabs)' : '/onboarding-video'
+      const route = (isSignedIn && hasSelectedEra) ? '/(tabs)/today' : '/onboarding-video'
       const newState: 'signed_in' | 'signed_out' = isSignedIn ? 'signed_in' : 'signed_out'
       const routingData = {
         previous_state: 'unknown' as const,
@@ -81,8 +81,8 @@ export default function Index() {
 
   // Returning user: signed in AND has completed onboarding
   if (isSignedIn && hasCompletedOnboarding) {
-    AppLogger.info('navigation', 'Routing to /(tabs)')
-    return <Redirect href="/(tabs)" />
+    AppLogger.info('navigation', 'Routing to /(tabs)/today')
+    return <Redirect href="/(tabs)/today" />
   }
 
   // New user or incomplete onboarding: start comprehensive onboarding

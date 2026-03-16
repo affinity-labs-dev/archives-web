@@ -6,8 +6,8 @@ export default function AuthRoutesLayout() {
   const { isSignedIn } = useAuth()
 
   if (isSignedIn) {
-    AppLogger.info('auth', 'AuthLayout: user already signed in, redirecting to tabs')
-    return <Redirect href={'/(tabs)'} />
+    AppLogger.info('auth', 'AuthLayout: user already signed in, redirecting to today tab')
+    return <Redirect href={'/(tabs)/today'} />
   }
 
   return (
