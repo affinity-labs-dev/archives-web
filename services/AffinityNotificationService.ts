@@ -16,6 +16,7 @@ import * as Application from 'expo-application';
 import * as Localization from 'expo-localization';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import DeviceInfo from 'react-native-device-info';
 import Constants from 'expo-constants';
 import AppLogger from './AppLogger';
 
@@ -117,6 +118,11 @@ export async function registerDevice(): Promise<void> {
     const appVersion = Application.nativeApplicationVersion;
     const osVersion = String(Platform.Version);
 
+    // Persistent hardware ID: identifierForVendor (iOS) / androidId (Android).
+    // Allows the backend to deactivate stale push tokens when the user
+    // reinstalls the app and a new token is issued for the same device.
+    const deviceIdentifier = await DeviceInfo.getUniqueId();
+
     // Read the real OS permission so the device record is accurate
     let notificationPermission: 'granted' | 'denied' | 'undetermined' = 'undetermined';
     try {
@@ -131,6 +137,7 @@ export async function registerDevice(): Promise<void> {
       user_external_id: _currentUserId,
       push_token: expoPushToken,
       platform: Platform.OS,
+      device_identifier: deviceIdentifier,
       app_version: appVersion,
       os_version: osVersion,
       notification_permission: notificationPermission,
