@@ -4,7 +4,6 @@ import ReactAppDependencyProvider
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
-  let cioSdkHandler = CioSdkAppDelegateHandler()
 
   var window: UIWindow?
 
@@ -31,24 +30,17 @@ public class AppDelegate: ExpoAppDelegate {
       launchOptions: launchOptions)
 #endif
 
-      cioSdkHandler.application(application, didFinishLaunchingWithOptions: launchOptions)
-
-    
-    // Deep link workaround for app killed state start
+    // Deep link workaround for app killed state — extract link from push payload
     var modifiedLaunchOptions = launchOptions
     if let launchOptions = launchOptions,
        let pushContent = launchOptions[UIApplication.LaunchOptionsKey.remoteNotification] as? [AnyHashable: Any],
-       let cio = pushContent["CIO"] as? [String: Any],
-       let push = cio["push"] as? [String: Any],
-       let link = push["link"] as? String,
+       let link = pushContent["link"] as? String ?? (pushContent["data"] as? [String: Any])?["link"] as? String,
        !launchOptions.keys.contains(UIApplication.LaunchOptionsKey.url) {
-        
+
         var mutableLaunchOptions = launchOptions
         mutableLaunchOptions[UIApplication.LaunchOptionsKey.url] = URL(string: link)
         modifiedLaunchOptions = mutableLaunchOptions
     }
-    // Deep link workaround for app killed state ends
-
 
     return super.application(application, didFinishLaunchingWithOptions: modifiedLaunchOptions)
   }
@@ -70,20 +62,6 @@ public class AppDelegate: ExpoAppDelegate {
   ) -> Bool {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
-  }
-
-  // Handle device token registration
-  public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    // Call CustomerIO SDK handler
-    cioSdkHandler.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
-    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
-  }
-
-  // Handle remote notification registration errors
-  public override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-    // Call CustomerIO SDK handler
-    cioSdkHandler.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
-    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
 }
 

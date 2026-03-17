@@ -51,9 +51,9 @@ target 'Archives' do
     :privacy_file_aggregation_enabled => podfile_properties['apple.privacyManifestAggregationEnabled'] != 'false',
   )
 
-# --- CustomerIO Host App START ---
-  pod 'customerio-reactnative/apn', :path => '../node_modules/customerio-reactnative'
-# --- CustomerIO Host App END ---
+  # CIO push pods removed — Affinity sends via Expo's push gateway.
+  # customerio-reactnative JS module is still available for analytics/in-app messaging.
+
   post_install do |installer|
     react_native_post_install(
       installer,
@@ -63,9 +63,3 @@ target 'Archives' do
     )
   end
 end
-# --- CustomerIO Notification START ---
-target 'NotificationService' do
-  use_frameworks! :linkage => :static
-  pod 'customerio-reactnative-richpush/apn', :path => '../node_modules/customerio-reactnative'
-end
-# --- CustomerIO Notification END ---

@@ -72,8 +72,7 @@ Sentry.init({
   // spotlight: __DEV__,
 });
 
-// Note: Foreground notification display is handled by Customer.io's
-// showPushAppInForeground: true setting in app.json
+// Note: Foreground notification display is handled by Notifications.setNotificationHandler below.
 
 /**
  * Handle deep links from push notification taps
@@ -84,7 +83,7 @@ const handleNotificationDeepLink = (response: Notifications.NotificationResponse
     const data = response.notification.request.content.data;
     AppLogger.info('deeplink', 'Processing notification deep link', { data: data as Record<string, unknown> });
 
-    // Customer.io deep link can be in 'link', 'url', or 'deep_link' field
+    // Deep link can be in 'link', 'url', or 'deep_link' field of the data payload
     const deepLink = data?.link || data?.url || data?.deep_link;
 
     if (deepLink && typeof deepLink === 'string') {
@@ -452,6 +451,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Listen for notifications (both received and tapped) with deep link support
   React.useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('🚀 ~ AnalyticsWrapper ~ notification:', notification);
       const messageId = notification.request.identifier || `notif_${Date.now()}`;
       analyticsService.trackCustomEvent('notification_received', {
         message_id: messageId,
@@ -461,20 +461,11 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('🚀 ~ AnalyticsWrapper ~ response:', response);
       const messageId = response.notification.request.identifier || `notif_${Date.now()}`;
       analyticsService.trackNotificationClicked(messageId);
 
-      // Check if this push came from Customer.io
-      const data = response.notification.request.content.data as Record<string, any> | undefined;
-      const isCioPush = data?.CIO?.push;
-
-      if (isCioPush) {
-        // Let Customer.io SDK handle deep links for its own pushes
-        AppLogger.info('deeplink', 'CIO push — SDK handles deep link');
-        return;
-      }
-
-      // Only handle deep links for non-CIO pushes (e.g., local notifications)
+      // Handle deep links for all push notifications (Affinity / Expo gateway)
       handleNotificationDeepLink(response);
     });
 

@@ -76,12 +76,24 @@ export async function registerUser(
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
   const locale = Localization.getLocales()[0]?.languageTag ?? null;
 
+  // If permission not explicitly provided, read the real OS status so the
+  // upsert never overwrites a previously-granted permission with 'undetermined'.
+  let permissionStatus = opts?.notificationPermission;
+  if (permissionStatus === undefined) {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      permissionStatus = status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined';
+    } catch {
+      permissionStatus = 'undetermined';
+    }
+  }
+
   try {
     await apiFetch('/users', 'POST', {
       app_id: APP_ID,
       external_id: externalId,
-      notification_permission: opts?.notificationPermission ?? 'undetermined',
-      notifications_enabled: opts?.notificationPermission === 'granted',
+      notification_permission: permissionStatus,
+      notifications_enabled: permissionStatus === 'granted',
       timezone,
       locale,
       metadata: opts?.metadata ?? {},
