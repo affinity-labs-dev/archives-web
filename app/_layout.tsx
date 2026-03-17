@@ -28,6 +28,8 @@ import { usePostHog } from 'posthog-react-native';
 import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
 import CustomerIOService from '@/services/CustomerIOService';
+import AffinityNotificationService from '@/services/AffinityNotificationService';
+import PushNotificationService from '@/services/PushNotificationService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
 import AppLogger from '@/services/AppLogger';
@@ -124,6 +126,29 @@ SplashScreen.setOptions({
   fade: true,
 });
 
+// Configure foreground notification display (GLOBAL SCOPE).
+// Previously handled by Customer.io's showPushAppInForeground: true in app.json.
+// Required now that Affinity sends via Expo's push gateway (expo-notifications).
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+// Create Android notification channel (GLOBAL SCOPE — async, fire-and-forget).
+// Previously created by the customerio-expo-plugin with id "archives_notifications".
+// Must match the channel ID sent in Affinity notification payloads.
+if (Platform.OS === 'android') {
+  Notifications.setNotificationChannelAsync('archives_notifications', {
+    name: 'Archives Notifications',
+    importance: Notifications.AndroidImportance.MAX,
+    sound: 'default',
+  });
+}
+
 // Analytics initialization wrapper that must be inside PostHogProvider
 function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const posthog = usePostHog();
@@ -168,9 +193,19 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         created_at: user.createdAt ? Math.floor(new Date(user.createdAt).getTime() / 1000) : undefined,
         device_type: Platform.OS,
       });
+
+      // Register user with Affinity Notification Service (idempotent upsert)
+      AffinityNotificationService.registerUser(user.id, {
+        metadata: {
+          email: user.primaryEmailAddress?.emailAddress ?? null,
+          first_name: user.firstName ?? null,
+          last_name: user.lastName ?? null,
+        },
+      });
     } else {
       // Clear Customer.io identity when signed out
       CustomerIOService.clearIdentify();
+      AffinityNotificationService.clearCurrentUser();
     }
   }, [isSignedIn, user]);
 
@@ -295,33 +330,10 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         analyticsService.trackUserSessionIn(getLoginMethod(user));
         wasSignedInRef.current = true;
 
-        // Sync push token on sign-in for users who already granted permission
-        // Notification prompting is now handled by NotificationPromptProvider (AFF-117)
-        ;(async () => {
-          try {
-            const { status } = await Notifications.getPermissionsAsync();
-            AppLogger.info('notification', 'Push permission status checked', { status });
-
-            if (status === 'granted') {
-              try {
-                const pushToken = await Notifications.getDevicePushTokenAsync();
-                if (pushToken?.data) {
-                  CustomerIOService.registerPushToken(pushToken.data);
-                  CustomerIOService.setProfileAttributes({
-                    push_notifications_enabled: true,
-                    push_permission_status: 'Granted',
-                    cio_push_token: pushToken.data,
-                  });
-                  AppLogger.info('notification', 'Push token synced on sign-in');
-                }
-              } catch (tokenErr) {
-                AppLogger.error('notification', 'Push token sync failed', {}, tokenErr);
-              }
-            }
-          } catch (err) {
-            AppLogger.error('notification', 'Permission check failed', {}, err);
-          }
-        })();
+        // Sync push token on sign-in — delegates to PushNotificationService which
+        // handles permission check, Expo token fetch, and Affinity registration.
+        // [Replaced by Affinity] Previous inline CIO registerPushToken + setProfileAttributes removed.
+        PushNotificationService.syncPushToken();
       }
     } else if (!currentSignedIn && wasSignedInRef.current) {
       // AFF-151: Skip if profile.tsx already fired user_session_out (manual sign-out or account deletion)

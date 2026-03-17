@@ -23,7 +23,8 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { useUser } from '@clerk/clerk-expo';
-import CustomerIOService from '@/services/CustomerIOService';
+// import CustomerIOService from '@/services/CustomerIOService'; // Replaced by AffinityNotificationService
+import { requestPushNotificationPermission } from '@/services/PushNotificationService';
 import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
 import { toLocalDateString } from '@/utils/dateUtils';
@@ -373,38 +374,24 @@ export function NotificationPromptProvider({ children }: { children: React.React
     let granted = false;
 
     try {
-      // Show native OS permission prompt
-      const result = await CustomerIOService.showPromptForPushNotifications({
-        ios: { sound: true, badge: true },
-      });
+      // Show native OS permission prompt + register Expo token with Affinity.
+      // [Replaced by Affinity] Previously used CustomerIOService.showPromptForPushNotifications.
+      const { status: result } = await requestPushNotificationPermission();
       granted = result === 'Granted';
       AppLogger.info('notification', 'Native permission result', { granted, result });
 
-      // Sync to Customer.io
-      CustomerIOService.setProfileAttributes({
-        push_notifications_enabled: granted,
-        push_permission_status: granted ? 'Granted' : 'Denied',
-        push_permission_updated_at: Math.floor(Date.now() / 1000),
-      });
+      // [Replaced by Affinity] Sync push status profile attributes to Customer.io
+      // CustomerIOService.setProfileAttributes({
+      //   push_notifications_enabled: granted,
+      //   push_permission_status: granted ? 'Granted' : 'Denied',
+      //   push_permission_updated_at: Math.floor(Date.now() / 1000),
+      // });
 
       // Sync to PostHog
       analyticsService.updatePushStatus(granted, granted ? 'Granted' : 'Denied');
 
-      // Register device token if granted
-      if (granted) {
-        setTimeout(async () => {
-          try {
-            const pushToken = await Notifications.getDevicePushTokenAsync();
-            if (pushToken?.data) {
-              CustomerIOService.registerPushToken(pushToken.data);
-              CustomerIOService.setProfileAttributes({ cio_push_token: pushToken.data });
-              AppLogger.info('notification', 'Device token registered after prompt accept');
-            }
-          } catch (tokenErr) {
-            AppLogger.error('notification', 'Token registration failed', {}, tokenErr);
-          }
-        }, 1500);
-      }
+      // [Replaced by Affinity] Token registration now handled inside requestPushNotificationPermission.
+      // CustomerIOService.registerPushToken / setProfileAttributes removed.
     } catch (error) {
       AppLogger.error('notification', 'Native permission prompt error', {}, error);
     }

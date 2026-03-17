@@ -1,10 +1,12 @@
 // PushNotificationService.ts - Proper iOS/Android push notification registration
-// This uses expo-notifications to register with iOS/Android and passes the token to Customer.io
+// Previously passed tokens to Customer.io; now routes to AffinityNotificationService.
+// Customer.io notification calls are commented out below — replaced by Affinity.
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import CustomerIOService from './CustomerIOService';
+// import CustomerIOService from './CustomerIOService'; // Replaced by AffinityNotificationService
+import AffinityNotificationService from './AffinityNotificationService';
 import { analyticsService } from './AnalyticsService';
 
 type PermissionStatus = 'Granted' | 'Denied' | 'NotDetermined';
@@ -15,15 +17,13 @@ interface PushRegistrationResult {
 }
 
 /**
- * Request push notification permission and register device token with Customer.io
+ * Request push notification permission and register the Expo push token with
+ * AffinityNotificationService. Also keeps Customer.io's native device token
+ * registration for backwards compatibility (commented out when fully migrated).
  *
- * This is the CORRECT way to handle push notifications when using Customer.io:
- * 1. Use expo-notifications to request permission (this registers with iOS/makes toggle appear in Settings)
- * 2. Get the device token (APNs for iOS, FCM for Android)
- * 3. Register the token with Customer.io via registerDeviceToken()
- *
- * IMPORTANT: This must be used instead of just calling CustomerIOService.showPromptForPushNotifications()
- * when disableNotificationRegistration is true in app.json
+ * 1. Use expo-notifications to request OS permission
+ * 2. Register native device token with Customer.io (commented — replaced by Affinity)
+ * 3. Register Expo push token + sync permission with AffinityNotificationService
  */
 export async function requestPushNotificationPermission(): Promise<PushRegistrationResult> {
   // Web doesn't support push notifications
@@ -74,9 +74,13 @@ export async function requestPushNotificationPermission(): Promise<PushRegistrat
         console.log('🔔 [PushService] Got device token type:', tokenData.type);
         console.log('🔔 [PushService] Token (first 20 chars):', token.substring(0, 20) + '...');
 
-        // Step 4: Register token with Customer.io
-        CustomerIOService.registerPushToken(token);
-        console.log('✅ [PushService] Token registered with Customer.io');
+        // Step 4: [Replaced by Affinity] Register token with Customer.io
+        // CustomerIOService.registerPushToken(token);
+        // console.log('✅ [PushService] Token registered with Customer.io');
+
+        // Step 5: Register device + update permission with Affinity (parallel, non-blocking)
+        AffinityNotificationService.registerDevice();
+        AffinityNotificationService.updatePermission('granted');
 
         return { status: 'Granted', token };
       } catch (tokenError) {
@@ -122,9 +126,9 @@ export async function getPushPermissionStatus(): Promise<PermissionStatus> {
 }
 
 /**
- * Register existing push token with Customer.io
- * Call this on app launch if user already has notifications enabled
- * This ensures Customer.io always has the latest token
+ * Sync push token on app launch if user already has notifications enabled.
+ * Registers with AffinityNotificationService. Customer.io token sync is
+ * commented out below — replaced by Affinity.
  */
 export async function syncPushToken(): Promise<void> {
   if (Platform.OS === 'web') {
@@ -147,18 +151,21 @@ export async function syncPushToken(): Promise<void> {
       console.log('🔔 [PushService] syncPushToken: Token type =', tokenData.type);
       console.log('🔔 [PushService] syncPushToken: Token (first 30 chars) =', tokenData.data.substring(0, 30) + '...');
 
-      CustomerIOService.registerPushToken(tokenData.data);
-      console.log('✅ [PushService] syncPushToken: Token registered with Customer.io');
+      // [Replaced by Affinity] Register native device token with Customer.io
+      // CustomerIOService.registerPushToken(tokenData.data);
+      // console.log('✅ [PushService] syncPushToken: Token registered with Customer.io');
 
-      // CRITICAL: Also update analytics when syncing token
-      // This ensures PostHog and Customer.io stay in sync
-      // Also save token as profile attribute for easy segmentation
-      CustomerIOService.setProfileAttributes({
-        push_notifications_enabled: true,
-        push_permission_status: 'Granted',
-        push_permission_updated_at: Math.floor(Date.now() / 1000),
-        cio_push_token: tokenData.data,
-      });
+      // Sync device + permission with Affinity
+      AffinityNotificationService.registerDevice();
+      AffinityNotificationService.updatePermission('granted');
+
+      // [Replaced by Affinity] Sync push status profile attributes to Customer.io
+      // CustomerIOService.setProfileAttributes({
+      //   push_notifications_enabled: true,
+      //   push_permission_status: 'Granted',
+      //   push_permission_updated_at: Math.floor(Date.now() / 1000),
+      //   cio_push_token: tokenData.data,
+      // });
       analyticsService.updatePushStatus(true, 'Granted');
       console.log('✅ [PushService] syncPushToken: Analytics updated');
     } else {
@@ -166,12 +173,14 @@ export async function syncPushToken(): Promise<void> {
 
       // Also track denied/undetermined status
       const permissionStatus = status === 'denied' ? 'Denied' : 'NotDetermined';
-      CustomerIOService.setProfileAttributes({
-        push_notifications_enabled: false,
-        push_permission_status: permissionStatus,
-        push_permission_updated_at: Math.floor(Date.now() / 1000),
-        cio_push_token: null,  // Clear token when not granted
-      });
+      AffinityNotificationService.updatePermission(status === 'denied' ? 'denied' : 'undetermined');
+      // [Replaced by Affinity] Sync denied/undetermined push status to Customer.io
+      // CustomerIOService.setProfileAttributes({
+      //   push_notifications_enabled: false,
+      //   push_permission_status: permissionStatus,
+      //   push_permission_updated_at: Math.floor(Date.now() / 1000),
+      //   cio_push_token: null,
+      // });
       analyticsService.updatePushStatus(false, permissionStatus);
     }
   } catch (error) {
