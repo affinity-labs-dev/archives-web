@@ -21,5 +21,9 @@ allprojects {
   }
 }
 
+ext {
+  facebookSdkVersion = "18.1.3"
+}
+
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
