@@ -132,6 +132,15 @@ export async function registerDevice(): Promise<void> {
     const appVersion = Application.nativeApplicationVersion;
     const osVersion = String(Platform.Version);
 
+    // Read the real OS permission so the device record is accurate
+    let notificationPermission: 'granted' | 'denied' | 'undetermined' = 'undetermined';
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      notificationPermission = status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined';
+    } catch {
+      // keep default
+    }
+
     await apiFetch('/devices', 'POST', {
       app_id: APP_ID,
       user_external_id: _currentUserId,
@@ -139,6 +148,8 @@ export async function registerDevice(): Promise<void> {
       platform: Platform.OS,
       app_version: appVersion,
       os_version: osVersion,
+      notification_permission: notificationPermission,
+      notifications_enabled: notificationPermission === 'granted',
     });
 
     AppLogger.info('notification', 'Device registered with Affinity', {

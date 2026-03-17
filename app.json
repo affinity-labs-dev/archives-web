@@ -132,7 +132,8 @@
         {
           "icon": "./assets/images/app-icon.png",
           "color": "#C99151",
-          "sounds": []
+          "sounds": [],
+          "defaultChannel": "archives_notifications"
         }
       ],
       [

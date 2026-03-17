@@ -135,11 +135,16 @@ Notifications.setNotificationHandler({
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
+  handleSuccess: (notificationId) => {
+    console.log('🔔 [Notifications] Foreground notification presented:', notificationId);
+  },
+  handleError: (notificationId, error) => {
+    console.error('❌ [Notifications] Failed to present foreground notification:', notificationId, error);
+  },
 });
 
 // Create Android notification channel (GLOBAL SCOPE — async, fire-and-forget).
-// Previously created by the customerio-expo-plugin with id "archives_notifications".
-// Must match the channel ID sent in Affinity notification payloads.
+// Must match the channel ID sent in Affinity notification payloads (push_config.android_channel_id).
 if (Platform.OS === 'android') {
   Notifications.setNotificationChannelAsync('archives_notifications', {
     name: 'Archives Notifications',
