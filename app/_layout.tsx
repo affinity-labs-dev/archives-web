@@ -6,7 +6,7 @@ import {
 import { useFonts } from "expo-font";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, Platform, Linking, AppState, AppStateStatus } from "react-native";
+import { Platform, Linking, AppState, AppStateStatus } from "react-native";
 import React from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -14,7 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider, ClerkLoaded, useUser } from "@clerk/clerk-expo";
 import { tokenCache } from "@/services/ClerkTokenCache";
-import { PostHogProvider } from 'posthog-react-native';
+import { PostHogProvider, usePostHog } from 'posthog-react-native';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
@@ -24,10 +24,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { analyticsService, type LoginMethod } from "@/services/AnalyticsService";
 import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
-import { usePostHog } from 'posthog-react-native';
 import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
-import CustomerIOService from '@/services/CustomerIOService';
 import AffinityNotificationService from '@/services/AffinityNotificationService';
 import PushNotificationService from '@/services/PushNotificationService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
@@ -126,30 +124,42 @@ SplashScreen.setOptions({
 });
 
 // Configure foreground notification display (GLOBAL SCOPE).
-// Previously handled by Customer.io's showPushAppInForeground: true in app.json.
-// Required now that Affinity sends via Expo's push gateway (expo-notifications).
+// Required so expo-notifications shows banners when the app is in foreground.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async (notification) => {
+    console.log('🔔 [NotifHandler] handleNotification called:', Platform.OS, JSON.stringify({
+      title: notification.request.content.title,
+      body: notification.request.content.body,
+      data: notification.request.content.data,
+    }));
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      priority: Notifications.AndroidNotificationPriority.MAX,
+    };
+  },
   handleSuccess: (notificationId) => {
-    console.log('🔔 [Notifications] Foreground notification presented:', notificationId);
+    console.log('🔔 [NotifHandler] SUCCESS - notification presented:', notificationId);
   },
   handleError: (notificationId, error) => {
-    console.error('❌ [Notifications] Failed to present foreground notification:', notificationId, error);
+    console.error('❌ [NotifHandler] ERROR - failed to present:', notificationId, error);
   },
 });
 
-// Create Android notification channel (GLOBAL SCOPE — async, fire-and-forget).
+// Create Android notification channel at module scope so it exists before any push arrives.
 // Must match the channel ID sent in Affinity notification payloads (push_config.android_channel_id).
+// NOTE: On Android, once a channel is created, its importance CANNOT be changed programmatically.
+// If foreground notifications aren't showing, uninstall & reinstall the app to reset the channel.
 if (Platform.OS === 'android') {
   Notifications.setNotificationChannelAsync('archives_notifications', {
     name: 'Archives Notifications',
     importance: Notifications.AndroidImportance.MAX,
     sound: 'default',
+    vibrationPattern: [0, 250, 250, 250],
+  }).then((channel) => {
+    console.log('🔔 [Android] Notification channel created/verified:', JSON.stringify(channel));
   });
 }
 
@@ -180,24 +190,10 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Initialize OTA update checks (foreground check + Sentry tags + PostHog tracking)
   useOTAUpdates();
 
-  // Customer.io SDK auto-initializes from app.json config
-  // Mark JS wrapper as ready so identify/registerPushToken calls work
-  CustomerIOService.initialize();
-
-  // Identify user to Customer.io when signed in (independent of PostHog)
+  // Register user with Affinity Notification Service on sign-in
   React.useEffect(() => {
-    AppLogger.info('notification', 'CustomerIO identify check', { isSignedIn: !!isSignedIn, hasUser: !!user });
 
     if (isSignedIn && user) {
-      CustomerIOService.identify(user.id, {
-        email: user.primaryEmailAddress?.emailAddress,
-        first_name: user.firstName,
-        last_name: user.lastName,
-        last_sign_in: user.lastSignInAt ? Math.floor(new Date(user.lastSignInAt).getTime() / 1000) : undefined,
-        created_at: user.createdAt ? Math.floor(new Date(user.createdAt).getTime() / 1000) : undefined,
-        device_type: Platform.OS,
-      });
-
       // Register user with Affinity Notification Service (idempotent upsert)
       AffinityNotificationService.registerUser(user.id, {
         metadata: {
@@ -207,9 +203,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         },
       });
     } else {
-      // Clear Customer.io identity when signed out
-      CustomerIOService.clearIdentify();
-      AffinityNotificationService.clearCurrentUser();
+      AffinityNotificationService.logout();
     }
   }, [isSignedIn, user]);
 
@@ -290,8 +284,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   }, [isSignedIn, user]);
 
   // Sync push token on sign-in for users who already granted permission
-  // This ensures Customer.io always has the latest APNs/FCM token
-  // Also prompts for notification permission if never asked (e.g., existing users after app update)
   // Session tracking - track sign-in/sign-out for analytics
   //
   // AFF-151 fixes:
@@ -336,7 +328,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
         // Sync push token on sign-in — delegates to PushNotificationService which
         // handles permission check, Expo token fetch, and Affinity registration.
-        // [Replaced by Affinity] Previous inline CIO registerPushToken + setProfileAttributes removed.
         PushNotificationService.syncPushToken();
       }
     } else if (!currentSignedIn && wasSignedInRef.current) {
@@ -456,7 +447,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Listen for notifications (both received and tapped) with deep link support
   React.useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('🚀 ~ AnalyticsWrapper ~ notification:', notification);
       const messageId = notification.request.identifier || `notif_${Date.now()}`;
       analyticsService.trackCustomEvent('notification_received', {
         message_id: messageId,
@@ -466,7 +456,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('🚀 ~ AnalyticsWrapper ~ response:', response);
       const messageId = response.notification.request.identifier || `notif_${Date.now()}`;
       analyticsService.trackNotificationClicked(messageId);
 

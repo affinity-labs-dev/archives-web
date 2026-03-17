@@ -2,7 +2,7 @@
  * AffinityNotificationService.ts
  *
  * Registers users and devices with the Affinity Notification Service backend.
- * Runs in parallel with Customer.io — a failure here never affects CIO registration.
+ * A failure here is non-fatal and never blocks the app.
  *
  * Call order:
  *   1. registerUser(clerkId)      — on every sign-in (idempotent upsert)
@@ -65,7 +65,6 @@ async function apiFetch(
 export async function registerUser(
   externalId: string,
   opts?: {
-    notificationPermission?: 'granted' | 'denied' | 'undetermined';
     metadata?: Record<string, unknown>;
   },
 ): Promise<void> {
@@ -76,24 +75,10 @@ export async function registerUser(
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
   const locale = Localization.getLocales()[0]?.languageTag ?? null;
 
-  // If permission not explicitly provided, read the real OS status so the
-  // upsert never overwrites a previously-granted permission with 'undetermined'.
-  let permissionStatus = opts?.notificationPermission;
-  if (permissionStatus === undefined) {
-    try {
-      const { status } = await Notifications.getPermissionsAsync();
-      permissionStatus = status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined';
-    } catch {
-      permissionStatus = 'undetermined';
-    }
-  }
-
   try {
     await apiFetch('/users', 'POST', {
       app_id: APP_ID,
       external_id: externalId,
-      notification_permission: permissionStatus,
-      notifications_enabled: permissionStatus === 'granted',
       timezone,
       locale,
       metadata: opts?.metadata ?? {},
@@ -162,11 +147,13 @@ export async function registerDevice(): Promise<void> {
 }
 
 /**
- * Update notification permission status for the current user.
- * Call after permission prompt resolves or on sign-in permission check.
+ * Update notification permission status for the current device.
+ * Permission is per-device (not per-user) since each device has its own
+ * OS-level notification permission. Re-registers the device with the
+ * updated permission status.
  */
 export async function updatePermission(
-  status: 'granted' | 'denied' | 'undetermined',
+  _status: 'granted' | 'denied' | 'undetermined',
 ): Promise<void> {
   if (Platform.OS === 'web') return;
 
@@ -175,22 +162,45 @@ export async function updatePermission(
     return;
   }
 
-  try {
-    await apiFetch(`/users/${APP_ID}/${_currentUserId}`, 'PUT', {
-      notification_permission: status,
-      notifications_enabled: status === 'granted',
-    });
-
-    AppLogger.info('notification', 'Permission updated in Affinity', { status });
-  } catch (error) {
-    AppLogger.error('notification', 'Failed to update permission in Affinity', { status }, error);
-  }
+  // Re-register the device — the backend upserts by push_token and
+  // reads the real OS permission internally.
+  await registerDevice();
 }
 
 /**
- * Clear the stored user ID on sign-out.
+ * Deactivate the current device on user logout.
+ * Tells the backend to stop sending notifications to this device's push token.
+ * The device is reactivated automatically on next sign-in via registerDevice().
  */
-export function clearCurrentUser(): void {
+export async function logout(): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  if (!Device.isDevice) return;
+
+  try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+    const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync({ projectId });
+
+    if (!API_URL || !API_KEY) return;
+
+    const response = await fetch(
+      `${API_URL}/api/v1/devices/logout?push_token=${encodeURIComponent(expoPushToken)}`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${API_KEY}` },
+      },
+    );
+
+    if (response.ok || response.status === 204) {
+      AppLogger.info('notification', 'Device deactivated on logout', {
+        tokenPrefix: expoPushToken.substring(0, 24) + '...',
+      });
+    }
+  } catch (error) {
+    // Non-fatal — don't block the logout flow
+    AppLogger.error('notification', 'Failed to deactivate device on logout', {}, error);
+  }
+
   _currentUserId = null;
 }
 
@@ -198,5 +208,5 @@ export default {
   registerUser,
   registerDevice,
   updatePermission,
-  clearCurrentUser,
+  logout,
 };

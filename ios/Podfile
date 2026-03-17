@@ -51,9 +51,6 @@ target 'Archives' do
     :privacy_file_aggregation_enabled => podfile_properties['apple.privacyManifestAggregationEnabled'] != 'false',
   )
 
-  # CIO push pods removed — Affinity sends via Expo's push gateway.
-  # customerio-reactnative JS module is still available for analytics/in-app messaging.
-
   post_install do |installer|
     react_native_post_install(
       installer,

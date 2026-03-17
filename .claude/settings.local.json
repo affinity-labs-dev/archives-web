@@ -1,7 +1,4 @@
 {
-  "enabledMcpjsonServers": [
-    "customerio"
-  ],
   "outputStyle": "Explanatory",
   "enableAllProjectMcpServers": true
 }
