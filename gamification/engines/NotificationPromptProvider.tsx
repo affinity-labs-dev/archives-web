@@ -299,6 +299,16 @@ export function NotificationPromptProvider({ children }: { children: React.React
     AppLogger.info('notification', `Showing notification prompt: "${variant}"`);
     setActiveVariant(variant);
     onCompleteRef.current = onComplete;
+
+    // Track prompt open with history context
+    const s = stateRef.current;
+    analyticsService.trackCustomEvent('notification_prompt_opened', {
+      variant,
+      promptHistoryCount: s.promptHistory.length,
+      lastPromptDate: s.lastPromptDate,
+      lastDismissDate: s.lastDismissDate,
+    });
+
     setTimeout(() => setModalVisible(true), 300); // slight delay for smoother UX
   }, []);
 
