@@ -19,9 +19,9 @@
         "SENTRY_AUTH_TOKEN": "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",
         "EXPO_PUBLIC_CUSTOMERIO_CDP_API_KEY": "66b0dacc49da56e717f5",
         "EXPO_PUBLIC_CUSTOMERIO_SITE_ID": "acc28dfeb352f6b3af88",
-        "EXPO_PUBLIC_AFFINITY_API_URL": "https://foxhound-amused-squirrel.ngrok-free.app",
-        "EXPO_PUBLIC_AFFINITY_API_KEY": "nk_b093cc400d6723e3d0dab22d81fdb92bb9047813b30f5a49",
-        "EXPO_PUBLIC_AFFINITY_APP_ID": "41aafc72-8453-4e38-9f9c-675309fc6d62"
+        "EXPO_PUBLIC_AFFINITY_API_URL": "https://notifications-production-6179.up.railway.app",
+        "EXPO_PUBLIC_AFFINITY_API_KEY": "nk_cb710096d201a0d0e27a84279fcaef25f7e824b465cdd4c8",
+        "EXPO_PUBLIC_AFFINITY_APP_ID": "02b5ad79-83f8-43cc-ac9b-51e5420e00b1"
       },
       "channel": "base"
     },
