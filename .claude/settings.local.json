@@ -1,7 +1,10 @@
 {
-  "enabledMcpjsonServers": [
-    "customerio"
-  ],
-  "outputStyle": "Explanatory",
-  "enableAllProjectMcpServers": true
+  "permissions": {
+    "allow": [
+      "Bash(pnpm run:*)",
+      "Bash(grep -E \"\\\\.tsx$|\\\\.ts$\")"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "outputStyle": "Explanatory"
 }

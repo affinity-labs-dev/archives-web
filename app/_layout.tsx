@@ -6,7 +6,7 @@ import {
 import { useFonts } from "expo-font";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, Platform, Linking, AppState, AppStateStatus } from "react-native";
+import { Platform, Linking, AppState, AppStateStatus } from "react-native";
 import React from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -14,7 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider, ClerkLoaded, useUser } from "@clerk/clerk-expo";
 import { tokenCache } from "@/services/ClerkTokenCache";
-import { PostHogProvider } from 'posthog-react-native';
+import { PostHogProvider, usePostHog } from 'posthog-react-native';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
@@ -24,10 +24,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { analyticsService, type LoginMethod } from "@/services/AnalyticsService";
 import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
-import { usePostHog } from 'posthog-react-native';
 import LoadingScreen from "@/components/LoadingScreen";
 import * as Sentry from '@sentry/react-native';
-import CustomerIOService from '@/services/CustomerIOService';
+import AffinityNotificationService from '@/services/AffinityNotificationService';
+import PushNotificationService from '@/services/PushNotificationService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
 import AppLogger from '@/services/AppLogger';
@@ -70,8 +70,7 @@ Sentry.init({
   // spotlight: __DEV__,
 });
 
-// Note: Foreground notification display is handled by Customer.io's
-// showPushAppInForeground: true setting in app.json
+// Note: Foreground notification display is handled by Notifications.setNotificationHandler below.
 
 /**
  * Handle deep links from push notification taps
@@ -82,7 +81,7 @@ const handleNotificationDeepLink = (response: Notifications.NotificationResponse
     const data = response.notification.request.content.data;
     AppLogger.info('deeplink', 'Processing notification deep link', { data: data as Record<string, unknown> });
 
-    // Customer.io deep link can be in 'link', 'url', or 'deep_link' field
+    // Deep link can be in 'link', 'url', or 'deep_link' field of the data payload
     const deepLink = data?.link || data?.url || data?.deep_link;
 
     if (deepLink && typeof deepLink === 'string') {
@@ -124,6 +123,46 @@ SplashScreen.setOptions({
   fade: true,
 });
 
+// Configure foreground notification display (GLOBAL SCOPE).
+// Required so expo-notifications shows banners when the app is in foreground.
+Notifications.setNotificationHandler({
+  handleNotification: async (notification) => {
+    console.log('🔔 [NotifHandler] handleNotification called:', Platform.OS, JSON.stringify({
+      title: notification.request.content.title,
+      body: notification.request.content.body,
+      data: notification.request.content.data,
+    }));
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      priority: Notifications.AndroidNotificationPriority.MAX,
+    };
+  },
+  handleSuccess: (notificationId) => {
+    console.log('🔔 [NotifHandler] SUCCESS - notification presented:', notificationId);
+  },
+  handleError: (notificationId, error) => {
+    console.error('❌ [NotifHandler] ERROR - failed to present:', notificationId, error);
+  },
+});
+
+// Create Android notification channel at module scope so it exists before any push arrives.
+// Must match the channel ID sent in Affinity notification payloads (push_config.android_channel_id).
+// NOTE: On Android, once a channel is created, its importance CANNOT be changed programmatically.
+// If foreground notifications aren't showing, uninstall & reinstall the app to reset the channel.
+if (Platform.OS === 'android') {
+  Notifications.setNotificationChannelAsync('archives_notifications', {
+    name: 'Archives Notifications',
+    importance: Notifications.AndroidImportance.MAX,
+    sound: 'default',
+    vibrationPattern: [0, 250, 250, 250],
+  }).then((channel) => {
+    console.log('🔔 [Android] Notification channel created/verified:', JSON.stringify(channel));
+  });
+}
+
 // Analytics initialization wrapper that must be inside PostHogProvider
 function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const posthog = usePostHog();
@@ -151,26 +190,20 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Initialize OTA update checks (foreground check + Sentry tags + PostHog tracking)
   useOTAUpdates();
 
-  // Customer.io SDK auto-initializes from app.json config
-  // Mark JS wrapper as ready so identify/registerPushToken calls work
-  CustomerIOService.initialize();
-
-  // Identify user to Customer.io when signed in (independent of PostHog)
+  // Register user with Affinity Notification Service on sign-in
   React.useEffect(() => {
-    AppLogger.info('notification', 'CustomerIO identify check', { isSignedIn: !!isSignedIn, hasUser: !!user });
 
     if (isSignedIn && user) {
-      CustomerIOService.identify(user.id, {
-        email: user.primaryEmailAddress?.emailAddress,
-        first_name: user.firstName,
-        last_name: user.lastName,
-        last_sign_in: user.lastSignInAt ? Math.floor(new Date(user.lastSignInAt).getTime() / 1000) : undefined,
-        created_at: user.createdAt ? Math.floor(new Date(user.createdAt).getTime() / 1000) : undefined,
-        device_type: Platform.OS,
+      // Register user with Affinity Notification Service (idempotent upsert)
+      AffinityNotificationService.registerUser(user.id, {
+        metadata: {
+          email: user.primaryEmailAddress?.emailAddress ?? null,
+          first_name: user.firstName ?? null,
+          last_name: user.lastName ?? null,
+        },
       });
     } else {
-      // Clear Customer.io identity when signed out
-      CustomerIOService.clearIdentify();
+      AffinityNotificationService.logout();
     }
   }, [isSignedIn, user]);
 
@@ -251,8 +284,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   }, [isSignedIn, user]);
 
   // Sync push token on sign-in for users who already granted permission
-  // This ensures Customer.io always has the latest APNs/FCM token
-  // Also prompts for notification permission if never asked (e.g., existing users after app update)
   // Session tracking - track sign-in/sign-out for analytics
   //
   // AFF-151 fixes:
@@ -295,33 +326,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
         analyticsService.trackUserSessionIn(getLoginMethod(user));
         wasSignedInRef.current = true;
 
-        // Sync push token on sign-in for users who already granted permission
-        // Notification prompting is now handled by NotificationPromptProvider (AFF-117)
-        ;(async () => {
-          try {
-            const { status } = await Notifications.getPermissionsAsync();
-            AppLogger.info('notification', 'Push permission status checked', { status });
-
-            if (status === 'granted') {
-              try {
-                const pushToken = await Notifications.getDevicePushTokenAsync();
-                if (pushToken?.data) {
-                  CustomerIOService.registerPushToken(pushToken.data);
-                  CustomerIOService.setProfileAttributes({
-                    push_notifications_enabled: true,
-                    push_permission_status: 'Granted',
-                    cio_push_token: pushToken.data,
-                  });
-                  AppLogger.info('notification', 'Push token synced on sign-in');
-                }
-              } catch (tokenErr) {
-                AppLogger.error('notification', 'Push token sync failed', {}, tokenErr);
-              }
-            }
-          } catch (err) {
-            AppLogger.error('notification', 'Permission check failed', {}, err);
-          }
-        })();
+        // Sync push token on sign-in — delegates to PushNotificationService which
+        // handles permission check, Expo token fetch, and Affinity registration.
+        PushNotificationService.syncPushToken();
       }
     } else if (!currentSignedIn && wasSignedInRef.current) {
       // AFF-151: Skip if profile.tsx already fired user_session_out (manual sign-out or account deletion)
@@ -452,17 +459,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       const messageId = response.notification.request.identifier || `notif_${Date.now()}`;
       analyticsService.trackNotificationClicked(messageId);
 
-      // Check if this push came from Customer.io
-      const data = response.notification.request.content.data as Record<string, any> | undefined;
-      const isCioPush = data?.CIO?.push;
-
-      if (isCioPush) {
-        // Let Customer.io SDK handle deep links for its own pushes
-        AppLogger.info('deeplink', 'CIO push — SDK handles deep link');
-        return;
-      }
-
-      // Only handle deep links for non-CIO pushes (e.g., local notifications)
+      // Handle deep links for all push notifications (Affinity / Expo gateway)
       handleNotificationDeepLink(response);
     });
 

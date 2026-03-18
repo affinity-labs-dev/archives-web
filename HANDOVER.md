@@ -51,8 +51,9 @@
 - `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`
 - `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`
 - `EXPO_PUBLIC_GEMINI_API_KEY`
-- `EXPO_PUBLIC_CUSTOMERIO_CDP_API_KEY`
-- `EXPO_PUBLIC_CUSTOMERIO_SITE_ID`
+- `EXPO_PUBLIC_AFFINITY_API_URL`
+- `EXPO_PUBLIC_AFFINITY_API_KEY`
+- `EXPO_PUBLIC_AFFINITY_APP_ID`
 - `SENTRY_AUTH_TOKEN`
 
 ### What requires a physical device (won't work on simulator)
@@ -76,7 +77,7 @@ Sentry.wrap(RootLayout)
   └── SafeAreaProvider + GestureHandlerRootView
       └── PostHogProvider (analytics — must init before user actions)
           └── ClerkProvider (authentication — user identity)
-              └── AnalyticsWrapper (ties PostHog + Clerk together, also inits Customer.io, RevenueCat, Sentry user, push tokens)
+              └── AnalyticsWrapper (ties PostHog + Clerk together, also inits RevenueCat, Sentry user, Affinity, push tokens)
                   └── GamificationWrapper (empty — reserved for future)
                       └── AdventuresContentProvider (fetches eras + content from Supabase)
                           └── RewardsProvider (badges + avatars)
@@ -90,7 +91,7 @@ Sentry.wrap(RootLayout)
 ### Why this order is critical
 
 1. **PostHog before Clerk** — analytics must be ready to track auth events
-2. **Clerk before AnalyticsWrapper** — AnalyticsWrapper needs `useUser()` to identify across PostHog, Customer.io, RevenueCat, and Sentry
+2. **Clerk before AnalyticsWrapper** — AnalyticsWrapper needs `useUser()` to identify across PostHog, RevenueCat, Sentry, and Affinity
 3. **AdventuresContent before GamifiedProgress** — progress depends on knowing what content exists
 4. **Rewards before GamifiedProgress** — badge/avatar unlocks are triggered from progress updates
 5. **GamifiedProgress before Orchestrator** — orchestrator reads progress data to detect milestones
@@ -256,7 +257,7 @@ eas build:list --limit 10
 
 The app uses `expo-updates` with `appVersion` runtime policy — OTA updates are delivered to builds matching the same `expo.version` in `app.json`. The `useOTAUpdates` hook in `hooks/useOTAUpdates.ts` handles auto-checking on foreground, downloading, and prompting users to restart via a native Alert.
 
-**Important:** Do NOT use `--platform all` — web export fails due to `customerio-reactnative` native imports. Always publish iOS and Android separately.
+**Important:** Do NOT use `--platform all` — web export fails due to native-only imports. Always publish iOS and Android separately.
 
 ```bash
 # Publish to production (both platforms)
@@ -316,7 +317,7 @@ OTA works for JS/asset changes only. If you change `app.json`, native modules, o
 | **Supabase** | Database, cloud sync, real-time subscriptions | [supabase.com](https://supabase.com) | `hooks/lib/supabase.ts`, `gamification/engines/GamifiedProgress.tsx` |
 | **RevenueCat** | Subscriptions & paywall | [app.revenuecat.com](https://app.revenuecat.com) | `hooks/useRevenueCat.ts`, `components/SubscribeContent.native.tsx` |
 | **PostHog** | Analytics, session replay, person properties | [eu.posthog.com](https://eu.posthog.com) | `services/AnalyticsService.ts`, `hooks/useDailyStoryTracking.ts` |
-| **Customer.io** | Push notification campaigns | [customer.io](https://customer.io) (workspace: "Affinity Labs LTD") | `services/CustomerIOService.native.ts`, `services/PushNotificationService.ts` |
+| **Affinity Notifications** | Push notification delivery | Self-hosted | `services/AffinityNotificationService.ts`, `services/PushNotificationService.ts` |
 | **Sentry** | Error tracking, performance tracing, session replay | [sentry.io](https://sentry.io) (org: affinity-labs-0i) | `app/_layout.tsx` (init at top) |
 | **Gemini (Google AI)** | AI chat, image generation | [Google AI Studio](https://aistudio.google.com) | `gamification/services/AIService.ts`, `gamification/ui/ai/AIChatModal.tsx` |
 | **ImageKit** | Media CDN for lesson images/videos | [imagekit.io](https://imagekit.io) | URLs stored in Supabase, no client-side SDK |
@@ -326,16 +327,16 @@ OTA works for JS/asset changes only. If you change `app.json`, native modules, o
 
 1. App launches → **Sentry** init (global scope, before anything renders)
 2. Fonts load → **PostHog** provider wraps everything (conditional on iOS ATT permission)
-3. **Clerk** authenticates → triggers identify calls to PostHog, Customer.io, RevenueCat, and Sentry
+3. **Clerk** authenticates → triggers identify calls to PostHog, RevenueCat, Sentry, and Affinity
 4. **Supabase** fetches content + syncs progress
-5. **Customer.io** registers push tokens and handles campaigns
+5. **Affinity** registers devices and handles push delivery via Expo gateway
 6. **RevenueCat** checks subscription status (gates historical daily stories + future premium features)
 7. **Gemini** powers AI chat when user opens the assistant
 
 ### Key gotchas per service
 
 - **PostHog**: EU region (`eu.posthog.com`), conditional init on iOS (ATT permission required first)
-- **Customer.io**: EU region, `disableNotificationRegistration: true` in `app.json` means push tokens are registered manually in code, not automatically by the SDK
+- **Affinity Notifications**: Self-hosted, push tokens registered via `AffinityNotificationService.registerDevice()` on sign-in
 - **RevenueCat**: Paywall is remote — design lives on RevenueCat dashboard, not in code. Uses `<RevenueCatUI.Paywall />` which auto-fetches
 - **Supabase**: Single table `gamification_data` with one JSONB column holds ALL user progress. Not normalized — intentional design for simple sync
 
@@ -409,7 +410,7 @@ Read these files in this order. Each one builds on the previous.
 
 ### Reading order
 
-1. **`app/_layout.tsx`** — The entry point. Provider hierarchy, initialization sequence, font loading. Understand how Clerk, PostHog, Customer.io, RevenueCat, and Sentry all wire together. This is the file you'll touch least but need to understand most.
+1. **`app/_layout.tsx`** — The entry point. Provider hierarchy, initialization sequence, font loading. Understand how Clerk, PostHog, RevenueCat, Sentry, and Affinity all wire together. This is the file you'll touch least but need to understand most.
 
 2. **`constants/ArchivesTheme.ts`** — Design system. Every color, spacing, button style, card style used across the app. Read this early so you use `ArchivesTheme.colors.persianOrange` instead of `#C99151`.
 
@@ -437,7 +438,7 @@ Read these files in this order. Each one builds on the previous.
 | Modify the quiz system | `components/quiz/Quiz.tsx` + `QuizResults.tsx` |
 | Change subscription paywall | RevenueCat dashboard (remote), not in code |
 | Add a new Supabase table | `hooks/lib/supabase.ts` for the client, then create a hook |
-| Send push notifications | Customer.io dashboard for campaigns, `CustomerIOService.native.ts` for in-app triggers |
+| Send push notifications | Affinity dashboard for campaigns, `AffinityNotificationService.ts` for device registration |
 
 ---
 
@@ -469,8 +470,7 @@ These are the things that will waste hours if you don't know about them upfront.
 ### Third-party services
 
 - **RevenueCat paywall is remote** — the paywall design lives on RevenueCat dashboard, not in code. If the paywall looks wrong, check the dashboard, not the codebase. The app just renders `<RevenueCatUI.Paywall />`.
-- **Customer.io push tokens are manually registered** — `disableNotificationRegistration: true` and `autoFetchDeviceToken: false` in `app.json` means the app handles token registration in code. The SDK won't do it automatically.
-- **Customer.io workspace** — "Affinity Labs LTD" (ID: 204719), EU region. Don't confuse with "IDC" workspace.
+- **Affinity push tokens are manually registered** — the app calls `AffinityNotificationService.registerDevice()` on sign-in to register the Expo push token with the backend.
 - **PostHog is EU region** — host is `eu.i.posthog.com`. API calls to `app.posthog.com` (US) will silently fail.
 
 ### Development
@@ -496,7 +496,7 @@ If the new engineer uses **Claude Code** (CLI) for development, the following MC
 | MCP Server | What it does | Example uses |
 |------------|-------------|-------------|
 | **PostHog** | Query analytics, manage dashboards, feature flags, experiments, surveys, error tracking | Run HogQL queries (`daily_story_completed` counts), check dashboards, create insights, search for events |
-| **Customer.io** | Access campaigns, segments, templates, workspace info | List segments (11,269 users), check campaign status, analyze notification delivery |
+| **Affinity Notifications** | Manage push notifications, users, devices | Send notifications, view delivery stats, manage scheduled sends |
 | **RevenueCat** | Manage projects, offerings, products, entitlements, paywalls | Check current offerings, list products, create paywalls, view app config |
 | **Figma** | Read designs, extract design context, screenshots, Code Connect mappings | Implement UI from Figma URLs, get design tokens, extract SVG assets |
 | **Slack** | Send messages, search channels, read threads | Send updates to team channels, search for context |
@@ -532,11 +532,9 @@ entity-search → Search across insights, dashboards, experiments, etc.
 
 **Important:** PostHog is EU region. The MCP connects to `eu.posthog.com`. Some endpoints require specific API key permissions — if you get 403 errors, check your PostHog personal API key permissions.
 
-### Customer.io MCP — Limitations
+### Affinity Notifications
 
-The Customer.io MCP has some known limitations:
-- **Cannot list broadcasts or API-triggered broadcasts** — use the Customer.io dashboard directly for campaign management
-- **Can list segments** — useful for checking audience sizes
+Push notifications are managed via the self-hosted Affinity Notification Service dashboard. The mobile app communicates directly with the Affinity API for device registration and permission syncing.
 - **Can create/edit templates and components** — useful for email/notification design
 - **Workspace:** "Affinity Labs LTD" (ID: 204719) — make sure you're connected to the right workspace, not "IDC"
 
@@ -562,7 +560,7 @@ Used for design-to-code workflow:
 
 MCP servers are configured per-user in Claude Code settings. If the new engineer uses Claude Code, they'll need to:
 1. Install Claude Code CLI
-2. Configure their own MCP server connections (PostHog API key, Customer.io credentials, RevenueCat API key, Figma access)
+2. Configure their own MCP server connections (PostHog API key, RevenueCat API key, Figma access)
 3. Each MCP server has its own authentication — credentials are not shared via the repo
 
 ---

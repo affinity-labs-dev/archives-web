@@ -20,8 +20,7 @@ import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { analyticsService } from '@/services/AnalyticsService'
 import AppLogger from '@/services/AppLogger'
-import { CustomerIO, CioPushPermissionStatus } from 'customerio-reactnative'
-import CustomerIOService from '@/services/CustomerIOService'
+import { requestPushNotificationPermission } from '@/services/PushNotificationService'
 import Svg, { Path } from 'react-native-svg'
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
@@ -56,82 +55,33 @@ export default function OnboardingRemindersScreen() {
     }
   }, [trackScreenView, screenStartTime])
 
-  // Register device token with Customer.io in background (fire-and-forget)
-  // Separated from the main flow to avoid blocking navigation
-  const registerDeviceTokenInBackground = () => {
-    ;(async () => {
-      try {
-        // Wait for iOS to fetch the APNs token from Apple servers
-        // This delay prevents a race where the token isn't available yet
-        await new Promise(resolve => setTimeout(resolve, 1500))
-
-        // expo-notifications.getDevicePushTokenAsync() waits until
-        // the native APNs/FCM token is ready, so this is reliable
-        const Notifications = await import('expo-notifications')
-        const pushToken = await Notifications.getDevicePushTokenAsync()
-
-        if (pushToken?.data) {
-          // registerDeviceToken is idempotent — safe to call even if SDK already registered
-          CustomerIO.registerDeviceToken(pushToken.data as string)
-          // Also save token as profile attribute for easy segmentation
-          CustomerIOService.setProfileAttributes({
-            cio_push_token: pushToken.data as string,
-          })
-          AppLogger.info('notification', 'Device token registered with Customer.io')
-        } else {
-          AppLogger.warn('notification', 'No push token available from system')
-        }
-      } catch (error) {
-        // Non-blocking: if token registration fails, Customer.io will retry on next app launch
-        AppLogger.warn('notification', 'Background token registration error', { error: String(error) })
-      }
-    })()
-  }
-
-  // Handle enable reminders - request notification permission via Customer.io SDK
+  // Handle enable reminders — request permission via expo-notifications + register with Affinity
   const handleEnableReminders = async () => {
     try {
       playTap()
       await Haptics.impactAsync()
       AppLogger.info('notification', 'User tapped ENABLE REMINDERS')
 
-      // Request notification permission via Customer.io SDK
-      // This shows the iOS system permission popup
       let permissionStatus: 'granted' | 'denied' | 'undetermined' = 'undetermined'
       try {
         AppLogger.info('notification', 'Requesting push notification permission')
-        const options = { ios: { sound: true, badge: true } }
-        const status = await CustomerIO.pushMessaging.showPromptForPushNotifications(options)
+        const result = await requestPushNotificationPermission()
 
-        // Status is CioPushPermissionStatus enum: Granted, Denied, NotDetermined
-        switch (status) {
-          case CioPushPermissionStatus.Granted:
+        switch (result.status) {
+          case 'Granted':
             permissionStatus = 'granted'
             AppLogger.info('notification', 'Push permission GRANTED')
             break
-          case CioPushPermissionStatus.Denied:
+          case 'Denied':
             permissionStatus = 'denied'
             AppLogger.info('notification', 'Push permission DENIED')
             break
-          case CioPushPermissionStatus.NotDetermined:
           default:
             permissionStatus = 'undetermined'
-            AppLogger.info('notification', 'Push permission status', { status: String(status) })
+            AppLogger.info('notification', 'Push permission status', { status: result.status })
         }
 
-        // Sync push permission attributes to Customer.io profile
-        CustomerIOService.setProfileAttributes({
-          push_notifications_enabled: permissionStatus === 'granted',
-          push_permission_status: permissionStatus === 'granted' ? 'Granted' : 'Denied',
-          push_permission_updated_at: Math.floor(Date.now() / 1000),
-        })
-
-        // After permission granted, register device token in background
-        // (autoFetchDeviceToken is false in app.json, so we handle it explicitly)
-        // Fire-and-forget: don't block navigation, token registration runs async
-        if (permissionStatus === 'granted') {
-          registerDeviceTokenInBackground()
-        }
+        // Affinity device + permission sync is handled inside requestPushNotificationPermission
       } catch (permError) {
         AppLogger.warn('notification', 'Permission request error (may be Expo Go)', { error: String(permError) })
         permissionStatus = 'undetermined'

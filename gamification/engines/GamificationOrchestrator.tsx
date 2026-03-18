@@ -502,7 +502,7 @@ async function markStreakCelebrationShown(): Promise<void> {
 }
 
 /**
- * Sanitize numeric values to prevent Customer.io errors.
+ * Sanitize numeric values to prevent analytics errors.
  * Converts NaN, Infinity, null, undefined to 0.
  */
 function sanitizeNumericValue(value: any): number {
@@ -804,7 +804,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         await syncToCloud(); // Force immediate write
         console.log(`✅ [Orchestrator] ========== STREAK SUCCESSFULLY SAVED TO SUPABASE ==========`);
 
-        // Update PostHog - sanitize values to prevent Customer.io errors
+        // Update PostHog - sanitize values to prevent analytics errors
         const sanitizedStreak = sanitizeNumericValue(newStreak);
         const sanitizedLongest = sanitizeNumericValue(newLongest);
 

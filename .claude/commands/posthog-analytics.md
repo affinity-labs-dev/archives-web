@@ -1,6 +1,6 @@
 ---
 name: posthog-analytics
-description: Use when adding PostHog events, person properties, or tracking hooks to the Archives Expo app. Use when verifying event data via PostHog MCP. Use when auditing which analytics a component sends. Use when creating PostHog dashboards or insights. Activates for analytics, tracking, events, capture, person properties, Customer.io forwarding, useLessonTracking, useQuizTracking, AnalyticsService, PostHog MCP, query-run, HogQL.
+description: Use when adding PostHog events, person properties, or tracking hooks to the Archives Expo app. Use when verifying event data via PostHog MCP. Use when auditing which analytics a component sends. Use when creating PostHog dashboards or insights. Activates for analytics, tracking, events, capture, person properties, useLessonTracking, useQuizTracking, AnalyticsService, PostHog MCP, query-run, HogQL.
 ---
 
 # PostHog Analytics
@@ -37,11 +37,10 @@ Before ANY change:
 
 | File | Role |
 |------|------|
-| `services/AnalyticsService.ts` | Event interfaces, track methods, person properties, Customer.io forwarding |
+| `services/AnalyticsService.ts` | Event interfaces, track methods, person properties |
 | `hooks/useAnalytics.ts` | General hook with `safeTrack()` wrapper |
 | `hooks/useLessonTracking.ts` | Lesson events (video play/pause/complete, card expand, buffering) |
 | `hooks/useQuizTracking.ts` | Quiz events with XP calculation integration |
-| `services/CustomerIOService.ts` | Push notification campaign event sync |
 
 ### Existing Events (30+)
 
@@ -103,7 +102,6 @@ interface YourNewEvent {
 trackYourEvent(data: YourNewEvent) {
   const event = { ...data, ...this.getBaseProperties() };
   this.posthog?.capture('your_event_name', event);
-  this.trackToCustomerIO('your_event_name', event);  // Only if needed — see step 3
   console.log('📊 [Analytics] Your Event:', event);
 }
 ```
@@ -115,9 +113,9 @@ trackYourEvent(properties: YourNewEvent) {
 }
 ```
 
-### 3. Customer.io Decision
+### 3. Milestone Events
 
-Add to `customerIOEvents` array in `trackToCustomerIO()` (~line 327) **ONLY IF**:
+Key engagement milestones to ensure are tracked:
 - Key engagement milestone (lesson/quiz/module complete)
 - Useful for push campaign segmentation
 - Conversion action (subscription, sign-up)
@@ -172,8 +170,7 @@ updateYourProperties(data: { your_prop?: string | null }) {
   this.posthog.capture('$set', { $set: props });
 }
 ```
-3. **Customer.io sync** (if needed): `CustomerIOService.setProfileAttributes({ your_prop: value })`
-4. **Verify**: `mcp__posthog__query-generate-hogql-from-question` → "Show distinct person property 'your_prop'"
+3. **Verify**: `mcp__posthog__query-generate-hogql-from-question` → "Show distinct person property 'your_prop'"
 
 ---
 
@@ -232,7 +229,7 @@ updateYourProperties(data: { your_prop?: string | null }) {
 | Calling `posthog.capture()` in component | Use `analyticsService.trackX()` or tracking hook |
 | Tracking in `useEffect` without deps guard | Use `useCallback` or `hasStartedRef` pattern |
 | Missing era context on content event | Add `era_id`, `era_name` to interface and call site |
-| Forgetting Customer.io sync for milestone | Add to `customerIOEvents` array |
+| Missing milestone tracking | Ensure key completion events are captured |
 | Creating event that already exists | Search codebase + query PostHog MCP before creating |
 | Using `any` for event payload | Define `interface XEvent` with typed properties |
 | Adding `$timestamp` to event | PostHog auto-captures this — remove it |
