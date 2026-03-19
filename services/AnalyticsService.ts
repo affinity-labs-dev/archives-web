@@ -302,10 +302,24 @@ interface QuizResultsViewedEvent {
 interface ModuleStartedEvent {
   era_id: string;
   era_name: string;
-  adventure_id: number;
+  adventure_id: number | string;
   adventure_number: number;
-  module_id: number;
+  module_id: number | string;
   module_number: number;
+  module_title?: string;
+}
+
+interface EraStartedEvent {
+  era_id: string;
+  era_name: string;
+  screen: string;
+}
+
+interface EraCompletedEvent {
+  era_id: string;
+  era_name: string;
+  total_adventures: number;
+  total_xp: number;
 }
 
 interface ModuleCompletedEvent {
@@ -1458,6 +1472,20 @@ class AnalyticsService {
    */
   trackModuleCompleted(properties: ModuleCompletedEvent) {
     this.trackCustomEvent('module_completed', properties);
+  }
+
+  /**
+   * Track era started (first time user enters an era's content)
+   */
+  trackEraStarted(properties: EraStartedEvent) {
+    this.trackCustomEvent('era_started', properties);
+  }
+
+  /**
+   * Track era completed (all adventures in era finished)
+   */
+  trackEraCompleted(properties: EraCompletedEvent) {
+    this.trackCustomEvent('era_completed', properties);
   }
 
   // ==================== DAILY STORY EVENTS ====================

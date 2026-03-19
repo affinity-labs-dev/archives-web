@@ -75,6 +75,18 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
       hasQuestions: (contentItem.questions?.length ?? 0) > 0
     });
 
+    // Track module_started event for funnel analysis
+    const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
+    analyticsService.trackModuleStarted({
+      era_id: eraId,
+      era_name: eraName,
+      adventure_id: adventureId,
+      adventure_number: adventureNumber,
+      module_id: moduleId,
+      module_number: contentItem.order_by || 0,
+      module_title: contentItem.thumbnail_title || undefined,
+    });
+
     setSelectedLesson({
       contentItem,
       adventureId,
