@@ -65,11 +65,6 @@ interface OnboardingQuestionAnsweredEvent {
   answer_index?: number;
 }
 
-interface OnboardingScreenExitedEvent {
-  screen: string;
-  exit_action: 'back_button' | 'continued' | 'app_closed';
-  duration_seconds: number;
-}
 
 interface AuthScreenViewedEvent {
   screen: string;
@@ -96,12 +91,6 @@ interface AuthFailedEvent {
   error_message: string;
 }
 
-interface AuthScreenExitedEvent {
-  screen: string;
-  exit_action: 'authenticated' | 'back_button' | 'app_closed';
-  duration_seconds: number;
-  mode: 'signin' | 'signup';
-}
 
 // ==================== SESSION TELEMETRY INTERFACES (AFF-151) ====================
 
@@ -622,20 +611,6 @@ class AnalyticsService {
     }
   }
 
-  /**
-   * Track when user exits onboarding screen
-   */
-  trackOnboardingScreenExited(data: OnboardingScreenExitedEvent) {
-    const event = {
-      ...data,
-      ...this.getBaseProperties(),
-    };
-
-    this.posthog?.capture('onboarding_screen_exited', event);
-    if (__DEV__) {
-      console.log('📊 [Analytics] Onboarding Screen Exited:', event);
-    }
-  }
 
   /**
    * Track video progress milestones
@@ -714,20 +689,6 @@ class AnalyticsService {
     }
   }
 
-  /**
-   * Track when user exits auth screen
-   */
-  trackAuthScreenExited(data: AuthScreenExitedEvent) {
-    const event = {
-      ...data,
-      ...this.getBaseProperties(),
-    };
-
-    this.posthog?.capture('auth_screen_exited', event);
-    if (__DEV__) {
-      console.log('📊 [Analytics] Auth Screen Exited:', event);
-    }
-  }
 
   // ==================== SESSION TELEMETRY (AFF-151) ====================
 

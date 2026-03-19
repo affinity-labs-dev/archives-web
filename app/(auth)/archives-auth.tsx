@@ -129,6 +129,9 @@ export default function ArchivesAuthScreen() {
 
       if (signUpAttempt.status === 'complete') {
         await setActiveSignUp({ session: signUpAttempt.createdSessionId })
+        analyticsService.trackUserSignedUp(signUpAttempt.createdUserId || '', {
+          sign_up_method: 'email',
+        })
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         await onContinue()
       } else {
