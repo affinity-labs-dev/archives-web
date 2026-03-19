@@ -198,11 +198,20 @@ export default function ReelLesson({
     }
   }, [isCardExpanded, hasEverExpandedCard]);
 
+  // Track video_played once when video first starts (fixes video_completed > video_played inversion)
+  const hasTrackedVideoPlayRef = useRef(false);
+
   // Ultra-Smooth Video Progress System
   const handlePlaybackStatusUpdate = (status: VideoPlaybackStatus) => {
     if (status.isLoaded) {
       if (!isVideoLoaded) {
         setIsVideoLoaded(true);
+      }
+
+      // Fire video_played once when video starts playing
+      if (status.isPlaying && !hasTrackedVideoPlayRef.current) {
+        hasTrackedVideoPlayRef.current = true;
+        trackVideoPlay(status.durationMillis ? Math.floor(status.durationMillis / 1000) : undefined);
       }
 
       if (status.durationMillis && status.positionMillis) {
