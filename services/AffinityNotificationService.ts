@@ -17,7 +17,6 @@ import * as Localization from 'expo-localization';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import DeviceInfo from 'react-native-device-info';
-import Constants from 'expo-constants';
 import AppLogger from './AppLogger';
 
 const API_URL = process.env.EXPO_PUBLIC_AFFINITY_API_URL;
@@ -131,8 +130,6 @@ export async function registerDevice(): Promise<void> {
   }
 
   try {
-    // const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
-    // const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync({ projectId });
     const { data: deviceToken } = await Notifications.getDevicePushTokenAsync();
     _lastRegisteredToken = deviceToken;
 
