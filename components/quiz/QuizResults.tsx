@@ -207,6 +207,7 @@ export default function QuizResults({
       .map((q, i) => {
         const userAnswerIdx = userAnswers[i];
         const correctIdx = q.answers.findIndex((a) => a.is_correct);
+        if (userAnswerIdx === undefined || userAnswerIdx === null) return null;
         if (userAnswerIdx === correctIdx) return null;
         return `- Q: "${q.question_text}" | You answered: "${q.answers[userAnswerIdx]?.text}" | Correct: "${q.answers[correctIdx]?.text}"`;
       })

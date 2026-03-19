@@ -378,6 +378,7 @@ export function AIProvider({ children }: AIProviderProps) {
   // Close chat
   const closeChat = () => {
     console.log('🤖 [AIContext] Closing chat');
+    setPendingHiddenMessage(null);
     setIsChatOpen(false);
   };
 

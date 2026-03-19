@@ -302,7 +302,7 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
       }
     }
 
-    return `You are explaining ${eraName}${adventureName ? ` (${adventureName})` : ''} history to a ${userLevel} student who just completed a quiz.
+    return `You are explaining ${eraName}${adventureName ? ` (${adventureName})` : ''} history to a user who just completed a quiz.
 Provide a brief explanation for each question below.
 ${questionsBlock}
 For each question, write 3-4 sentences:
@@ -1037,7 +1037,7 @@ You must NEVER visually depict:
 - Sacred moments shown directly (e.g. revelation, Miraj)
 
 If a prophet or sacred event is referenced, use symbolic or indirect representation only:
-- Always show prophets are cloaked figures from the back if needed
+- Always show prophets as cloaked figures from the back if needed
 - Landscapes, Architecture
 - Light, calligraphy, objects, or environment
 - Empty spaces that imply presence without depiction
@@ -1045,7 +1045,7 @@ If a prophet or sacred event is referenced, use symbolic or indirect representat
 === 2. PROPHET & SACRED FIGURE HANDLING ===
 When a scene involves a prophet:
 - Show environment only (e.g. cave interior, mosque courtyard, desert road)
-- Always show prophets are cloaked figures from the back
+- Always show prophets as cloaked figures from the back
 - If a human figure is required: show from behind, silhouette, or partial framing
 - No facial detail, no identifying traits
 - Never label or imply a visible figure is the Prophet
