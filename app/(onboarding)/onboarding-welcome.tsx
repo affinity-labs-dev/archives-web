@@ -2,6 +2,7 @@
 // Shows welcome message with camel image and continues to questionnaire
 
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import OnboardingQuestionLayout from '@/components/onboarding/OnboardingQuestionLayout'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
 import AppLogger from '@/services/AppLogger'
@@ -11,13 +12,11 @@ import React, { useEffect, useState } from 'react'
 import {
   Image,
   Platform,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
 export default function OnboardingWelcomeScreen() {
@@ -61,13 +60,7 @@ export default function OnboardingWelcomeScreen() {
   }
 
   return (
-    <>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={ArchivesTheme.colors.creamWhite}
-        translucent={false}
-      />
-      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
+    <OnboardingQuestionLayout activeStep={0} screenName="onboarding_welcome" showProgressBar={false}>
         <View style={styles.content}>
           {/* Speech Bubble */}
           <View style={styles.speechBubble}>
@@ -139,16 +132,11 @@ export default function OnboardingWelcomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
-    </>
+    </OnboardingQuestionLayout>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-  },
   content: {
     flex: 1,
     alignItems: 'center',

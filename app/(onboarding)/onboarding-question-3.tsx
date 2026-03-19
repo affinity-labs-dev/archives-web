@@ -8,15 +8,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  StatusBar,
   Platform,
   Dimensions,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import OnboardingQuestionLayout from '@/components/onboarding/OnboardingQuestionLayout'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { analyticsService } from '@/services/AnalyticsService'
@@ -212,188 +211,139 @@ export default function OnboardingRemindersScreen() {
   }
 
   return (
-    <>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={ArchivesTheme.colors.creamWhite}
-        translucent={true}
-      />
-      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressSegments}>
-            {[1, 2, 3, 4].map((step) => (
-              <View
-                key={step}
-                style={[
-                  styles.progressSegment,
-                  step <= 3 && styles.progressSegmentActive
-                ]}
-              />
-            ))}
+    <OnboardingQuestionLayout activeStep={3} screenName="onboarding_question_3">
+      <View style={styles.content}>
+        {/* Camel Mascot with Speech Bubble */}
+        <View style={styles.mascotSection}>
+          {/* Camel on Left */}
+          <Image
+            source={require('@/assets/images/ai-images/hellocharacter.png')}
+            style={styles.camelMascot}
+            resizeMode="contain"
+          />
+
+          {/* Speech Bubble on Right */}
+          <View style={styles.speechBubble}>
+            <Text style={styles.speechText} selectable={false}>
+              Get a daily reminder{'\n'}to meet your goal
+            </Text>
+
+            {/* Speech bubble tail - SVG arrow */}
+            <View style={styles.speechTail}>
+              <Svg width="15" height="20" viewBox="0 0 15 20" style={{ position: 'absolute' }}>
+                {/* White filled triangle (no stroke) */}
+                <Path
+                  d="M0 10 L15 0 L15 20 Z"
+                  fill="white"
+                />
+
+                {/* Green line on top diagonal edge */}
+                <Path
+                  d="M0 10 L15 0"
+                  stroke={ArchivesTheme.colors.mossGreen}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+
+                {/* Green line on bottom diagonal edge */}
+                <Path
+                  d="M0 10 L15 20"
+                  stroke={ArchivesTheme.colors.mossGreen}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+
+                {/* White line on vertical base - blends with background */}
+                <Path
+                  d="M15 0 L15 20"
+                  stroke="white"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </Svg>
+            </View>
           </View>
         </View>
 
-        <View style={styles.content}>
-          {/* Camel Mascot with Speech Bubble */}
-          <View style={styles.mascotSection}>
-            {/* Camel on Left */}
-            <Image
-              source={require('@/assets/images/ai-images/hellocharacter.png')}
-              style={styles.camelMascot}
-              resizeMode="contain"
-            />
+        {/* Islamic Quote Section */}
+        <View style={styles.quoteSection}>
+          <Text style={styles.quoteText} selectable={false}>
+            {'"Whoever travels a path seeking knowledge, Allah makes easy their path to Paradise"'}
+          </Text>
+          <Text style={styles.quoteAttribution} selectable={false}>
+            The Prophet Mohammed ﷺ
+          </Text>
+        </View>
 
-            {/* Speech Bubble on Right */}
-            <View style={styles.speechBubble}>
-              <Text style={styles.speechText} selectable={false}>
-                Get a daily reminder{'\n'}to meet your goal
-              </Text>
+        {/* Stats Section with Laurel Leaves */}
+        <View style={styles.statsSection}>
+          {/* Left Laurel */}
+          <Image
+            source={require('@/assets/images/leaf.png')}
+            style={styles.laurelLeft}
+            resizeMode="contain"
+          />
 
-              {/* Speech bubble tail - SVG arrow */}
-              <View style={styles.speechTail}>
-                <Svg width="15" height="20" viewBox="0 0 15 20" style={{ position: 'absolute' }}>
-                  {/* White filled triangle (no stroke) */}
-                  <Path
-                    d="M0 10 L15 0 L15 20 Z"
-                    fill="white"
-                  />
+          {/* Stats Container */}
+          <View style={styles.statsContainer}>
+            {/* Learners Stat */}
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber} selectable={false}>+10,000</Text>
+              <Text style={styles.statLabel} selectable={false}>Learners</Text>
+            </View>
 
-                  {/* Green line on top diagonal edge */}
-                  <Path
-                    d="M0 10 L15 0"
-                    stroke={ArchivesTheme.colors.mossGreen}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-
-                  {/* Green line on bottom diagonal edge */}
-                  <Path
-                    d="M0 10 L15 20"
-                    stroke={ArchivesTheme.colors.mossGreen}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-
-                  {/* White line on vertical base - blends with background */}
-                  <Path
-                    d="M15 0 L15 20"
-                    stroke="white"
-                    strokeWidth="1"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </Svg>
-              </View>
+            {/* Lessons Stat */}
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber} selectable={false}>+50,000</Text>
+              <Text style={styles.statLabel} selectable={false}>Lessons Completed</Text>
             </View>
           </View>
 
-          {/* Islamic Quote Section */}
-          <View style={styles.quoteSection}>
-            <Text style={styles.quoteText} selectable={false}>
-              {'"Whoever travels a path seeking knowledge, Allah makes easy their path to Paradise"'}
-            </Text>
-            <Text style={styles.quoteAttribution} selectable={false}>
-              The Prophet Mohammed ﷺ
-            </Text>
-          </View>
-
-          {/* Stats Section with Laurel Leaves */}
-          <View style={styles.statsSection}>
-            {/* Left Laurel */}
-            <Image
-              source={require('@/assets/images/leaf.png')}
-              style={styles.laurelLeft}
-              resizeMode="contain"
-            />
-
-            {/* Stats Container */}
-            <View style={styles.statsContainer}>
-              {/* Learners Stat */}
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber} selectable={false}>+10,000</Text>
-                <Text style={styles.statLabel} selectable={false}>Learners</Text>
-              </View>
-
-              {/* Lessons Stat */}
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber} selectable={false}>+50,000</Text>
-                <Text style={styles.statLabel} selectable={false}>Lessons Completed</Text>
-              </View>
-            </View>
-
-            {/* Right Laurel (flipped horizontally) */}
-            <Image
-              source={require('@/assets/images/leaf.png')}
-              style={styles.laurelRight}
-              resizeMode="contain"
-            />
-          </View>
-
+          {/* Right Laurel (flipped horizontally) */}
+          <Image
+            source={require('@/assets/images/leaf.png')}
+            style={styles.laurelRight}
+            resizeMode="contain"
+          />
         </View>
 
-        {/* Bottom Buttons - Fixed at bottom */}
-        <View style={styles.bottomButtonsContainer}>
-          {/* Enable Reminders Button */}
-          <TouchableOpacity
-            style={styles.enableButton}
-            onPress={handleEnableReminders}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.enableButtonText} selectable={false}>
-              ENABLE REMINDERS
-            </Text>
-          </TouchableOpacity>
+      </View>
 
-          {/* Maybe Later Link */}
-          <TouchableOpacity
-            style={styles.maybeLaterButton}
-            onPress={handleMaybeLater}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.maybeLaterText} selectable={false}>
-              MAYBE LATER
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    </>
+      {/* Bottom Buttons - Fixed at bottom */}
+      <View style={styles.bottomButtonsContainer}>
+        {/* Enable Reminders Button */}
+        <TouchableOpacity
+          style={styles.enableButton}
+          onPress={handleEnableReminders}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.enableButtonText} selectable={false}>
+            ENABLE REMINDERS
+          </Text>
+        </TouchableOpacity>
+
+        {/* Maybe Later Link */}
+        <TouchableOpacity
+          style={styles.maybeLaterButton}
+          onPress={handleMaybeLater}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.maybeLaterText} selectable={false}>
+            MAYBE LATER
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </OnboardingQuestionLayout>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-  },
-
-  // Progress Bar
-  progressContainer: {
-    paddingHorizontal: 0,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  progressSegments: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  progressSegment: {
-    flex: 1,
-    height: 4,
-    backgroundColor: 'rgba(139,96,64,0.2)',
-    borderRadius: 2,
-    marginHorizontal: 2,
-  },
-  progressSegmentActive: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-  },
-
   content: {
     flex: 1,
     paddingHorizontal: 20,

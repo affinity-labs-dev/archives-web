@@ -99,6 +99,7 @@ export default function TabLayout() {
   return (
     <TabComponent
       screenOptions={screenOptions}
+      initialRouteName="today"
       // Native tabs specific options
       {...(useNativeTabs && {
         tabBarStyle: "automatic", // Enables iOS 18+ floating behavior
