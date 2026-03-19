@@ -246,8 +246,6 @@ export function NotificationPromptProvider({ children }: { children: React.React
       // iOS returns 'undetermined' when never asked; Android 13+ returns 'denied'.
       try {
         const { status } = await Notifications.getPermissionsAsync();
-        console.log('🚀 ~ NotificationPromptProvider ~ status:', status);
-
         AppLogger.info('notification', 'Sign-in permission check result', {
           status,
           platform: Platform.OS,
@@ -271,7 +269,10 @@ export function NotificationPromptProvider({ children }: { children: React.React
         } else if (
           passesCooldownRules(loaded) &&
           (status === 'undetermined' || // iOS: never asked
-           (Platform.OS === 'android' && status === 'denied' && loaded.promptHistory.length === 0)) // Android 13+: "denied" = never asked (if we haven't prompted before)
+           (Platform.OS === 'android' && status === 'denied' && loaded.promptHistory.length === 0))
+           // Android < 13: auto-granted at install, always 'granted' → handled above.
+           // Android 13+ (API 33+): 'denied' by default until explicit request.
+           // promptHistory check distinguishes "never asked" from "user actually denied".
         ) {
           AppLogger.info('notification', 'Permission not yet granted on sign-in, showing prompt', { status, platform: Platform.OS });
           setActiveVariant('module');

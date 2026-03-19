@@ -445,6 +445,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // - Application Updated
 
   // Listen for notifications (both received and tapped) with deep link support
+  // Also listen for push token changes — FCM/APNs can rotate tokens at any time
   React.useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
       const messageId = notification.request.identifier || `notif_${Date.now()}`;
@@ -463,9 +464,18 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       handleNotificationDeepLink(response);
     });
 
+    // Update push token when rotated by FCM/APNs — device already exists,
+    // just patch the token via device_identifier lookup.
+    const pushTokenListener = Notifications.addPushTokenListener(({ data: newToken }) => {
+      if (AffinityNotificationService.getLastRegisteredToken() === newToken) return;
+      AppLogger.info('notification', 'Push token changed — updating device with Affinity');
+      AffinityNotificationService.updateDevice({ push_token: newToken });
+    });
+
     return () => {
       notificationListener.remove();
       responseListener.remove();
+      pushTokenListener.remove();
     };
   }, []);
 

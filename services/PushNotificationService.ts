@@ -6,6 +6,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import AffinityNotificationService from './AffinityNotificationService';
 import { analyticsService } from './AnalyticsService';
+import AppLogger from './AppLogger';
 
 type PermissionStatus = 'Granted' | 'Denied' | 'NotDetermined';
 
@@ -23,26 +24,26 @@ interface PushRegistrationResult {
  */
 export async function requestPushNotificationPermission(): Promise<PushRegistrationResult> {
   if (Platform.OS === 'web') {
-    console.log('🔔 [PushService] Web platform, skipping');
+    AppLogger.info('notification', 'Web platform, skipping');
     return { status: 'NotDetermined', token: null };
   }
 
   if (!Device.isDevice) {
-    console.log('🔔 [PushService] Not a physical device, skipping push registration');
+    AppLogger.info('notification', 'Not a physical device, skipping push registration');
     return { status: 'NotDetermined', token: null };
   }
 
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    console.log('🔔 [PushService] Existing permission status:', existingStatus);
+    AppLogger.info('notification', 'Existing permission status', { status: existingStatus });
 
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
-      console.log('🔔 [PushService] Requesting permission...');
+      AppLogger.info('notification', 'Requesting permission...');
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
-      console.log('🔔 [PushService] Permission request result:', status);
+      AppLogger.info('notification', 'Permission request result', { status });
     }
 
     const permissionStatus: PermissionStatus =
@@ -54,15 +55,18 @@ export async function requestPushNotificationPermission(): Promise<PushRegistrat
         const tokenData = await Notifications.getDevicePushTokenAsync();
         const token = tokenData.data;
 
-        console.log('🔔 [PushService] Got device token type:', tokenData.type);
-        console.log('🔔 [PushService] Token (first 20 chars):', token.substring(0, 20) + '...');
+        AppLogger.info('notification', 'Got device token', {
+          type: tokenData.type,
+          tokenPrefix: token.substring(0, 20) + '...',
+        });
 
-        AffinityNotificationService.registerDevice();
-        AffinityNotificationService.updatePermission('granted');
+        // registerDevice() already reads OS permission internally —
+        // no need for a separate updatePermission() call.
+        await AffinityNotificationService.registerDevice();
 
         return { status: 'Granted', token };
       } catch (tokenError) {
-        console.error('❌ [PushService] Error getting device token:', tokenError);
+        AppLogger.error('notification', 'Error getting device token', {}, tokenError);
         return { status: 'Granted', token: null };
       }
     }
@@ -71,11 +75,11 @@ export async function requestPushNotificationPermission(): Promise<PushRegistrat
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes('aps-environment')) {
-      console.log('⚠️ [PushService] Push notifications require physical device or proper iOS configuration');
+      AppLogger.warn('notification', 'Push notifications require physical device or proper iOS configuration');
       return { status: 'NotDetermined', token: null };
     }
 
-    console.error('❌ [PushService] Error requesting push permission:', error);
+    AppLogger.error('notification', 'Error requesting push permission', {}, error);
     return { status: 'NotDetermined', token: null };
   }
 }
@@ -95,50 +99,58 @@ export async function getPushPermissionStatus(): Promise<PermissionStatus> {
     if (status === 'denied') return 'Denied';
     return 'NotDetermined';
   } catch (error) {
-    console.error('❌ [PushService] Error getting permission status:', error);
+    AppLogger.error('notification', 'Error getting permission status', {}, error);
     return 'NotDetermined';
   }
 }
 
 /**
  * Sync push token on app launch if user already has notifications enabled.
- * Registers with AffinityNotificationService.
+ *
+ * - Granted: registerDevice() already reads OS permission and sends it,
+ *   so a separate updatePermission call is unnecessary.
+ * - Denied/undetermined: use updateDevice() to patch permission without
+ *   attempting to fetch a push token (which may fail when denied).
  */
 export async function syncPushToken(): Promise<void> {
   if (Platform.OS === 'web') {
-    console.log('🔔 [PushService] syncPushToken: Skipping on web');
+    AppLogger.info('notification', 'syncPushToken: skipping on web');
     return;
   }
 
   if (!Device.isDevice) {
-    console.log('🔔 [PushService] syncPushToken: Skipping on simulator');
+    AppLogger.info('notification', 'syncPushToken: skipping on simulator');
     return;
   }
 
   try {
     const { status } = await Notifications.getPermissionsAsync();
-    console.log('🔔 [PushService] syncPushToken: Permission status =', status);
+    AppLogger.info('notification', 'syncPushToken: permission status', { status });
 
     if (status === 'granted') {
-      console.log('🔔 [PushService] syncPushToken: Getting device token...');
-      const tokenData = await Notifications.getDevicePushTokenAsync();
-      console.log('🔔 [PushService] syncPushToken: Token type =', tokenData.type);
-      console.log('🔔 [PushService] syncPushToken: Token (first 30 chars) =', tokenData.data.substring(0, 30) + '...');
-
-      AffinityNotificationService.registerDevice();
-      AffinityNotificationService.updatePermission('granted');
+      // registerDevice() internally reads OS permission and sends it —
+      // no need for a separate updatePermission() call.
+      await AffinityNotificationService.registerDevice();
 
       analyticsService.updatePushStatus(true, 'Granted');
-      console.log('✅ [PushService] syncPushToken: Analytics updated');
+      AppLogger.info('notification', 'syncPushToken: analytics updated');
     } else {
-      console.log('🔔 [PushService] syncPushToken: Permission not granted, skipping');
+      AppLogger.info('notification', 'syncPushToken: permission not granted, skipping');
 
+      const permission = status === 'denied' ? 'denied' : 'undetermined' as const;
       const permissionStatus = status === 'denied' ? 'Denied' : 'NotDetermined';
-      AffinityNotificationService.updatePermission(status === 'denied' ? 'denied' : 'undetermined');
+
+      // Patch permission only — don't call registerDevice() which would
+      // attempt getDevicePushTokenAsync() and may fail when denied.
+      await AffinityNotificationService.updateDevice({
+        notification_permission: permission,
+        notifications_enabled: false,
+      });
+
       analyticsService.updatePushStatus(false, permissionStatus);
     }
   } catch (error) {
-    console.error('❌ [PushService] syncPushToken: Error:', error);
+    AppLogger.error('notification', 'syncPushToken error', {}, error);
   }
 }
 
