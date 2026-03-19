@@ -154,6 +154,19 @@ export default function OnboardingRemindersScreen() {
         platform: Platform.OS,
       })
 
+      // Track specific push notification permission result
+      const permissionEvent = {
+        permission_type: 'push_notifications' as const,
+        screen: 'onboarding_question_3',
+        result: permissionStatus,
+        platform: Platform.OS,
+      }
+      if (permissionStatus === 'granted') {
+        analyticsService.trackPushNotificationsEnabled(permissionEvent)
+      } else {
+        analyticsService.trackPushNotificationsDeclined(permissionEvent)
+      }
+
       // Save reminder preference
       await AsyncStorage.setItem('onboarding_reminders_enabled', 'true')
       await AsyncStorage.setItem('notifications_permission_granted', permissionStatus === 'granted' ? 'true' : 'false')
