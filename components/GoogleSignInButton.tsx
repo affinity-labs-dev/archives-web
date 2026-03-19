@@ -59,10 +59,22 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           await setActive({ session: createdSessionId })
         }
 
+        // Detect silent sign-in-as-signup: Clerk can auto-create account + session
+        // in one step. If signUp has a createdUserId, this is a NEW user.
+        const isNewUser = !!(signUp?.createdUserId)
+        if (isNewUser) {
+          const userId = signUp.createdUserId || signUp?.id
+          if (userId) {
+            analyticsService.trackUserSignedUp(userId, {
+              sign_up_method: 'google',
+            })
+          }
+        }
+
         // Track session login
         analyticsService.trackUserSessionIn('google')
 
-        onSuccess(false) // Existing session = not a new user
+        onSuccess(isNewUser)
       } else {
         // Handle additional steps like MFA if needed
         if (signIn?.status === 'complete') {
