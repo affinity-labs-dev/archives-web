@@ -27,6 +27,9 @@ export function isSignedIn() {
 export function mountSignIn(el) {
   if (!clerkInstance) return;
   clerkInstance.mountSignIn(el, {
+    afterSignInUrl: window.location.href,
+    afterSignUpUrl: window.location.href,
+    redirectUrl: window.location.href,
     appearance: {
       variables: {
         colorPrimary: '#D4A04A',
