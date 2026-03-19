@@ -101,7 +101,7 @@ export default function AIChatModal({
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const { getUserProgressSummary, getKnowledgeContextForPrompt } = useAI();
+  const { getUserProgressSummary, getKnowledgeContextForPrompt, pendingHiddenMessage, clearPendingHiddenMessage } = useAI();
   const { user } = useUser();
   const { isSubscribed } = useRevenueCat();
   const insets = useSafeAreaInsets();
@@ -179,6 +179,55 @@ export default function AIChatModal({
       }
     }
   }, [visible]);
+
+  // Chat to Learn: process hidden message when modal opens
+  // Sends the context to AI silently (not shown in chat) and displays only the AI response
+  useEffect(() => {
+    if (!visible || !pendingHiddenMessage) return;
+
+    const processHiddenMessage = async () => {
+      setIsLoading(true);
+      try {
+        const progressSummary = getUserProgressSummary();
+        const knowledgeCtx = getKnowledgeContextForPrompt();
+        const response = await aiService.getChatResponse({
+          userMessage: pendingHiddenMessage,
+          conversationHistory: messages,
+          context: {
+            eraId: context.eraId,
+            eraName: context.eraName || 'Islamic History',
+            adventureId: context.adventureId,
+            currentScreen: context.currentScreen,
+          },
+          userProgress: progressSummary,
+          knowledgeContext: knowledgeCtx,
+          enableWebSearch: false,
+        });
+
+        const aiMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: response.text,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, aiMsg]);
+        analyticsService.trackCustomEvent('chat_to_learn_response', {
+          era_id: context?.eraId || 'unknown_era',
+          response_length: response.text.length,
+        });
+      } catch (err) {
+        console.error('❌ [AIChatModal] Chat to Learn error:', err);
+        setError('Sorry, I could not process that. Please try again.');
+      } finally {
+        setIsLoading(false);
+        clearPendingHiddenMessage();
+      }
+    };
+
+    processHiddenMessage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, pendingHiddenMessage]);
 
   // Share image (allows saving to photos, sharing to apps, etc.)
   const handleShareImage = async () => {

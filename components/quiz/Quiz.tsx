@@ -603,18 +603,6 @@ export default function Quiz({
     onContinue();
   };
 
-  // Handle retake quiz
-  const handleRetakeQuiz = () => {
-    setCurrentQuestionIndex(0);
-    setSelectedAnswer(null);
-    setShowFeedback(false);
-    setScore(0);
-    setCorrectAnswers(0);
-    setShowResults(false);
-    setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
-    setUserAnswers([]); // Reset user answers for fresh quiz attempt
-  };
-
   const isCorrect = selectedAnswer === correctAnswerIndex;
 
   // Show results screen if quiz is complete
@@ -624,7 +612,6 @@ export default function Quiz({
         correctAnswers={correctAnswers}
         totalQuestions={totalQuestions}
         totalPoints={score}
-        onRetake={handleRetakeQuiz}
         onContinue={handleQuizCompletion}
         onBack={onBack}
         adventureId={adventureId}
@@ -636,6 +623,7 @@ export default function Quiz({
         questions={questions}
         userAnswers={userAnswers}
         isToday={isToday}
+        moduleTitle={contentItem.thumbnail_title || undefined}
       />
     );
   }
