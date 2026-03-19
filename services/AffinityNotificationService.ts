@@ -29,6 +29,11 @@ let _currentUserId: string | null = null;
 let _lastRegisteredToken: string | null = null;
 let _deviceIdentifier: string | null = null;
 
+// Gate: registerDevice() awaits this to ensure the user exists in the backend
+// before attempting device registration. Reset on logout.
+let _userReadyResolve: (() => void) | null = null;
+let _userReady: Promise<void> = new Promise((r) => { _userReadyResolve = r; });
+
 // ── Internal HTTP helper ───────────────────────────────────────────────────────
 
 async function apiFetch(
@@ -74,6 +79,7 @@ async function apiFetch(
 export async function registerUser(
   externalId: string,
   opts?: {
+    email?: string | null;
     metadata?: Record<string, unknown>;
   },
 ): Promise<void> {
@@ -98,14 +104,18 @@ export async function registerUser(
     await apiFetch('/users', 'POST', {
       app_id: APP_ID,
       external_id: externalId,
+      email: opts?.email ?? null,
       timezone,
       locale,
       metadata: opts?.metadata ?? {},
     });
 
     AppLogger.info('notification', 'User registered with Affinity', { externalId });
+    _userReadyResolve?.();
   } catch (error) {
-    // Non-fatal — log and continue
+    // Non-fatal — log and continue, but still resolve the gate so
+    // registerDevice doesn't hang forever (it will fail with its own 404)
+    _userReadyResolve?.();
     AppLogger.error('notification', 'Failed to register user with Affinity', { externalId }, error);
   }
 }
@@ -128,6 +138,9 @@ export async function registerDevice(): Promise<void> {
     AppLogger.warn('notification', 'registerDevice called before registerUser — skipping');
     return;
   }
+
+  // Wait for registerUser() to finish so the user exists in the backend
+  await _userReady;
 
   try {
     const { data: deviceToken } = await Notifications.getDevicePushTokenAsync();
@@ -232,6 +245,8 @@ export async function logout(): Promise<void> {
 
   _currentUserId = null;
   _deviceIdentifier = null;
+  // Reset the gate for the next sign-in cycle
+  _userReady = new Promise((r) => { _userReadyResolve = r; });
 }
 
 /**

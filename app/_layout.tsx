@@ -196,8 +196,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     if (isSignedIn && user) {
       // Register user with Affinity Notification Service (idempotent upsert)
       AffinityNotificationService.registerUser(user.id, {
+        email: user.primaryEmailAddress?.emailAddress ?? null,
         metadata: {
-          email: user.primaryEmailAddress?.emailAddress ?? null,
           first_name: user.firstName ?? null,
           last_name: user.lastName ?? null,
         },
