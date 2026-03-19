@@ -71,17 +71,7 @@ export default function ArchivesAuthScreen() {
       mode: currentMode,
     })
 
-    // Track screen exit on unmount
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackAuthScreenExited({
-        screen: 'archives_auth',
-        exit_action: exitAction,
-        duration_seconds,
-        mode: currentMode,
-      })
-    }
-  }, [trackScreenView, screenStartTime, exitAction, isSignInMode])
+  }, [trackScreenView, isSignInMode])
 
   // Debug: Log video player status
   React.useEffect(() => {

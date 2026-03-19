@@ -45,16 +45,7 @@ export default function OnboardingRemindersScreen() {
   useEffect(() => {
     trackScreenView('Onboarding Question 3')
 
-    // Track screen exit on unmount only
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_question_3',
-        exit_action: exitActionRef.current,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime])
+  }, [trackScreenView])
 
   // Register device token with Customer.io in background (fire-and-forget)
   // Separated from the main flow to avoid blocking navigation
