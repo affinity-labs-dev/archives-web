@@ -385,6 +385,14 @@ export default function AIChatModal({
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+    // Track ai_chat_message_sent (was broken since Dec 2025)
+    analyticsService.trackCustomEvent('ai_chat_message_sent', {
+      era_id: context?.eraId || 'unknown_era',
+      message_type: pendingImage ? 'image' : 'text',
+      message_length: userMessage.length,
+      is_first_message: messages.length === 0,
+    });
+
     try {
       // If user uploaded an image, check if they want editing or analysis
       if (imageToAnalyze) {

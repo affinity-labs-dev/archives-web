@@ -203,21 +203,17 @@ export default function QuizResults({
   const handleRetake = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Track retake button click with full context
-    analyticsService.trackCustomEvent('quiz_results_retake_clicked', {
+    // Track quiz_retake event (was 0 events — method existed but never called)
+    analyticsService.trackQuizRetake({
       adventure_id: adventureId,
       module_id: moduleId,
+      previous_score: correctAnswers,
       era_id: eraId,
       era_name: eraName,
       adventure_number: adventureNumber,
       module_number: moduleNumber,
-      percentage,
-      correct_answers: correctAnswers,
-      total_questions: totalQuestions,
-      total_points: totalPoints,
-      total_xp_after: totalXP,
     });
-    AppLogger.info('quiz', 'Quiz results retake clicked');
+    AppLogger.info('quiz', 'Quiz retake triggered');
 
     onRetake();
   };
