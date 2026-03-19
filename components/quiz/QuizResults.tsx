@@ -14,12 +14,12 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { VideoView } from 'expo-video';
 import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
 import { analyticsService } from '@/services/AnalyticsService';
-import { useGamifiedProgress } from '@/gamification';
+import { useGamifiedProgress, useAI } from '@/gamification';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import AppLogger from '@/services/AppLogger';
 import AIQuizExplanation from './AIQuizExplanation';
@@ -32,7 +32,6 @@ interface QuizResultsProps {
   correctAnswers: number;
   totalQuestions: number;
   totalPoints: number;
-  onRetake: () => void;
   onContinue: () => void;
   onBack?: () => void;
   // Context for analytics
@@ -47,6 +46,8 @@ interface QuizResultsProps {
   userAnswers?: number[];
   // Today mode - hide XP display
   isToday?: boolean;  // true when called from Today screen
+  // Module title for Chat to Learn
+  moduleTitle?: string;
 }
 
 // Video Reward Player - Score-based celebration videos (3-tier system)
@@ -128,7 +129,6 @@ export default function QuizResults({
   correctAnswers,
   totalQuestions,
   totalPoints,
-  onRetake,
   onContinue,
   onBack,
   adventureId,
@@ -140,6 +140,7 @@ export default function QuizResults({
   questions = [],
   userAnswers = [],
   isToday = false,
+  moduleTitle,
 }: QuizResultsProps) {
   // Calculate percentage
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
@@ -147,6 +148,7 @@ export default function QuizResults({
 
   // Access progress context for XP calculations
   const { calculateTotalXP, moduleProgress } = useGamifiedProgress();
+  const { openChatToLearn } = useAI();
   const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
 
   // Load new user progress data for XP calculations
@@ -197,26 +199,39 @@ export default function QuizResults({
     }
   }, [totalXP, newUserProgress, moduleProgress]);
 
-  const handleRetake = () => {
+  const handleChatToLearn = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Track retake button click with full context
-    analyticsService.trackCustomEvent('quiz_results_retake_clicked', {
+    // Build hidden message with quiz context for AI
+    const incorrectList = questions
+      .map((q, i) => {
+        const userAnswerIdx = userAnswers[i];
+        const correctIdx = q.answers.findIndex((a) => a.is_correct);
+        if (userAnswerIdx === correctIdx) return null;
+        return `- Q: "${q.question_text}" | You answered: "${q.answers[userAnswerIdx]?.text}" | Correct: "${q.answers[correctIdx]?.text}"`;
+      })
+      .filter(Boolean)
+      .join('\n');
+
+    const title = moduleTitle || `Module ${moduleNumber}`;
+    const hiddenMessage = incorrectList
+      ? `I just finished the quiz on "${title}" in ${eraName}. I got ${correctAnswers}/${totalQuestions} correct (${percentage}%). Here are the questions I got wrong:\n${incorrectList}\n\nHelp me understand these topics better with real historical context.`
+      : `I just finished the quiz on "${title}" in ${eraName} and got all ${totalQuestions} questions correct (${percentage}%)! Can you share some deeper historical details about this topic that I might not have learned in the lessons?`;
+
+    // Track chat to learn click
+    analyticsService.trackCustomEvent('quiz_results_chat_to_learn_clicked', {
       adventure_id: adventureId,
       module_id: moduleId,
       era_id: eraId,
       era_name: eraName,
-      adventure_number: adventureNumber,
-      module_number: moduleNumber,
       percentage,
       correct_answers: correctAnswers,
       total_questions: totalQuestions,
-      total_points: totalPoints,
-      total_xp_after: totalXP,
     });
-    AppLogger.info('quiz', 'Quiz results retake clicked');
+    AppLogger.info('quiz', 'Chat to Learn clicked');
 
-    onRetake();
+    // Open existing AI chat with hidden context message
+    openChatToLearn(hiddenMessage);
   };
 
   const handleContinue = () => {
@@ -332,15 +347,15 @@ export default function QuizResults({
                 </View>
               </TouchableOpacity>
 
-              {/* Retake Quiz button */}
-              <TouchableOpacity style={styles.retakeButton} onPress={handleRetake}>
+              {/* Chat to Learn button */}
+              <TouchableOpacity style={styles.retakeButton} onPress={handleChatToLearn}>
                 <View style={styles.retakeButtonContent}>
-                  <MaterialIcons
-                    name="replay"
+                  <Ionicons
+                    name="chatbubble-ellipses"
                     size={24}
                     color={ArchivesTheme.colors.mossGreen}
                   />
-                  <Text style={styles.retakeButtonText}>Retake Quiz</Text>
+                  <Text style={styles.retakeButtonText}>Chat to Learn</Text>
                 </View>
               </TouchableOpacity>
             </View>
