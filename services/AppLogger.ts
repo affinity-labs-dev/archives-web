@@ -89,7 +89,18 @@ function log(
 
   // Capture exception for errors with an Error object
   if ((level === 'error' || level === 'fatal') && error) {
-    const errorObj = error instanceof Error ? error : new Error(String(error));
+    let errorObj: Error;
+    if (error instanceof Error) {
+      errorObj = error;
+    } else if (typeof error === 'object' && error !== null && 'message' in error) {
+      // Handle plain objects with a message property (e.g. { message: "..." })
+      errorObj = new Error((error as { message: string }).message);
+    } else if (typeof error === 'string') {
+      errorObj = new Error(error);
+    } else {
+      // Last resort: JSON.stringify to preserve structure instead of [object Object]
+      errorObj = new Error(JSON.stringify(error));
+    }
     Sentry.captureException(errorObj, {
       tags: { log_category: category },
       extra: data,
