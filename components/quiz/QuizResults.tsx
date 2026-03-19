@@ -175,10 +175,13 @@ export default function QuizResults({
     return 'low';
   };
 
-  // Track quiz results viewed when component mounts
+  // Track quiz results viewed ONCE when component mounts (useRef guard prevents re-render duplication)
+  const hasTrackedResultsRef = React.useRef(false);
   React.useEffect(() => {
+    if (hasTrackedResultsRef.current) return;
     // Only track once totalXP is calculated
     if (totalXP > 0 || newUserProgress.length > 0 || moduleProgress.length > 0) {
+      hasTrackedResultsRef.current = true;
       analyticsService.trackQuizResultsViewed({
         adventure_id: adventureId,
         module_id: moduleId,
