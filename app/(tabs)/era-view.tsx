@@ -319,13 +319,17 @@ export default function AdventuresScreen() {
     trackEraComplete();
   }, [selectedEra, selectedEraData, adventures, completedAdventuresCount, quizProgress.totalXP]);
 
-  // Reload progress whenever screen comes into focus (e.g., after quiz completion)
+  // Reload progress and track page view whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
       if (selectedEra) {
         console.log(`🔄 [Adventures] Screen focused, reloading progress for: ${selectedEra}`);
         loadProgress();
       }
+      analyticsService.startPageView('adventures', '/(tabs)/era-view');
+      return () => {
+        analyticsService.endPageView('adventures');
+      };
     }, [loadProgress, selectedEra])
   );
 

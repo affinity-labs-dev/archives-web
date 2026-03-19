@@ -105,7 +105,7 @@ interface AuthScreenExitedEvent {
 
 // ==================== SESSION TELEMETRY INTERFACES (AFF-151) ====================
 
-export type SessionOutTrigger = 'manual_profile' | 'stale_session_onboarding' | 'clerk_session_ended' | 'account_deleted';
+export type SessionOutTrigger = 'manual_profile' | 'stale_session_onboarding' | 'clerk_session_ended' | 'account_deleted' | 'app_backgrounded';
 
 interface UserSessionOutEvent {
   trigger: SessionOutTrigger;
@@ -1234,7 +1234,7 @@ class AnalyticsService {
    * @param pageName - Human-readable page name
    * @param screenUrl - Screen URL path for PostHog activity view (e.g., '/(tabs)/', '/(tabs)/profile')
    */
-  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home', screenUrl: string) {
+  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home' | 'today' | 'adventures', screenUrl: string) {
     this.pageStartTimes.set(pageName, Date.now());
     this.pageClicks.set(pageName, 0);
     this.pageUrls.set(pageName, screenUrl);
@@ -1246,7 +1246,7 @@ class AnalyticsService {
   /**
    * Track page click
    */
-  trackPageClick(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home') {
+  trackPageClick(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home' | 'today' | 'adventures') {
     const currentClicks = this.pageClicks.get(pageName) || 0;
     this.pageClicks.set(pageName, currentClicks + 1);
   }
@@ -1254,7 +1254,7 @@ class AnalyticsService {
   /**
    * End tracking page view (call on screen blur)
    */
-  endPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home') {
+  endPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home' | 'today' | 'adventures') {
     const startTime = this.pageStartTimes.get(pageName);
     if (!startTime) {
       AppLogger.warn('navigation', 'No start time for page view', { pageName });
