@@ -275,32 +275,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   text-overflow: ellipsis;
 }
 
-/* Mobile: breadcrumbs below header as compact row */
+/* Mobile: hide breadcrumbs, back button is sufficient */
 @media (max-width: 599px) {
-  .header {
-    flex-wrap: wrap;
-  }
-
-  .bc {
-    position: relative;
-    left: auto;
-    max-width: 100%;
-    width: 100%;
-    order: 3;
-    padding: 4px 0 2px;
-    font-size: 0.65rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    mask-image: linear-gradient(to right, black 90%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
-  }
-
-  .bc::-webkit-scrollbar { display: none; }
-}
-
-/* Very small phones: hide breadcrumbs, just show back button */
-@media (max-width: 380px) {
   .bc { display: none; }
 }
 
