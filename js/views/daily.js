@@ -374,7 +374,7 @@ export default function dailyView(app, params) {
           cleanupFn = function() { hlsInstances.forEach(function(h) { h.destroy(); }); };
         }
 
-        // Mobile carousel — touch swipe with transform
+        // Mobile carousel — touch swipe
         var mTrack = document.getElementById('ds-mobile-track');
         var mCarousel = document.getElementById('ds-mobile-carousel');
         if (mTrack && mCarousel && card1Urls.length > 1) {
@@ -384,11 +384,14 @@ export default function dailyView(app, params) {
           var mStartX = 0;
           var mDragging = false;
 
+          function slideWidth() { return mCarousel.offsetWidth; }
+
           function mGoTo(idx) {
             if (idx < 0) idx = 0;
             if (idx >= mTotal) idx = mTotal - 1;
             mCurrent = idx;
-            mTrack.style.transform = 'translateX(' + (-mCurrent * 100) + '%)';
+            mTrack.style.transition = 'transform 0.3s ease-out';
+            mTrack.style.transform = 'translateX(-' + (mCurrent * slideWidth()) + 'px)';
             mDots.forEach(function(d, i) {
               d.classList.toggle('ds-mobile-watch__dot--active', i === mCurrent);
             });
@@ -403,14 +406,13 @@ export default function dailyView(app, params) {
           mCarousel.addEventListener('touchmove', function(e) {
             if (!mDragging) return;
             var dx = e.touches[0].clientX - mStartX;
-            var offset = -mCurrent * mCarousel.offsetWidth + dx;
-            mTrack.style.transform = 'translateX(' + offset + 'px)';
+            var base = -mCurrent * slideWidth();
+            mTrack.style.transform = 'translateX(' + (base + dx) + 'px)';
           }, { passive: true });
 
           mCarousel.addEventListener('touchend', function(e) {
             if (!mDragging) return;
             mDragging = false;
-            mTrack.style.transition = 'transform 0.3s ease-out';
             var dx = e.changedTouches[0].clientX - mStartX;
             if (dx < -40) mGoTo(mCurrent + 1);
             else if (dx > 40) mGoTo(mCurrent - 1);
@@ -419,7 +421,6 @@ export default function dailyView(app, params) {
 
           mDots.forEach(function(dot) {
             dot.addEventListener('click', function() {
-              mTrack.style.transition = 'transform 0.3s ease-out';
               mGoTo(parseInt(dot.dataset.index, 10));
             });
           });
