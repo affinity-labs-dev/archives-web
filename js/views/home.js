@@ -57,44 +57,51 @@ export default function homeView(app) {
         var heroBadge = 'Featured Adventure';
         var heroCta = 'Start Adventure';
 
-        // 1) Find in-progress adventure (has some modules done but not all)
-        for (var e = 0; e < eraAdvResults.length; e++) {
-          var advs = eraAdvResults[e].adventures;
-          for (var a = 0; a < advs.length; a++) {
-            var adv = advs[a];
-            var completed = getCompletedCount(adv.readable_id);
-            var totalMods = (adv.card_content && adv.card_content.total_modules) || 5;
-            if (completed > 0 && completed < totalMods) {
-              featuredAdv = adv;
-              heroBadge = 'Continue Learning';
-              heroCta = 'Continue Adventure';
-              break;
+        // Build set of accessible era IDs for double-checking
+        var accessibleEraIds = {};
+        accessibleEras.forEach(function(e) { accessibleEraIds[e.era_id] = true; });
+
+        // Flatten all accessible adventures
+        var allAccessibleAdvs = [];
+        eraAdvResults.forEach(function(r) {
+          r.adventures.forEach(function(adv) {
+            // Double-check era_id is accessible
+            if (accessibleEraIds[adv.era_id]) {
+              allAccessibleAdvs.push(adv);
             }
+          });
+        });
+
+        // 1) Find in-progress adventure (has some modules done but not all)
+        for (var i = 0; i < allAccessibleAdvs.length; i++) {
+          var adv = allAccessibleAdvs[i];
+          var completed = getCompletedCount(adv.readable_id);
+          var totalMods = (adv.card_content && adv.card_content.total_modules) || 5;
+          if (completed > 0 && completed < totalMods) {
+            featuredAdv = adv;
+            heroBadge = 'Continue Learning';
+            heroCta = 'Continue Adventure';
+            break;
           }
-          if (featuredAdv) break;
         }
 
         // 2) If no in-progress, find first adventure with zero progress
         if (!featuredAdv) {
-          for (var e = 0; e < eraAdvResults.length; e++) {
-            var advs = eraAdvResults[e].adventures;
-            for (var a = 0; a < advs.length; a++) {
-              var adv = advs[a];
-              var completed = getCompletedCount(adv.readable_id);
-              if (completed === 0) {
-                featuredAdv = adv;
-                heroBadge = 'Up Next';
-                heroCta = 'Start Adventure';
-                break;
-              }
+          for (var i = 0; i < allAccessibleAdvs.length; i++) {
+            var adv = allAccessibleAdvs[i];
+            var completed = getCompletedCount(adv.readable_id);
+            if (completed === 0) {
+              featuredAdv = adv;
+              heroBadge = 'Up Next';
+              heroCta = 'Start Adventure';
+              break;
             }
-            if (featuredAdv) break;
           }
         }
 
-        // 3) Fallback: first adventure of first era
-        if (!featuredAdv && eraAdvResults.length > 0 && eraAdvResults[0].adventures.length > 0) {
-          featuredAdv = eraAdvResults[0].adventures[0];
+        // 3) Fallback: first accessible adventure
+        if (!featuredAdv && allAccessibleAdvs.length > 0) {
+          featuredAdv = allAccessibleAdvs[0];
         }
 
         if (featuredAdv) {
