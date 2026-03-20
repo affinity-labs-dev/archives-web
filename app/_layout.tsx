@@ -448,16 +448,36 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Also listen for push token changes — FCM/APNs can rotate tokens at any time
   React.useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      const data = notification.request.content.data;
+      const deliveryId = data?.delivery_id as string | undefined;
       const messageId = notification.request.identifier || `notif_${Date.now()}`;
+
+      // Report "open" to Affinity — notification displayed on device confirms delivery
+      if (deliveryId) {
+        AffinityNotificationService.reportEvent(deliveryId, 'open');
+      }
+
       analyticsService.trackCustomEvent('notification_received', {
         message_id: messageId,
+        delivery_id: deliveryId,
         title: notification.request.content.title,
         app_state: 'foreground',
       });
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      const messageId = response.notification.request.identifier || `notif_${Date.now()}`;
+      const data = response.notification.request.content.data;
+      const deliveryId = data?.delivery_id as string | undefined;
+      const messageId = deliveryId ?? response.notification.request.identifier ?? `notif_${Date.now()}`;
+
+      // Report "click" to Affinity — user tapped the notification
+      if (deliveryId) {
+        AffinityNotificationService.reportEvent(deliveryId, 'click', {
+          action_id: response.actionIdentifier,
+          deep_link: data?.link || data?.url || data?.deep_link,
+        });
+      }
+
       analyticsService.trackNotificationClicked(messageId);
 
       // Handle deep links for all push notifications (Affinity / Expo gateway)
