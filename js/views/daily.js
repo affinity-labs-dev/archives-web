@@ -94,31 +94,82 @@ export default function dailyView(app, params) {
     html += '<div class="ds__viewport" id="ds-viewport">';
 
     // === STEP 1: WATCH ===
+    var isMobile = window.innerWidth < 700;
     if (c.card1) {
       var card1 = c.card1;
       var ct = card1.content_type || 'reel';
       var bc = card1.bottom_content || card1.content || {};
       var reading = bc.reading_text || '';
+      var captions = bc.captions || bc.carousel_captions || [];
+      var urls = Array.isArray(card1.media_url) ? card1.media_url : (card1.media_url ? [card1.media_url] : []);
 
       html += '<div class="ds__panel ds__panel--active" data-step="0">';
-      html += '<div class="lesson-wrap">';
 
-      // Build a module-like object to reuse shared renderers
-      var mod = {
-        content_type: ct,
-        media_url: Array.isArray(card1.media_url) ? card1.media_url : [card1.media_url],
-        bottom_content: { reading_text: reading, carousel_captions: (bc.captions || bc.carousel_captions || []) }
-      };
+      if (isMobile) {
+        // Simple flat mobile layout: media → caption → continue button
+        html += '<div class="ds-mobile-watch">';
 
-      if (ct === 'reel' && card1.media_url) {
-        html += renderReelPlayer(mod);
-      } else if (ct === 'image_carousel' && Array.isArray(card1.media_url)) {
-        html += renderImageCarousel(mod);
-      } else if (ct === 'video_carousel' && Array.isArray(card1.media_url)) {
-        html += renderVideoCarousel(mod);
+        if (ct === 'reel' && urls.length > 0) {
+          html += '<div class="ds-mobile-watch__media">'
+            + '<video id="reel-video" playsinline controls class="ds-mobile-watch__video"></video>'
+            + '</div>';
+        } else if ((ct === 'image_carousel' || ct === 'video_carousel') && urls.length > 0) {
+          html += '<div class="ds-mobile-watch__carousel" id="ds-mobile-carousel">';
+          urls.forEach(function(url, i) {
+            if (ct === 'video_carousel') {
+              html += '<div class="ds-mobile-watch__slide">'
+                + '<video class="ds-mobile-watch__video" id="carousel-video-' + i + '" playsinline preload="metadata"></video>'
+                + (captions[i] ? '<div class="ds-mobile-watch__caption">' + sanitizeHtml(captions[i]) + '</div>' : '')
+                + '</div>';
+            } else {
+              html += '<div class="ds-mobile-watch__slide">'
+                + '<img class="ds-mobile-watch__img" src="' + sanitizeUrl(url) + '" alt="" loading="lazy">'
+                + (captions[i] ? '<div class="ds-mobile-watch__caption">' + sanitizeHtml(captions[i]) + '</div>' : '')
+                + '</div>';
+            }
+          });
+          html += '</div>';
+          if (urls.length > 1) {
+            html += '<div class="ds-mobile-watch__dots" id="ds-mobile-dots">';
+            urls.forEach(function(_, i) {
+              html += '<span class="ds-mobile-watch__dot' + (i === 0 ? ' ds-mobile-watch__dot--active' : '') + '" data-index="' + i + '"></span>';
+            });
+            html += '</div>';
+          }
+        }
+
+        if (reading) {
+          html += '<div class="ds-mobile-watch__reading">' + sanitizeHtml(reading) + '</div>';
+        }
+
+        if (steps.length > 1) {
+          var nextStep = steps[1] === 'explore' ? 'Continue to Explore' : 'Continue to Questions';
+          html += '<div class="ds-mobile-watch__footer">'
+            + '<button class="ds__next-btn ds-mobile-watch__continue" data-next="1">' + nextStep + ' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></button>'
+            + '</div>';
+        }
+
+        html += '</div>';
+      } else {
+        // Desktop/tablet: use existing reel-player/carousel components
+        html += '<div class="lesson-wrap">';
+        var mod = {
+          content_type: ct,
+          media_url: urls,
+          bottom_content: { reading_text: reading, carousel_captions: captions }
+        };
+
+        if (ct === 'reel' && urls.length > 0) {
+          html += renderReelPlayer(mod);
+        } else if (ct === 'image_carousel' && urls.length > 0) {
+          html += renderImageCarousel(mod);
+        } else if (ct === 'video_carousel' && urls.length > 0) {
+          html += renderVideoCarousel(mod);
+        }
+        html += '</div>';
       }
 
-      html += '</div></div>'; // close lesson-wrap + panel
+      html += '</div>'; // close panel
     }
 
     // === STEP 2: EXPLORE ===
@@ -298,20 +349,68 @@ export default function dailyView(app, params) {
     // Init card 1 media
     if (c.card1) {
       var ct = c.card1.content_type || 'reel';
-      if (ct === 'reel' && c.card1.media_url) {
-        var url = typeof c.card1.media_url === 'string' ? c.card1.media_url : c.card1.media_url[0];
-        cleanupFn = initReelPlayer(url);
-      } else if (ct === 'image_carousel' || ct === 'video_carousel') {
-        var carouselMod = { content_type: ct, media_url: c.card1.media_url, bottom_content: c.card1.bottom_content || c.card1.content || {} };
-        cleanupFn = initCarousel(carouselMod);
+      var card1Urls = Array.isArray(c.card1.media_url) ? c.card1.media_url : (c.card1.media_url ? [c.card1.media_url] : []);
+
+      if (isMobile) {
+        // Mobile: simple init
+        var hlsInstances = [];
+        if (ct === 'reel' && card1Urls.length > 0) {
+          cleanupFn = initReelPlayer(card1Urls[0]);
+        } else if (ct === 'video_carousel' && card1Urls.length > 0) {
+          // Init HLS for each video
+          card1Urls.forEach(function(url, i) {
+            var vid = document.getElementById('carousel-video-' + i);
+            if (!vid) return;
+            if (url.includes('.m3u8') && window.Hls && Hls.isSupported()) {
+              var hls = new Hls();
+              hls.loadSource(url);
+              hls.attachMedia(vid);
+              hlsInstances.push(hls);
+            } else {
+              vid.src = url;
+            }
+          });
+          cleanupFn = function() { hlsInstances.forEach(function(h) { h.destroy(); }); };
+        }
+
+        // Mobile carousel swipe + dots
+        var mobileCarousel = document.getElementById('ds-mobile-carousel');
+        if (mobileCarousel && card1Urls.length > 1) {
+          var mCurrent = 0;
+          var mDots = app.querySelectorAll('.ds-mobile-watch__dot');
+          var mStartX = 0;
+
+          function mGoTo(idx) {
+            if (idx < 0 || idx >= card1Urls.length) return;
+            mCurrent = idx;
+            mobileCarousel.style.transform = 'translateX(-' + (mCurrent * 100) + '%)';
+            mDots.forEach(function(d, i) { d.classList.toggle('ds-mobile-watch__dot--active', i === mCurrent); });
+          }
+
+          mobileCarousel.addEventListener('touchstart', function(e) { mStartX = e.touches[0].clientX; }, { passive: true });
+          mobileCarousel.addEventListener('touchend', function(e) {
+            var diff = mStartX - e.changedTouches[0].clientX;
+            if (Math.abs(diff) > 50) { mGoTo(mCurrent + (diff > 0 ? 1 : -1)); }
+          });
+          mDots.forEach(function(dot) {
+            dot.addEventListener('click', function() { mGoTo(parseInt(dot.dataset.index, 10)); });
+          });
+        }
+      } else {
+        // Desktop/tablet: use existing components
+        if (ct === 'reel' && card1Urls.length > 0) {
+          cleanupFn = initReelPlayer(card1Urls[0]);
+        } else if (ct === 'image_carousel' || ct === 'video_carousel') {
+          var carouselMod = { content_type: ct, media_url: c.card1.media_url, bottom_content: c.card1.bottom_content || c.card1.content || {} };
+          cleanupFn = initCarousel(carouselMod);
+        }
       }
 
       if (c.card1.background_music_url) {
-        var mediaWrap = app.querySelector('.reel-player__video-wrap') || app.querySelector('.carousel__track-wrap');
+        var mediaWrap = app.querySelector('.reel-player__video-wrap') || app.querySelector('.ds-mobile-watch__media') || app.querySelector('.carousel__track-wrap');
         if (mediaWrap) {
           mediaWrap.insertAdjacentHTML('beforeend', renderBgMusicToggle());
         }
-        // Only start music if Watch step is active
         if (currentStep === 0 && steps[0] === 'watch') {
           startBgMusic(c.card1.background_music_url);
         }
