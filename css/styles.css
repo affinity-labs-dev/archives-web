@@ -2978,6 +2978,12 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   object-fit: cover;
 }
 
+.user-menu__info-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .user-menu__name {
   font-size: 0.85rem;
   color: var(--cream);
@@ -2985,6 +2991,59 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.user-menu__email {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-menu__status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+}
+
+.user-menu__status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.user-menu__status--free {
+  color: var(--text-secondary);
+  background: rgba(240, 234, 224, 0.06);
+}
+
+.user-menu__status--premium {
+  color: var(--amber);
+  background: var(--amber-dim);
+}
+
+.user-menu__upgrade {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--dark);
+  background: var(--amber);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.user-menu__upgrade:hover {
+  background: var(--amber-glow);
+  transform: translateY(-1px);
 }
 
 .user-menu__divider {
