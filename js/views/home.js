@@ -43,8 +43,19 @@ export default function homeView(app) {
         var estTime = escapeHtml((featuredAdv.card_content && featuredAdv.card_content.estimated_time) || '');
         var featuredRid = featuredAdv.readable_id;
 
+        // Preload hero image (reuse existing link if present)
+        var heroLink = document.getElementById('preload-hero');
+        if (!heroLink) {
+          heroLink = document.createElement('link');
+          heroLink.id = 'preload-hero';
+          heroLink.rel = 'preload';
+          heroLink.as = 'image';
+          document.head.appendChild(heroLink);
+        }
+        heroLink.href = advBg;
+
         heroHtml = '<div class="home__hero" data-rid="' + escapeHtml(featuredRid) + '">'
-          + '<div class="home__hero-bg" style="background-image: url(' + advBg + ')"></div>'
+          + '<img class="home__hero-bg" src="' + advBg + '" alt="" fetchpriority="high">'
           + '<div class="home__hero-badge">Featured Adventure</div>'
           + '<div class="home__hero-overlay">'
           + '<div class="home__hero-label">' + eraName + (estTime ? ' · ' + estTime : '') + '</div>'
@@ -65,7 +76,7 @@ export default function homeView(app) {
       var dailyStreak = getDailyStreak([]);
 
       if (dailyEntry && dailyEntry.content) {
-        dc = typeof dailyEntry.content === 'string' ? JSON.parse(dailyEntry.content) : dailyEntry.content;
+        try { dc = typeof dailyEntry.content === 'string' ? JSON.parse(dailyEntry.content) : dailyEntry.content; } catch (e) { dc = null; }
         dailyTitle = dc.today_title || dailyTitle;
         dailyDayNum = dc.day_number || '';
         dailyTotalDays = dc.total_days || '';
@@ -78,7 +89,7 @@ export default function homeView(app) {
         + '<h2 class="home__section-title">Today\'s Story</h2>'
         + '</div>'
         + '<div class="home__daily" data-nav="daily">'
-        + (dailyThumb ? '<div class="home__daily-bg" style="background-image:url(' + dailyThumb + ')"></div>' : '')
+        + (dailyThumb ? '<img class="home__daily-bg" src="' + dailyThumb + '" alt="" loading="lazy">' : '')
         + '<div class="home__daily-overlay">'
         + (dailyDayNum ? '<div class="home__daily-day">Day ' + escapeHtml(dailyDayNum) + (dailyTotalDays ? ' of ' + escapeHtml(dailyTotalDays) : '') + '</div>' : '')
         + '<div class="home__daily-title">' + escapeHtml(dailyTitle) + '</div>'
@@ -92,13 +103,13 @@ export default function homeView(app) {
       var eraCards = activeEras.map(function(era, idx) {
         var num = String(idx + 1).padStart(2, '0');
         var bgUrl = sanitizeUrl(era.bg_url);
-        var bgStyle = bgUrl ? 'background-image: url(' + bgUrl + ')' : '';
+
         var eraPremium = era.status === 'premium';
         var badge = eraPremium ? '<span class="era-card__badge era-card__badge--premium">Premium</span>' : '';
         var lockIcon = '';
 
         return '<div class="era-card" data-era="' + escapeHtml(era.era_id) + '">'
-          + '<div class="era-card__bg" style="' + bgStyle + '"></div>'
+          + (bgUrl ? '<img class="era-card__bg" src="' + bgUrl + '" alt="" loading="lazy">' : '<div class="era-card__bg"></div>')
           + '<div class="era-card__overlay">'
           + '<div class="era-card__number">' + num + '</div>'
           + badge
@@ -116,9 +127,9 @@ export default function homeView(app) {
       if (otherEras.length > 0) {
         var comingCards = otherEras.map(function(era) {
           var bgUrl = sanitizeUrl(era.bg_url);
-          var bgStyle = bgUrl ? 'background-image: url(' + bgUrl + ')' : '';
+  
           return '<div class="era-card era-card--disabled">'
-            + '<div class="era-card__bg" style="' + bgStyle + '"></div>'
+            + (bgUrl ? '<img class="era-card__bg" src="' + bgUrl + '" alt="" loading="lazy">' : '<div class="era-card__bg"></div>')
             + '<div class="era-card__overlay">'
             + '<span class="era-card__badge era-card__badge--soon">Coming Soon</span>'
             + '<div class="era-card__info">'

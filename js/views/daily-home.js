@@ -175,7 +175,7 @@ export default function dailyHomeView(app, params) {
     var steps = [];
 
     if (entry && entry.content) {
-      c = typeof entry.content === 'string' ? JSON.parse(entry.content) : entry.content;
+      try { c = typeof entry.content === 'string' ? JSON.parse(entry.content) : entry.content; } catch (e) { c = null; }
       storyTitle = c.today_title || storyTitle;
       dayNum = c.day_number || '';
       totalDays = c.total_days || '';

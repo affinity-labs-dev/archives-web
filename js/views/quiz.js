@@ -1,4 +1,5 @@
 import { getAdventure } from '../api.js';
+import { forceResolve } from '../router.js';
 import { markComplete } from '../state.js';
 import { renderHeader } from '../components/header.js';
 import { renderQuizCard, attachQuizHandlers } from '../components/quiz-card.js';
@@ -7,27 +8,8 @@ import { openChat } from '../components/chat.js';
 import { escapeHtml } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
-
-function getStars(score, total) {
-  if (total === 0) return 0;
-  var pct = score / total;
-  if (pct >= 1) return 3;
-  if (pct >= 0.66) return 2;
-  if (pct >= 0.33) return 1;
-  return 0;
-}
-
-// 3-tier reward video system matching the mobile app
-function getRewardVideo(percentage) {
-  if (percentage >= 70) return 'assets/videos/quiz_reward/quiz-reward3.mp4';
-  if (percentage >= 34) return 'assets/videos/quiz_reward/quiz-reward2.mp4';
-  return 'assets/videos/quiz_reward/quiz-reward1.mp4';
-}
-
-function getResultMessage(percentage) {
-  if (percentage >= 70) return { title: 'Brilliant Effort!', subtitle: "You're getting better every time" };
-  return { title: "You've Got This!", subtitle: 'Revisit the lessons & try again' };
-}
+import { tryStreakCelebration } from '../components/streak-celebration.js';
+import { getStars, getRewardVideo, getResultMessage } from '../components/quiz-helpers.js';
 
 function renderStars(earned, total) {
   var html = '<div class="stars">';
@@ -108,7 +90,7 @@ export default function quizView(app, { readableId, moduleIndex }) {
         if (current < questions.length) {
           showQuestion();
         } else {
-          showScore();
+          tryStreakCelebration(showScore);
         }
       });
     }
@@ -132,27 +114,24 @@ export default function quizView(app, { readableId, moduleIndex }) {
             { label: 'Quiz Complete' }
           ])
         + '<div class="quiz-score fade-in">'
-        + '<div class="quiz-score__video-wrap">'
         + '<video class="quiz-score__video" autoplay playsinline>'
         + '<source src="' + escapeHtml(videoSrc) + '" type="video/mp4">'
-        + '</video></div>'
+        + '</video>'
+        + '<div class="quiz-score__overlay">'
+        + '<div class="quiz-score__content">'
         + '<div class="quiz-score__title">' + escapeHtml(msg.title) + '</div>'
         + '<div class="quiz-score__subtitle">' + escapeHtml(msg.subtitle) + '</div>'
-        + '<div class="quiz-score__stats">'
-        + '<div class="quiz-score__stats-left">'
-        + '<div class="quiz-score__percentage">' + percentage + '%</div>'
-        + '<div class="quiz-score__final">Final Score</div>'
+        + '<div class="quiz-score__score-row">'
+        + '<span class="quiz-score__percentage">' + percentage + '%</span>'
+        + '<span class="quiz-score__correct">' + score + '/' + questions.length + ' correct</span>'
         + '</div>'
-        + '<div class="quiz-score__stats-right">'
-        + '<div class="quiz-score__correct">Correct: ' + score + '/' + questions.length + '</div>'
-        + '</div></div>'
         + '<div class="quiz-score__progress-bar"><div class="quiz-score__progress-fill" style="width:' + percentage + '%"></div></div>'
         + '<div class="quiz-score__actions" id="quiz-actions">'
         + (hasNext ? '<button class="cta-btn" data-action="next">Continue</button>' : '')
         + '<button class="quiz-score__retry" data-action="retry">Retake Quiz</button>'
         + '<button class="quiz-score__chat" data-action="chat">Chat to Learn More</button>'
         + '<button class="quiz-score__back" data-action="back">Back to Adventure</button>'
-        + '</div></div>';
+        + '</div></div></div></div>';
 
       // Attach click handlers
       const actions = document.getElementById('quiz-actions');
@@ -161,7 +140,9 @@ export default function quizView(app, { readableId, moduleIndex }) {
           const btn = e.target.closest('[data-action]');
           if (!btn) return;
           if (btn.dataset.action === 'next') window.location.hash = '/lesson/' + readableId + '/' + nextIdx;
-          else if (btn.dataset.action === 'retry') window.location.hash = '/quiz/' + readableId + '/' + idx;
+          else if (btn.dataset.action === 'retry') {
+            forceResolve();
+          }
           else if (btn.dataset.action === 'chat') {
             if (!isPremium()) { showPaywall(); return; }
             // Build module summary from reading text (strip HTML)

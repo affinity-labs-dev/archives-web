@@ -1,3 +1,5 @@
+import { pushAdventureProgress, pushDailyProgress } from './services/sync.js';
+
 // === Settings ===
 const SETTINGS_KEY = 'archives_settings';
 
@@ -43,6 +45,7 @@ export function markComplete(adventureId, moduleId, stars) {
   const prev = data[adventureId][moduleId] || 0;
   data[adventureId][moduleId] = Math.max(prev, stars || 0);
   save(data);
+  pushAdventureProgress();
 }
 
 export function isComplete(adventureId, moduleId) {
@@ -83,6 +86,7 @@ export function setDailyStepComplete(date, step, value) {
   if (!data[date]) data[date] = {};
   data[date][step] = value || true;
   saveDaily(data);
+  pushDailyProgress();
 }
 
 export function getDailyProgress(date) {

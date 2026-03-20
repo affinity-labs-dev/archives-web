@@ -1,7 +1,7 @@
 import { getAdventure } from '../api.js';
 import { renderHeader } from '../components/header.js';
 import { renderReelPlayer, initReelPlayer } from '../components/reel-player.js';
-import { renderScrollableView } from '../components/scrollable-view.js';
+import { renderScrollableView, initScrollableVideos } from '../components/scrollable-view.js';
 import { renderImageCarousel, renderVideoCarousel, initCarousel } from '../components/carousel.js';
 import { startBgMusic, stopBgMusic, renderBgMusicToggle, initBgMusicToggle } from '../components/bg-music.js';
 import { escapeHtml } from '../utils.js';
@@ -99,6 +99,8 @@ export default function lessonView(app, { readableId, moduleIndex }) {
       cleanupFn = initReelPlayer(mod.media_url[0]);
     } else if (mod.content_type === 'video_carousel' || mod.content_type === 'image_carousel') {
       cleanupFn = initCarousel(mod);
+    } else if (mod.content_type === 'scrollable_media_view') {
+      cleanupFn = initScrollableVideos(app);
     }
   }).catch(err => {
     if (aborted) return;

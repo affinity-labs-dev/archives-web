@@ -7,9 +7,11 @@ import { renderQuizCard, attachQuizHandlers } from '../components/quiz-card.js';
 import { playStars } from '../components/sounds.js';
 import { openChat } from '../components/chat.js';
 import { setDailyStepComplete } from '../state.js';
-import { escapeHtml, sanitizeUrl } from '../utils.js';
+import { escapeHtml, sanitizeUrl, sanitizeHtml } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
+import { tryStreakCelebration } from '../components/streak-celebration.js';
+import { getStars, getRewardVideo, getResultMessage } from '../components/quiz-helpers.js';
 
 export default function dailyView(app, params) {
   app.innerHTML = '<div class="loading"><div class="spinner"></div>Loading</div>';
@@ -44,7 +46,8 @@ export default function dailyView(app, params) {
       return;
     }
 
-    var c = typeof entry.content === 'string' ? JSON.parse(entry.content) : entry.content;
+    var c;
+    try { c = typeof entry.content === 'string' ? JSON.parse(entry.content) : entry.content; } catch (e) { c = null; }
     var storyTitle = escapeHtml(c.today_title || 'Today\'s Story');
     var dayNum = escapeHtml(c.day_number || '');
 
@@ -149,7 +152,7 @@ export default function dailyView(app, params) {
         blocks.forEach(function(block) {
           if (block.type === 'text' && block.content) {
             // text blocks contain intentional HTML from the CMS
-            html += '<div class="scrollable-view__block scrollable-view__block--text">' + block.content + '</div>';
+            html += '<div class="scrollable-view__block scrollable-view__block--text">' + sanitizeHtml(block.content) + '</div>';
           } else if (block.type === 'image' && block.url) {
             html += '<div class="scrollable-view__block scrollable-view__block--image"><img src="' + sanitizeUrl(block.url) + '" alt="" loading="lazy"></div>';
           }
@@ -352,26 +355,6 @@ export default function dailyView(app, params) {
       var dsIncorrectAnswers = [];
       var dsQuizContainer = document.getElementById('ds-quiz-container');
 
-      function getRewardVideo(pct) {
-        if (pct >= 70) return 'assets/videos/quiz_reward/quiz-reward3.mp4';
-        if (pct >= 34) return 'assets/videos/quiz_reward/quiz-reward2.mp4';
-        return 'assets/videos/quiz_reward/quiz-reward1.mp4';
-      }
-
-      function getResultMessage(pct) {
-        if (pct >= 70) return { title: 'Brilliant Effort!', subtitle: "You're getting better every time" };
-        return { title: "You've Got This!", subtitle: 'Revisit the story & try again' };
-      }
-
-      function getStars(score, total) {
-        if (total === 0) return 0;
-        var p = score / total;
-        if (p >= 1) return 3;
-        if (p >= 0.66) return 2;
-        if (p >= 0.33) return 1;
-        return 0;
-      }
-
       function showDailyQuestion() {
         if (aborted) return;
         dsQuizContainer.innerHTML = renderQuizCard(dsQuestions[dsQuizCurrent], dsQuizCurrent, dsQuestions.length);
@@ -394,7 +377,7 @@ export default function dailyView(app, params) {
           if (dsQuizCurrent < dsQuestions.length) {
             showDailyQuestion();
           } else {
-            showDailyScore();
+            tryStreakCelebration(showDailyScore);
           }
         });
 
@@ -415,25 +398,22 @@ export default function dailyView(app, params) {
         // Replace the quiz panel content with the score screen
         var panel = dsQuizContainer.closest('.ds__panel');
         panel.innerHTML = '<div class="quiz-score fade-in">'
-          + '<div class="quiz-score__video-wrap">'
           + '<video class="quiz-score__video" autoplay playsinline>'
           + '<source src="' + escapeHtml(videoSrc) + '" type="video/mp4">'
-          + '</video></div>'
+          + '</video>'
+          + '<div class="quiz-score__overlay">'
+          + '<div class="quiz-score__content">'
           + '<div class="quiz-score__title">' + escapeHtml(msg.title) + '</div>'
           + '<div class="quiz-score__subtitle">' + escapeHtml(msg.subtitle) + '</div>'
-          + '<div class="quiz-score__stats">'
-          + '<div class="quiz-score__stats-left">'
-          + '<div class="quiz-score__percentage">' + percentage + '%</div>'
-          + '<div class="quiz-score__final">Final Score</div>'
+          + '<div class="quiz-score__score-row">'
+          + '<span class="quiz-score__percentage">' + percentage + '%</span>'
+          + '<span class="quiz-score__correct">' + dsQuizScore + '/' + total + ' correct</span>'
           + '</div>'
-          + '<div class="quiz-score__stats-right">'
-          + '<div class="quiz-score__correct">Correct: ' + dsQuizScore + '/' + total + '</div>'
-          + '</div></div>'
           + '<div class="quiz-score__progress-bar"><div class="quiz-score__progress-fill" style="width:' + percentage + '%"></div></div>'
           + '<div class="quiz-score__actions" id="ds-score-actions">'
           + '<button class="cta-btn" data-action="finish">Finish Story</button>'
           + '<button class="quiz-score__chat" data-action="chat">Chat to Learn More</button>'
-          + '</div></div>';
+          + '</div></div></div></div>';
 
         var actionsEl = document.getElementById('ds-score-actions');
         if (actionsEl) {
@@ -442,6 +422,7 @@ export default function dailyView(app, params) {
             if (!btn) return;
             if (btn.dataset.action === 'finish') {
               window.location.hash = '/daily';
+              return;
             } else if (btn.dataset.action === 'chat') {
               if (!isPremium()) { showPaywall(); return; }
               // Build summary from explore content or watch reading text

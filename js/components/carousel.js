@@ -1,5 +1,6 @@
 // carousel.js — Image carousel and video carousel components
 // Uses the same reel-player layout: media on left, reading text on right
+import { sanitizeHtml } from '../utils.js';
 
 function buildSlides(mod) {
   var urls = mod.media_url || [];
@@ -8,7 +9,7 @@ function buildSlides(mod) {
   return urls.map(function(url, i) {
     var caption = captions[i] || '';
     var captionHtml = caption
-      ? '<div class="carousel__caption">' + caption + '</div>'
+      ? '<div class="carousel__caption">' + sanitizeHtml(caption) + '</div>'
       : '';
 
     if (mod.content_type === 'video_carousel') {
@@ -64,7 +65,7 @@ function renderCarousel(mod) {
     + '</div>'
     + ctrl.dots
     + '</div>'
-    + (reading ? '<div class="reel-player__reading">' + reading + '</div>' : '')
+    + (reading ? '<div class="reel-player__reading">' + sanitizeHtml(reading) + '</div>' : '')
     + '</div>';
 }
 

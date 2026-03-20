@@ -25,7 +25,7 @@ export default function adventuresView(app, params) {
 
         return `
           <div class="adventure-card" data-rid="${rid}">
-            <img class="adventure-card__bg" src="${bgImage}" alt="" loading="lazy" onerror="if(this.src!=='${iconUrl}')this.src='${iconUrl}'">
+            <img class="adventure-card__bg" src="${bgImage}" alt="" loading="lazy" data-fallback="${iconUrl}">
             <div class="adventure-card__overlay">
               <div class="adventure-card__number">${num}</div>
               <div class="adventure-card__title">${title}</div>
@@ -55,6 +55,14 @@ export default function adventuresView(app, params) {
           </div>
         </div>
       `;
+
+      // Attach image fallbacks
+      app.querySelectorAll('img[data-fallback]').forEach(function(img) {
+        img.addEventListener('error', function() {
+          var fb = img.dataset.fallback;
+          if (fb && img.src !== fb) img.src = fb;
+        }, { once: true });
+      });
 
       // Attach click handlers via event delegation
       app.querySelectorAll('.adventure-card[data-rid]').forEach(card => {

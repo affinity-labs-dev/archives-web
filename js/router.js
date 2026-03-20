@@ -54,6 +54,10 @@ function resolve() {
   navigate('/');
 }
 
+export function forceResolve() {
+  resolve();
+}
+
 export function startRouter() {
   window.addEventListener('hashchange', resolve);
   resolve();

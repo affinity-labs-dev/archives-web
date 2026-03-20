@@ -1,10 +1,12 @@
-const SUPABASE_URL = 'https://kcgihainlnntshupiztu.supabase.co';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ2loYWlubG5udHNodXBpenR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODMzNzMsImV4cCI6MjA3MDI1OTM3M30.hyZB28wO88jiCh30PoLCDGt8MvsmaLjsl96a56xpyJk';
+export const SUPABASE_URL = 'https://kcgihainlnntshupiztu.supabase.co';
+export const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ2loYWlubG5udHNodXBpenR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODMzNzMsImV4cCI6MjA3MDI1OTM3M30.hyZB28wO88jiCh30PoLCDGt8MvsmaLjsl96a56xpyJk';
 
 const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 async function query(path) {
-  if (cache.has(path)) return cache.get(path);
+  const cached = cache.get(path);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     headers: {
       'apikey': ANON_KEY,
@@ -13,7 +15,7 @@ async function query(path) {
   });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   const data = await res.json();
-  cache.set(path, data);
+  cache.set(path, { data, ts: Date.now() });
   return data;
 }
 

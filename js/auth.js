@@ -8,14 +8,17 @@ export async function initClerk() {
       if (window.Clerk) {
         clearInterval(interval);
         resolve();
-      } else if (++attempts > 100) {
+      } else if (++attempts > 50) {
         clearInterval(interval);
         reject(new Error('ClerkJS failed to load'));
       }
     }, 100);
   });
-  // Re-load with UI components enabled
-  await window.Clerk.load();
+  // Re-load with UI components enabled, with timeout
+  await Promise.race([
+    window.Clerk.load(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Clerk.load() timed out')), 8000))
+  ]);
   clerkInstance = window.Clerk;
   return clerkInstance;
 }
@@ -53,12 +56,19 @@ export function mountSignIn(el) {
   });
 }
 
+function _esc(str) {
+  if (!str) return '';
+  var d = document.createElement('div');
+  d.textContent = String(str);
+  return d.innerHTML;
+}
+
 export function mountUserMenu(el) {
   if (!clerkInstance || !clerkInstance.user) return;
 
   const user = clerkInstance.user;
-  const avatarUrl = user.imageUrl;
-  const name = user.fullName || user.primaryEmailAddress?.emailAddress || '';
+  const avatarUrl = _esc(user.imageUrl || '');
+  const name = _esc(user.fullName || user.primaryEmailAddress?.emailAddress || '');
 
   el.innerHTML = `
     <button class="user-menu__trigger" aria-label="User menu">

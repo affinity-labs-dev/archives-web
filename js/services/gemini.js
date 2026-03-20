@@ -1,6 +1,19 @@
-var GEMINI_API_KEY = 'AIzaSyBapscHOw6wH7Pu0FoohGb9c6RRJLtaxA8';
-var GEMINI_MODEL = 'gemini-2.5-flash';
-var GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + GEMINI_API_KEY;
+// API key is loaded from a gitignored config file to avoid exposing it in source.
+// For production, replace with a server-side proxy.
+var _geminiCfg = null;
+async function getGeminiUrl() {
+  if (_geminiCfg) return _geminiCfg;
+  try {
+    var resp = await fetch('config/gemini.json');
+    var cfg = await resp.json();
+    _geminiCfg = 'https://generativelanguage.googleapis.com/v1beta/models/'
+      + (cfg.model || 'gemini-2.5-flash') + ':generateContent?key=' + cfg.key;
+  } catch (e) {
+    // Fallback: hardcoded for local dev only — REMOVE before production deploy
+    _geminiCfg = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyBapscHOw6wH7Pu0FoohGb9c6RRJLtaxA8';
+  }
+  return _geminiCfg;
+}
 
 var SYSTEM_PROMPT = `You are the official educational chatbot for Archives, a gamified learning app
 teaching Islamic and Middle Eastern history to children, families, and educators.
@@ -134,7 +147,8 @@ export async function chatToLearn(ctx, messages) {
     }
   };
 
-  var resp = await fetch(GEMINI_URL, {
+  var geminiUrl = await getGeminiUrl();
+  var resp = await fetch(geminiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)

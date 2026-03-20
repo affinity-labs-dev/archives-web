@@ -1,3 +1,5 @@
+import { sanitizeHtml } from '../utils.js';
+
 export function renderReelPlayer(module) {
   const hlsUrl = module.media_url?.[0] || '';
   const readingText = module.bottom_content?.reading_text || '';
@@ -7,7 +9,7 @@ export function renderReelPlayer(module) {
       <div class="reel-player__video-wrap">
         <video id="reel-video" playsinline controls></video>
       </div>
-      ${readingText ? `<div class="reel-player__reading">${readingText}</div>` : ''}
+      ${readingText ? `<div class="reel-player__reading">${sanitizeHtml(readingText)}</div>` : ''}
     </div>
   `;
 }

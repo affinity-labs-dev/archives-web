@@ -1,7 +1,7 @@
 import { getAdventure, getEra } from '../api.js';
 import { isComplete, getStars } from '../state.js';
 import { renderHeader } from '../components/header.js';
-import { escapeHtml, sanitizeUrl } from '../utils.js';
+import { escapeHtml, sanitizeUrl, sanitizeHtml } from '../utils.js';
 
 var TYPE_ICONS = {
   reel: '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21"/></svg>',
@@ -79,7 +79,7 @@ export default function adventureDetailView(app, params) {
         ])
       + '<div class="detail-wrap fade-in">'
       + '<div class="detail-hero">'
-      + '<img class="detail-hero__img" src="' + bgImage + '" alt="" onerror="if(this.src!==\'' + iconUrl + '\')this.src=\'' + iconUrl + '\'">'
+      + '<img class="detail-hero__img" src="' + bgImage + '" alt="" data-fallback="' + iconUrl + '">'
       + '<div class="detail-hero__overlay">'
       + '<h1 class="detail-hero__title">' + title + '</h1>'
       + '<div class="detail-hero__meta"><span>' + escapeHtml(adv.timeline) + '</span>'
@@ -90,12 +90,20 @@ export default function adventureDetailView(app, params) {
           + '<button class="detail-about__toggle" id="about-toggle">About this adventure'
           + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'
           + '</button>'
-          + '<div class="detail-about__text" id="about-text">' + story + '</div></div>'
+          + '<div class="detail-about__text" id="about-text">' + sanitizeHtml(story) + '</div></div>'
         : '')
       + '<div class="module-section">'
       + '<div class="module-section__title">Modules</div>'
       + '<div class="mtile-grid stagger-in">' + tiles + '</div>'
       + '</div></div>';
+
+    // Attach image fallbacks
+    app.querySelectorAll('img[data-fallback]').forEach(function(img) {
+      img.addEventListener('error', function() {
+        var fb = img.dataset.fallback;
+        if (fb && img.src !== fb) img.src = fb;
+      }, { once: true });
+    });
 
     // Attach click handlers via event delegation
     app.querySelectorAll('.mtile[data-lesson-idx]').forEach(tile => {

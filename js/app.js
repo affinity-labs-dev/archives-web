@@ -1,6 +1,7 @@
 import { route, startRouter } from './router.js';
 import { initClerk, isSignedIn, mountSignIn, mountUserMenu } from './auth.js';
 import { initPurchases } from './services/revenuecat.js';
+import { initSync } from './services/sync.js';
 import homeView from './views/home.js';
 import adventuresView from './views/adventures.js';
 import adventureDetailView from './views/adventure-detail.js';
@@ -52,6 +53,9 @@ function startApp(clerk) {
   // Init RevenueCat for premium entitlements (fire-and-forget)
   initPurchases(clerk.user.id).catch(function(err) { console.warn('RevenueCat init:', err); });
 
+  // Sync progress from mobile + web cloud (fire-and-forget)
+  initSync().catch(function(err) { console.warn('Progress sync:', err); });
+
   startRouter();
   // Sign-out → reload to auth screen
   clerk.addListener(({ user }) => {
@@ -68,8 +72,9 @@ function showAuthScreen(app, clerk) {
   `;
   mountSignIn(document.getElementById('clerk-sign-in'));
 
-  clerk.addListener(({ user }) => {
+  var unsub = clerk.addListener(({ user }) => {
     if (user) {
+      if (unsub) unsub();
       app.innerHTML = '';
       startApp(clerk);
     }
