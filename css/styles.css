@@ -275,7 +275,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   text-overflow: ellipsis;
 }
 
-/* Mobile: breadcrumbs below header as a second row */
+/* Mobile: breadcrumbs below header as compact row */
 @media (max-width: 599px) {
   .header {
     flex-wrap: wrap;
@@ -287,14 +287,21 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     max-width: 100%;
     width: 100%;
     order: 3;
-    padding-top: 6px;
+    padding: 4px 0 2px;
     font-size: 0.65rem;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    mask-image: linear-gradient(to right, black 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
   }
 
   .bc::-webkit-scrollbar { display: none; }
+}
+
+/* Very small phones: hide breadcrumbs, just show back button */
+@media (max-width: 380px) {
+  .bc { display: none; }
 }
 
 @media (min-width: 600px) {
@@ -2291,7 +2298,16 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   /* Daily story reel — same treatment */
   .ds .reel-player {
     max-height: none;
-    top: 0;
+    top: 56px;
+  }
+
+  /* Fix: transform on ds__panel creates containing block that breaks position:fixed */
+  .ds__panel--active {
+    transform: none !important;
+  }
+
+  .ds__viewport {
+    overflow: visible;
   }
 }
 
