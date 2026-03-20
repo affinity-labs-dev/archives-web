@@ -1302,14 +1302,12 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .ds-mobile-watch__slide {
   min-width: 100%;
   box-sizing: border-box;
-  padding: 0 var(--page-px);
 }
 
 .ds-mobile-watch__img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 8px;
 }
 
 .ds-mobile-watch__caption {
