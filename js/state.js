@@ -69,6 +69,10 @@ export function getCompletedCount(adventureId) {
   return Object.keys(adv).length;
 }
 
+export function getAllProgress() {
+  return load();
+}
+
 // === Daily Story Progress ===
 const DAILY_KEY = 'archives_daily_progress';
 

@@ -1,6 +1,6 @@
-import { getAllEras, getAdventures, getFeaturedAdventure, getTodayStory } from '../api.js';
+import { getAllEras, getAdventures, getAdventure, getTodayStory } from '../api.js';
 import { renderHeader } from '../components/header.js';
-import { getDailyStreak, getDailyProgress } from '../state.js';
+import { getDailyStreak, getDailyProgress, getAllProgress, getCompletedCount } from '../state.js';
 import { escapeHtml, sanitizeUrl } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
@@ -9,11 +9,10 @@ export default function homeView(app) {
   app.innerHTML = '<div class="loading"><div class="spinner"></div>Loading</div>';
   let aborted = false;
 
-  Promise.all([getAllEras(), getFeaturedAdventure(), getTodayStory()]).then(function(results) {
+  Promise.all([getAllEras(), getTodayStory()]).then(function(results) {
     if (aborted) return;
     var eras = results[0];
-    var featuredAdv = results[1];
-    var dailyEntry = results[2];
+    var dailyEntry = results[1];
 
     // For eras without bg_url but with content, fetch first adventure's bg
     // Trim all bg_urls upfront to fix stray whitespace/newlines from DB
@@ -33,38 +32,117 @@ export default function homeView(app) {
       var activeEras = eras.filter(function(e) { return e.status === 'active' || e.status === 'premium'; });
       var otherEras = eras.filter(function(e) { return e.status !== 'active' && e.status !== 'premium'; });
 
-      // Featured adventure hero
+      // Smart featured adventure — find where user left off
       var heroHtml = '';
-      if (featuredAdv) {
-        var advTitle = escapeHtml(featuredAdv.adventure_title?.replace(/\r?\n/g, ' '));
-        var advBg = sanitizeUrl((featuredAdv.card_content && featuredAdv.card_content.background_image) || featuredAdv.icon_url);
-        var advDesc = escapeHtml(featuredAdv.adventure_description);
-        var eraName = escapeHtml((featuredAdv.card_content && featuredAdv.card_content.era_name) || featuredAdv.era_id);
-        var estTime = escapeHtml((featuredAdv.card_content && featuredAdv.card_content.estimated_time) || '');
-        var featuredRid = featuredAdv.readable_id;
+      var heroTarget = null; // { rid, moduleIdx } or null
 
-        // Preload hero image (reuse existing link if present)
-        var heroLink = document.getElementById('preload-hero');
-        if (!heroLink) {
-          heroLink = document.createElement('link');
-          heroLink.id = 'preload-hero';
-          heroLink.rel = 'preload';
-          heroLink.as = 'image';
-          document.head.appendChild(heroLink);
+      // Accessible eras (skip premium for non-premium users)
+      var premium = isPremium();
+      var accessibleEras = activeEras.filter(function(e) {
+        return e.status === 'active' || (e.status === 'premium' && premium);
+      });
+
+      // Fetch adventures for all accessible eras to find continue point
+      var eraAdvPromises = accessibleEras.map(function(era) {
+        return getAdventures(era.era_id).then(function(advs) {
+          return { era: era, adventures: advs };
+        });
+      });
+
+      return Promise.all(eraAdvPromises).then(function(eraAdvResults) {
+        if (aborted) return;
+
+        var progress = getAllProgress();
+        var featuredAdv = null;
+        var heroBadge = 'Featured Adventure';
+        var heroCta = 'Start Adventure';
+
+        // 1) Find in-progress adventure (has some modules done but not all)
+        for (var e = 0; e < eraAdvResults.length; e++) {
+          var advs = eraAdvResults[e].adventures;
+          for (var a = 0; a < advs.length; a++) {
+            var adv = advs[a];
+            var completed = getCompletedCount(adv.readable_id);
+            var totalMods = (adv.card_content && adv.card_content.total_modules) || 5;
+            if (completed > 0 && completed < totalMods) {
+              featuredAdv = adv;
+              heroBadge = 'Continue Learning';
+              heroCta = 'Continue Adventure';
+              break;
+            }
+          }
+          if (featuredAdv) break;
         }
-        heroLink.href = advBg;
 
-        heroHtml = '<div class="home__hero" data-rid="' + escapeHtml(featuredRid) + '">'
-          + '<img class="home__hero-bg" src="' + advBg + '" alt="" fetchpriority="high">'
-          + '<div class="home__hero-badge">Featured Adventure</div>'
-          + '<div class="home__hero-overlay">'
-          + '<div class="home__hero-label">' + eraName + (estTime ? ' · ' + estTime : '') + '</div>'
-          + '<h1 class="home__hero-title">' + advTitle + '</h1>'
-          + (featuredAdv.timeline ? '<div class="home__hero-timeline">' + escapeHtml(featuredAdv.timeline) + '</div>' : '')
-          + '<p class="home__hero-desc">' + advDesc + '</p>'
-          + '<div class="home__hero-cta">Start Adventure <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>'
-          + '</div></div>';
-      }
+        // 2) If no in-progress, find first adventure with zero progress
+        if (!featuredAdv) {
+          for (var e = 0; e < eraAdvResults.length; e++) {
+            var advs = eraAdvResults[e].adventures;
+            for (var a = 0; a < advs.length; a++) {
+              var adv = advs[a];
+              var completed = getCompletedCount(adv.readable_id);
+              if (completed === 0) {
+                featuredAdv = adv;
+                heroBadge = 'Up Next';
+                heroCta = 'Start Adventure';
+                break;
+              }
+            }
+            if (featuredAdv) break;
+          }
+        }
+
+        // 3) Fallback: first adventure of first era
+        if (!featuredAdv && eraAdvResults.length > 0 && eraAdvResults[0].adventures.length > 0) {
+          featuredAdv = eraAdvResults[0].adventures[0];
+        }
+
+        if (featuredAdv) {
+          // Determine deep link — find first incomplete module
+          var featuredRid = featuredAdv.readable_id;
+          heroTarget = { rid: featuredRid, moduleIdx: null };
+
+          // Fetch full adventure to get module list for deep linking
+          getAdventure(featuredRid).then(function(fullAdv) {
+            if (!fullAdv || aborted) return;
+            var modules = (fullAdv.content_list || []).sort(function(a, b) { return a.order_by - b.order_by; });
+            var advProgress = progress[featuredRid] || {};
+            for (var m = 0; m < modules.length; m++) {
+              if (!(modules[m].id in advProgress)) {
+                heroTarget.moduleIdx = m;
+                break;
+              }
+            }
+          }).catch(function() {});
+
+          var advTitle = escapeHtml(featuredAdv.adventure_title?.replace(/\r?\n/g, ' '));
+          var advBg = sanitizeUrl((featuredAdv.card_content && featuredAdv.card_content.background_image) || featuredAdv.icon_url);
+          var advDesc = escapeHtml(featuredAdv.adventure_description);
+          var eraName = escapeHtml((featuredAdv.card_content && featuredAdv.card_content.era_name) || featuredAdv.era_id);
+          var estTime = escapeHtml((featuredAdv.card_content && featuredAdv.card_content.estimated_time) || '');
+
+          // Preload hero image (reuse existing link if present)
+          var heroLink = document.getElementById('preload-hero');
+          if (!heroLink) {
+            heroLink = document.createElement('link');
+            heroLink.id = 'preload-hero';
+            heroLink.rel = 'preload';
+            heroLink.as = 'image';
+            document.head.appendChild(heroLink);
+          }
+          heroLink.href = advBg;
+
+          heroHtml = '<div class="home__hero" id="home-hero">'
+            + '<img class="home__hero-bg" src="' + advBg + '" alt="" fetchpriority="high">'
+            + '<div class="home__hero-badge">' + heroBadge + '</div>'
+            + '<div class="home__hero-overlay">'
+            + '<div class="home__hero-label">' + eraName + (estTime ? ' · ' + estTime : '') + '</div>'
+            + '<h1 class="home__hero-title">' + advTitle + '</h1>'
+            + (featuredAdv.timeline ? '<div class="home__hero-timeline">' + escapeHtml(featuredAdv.timeline) + '</div>' : '')
+            + '<p class="home__hero-desc">' + advDesc + '</p>'
+            + '<div class="home__hero-cta">' + heroCta + ' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>'
+            + '</div></div>';
+        }
 
       // Daily Story section — cinematic card with thumbnail
       var dailyHtml = '';
@@ -163,8 +241,14 @@ export default function homeView(app) {
         + '</div>';
 
       // Attach click handlers via event delegation
-      var hero = app.querySelector('.home__hero[data-rid]');
-      if (hero) hero.addEventListener('click', function() { window.location.hash = '/adventure/' + hero.dataset.rid; });
+      var hero = document.getElementById('home-hero');
+      if (hero) hero.addEventListener('click', function() {
+        if (heroTarget && heroTarget.moduleIdx !== null) {
+          window.location.hash = '/lesson/' + heroTarget.rid + '/' + heroTarget.moduleIdx;
+        } else if (heroTarget) {
+          window.location.hash = '/adventure/' + heroTarget.rid;
+        }
+      });
 
       var daily = app.querySelector('.home__daily[data-nav]');
       if (daily) daily.addEventListener('click', function() { window.location.hash = '/daily'; });
