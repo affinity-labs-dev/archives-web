@@ -1,5 +1,5 @@
 // PushNotificationService.ts - iOS/Android push notification registration
-// Requests OS permission and registers the Expo push token with AffinityNotificationService.
+// Requests OS permission and registers the native device token with AffinityNotificationService.
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -8,19 +8,20 @@ import AffinityNotificationService from './AffinityNotificationService';
 import { analyticsService } from './AnalyticsService';
 import AppLogger from './AppLogger';
 
-type PermissionStatus = 'Granted' | 'Denied' | 'NotDetermined';
+/** Shared push permission status — PascalCase to match PostHog person property values */
+export type PushPermissionStatus = 'Granted' | 'Denied' | 'NotDetermined';
 
 interface PushRegistrationResult {
-  status: PermissionStatus;
+  status: PushPermissionStatus;
   token: string | null;
 }
 
 /**
- * Request push notification permission and register the Expo push token with
- * AffinityNotificationService.
+ * Request push notification permission and register the native device token
+ * (APNs for iOS, FCM for Android) with AffinityNotificationService.
  *
  * 1. Use expo-notifications to request OS permission
- * 2. Register Expo push token + sync permission with AffinityNotificationService
+ * 2. Delegate to AffinityNotificationService.registerDevice() which fetches the token internally
  */
 export async function requestPushNotificationPermission(): Promise<PushRegistrationResult> {
   if (Platform.OS === 'web') {
@@ -46,7 +47,7 @@ export async function requestPushNotificationPermission(): Promise<PushRegistrat
       AppLogger.info('notification', 'Permission request result', { status });
     }
 
-    const permissionStatus: PermissionStatus =
+    const permissionStatus: PushPermissionStatus =
       finalStatus === 'granted' ? 'Granted' :
       finalStatus === 'denied' ? 'Denied' : 'NotDetermined';
 
@@ -87,7 +88,7 @@ export async function requestPushNotificationPermission(): Promise<PushRegistrat
 /**
  * Get current push notification permission status from the OS.
  */
-export async function getPushPermissionStatus(): Promise<PermissionStatus> {
+export async function getPushPermissionStatus(): Promise<PushPermissionStatus> {
   if (Platform.OS === 'web') {
     return 'NotDetermined';
   }

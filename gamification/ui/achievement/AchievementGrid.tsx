@@ -2,6 +2,7 @@
 // Contains: AchievementDetailModal (detail view), AchievementUnlockAnimation (celebration), and NotificationPermissionModal
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import type { Achievement } from "@/gamification/engines/GamificationOrchestrator";
+import type { NotificationPromptVariant } from "@/gamification/engines/NotificationPromptProvider";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -491,7 +492,7 @@ export function AchievementUnlockAnimation({
 // USAGE: <NotificationPermissionModal variant="module" visible={show} onEnableNotifications={handleEnable} onDismiss={handleDismiss} />
 interface NotificationPermissionModalProps {
   visible: boolean;
-  variant?: keyof typeof NOTIFICATION_COPY; // Variant key (e.g., "module", "streak") - looks up all copy
+  variant?: NotificationPromptVariant; // Variant key (e.g., "module", "streak") - looks up all copy
   onEnableNotifications: () => void;
   onDismiss: () => void;
 }
@@ -509,7 +510,7 @@ const NOTIFICATION_IMAGE_HEIGHT = 200;
 const NOTIFICATION_IMAGE_SPACING = 20; // Space between image and content
 
 // Default copy variants (gradients generated dynamically like achievements)
-const NOTIFICATION_COPY = {
+const NOTIFICATION_COPY: Record<NotificationPromptVariant, { heading: string; description: string; buttonText: string; image: any }> = {
   // Module Complete - After completing a module
   module: {
     heading: "Stay on the path",

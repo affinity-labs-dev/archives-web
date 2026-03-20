@@ -1553,7 +1553,7 @@ class AnalyticsService {
   /**
    * Update push notification status
    */
-  updatePushStatus(isEnabled: boolean, permissionStatus?: string) {
+  updatePushStatus(isEnabled: boolean, permissionStatus?: 'Granted' | 'Denied' | 'NotDetermined') {
     if (!this.posthog) {
       AppLogger.warn('startup', 'PostHog not ready, skipping updatePushStatus', {});
       return;

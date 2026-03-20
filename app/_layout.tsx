@@ -59,9 +59,9 @@ Sentry.init({
   // Enable Logs
   enableLogs: true,
 
-  // Session Replay disabled - causes EXC_BAD_ACCESS crash due to race condition
-  // between Sentry's view controller introspection and expo-video's concurrent
-  // Swift event emission (swift_conformsToProtocol thread safety issue)
+  // Session Replay enabled at low sample rate — previously disabled due to
+  // EXC_BAD_ACCESS crash (Sentry VC introspection vs expo-video Swift event race).
+  // Re-enabled at 10% after Sentry SDK update; monitor for crashes.
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 0.5,
   integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],

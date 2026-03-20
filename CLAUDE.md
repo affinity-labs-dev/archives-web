@@ -75,7 +75,8 @@ SafeAreaProvider + GestureHandlerRootView
                     └── RewardsProvider (badges + avatars system)
                         └── GamifiedProgressProvider (unified progress + cloud sync)
                             └── PreferencesProvider (user preferences)
-                                └── GamificationOrchestratorProvider (achievements, celebrations, milestones)
+                                └── NotificationPromptProvider (contextual notification prompts)
+                                    └── GamificationOrchestratorProvider (achievements, celebrations, milestones)
                                     └── AIProvider (Gemini AI features)
                                         └── ThemeProvider + Stack Navigation + AIAssistant
 ```
@@ -163,7 +164,7 @@ await reportQuizComplete({
 | `posthog-react-native` | Analytics | Conditional init based on iOS ATT, session replay enabled |
 | `@sentry/react-native` | Error tracking | Performance tracing enabled (tracesSampleRate: 1.0) |
 | `expo-notifications` | Push notifications | Physical device required |
-| `AffinityNotificationService` | Push notifications | Affinity notification service for targeted campaigns |
+| `services/AffinityNotificationService.ts` | Push notifications | Internal service — registers devices with Affinity backend |
 | `@google/genai` | AI features | Gemini API for AI chat and image generation |
 | `rive-react-native` | Animated illustrations | Used for Start Here speech bubble animation |
 | `react-native-bottom-tabs` | Native tab bar | Custom iOS-style tabs (not React Navigation tabs) |
@@ -528,7 +529,7 @@ console.log('🔔 Notification')    // Push notifications
 - **Women of Islam era** - Onboarding now routes to new era (Era 2)
 - **Account switching fixes** - Progress and achievements properly reset when switching Clerk accounts
 - **Gamification folder restructure** - Reorganized into feature-based architecture:
-  - `gamification/engines/` - Core contexts (GamifiedProgress, GamificationOrchestrator, AIContext, RewardsContext)
+  - `gamification/engines/` - Core contexts (GamifiedProgress, GamificationOrchestrator, NotificationPromptProvider, AIContext, RewardsContext)
   - `gamification/services/` - AI and game generation services
   - `gamification/ui/` - UI components organized by feature (achievement, ai, celebrations, games)
   - `gamification/index.ts` - Clean public API exports
@@ -568,7 +569,7 @@ Complete module → Auto-unlock next → Complete adventure → Auto-unlock next
 iOS requires ATT permission before analytics initialization - PostHog wrapped conditionally.
 
 ### Notification Token Sync
-Push notification tokens automatically synced to Supabase on registration and app launch.
+Push notification tokens automatically synced to the Affinity Notification Service backend on registration and app launch.
 
 ### Universal Links & App Links (Deep Linking)
 **Domain:** `link.archiveszone.app` - OS intercepts HTTPS links before browser, app opens directly

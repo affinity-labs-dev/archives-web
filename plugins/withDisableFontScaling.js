@@ -30,7 +30,7 @@ function withDisableFontScalingIOS(config) {
     // Insert BEFORE the return super.application(...) call so the code actually runs.
     // Uses a regex to match any variable name in the launchOptions argument (e.g.
     // "launchOptions" in fresh Expo templates, or "modifiedLaunchOptions" in our
-    // locally customized AppDelegate with the Customer.io deep link workaround).
+    // locally customized AppDelegate).
     if (!appDelegate.includes("maximumContentSizeCategory")) {
       const returnSuperRegex = /([ \t]*return super\.application\(application, didFinishLaunchingWithOptions:[^)]+\))/;
       if (!returnSuperRegex.test(appDelegate)) {

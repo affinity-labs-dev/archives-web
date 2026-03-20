@@ -19,6 +19,9 @@ import { useAppTrackingTransparency } from '@/hooks/useAppTrackingTransparency'
 import { analyticsService } from '@/services/AnalyticsService'
 import AppLogger from '@/services/AppLogger'
 
+/** Step index for the notification permission screen (skip button hidden here) */
+const NOTIFICATION_PERMISSION_STEP = 3;
+
 interface OnboardingQuestionLayoutProps {
   activeStep: number
   screenName: string
@@ -77,7 +80,7 @@ export default function OnboardingQuestionLayout({
       />
       <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
         {/* Progress Bar */}
-        <View style={[styles.progressContainer, { paddingBottom: activeStep === 3 ? 20 : 0 }]}>
+        <View style={[styles.progressContainer, { paddingBottom: activeStep === NOTIFICATION_PERMISSION_STEP ? 20 : 0 }]}>
           {showProgressBar && (
             <View style={styles.progressSegments}>
               {[1, 2, 3, 4].map((step) => (
@@ -91,7 +94,8 @@ export default function OnboardingQuestionLayout({
               ))}
             </View>
           )}
-          {activeStep !== 3 && (
+          {/* Hide skip on notification permission step — user must explicitly accept or dismiss */}
+          {activeStep !== NOTIFICATION_PERMISSION_STEP && (
             <View style={styles.skipContainer}>
               <TouchableOpacity activeOpacity={0.8} onPress={handleSkipOnboarding}>
                 <Text style={styles.skipText}>Skip</Text>

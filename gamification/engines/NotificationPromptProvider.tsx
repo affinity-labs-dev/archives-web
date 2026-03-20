@@ -41,14 +41,14 @@ export type NotificationPromptVariant =
   | 'lapse'         // Return from 7+ day break
   | 'iosRepermission'; // iOS re-permission for denied users
 
-/** Priority order for variants (lower = higher priority) */
-const VARIANT_PRIORITY: NotificationPromptVariant[] = [
+/** Priority order for variants (lower = higher priority). Tuple ensures all variants are listed. */
+const VARIANT_PRIORITY: readonly [NotificationPromptVariant, ...NotificationPromptVariant[]] = [
   'streak',
   'module',
   'dailyStory',
   'lapse',
   'iosRepermission',
-];
+] as const satisfies readonly NotificationPromptVariant[];
 
 /** Streak milestones that trigger notification prompt (different from achievement milestones) */
 export const NOTIFICATION_STREAK_MILESTONES = [3, 7, 14] as const;
@@ -194,6 +194,7 @@ export function NotificationPromptProvider({ children }: { children: React.React
   const [modalVisible, setModalVisible] = useState(false);
   const [activeVariant, setActiveVariant] = useState<NotificationPromptVariant>('module');
   const onCompleteRef = useRef<(() => void) | null>(null);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // User identity from Clerk (for per-user storage + sign-in detection)
   const { user, isSignedIn } = useUser();
@@ -214,9 +215,10 @@ export function NotificationPromptProvider({ children }: { children: React.React
     currentUserIdRef.current = userId;
 
     if (!userId) {
-      // Signed out — close modal first, then reset state
+      // Signed out — cancel pending timer, close modal, then reset state
       // Order matters: close modal BEFORE resetting state to prevent
       // Android Fabric crash from Modal re-rendering during state transitions
+      if (showTimerRef.current) { clearTimeout(showTimerRef.current); showTimerRef.current = null; }
       setModalVisible(false);
       onCompleteRef.current = null;
       setState(DEFAULT_STATE);
@@ -310,7 +312,7 @@ export function NotificationPromptProvider({ children }: { children: React.React
       lastDismissDate: s.lastDismissDate,
     });
 
-    setTimeout(() => setModalVisible(true), 300); // slight delay for smoother UX
+    showTimerRef.current = setTimeout(() => setModalVisible(true), 300); // slight delay for smoother UX
   }, []);
 
   // ---- Core evaluation: should we show ANY prompt right now? ----
@@ -338,8 +340,8 @@ export function NotificationPromptProvider({ children }: { children: React.React
         await saveCurrentState(updated);
         return false;
       }
-    } catch {
-      // If permission check fails, proceed cautiously (don't block)
+    } catch (err) {
+      AppLogger.warn('notification', 'shouldPrompt: permission check failed, proceeding cautiously', {}, err);
     }
 
     // 3. Check cooldown rules (daily limit + dismiss cooldown)

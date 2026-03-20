@@ -4,7 +4,7 @@
  * Manages the iOS app icon badge (the red dot on the home screen).
  *
  * Strategy:
- *   - Customer.io sets badge count in the push payload → iOS shows the badge automatically
+ *   - Push payload sets badge count → iOS shows the badge automatically
  *   - This service clears it to 0 when the user opens the app
  *
  * The badge count can be any number:
@@ -32,7 +32,7 @@ export const clearBadge = async (): Promise<void> => {
 
 /**
  * Set the badge to a specific count.
- * Normally Customer.io's payload does this automatically,
+ * Normally the push payload does this automatically,
  * but call this if you need to set it manually in-app
  * (e.g. for local notifications).
  *

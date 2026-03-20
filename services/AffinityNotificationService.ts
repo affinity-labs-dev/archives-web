@@ -6,9 +6,9 @@
  *
  * Call order:
  *   1. registerUser(clerkId)      — on every sign-in (idempotent upsert)
- *   2. registerDevice(pushToken)  — after push permission granted + token obtained
+ *   2. registerDevice()           — after push permission granted (fetches native token internally)
  *   3. updatePermission(status)   — whenever permission status changes
- *   4. clearCurrentUser()         — on sign-out
+ *   4. logout()                   — on sign-out
  */
 
 import { Platform } from 'react-native';
@@ -121,9 +121,8 @@ export async function registerUser(
 }
 
 /**
- * Register or upsert a device with an Expo push token.
- * Fetches the Expo push token internally — the Affinity backend routes via
- * Expo's push gateway (exponent-server-sdk) and requires ExponentPushToken format.
+ * Register or upsert a device with its native push token (APNs for iOS, FCM for Android).
+ * Fetches the token internally via getDevicePushTokenAsync().
  * Must be called after registerUser — relies on _currentUserId being set.
  */
 export async function registerDevice(): Promise<void> {
