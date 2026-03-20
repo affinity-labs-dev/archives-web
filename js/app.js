@@ -2,6 +2,7 @@ import { route, startRouter } from './router.js';
 import { initClerk, isSignedIn, mountSignIn, mountUserMenu } from './auth.js';
 import { initPurchases } from './services/revenuecat.js';
 import { initSync } from './services/sync.js';
+import { showAppBanner } from './components/app-banner.js';
 import homeView from './views/home.js';
 import adventuresView from './views/adventures.js';
 import adventureDetailView from './views/adventure-detail.js';
@@ -23,6 +24,9 @@ route('/lesson/:readableId/:moduleIndex', lessonView);
 route('/quiz/:readableId/:moduleIndex', quizView);
 
 async function boot() {
+  // On mobile phones, show download banner and stop — don't load the app
+  if (showAppBanner()) return;
+
   const app = document.getElementById('app');
 
   try {
