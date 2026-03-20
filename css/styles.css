@@ -1295,20 +1295,24 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .ds-mobile-watch__carousel {
   display: flex;
   width: 100%;
-  overflow: hidden;
-  transition: transform 0.35s var(--ease-out);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+
+.ds-mobile-watch__carousel::-webkit-scrollbar { display: none; }
 
 .ds-mobile-watch__slide {
   min-width: 100%;
   flex-shrink: 0;
+  scroll-snap-align: start;
 }
 
 .ds-mobile-watch__img {
   width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
   display: block;
+  object-fit: contain;
 }
 
 .ds-mobile-watch__caption {

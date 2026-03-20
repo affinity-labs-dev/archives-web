@@ -373,27 +373,23 @@ export default function dailyView(app, params) {
           cleanupFn = function() { hlsInstances.forEach(function(h) { h.destroy(); }); };
         }
 
-        // Mobile carousel swipe + dots
+        // Mobile carousel scroll-snap + dots
         var mobileCarousel = document.getElementById('ds-mobile-carousel');
         if (mobileCarousel && card1Urls.length > 1) {
-          var mCurrent = 0;
           var mDots = app.querySelectorAll('.ds-mobile-watch__dot');
-          var mStartX = 0;
 
-          function mGoTo(idx) {
-            if (idx < 0 || idx >= card1Urls.length) return;
-            mCurrent = idx;
-            mobileCarousel.style.transform = 'translateX(-' + (mCurrent * 100) + '%)';
-            mDots.forEach(function(d, i) { d.classList.toggle('ds-mobile-watch__dot--active', i === mCurrent); });
-          }
+          // Update dots on scroll
+          mobileCarousel.addEventListener('scroll', function() {
+            var idx = Math.round(mobileCarousel.scrollLeft / mobileCarousel.offsetWidth);
+            mDots.forEach(function(d, i) { d.classList.toggle('ds-mobile-watch__dot--active', i === idx); });
+          }, { passive: true });
 
-          mobileCarousel.addEventListener('touchstart', function(e) { mStartX = e.touches[0].clientX; }, { passive: true });
-          mobileCarousel.addEventListener('touchend', function(e) {
-            var diff = mStartX - e.changedTouches[0].clientX;
-            if (Math.abs(diff) > 50) { mGoTo(mCurrent + (diff > 0 ? 1 : -1)); }
-          });
+          // Tap dot to scroll
           mDots.forEach(function(dot) {
-            dot.addEventListener('click', function() { mGoTo(parseInt(dot.dataset.index, 10)); });
+            dot.addEventListener('click', function() {
+              var idx = parseInt(dot.dataset.index, 10);
+              mobileCarousel.scrollTo({ left: idx * mobileCarousel.offsetWidth, behavior: 'smooth' });
+            });
           });
         }
       } else {
