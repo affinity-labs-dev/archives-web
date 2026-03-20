@@ -69,69 +69,75 @@ export function mountUserMenu(el) {
   var user = clerkInstance.user;
   var avatarUrl = _esc(user.imageUrl || '');
   var name = _esc(user.fullName || '');
-  var email = _esc(user.primaryEmailAddress?.emailAddress || '');
+  var email = '';
+  try { email = _esc((user.primaryEmailAddress && user.primaryEmailAddress.emailAddress) || ''); } catch (e) { email = ''; }
 
-  // Import premium status dynamically to avoid circular deps
-  import('./services/revenuecat.js').then(function(rc) {
-    var premium = rc.isPremium();
-    var statusLabel = premium ? 'Premium' : 'Free';
-    var statusClass = premium ? 'user-menu__status--premium' : 'user-menu__status--free';
+  _renderUserMenu(el, avatarUrl, name, email);
+}
 
-    el.innerHTML = '<button class="user-menu__trigger" aria-label="User menu">'
-      + '<img class="user-menu__avatar" src="' + avatarUrl + '" alt="' + (name || email) + '" />'
-      + '</button>'
-      + '<div class="user-menu__dropdown">'
-      + '<div class="user-menu__info">'
-      + '<img class="user-menu__avatar-lg" src="' + avatarUrl + '" alt="" />'
-      + '<div class="user-menu__info-text">'
-      + (name ? '<span class="user-menu__name">' + name + '</span>' : '')
-      + '<span class="user-menu__email">' + email + '</span>'
-      + '</div>'
-      + '</div>'
-      + '<div class="user-menu__status-row">'
-      + '<span class="user-menu__status ' + statusClass + '">' + statusLabel + '</span>'
-      + (premium ? '' : '<button class="user-menu__upgrade" data-action="upgrade">Upgrade</button>')
-      + '</div>'
-      + '<div class="user-menu__divider"></div>'
-      + '<button class="user-menu__item" data-action="settings">'
-      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
-      + 'Settings'
-      + '</button>'
-      + '<button class="user-menu__item" data-action="signout">'
-      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
-      + 'Sign out'
-      + '</button>'
-      + '</div>';
+function _renderUserMenu(el, avatarUrl, name, email) {
+  var premium = false;
+  try { premium = window.__archivesPremium || false; } catch (e) {}
 
-    var trigger = el.querySelector('.user-menu__trigger');
-    var dropdown = el.querySelector('.user-menu__dropdown');
+  var statusLabel = premium ? 'Premium' : 'Free';
+  var statusClass = premium ? 'user-menu__status--premium' : 'user-menu__status--free';
+  var displayName = name || email;
 
-    trigger.addEventListener('click', function(e) {
-      e.stopPropagation();
-      dropdown.classList.toggle('user-menu__dropdown--open');
-    });
+  el.innerHTML = '<button class="user-menu__trigger" aria-label="User menu">'
+    + '<img class="user-menu__avatar" src="' + avatarUrl + '" alt="' + displayName + '" />'
+    + '</button>'
+    + '<div class="user-menu__dropdown">'
+    + '<div class="user-menu__info">'
+    + '<img class="user-menu__avatar-lg" src="' + avatarUrl + '" alt="" />'
+    + '<div class="user-menu__info-text">'
+    + (name ? '<span class="user-menu__name">' + name + '</span>' : '')
+    + (email ? '<span class="user-menu__email">' + email + '</span>' : '')
+    + '</div>'
+    + '</div>'
+    + '<div class="user-menu__status-row">'
+    + '<span class="user-menu__status ' + statusClass + '">' + statusLabel + '</span>'
+    + (premium ? '' : '<button class="user-menu__upgrade" data-action="upgrade">Upgrade</button>')
+    + '</div>'
+    + '<div class="user-menu__divider"></div>'
+    + '<button class="user-menu__item" data-action="settings">'
+    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
+    + 'Settings'
+    + '</button>'
+    + '<button class="user-menu__item" data-action="signout">'
+    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
+    + 'Sign out'
+    + '</button>'
+    + '</div>';
 
-    document.addEventListener('click', function() {
-      dropdown.classList.remove('user-menu__dropdown--open');
-    });
+  var trigger = el.querySelector('.user-menu__trigger');
+  var dropdown = el.querySelector('.user-menu__dropdown');
 
-    el.querySelector('[data-action="settings"]').addEventListener('click', function() {
-      dropdown.classList.remove('user-menu__dropdown--open');
-      window.location.hash = '#/settings';
-    });
-
-    el.querySelector('[data-action="signout"]').addEventListener('click', function() {
-      clerkInstance.signOut();
-    });
-
-    var upgradeBtn = el.querySelector('[data-action="upgrade"]');
-    if (upgradeBtn) {
-      upgradeBtn.addEventListener('click', function() {
-        dropdown.classList.remove('user-menu__dropdown--open');
-        import('./components/paywall.js').then(function(pw) { pw.showPaywall(); });
-      });
-    }
+  trigger.addEventListener('click', function(e) {
+    e.stopPropagation();
+    dropdown.classList.toggle('user-menu__dropdown--open');
   });
+
+  document.addEventListener('click', function() {
+    dropdown.classList.remove('user-menu__dropdown--open');
+  });
+
+  el.querySelector('[data-action="settings"]').addEventListener('click', function() {
+    dropdown.classList.remove('user-menu__dropdown--open');
+    window.location.hash = '#/settings';
+  });
+
+  el.querySelector('[data-action="signout"]').addEventListener('click', function() {
+    clerkInstance.signOut();
+  });
+
+  var upgradeBtn = el.querySelector('[data-action="upgrade"]');
+  if (upgradeBtn) {
+    upgradeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      dropdown.classList.remove('user-menu__dropdown--open');
+      import('./components/paywall.js').then(function(pw) { pw.showPaywall(); }).catch(function() {});
+    });
+  }
 }
 
 export function getClerk() {

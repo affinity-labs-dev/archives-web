@@ -23,10 +23,12 @@ export async function initPurchases(appUserId) {
       premiumStatus = !!(cachedCustomerInfo.entitlements &&
         cachedCustomerInfo.entitlements.active &&
         cachedCustomerInfo.entitlements.active['premium']);
+      window.__archivesPremium = premiumStatus;
       console.log('[RevenueCat] Initialized. Premium:', premiumStatus);
     } catch (err) {
       console.warn('[RevenueCat] Init error:', err);
       premiumStatus = false;
+      window.__archivesPremium = false;
     }
   })();
 
