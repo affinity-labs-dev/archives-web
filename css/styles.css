@@ -2238,6 +2238,21 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   /* Carousel inside full-screen reel */
   .carousel__track-wrap {
     border-radius: 0;
+    position: absolute;
+    inset: 0;
+  }
+
+  .carousel__track {
+    height: 100%;
+  }
+
+  .carousel__slide {
+    height: 100%;
+  }
+
+  .carousel__slide-inner {
+    width: 100%;
+    height: 100%;
   }
 
   .carousel__img {
