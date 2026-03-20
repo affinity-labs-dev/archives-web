@@ -114,14 +114,15 @@ body::after {
 .app-banner__dismiss {
   margin-top: 24px;
   background: none;
-  border: none;
-  color: var(--text-secondary);
+  border: 1px solid rgba(240, 234, 224, 0.15);
+  border-radius: 8px;
+  color: var(--cream-dim);
   font-family: var(--font-body);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   cursor: pointer;
-  padding: 8px 16px;
+  padding: 12px 24px;
   letter-spacing: 0.04em;
-  transition: color 0.2s;
+  transition: color 0.2s, border-color 0.2s;
 }
 
 .app-banner__dismiss:hover {
