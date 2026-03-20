@@ -9,7 +9,7 @@ export function renderReelPlayer(module) {
       <div class="reel-player__video-wrap">
         <video id="reel-video" playsinline controls></video>
       </div>
-      ${readingText ? `<div class="reel-player__reading">${sanitizeHtml(readingText)}</div>` : ''}
+      ${readingText ? `<div class="reel-player__reading"><div class="reel-player__reading-inner">${sanitizeHtml(readingText)}</div></div>` : ''}
     </div>
   `;
 }

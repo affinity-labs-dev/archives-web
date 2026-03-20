@@ -61,7 +61,10 @@ export default function lessonView(app, { readableId, moduleIndex }) {
       </div>
     `;
 
-    // Add quiz button
+    // Determine forward navigation
+    var forwardHash = hasQuiz ? `/quiz/${readableId}/${idx}` : backHash;
+
+    // Add quiz button (desktop/tablet — inside reading panel)
     if (hasQuiz) {
       const reading = app.querySelector('.reel-player__reading');
       if (reading) {
@@ -70,7 +73,7 @@ export default function lessonView(app, { readableId, moduleIndex }) {
         btn.style.width = '100%';
         btn.style.margin = '12px 0 0';
         btn.textContent = 'Take Quiz';
-        btn.addEventListener('click', () => { window.location.hash = `/quiz/${readableId}/${idx}`; });
+        btn.addEventListener('click', () => { window.location.hash = forwardHash; });
         reading.appendChild(btn);
       } else {
         const wrap = document.createElement('div');
@@ -78,9 +81,24 @@ export default function lessonView(app, { readableId, moduleIndex }) {
         const btn = document.createElement('button');
         btn.className = 'cta-btn';
         btn.textContent = 'Take Quiz';
-        btn.addEventListener('click', () => { window.location.hash = `/quiz/${readableId}/${idx}`; });
+        btn.addEventListener('click', () => { window.location.hash = forwardHash; });
         wrap.appendChild(btn);
         app.querySelector('.lesson-wrap').appendChild(wrap);
+      }
+    }
+
+    // Mobile forward arrow (reel only) — overlaid on video
+    if (mod.content_type === 'reel') {
+      var videoWrap = app.querySelector('.reel-player__video-wrap');
+      if (videoWrap) {
+        var fwd = document.createElement('button');
+        fwd.className = 'reel-player__forward';
+        fwd.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
+        fwd.addEventListener('click', function(e) {
+          e.stopPropagation();
+          window.location.hash = forwardHash;
+        });
+        videoWrap.appendChild(fwd);
       }
     }
 
