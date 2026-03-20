@@ -448,7 +448,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Also listen for push token changes — FCM/APNs can rotate tokens at any time
   React.useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      const data = notification.request.content.data;
+      // Native APNs puts custom data in trigger.payload, not content.data
+      const data = notification.request.content.data
+        ?? (notification.request.trigger as any)?.payload;
       const deliveryId = data?.delivery_id as string | undefined;
       const messageId = notification.request.identifier || `notif_${Date.now()}`;
 
@@ -466,7 +468,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
+      // Native APNs puts custom data in trigger.payload, not content.data
+      const data = response.notification.request.content.data
+        ?? (response.notification.request.trigger as any)?.payload;
       const deliveryId = data?.delivery_id as string | undefined;
       const messageId = deliveryId ?? response.notification.request.identifier ?? `notif_${Date.now()}`;
 
@@ -498,6 +502,29 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       pushTokenListener.remove();
     };
   }, []);
+
+  // Cold start: catch notification tap that launched the app from killed state.
+  // addNotificationResponseReceivedListener misses this because the listener
+  // registers AFTER the response has already been delivered by the OS.
+  const lastResponse = Notifications.useLastNotificationResponse();
+  React.useEffect(() => {
+    if (!lastResponse) return;
+
+    const data = lastResponse.notification.request.content.data
+      ?? (lastResponse.notification.request.trigger as any)?.payload;
+    const deliveryId = data?.delivery_id as string | undefined;
+    const messageId = deliveryId ?? lastResponse.notification.request.identifier ?? `notif_${Date.now()}`;
+
+    if (deliveryId) {
+      AffinityNotificationService.reportEvent(deliveryId, 'click', {
+        action_id: lastResponse.actionIdentifier,
+        deep_link: data?.link || data?.url || data?.deep_link,
+      });
+    }
+
+    analyticsService.trackNotificationClicked(messageId);
+    handleNotificationDeepLink(lastResponse);
+  }, [lastResponse]);
 
   // PostHog $exception capture - backup to Sentry for crash tracking
   React.useEffect(() => {
