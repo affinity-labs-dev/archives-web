@@ -2278,8 +2278,15 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   }
 
   /* Fix: transform on ds__panel creates containing block that breaks position:fixed */
+  .ds__panel {
+    transform: none;
+    opacity: 1;
+  }
+
   .ds__panel--active {
-    transform: none !important;
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 
   .ds__viewport {
