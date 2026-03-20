@@ -7,7 +7,7 @@ var premiumStatus = false;
 var initPromise = null;
 
 // ⚠️ Replace with your RevenueCat public web API key
-var RC_API_KEY = 'rcb_sb_rjAstjfEtRXudydkDgGTtTdaa';
+var RC_API_KEY = 'rcb_pIfTfyBWFlWYZnlVJenySSHNokTC';
 
 export async function initPurchases(appUserId) {
   if (initPromise) return initPromise;
