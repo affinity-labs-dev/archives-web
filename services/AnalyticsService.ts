@@ -5,7 +5,6 @@
  */
 
 import { usePostHog } from 'posthog-react-native';
-import CustomerIOService from './CustomerIOService';
 import AppLogger from './AppLogger';
 
 // ==================== EVENT TYPES ====================
@@ -453,51 +452,6 @@ class AnalyticsService {
     return new Date().toISOString();
   }
 
-  /**
-   * Track event to Customer.io (for push notification campaigns)
-   * Only sends key events that are useful for segmentation/campaigns
-   */
-  private trackToCustomerIO(eventName: string, properties?: Record<string, unknown>) {
-    if (__DEV__) {
-      console.log('🔍 [Analytics] trackToCustomerIO called with:', eventName);
-    }
-
-    // Only track key events to Customer.io to avoid noise
-    const customerIOEvents = [
-      'user_signed_up',
-      'onboarding_completed',
-      'lesson_started',
-      'lesson_completed',
-      'quiz_started',
-      'quiz_completed',
-      'module_completed',
-      'adventure_started',
-      'adventure_complete_continue',
-      'subscription_details',
-      'push_notifications_enabled',
-      'push_notifications_declined',
-      'daily_story_completed',
-      // Subscribe flow events (AFF-111)
-      'subscribe_screen_viewed',
-      'subscribe_purchase_completed',
-      'subscribe_purchase_failed',
-      'subscribe_restore_success',
-      'subscription_purchased',
-    ];
-
-    const shouldTrack = customerIOEvents.includes(eventName);
-    if (__DEV__) {
-      console.log('🔍 [Analytics] Event in customerIOEvents list:', shouldTrack);
-    }
-
-    if (shouldTrack) {
-      if (__DEV__) {
-        console.log('🔍 [Analytics] Calling CustomerIOService.track()...');
-      }
-      CustomerIOService.track(eventName, properties);
-    }
-  }
-
   // getDeviceType() removed - PostHog auto-captures $os property
 
   // ==================== USER AUTHENTICATION EVENTS ====================
@@ -521,7 +475,6 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('user_signed_up', event);
-    this.trackToCustomerIO('user_signed_up', event);
     if (__DEV__) {
       console.log('📊 [Analytics] User Signed Up:', event);
     }
@@ -557,7 +510,6 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('onboarding_completed', event);
-    this.trackToCustomerIO('onboarding_completed', event);
     if (__DEV__) {
       console.log('📊 [Analytics] Onboarding Completed:', event);
     }
@@ -737,7 +689,6 @@ class AnalyticsService {
     AppLogger.info('auth', `user_session_out: ${data.trigger}`, event as Record<string, unknown>);
 
     this.posthog?.capture('user_session_out', event);
-    this.trackToCustomerIO('user_session_out', event);
   }
 
   /**
@@ -820,7 +771,6 @@ class AnalyticsService {
       console.log('🔍 [Analytics] About to capture lesson_started, posthog exists:', !!this.posthog);
     }
     this.posthog?.capture('lesson_started', event);
-    this.trackToCustomerIO('lesson_started', event);
     if (__DEV__) {
       console.log('📊 [Analytics] Lesson Started:', event);
     }
@@ -846,7 +796,6 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('lesson_completed', event);
-    this.trackToCustomerIO('lesson_completed', event);
     if (__DEV__) {
       console.log('📊 [Analytics] Lesson Completed:', event);
     }
@@ -1082,7 +1031,6 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_started', event);
-    this.trackToCustomerIO('quiz_started', event);
     if (__DEV__) {
       console.log('📊 [Analytics] Quiz Started:', event);
     }
@@ -1152,7 +1100,6 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_completed', event);
-    this.trackToCustomerIO('quiz_completed', event);
     if (__DEV__) {
       console.log('📊 [Analytics] Quiz Completed:', event);
     }
@@ -1320,7 +1267,6 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('subscription_details', event);
-    this.trackToCustomerIO('subscription_details', event);
     if (__DEV__) {
       console.log('📊 [Analytics] Subscription:', event);
     }
@@ -1395,7 +1341,6 @@ class AnalyticsService {
     }
 
     this.posthog.capture(eventName, properties);
-    this.trackToCustomerIO(eventName, properties);
     // PostHog auto-captures $timestamp on every event
     if (__DEV__) {
       console.log(`📊 [Analytics] Custom Event (${eventName}):`, properties);
@@ -1608,7 +1553,7 @@ class AnalyticsService {
   /**
    * Update push notification status
    */
-  updatePushStatus(isEnabled: boolean, permissionStatus?: string) {
+  updatePushStatus(isEnabled: boolean, permissionStatus?: 'Granted' | 'Denied' | 'NotDetermined') {
     if (!this.posthog) {
       AppLogger.warn('startup', 'PostHog not ready, skipping updatePushStatus', {});
       return;

@@ -69,13 +69,14 @@ color: '#C99151'                 // ❌ Use ArchivesTheme
 SafeAreaProvider + GestureHandlerRootView
 └── PostHogProvider (analytics from app launch)
     └── ClerkProvider (authentication)
-        └── AnalyticsWrapper (PostHog init + Customer.io + RevenueCat + Sentry + session tracking)
+        └── AnalyticsWrapper (PostHog init + RevenueCat + Sentry + Affinity + session tracking)
             └── GamificationWrapper (empty, reserved for future use)
                 └── AdventuresContentProvider (Supabase content fetching)
                     └── RewardsProvider (badges + avatars system)
                         └── GamifiedProgressProvider (unified progress + cloud sync)
                             └── PreferencesProvider (user preferences)
-                                └── GamificationOrchestratorProvider (achievements, celebrations, milestones)
+                                └── NotificationPromptProvider (contextual notification prompts)
+                                    └── GamificationOrchestratorProvider (achievements, celebrations, milestones)
                                     └── AIProvider (Gemini AI features)
                                         └── ThemeProvider + Stack Navigation + AIAssistant
 ```
@@ -163,7 +164,7 @@ await reportQuizComplete({
 | `posthog-react-native` | Analytics | Conditional init based on iOS ATT, session replay enabled |
 | `@sentry/react-native` | Error tracking | Performance tracing enabled (tracesSampleRate: 1.0) |
 | `expo-notifications` | Push notifications | Physical device required |
-| `customerio-reactnative` | Push notifications | Customer.io SDK for targeted campaigns |
+| `services/AffinityNotificationService.ts` | Push notifications | Internal service — registers devices with Affinity backend |
 | `@google/genai` | AI features | Gemini API for AI chat and image generation |
 | `rive-react-native` | Animated illustrations | Used for Start Here speech bubble animation |
 | `react-native-bottom-tabs` | Native tab bar | Custom iOS-style tabs (not React Navigation tabs) |
@@ -240,7 +241,7 @@ hooks/                                # Reusable hooks
 
 services/                             # External service integrations
 ├── AnalyticsService.ts            # PostHog wrapper
-├── CustomerIOService.native.ts    # Push notifications (native)
+├── AffinityNotificationService.ts  # Push notifications (Affinity backend)
 └── ...
 ```
 
@@ -258,8 +259,9 @@ services/                             # External service integrations
   - `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` - iOS subscriptions
   - `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` - Android subscriptions
   - `EXPO_PUBLIC_GEMINI_API_KEY` - Gemini AI features
-  - `EXPO_PUBLIC_CUSTOMERIO_CDP_API_KEY` - Customer.io analytics
-  - `EXPO_PUBLIC_CUSTOMERIO_SITE_ID` - Customer.io site identifier
+  - `EXPO_PUBLIC_AFFINITY_API_URL` - Affinity notification service URL
+  - `EXPO_PUBLIC_AFFINITY_API_KEY` - Affinity notification service API key
+  - `EXPO_PUBLIC_AFFINITY_APP_ID` - Affinity notification service app ID
   - `SENTRY_AUTH_TOKEN` - Sentry source map uploads (build-time only)
 
 ## Common Development Tasks
@@ -527,7 +529,7 @@ console.log('🔔 Notification')    // Push notifications
 - **Women of Islam era** - Onboarding now routes to new era (Era 2)
 - **Account switching fixes** - Progress and achievements properly reset when switching Clerk accounts
 - **Gamification folder restructure** - Reorganized into feature-based architecture:
-  - `gamification/engines/` - Core contexts (GamifiedProgress, GamificationOrchestrator, AIContext, RewardsContext)
+  - `gamification/engines/` - Core contexts (GamifiedProgress, GamificationOrchestrator, NotificationPromptProvider, AIContext, RewardsContext)
   - `gamification/services/` - AI and game generation services
   - `gamification/ui/` - UI components organized by feature (achievement, ai, celebrations, games)
   - `gamification/index.ts` - Clean public API exports
@@ -539,7 +541,7 @@ console.log('🔔 Notification')    // Push notifications
 - **Current content** - Era 1 (Umayyad Dynasty) and Era 2 (Rise of Islam) with 5 adventures each, all content in Supabase
 - **PostHog person properties** - User progress tracking via person properties for analytics
 - **AI chat improvements** - Correctly shows XP and progress from all eras, monthly quota enforcement
-- **Customer.io integration** - Push notification campaigns with unified analytics tracking via `CustomerIOService.native.ts`
+- **Affinity Notification Service** - Push notification delivery via Expo push gateway with per-device permission tracking
 - **Gemini AI features** - AI chat modal (`AIChatModal.tsx`), image generation, markdown rendering
 - **Generic era architecture** - Reusable lesson components (`ReelLesson`, `ImageCarouselLesson`, etc.) work for all eras
 - **Sentry integration** - Error tracking and performance tracing enabled (tracesSampleRate: 1.0)
@@ -567,7 +569,7 @@ Complete module → Auto-unlock next → Complete adventure → Auto-unlock next
 iOS requires ATT permission before analytics initialization - PostHog wrapped conditionally.
 
 ### Notification Token Sync
-Push notification tokens automatically synced to Supabase on registration and app launch.
+Push notification tokens automatically synced to the Affinity Notification Service backend on registration and app launch.
 
 ### Universal Links & App Links (Deep Linking)
 **Domain:** `link.archiveszone.app` - OS intercepts HTTPS links before browser, app opens directly

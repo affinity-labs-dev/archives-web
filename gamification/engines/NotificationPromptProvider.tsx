@@ -23,7 +23,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { useUser } from '@clerk/clerk-expo';
-import CustomerIOService from '@/services/CustomerIOService';
+import { requestPushNotificationPermission } from '@/services/PushNotificationService';
 import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
 import { toLocalDateString } from '@/utils/dateUtils';
@@ -41,14 +41,14 @@ export type NotificationPromptVariant =
   | 'lapse'         // Return from 7+ day break
   | 'iosRepermission'; // iOS re-permission for denied users
 
-/** Priority order for variants (lower = higher priority) */
-const VARIANT_PRIORITY: NotificationPromptVariant[] = [
+/** Priority order for variants (lower = higher priority). Tuple ensures all variants are listed. */
+const VARIANT_PRIORITY: readonly [NotificationPromptVariant, ...NotificationPromptVariant[]] = [
   'streak',
   'module',
   'dailyStory',
   'lapse',
   'iosRepermission',
-];
+] as const satisfies readonly NotificationPromptVariant[];
 
 /** Streak milestones that trigger notification prompt (different from achievement milestones) */
 export const NOTIFICATION_STREAK_MILESTONES = [3, 7, 14] as const;
@@ -194,6 +194,7 @@ export function NotificationPromptProvider({ children }: { children: React.React
   const [modalVisible, setModalVisible] = useState(false);
   const [activeVariant, setActiveVariant] = useState<NotificationPromptVariant>('module');
   const onCompleteRef = useRef<(() => void) | null>(null);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // User identity from Clerk (for per-user storage + sign-in detection)
   const { user, isSignedIn } = useUser();
@@ -214,9 +215,10 @@ export function NotificationPromptProvider({ children }: { children: React.React
     currentUserIdRef.current = userId;
 
     if (!userId) {
-      // Signed out — close modal first, then reset state
+      // Signed out — cancel pending timer, close modal, then reset state
       // Order matters: close modal BEFORE resetting state to prevent
       // Android Fabric crash from Modal re-rendering during state transitions
+      if (showTimerRef.current) { clearTimeout(showTimerRef.current); showTimerRef.current = null; }
       setModalVisible(false);
       onCompleteRef.current = null;
       setState(DEFAULT_STATE);
@@ -246,8 +248,6 @@ export function NotificationPromptProvider({ children }: { children: React.React
       // iOS returns 'undetermined' when never asked; Android 13+ returns 'denied'.
       try {
         const { status } = await Notifications.getPermissionsAsync();
-        console.log('🚀 ~ NotificationPromptProvider ~ status:', status);
-
         AppLogger.info('notification', 'Sign-in permission check result', {
           status,
           platform: Platform.OS,
@@ -271,7 +271,10 @@ export function NotificationPromptProvider({ children }: { children: React.React
         } else if (
           passesCooldownRules(loaded) &&
           (status === 'undetermined' || // iOS: never asked
-           (Platform.OS === 'android' && status === 'denied' && loaded.promptHistory.length === 0)) // Android 13+: "denied" = never asked (if we haven't prompted before)
+           (Platform.OS === 'android' && status === 'denied' && loaded.promptHistory.length === 0))
+           // Android < 13: auto-granted at install, always 'granted' → handled above.
+           // Android 13+ (API 33+): 'denied' by default until explicit request.
+           // promptHistory check distinguishes "never asked" from "user actually denied".
         ) {
           AppLogger.info('notification', 'Permission not yet granted on sign-in, showing prompt', { status, platform: Platform.OS });
           setActiveVariant('module');
@@ -309,7 +312,7 @@ export function NotificationPromptProvider({ children }: { children: React.React
       lastDismissDate: s.lastDismissDate,
     });
 
-    setTimeout(() => setModalVisible(true), 300); // slight delay for smoother UX
+    showTimerRef.current = setTimeout(() => setModalVisible(true), 300); // slight delay for smoother UX
   }, []);
 
   // ---- Core evaluation: should we show ANY prompt right now? ----
@@ -337,8 +340,8 @@ export function NotificationPromptProvider({ children }: { children: React.React
         await saveCurrentState(updated);
         return false;
       }
-    } catch {
-      // If permission check fails, proceed cautiously (don't block)
+    } catch (err) {
+      AppLogger.warn('notification', 'shouldPrompt: permission check failed, proceeding cautiously', {}, err);
     }
 
     // 3. Check cooldown rules (daily limit + dismiss cooldown)
@@ -373,38 +376,13 @@ export function NotificationPromptProvider({ children }: { children: React.React
     let granted = false;
 
     try {
-      // Show native OS permission prompt
-      const result = await CustomerIOService.showPromptForPushNotifications({
-        ios: { sound: true, badge: true },
-      });
+      // Show native OS permission prompt + register Expo token with Affinity.
+      const { status: result } = await requestPushNotificationPermission();
       granted = result === 'Granted';
       AppLogger.info('notification', 'Native permission result', { granted, result });
 
-      // Sync to Customer.io
-      CustomerIOService.setProfileAttributes({
-        push_notifications_enabled: granted,
-        push_permission_status: granted ? 'Granted' : 'Denied',
-        push_permission_updated_at: Math.floor(Date.now() / 1000),
-      });
-
       // Sync to PostHog
       analyticsService.updatePushStatus(granted, granted ? 'Granted' : 'Denied');
-
-      // Register device token if granted
-      if (granted) {
-        setTimeout(async () => {
-          try {
-            const pushToken = await Notifications.getDevicePushTokenAsync();
-            if (pushToken?.data) {
-              CustomerIOService.registerPushToken(pushToken.data);
-              CustomerIOService.setProfileAttributes({ cio_push_token: pushToken.data });
-              AppLogger.info('notification', 'Device token registered after prompt accept');
-            }
-          } catch (tokenErr) {
-            AppLogger.error('notification', 'Token registration failed', {}, tokenErr);
-          }
-        }, 1500);
-      }
     } catch (error) {
       AppLogger.error('notification', 'Native permission prompt error', {}, error);
     }

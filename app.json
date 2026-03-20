@@ -2,7 +2,7 @@
   "expo": {
     "name": "Archives",
     "slug": "archives",
-    "version": "3.5.8",
+    "version": "4.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
     "scheme": "archives",
@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "178",
+      "buildNumber": "182",
       "associatedDomains": [
         "applinks:link.archiveszone.app"
       ],
@@ -34,6 +34,7 @@
       }
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android_icon.png",
         "backgroundColor": "#F4EBDB"
@@ -46,7 +47,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 55,
+      "versionCode": 59,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -131,7 +132,8 @@
         {
           "icon": "./assets/images/app-icon.png",
           "color": "#C99151",
-          "sounds": []
+          "sounds": [],
+          "defaultChannel": "archives_notifications"
         }
       ],
       [
@@ -159,38 +161,6 @@
           "organization": "affinity-labs-0i"
         }
       ],
-      [
-        "customerio-expo-plugin",
-        {
-          "config": {
-            "cdpApiKey": "66b0dacc49da56e717f5",
-            "siteId": "acc28dfeb352f6b3af88",
-            "region": "eu"
-          },
-          "ios": {
-            "useFrameworks": "static",
-            "pushNotification": {
-              "useRichPush": true,
-              "showPushAppInForeground": true,
-              "disableNotificationRegistration": true,
-              "autoFetchDeviceToken": false,
-              "handleDeeplinkInKilledState": true
-            }
-          },
-          "android": {
-            "googleServicesFile": "./google-services.json",
-            "setHighPriorityPushHandler": true,
-            "pushClickBehavior": "ActivityPreventRestart",
-            "pushNotification": {
-              "channel": {
-                "id": "archives_notifications",
-                "name": "Archives Notifications",
-                "importance": 4
-              }
-            }
-          }
-        }
-      ],
       "expo-secure-store",
       [
         "react-native-fbsdk-next",
@@ -214,22 +184,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4f1f4bc4-0ced-48f3-b712-178b54175088",
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "NotificationService",
-                  "bundleIdentifier": "ai.affinitylabs.archivesexpo.richpush",
-                  "entitlements": {
-                    "com.apple.developer.usernotifications.service": true
-                  }
-                }
-              ]
-            }
-          }
-        }
+        "projectId": "4f1f4bc4-0ced-48f3-b712-178b54175088"
       }
     },
     "runtimeVersion": {
