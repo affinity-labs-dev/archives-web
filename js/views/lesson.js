@@ -87,8 +87,8 @@ export default function lessonView(app, { readableId, moduleIndex }) {
       }
     }
 
-    // Mobile forward arrow (reel only) — overlaid on video
-    if (mod.content_type === 'reel') {
+    // Mobile forward arrow — overlaid on video/carousel (not scrollable)
+    if (mod.content_type !== 'scrollable_media_view') {
       var videoWrap = app.querySelector('.reel-player__video-wrap');
       if (videoWrap) {
         var fwd = document.createElement('button');

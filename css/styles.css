@@ -2251,6 +2251,42 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     display: none;
   }
 
+  /* Carousel inside full-screen reel */
+  .carousel__track-wrap {
+    border-radius: 0;
+  }
+
+  .carousel__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .carousel__video {
+    object-fit: cover;
+  }
+
+  /* Move dots above the reading overlay */
+  .reel-player__video-wrap .carousel__dots {
+    position: absolute;
+    bottom: 8px;
+    left: 0;
+    right: 0;
+    z-index: 6;
+  }
+
+  /* Hide arrows on mobile — swipe only */
+  .carousel__arrow {
+    display: none;
+  }
+
+  /* Counter top-left (avoid overlap with forward arrow top-right) */
+  .carousel__counter {
+    top: 14px;
+    left: 14px;
+    right: auto;
+  }
+
   /* Daily story reel — same treatment */
   .ds .reel-player {
     max-height: none;

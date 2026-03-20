@@ -65,7 +65,7 @@ function renderCarousel(mod) {
     + '</div>'
     + ctrl.dots
     + '</div>'
-    + (reading ? '<div class="reel-player__reading">' + sanitizeHtml(reading) + '</div>' : '')
+    + (reading ? '<div class="reel-player__reading"><div class="reel-player__reading-inner">' + sanitizeHtml(reading) + '</div></div>' : '')
     + '</div>';
 }
 
