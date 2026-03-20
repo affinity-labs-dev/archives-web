@@ -24,8 +24,8 @@ route('/lesson/:readableId/:moduleIndex', lessonView);
 route('/quiz/:readableId/:moduleIndex', quizView);
 
 async function boot() {
-  // On mobile phones, show download banner and stop — don't load the app
-  if (showAppBanner()) return;
+  // On mobile phones, show download banner (dismissible, once per day)
+  showAppBanner();
 
   const app = document.getElementById('app');
 

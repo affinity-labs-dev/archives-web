@@ -23,6 +23,10 @@ export function showAppBanner() {
     ? 'assets/images/app-store-badge.svg'
     : 'assets/images/google-play-badge.png';
 
+  // Show once per day
+  var today = new Date().toISOString().split('T')[0];
+  if (localStorage.getItem('archives_banner_dismissed') === today) return false;
+
   var overlay = document.createElement('div');
   overlay.className = 'app-banner';
   overlay.innerHTML = '<div class="app-banner__content">'
@@ -32,8 +36,16 @@ export function showAppBanner() {
     + '<a class="app-banner__store" href="' + storeUrl + '" target="_blank" rel="noopener">'
     + '<img src="' + badgeSrc + '" alt="Download" class="app-banner__badge">'
     + '</a>'
+    + '<button class="app-banner__dismiss" id="app-banner-dismiss">Continue to web</button>'
     + '</div>';
 
   document.body.appendChild(overlay);
+
+  document.getElementById('app-banner-dismiss').addEventListener('click', function() {
+    localStorage.setItem('archives_banner_dismissed', today);
+    overlay.classList.add('app-banner--hiding');
+    setTimeout(function() { overlay.remove(); }, 300);
+  });
+
   return true;
 }
