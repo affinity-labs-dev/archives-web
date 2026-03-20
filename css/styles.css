@@ -1276,6 +1276,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 /* ===== Mobile Daily Watch — Simple flat layout ===== */
 .ds-mobile-watch {
   padding: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ds-mobile-watch__media {
@@ -1285,7 +1287,6 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .ds-mobile-watch__video {
   width: 100%;
-  aspect-ratio: 9 / 16;
   max-height: 60vh;
   object-fit: contain;
   background: var(--dark);
@@ -1293,40 +1294,41 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 
 .ds-mobile-watch__carousel {
-  display: flex;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-x;
 }
 
-.ds-mobile-watch__carousel::-webkit-scrollbar { display: none; }
+.ds-mobile-watch__track {
+  display: flex;
+  transition: transform 0.3s ease-out;
+  will-change: transform;
+}
 
 .ds-mobile-watch__slide {
-  min-width: 100%;
-  width: 100%;
+  width: 100vw;
   flex-shrink: 0;
-  scroll-snap-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 .ds-mobile-watch__img {
-  width: 100%;
-  max-height: 50vh;
+  width: calc(100vw - 32px);
+  max-height: 45vh;
   object-fit: contain;
   display: block;
+  margin: 0 auto;
+  border-radius: 8px;
 }
 
 .ds-mobile-watch__caption {
   font-family: var(--font-display);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--cream);
+  color: var(--cream-dim);
   text-align: center;
-  padding: 10px var(--page-px);
+  padding: 8px 16px 0;
   line-height: 1.4;
 }
 
@@ -1334,7 +1336,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   display: flex;
   justify-content: center;
   gap: 6px;
-  padding: 12px 0;
+  padding: 14px 0;
 }
 
 .ds-mobile-watch__dot {
@@ -1351,7 +1353,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 
 .ds-mobile-watch__reading {
-  padding: 16px var(--page-px);
+  padding: 8px var(--page-px) 16px;
   font-family: var(--font-display);
   font-size: 0.95rem;
   line-height: 1.75;

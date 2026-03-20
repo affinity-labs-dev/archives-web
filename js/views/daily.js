@@ -115,6 +115,7 @@ export default function dailyView(app, params) {
             + '</div>';
         } else if ((ct === 'image_carousel' || ct === 'video_carousel') && urls.length > 0) {
           html += '<div class="ds-mobile-watch__carousel" id="ds-mobile-carousel">';
+          html += '<div class="ds-mobile-watch__track" id="ds-mobile-track">';
           urls.forEach(function(url, i) {
             if (ct === 'video_carousel') {
               html += '<div class="ds-mobile-watch__slide">'
@@ -123,12 +124,12 @@ export default function dailyView(app, params) {
                 + '</div>';
             } else {
               html += '<div class="ds-mobile-watch__slide">'
-                + '<img class="ds-mobile-watch__img" src="' + sanitizeUrl(url) + '" alt="" loading="lazy">'
+                + '<img class="ds-mobile-watch__img" src="' + sanitizeUrl(url) + '" alt="">'
                 + (captions[i] ? '<div class="ds-mobile-watch__caption">' + sanitizeHtml(captions[i]) + '</div>' : '')
                 + '</div>';
             }
           });
-          html += '</div>';
+          html += '</div></div>';
           if (urls.length > 1) {
             html += '<div class="ds-mobile-watch__dots" id="ds-mobile-dots">';
             urls.forEach(function(_, i) {
@@ -373,22 +374,53 @@ export default function dailyView(app, params) {
           cleanupFn = function() { hlsInstances.forEach(function(h) { h.destroy(); }); };
         }
 
-        // Mobile carousel scroll-snap + dots
-        var mobileCarousel = document.getElementById('ds-mobile-carousel');
-        if (mobileCarousel && card1Urls.length > 1) {
+        // Mobile carousel — touch swipe with transform
+        var mTrack = document.getElementById('ds-mobile-track');
+        var mCarousel = document.getElementById('ds-mobile-carousel');
+        if (mTrack && mCarousel && card1Urls.length > 1) {
+          var mCurrent = 0;
+          var mTotal = card1Urls.length;
           var mDots = app.querySelectorAll('.ds-mobile-watch__dot');
+          var mStartX = 0;
+          var mDragging = false;
 
-          // Update dots on scroll
-          mobileCarousel.addEventListener('scroll', function() {
-            var idx = Math.round(mobileCarousel.scrollLeft / mobileCarousel.offsetWidth);
-            mDots.forEach(function(d, i) { d.classList.toggle('ds-mobile-watch__dot--active', i === idx); });
+          function mGoTo(idx) {
+            if (idx < 0) idx = 0;
+            if (idx >= mTotal) idx = mTotal - 1;
+            mCurrent = idx;
+            mTrack.style.transform = 'translateX(' + (-mCurrent * 100) + '%)';
+            mDots.forEach(function(d, i) {
+              d.classList.toggle('ds-mobile-watch__dot--active', i === mCurrent);
+            });
+          }
+
+          mCarousel.addEventListener('touchstart', function(e) {
+            mStartX = e.touches[0].clientX;
+            mDragging = true;
+            mTrack.style.transition = 'none';
           }, { passive: true });
 
-          // Tap dot to scroll
+          mCarousel.addEventListener('touchmove', function(e) {
+            if (!mDragging) return;
+            var dx = e.touches[0].clientX - mStartX;
+            var offset = -mCurrent * mCarousel.offsetWidth + dx;
+            mTrack.style.transform = 'translateX(' + offset + 'px)';
+          }, { passive: true });
+
+          mCarousel.addEventListener('touchend', function(e) {
+            if (!mDragging) return;
+            mDragging = false;
+            mTrack.style.transition = 'transform 0.3s ease-out';
+            var dx = e.changedTouches[0].clientX - mStartX;
+            if (dx < -40) mGoTo(mCurrent + 1);
+            else if (dx > 40) mGoTo(mCurrent - 1);
+            else mGoTo(mCurrent);
+          });
+
           mDots.forEach(function(dot) {
             dot.addEventListener('click', function() {
-              var idx = parseInt(dot.dataset.index, 10);
-              mobileCarousel.scrollTo({ left: idx * mobileCarousel.offsetWidth, behavior: 'smooth' });
+              mTrack.style.transition = 'transform 0.3s ease-out';
+              mGoTo(parseInt(dot.dataset.index, 10));
             });
           });
         }
