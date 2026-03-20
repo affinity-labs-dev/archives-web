@@ -73,6 +73,11 @@ interface AIContextType {
   openChat: () => void;
   closeChat: () => void;
 
+  // Chat to Learn (post-quiz deep dive)
+  pendingHiddenMessage: string | null;
+  openChatToLearn: (hiddenMessage: string) => void;
+  clearPendingHiddenMessage: () => void;
+
   // Messages
   messages: ChatMessage[];
   addMessage: (message: ChatMessage) => void;
@@ -113,6 +118,7 @@ export function AIProvider({ children }: AIProviderProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showFloatingButton, setShowFloatingButton] = useState(true);
   const [currentContext, setCurrentContext] = useState<AIContextType['currentContext']>({});
+  const [pendingHiddenMessage, setPendingHiddenMessage] = useState<string | null>(null);
   const [knowledgeContext, setKnowledgeContext] = useState<AIKnowledgeContext | null>(null);
   const [newEraProgress, setNewEraProgress] = useState<any[]>([]);
 
@@ -356,9 +362,23 @@ export function AIProvider({ children }: AIProviderProps) {
     setIsChatOpen(true);
   };
 
+  // Open chat with a hidden message (Chat to Learn - post-quiz deep dive)
+  // The hidden message is sent to the AI but not shown in the chat UI
+  const openChatToLearn = (hiddenMessage: string) => {
+    console.log('🤖 [AIContext] Opening Chat to Learn');
+    setPendingHiddenMessage(hiddenMessage);
+    setIsChatOpen(true);
+  };
+
+  // Clear pending hidden message (called by AIChatModal after processing)
+  const clearPendingHiddenMessage = () => {
+    setPendingHiddenMessage(null);
+  };
+
   // Close chat
   const closeChat = () => {
     console.log('🤖 [AIContext] Closing chat');
+    setPendingHiddenMessage(null);
     setIsChatOpen(false);
   };
 
@@ -661,6 +681,9 @@ export function AIProvider({ children }: AIProviderProps) {
     isChatOpen,
     openChat,
     closeChat,
+    pendingHiddenMessage,
+    openChatToLearn,
+    clearPendingHiddenMessage,
     messages,
     addMessage,
     clearHistory,

@@ -101,7 +101,7 @@ export default function AIChatModal({
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const { getUserProgressSummary, getKnowledgeContextForPrompt } = useAI();
+  const { getUserProgressSummary, getKnowledgeContextForPrompt, pendingHiddenMessage, clearPendingHiddenMessage } = useAI();
   const { user } = useUser();
   const { isSubscribed } = useRevenueCat();
   const insets = useSafeAreaInsets();
@@ -179,6 +179,76 @@ export default function AIChatModal({
       }
     }
   }, [visible]);
+
+  // Chat to Learn: process hidden message when modal opens
+  // Sends the context to AI silently (not shown in chat) and displays only the AI response
+  useEffect(() => {
+    if (!visible || !pendingHiddenMessage) return;
+    let cancelled = false;
+
+    const processHiddenMessage = async () => {
+      setIsLoading(true);
+      setError(null);
+      clearPendingHiddenMessage();
+
+      // Check quota before making the API call
+      if (!await checkQuotaBeforeRequest('chat')) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const progressSummary = getUserProgressSummary();
+        const knowledgeCtx = getKnowledgeContextForPrompt();
+        const response = await aiService.getChatResponse({
+          userMessage: pendingHiddenMessage,
+          conversationHistory: messages,
+          context: {
+            eraId: context.eraId,
+            eraName: context.eraName || 'Islamic History',
+            adventureId: context.adventureId,
+            currentScreen: context.currentScreen,
+          },
+          userProgress: progressSummary,
+          knowledgeContext: knowledgeCtx,
+          enableWebSearch: false,
+        });
+
+        if (cancelled) return;
+
+        const aiMsg: ChatMessage = {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          role: 'assistant',
+          content: response.text,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, aiMsg]);
+
+        // Track usage against quota
+        if (userId) {
+          aiStorageService.trackUsage(userId, 'chat').catch(console.error);
+        }
+
+        analyticsService.trackCustomEvent('chat_to_learn_response', {
+          era_id: context?.eraId || 'unknown_era',
+          response_length: response.text.length,
+        });
+      } catch (err) {
+        if (cancelled) return;
+        console.error('❌ [AIChatModal] Chat to Learn error:', err);
+        setError('Sorry, I could not process that. Please try again.');
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    processHiddenMessage();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, pendingHiddenMessage]);
 
   // Share image (allows saving to photos, sharing to apps, etc.)
   const handleShareImage = async () => {
