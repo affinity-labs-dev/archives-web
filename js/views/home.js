@@ -272,6 +272,7 @@ export default function homeView(app) {
       });
 
     });
+    });
   }).catch(function(err) {
     if (aborted) return;
     app.innerHTML = '<div class="error-msg">Failed to load eras.</div>';
