@@ -23,7 +23,7 @@ import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -45,6 +45,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
+import { useFocusEffect } from "@react-navigation/native";
 
 // Theme styles
 const themeStyles = ArchivesTheme.common.today;
@@ -361,6 +362,16 @@ export default function TodayScreen() {
     saveQuestCompletion,
   } = useToday(user?.id);
   const { width: contentWidth } = useWindowDimensions();
+
+  // Track page view for Today tab
+  useFocusEffect(
+    useCallback(() => {
+      analyticsService.startPageView('today', '/(tabs)/today');
+      return () => {
+        analyticsService.endPageView('today');
+      };
+    }, [])
+  );
 
   // Debug logging
   useEffect(() => {

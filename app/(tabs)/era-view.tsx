@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { ActivityIndicator, Text, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -272,13 +272,64 @@ export default function AdventuresScreen() {
     }
   }, [isSignedIn, user]);
 
-  // Reload progress whenever screen comes into focus (e.g., after quiz completion)
+  // Track era_started (fires once per era per user)
+  const hasTrackedEraStartRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedEra || !selectedEraData || hasTrackedEraStartRef.current === selectedEra) return;
+
+    const trackEraStart = async () => {
+      const key = `era_started_${selectedEra}`;
+      const hasTracked = await AsyncStorage.getItem(key);
+      if (!hasTracked) {
+        analyticsService.trackEraStarted({
+          era_id: selectedEra,
+          era_name: selectedEraData.title || selectedEra,
+          screen: 'era_view',
+        });
+        await AsyncStorage.setItem(key, 'true');
+        console.log(`📊 [Analytics] Era Started: ${selectedEra}`);
+      }
+      hasTrackedEraStartRef.current = selectedEra;
+    };
+    trackEraStart();
+  }, [selectedEra, selectedEraData]);
+
+  // Track era_completed (fires once when all adventures in era are done)
+  const hasTrackedEraCompleteRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedEra || !adventures || adventures.length === 0) return;
+    if (completedAdventuresCount < adventures.length) return;
+    if (hasTrackedEraCompleteRef.current === selectedEra) return;
+
+    const trackEraComplete = async () => {
+      const key = `era_completed_${selectedEra}`;
+      const hasTracked = await AsyncStorage.getItem(key);
+      if (!hasTracked) {
+        analyticsService.trackEraCompleted({
+          era_id: selectedEra,
+          era_name: selectedEraData?.title || selectedEra,
+          total_adventures: adventures.length,
+          total_xp: quizProgress.totalXP || 0,
+        });
+        await AsyncStorage.setItem(key, 'true');
+        console.log(`📊 [Analytics] Era Completed: ${selectedEra}`);
+      }
+      hasTrackedEraCompleteRef.current = selectedEra;
+    };
+    trackEraComplete();
+  }, [selectedEra, selectedEraData, adventures, completedAdventuresCount, quizProgress.totalXP]);
+
+  // Reload progress and track page view whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
       if (selectedEra) {
         console.log(`🔄 [Adventures] Screen focused, reloading progress for: ${selectedEra}`);
         loadProgress();
       }
+      analyticsService.startPageView('adventures', '/(tabs)/era-view');
+      return () => {
+        analyticsService.endPageView('adventures');
+      };
     }, [loadProgress, selectedEra])
   );
 

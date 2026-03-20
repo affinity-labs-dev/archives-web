@@ -64,11 +64,6 @@ interface OnboardingQuestionAnsweredEvent {
   answer_index?: number;
 }
 
-interface OnboardingScreenExitedEvent {
-  screen: string;
-  exit_action: 'back_button' | 'continued' | 'app_closed';
-  duration_seconds: number;
-}
 
 interface AuthScreenViewedEvent {
   screen: string;
@@ -95,16 +90,10 @@ interface AuthFailedEvent {
   error_message: string;
 }
 
-interface AuthScreenExitedEvent {
-  screen: string;
-  exit_action: 'authenticated' | 'back_button' | 'app_closed';
-  duration_seconds: number;
-  mode: 'signin' | 'signup';
-}
 
 // ==================== SESSION TELEMETRY INTERFACES (AFF-151) ====================
 
-export type SessionOutTrigger = 'manual_profile' | 'stale_session_onboarding' | 'clerk_session_ended' | 'account_deleted';
+export type SessionOutTrigger = 'manual_profile' | 'stale_session_onboarding' | 'clerk_session_ended' | 'account_deleted' | 'app_backgrounded';
 
 interface UserSessionOutEvent {
   trigger: SessionOutTrigger;
@@ -301,10 +290,24 @@ interface QuizResultsViewedEvent {
 interface ModuleStartedEvent {
   era_id: string;
   era_name: string;
-  adventure_id: number;
+  adventure_id: number | string;
   adventure_number: number;
-  module_id: number;
+  module_id: number | string;
   module_number: number;
+  module_title?: string;
+}
+
+interface EraStartedEvent {
+  era_id: string;
+  era_name: string;
+  screen: string;
+}
+
+interface EraCompletedEvent {
+  era_id: string;
+  era_name: string;
+  total_adventures: number;
+  total_xp: number;
 }
 
 interface ModuleCompletedEvent {
@@ -560,20 +563,6 @@ class AnalyticsService {
     }
   }
 
-  /**
-   * Track when user exits onboarding screen
-   */
-  trackOnboardingScreenExited(data: OnboardingScreenExitedEvent) {
-    const event = {
-      ...data,
-      ...this.getBaseProperties(),
-    };
-
-    this.posthog?.capture('onboarding_screen_exited', event);
-    if (__DEV__) {
-      console.log('📊 [Analytics] Onboarding Screen Exited:', event);
-    }
-  }
 
   /**
    * Track video progress milestones
@@ -652,20 +641,6 @@ class AnalyticsService {
     }
   }
 
-  /**
-   * Track when user exits auth screen
-   */
-  trackAuthScreenExited(data: AuthScreenExitedEvent) {
-    const event = {
-      ...data,
-      ...this.getBaseProperties(),
-    };
-
-    this.posthog?.capture('auth_screen_exited', event);
-    if (__DEV__) {
-      console.log('📊 [Analytics] Auth Screen Exited:', event);
-    }
-  }
 
   // ==================== SESSION TELEMETRY (AFF-151) ====================
 
@@ -1167,7 +1142,7 @@ class AnalyticsService {
    * @param pageName - Human-readable page name
    * @param screenUrl - Screen URL path for PostHog activity view (e.g., '/(tabs)/', '/(tabs)/profile')
    */
-  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home', screenUrl: string) {
+  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home' | 'today' | 'adventures', screenUrl: string) {
     this.pageStartTimes.set(pageName, Date.now());
     this.pageClicks.set(pageName, 0);
     this.pageUrls.set(pageName, screenUrl);
@@ -1179,7 +1154,7 @@ class AnalyticsService {
   /**
    * Track page click
    */
-  trackPageClick(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home') {
+  trackPageClick(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home' | 'today' | 'adventures') {
     const currentClicks = this.pageClicks.get(pageName) || 0;
     this.pageClicks.set(pageName, currentClicks + 1);
   }
@@ -1187,7 +1162,7 @@ class AnalyticsService {
   /**
    * End tracking page view (call on screen blur)
    */
-  endPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home') {
+  endPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home' | 'today' | 'adventures') {
     const startTime = this.pageStartTimes.get(pageName);
     if (!startTime) {
       AppLogger.warn('navigation', 'No start time for page view', { pageName });
@@ -1403,6 +1378,20 @@ class AnalyticsService {
    */
   trackModuleCompleted(properties: ModuleCompletedEvent) {
     this.trackCustomEvent('module_completed', properties);
+  }
+
+  /**
+   * Track era started (first time user enters an era's content)
+   */
+  trackEraStarted(properties: EraStartedEvent) {
+    this.trackCustomEvent('era_started', properties);
+  }
+
+  /**
+   * Track era completed (all adventures in era finished)
+   */
+  trackEraCompleted(properties: EraCompletedEvent) {
+    this.trackCustomEvent('era_completed', properties);
   }
 
   // ==================== DAILY STORY EVENTS ====================

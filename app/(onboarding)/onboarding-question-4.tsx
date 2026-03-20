@@ -47,16 +47,7 @@ export default function OnboardingQuestion4Screen() {
   useEffect(() => {
     trackScreenView('Onboarding Question 4')
 
-    // Track screen exit on unmount only (use ref to avoid duplicate cleanup calls)
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_question_4',
-        exit_action: exitActionRef.current,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime])
+  }, [trackScreenView])
 
   // Handle option selection (multi-select, UI only - tracking happens on Continue)
   const handleOptionSelect = async (optionIndex: number) => {

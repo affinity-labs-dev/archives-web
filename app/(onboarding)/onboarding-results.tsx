@@ -47,16 +47,7 @@ export default function OnboardingResultsScreen() {
       trackOnboardingCompletion()
     }
 
-    // Track screen exit on unmount only (use ref to avoid re-running effect)
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_results',
-        exit_action: exitActionRef.current,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime])
+  }, [trackScreenView])
 
   // Track onboarding completion with all answers
   const trackOnboardingCompletion = async () => {

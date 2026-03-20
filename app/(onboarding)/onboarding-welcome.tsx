@@ -31,16 +31,7 @@ export default function OnboardingWelcomeScreen() {
   useEffect(() => {
     trackScreenView('Onboarding Welcome')
 
-    // Track screen exit on unmount
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_welcome',
-        exit_action: exitAction,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime, exitAction])
+  }, [trackScreenView])
 
   // Continue to first question
   const handleContinue = async () => {

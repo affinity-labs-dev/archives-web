@@ -57,16 +57,7 @@ export default function OnboardingVideo2Screen() {
   useEffect(() => {
     trackScreenView('Onboarding Video 2')
 
-    // Track screen exit on unmount
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_video_2',
-        exit_action: exitAction,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime, exitAction])
+  }, [trackScreenView])
 
   // Handle video loading state and events
   useEffect(() => {

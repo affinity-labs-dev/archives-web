@@ -1,5 +1,6 @@
 // useLessonTracking.ts - Custom hook for comprehensive lesson analytics
 import { useEffect, useRef, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { analyticsService } from '@/services/AnalyticsService';
 
 interface UseLessonTrackingProps {
@@ -52,6 +53,14 @@ export function useLessonTracking({
         $screen_name: screen,
       });
       hasStartedRef.current = true;
+
+      // Track first_lesson (fires once per user lifetime for "time to first value" metric)
+      AsyncStorage.getItem('has_started_first_lesson').then((value) => {
+        if (!value) {
+          analyticsService.trackFirstLesson(adventureNumber || 0, moduleNumber || 0);
+          AsyncStorage.setItem('has_started_first_lesson', 'true');
+        }
+      });
     }
 
     // Track lesson end on unmount (time spent calculation)

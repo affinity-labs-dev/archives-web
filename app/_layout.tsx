@@ -368,6 +368,13 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       if (nextAppState === 'active') {
         analyticsService.updateLastActiveAt();
         NotificationBadgeService.clearBadge(); // Clear red dot when app opens
+      } else if (nextAppState === 'background' && isSignedIn) {
+        // Track session end when app goes to background (fixes session_out undercounting)
+        analyticsService.trackUserSessionOut({
+          trigger: 'app_backgrounded',
+          session_duration_seconds: null, // Let method calculate from sessionStartTime
+          had_selected_era: true,
+        });
       }
     };
 
@@ -636,14 +643,12 @@ export default Sentry.wrap(function RootLayout() {
   const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST!;
 
   // Create PostHog options with platform-specific configuration
+  // NOTE: captureAppLifecycleEvents is a TOP-LEVEL PostHogOptions property (not under autocapture)
+  // autocapture (captureTouches, captureScreens) is passed as a SEPARATE prop to PostHogProvider
   const posthogOptions = {
     host: posthogHost,
-    // Enable autocapture for automatic event tracking
-    autocapture: {
-      captureAppLifecycleEvents: true,  // Auto-track app open/foreground/background
-      captureTouches: false,             // Disable touch tracking (too noisy for educational app)
-      captureScreens: false,             // React Navigation v7 requires manual screen tracking
-    },
+    // Auto-track Application Opened, Application Backgrounded, Application Installed, Application Updated
+    captureAppLifecycleEvents: true,
     // Enable session recording for mobile (disabled on web to prevent compatibility issues)
     enableSessionReplay: Platform.OS !== 'web',
     ...(Platform.OS !== 'web' && {
@@ -666,13 +671,19 @@ export default Sentry.wrap(function RootLayout() {
     }),
   };
 
+  // Autocapture options for touch and screen tracking (separate from PostHogOptions)
+  const posthogAutocaptureOptions = {
+    captureTouches: false,    // Disable touch tracking (too noisy for educational app)
+    captureScreens: false,    // React Navigation v7 / expo-router requires manual screen tracking
+  };
+
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{
         flex: 1,
         backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined
       }}>
-        <PostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
+        <PostHogProvider apiKey={posthogApiKey} options={posthogOptions} autocapture={posthogAutocaptureOptions}>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
             <ClerkLoaded>
               <AnalyticsWrapper>

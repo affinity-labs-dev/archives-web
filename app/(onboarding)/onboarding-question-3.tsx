@@ -44,16 +44,7 @@ export default function OnboardingRemindersScreen() {
   useEffect(() => {
     trackScreenView('Onboarding Question 3')
 
-    // Track screen exit on unmount only
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_question_3',
-        exit_action: exitActionRef.current,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime])
+  }, [trackScreenView])
 
   // Handle enable reminders — request permission via expo-notifications + register with Affinity
   const handleEnableReminders = async () => {
@@ -103,6 +94,19 @@ export default function OnboardingRemindersScreen() {
         result: permissionStatus,
         platform: Platform.OS,
       })
+
+      // Track specific push notification permission result
+      const permissionEvent = {
+        permission_type: 'push_notifications' as const,
+        screen: 'onboarding_question_3',
+        result: permissionStatus,
+        platform: Platform.OS,
+      }
+      if (permissionStatus === 'granted') {
+        analyticsService.trackPushNotificationsEnabled(permissionEvent)
+      } else {
+        analyticsService.trackPushNotificationsDeclined(permissionEvent)
+      }
 
       // Save reminder preference
       await AsyncStorage.setItem('onboarding_reminders_enabled', 'true')

@@ -401,12 +401,20 @@ export function NotificationPromptProvider({ children }: { children: React.React
     await saveCurrentState(updated);
 
     // Track analytics
-    analyticsService.trackPermissionRequested({
-      permission_type: 'push_notifications',
+    const permissionEvent = {
+      permission_type: 'push_notifications' as const,
       screen: `notification_prompt_${variant}`,
-      result: granted ? 'granted' : 'denied',
+      result: (granted ? 'granted' : 'denied') as 'granted' | 'denied',
       platform: Platform.OS,
-    });
+    };
+    analyticsService.trackPermissionRequested(permissionEvent);
+
+    // Track specific push notification permission result
+    if (granted) {
+      analyticsService.trackPushNotificationsEnabled(permissionEvent);
+    } else {
+      analyticsService.trackPushNotificationsDeclined(permissionEvent);
+    }
 
     // Advance the Orchestrator queue (null when triggered by sign-in check)
     onCompleteRef.current?.();
