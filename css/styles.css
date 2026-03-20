@@ -2772,6 +2772,38 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   .quiz-score__content { padding-bottom: 36px; }
 }
 
+/* Mobile: stacked layout — video top, content below */
+@media (max-width: 699px) {
+  .quiz-score {
+    position: fixed;
+    inset: 0;
+    top: 56px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .quiz-score__video {
+    position: relative;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .quiz-score__overlay {
+    position: relative;
+    background: none;
+    flex: 1;
+    justify-content: flex-start;
+  }
+
+  .quiz-score__content {
+    padding: 20px var(--page-px) calc(24px + env(safe-area-inset-bottom));
+  }
+}
+
 /* Title & subtitle */
 .quiz-score__title {
   font-family: var(--font-display);
