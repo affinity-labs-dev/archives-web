@@ -526,7 +526,7 @@ export default function dailyView(app, params) {
         // Replace the quiz panel content with the score screen
         var panel = dsQuizContainer.closest('.ds__panel');
         panel.innerHTML = '<div class="quiz-score fade-in">'
-          + '<video class="quiz-score__video" autoplay playsinline>'
+          + '<video class="quiz-score__video" autoplay muted playsinline>'
           + '<source src="' + escapeHtml(videoSrc) + '" type="video/mp4">'
           + '</video>'
           + '<div class="quiz-score__overlay">'
@@ -574,6 +574,10 @@ export default function dailyView(app, params) {
             }
           });
         }
+
+        // Explicitly play the reward video (autoplay can be blocked)
+        var rewardVid = panel.querySelector('.quiz-score__video');
+        if (rewardVid) rewardVid.play().catch(function() {});
 
         setTimeout(function() { playStars(stars); }, 100);
         window.scrollTo({ top: 0, behavior: 'smooth' });

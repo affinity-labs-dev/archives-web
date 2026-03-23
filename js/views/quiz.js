@@ -114,7 +114,7 @@ export default function quizView(app, { readableId, moduleIndex }) {
             { label: 'Quiz Complete' }
           ])
         + '<div class="quiz-score fade-in">'
-        + '<video class="quiz-score__video" autoplay playsinline>'
+        + '<video class="quiz-score__video" autoplay muted playsinline>'
         + '<source src="' + escapeHtml(videoSrc) + '" type="video/mp4">'
         + '</video>'
         + '<div class="quiz-score__overlay">'
@@ -132,6 +132,10 @@ export default function quizView(app, { readableId, moduleIndex }) {
         + '<button class="quiz-score__chat" data-action="chat">Chat to Learn More</button>'
         + '<button class="quiz-score__back" data-action="back">Back to Adventure</button>'
         + '</div></div></div></div>';
+
+      // Explicitly play the reward video (autoplay can be blocked)
+      var rewardVid = app.querySelector('.quiz-score__video');
+      if (rewardVid) rewardVid.play().catch(function() {});
 
       // Attach click handlers
       const actions = document.getElementById('quiz-actions');
