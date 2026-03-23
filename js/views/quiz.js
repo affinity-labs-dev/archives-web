@@ -133,10 +133,6 @@ export default function quizView(app, { readableId, moduleIndex }) {
         + '<button class="quiz-score__back" data-action="back">Back to Adventure</button>'
         + '</div></div></div></div>';
 
-      // Explicitly play the reward video (autoplay can be blocked)
-      var rewardVid = app.querySelector('.quiz-score__video');
-      if (rewardVid) rewardVid.play().catch(function() {});
-
       // Attach click handlers
       const actions = document.getElementById('quiz-actions');
       if (actions) {

@@ -575,10 +575,6 @@ export default function dailyView(app, params) {
           });
         }
 
-        // Explicitly play the reward video (autoplay can be blocked)
-        var rewardVid = panel.querySelector('.quiz-score__video');
-        if (rewardVid) rewardVid.play().catch(function() {});
-
         setTimeout(function() { playStars(stars); }, 100);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
