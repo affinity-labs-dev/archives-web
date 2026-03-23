@@ -281,6 +281,38 @@ export async function updateDevice(
   }
 }
 
+/**
+ * Report an engagement event (open / click / dismiss) back to the Affinity
+ * Notification Service.  The delivery_id comes from the push payload `data`
+ * field — injected automatically by the backend orchestrator.
+ *
+ * Non-fatal: failures are logged but never block the UI.
+ */
+export async function reportEvent(
+  deliveryId: string,
+  eventType: 'open' | 'click' | 'dismiss',
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  if (!APP_ID) return;
+
+  try {
+    await apiFetch('/sdk/events', 'POST', {
+      app_id: APP_ID,
+      delivery_id: deliveryId,
+      event_type: eventType,
+      user_external_id: _currentUserId,
+      occurred_at: new Date().toISOString(),
+      metadata: metadata ?? {},
+    });
+
+    AppLogger.info('notification', `Engagement event reported: ${eventType}`, {
+      deliveryId,
+    });
+  } catch (error) {
+    AppLogger.error('notification', `Failed to report ${eventType} event`, { deliveryId }, error);
+  }
+}
+
 export function getLastRegisteredToken(): string | null {
   return _lastRegisteredToken;
 }
@@ -294,6 +326,7 @@ export default {
   registerDevice,
   updatePermission,
   updateDevice,
+  reportEvent,
   logout,
   getLastRegisteredToken,
   getDeviceIdentifier,
