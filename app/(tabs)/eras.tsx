@@ -222,10 +222,9 @@ export default function EraSelection() {
       await AsyncStorage.setItem('onboarding_completed', 'true');
       await AsyncStorage.setItem('selected_era', selectedEra.era_id);
       console.log('✅ Onboarding completed - selected era:', selectedEra.era_id);
-      router.replace('/(tabs)/today');
+      router.replace('/(tabs)');
     } else {
-      // Navigate to Today tab (AFF-319: daily story as default landing)
-      router.push('/(tabs)/today');
+      router.push('/(tabs)');
     }
   };
 
