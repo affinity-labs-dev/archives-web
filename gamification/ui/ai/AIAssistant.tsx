@@ -30,7 +30,7 @@ export default function AIAssistant() {
   }
 
   // Don't render on onboarding screens, auth screens, today screen, or subscription screen
-  if (pathname?.startsWith('/onboarding') || pathname?.startsWith('/(onboarding)') || pathname?.startsWith('/auth') || pathname?.startsWith('/(auth)') || pathname === '/(tabs)/today' || pathname === '/today' || pathname === '/(tabs)/subscribe' || pathname === '/subscribe') {
+  if (pathname?.startsWith('/onboarding') || pathname?.startsWith('/(onboarding)') || pathname?.startsWith('/auth') || pathname?.startsWith('/(auth)') || pathname === '/(tabs)/subscribe' || pathname === '/subscribe') {
     return null;
   }
 
@@ -42,7 +42,7 @@ export default function AIAssistant() {
   return (
     <>
       {/* Floating button - hide when chat is open */}
-      {!isChatOpen && (
+      {!isChatOpen && pathname !== '/(tabs)/today' && pathname !== '/today' && (
         <FloatingAIButton onPress={openChat} />
       )}
 

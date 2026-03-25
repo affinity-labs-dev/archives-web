@@ -30,7 +30,7 @@ const DEFAULT_IMAGE = require('@/assets/images/eras/era1-bg.jpg');
 interface EraCardProps {
   era: Era;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (era: Era) => void;
   hasSubscription?: boolean;
   isFoundingMember?: boolean;
 }
@@ -42,6 +42,7 @@ function EraCardComponent({
   hasSubscription = false,
   isFoundingMember = false,
 }: EraCardProps) {
+  const handlePress = React.useCallback(() => onSelect(era), [onSelect, era]);
   const isFullWidth = era.card_layout === 'full_width';
   const isAccessible = isEraAccessible(era.status, hasSubscription, isFoundingMember);
   const showLock = !isAccessible;
@@ -67,7 +68,7 @@ function EraCardComponent({
           isSelected && !showLock && styles.horizontalCardSelected,
           showLock && styles.cardNoEffects,
         ]}
-        onPress={onSelect}
+        onPress={handlePress}
       >
         <Image
           source={getImageSource()}
@@ -126,7 +127,7 @@ function EraCardComponent({
         isSelected && !showLock && styles.gridCardSelected,
         showLock && styles.cardNoEffects,
       ]}
-      onPress={onSelect}
+      onPress={handlePress}
     >
       <Image
         source={getImageSource()}

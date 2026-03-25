@@ -4,17 +4,26 @@ import Quiz from '@/components/quiz/Quiz';
 import type { Adventure, ContentItem } from '@/components/shared/types';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
-import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
-import { useVideoPreloader, extractVideoUrls } from '@/hooks/useVideoPreloader';
-import { analyticsService } from '@/services/AnalyticsService';
 import { useAI } from '@/gamification';
+import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
+import { extractVideoUrls, useVideoPreloader } from '@/hooks/useVideoPreloader';
+import { analyticsService } from '@/services/AnalyticsService';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
+import { LegendList } from '@legendapp/list';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Dimensions,
+  Modal,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import AdventureCard from './AdventureCard';
@@ -41,7 +50,15 @@ interface BentoGridScreenProps {
   showPullToRefreshHint?: boolean; // Show hint above adventure list (hide after first use)
 }
 
-const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh, onScrollActivity, showPullToRefreshHint = false }) => {
+const BentoGridScreen: React.FC<BentoGridScreenProps> = ({
+  adventures,
+  userProgress,
+  onProgressUpdate,
+  refreshing,
+  onRefresh,
+  onScrollActivity,
+  showPullToRefreshHint = false,
+}) => {
   const [selectedLesson, setSelectedLesson] = useState<{
     contentItem: ContentItem;
     adventureId: string;
@@ -67,51 +84,52 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     }
   }, [selectedLesson, pendingChatMessage, openChatToLearn]);
 
-  const flatListRef = useRef<FlatList>(null);
+  // Handle card press - open lesson modal (stable ref for AdventureComponent memo)
+  const handleCardPress = useCallback(
+    (contentItem: ContentItem, adventureId: string) => {
+      // Use database IDs directly (flows AS IS to ProgressContext)
+      const moduleId = contentItem.id; // Use media_id from content_list
+      const lessonId = `lesson${contentItem.order_by}`;
 
-  // Handle card press - open lesson modal
-  const handleCardPress = (contentItem: ContentItem, adventureId: string) => {
-    // Use database IDs directly (flows AS IS to ProgressContext)
-    const moduleId = contentItem.id; // Use media_id from content_list
-    const lessonId = `lesson${contentItem.order_by}`;
+      // Find adventure to get era info (era-agnostic)
+      const adventure = adventures.find((a) => a.readable_id === adventureId);
+      const eraId = adventure?.era_id || '';
+      const eraName = adventure?.card_content?.era_name || adventure?.era_id || '';
 
-    // Find adventure to get era info (era-agnostic)
-    const adventure = adventures.find(a => a.readable_id === adventureId);
-    const eraId = adventure?.era_id || '';
-    const eraName = adventure?.card_content?.era_name || adventure?.era_id || '';
+      console.log('🎬 Opening lesson:', {
+        adventureId,
+        moduleId,
+        lessonId,
+        eraId,
+        contentType: contentItem.content_type,
+        title: contentItem.thumbnail_title,
+        hasQuestions: (contentItem.questions?.length ?? 0) > 0,
+      });
 
-    console.log('🎬 Opening lesson:', {
-      adventureId,
-      moduleId,
-      lessonId,
-      eraId,
-      contentType: contentItem.content_type,
-      title: contentItem.thumbnail_title,
-      hasQuestions: (contentItem.questions?.length ?? 0) > 0
-    });
+      // Track module_started event for funnel analysis
+      const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
+      analyticsService.trackModuleStarted({
+        era_id: eraId,
+        era_name: eraName,
+        adventure_id: adventureId,
+        adventure_number: adventureNumber,
+        module_id: moduleId,
+        module_number: contentItem.order_by || 0,
+        module_title: contentItem.thumbnail_title || undefined,
+      });
 
-    // Track module_started event for funnel analysis
-    const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
-    analyticsService.trackModuleStarted({
-      era_id: eraId,
-      era_name: eraName,
-      adventure_id: adventureId,
-      adventure_number: adventureNumber,
-      module_id: moduleId,
-      module_number: contentItem.order_by || 0,
-      module_title: contentItem.thumbnail_title || undefined,
-    });
-
-    setSelectedLesson({
-      contentItem,
-      adventureId,
-      moduleId,
-      lessonId,
-      eraId,
-      eraName,
-    });
-    setShowQuiz(false);
-  };
+      setSelectedLesson({
+        contentItem,
+        adventureId,
+        moduleId,
+        lessonId,
+        eraId,
+        eraName,
+      });
+      setShowQuiz(false);
+    },
+    [adventures]
+  );
 
   // Handle lesson continue - check if this lesson has questions to show
   const handleLessonContinue = () => {
@@ -122,7 +140,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     console.log('✅ Lesson completed', {
       lessonId: selectedLesson.lessonId,
       hasQuestions: (contentItem.questions?.length ?? 0) > 0,
-      questionCount: contentItem.questions?.length || 0
+      questionCount: contentItem.questions?.length || 0,
     });
 
     // Check if THIS completed lesson has questions to show
@@ -156,9 +174,9 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     setShowQuiz(false);
   };
 
-
   // Handle adventure started (when adventure card/summary is opened)
-  const handleAdventureStarted = (adventure: Adventure) => {
+  // Stable ref for AdventureComponent memo — no deps needed (only uses analytics + setState)
+  const handleAdventureStarted = useCallback((adventure: Adventure) => {
     // Extract adventure number from readable_id (e.g., "roi_adventure_1" → 1)
     const adventureNumber = parseInt(adventure.readable_id.split('_')[2] || '0', 10);
 
@@ -176,7 +194,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
 
     // Open adventure card modal
     setSelectedAdventureCard(adventure);
-  };
+  }, []);
 
   // Calculate unlock status for all adventures (memoized)
   // Rules: Adv 1 = OPEN, Adv 2-5 = progressive unlock, Adv 6+ = OPEN (bonus)
@@ -187,9 +205,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   // Video preloading: only preload the first two unlocked adventures (active + next)
   // instead of every AdventureComponent creating 6 players each (~30 total → ~12 max)
   const preloadVideoUrls = useMemo(() => {
-    const unlockedAdventures = adventures.filter(
-      (adv) => adventureUnlockStatus[adv.readable_id]
-    );
+    const unlockedAdventures = adventures.filter((adv) => adventureUnlockStatus[adv.readable_id]);
     // Take the last 2 unlocked adventures (most recently available = most likely in progress)
     const toPreload = unlockedAdventures.slice(-2);
     const urls: string[] = [];
@@ -228,7 +244,9 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   const lockOverlayHeight = useMemo(() => {
     if (!firstLockedAdventureId) return 0;
 
-    const firstLockedIndex = adventures.findIndex((adv) => adv.readable_id === firstLockedAdventureId);
+    const firstLockedIndex = adventures.findIndex(
+      (adv) => adv.readable_id === firstLockedAdventureId
+    );
     const lockedCount = adventures.length - firstLockedIndex;
 
     // Replicate AdventureComponent's height calculation:
@@ -243,53 +261,74 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     const estimatedAdventureHeight = 34 + 56 + 40 + containerHeight + 50 + 24;
 
     const totalHeight = lockedCount * estimatedAdventureHeight + 200; // 200px buffer for scrollContent padding
-    console.log('🔒 Lock overlay:', { lockedCount, estimatedAdventureHeight, totalHeight, screenWidth });
+    console.log('🔒 Lock overlay:', {
+      lockedCount,
+      estimatedAdventureHeight,
+      totalHeight,
+      screenWidth,
+    });
     return totalHeight;
   }, [adventures, firstLockedAdventureId]);
 
   // Render function for FlatList items (memoized for performance)
-  const renderAdventureItem = useCallback(({ item: adventure }: { item: Adventure }) => {
-    const isLocked = !adventureUnlockStatus[adventure.readable_id];
-    const isFirstLocked = adventure.readable_id === firstLockedAdventureId;
+  const renderAdventureItem = useCallback(
+    ({ item: adventure }: { item: Adventure }) => {
+      const isLocked = !adventureUnlockStatus[adventure.readable_id];
+      const isFirstLocked = adventure.readable_id === firstLockedAdventureId;
 
-    return (
-      <View style={isFirstLocked ? styles.firstLockedContainer : undefined}>
-        <AdventureComponent
-          adventure={adventure}
-          userProgress={userProgress}
-          onCardPress={(contentItem) => handleCardPress(contentItem, adventure.readable_id)}
-          onTitlePress={() => handleAdventureStarted(adventure)}
-          isLocked={isLocked}
-        />
+      return (
+        <View style={isFirstLocked ? styles.firstLockedContainer : undefined}>
+          <AdventureComponent
+            adventure={adventure}
+            userProgress={userProgress}
+            onCardPress={handleCardPress}
+            onTitlePress={handleAdventureStarted}
+            isLocked={isLocked}
+          />
 
-        {/* Single continuous overlay - only on first locked adventure, extends to cover all */}
-        {isFirstLocked && (
-          <BlurView
-            intensity={2.3}
-            tint="dark"
-            style={[styles.continuousLockOverlay, { height: lockOverlayHeight }]}
-            pointerEvents="box-none"
-          >
-            <LinearGradient
-              colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.6)', 'rgba(0, 0, 0, 0.6)']}
-              locations={[0, 0.02, 1]}
-              style={StyleSheet.absoluteFill}
+          {/* Single continuous overlay - only on first locked adventure, extends to cover all */}
+          {isFirstLocked && (
+            <BlurView
+              intensity={2.3}
+              tint="dark"
+              style={[styles.continuousLockOverlay, { height: lockOverlayHeight }]}
               pointerEvents="box-none"
             >
-              <View style={styles.lockBannerContainer} pointerEvents="box-none">
-                <View style={styles.lockBanner} pointerEvents="auto">
-                  <Svg width={35} height={35} viewBox="0 -960 960 960" fill="#FFFFFF" style={styles.lockIcon}>
-                    <Path d="M226.67-80q-27.5 0-47.09-19.58Q160-119.17 160-146.67v-422.66q0-27.5 19.58-47.09Q199.17-636 226.67-636h60v-90.67q0-80.23 56.57-136.78T480.07-920q80.26 0 136.76 56.55 56.5 56.55 56.5 136.78V-636h60q27.5 0 47.09 19.58Q800-596.83 800-569.33v422.66q0 27.5-19.58 47.09Q760.83-80 733.33-80H226.67Zm253.44-200q32.22 0 55.06-22.52Q558-325.04 558-356.67q0-31-22.95-55.16Q512.11-436 479.89-436t-55.06 24.17Q402-387.67 402-356.33q0 31.33 22.95 53.83 22.94 22.5 55.16 22.5ZM353.33-636h253.34v-90.67q0-52.77-36.92-89.72-36.93-36.94-89.67-36.94-52.75 0-89.75 36.94-37 36.95-37 89.72V-636Z" />
-                  </Svg>
-                  <Text style={styles.lockText}>Complete above modules to unlock this!</Text>
+              <LinearGradient
+                colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.6)', 'rgba(0, 0, 0, 0.6)']}
+                locations={[0, 0.02, 1]}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="box-none"
+              >
+                <View style={styles.lockBannerContainer} pointerEvents="box-none">
+                  <View style={styles.lockBanner} pointerEvents="auto">
+                    <Svg
+                      width={35}
+                      height={35}
+                      viewBox="0 -960 960 960"
+                      fill="#FFFFFF"
+                      style={styles.lockIcon}
+                    >
+                      <Path d="M226.67-80q-27.5 0-47.09-19.58Q160-119.17 160-146.67v-422.66q0-27.5 19.58-47.09Q199.17-636 226.67-636h60v-90.67q0-80.23 56.57-136.78T480.07-920q80.26 0 136.76 56.55 56.5 56.55 56.5 136.78V-636h60q27.5 0 47.09 19.58Q800-596.83 800-569.33v422.66q0 27.5-19.58 47.09Q760.83-80 733.33-80H226.67Zm253.44-200q32.22 0 55.06-22.52Q558-325.04 558-356.67q0-31-22.95-55.16Q512.11-436 479.89-436t-55.06 24.17Q402-387.67 402-356.33q0 31.33 22.95 53.83 22.94 22.5 55.16 22.5ZM353.33-636h253.34v-90.67q0-52.77-36.92-89.72-36.93-36.94-89.67-36.94-52.75 0-89.75 36.94-37 36.95-37 89.72V-636Z" />
+                    </Svg>
+                    <Text style={styles.lockText}>Complete above modules to unlock this!</Text>
+                  </View>
                 </View>
-              </View>
-            </LinearGradient>
-          </BlurView>
-        )}
-      </View>
-    );
-  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, lockOverlayHeight]);
+              </LinearGradient>
+            </BlurView>
+          )}
+        </View>
+      );
+    },
+    [
+      userProgress,
+      adventureUnlockStatus,
+      firstLockedAdventureId,
+      lockOverlayHeight,
+      handleCardPress,
+      handleAdventureStarted,
+    ]
+  );
 
   // Key extractor for FlatList (memoized)
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);
@@ -297,8 +336,9 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   return (
     <View style={styles.container}>
       <View style={styles.contentWrapper}>
-        <FlatList
+        <LegendList
           data={adventures}
+          extraData={userProgress}
           renderItem={renderAdventureItem}
           keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
@@ -326,22 +366,14 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
               colors={[ArchivesTheme.colors.persianOrange]}
             />
           }
-          // Performance optimizations - reduced to ensure lock overlay renders correctly
-          removeClippedSubviews={false} // Prevent IllegalStateException in ReactViewGroup.updateClippingToRect (REACT-NATIVE-7R)
-          maxToRenderPerBatch={10}
-          updateCellsBatchingPeriod={50}
-          initialNumToRender={10}
-          windowSize={21} // Large window to keep lock overlay in view
+          recycleItems
+          estimatedItemSize={450}
         />
       </View>
 
       {/* Lesson/Quiz Modal */}
       {selectedLesson && (
-        <Modal
-          visible={true}
-          animationType="slide"
-          presentationStyle="fullScreen"
-        >
+        <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
           <SafeAreaProvider initialMetrics={initialWindowMetrics}>
             {/* Show quiz if flag is set */}
             {showQuiz ? (
