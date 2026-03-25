@@ -11,7 +11,6 @@ import AppLogger from '@/services/AppLogger'
 
 export default function Index() {
   const { isSignedIn, isLoaded } = useUser()
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null)
   const [isChecking, setIsChecking] = useState(true)
   const posthog = usePostHog()
 
@@ -47,7 +46,7 @@ export default function Index() {
       // AFF-151: Track routing decision — uses Sentry breadcrumb as fallback since
       // PostHog may not be initialized yet (especially on iOS where ATT is required first).
       // analyticsService.trackAuthStateChange already writes a Sentry breadcrumb internally.
-      const route = (isSignedIn && hasSelectedEra) ? '/(tabs)/today' : '/onboarding-video'
+      const route = isSignedIn ? '/(tabs)/today' : '/onboarding-video'
       const newState: 'signed_in' | 'signed_out' = isSignedIn ? 'signed_in' : 'signed_out'
       const routingData = {
         previous_state: 'unknown' as const,
@@ -65,10 +64,8 @@ export default function Index() {
       })
       analyticsService.trackAuthStateChange(routingData)
 
-      setHasCompletedOnboarding(!!hasSelectedEra)
     } catch (error) {
       AppLogger.error('navigation', 'Error checking user state', {}, error)
-      setHasCompletedOnboarding(false)
     } finally {
       setIsChecking(false)
     }
@@ -79,13 +76,13 @@ export default function Index() {
     return <LoadingScreen />
   }
 
-  // Returning user: signed in AND has completed onboarding
-  if (isSignedIn && hasCompletedOnboarding) {
+  // Returning user: signed in — go straight to today tab (era selection not required)
+  if (isSignedIn) {
     AppLogger.info('navigation', 'Routing to /(tabs)/today')
     return <Redirect href="/(tabs)/today" />
   }
 
-  // New user or incomplete onboarding: start comprehensive onboarding
-  AppLogger.info('navigation', 'Routing to /onboarding-video', { isSignedIn: !!isSignedIn, hasCompletedOnboarding: !!hasCompletedOnboarding })
+  // Not signed in: start onboarding
+  AppLogger.info('navigation', 'Routing to /onboarding-video', { isSignedIn: false })
   return <Redirect href="/onboarding-video" />
 }
