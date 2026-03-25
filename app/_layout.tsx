@@ -78,7 +78,8 @@ Sentry.init({
  */
 const handleNotificationDeepLink = (response: Notifications.NotificationResponse) => {
   try {
-    const data = response.notification.request.content.data;
+    const data = response.notification.request.content.data
+        ?? (response.notification.request.trigger as any)?.payload;
     AppLogger.info('deeplink', 'Processing notification deep link', { data: data as Record<string, unknown> });
 
     // Deep link can be in 'link', 'url', or 'deep_link' field of the data payload
@@ -475,6 +476,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('🚀 ~ AnalyticsWrapper ~ response:', JSON.stringify(response, null, 2));
       // Native APNs puts custom data in trigger.payload, not content.data
       const data = response.notification.request.content.data
         ?? (response.notification.request.trigger as any)?.payload;
