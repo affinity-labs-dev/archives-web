@@ -539,13 +539,30 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
             AppLogger.error('sync', 'Failed to read local data for comparison', {}, e);
           }
 
+          // AFF-500: Compare timestamps to decide local vs cloud winner
           const localTimestamp = localData?.metadata?.last_updated;
           const cloudTimestamp = cloudData?.metadata?.last_updated;
-          const useLocal = localTimestamp && cloudTimestamp &&
+
+          // Guard: if either timestamp is missing or invalid, fall back to cloud-wins with a warning
+          const localTime = localTimestamp ? new Date(localTimestamp).getTime() : NaN;
+          const cloudTime = cloudTimestamp ? new Date(cloudTimestamp).getTime() : NaN;
+
+          if (!localTimestamp || !cloudTimestamp || isNaN(localTime) || isNaN(cloudTime)) {
+            AppLogger.warn('sync', '⚠️ Missing or invalid timestamps during init — defaulting to cloud', {
+              localTimestamp: localTimestamp ?? 'undefined',
+              cloudTimestamp: cloudTimestamp ?? 'undefined',
+              localTimeValid: !isNaN(localTime),
+              cloudTimeValid: !isNaN(cloudTime),
+            });
+          }
+
+          const useLocal = !isNaN(localTime) && !isNaN(cloudTime) &&
             localData?.user_id === user.id &&
-            new Date(localTimestamp).getTime() > new Date(cloudTimestamp).getTime();
+            localTime > cloudTime;
 
           if (useLocal && localData) {
+            // AFF-500: Local data survived a previous cloud sync failure.
+            // Use local (newer) and re-sync to cloud to fix stale state.
             AppLogger.warn('sync', '⚠️ Local data is NEWER than cloud — using local and re-syncing to cloud', {
               localTimestamp,
               cloudTimestamp,
@@ -553,9 +570,14 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
               localStreak: localData.streak?.currentStreak,
               cloudStreak: cloudData.streak?.currentStreak,
             });
+            // Update ref FIRST (synchronous) — prevents stale closure reads
+            // (same pattern as reloadData() line ~1411)
+            stateRef.current = localData;
             setState(localData);
-            // Push local data to cloud since cloud is stale
-            saveToCloud(localData);
+            // Fire-and-forget: push local data to cloud since cloud is stale
+            saveToCloud(localData).catch(err => {
+              AppLogger.error('sync', 'Re-sync local→cloud failed during init', {}, err);
+            });
           } else {
             setState(cloudData);
             await saveToLocal(cloudData);
@@ -665,6 +687,21 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     }
   };
 
+  // AFF-500: Helper to schedule a single retry with fresh state data.
+  // Uses stateRef.current at retry time to avoid overwriting newer data
+  // that may have been saved by debouncedSync during the 3s delay.
+  const scheduleCloudRetry = (userId: string) => {
+    setTimeout(() => {
+      const freshData = stateRef.current;
+      if (!freshData?.user_id) return;
+      saveToCloud(freshData, true).catch(err => {
+        AppLogger.error('sync', '❌ Cloud save retry also FAILED — data only exists locally', {
+          userId, currentStreak: freshData.streak?.currentStreak,
+        }, err);
+      });
+    }, 3000);
+  };
+
   const saveToCloud = async (data: GamifiedProgressState, isRetry = false): Promise<boolean> => {
     if (!data.user_id) return false;
 
@@ -681,16 +718,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
       if (error) {
         AppLogger.error('sync', '❌ Cloud save FAILED (upsert)', { userId: data.user_id, isRetry, currentStreak: data.streak?.currentStreak, lastUpdated: data.metadata?.last_updated }, error);
-
-        if (!isRetry) {
-          setTimeout(() => {
-            saveToCloud(data, true).then(retryOk => {
-              if (!retryOk) {
-                AppLogger.error('sync', '❌ Cloud save retry also FAILED — data only exists locally', { userId: data.user_id, currentStreak: data.streak?.currentStreak });
-              }
-            });
-          }, 3000);
-        }
+        if (!isRetry) scheduleCloudRetry(data.user_id);
         return false;
       }
 
@@ -698,16 +726,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       return true;
     } catch (error) {
       AppLogger.error('sync', '❌ Cloud save FAILED (exception)', { userId: data.user_id, isRetry, currentStreak: data.streak?.currentStreak, lastUpdated: data.metadata?.last_updated }, error);
-
-      if (!isRetry) {
-        setTimeout(() => {
-          saveToCloud(data, true).then(retryOk => {
-            if (!retryOk) {
-              AppLogger.error('sync', '❌ Cloud save retry also FAILED — data only exists locally', { userId: data.user_id, currentStreak: data.streak?.currentStreak });
-            }
-          });
-        }, 3000);
-      }
+      if (!isRetry) scheduleCloudRetry(data.user_id);
       return false;
     }
   };
