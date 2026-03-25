@@ -187,13 +187,16 @@ export default function AIChatModal({
     let cancelled = false;
 
     const processHiddenMessage = async () => {
+      // Capture message before clearing — clearing changes the dependency which
+      // would trigger effect cleanup and cancel this in-flight async operation
+      const messageToSend = pendingHiddenMessage;
       setIsLoading(true);
       setError(null);
-      clearPendingHiddenMessage();
 
       // Check quota before making the API call
       if (!await checkQuotaBeforeRequest('chat')) {
         setIsLoading(false);
+        clearPendingHiddenMessage();
         return;
       }
 
@@ -201,7 +204,7 @@ export default function AIChatModal({
         const progressSummary = getUserProgressSummary();
         const knowledgeCtx = getKnowledgeContextForPrompt();
         const response = await aiService.getChatResponse({
-          userMessage: pendingHiddenMessage,
+          userMessage: messageToSend,
           conversationHistory: messages,
           context: {
             eraId: context.eraId,
@@ -239,6 +242,8 @@ export default function AIChatModal({
         console.error('❌ [AIChatModal] Chat to Learn error:', err);
         setError('Sorry, I could not process that. Please try again.');
       } finally {
+        // Always clear pending message to prevent ghost re-trigger on next modal open
+        clearPendingHiddenMessage();
         if (!cancelled) {
           setIsLoading(false);
         }

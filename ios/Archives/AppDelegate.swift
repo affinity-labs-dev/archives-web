@@ -31,15 +31,39 @@ public class AppDelegate: ExpoAppDelegate {
 #endif
 
     // Deep link workaround for app killed state — extract link from push payload
+    // Mirrors JS logic: data?.link || data?.url || data?.deep_link
+    // Also checks nested "data" dict and APNs "aps" payload
     var modifiedLaunchOptions = launchOptions
+    NSLog("🔗 [DeepLink] didFinishLaunching — remoteNotification present: %@",
+          launchOptions?[UIApplication.LaunchOptionsKey.remoteNotification] != nil ? "YES" : "NO")
+
     if let launchOptions = launchOptions,
        let pushContent = launchOptions[UIApplication.LaunchOptionsKey.remoteNotification] as? [AnyHashable: Any],
-       let link = pushContent["link"] as? String ?? (pushContent["data"] as? [String: Any])?["link"] as? String,
        !launchOptions.keys.contains(UIApplication.LaunchOptionsKey.url) {
 
-        var mutableLaunchOptions = launchOptions
-        mutableLaunchOptions[UIApplication.LaunchOptionsKey.url] = URL(string: link)
-        modifiedLaunchOptions = mutableLaunchOptions
+        NSLog("🔗 [DeepLink] Push payload: %@", pushContent.description)
+
+        let nestedData = pushContent["data"] as? [String: Any]
+
+        // Check link fields in order: top-level → nested data
+        // Matches JS: data?.link || data?.url || data?.deep_link
+        let link = pushContent["link"] as? String
+          ?? pushContent["url"] as? String
+          ?? pushContent["deep_link"] as? String
+          ?? nestedData?["link"] as? String
+          ?? nestedData?["url"] as? String
+          ?? nestedData?["deep_link"] as? String
+
+        NSLog("🔗 [DeepLink] Extracted link: %@", link ?? "nil")
+
+        if let link = link, let url = URL(string: link) {
+          NSLog("🔗 [DeepLink] Injecting URL into launchOptions: %@", url.absoluteString)
+          var mutableLaunchOptions = launchOptions
+          mutableLaunchOptions[UIApplication.LaunchOptionsKey.url] = url
+          modifiedLaunchOptions = mutableLaunchOptions
+        } else {
+          NSLog("🔗 [DeepLink] No valid link found or URL conversion failed")
+        }
     }
 
     return super.application(application, didFinishLaunchingWithOptions: modifiedLaunchOptions)
