@@ -187,13 +187,16 @@ export default function AIChatModal({
     let cancelled = false;
 
     const processHiddenMessage = async () => {
+      // Capture message before clearing — clearing changes the dependency which
+      // would trigger effect cleanup and cancel this in-flight async operation
+      const messageToSend = pendingHiddenMessage;
       setIsLoading(true);
       setError(null);
-      clearPendingHiddenMessage();
 
       // Check quota before making the API call
       if (!await checkQuotaBeforeRequest('chat')) {
         setIsLoading(false);
+        clearPendingHiddenMessage();
         return;
       }
 
@@ -201,7 +204,7 @@ export default function AIChatModal({
         const progressSummary = getUserProgressSummary();
         const knowledgeCtx = getKnowledgeContextForPrompt();
         const response = await aiService.getChatResponse({
-          userMessage: pendingHiddenMessage,
+          userMessage: messageToSend,
           conversationHistory: messages,
           context: {
             eraId: context.eraId,
@@ -241,6 +244,9 @@ export default function AIChatModal({
       } finally {
         if (!cancelled) {
           setIsLoading(false);
+          // Clear pending message AFTER processing is complete to avoid
+          // cancelling the in-flight request via useEffect cleanup
+          clearPendingHiddenMessage();
         }
       }
     };
