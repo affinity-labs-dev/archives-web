@@ -2,7 +2,7 @@
 // Handles both onboarding (first-time) and switching (returning user) modes
 // Data fetched from Supabase via useEras hook
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
-import { useGamifiedProgress } from '@/gamification';
+import { useGamifiedProgress, useEraProgressStore } from '@/gamification';
 import { useEras, Era, isEraAccessible } from '@/hooks/useEras';
 import { EraCard, EraSelectionSkeleton } from '@/components/EraSelection';
 import ArchivesTheme from '@/constants/ArchivesTheme';
@@ -38,7 +38,16 @@ export default function EraSelection() {
   const { setSelectedEra } = useGamifiedProgress();
   const { eras, loading, error } = useEras();
 
+  // Initialize from zustand store so the eras tab shows the currently selected era
+  const globalSelectedEra = useEraProgressStore((s) => s.selectedEra);
   const [selectedEraId, setSelectedEraId] = useState<string | null>(null);
+
+  // Sync local UI state when global selectedEra changes (e.g., on fresh login / tab switch)
+  React.useEffect(() => {
+    if (globalSelectedEra && selectedEraId === null) {
+      setSelectedEraId(globalSelectedEra);
+    }
+  }, [globalSelectedEra, selectedEraId]);
 
   // Ref to prevent multiple simultaneous paywall presentations
   const isPaywallPresentedRef = useRef(false);
@@ -183,7 +192,7 @@ export default function EraSelection() {
     }
   };
 
-  const handleEraSelect = (era: Era) => {
+  const handleEraSelect = useCallback((era: Era) => {
     const canSelect = isEraAccessible(era.status, hasSubscription, isFoundingMember);
     if (!canSelect) {
       // Premium eras → show paywall; founding/coming_soon → ignore
@@ -195,7 +204,7 @@ export default function EraSelection() {
 
     Haptics.selectionAsync();
     setSelectedEraId(era.era_id);
-  };
+  }, [hasSubscription, isFoundingMember]);
 
   const handleContinue = async () => {
     if (!selectedEraId) return;
@@ -235,8 +244,8 @@ export default function EraSelection() {
     selectedEra &&
     isEraAccessible(selectedEra.status, hasSubscription, isFoundingMember);
 
-  // Sort all eras by order_by
-  const sortedEras = [...eras].sort((a, b) => a.order_by - b.order_by);
+  // Sort all eras by order_by (memoized to avoid re-sorting on every render)
+  const sortedEras = useMemo(() => [...eras].sort((a, b) => a.order_by - b.order_by), [eras]);
 
   return (
     <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
@@ -281,7 +290,7 @@ export default function EraSelection() {
                     key={era.era_id}
                     era={era}
                     isSelected={selectedEraId === era.era_id}
-                    onSelect={() => handleEraSelect(era)}
+                    onSelect={handleEraSelect}
                     hasSubscription={hasSubscription}
                     isFoundingMember={isFoundingMember}
                   />
@@ -317,7 +326,7 @@ export default function EraSelection() {
                         key={gridEra.era_id}
                         era={gridEra}
                         isSelected={selectedEraId === gridEra.era_id}
-                        onSelect={() => handleEraSelect(gridEra)}
+                        onSelect={handleEraSelect}
                         hasSubscription={hasSubscription}
                         isFoundingMember={isFoundingMember}
                       />

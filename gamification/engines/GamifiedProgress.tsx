@@ -33,6 +33,7 @@ import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
 import { EraType } from '@/gamification/types/gamification';
 import type { ModuleProgress, AdventureProgress } from '@/gamification/types/gamification';
+import { useEraProgressStore } from '@/gamification/stores/useEraProgressStore';
 
 // ========== CONSTANTS ==========
 
@@ -487,6 +488,31 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   // Keep ref in sync with state (runs synchronously after every state update)
   useEffect(() => {
     stateRef.current = state;
+  }, [state]);
+
+  // ========== ZUSTAND STORE SYNC ==========
+  // Push state changes to zustand for reactive UI updates across tabs
+  // This eliminates the race condition where components read AsyncStorage
+  // before cloud sync completes on fresh login
+  useEffect(() => {
+    const store = useEraProgressStore.getState();
+    if (state) {
+      store.setSelectedEra(state.selectedEra || null);
+      store.setUserProgress(
+        state.progress.map(p => ({
+          era_id: p.era_id,
+          adventureId: p.adventureId,
+          moduleId: p.moduleId,
+          quizScore: p.quizScore,
+          quizCorrectAnswers: p.quizCorrectAnswers,
+          isCompleted: p.isCompleted,
+          quizCompleted: p.quizCompleted,
+          completedAt: p.completedAt,
+        }))
+      );
+    } else {
+      store.reset();
+    }
   }, [state]);
 
   const { user, isSignedIn, isLoaded: isClerkLoaded } = useUser();
