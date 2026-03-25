@@ -7,12 +7,13 @@ import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
 import { useVideoPreloader, extractVideoUrls } from '@/hooks/useVideoPreloader';
 import { analyticsService } from '@/services/AnalyticsService';
+import { useAI } from '@/gamification';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -51,6 +52,20 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   } | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [selectedAdventureCard, setSelectedAdventureCard] = useState<Adventure | null>(null);
+  const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null);
+  const { openChatToLearn } = useAI();
+
+  // Open AI chat after quiz modal closes (fixes modal-on-modal issue on iOS)
+  useEffect(() => {
+    if (!selectedLesson && pendingChatMessage) {
+      // Small delay to ensure the Modal is fully unmounted before presenting AIChatModal
+      const timer = setTimeout(() => {
+        openChatToLearn(pendingChatMessage);
+        setPendingChatMessage(null);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedLesson, pendingChatMessage]);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -339,6 +354,10 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
                 onContinue={handleQuizContinue}
                 onDismiss={handleLessonDismiss}
                 onBack={handleLessonDismiss}
+                onChatToLearn={(msg) => {
+                  setPendingChatMessage(msg);
+                  handleLessonDismiss();
+                }}
               />
             ) : (
               <LessonPlayer

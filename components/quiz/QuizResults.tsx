@@ -48,6 +48,8 @@ interface QuizResultsProps {
   isToday?: boolean;  // true when called from Today screen
   // Module title for Chat to Learn
   moduleTitle?: string;
+  // Callback to close parent modal before opening AI chat (fixes modal-on-modal issue)
+  onChatToLearn?: (hiddenMessage: string) => void;
 }
 
 // Video Reward Player - Score-based celebration videos (3-tier system)
@@ -141,6 +143,7 @@ export default function QuizResults({
   userAnswers = [],
   isToday = false,
   moduleTitle,
+  onChatToLearn,
 }: QuizResultsProps) {
   // Calculate percentage
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
@@ -235,8 +238,12 @@ export default function QuizResults({
     });
     AppLogger.info('quiz', 'Chat to Learn clicked');
 
-    // Open existing AI chat with hidden context message
-    openChatToLearn(hiddenMessage);
+    // If parent provided callback (to close modal first), use it; otherwise open directly
+    if (onChatToLearn) {
+      onChatToLearn(hiddenMessage);
+    } else {
+      openChatToLearn(hiddenMessage);
+    }
   };
 
   const handleContinue = () => {
