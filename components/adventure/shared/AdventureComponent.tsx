@@ -106,28 +106,25 @@ interface ThumbnailProps {
   cardWidth: number;
 }
 
-const Thumbnail: React.FC<ThumbnailProps> = ({ thumbnailUrl, isVideo, cardWidth }) => {
-  // Generate optimized image URL with ImageKit resize parameter
-  // Only applies to ImageKit URLs - reduces memory usage and improves load time
-  const getOptimizedImageUrl = (url: string, width: number): string => {
-    if (!url || isVideo) return url;
+const Thumbnail: React.FC<ThumbnailProps> = React.memo(function Thumbnail({ thumbnailUrl, isVideo, cardWidth }) {
+  // Memoize optimized URL to prevent expo-image from re-triggering load on re-render
+  const optimizedUrl = React.useMemo(() => {
+    if (!thumbnailUrl || isVideo) return thumbnailUrl;
 
     // Only optimize ImageKit URLs (ik.imagekit.io)
-    if (!url.includes('ik.imagekit.io')) return url;
+    if (!thumbnailUrl.includes('ik.imagekit.io')) return thumbnailUrl;
 
     // Request 2x for retina displays
     const pixelDensity = 2;
-    const roundedWidth = Math.round(width * pixelDensity);
+    const roundedWidth = Math.round(cardWidth * pixelDensity);
 
     // Check if URL already has query parameters
-    const hasQueryParams = url.includes('?');
+    const hasQueryParams = thumbnailUrl.includes('?');
     const separator = hasQueryParams ? '&' : '?';
 
     // Append ImageKit resize parameter
-    return `${url}${separator}tr=w-${roundedWidth}`;
-  };
-
-  const optimizedUrl = getOptimizedImageUrl(thumbnailUrl, cardWidth);
+    return `${thumbnailUrl}${separator}tr=w-${roundedWidth}`;
+  }, [thumbnailUrl, isVideo, cardWidth]);
 
   const player = useVideoPlayer(isVideo ? thumbnailUrl : '', (player) => {
     if (isVideo) {
@@ -166,9 +163,11 @@ const Thumbnail: React.FC<ThumbnailProps> = ({ thumbnailUrl, isVideo, cardWidth 
       source={{ uri: optimizedUrl }}
       style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
       contentFit="cover"
+      cachePolicy="memory-disk"
+      transition={0}
     />
   );
-};
+});
 
 // User progress type for Era 2+
 interface UserProgress {

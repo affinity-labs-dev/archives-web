@@ -366,8 +366,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({
               colors={[ArchivesTheme.colors.persianOrange]}
             />
           }
-          recycleItems
-          estimatedItemSize={450}
+          estimatedItemSize={580}
         />
       </View>
 

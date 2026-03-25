@@ -10,7 +10,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import ArchivesTheme from '@/constants/ArchivesTheme';
-import { Era, EraStatus, EraCardLayout, isEraAccessible, getEraLockMessage } from '@/hooks/useEras';
+import { Era, isEraAccessible, getEraLockMessage } from '@/hooks/useEras';
 
 // Local image mapping (until remote URLs are set up)
 const ERA_IMAGE_MAP: Record<string, any> = {
@@ -48,13 +48,13 @@ function EraCardComponent({
   const showLock = !isAccessible;
   const lockMessage = getEraLockMessage(era.status);
 
-  // Get image source - use bg_url if it's a URL, otherwise use local mapping
-  const getImageSource = () => {
+  // Memoize image source to prevent new object reference on every render
+  const imageSource = React.useMemo(() => {
     if (era.bg_url && era.bg_url.startsWith('http')) {
       return { uri: era.bg_url };
     }
     return ERA_IMAGE_MAP[era.era_id] || DEFAULT_IMAGE;
-  };
+  }, [era.bg_url, era.era_id]);
 
   // Use title and timeline from Supabase directly
   const name = era.title;
@@ -66,15 +66,16 @@ function EraCardComponent({
         style={[
           styles.horizontalCard,
           isSelected && !showLock && styles.horizontalCardSelected,
-          showLock && styles.cardNoEffects,
         ]}
         onPress={handlePress}
       >
         <Image
-          source={getImageSource()}
+          source={imageSource}
           style={styles.horizontalCardImage}
           contentFit="cover"
           cachePolicy="memory-disk"
+          recyclingKey={era.era_id}
+          transition={0}
         />
 
         {!showLock && (
@@ -125,16 +126,16 @@ function EraCardComponent({
       style={[
         styles.gridCard,
         isSelected && !showLock && styles.gridCardSelected,
-        showLock && styles.cardNoEffects,
       ]}
       onPress={handlePress}
     >
       <Image
-        source={getImageSource()}
+        source={imageSource}
         style={styles.gridCardImage}
         contentFit="cover"
         cachePolicy="memory-disk"
         recyclingKey={era.era_id}
+        transition={0}
       />
 
       {!showLock && (
@@ -184,6 +185,8 @@ export const EraCard = memo(EraCardComponent);
 
 const styles = StyleSheet.create({
   // Horizontal (full width) card styles
+  // No shadows on base state — overflow:hidden + shadow on same view forces
+  // iOS to create two offscreen rendering buffers per card per frame
   horizontalCard: {
     height: 250,
     borderRadius: 24,
@@ -191,12 +194,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 3,
     borderColor: 'transparent',
-    shadowColor: 'black',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
   },
+  // Selected state gets shadow (only 1 card at a time — perf is fine)
   horizontalCardSelected: {
     borderColor: ArchivesTheme.colors.mossGreen,
     shadowColor: ArchivesTheme.colors.mossGreen,
@@ -243,7 +242,7 @@ const styles = StyleSheet.create({
     fontWeight: 'normal',
   },
 
-  // Grid card styles
+  // Grid card styles — same approach: no shadow on base, only on selected
   gridCard: {
     width: '48%',
     height: 200,
@@ -251,11 +250,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
-    shadowColor: 'black',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 6,
   },
   gridCardSelected: {
     borderColor: ArchivesTheme.colors.mossGreen,
@@ -304,13 +298,6 @@ const styles = StyleSheet.create({
   },
 
   // Shared styles
-  cardNoEffects: {
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
   titleNoEffects: {
     textShadowColor: 'transparent',
     textShadowOffset: { width: 0, height: 0 },
@@ -318,6 +305,8 @@ const styles = StyleSheet.create({
   },
 
   // Lock overlay styles
+  // No borderRadius here — parent already clips with overflow:hidden + borderRadius
+  // Adding borderRadius on the overlay creates an extra compositing layer on iOS
   lockOverlay: {
     position: 'absolute',
     top: 0,
@@ -325,7 +314,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 24,
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
@@ -340,7 +328,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 18,
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
@@ -367,11 +354,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 4,
   },
   selectedText: {
     color: 'white',
@@ -389,10 +371,5 @@ const styles = StyleSheet.create({
     backgroundColor: ArchivesTheme.colors.mossGreen,
     padding: 4,
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 4,
   },
 });

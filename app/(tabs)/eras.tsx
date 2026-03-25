@@ -7,12 +7,12 @@ import {
   View,
   Text,
   Pressable,
-  ScrollView,
   StyleSheet,
   StatusBar,
   SafeAreaView,
   Platform,
 } from 'react-native';
+import { LegendList } from '@legendapp/list';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useFocusEffect } from '@react-navigation/native';
@@ -246,9 +246,10 @@ export default function EraSelection() {
     isEraAccessible(selectedEra.status, hasSubscription, isFoundingMember);
 
   // Sort all eras and pre-compute grid layout (eliminates O(n²) in render)
+  type EraRow = { type: 'full' | 'grid'; eras: Era[] };
   const eraRows = useMemo(() => {
     const sorted = [...eras].sort((a, b) => a.order_by - b.order_by);
-    const rows: { type: 'full' | 'grid'; eras: Era[] }[] = [];
+    const rows: EraRow[] = [];
     let i = 0;
     while (i < sorted.length) {
       const era = sorted[i];
@@ -269,6 +270,44 @@ export default function EraSelection() {
     }
     return rows;
   }, [eras]);
+
+  // LegendList render callbacks (stable refs for virtualization)
+  const renderEraRow = useCallback(({ item: row }: { item: EraRow }) => {
+    if (row.type === 'full') {
+      const era = row.eras[0];
+      return (
+        <EraCard
+          era={era}
+          isSelected={selectedEraId === era.era_id}
+          onSelect={handleEraSelect}
+          hasSubscription={hasSubscription}
+          isFoundingMember={isFoundingMember}
+        />
+      );
+    }
+
+    return (
+      <View style={styles.gridContainer}>
+        <View style={styles.gridRow}>
+          {row.eras.map((era) => (
+            <EraCard
+              key={era.era_id}
+              era={era}
+              isSelected={selectedEraId === era.era_id}
+              onSelect={handleEraSelect}
+              hasSubscription={hasSubscription}
+              isFoundingMember={isFoundingMember}
+            />
+          ))}
+        </View>
+      </View>
+    );
+  }, [selectedEraId, handleEraSelect, hasSubscription, isFoundingMember]);
+
+  const eraRowKeyExtractor = useCallback(
+    (item: EraRow) => item.eras[0].era_id,
+    []
+  );
 
   return (
     <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
@@ -298,45 +337,16 @@ export default function EraSelection() {
             <Text style={styles.errorSubtext}>{error}</Text>
           </View>
         ) : (
-          <ScrollView
+          <LegendList
+            data={eraRows}
+            extraData={selectedEraId}
+            renderItem={renderEraRow}
+            keyExtractor={eraRowKeyExtractor}
             style={styles.scrollContainer}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            removeClippedSubviews
-          >
-            {eraRows.map((row) => {
-              if (row.type === 'full') {
-                const era = row.eras[0];
-                return (
-                  <EraCard
-                    key={era.era_id}
-                    era={era}
-                    isSelected={selectedEraId === era.era_id}
-                    onSelect={handleEraSelect}
-                    hasSubscription={hasSubscription}
-                    isFoundingMember={isFoundingMember}
-                  />
-                );
-              }
-
-              return (
-                <View key={`grid-${row.eras[0].era_id}`} style={styles.gridContainer}>
-                  <View style={styles.gridRow}>
-                    {row.eras.map((era) => (
-                      <EraCard
-                        key={era.era_id}
-                        era={era}
-                        isSelected={selectedEraId === era.era_id}
-                        onSelect={handleEraSelect}
-                        hasSubscription={hasSubscription}
-                        isFoundingMember={isFoundingMember}
-                      />
-                    ))}
-                  </View>
-                </View>
-              );
-            })}
-          </ScrollView>
+            estimatedItemSize={250}
+          />
         )}
 
         {/* Floating button */}
