@@ -57,7 +57,8 @@ export default function EraSelection() {
   const hasSubscription = isSubscribed;
 
   // Founding members purchased the Lifetime Subscription via web billing
-  const isFoundingMember = customerInfo?.entitlements.active['Access of All Eras - Yearly']?.productIdentifier === 'Archives_Lifetime_Offer';
+  const foundingProductId = customerInfo?.entitlements.active['Access of All Eras - Yearly']?.productIdentifier;
+  const isFoundingMember = foundingProductId === 'Archives_Lifetime_Offer';
 
   // Set user properties for analytics (fallback for onboarding)
   React.useEffect(() => {
@@ -108,8 +109,8 @@ export default function EraSelection() {
     }
   }, [era, eras, loading, error, hasSubscription, isFoundingMember]);
 
-  // Present paywall for locked premium eras
-  const handleShowPaywall = async (era: Era) => {
+  // Present paywall for locked premium eras (stable ref to avoid stale closure in handleEraSelect)
+  const handleShowPaywall = useCallback(async (era: Era) => {
     if (isPaywallPresentedRef.current) {
       AppLogger.warn('subscription', 'Era paywall already presented, skipping');
       return;
@@ -190,7 +191,7 @@ export default function EraSelection() {
     } finally {
       isPaywallPresentedRef.current = false;
     }
-  };
+  }, []);
 
   const handleEraSelect = useCallback((era: Era) => {
     const canSelect = isEraAccessible(era.status, hasSubscription, isFoundingMember);
@@ -204,7 +205,7 @@ export default function EraSelection() {
 
     Haptics.selectionAsync();
     setSelectedEraId(era.era_id);
-  }, [hasSubscription, isFoundingMember]);
+  }, [hasSubscription, isFoundingMember, handleShowPaywall]);
 
   const handleContinue = async () => {
     if (!selectedEraId) return;
@@ -244,8 +245,30 @@ export default function EraSelection() {
     selectedEra &&
     isEraAccessible(selectedEra.status, hasSubscription, isFoundingMember);
 
-  // Sort all eras by order_by (memoized to avoid re-sorting on every render)
-  const sortedEras = useMemo(() => [...eras].sort((a, b) => a.order_by - b.order_by), [eras]);
+  // Sort all eras and pre-compute grid layout (eliminates O(n²) in render)
+  const eraRows = useMemo(() => {
+    const sorted = [...eras].sort((a, b) => a.order_by - b.order_by);
+    const rows: { type: 'full' | 'grid'; eras: Era[] }[] = [];
+    let i = 0;
+    while (i < sorted.length) {
+      const era = sorted[i];
+      if (era.card_layout === 'full_width') {
+        rows.push({ type: 'full', eras: [era] });
+        i++;
+      } else {
+        // Grid: pair current with next grid card if available
+        const pair: Era[] = [era];
+        if (i + 1 < sorted.length && sorted[i + 1].card_layout === 'grid') {
+          pair.push(sorted[i + 1]);
+          i += 2;
+        } else {
+          i++;
+        }
+        rows.push({ type: 'grid', eras: pair });
+      }
+    }
+    return rows;
+  }, [eras]);
 
   return (
     <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
@@ -255,7 +278,6 @@ export default function EraSelection() {
         backgroundColor={ArchivesTheme.colors.creamWhite}
       />
       <View style={styles.container}>
-        <View style={styles.background} />
 
         {/* Header */}
         <View style={styles.headerSection}>
@@ -280,11 +302,11 @@ export default function EraSelection() {
             style={styles.scrollContainer}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews
           >
-            {/* Render eras in order_by sequence, handling grid pairs */}
-            {sortedEras.map((era, index) => {
-              // Full width cards render directly
-              if (era.card_layout === 'full_width') {
+            {eraRows.map((row) => {
+              if (row.type === 'full') {
+                const era = row.eras[0];
                 return (
                   <EraCard
                     key={era.era_id}
@@ -297,35 +319,14 @@ export default function EraSelection() {
                 );
               }
 
-              // Grid cards: render in pairs (odd-positioned grids start a new row)
-              // Count how many grid cards came before this one in the current grid sequence
-              let gridPositionInSequence = 0;
-              for (let i = index - 1; i >= 0; i--) {
-                if (sortedEras[i].card_layout === 'grid') {
-                  gridPositionInSequence++;
-                } else {
-                  break; // Stop at first non-grid
-                }
-              }
-
-              // Skip if this is the second card in a pair (odd position = 1, 3, 5...)
-              if (gridPositionInSequence % 2 === 1) return null;
-
-              // Render grid row (1 or 2 cards)
-              const nextEra = sortedEras[index + 1];
-              const gridPair = [era];
-              if (nextEra?.card_layout === 'grid') {
-                gridPair.push(nextEra);
-              }
-
               return (
-                <View key={`grid-${era.era_id}`} style={styles.gridContainer}>
+                <View key={`grid-${row.eras[0].era_id}`} style={styles.gridContainer}>
                   <View style={styles.gridRow}>
-                    {gridPair.map((gridEra) => (
+                    {row.eras.map((era) => (
                       <EraCard
-                        key={gridEra.era_id}
-                        era={gridEra}
-                        isSelected={selectedEraId === gridEra.era_id}
+                        key={era.era_id}
+                        era={era}
+                        isSelected={selectedEraId === era.era_id}
                         onSelect={handleEraSelect}
                         hasSubscription={hasSubscription}
                         isFoundingMember={isFoundingMember}
@@ -361,15 +362,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  background: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-  },
-
   // Header
   headerSection: {
     height: 80,

@@ -134,6 +134,7 @@ function EraCardComponent({
         style={styles.gridCardImage}
         contentFit="cover"
         cachePolicy="memory-disk"
+        recyclingKey={era.era_id}
       />
 
       {!showLock && (

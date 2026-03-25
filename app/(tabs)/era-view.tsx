@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAdventures } from '@/hooks/useAdventures';
 import { useEras } from '@/hooks/useEras';
-import { useGamifiedProgress, useAI, useGamificationOrchestrator, useEraProgressStore } from '@/gamification';
+import { useGamifiedProgress, useAI, useEraProgressStore } from '@/gamification';
 import type { EraProgressStats } from '@/gamification';
 import BentoGridScreen from '@/components/adventure/types/bento-grid/BentoGridScreen';
 import EraProgressHeader from '@/components/shared/EraProgressHeader';
@@ -36,9 +36,6 @@ export default function AdventuresScreen() {
 
   // Get AI context for updating era awareness
   const { updateContext } = useAI();
-
-  // Get centralized era progress calculation
-  const { getEraProgress } = useGamificationOrchestrator();
 
   // Use selectedEra directly (already Supabase era_id format)
   const supabaseEraId = selectedEra || '';
@@ -70,13 +67,23 @@ export default function AdventuresScreen() {
   const [showGameHub, setShowGameHub] = useState(false);
   const [showNewPuzzleBadge, setShowNewPuzzleBadge] = useState(false);
 
-  // Era progress from orchestrator (centralized calculation)
-  const [quizProgress, setQuizProgress] = useState<EraProgressStats>({
-    correctAnswers: 0,
-    totalQuestions: 0,
-    percentage: 0,
-    totalXP: 0,
-  });
+  // Era progress — computed locally from Zustand userProgress + adventures
+  // (Replaces async getEraProgress which reads stale AsyncStorage on fresh login)
+  const quizProgress = useMemo<EraProgressStats>(() => {
+    if (!adventures || adventures.length === 0) {
+      return { correctAnswers: 0, totalQuestions: 0, percentage: 0, totalXP: 0 };
+    }
+
+    const totalQuestions = adventures.reduce((sum, adv) =>
+      sum + (adv.content_list || []).reduce((mSum, mod) => mSum + (mod.questions?.length || 0), 0),
+    0);
+
+    const eraModules = userProgress.filter(m => m.era_id === supabaseEraId && m.quizCompleted);
+    const correctAnswers = eraModules.reduce((sum, m) => sum + (m.quizCorrectAnswers || 0), 0);
+
+    const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+    return { correctAnswers, totalQuestions, percentage, totalXP: correctAnswers * 10 };
+  }, [adventures, userProgress, supabaseEraId]);
 
   // Get selected era data from eras table
   const selectedEraData = useMemo(() => {
@@ -142,19 +149,6 @@ export default function AdventuresScreen() {
     }).length;
   }, [adventures, userProgress]);
 
-  // Fetch quiz progress from orchestrator (centralized calculation)
-  useEffect(() => {
-    const fetchEraProgress = async () => {
-      if (!supabaseEraId) return;
-      try {
-        const progress = await getEraProgress(supabaseEraId);
-        setQuizProgress(progress);
-      } catch (error) {
-        console.error('❌ [Adventures] Error fetching era progress:', error);
-      }
-    };
-    fetchEraProgress();
-  }, [supabaseEraId, getEraProgress, userProgress]);
 
   // User sign-in detection for data reload
   const { user, isSignedIn } = useUser();
