@@ -58,14 +58,14 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
   // Open AI chat after quiz modal closes (fixes modal-on-modal issue on iOS)
   useEffect(() => {
     if (!selectedLesson && pendingChatMessage) {
-      // Small delay to ensure the Modal is fully unmounted before presenting AIChatModal
-      const timer = setTimeout(() => {
+      // Wait for next frame to ensure Modal is fully unmounted before presenting AIChatModal
+      const rafId = requestAnimationFrame(() => {
         openChatToLearn(pendingChatMessage);
         setPendingChatMessage(null);
-      }, 300);
-      return () => clearTimeout(timer);
+      });
+      return () => cancelAnimationFrame(rafId);
     }
-  }, [selectedLesson, pendingChatMessage]);
+  }, [selectedLesson, pendingChatMessage, openChatToLearn]);
 
   const flatListRef = useRef<FlatList>(null);
 

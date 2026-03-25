@@ -476,7 +476,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('🚀 ~ AnalyticsWrapper ~ response:', JSON.stringify(response, null, 2));
       // Native APNs puts custom data in trigger.payload, not content.data
       const data = response.notification.request.content.data
         ?? (response.notification.request.trigger as any)?.payload;

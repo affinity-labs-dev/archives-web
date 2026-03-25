@@ -242,11 +242,10 @@ export default function AIChatModal({
         console.error('❌ [AIChatModal] Chat to Learn error:', err);
         setError('Sorry, I could not process that. Please try again.');
       } finally {
+        // Always clear pending message to prevent ghost re-trigger on next modal open
+        clearPendingHiddenMessage();
         if (!cancelled) {
           setIsLoading(false);
-          // Clear pending message AFTER processing is complete to avoid
-          // cancelling the in-flight request via useEffect cleanup
-          clearPendingHiddenMessage();
         }
       }
     };
