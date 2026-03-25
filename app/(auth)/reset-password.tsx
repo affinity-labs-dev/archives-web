@@ -91,8 +91,8 @@ export default function ResetPasswordScreen() {
         await setActive({ session: resetResult.createdSessionId })
 
         setIsLoading(false)
-        // Navigate to era selection after successful reset
-        router.replace('/(tabs)/eras?mode=onboarding')
+        // Navigate to today tab after successful reset
+        router.replace('/(tabs)/today')
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
         setIsLoading(false)

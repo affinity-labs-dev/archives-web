@@ -33,13 +33,8 @@ export default function SSOCallback() {
         const hasSelectedEra = await AsyncStorage.getItem('selected_era');
         AppLogger.info('auth', 'SSO callback routing', { hasSelectedEra: !!hasSelectedEra });
 
-        if (hasSelectedEra) {
-          // User has already completed era selection - go to Today tab (AFF-319)
-          router.replace('/(tabs)/today');
-        } else {
-          // New user or hasn't selected era - go to era selection
-          router.replace('/(tabs)/eras?mode=onboarding');
-        }
+        // User has already completed era selection - go to Today tab (AFF-319)
+        router.replace('/(tabs)/today');
       } else {
         // Authentication failed or was cancelled - return to auth screen
         AppLogger.warn('auth', 'SSO callback: not signed in, returning to auth');

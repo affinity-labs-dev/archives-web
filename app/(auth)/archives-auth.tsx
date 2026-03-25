@@ -88,25 +88,9 @@ export default function ArchivesAuthScreen() {
     router.back()
   }
 
-  const onContinue = async () => {
-    // Check if user has already completed onboarding
-    try {
-      const hasSelectedEra = await AsyncStorage.getItem('selected_era')
-
-      if (hasSelectedEra) {
-        // Returning user - go directly to main app
-        AppLogger.info('auth', 'Returning user after auth - routing to tabs')
-        router.replace('/(tabs)/today')
-      } else {
-        // New user - go to era selection for onboarding
-        AppLogger.info('auth', 'New user after auth - routing to era selection')
-        router.replace('/(tabs)/eras?mode=onboarding')
-      }
-    } catch (error) {
-      AppLogger.error('auth', 'Error checking onboarding status', {}, error)
-      // Default to era selection on error
-      router.replace('/(tabs)/eras?mode=onboarding')
-    }
+  const onContinue = () => {
+    AppLogger.info('auth', 'Returning user after auth - routing to today tabs')
+    router.replace('/(tabs)/today')
   }
 
   // Sign Up function (exact replica with Clerk)

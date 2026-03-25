@@ -51,8 +51,8 @@ export default function EmailDetailsScreen() {
   }
 
   const onContinue = async () => {
-    // After authentication, go to era selection page
-    router.replace('/(tabs)/eras?mode=onboarding')
+    // After authentication, go to today tab
+    router.replace('/(tabs)/today')
   }
 
   // Sign Up function
