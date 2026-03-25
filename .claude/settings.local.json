@@ -3,7 +3,8 @@
     "allow": [
       "Bash(pnpm run:*)",
       "Bash(grep -E \"\\\\.tsx$|\\\\.ts$\")",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(npm run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
