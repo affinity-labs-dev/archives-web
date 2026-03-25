@@ -8,6 +8,7 @@ import type { ContentBlock, ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { toLocalDateString } from "@/utils/dateUtils";
 import {
+  useAI,
   useGamificationOrchestrator,
   useGamifiedProgress,
 } from "@/gamification";
@@ -353,6 +354,7 @@ export default function TodayScreen() {
     showStreakCelebration,
   } = useGamificationOrchestrator();
   const { getStreak } = useGamifiedProgress();
+  const { openChatToLearn } = useAI();
   const {
     todayQuest,
     questProgress,
@@ -2195,6 +2197,13 @@ export default function TodayScreen() {
                       setActiveModal("none");
                       setPreviousModal("none");
                     }
+                  }}
+                  onChatToLearn={(msg) => {
+                    setActiveModal("none");
+                    setPreviousModal("none");
+                    requestAnimationFrame(() => {
+                      openChatToLearn(msg);
+                    });
                   }}
                 />
               </SafeAreaView>
