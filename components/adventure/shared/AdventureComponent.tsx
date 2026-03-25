@@ -185,8 +185,8 @@ interface UserProgress {
 interface AdventureComponentProps {
   adventure: Adventure;
   userProgress: UserProgress[];
-  onCardPress?: (contentItem: ContentItem) => void;
-  onTitlePress?: () => void;
+  onCardPress?: (contentItem: ContentItem, adventureId: string) => void;
+  onTitlePress?: (adventure: Adventure) => void;
   isLocked?: boolean;
 }
 
@@ -282,7 +282,7 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
           onPress={() => {
             if (!isLocked) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onCardPress?.(item);
+              onCardPress?.(item, adventure.readable_id);
             }
           }}
         >
@@ -379,7 +379,7 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
           onPress={() => {
             if (onTitlePress && !isLocked) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onTitlePress();
+              onTitlePress(adventure);
             }
           }}
           activeOpacity={isLocked ? 1 : 0.7}
@@ -392,7 +392,7 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
           onPress={() => {
             if (onTitlePress && !isLocked) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onTitlePress();
+              onTitlePress(adventure);
             }
           }}
           activeOpacity={isLocked ? 1 : 0.7}

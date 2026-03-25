@@ -98,6 +98,10 @@ export type { NotificationPromptVariant } from './engines/NotificationPromptProv
 export { RewardsProvider, useRewards } from './engines/RewardsContext';
 export { AIProvider, useAI } from './engines/AIContext';
 
+// ========== STORES (Zustand) ==========
+export { useEraProgressStore } from './stores/useEraProgressStore';
+export type { UserProgress as StoreUserProgress } from './stores/useEraProgressStore';
+
 // ========== SERVICES ==========
 export { aiService } from './services/AIService';
 export type { WebSearchSource, ChatResponseWithSources } from './services/AIService';

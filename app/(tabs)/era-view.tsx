@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAdventures } from '@/hooks/useAdventures';
 import { useEras } from '@/hooks/useEras';
-import { useGamifiedProgress, useAI, useGamificationOrchestrator } from '@/gamification';
+import { useGamifiedProgress, useAI, useGamificationOrchestrator, useEraProgressStore } from '@/gamification';
 import type { EraProgressStats } from '@/gamification';
 import BentoGridScreen from '@/components/adventure/types/bento-grid/BentoGridScreen';
 import EraProgressHeader from '@/components/shared/EraProgressHeader';
@@ -49,8 +49,20 @@ export default function AdventuresScreen() {
   // Fetch adventures for selected era (dynamic, not hardcoded)
   const { adventures, loading, error, refreshAdventures } = useAdventures(supabaseEraId);
   const { eras, loading: erasLoading, error: erasError } = useEras();
-  const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
-  const [progressLoading, setProgressLoading] = useState(true);
+
+  // Progress from zustand store (reactive — updates when GamifiedProgress syncs cloud data)
+  const userProgress = useEraProgressStore((s) => s.userProgress);
+
+  // Only show loading screen on INITIAL load — never again after first render
+  // This prevents full-screen spinner when reloadData/account switch sets isLoading=true
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  useEffect(() => {
+    if (!gamificationLoading && !initialLoadDone) {
+      setInitialLoadDone(true);
+    }
+  }, [gamificationLoading, initialLoadDone]);
+  const progressLoading = !initialLoadDone && gamificationLoading;
+
   const [refreshing, setRefreshing] = useState(false);
   const [showPullToRefreshHint, setShowPullToRefreshHint] = useState(true);
 
@@ -206,59 +218,6 @@ export default function AdventuresScreen() {
     checkNewEras();
   }, [getUserCompletedEras]);
 
-  // Load user progress from AsyncStorage
-  const loadProgress = useCallback(async () => {
-    try {
-      const progressData = await AsyncStorage.getItem('new_user_progress');
-      if (progressData) {
-        const parsedProgress: UserProgress[] = JSON.parse(progressData);
-        setUserProgress(parsedProgress);
-        console.log(`📊 [Adventures] Loaded progress for era: ${selectedEra}`);
-      } else {
-        setUserProgress([]);
-      }
-    } catch (error) {
-      console.error('❌ [Adventures] Error loading progress:', error);
-    } finally {
-      setProgressLoading(false);
-    }
-  }, [selectedEra]);
-
-  // Initial load - wait for sync to complete if user is signed in
-  useEffect(() => {
-    // Skip if no era selected
-    if (!selectedEra) {
-      setProgressLoading(false);
-      return;
-    }
-
-    const loadData = async () => {
-      // If not signed in, load immediately
-      if (!isSignedIn) {
-        console.log(`📖 [Adventures] No user signed in, loading local data for: ${selectedEra}`);
-        loadProgress();
-        return;
-      }
-
-      // If signed in but user object not yet available, wait for Clerk
-      if (isSignedIn && !user) {
-        console.log('⏳ [Adventures] Waiting for Clerk user object...');
-        return;
-      }
-
-      // If signed in, WAIT for GamifiedProgress to finish loading first
-      if (gamificationLoading) {
-        console.log('⏳ [Adventures] Waiting for gamification to initialize...');
-        return;
-      }
-
-      console.log(`✅ [Adventures] Gamification ready, loading data for: ${selectedEra}`);
-      loadProgress();
-    };
-
-    loadData();
-  }, [isSignedIn, user?.id, gamificationLoading, loadProgress, selectedEra]);
-
   // Fallback: Ensure Clerk user ID is set in PostHog (production safety)
   useEffect(() => {
     if (isSignedIn && user) {
@@ -319,18 +278,15 @@ export default function AdventuresScreen() {
     trackEraComplete();
   }, [selectedEra, selectedEraData, adventures, completedAdventuresCount, quizProgress.totalXP]);
 
-  // Reload progress and track page view whenever screen comes into focus
+  // Track page view whenever screen comes into focus
+  // Progress reloading is no longer needed — zustand store updates reactively
   useFocusEffect(
     useCallback(() => {
-      if (selectedEra) {
-        console.log(`🔄 [Adventures] Screen focused, reloading progress for: ${selectedEra}`);
-        loadProgress();
-      }
       analyticsService.startPageView('adventures', '/(tabs)/era-view');
       return () => {
         analyticsService.endPageView('adventures');
       };
-    }, [loadProgress, selectedEra])
+    }, [])
   );
 
   // Handle pull-to-refresh
@@ -351,14 +307,13 @@ export default function AdventuresScreen() {
 
     try {
       await refreshAdventures();
-      await loadProgress();
       console.log('✅ [Adventures] Refresh complete');
     } catch (error) {
       console.error('❌ [Adventures] Refresh error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [refreshAdventures, loadProgress, selectedEra, showPullToRefreshHint]);
+  }, [refreshAdventures, selectedEra, showPullToRefreshHint]);
 
   // Handle puzzle FAB press
   const handlePuzzleFABPress = useCallback(async () => {
@@ -484,7 +439,6 @@ export default function AdventuresScreen() {
       <BentoGridScreen
         adventures={adventures}
         userProgress={userProgress}
-        onProgressUpdate={loadProgress}
         refreshing={refreshing}
         onRefresh={handleRefresh}
         showPullToRefreshHint={showPullToRefreshHint}
