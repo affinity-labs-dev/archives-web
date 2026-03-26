@@ -237,13 +237,16 @@ export default function QuizResults({
       total_questions: totalQuestions,
     });
     AppLogger.info('quiz', 'Chat to Learn clicked');
-    onContinue();
 
-    // If parent provided callback (to close modal first), use it; otherwise open directly
+    // Pause queue + close modal BEFORE onContinue triggers celebrations
     if (onChatToLearn) {
       onChatToLearn(hiddenMessage);
     } else {
       openChatToLearn(hiddenMessage);
+    }
+
+    try { onContinue(); } catch (e) {
+      AppLogger.error('quiz', 'onContinue failed during Chat to Learn', {}, e as Error);
     }
   };
 
