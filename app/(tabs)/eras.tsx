@@ -341,6 +341,7 @@ export default function EraSelection() {
           </View>
         ) : (
           <LegendList
+            recycleItems
             data={eraRows}
             extraData={selectedEraId}
             renderItem={renderEraRow}

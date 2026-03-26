@@ -8,7 +8,8 @@
       "WebFetch(domain:affinity-labs-0i.sentry.io)",
       "Bash(echo $SENTRY_AUTH_TOKEN)",
       "Read(//Users/huypham/**)",
-      "Bash(npx sentry-cli:*)"
+      "Bash(npx sentry-cli:*)",
+      "WebSearch"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -337,6 +337,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({
     <View style={styles.container}>
       <View style={styles.contentWrapper}>
         <LegendList
+          recycleItems
           data={adventures}
           extraData={userProgress}
           renderItem={renderAdventureItem}

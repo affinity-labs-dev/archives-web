@@ -237,6 +237,7 @@ export default function QuizResults({
       total_questions: totalQuestions,
     });
     AppLogger.info('quiz', 'Chat to Learn clicked');
+    onContinue();
 
     // If parent provided callback (to close modal first), use it; otherwise open directly
     if (onChatToLearn) {
