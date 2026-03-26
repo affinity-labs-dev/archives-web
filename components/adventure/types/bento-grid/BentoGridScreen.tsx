@@ -14,7 +14,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import AdventureCard from './AdventureCard';
@@ -326,7 +326,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
             />
           }
           // Performance optimizations
-          removeClippedSubviews={false}
+          removeClippedSubviews={Platform.OS === 'android'}
           maxToRenderPerBatch={5}
           updateCellsBatchingPeriod={100}
           initialNumToRender={3}

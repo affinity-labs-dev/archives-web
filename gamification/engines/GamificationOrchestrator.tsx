@@ -19,6 +19,7 @@
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import { useAdventuresContent } from '@/context/AdventuresContentProvider';
 import { analyticsService } from '@/services/AnalyticsService';
+import AppLogger from '@/services/AppLogger';
 import { toLocalDateString } from '@/utils/dateUtils';
 import { useUser } from '@clerk/clerk-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -646,6 +647,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const [currentCelebration, setCurrentCelebration] = useState<CelebrationItem | null>(null);
   // Pause queue processing (e.g. while AI chat is open)
   const [queuePaused, setQueuePaused] = useState(false);
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Streak state (automatic loading disabled - only used for testing)
   const [streak, setStreak] = useState(0);
@@ -1426,7 +1428,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
           console.log(`✅ [Orchestrator] Already completed today, streak maintained (no celebration)`);
         }
       } catch (error) {
-        console.error('❌ [Orchestrator] Error in streak update:', error);
+        AppLogger.error('progress', 'Streak update failed during quiz completion', {}, error as Error);
         // Don't block quiz completion if streak update fails
       }
     } else {
@@ -1696,7 +1698,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         console.log(`⏭️ [Orchestrator] Historical quest completed (${questDate}), streak not updated`);
       }
     } catch (error) {
-      console.error('❌ [Orchestrator] Error in Today streak update:', error);
+      AppLogger.error('progress', 'Streak update failed during Today completion', {}, error as Error);
     }
 
     // --- Notification Prompt (AFF-117) - after daily story celebrations ---
@@ -1790,8 +1792,17 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   }, [streak, getCloudStreak, calculateWeekData, lastActiveBeforeUpdate, streakBeforeUpdate]);
 
   const isCelebrating = currentCelebration !== null;
-  const pauseCelebrationQueue = useCallback(() => setQueuePaused(true), []);
-  const resumeCelebrationQueue = useCallback(() => setQueuePaused(false), []);
+  const pauseCelebrationQueue = useCallback(() => {
+    setQueuePaused(true);
+    // Auto-resume after 30s to prevent permanent deadlock
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    pauseTimeoutRef.current = setTimeout(() => setQueuePaused(false), 30000);
+  }, []);
+  const resumeCelebrationQueue = useCallback(() => {
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    pauseTimeoutRef.current = null;
+    setQueuePaused(false);
+  }, []);
   const streakBonus = calculateStreakBonus(streak);
   const achievements = getAllAchievements();
 

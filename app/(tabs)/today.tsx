@@ -466,11 +466,13 @@ export default function TodayScreen() {
     }
   }, [activeModal, pendingChatMessage, openChatToLearn]);
 
-  // Resume celebration queue when AI chat closes
+  // Resume celebration queue only on true→false transition (not on initial mount)
+  const wasChatOpenRef = useRef(false);
   useEffect(() => {
-    if (!isChatOpen) {
+    if (wasChatOpenRef.current && !isChatOpen) {
       resumeCelebrationQueue();
     }
+    wasChatOpenRef.current = isChatOpen;
   }, [isChatOpen, resumeCelebrationQueue]);
 
   // Week navigation and historical content viewing

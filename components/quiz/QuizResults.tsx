@@ -245,7 +245,9 @@ export default function QuizResults({
       openChatToLearn(hiddenMessage);
     }
 
-    onContinue();
+    try { onContinue(); } catch (e) {
+      AppLogger.error('quiz', 'onContinue failed during Chat to Learn', {}, e as Error);
+    }
   };
 
   const handleContinue = () => {
