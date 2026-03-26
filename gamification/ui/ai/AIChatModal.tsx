@@ -61,6 +61,12 @@ export interface ChatMessage {
   isUploadedImage?: boolean;
   // Web search sources from Google Search grounding
   sources?: WebSearchSource[];
+  // Quiz context for Chat to Learn responses (displayed as a banner above the message)
+  quizContext?: {
+    title: string;
+    eraName: string;
+    score: string;
+  };
 }
 
 interface AIChatModalProps {
@@ -150,6 +156,7 @@ export default function AIChatModal({
       timestamp: msg.timestamp.toISOString(),
       imageUrl: msg.imageUrl,
       isUploadedImage: msg.isUploadedImage,
+      quizContext: msg.quizContext,
     }));
 
     await aiStorageService.saveMessages(userId, storedMessages);
@@ -193,6 +200,18 @@ export default function AIChatModal({
       setIsLoading(true);
       setError(null);
 
+      // Parse quiz context from hidden message for the context banner
+      // Format: 'I just finished the quiz on "Title" in EraName. I got X/Y correct (Z%).'
+      let quizContext: ChatMessage['quizContext'] | undefined;
+      const quizMatch = messageToSend.match(/quiz on "([^"]+)" in ([^.]+)\. I got (\d+\/\d+ correct \(\d+%\))/);
+      if (quizMatch) {
+        quizContext = {
+          title: quizMatch[1],
+          eraName: quizMatch[2],
+          score: quizMatch[3],
+        };
+      }
+
       // Check quota before making the API call
       if (!await checkQuotaBeforeRequest('chat')) {
         setIsLoading(false);
@@ -224,6 +243,7 @@ export default function AIChatModal({
           role: 'assistant',
           content: response.text,
           timestamp: new Date(),
+          quizContext,
         };
 
         setMessages((prev) => [...prev, aiMsg]);
@@ -840,8 +860,24 @@ export default function AIChatModal({
               </View>
             ) : (
               messages.map((message) => (
+                <View key={message.id}>
+                  {/* Quiz context banner for Chat to Learn responses */}
+                  {message.quizContext && (
+                    <View style={styles.quizContextBanner}>
+                      <View style={styles.quizContextIcon}>
+                        <Ionicons name="school-outline" size={14} color={ArchivesTheme.colors.persianOrange} />
+                      </View>
+                      <View style={styles.quizContextTextContainer}>
+                        <Text style={styles.quizContextTitle} numberOfLines={1}>
+                          Quiz Review: {message.quizContext.title}
+                        </Text>
+                        <Text style={styles.quizContextDetail}>
+                          {message.quizContext.eraName} {'\u00B7'} {message.quizContext.score}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
                 <View
-                  key={message.id}
                   style={[styles.messageBubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}
                 >
                   {message.role === 'user' ? (
@@ -909,6 +945,7 @@ export default function AIChatModal({
                       )}
                     </>
                   )}
+                </View>
                 </View>
               ))
             )}
@@ -1686,5 +1723,44 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#E74C3C',
     marginLeft: 10,
+  },
+
+  // Quiz context banner (Chat to Learn)
+  quizContextBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(201, 145, 81, 0.08)',
+    borderLeftWidth: 3,
+    borderLeftColor: ArchivesTheme.colors.persianOrange,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  quizContextIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(201, 145, 81, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  quizContextTextContainer: {
+    flex: 1,
+  },
+  quizContextTitle: {
+    fontFamily: 'DM Sans',
+    fontSize: 13,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.mutedNavy,
+  },
+  quizContextDetail: {
+    fontFamily: 'DM Sans',
+    fontSize: 12,
+    color: ArchivesTheme.colors.shoeBrown,
+    marginTop: 1,
   },
 });

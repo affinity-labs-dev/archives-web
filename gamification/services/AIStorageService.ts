@@ -12,6 +12,12 @@ export interface StoredMessage {
   imageUrl?: string;
   isUploadedImage?: boolean;
   timestamp: string;
+  // Quiz context for Chat to Learn responses (displayed as a banner)
+  quizContext?: {
+    title: string;
+    eraName: string;
+    score: string;
+  };
 }
 
 export interface UsageStats {
@@ -283,6 +289,7 @@ class AIStorageService {
         timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : new Date().toISOString(),
         imageUrl: msg.imageUrl || undefined,
         isUploadedImage: msg.isUploadedImage || undefined,
+        quizContext: msg.quizContext || undefined,
       }));
 
       const { error } = await supabase

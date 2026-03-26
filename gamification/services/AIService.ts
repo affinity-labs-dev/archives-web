@@ -676,33 +676,98 @@ Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 f
           },
         ];
 
-        const followUpResponse = await this.ai!.models.generateContent({
-          model: this.textModel,
-          contents: followUpContents,
-          config: {
-            maxOutputTokens: 2048,
-            temperature: 1.0,
-            thinkingConfig: {
-              thinkingLevel: ThinkingLevel.LOW,
-            },
-          }
-        });
-
-        // Extract final text response
+        // First attempt: without thinking (thinking can produce thought-only responses
+        // with no visible text in function-calling follow-ups on preview models)
         let aiResponse = '';
-        const followUpCandidate = followUpResponse.candidates?.[0];
 
-        if (followUpCandidate?.content?.parts) {
-          for (const part of followUpCandidate.content.parts) {
-            if ((part as any).text) {
-              aiResponse += (part as any).text;
+        try {
+          const followUpResponse = await this.ai!.models.generateContent({
+            model: this.textModel,
+            contents: followUpContents,
+            config: {
+              maxOutputTokens: 2048,
+              temperature: 1.0,
             }
+          });
+
+          const followUpCandidate = followUpResponse.candidates?.[0];
+
+          // Debug: Log the follow-up response structure
+          console.log('🔍 [AIService] RAG follow-up candidate:', JSON.stringify({
+            finishReason: followUpCandidate?.finishReason,
+            partsCount: followUpCandidate?.content?.parts?.length,
+            partTypes: followUpCandidate?.content?.parts?.map((p: any) => ({
+              hasText: !!p.text,
+              hasThought: !!p.thought,
+              hasFunctionCall: !!p.functionCall,
+              textLength: p.text?.length,
+            })),
+          }));
+
+          // Extract text from non-thought parts only
+          if (followUpCandidate?.content?.parts) {
+            for (const part of followUpCandidate.content.parts) {
+              if ((part as any).text && !(part as any).thought) {
+                aiResponse += (part as any).text;
+              }
+            }
+          }
+        } catch (followUpError) {
+          console.error('❌ [AIService] RAG follow-up call failed:', followUpError);
+        }
+
+        // If still empty, retry with a simplified prompt that includes tool results inline
+        if (!aiResponse) {
+          console.warn('⚠️ [AIService] RAG follow-up returned empty, retrying with inline context...');
+
+          try {
+            // Build a condensed summary of tool results to include directly in prompt
+            const toolSummary = functionResults
+              .map(fr => {
+                const data = fr.response?.data;
+                if (!data) return `${fr.functionName}: No data returned`;
+                // Include key fields but limit content size
+                const summary = { ...data };
+                if (summary.fullContent && summary.fullContent.length > 1000) {
+                  summary.fullContent = summary.fullContent.substring(0, 1000) + '... [truncated]';
+                }
+                return `${fr.functionName} result: ${JSON.stringify(summary)}`;
+              })
+              .join('\n\n');
+
+            const retryContents = [
+              ...conversationContents,
+              {
+                role: 'user' as const,
+                parts: [{ text: `Here is the relevant information from the user's learning data:\n\n${toolSummary}\n\nNow please answer the user's original question using this information. Be specific and educational.` }],
+              },
+            ];
+
+            const retryResponse = await this.ai!.models.generateContent({
+              model: this.textModel,
+              contents: retryContents,
+              config: {
+                maxOutputTokens: 2048,
+                temperature: 1.0,
+              }
+            });
+
+            const retryCandidate = retryResponse.candidates?.[0];
+            if (retryCandidate?.content?.parts) {
+              for (const part of retryCandidate.content.parts) {
+                if ((part as any).text && !(part as any).thought) {
+                  aiResponse += (part as any).text;
+                }
+              }
+            }
+          } catch (retryError) {
+            console.error('❌ [AIService] RAG inline retry also failed:', retryError);
           }
         }
 
-        // Handle empty response
+        // Final fallback — generic but honest
         if (!aiResponse) {
-          aiResponse = 'I found some information about that. Let me summarize what I know from your learning history.';
+          aiResponse = 'I had trouble generating a detailed response. Please try asking your question again, or rephrase it slightly.';
         }
 
         console.log('✅ [AIService] RAG response received, length:', aiResponse.length);
