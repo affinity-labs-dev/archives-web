@@ -239,7 +239,10 @@ export default function EraSelection() {
   };
 
   // Check if selected era is accessible
-  const selectedEra = eras.find((e) => e.era_id === selectedEraId);
+  const selectedEra = useMemo(
+    () => eras.find((e) => e.era_id === selectedEraId),
+    [eras, selectedEraId]
+  );
   const canContinue =
     selectedEraId !== null &&
     selectedEra &&

@@ -68,6 +68,8 @@ function EraCardComponent({
           isSelected && !showLock && styles.horizontalCardSelected,
         ]}
         onPress={handlePress}
+        shouldRasterizeIOS
+        renderToHardwareTextureAndroid
       >
         <Image
           source={imageSource}
@@ -128,6 +130,8 @@ function EraCardComponent({
         isSelected && !showLock && styles.gridCardSelected,
       ]}
       onPress={handlePress}
+      shouldRasterizeIOS
+      renderToHardwareTextureAndroid
     >
       <Image
         source={imageSource}

@@ -166,6 +166,8 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
 
         // Set up customer info listener for real-time updates
         // This replicates the sample app's customerInfoStream pattern
+        // PERF: Only update state when entitlements actually change to prevent
+        // unnecessary re-renders across all consumers (eras tab, profile, etc.)
         Purchases.addCustomerInfoUpdateListener((info) => {
           if (mounted) {
             console.log('📱 Customer info updated:', {
@@ -173,7 +175,16 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
               entitlements: Object.keys(info.entitlements.active),
               isSubscribed: info.entitlements.active[ENTITLEMENT_IDENTIFIER]?.isActive ?? false
             });
-            setCustomerInfo(info);
+            setCustomerInfo(prev => {
+              // Only update state when subscription status actually changes
+              // Prevents unnecessary re-renders from RevenueCat background refreshes
+              if (prev !== null) {
+                const wasSubscribed = prev.entitlements?.active?.[ENTITLEMENT_IDENTIFIER]?.isActive ?? false;
+                const nowSubscribed = info.entitlements?.active?.[ENTITLEMENT_IDENTIFIER]?.isActive ?? false;
+                if (wasSubscribed === nowSubscribed) return prev;
+              }
+              return info;
+            });
             syncSubscriptionToPostHog(info);
           }
         });
