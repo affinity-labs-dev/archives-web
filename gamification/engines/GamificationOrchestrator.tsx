@@ -339,6 +339,10 @@ interface GamificationOrchestratorContextType {
   reportTodayComplete: (questDate: string) => Promise<void>;
   /** Check if any celebration is currently showing */
   isCelebrating: boolean;
+  /** Pause celebration queue (e.g. while AI chat is open) */
+  pauseCelebrationQueue: () => void;
+  /** Resume celebration queue */
+  resumeCelebrationQueue: () => void;
   /** Current streak data */
   streak: number;
   longestStreak: number;
@@ -640,6 +644,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   const [celebrationQueue, setCelebrationQueue] = useState<CelebrationItem[]>([]);
   // Currently displaying celebration
   const [currentCelebration, setCurrentCelebration] = useState<CelebrationItem | null>(null);
+  // Pause queue processing (e.g. while AI chat is open)
+  const [queuePaused, setQueuePaused] = useState(false);
 
   // Streak state (automatic loading disabled - only used for testing)
   const [streak, setStreak] = useState(0);
@@ -1242,7 +1248,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   // Process queue - show next celebration when current is dismissed
   useEffect(() => {
     console.log(`🔍 [Orchestrator Queue Processor] currentCelebration=${currentCelebration?.type || 'null'}, queue length=${celebrationQueue.length}`);
-    if (!currentCelebration && celebrationQueue.length > 0) {
+    if (!currentCelebration && celebrationQueue.length > 0 && !queuePaused) {
       const [next, ...rest] = celebrationQueue;
       console.log(`⚠️ [Orchestrator] ========== SHOWING ${next.type} VIA ORCHESTRATOR QUEUE ==========`);
       setCurrentCelebration(next);
@@ -1250,7 +1256,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       console.log(`🎉 [Orchestrator] Celebration set: ${next.type}, remaining in queue: ${rest.length}`);
       console.log(`⚠️ [Orchestrator] If BentoGrid also shows adventure screen, BOTH MODALS RENDER = iOS FREEZE!`);
     }
-  }, [celebrationQueue, currentCelebration]);
+  }, [celebrationQueue, currentCelebration, queuePaused]);
 
   // Dismiss current celebration and move to next
   const dismissCurrent = useCallback(() => {
@@ -1784,6 +1790,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   }, [streak, getCloudStreak, calculateWeekData, lastActiveBeforeUpdate, streakBeforeUpdate]);
 
   const isCelebrating = currentCelebration !== null;
+  const pauseCelebrationQueue = useCallback(() => setQueuePaused(true), []);
+  const resumeCelebrationQueue = useCallback(() => setQueuePaused(false), []);
   const streakBonus = calculateStreakBonus(streak);
   const achievements = getAllAchievements();
 
@@ -1802,6 +1810,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         reportLessonComplete,
         reportTodayComplete, // ✅ NEW: Report Today screen completion
         isCelebrating,
+        pauseCelebrationQueue,
+        resumeCelebrationQueue,
         streak,
         longestStreak,
         isStreakLoading,

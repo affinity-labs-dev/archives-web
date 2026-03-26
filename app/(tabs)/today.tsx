@@ -10,7 +10,6 @@ import { toLocalDateString } from "@/utils/dateUtils";
 import {
   useAI,
   useGamificationOrchestrator,
-  useGamifiedProgress,
 } from "@/gamification";
 import { useDailyStoryTracking } from "@/hooks/useDailyStoryTracking";
 import { supabase } from "@/hooks/lib/supabase";
@@ -347,23 +346,17 @@ export default function TodayScreen() {
   const { isSubscribed, isLoading: isSubscriptionLoading } = useRevenueCat();
   const {
     streak,
-    longestStreak,
-    lastActiveBeforeUpdate,
-    streakBeforeUpdate,
     reportTodayComplete,
     showStreakCelebration,
+    pauseCelebrationQueue,
+    resumeCelebrationQueue,
   } = useGamificationOrchestrator();
-  const { getStreak } = useGamifiedProgress();
-  const { openChatToLearn } = useAI();
+  const { openChatToLearn, isChatOpen } = useAI();
   const {
     todayQuest,
-    questProgress,
     loading,
-    error,
-    isCompleted,
     saveQuestCompletion,
   } = useToday(user?.id);
-  const { width: contentWidth } = useWindowDimensions();
 
   // Track page view for Today tab
   useFocusEffect(
@@ -461,6 +454,24 @@ export default function TodayScreen() {
   type ModalState = "none" | "video" | "reading" | "quiz";
   const [activeModal, setActiveModal] = useState<ModalState>("none");
   const [previousModal, setPreviousModal] = useState<ModalState>("none");
+  const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null);
+
+  // Open AI chat after quiz modal fully unmounts (fixes modal-on-modal on iOS)
+  useEffect(() => {
+    if (activeModal === "none" && pendingChatMessage) {
+      requestAnimationFrame(() => {
+        openChatToLearn(pendingChatMessage);
+        setPendingChatMessage(null);
+      });
+    }
+  }, [activeModal, pendingChatMessage, openChatToLearn]);
+
+  // Resume celebration queue when AI chat closes
+  useEffect(() => {
+    if (!isChatOpen) {
+      resumeCelebrationQueue();
+    }
+  }, [isChatOpen, resumeCelebrationQueue]);
 
   // Week navigation and historical content viewing
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -2199,11 +2210,10 @@ export default function TodayScreen() {
                     }
                   }}
                   onChatToLearn={(msg) => {
+                    pauseCelebrationQueue();
+                    setPendingChatMessage(msg);
                     setActiveModal("none");
                     setPreviousModal("none");
-                    requestAnimationFrame(() => {
-                      openChatToLearn(msg);
-                    });
                   }}
                 />
               </SafeAreaView>
