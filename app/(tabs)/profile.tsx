@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
-import React, { useState } from 'react'
+import React, { Fragment, useState } from 'react'
 import { Alert, Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
 
 // Avatar image imports
@@ -763,6 +763,40 @@ export default function ProfileTab() {
     setExpandedFAQ(expandedFAQ === id ? null : id)
   }
 
+  const renderTestButtons = () => {
+    if (!__DEV__) return null
+
+    return (
+      <Fragment>
+        <TouchableOpacity
+          style={styles.testButton}
+          onPress={() => setShowXPTest(true)}
+        >
+          <Text style={styles.testButtonText}>XP</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.testButton, adventuresLoading && styles.testButtonDisabled]}
+          onPress={() => setShowAdventureTest(true)}
+          disabled={adventuresLoading}
+        >
+          <Text style={styles.testButtonText}>ADV</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.testButton}
+          onPress={() => setShowGameHub(true)}
+        >
+          <Text style={styles.testButtonText}>GAME</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.testButton}
+          onPress={() => clearStreakAsyncStorage()}
+        >
+          <Ionicons name="trash-outline" size={24} color={ArchivesTheme.colors.creamWhite} />
+        </TouchableOpacity>
+      </Fragment>
+    )
+  }
+
   return (
     <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -772,39 +806,8 @@ export default function ProfileTab() {
           <Text style={styles.profileTitle} allowFontScaling={false}>Profile</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {/* Temporary test buttons */}
-            <TouchableOpacity
-              style={styles.testButton}
-              onPress={() => setShowXPTest(true)}
-            >
-              <Text style={styles.testButtonText} allowFontScaling={false}>XP</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.testButton, adventuresLoading && styles.testButtonDisabled]}
-              onPress={() => setShowAdventureTest(true)}
-              disabled={adventuresLoading}
-            >
-              <Text style={styles.testButtonText} allowFontScaling={false}>ADV</Text>
-            </TouchableOpacity>
-            {/* GAME button - Commented out for release */}
-            {/* <TouchableOpacity
-              style={styles.testButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowGameHub(true);
-              }}
-            >
-              <Text style={styles.testButtonText}>GAME</Text>
-            </TouchableOpacity> */}
-            {/* DEV HELPER: Clear Streak AsyncStorage */}
-            <TouchableOpacity
-              style={styles.testButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                clearStreakAsyncStorage()
-              }}
-            >
-              <Ionicons name="trash-outline" size={24} color={ArchivesTheme.colors.creamWhite} />
-            </TouchableOpacity>
+            {renderTestButtons()}
+            
             <TouchableOpacity
               style={styles.settingsButton}
               onPress={() => {
