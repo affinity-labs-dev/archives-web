@@ -18,6 +18,8 @@ export interface StoredMessage {
     eraName: string;
     score: string;
   };
+  // Hidden messages are kept in history for AI context but not rendered
+  hidden?: boolean;
 }
 
 export interface UsageStats {
@@ -290,6 +292,7 @@ class AIStorageService {
         imageUrl: msg.imageUrl || undefined,
         isUploadedImage: msg.isUploadedImage || undefined,
         quizContext: msg.quizContext || undefined,
+        hidden: msg.hidden || undefined,
       }));
 
       const { error } = await supabase

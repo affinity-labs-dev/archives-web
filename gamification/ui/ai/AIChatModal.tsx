@@ -67,6 +67,8 @@ export interface ChatMessage {
     eraName: string;
     score: string;
   };
+  // Hidden messages are included in conversation history for AI context but not rendered in UI
+  hidden?: boolean;
 }
 
 interface AIChatModalProps {
@@ -128,6 +130,10 @@ export default function AIChatModal({
           const loadedMessages: ChatMessage[] = userData.messages.map((msg: StoredMessage) => ({
             ...msg,
             timestamp: new Date(msg.timestamp),
+            // Validate quizContext shape — corrupted data could crash rendering
+            quizContext: (msg.quizContext?.title && msg.quizContext?.eraName && msg.quizContext?.score)
+              ? msg.quizContext
+              : undefined,
           }));
           setMessages(loadedMessages);
           console.log('📚 [AIChatModal] Loaded', loadedMessages.length, 'messages from history');
@@ -157,6 +163,7 @@ export default function AIChatModal({
       imageUrl: msg.imageUrl,
       isUploadedImage: msg.isUploadedImage,
       quizContext: msg.quizContext,
+      hidden: msg.hidden,
     }));
 
     await aiStorageService.saveMessages(userId, storedMessages);
@@ -201,14 +208,23 @@ export default function AIChatModal({
       setError(null);
 
       // Parse quiz context from hidden message for the context banner
-      // Format: 'I just finished the quiz on "Title" in EraName. I got X/Y correct (Z%).'
+      // Two formats from QuizResults.tsx:
+      //   Imperfect: 'quiz on "Title" in EraName. I got X/Y correct (Z%).'
+      //   Perfect:   'quiz on "Title" in EraName and got all X questions correct (Z%)!'
       let quizContext: ChatMessage['quizContext'] | undefined;
-      const quizMatch = messageToSend.match(/quiz on "([^"]+)" in ([^.]+)\. I got (\d+\/\d+ correct \(\d+%\))/);
-      if (quizMatch) {
+      const imperfectMatch = messageToSend.match(/quiz on "([^"]+)" in ([^.]+)\. I got (\d+\/\d+ correct \(\d+%\))/);
+      const perfectMatch = messageToSend.match(/quiz on "([^"]+)" in ([^.]+) and got all (\d+) questions correct \((\d+%)\)/);
+      if (imperfectMatch) {
         quizContext = {
-          title: quizMatch[1],
-          eraName: quizMatch[2],
-          score: quizMatch[3],
+          title: imperfectMatch[1],
+          eraName: imperfectMatch[2],
+          score: imperfectMatch[3],
+        };
+      } else if (perfectMatch) {
+        quizContext = {
+          title: perfectMatch[1],
+          eraName: perfectMatch[2],
+          score: `${perfectMatch[3]}/${perfectMatch[3]} correct (${perfectMatch[4]})`,
         };
       }
 
@@ -238,6 +254,15 @@ export default function AIChatModal({
 
         if (cancelled) return;
 
+        // Store the hidden message in history so follow-up questions retain quiz context
+        const hiddenMsg: ChatMessage = {
+          id: `${Date.now()}_hidden_${Math.random().toString(36).slice(2)}`,
+          role: 'user',
+          content: messageToSend,
+          timestamp: new Date(),
+          hidden: true,
+        };
+
         const aiMsg: ChatMessage = {
           id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
           role: 'assistant',
@@ -246,7 +271,7 @@ export default function AIChatModal({
           quizContext,
         };
 
-        setMessages((prev) => [...prev, aiMsg]);
+        setMessages((prev) => [...prev, hiddenMsg, aiMsg]);
 
         // Track usage against quota
         if (userId) {
@@ -859,7 +884,7 @@ export default function AIChatModal({
                 </View>
               </View>
             ) : (
-              messages.map((message) => (
+              messages.filter((m) => !m.hidden).map((message) => (
                 <View key={message.id}>
                   {/* Quiz context banner for Chat to Learn responses */}
                   {message.quizContext && (

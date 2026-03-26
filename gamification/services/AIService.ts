@@ -113,6 +113,18 @@ class AIService {
   }
 
   /**
+   * Wrap a promise with a timeout (rejects if it takes too long)
+   */
+  private withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+      ),
+    ]);
+  }
+
+  /**
    * Generate personalized explanation for a quiz question
    */
   async getQuizExplanation(request: QuizExplanationRequest): Promise<AIExplanationResponse> {
@@ -681,28 +693,34 @@ Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 f
         let aiResponse = '';
 
         try {
-          const followUpResponse = await this.ai!.models.generateContent({
-            model: this.textModel,
-            contents: followUpContents,
-            config: {
-              maxOutputTokens: 2048,
-              temperature: 1.0,
-            }
-          });
+          const followUpResponse = await this.withTimeout(
+            this.ai!.models.generateContent({
+              model: this.textModel,
+              contents: followUpContents,
+              config: {
+                maxOutputTokens: 2048,
+                temperature: 1.0,
+              }
+            }),
+            30000,
+            'RAG follow-up'
+          );
 
           const followUpCandidate = followUpResponse.candidates?.[0];
 
-          // Debug: Log the follow-up response structure
-          console.log('🔍 [AIService] RAG follow-up candidate:', JSON.stringify({
-            finishReason: followUpCandidate?.finishReason,
-            partsCount: followUpCandidate?.content?.parts?.length,
-            partTypes: followUpCandidate?.content?.parts?.map((p: any) => ({
-              hasText: !!p.text,
-              hasThought: !!p.thought,
-              hasFunctionCall: !!p.functionCall,
-              textLength: p.text?.length,
-            })),
-          }));
+          // Debug: Log the follow-up response structure (dev only — avoid perf hit in prod)
+          if (__DEV__) {
+            console.log('🔍 [AIService] RAG follow-up candidate:', JSON.stringify({
+              finishReason: followUpCandidate?.finishReason,
+              partsCount: followUpCandidate?.content?.parts?.length,
+              partTypes: followUpCandidate?.content?.parts?.map((p: any) => ({
+                hasText: !!p.text,
+                hasThought: !!p.thought,
+                hasFunctionCall: !!p.functionCall,
+                textLength: p.text?.length,
+              })),
+            }));
+          }
 
           // Extract text from non-thought parts only
           if (followUpCandidate?.content?.parts) {
@@ -722,35 +740,50 @@ Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 f
 
           try {
             // Build a condensed summary of tool results to include directly in prompt
+            // Truncate each field to prevent unbounded payloads
+            const MAX_FIELD_LENGTH = 500;
             const toolSummary = functionResults
               .map(fr => {
                 const data = fr.response?.data;
                 if (!data) return `${fr.functionName}: No data returned`;
-                // Include key fields but limit content size
-                const summary = { ...data };
-                if (summary.fullContent && summary.fullContent.length > 1000) {
-                  summary.fullContent = summary.fullContent.substring(0, 1000) + '... [truncated]';
+                // Deep-clone and truncate all long string fields
+                const summary: Record<string, any> = {};
+                for (const [key, value] of Object.entries(data)) {
+                  if (typeof value === 'string' && value.length > MAX_FIELD_LENGTH) {
+                    summary[key] = value.substring(0, MAX_FIELD_LENGTH) + '... [truncated]';
+                  } else {
+                    summary[key] = value;
+                  }
                 }
                 return `${fr.functionName} result: ${JSON.stringify(summary)}`;
               })
               .join('\n\n');
 
+            // Use model role for system context so the AI doesn't treat this as user speech
             const retryContents = [
               ...conversationContents,
               {
+                role: 'model' as const,
+                parts: [{ text: `I retrieved the following information from the learning data:\n\n${toolSummary}` }],
+              },
+              {
                 role: 'user' as const,
-                parts: [{ text: `Here is the relevant information from the user's learning data:\n\n${toolSummary}\n\nNow please answer the user's original question using this information. Be specific and educational.` }],
+                parts: [{ text: 'Now please answer my original question using that information. Be specific and educational.' }],
               },
             ];
 
-            const retryResponse = await this.ai!.models.generateContent({
-              model: this.textModel,
-              contents: retryContents,
-              config: {
-                maxOutputTokens: 2048,
-                temperature: 1.0,
-              }
-            });
+            const retryResponse = await this.withTimeout(
+              this.ai!.models.generateContent({
+                model: this.textModel,
+                contents: retryContents,
+                config: {
+                  maxOutputTokens: 2048,
+                  temperature: 1.0,
+                }
+              }),
+              30000,
+              'RAG inline retry'
+            );
 
             const retryCandidate = retryResponse.candidates?.[0];
             if (retryCandidate?.content?.parts) {
@@ -778,8 +811,10 @@ Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 f
       let aiResponse = '';
       const finishReason = candidate?.finishReason;
 
-      // Debug: Log raw candidate structure for chat responses
-      console.log('🔍 [AIService] RAW CHAT CANDIDATE:', JSON.stringify(candidate, null, 2));
+      // Debug: Log raw candidate structure for chat responses (dev only — avoid perf hit in prod)
+      if (__DEV__) {
+        console.log('🔍 [AIService] RAW CHAT CANDIDATE:', JSON.stringify(candidate, null, 2));
+      }
 
       // 1. Capture whatever text was generated (even if incomplete)
       if (candidate?.content?.parts) {
