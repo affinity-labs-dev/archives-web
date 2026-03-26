@@ -9,7 +9,6 @@ import {
   Pressable,
   StyleSheet,
   StatusBar,
-  SafeAreaView,
   Platform,
 } from 'react-native';
 import { LegendList } from '@legendapp/list';
@@ -19,6 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useGamifiedProgress, useEraProgressStore } from '@/gamification';
 import { useEras, Era, isEraAccessible } from '@/hooks/useEras';
@@ -54,7 +54,6 @@ export default function EraSelection() {
 
   // Get subscription status from RevenueCat (now linked to Clerk identity)
   const { isSubscribed, customerInfo } = useRevenueCat();
-  const hasSubscription = isSubscribed;
 
   // Founding members purchased the Lifetime Subscription via web billing
   const foundingProductId = customerInfo?.entitlements.active['Access of All Eras - Yearly']?.productIdentifier;
@@ -96,7 +95,7 @@ export default function EraSelection() {
     const matchedEra = eras.find((e) => e.era_id === era);
 
     if (matchedEra) {
-      const canSelect = isEraAccessible(matchedEra.status, hasSubscription, isFoundingMember);
+      const canSelect = isEraAccessible(matchedEra.status, isSubscribed, isFoundingMember);
       if (canSelect) {
         console.log(`🔗 [DeepLink] Auto-selecting era: ${matchedEra.title} (${era})`);
         setSelectedEraId(matchedEra.era_id);
@@ -107,7 +106,7 @@ export default function EraSelection() {
     } else {
       console.log(`🔗 [DeepLink] Era not found: ${era}`);
     }
-  }, [era, eras, loading, error, hasSubscription, isFoundingMember]);
+  }, [era, eras, loading, error, isSubscribed, isFoundingMember]);
 
   // Present paywall for locked premium eras (stable ref to avoid stale closure in handleEraSelect)
   const handleShowPaywall = useCallback(async (era: Era) => {
@@ -194,7 +193,7 @@ export default function EraSelection() {
   }, []);
 
   const handleEraSelect = useCallback((era: Era) => {
-    const canSelect = isEraAccessible(era.status, hasSubscription, isFoundingMember);
+    const canSelect = isEraAccessible(era.status, isSubscribed, isFoundingMember);
     if (!canSelect) {
       // Premium eras → show paywall; founding/coming_soon → ignore
       if (era.status === 'premium') {
@@ -205,7 +204,7 @@ export default function EraSelection() {
 
     Haptics.selectionAsync();
     setSelectedEraId(era.era_id);
-  }, [hasSubscription, isFoundingMember, handleShowPaywall]);
+  }, [isSubscribed, isFoundingMember, handleShowPaywall]);
 
   const handleContinue = async () => {
     if (!selectedEraId) return;
@@ -246,7 +245,7 @@ export default function EraSelection() {
   const canContinue =
     selectedEraId !== null &&
     selectedEra &&
-    isEraAccessible(selectedEra.status, hasSubscription, isFoundingMember);
+    isEraAccessible(selectedEra.status, isSubscribed, isFoundingMember);
 
   // Sort all eras and pre-compute grid layout (eliminates O(n²) in render)
   type EraRow = { type: 'full' | 'grid'; eras: Era[] };
@@ -283,7 +282,7 @@ export default function EraSelection() {
           era={era}
           isSelected={selectedEraId === era.era_id}
           onSelect={handleEraSelect}
-          hasSubscription={hasSubscription}
+          hasSubscription={isSubscribed}
           isFoundingMember={isFoundingMember}
         />
       );
@@ -298,14 +297,14 @@ export default function EraSelection() {
               era={era}
               isSelected={selectedEraId === era.era_id}
               onSelect={handleEraSelect}
-              hasSubscription={hasSubscription}
+              hasSubscription={isSubscribed}
               isFoundingMember={isFoundingMember}
             />
           ))}
         </View>
       </View>
     );
-  }, [selectedEraId, handleEraSelect, hasSubscription, isFoundingMember]);
+  }, [selectedEraId, handleEraSelect, isSubscribed, isFoundingMember]);
 
   const eraRowKeyExtractor = useCallback(
     (item: EraRow) => item.eras[0].era_id,

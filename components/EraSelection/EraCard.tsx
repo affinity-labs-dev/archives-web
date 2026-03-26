@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { Era, isEraAccessible, getEraLockMessage } from '@/hooks/useEras';
@@ -80,10 +81,16 @@ function EraCardComponent({
         />
 
         {!showLock && (
-          <>
-            <View style={styles.horizontalGradientTop} />
-            <View style={styles.horizontalGradientBottom} />
-          </>
+          <LinearGradient
+            colors={[
+              'rgba(0,0,0,0)',
+              'rgba(0,0,0,0.3)',
+              'rgba(0,0,0,0.6)',
+              'rgba(0,0,0,0.8)',
+            ]}
+            locations={[0, 0.24, 0.64, 1.0]}
+            style={styles.horizontalGradient}
+          />
         )}
 
         {showLock && (
@@ -136,10 +143,16 @@ function EraCardComponent({
       />
 
       {!showLock && (
-        <>
-          <View style={styles.gridGradientTop} />
-          <View style={styles.gridGradientBottom} />
-        </>
+        <LinearGradient
+          colors={[
+            'rgba(0,0,0,0)',
+            'rgba(0,0,0,0.4)',
+            'rgba(0,0,0,0.8)',
+            'rgba(0,0,0,0.95)',
+          ]}
+          locations={[0, 0.24, 0.64, 1.0]}
+          style={styles.gridGradient}
+        />
       )}
 
       {showLock && (
@@ -204,22 +217,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 250,
   },
-  // Two simple Views simulate the gradient — much cheaper than native LinearGradient
-  horizontalGradientTop: {
-    position: 'absolute',
-    bottom: 60,
-    left: 0,
-    right: 0,
-    height: 90,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  horizontalGradientBottom: {
+  horizontalGradient: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 60,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    height: 150,
   },
   horizontalContent: {
     position: 'absolute',
@@ -269,21 +272,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
   },
-  gridGradientTop: {
-    position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
-    height: 70,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  gridGradientBottom: {
+  gridGradient: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 50,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    height: 120,
   },
   gridContent: {
     position: 'absolute',
