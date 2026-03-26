@@ -113,6 +113,18 @@ class AIService {
   }
 
   /**
+   * Wrap a promise with a timeout (rejects if it takes too long)
+   */
+  private withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+      ),
+    ]);
+  }
+
+  /**
    * Generate personalized explanation for a quiz question
    */
   async getQuizExplanation(request: QuizExplanationRequest): Promise<AIExplanationResponse> {
@@ -676,33 +688,119 @@ Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 f
           },
         ];
 
-        const followUpResponse = await this.ai!.models.generateContent({
-          model: this.textModel,
-          contents: followUpContents,
-          config: {
-            maxOutputTokens: 2048,
-            temperature: 1.0,
-            thinkingConfig: {
-              thinkingLevel: ThinkingLevel.LOW,
-            },
-          }
-        });
-
-        // Extract final text response
+        // First attempt: without thinking (thinking can produce thought-only responses
+        // with no visible text in function-calling follow-ups on preview models)
         let aiResponse = '';
-        const followUpCandidate = followUpResponse.candidates?.[0];
 
-        if (followUpCandidate?.content?.parts) {
-          for (const part of followUpCandidate.content.parts) {
-            if ((part as any).text) {
-              aiResponse += (part as any).text;
+        try {
+          const followUpResponse = await this.withTimeout(
+            this.ai!.models.generateContent({
+              model: this.textModel,
+              contents: followUpContents,
+              config: {
+                maxOutputTokens: 2048,
+                temperature: 1.0,
+              }
+            }),
+            30000,
+            'RAG follow-up'
+          );
+
+          const followUpCandidate = followUpResponse.candidates?.[0];
+
+          // Debug: Log the follow-up response structure (dev only — avoid perf hit in prod)
+          if (__DEV__) {
+            console.log('🔍 [AIService] RAG follow-up candidate:', JSON.stringify({
+              finishReason: followUpCandidate?.finishReason,
+              partsCount: followUpCandidate?.content?.parts?.length,
+              partTypes: followUpCandidate?.content?.parts?.map((p: any) => ({
+                hasText: !!p.text,
+                hasThought: !!p.thought,
+                hasFunctionCall: !!p.functionCall,
+                textLength: p.text?.length,
+              })),
+            }));
+          }
+
+          // Extract text from non-thought parts only
+          if (followUpCandidate?.content?.parts) {
+            for (const part of followUpCandidate.content.parts) {
+              if ((part as any).text && !(part as any).thought) {
+                aiResponse += (part as any).text;
+              }
             }
+          }
+        } catch (followUpError) {
+          console.error('❌ [AIService] RAG follow-up call failed:', followUpError);
+        }
+
+        // If still empty, retry with a simplified prompt that includes tool results inline
+        if (!aiResponse) {
+          console.warn('⚠️ [AIService] RAG follow-up returned empty, retrying with inline context...');
+
+          try {
+            // Build a condensed summary of tool results to include directly in prompt
+            // Truncate each field to prevent unbounded payloads
+            const MAX_FIELD_LENGTH = 500;
+            const toolSummary = functionResults
+              .map(fr => {
+                const data = fr.response?.data;
+                if (!data) return `${fr.functionName}: No data returned`;
+                // Deep-clone and truncate all long string fields
+                const summary: Record<string, any> = {};
+                for (const [key, value] of Object.entries(data)) {
+                  if (typeof value === 'string' && value.length > MAX_FIELD_LENGTH) {
+                    summary[key] = value.substring(0, MAX_FIELD_LENGTH) + '... [truncated]';
+                  } else {
+                    summary[key] = value;
+                  }
+                }
+                return `${fr.functionName} result: ${JSON.stringify(summary)}`;
+              })
+              .join('\n\n');
+
+            // Use model role for system context so the AI doesn't treat this as user speech
+            const retryContents = [
+              ...conversationContents,
+              {
+                role: 'model' as const,
+                parts: [{ text: `I retrieved the following information from the learning data:\n\n${toolSummary}` }],
+              },
+              {
+                role: 'user' as const,
+                parts: [{ text: 'Now please answer my original question using that information. Be specific and educational.' }],
+              },
+            ];
+
+            const retryResponse = await this.withTimeout(
+              this.ai!.models.generateContent({
+                model: this.textModel,
+                contents: retryContents,
+                config: {
+                  maxOutputTokens: 2048,
+                  temperature: 1.0,
+                }
+              }),
+              30000,
+              'RAG inline retry'
+            );
+
+            const retryCandidate = retryResponse.candidates?.[0];
+            if (retryCandidate?.content?.parts) {
+              for (const part of retryCandidate.content.parts) {
+                if ((part as any).text && !(part as any).thought) {
+                  aiResponse += (part as any).text;
+                }
+              }
+            }
+          } catch (retryError) {
+            console.error('❌ [AIService] RAG inline retry also failed:', retryError);
           }
         }
 
-        // Handle empty response
+        // Final fallback — generic but honest
         if (!aiResponse) {
-          aiResponse = 'I found some information about that. Let me summarize what I know from your learning history.';
+          aiResponse = 'I had trouble generating a detailed response. Please try asking your question again, or rephrase it slightly.';
         }
 
         console.log('✅ [AIService] RAG response received, length:', aiResponse.length);
@@ -713,8 +811,10 @@ Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 f
       let aiResponse = '';
       const finishReason = candidate?.finishReason;
 
-      // Debug: Log raw candidate structure for chat responses
-      console.log('🔍 [AIService] RAW CHAT CANDIDATE:', JSON.stringify(candidate, null, 2));
+      // Debug: Log raw candidate structure for chat responses (dev only — avoid perf hit in prod)
+      if (__DEV__) {
+        console.log('🔍 [AIService] RAW CHAT CANDIDATE:', JSON.stringify(candidate, null, 2));
+      }
 
       // 1. Capture whatever text was generated (even if incomplete)
       if (candidate?.content?.parts) {
