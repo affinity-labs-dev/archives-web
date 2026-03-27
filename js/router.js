@@ -60,5 +60,19 @@ export function forceResolve() {
 
 export function startRouter() {
   window.addEventListener('hashchange', resolve);
+
+  // Esc key navigates back
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      // Don't interfere with inputs or modals handled elsewhere
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      var back = document.querySelector('.header__back');
+      if (back && back.href) {
+        e.preventDefault();
+        window.location.hash = back.getAttribute('href').replace(/^#/, '#');
+      }
+    }
+  });
+
   resolve();
 }
