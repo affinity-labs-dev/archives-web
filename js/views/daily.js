@@ -575,7 +575,12 @@ export default function dailyView(app, params) {
           });
         }
 
+        // Play star sound first (needs user-gesture token), then kick the muted video
         setTimeout(function() { playStars(stars); }, 100);
+        setTimeout(function() {
+          var vid = panel.querySelector('.quiz-score__video');
+          if (vid && vid.paused) vid.play().catch(function() {});
+        }, 200);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
 

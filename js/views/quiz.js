@@ -162,8 +162,12 @@ export default function quizView(app, { readableId, moduleIndex }) {
         });
       }
 
-      // Play star sound after render
+      // Play star sound first (needs user-gesture token), then kick the muted video
       setTimeout(function() { playStars(stars); }, 100);
+      setTimeout(function() {
+        var vid = app.querySelector('.quiz-score__video');
+        if (vid && vid.paused) vid.play().catch(function() {});
+      }, 200);
     }
 
     showQuestion();
