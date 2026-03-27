@@ -89,7 +89,7 @@ body::after {
 .app-banner__title {
   font-family: var(--font-display);
   font-size: 1.8rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cream);
   line-height: 1.2;
   margin-bottom: 12px;
@@ -287,7 +287,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .header__title {
   font-family: var(--font-display);
   font-size: 1.15rem;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -375,7 +375,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .home__hero-title {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 6vw, 2.4rem);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cream);
   line-height: 1.1;
   margin-bottom: 6px;
@@ -442,7 +442,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .home__section-title {
   font-family: var(--font-display);
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cream);
 }
 
@@ -504,7 +504,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .home__daily-title {
   font-family: var(--font-display);
   font-size: 1.6rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cream);
   line-height: 1.15;
   margin-bottom: 12px;
@@ -672,7 +672,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .era-card__title {
   font-family: var(--font-display);
   font-size: 1.3rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cream);
   margin-bottom: 6px;
   line-height: 1.2;
@@ -756,7 +756,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .dh__hero-title {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4.5vw, 3.2rem);
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--cream);
@@ -1189,7 +1189,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .ds__title {
   font-family: var(--font-display);
   font-size: clamp(1.5rem, 4vw, 1.8rem);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cream);
   line-height: 1.15;
   margin-bottom: 16px;
@@ -1421,7 +1421,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .ds__explore-title {
   font-family: var(--font-display);
   font-size: 1.8rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cream);
   text-align: center;
   margin-bottom: 24px;
@@ -1536,7 +1536,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .adventures__title {
   font-family: var(--font-display);
   font-size: clamp(2rem, 5vw, 3.8rem);
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.1;
   margin-bottom: 12px;
   letter-spacing: -0.01em;
@@ -1647,7 +1647,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .adventure-card__title {
   font-family: var(--font-display);
   font-size: 1.3rem;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.2;
   margin-bottom: 6px;
   color: var(--cream);
@@ -1761,7 +1761,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .detail-hero__title {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4.5vw, 3.6rem);
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.1;
   letter-spacing: -0.02em;
   max-width: 600px;
@@ -1982,7 +1982,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .mtile__title {
   font-family: var(--font-display);
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.25;
   margin-bottom: 3px;
   color: var(--cream);
@@ -2898,7 +2898,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .quiz-score__title {
   font-family: var(--font-display);
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cream);
   margin-bottom: 4px;
   animation: fadeIn 0.5s var(--ease-out) 0.3s both;
@@ -3177,7 +3177,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .settings__title {
   font-family: var(--font-display);
   font-size: 1.6rem;
-  font-weight: 600;
+  font-weight: 400;
   margin-bottom: 28px;
 }
 
@@ -3471,7 +3471,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .chat__header-title {
   font-family: var(--font-display);
   font-size: 1.15rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--cream);
 }
 
@@ -3778,7 +3778,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .streak__label {
   font-family: var(--font-display);
   font-size: 1.3rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cream-dim);
   margin-bottom: 24px;
   opacity: 0;
@@ -3969,7 +3969,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .paywall__title {
   font-family: var(--font-display);
   font-size: 1.6rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--cream);
   margin-bottom: 6px;
 }
