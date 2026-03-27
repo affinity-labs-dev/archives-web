@@ -51,31 +51,11 @@ export function startBgMusic(url) {
   stopBgMusic();
   if (!url || !getSetting('bgMusic', true)) return;
 
-  // Try playing immediately — if browser blocks it, defer to first interaction
+  // Browsers block unmuted audio without a user gesture.
+  // Always defer to the first click/tap, then start playing.
   pendingUrl = url;
-  var test = new Audio();
-  test.volume = 0;
-  test.muted = true;
-  var p = test.play();
-  if (p && p.then) {
-    p.then(function() {
-      // Autoplay allowed — start immediately
-      test.pause();
-      if (pendingUrl === url) {
-        pendingUrl = null;
-        doStartBgMusic(url);
-      }
-    }).catch(function() {
-      // Autoplay blocked — wait for user gesture
-      test.pause();
-      document.addEventListener('click', onFirstInteraction, true);
-      document.addEventListener('touchstart', onFirstInteraction, true);
-    });
-  } else {
-    // Old browser, just try directly
-    pendingUrl = null;
-    doStartBgMusic(url);
-  }
+  document.addEventListener('click', onFirstInteraction, true);
+  document.addEventListener('touchstart', onFirstInteraction, true);
 }
 
 function checkDuration(audio) {
