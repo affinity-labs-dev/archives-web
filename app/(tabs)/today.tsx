@@ -467,10 +467,13 @@ export default function TodayScreen() {
   }, [activeModal, pendingChatMessage, openChatToLearn]);
 
   // Resume celebration queue only on true→false transition (not on initial mount)
+  // Delay 500ms to let AIChatModal dismiss animation complete before presenting celebration
   const wasChatOpenRef = useRef(false);
   useEffect(() => {
     if (wasChatOpenRef.current && !isChatOpen) {
-      resumeCelebrationQueue();
+      const timer = setTimeout(() => resumeCelebrationQueue(), 500);
+      wasChatOpenRef.current = false;
+      return () => clearTimeout(timer);
     }
     wasChatOpenRef.current = isChatOpen;
   }, [isChatOpen, resumeCelebrationQueue]);
