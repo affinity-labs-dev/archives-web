@@ -8,24 +8,25 @@ var currentAudio = null;
 var currentHls = null;
 var isLongTrack = false;
 var progressInterval = null;
-var audioUnlocked = false;
+var userPaused = false; // true when user explicitly pauses via toggle
 
-// Register a global one-time listener at module load time.
-// The very first user interaction (click/touch) on the page unlocks audio.
-// If bg music is already waiting, it starts playing immediately.
-function onGlobalInteraction() {
-  audioUnlocked = true;
-  document.removeEventListener('click', onGlobalInteraction, true);
-  document.removeEventListener('touchstart', onGlobalInteraction, true);
-  // If audio was created but couldn't play, kick it now
-  if (currentAudio && currentAudio.paused) {
+// Persistent listener: on every click/tap, if bg music exists and is
+// paused (but user didn't manually pause), try to play it.
+// This handles the race where startBgMusic is called from an async
+// callback after the user's navigation click already happened.
+function tryResume() {
+  if (currentAudio && currentAudio.paused && !userPaused) {
     currentAudio.play().catch(function() {});
   }
 }
-document.addEventListener('click', onGlobalInteraction, true);
-document.addEventListener('touchstart', onGlobalInteraction, true);
+document.addEventListener('click', tryResume, true);
+document.addEventListener('touchstart', tryResume, true);
 
-function createAndPlay(url) {
+export function startBgMusic(url) {
+  stopBgMusic();
+  if (!url || !getSetting('bgMusic', true)) return;
+
+  userPaused = false;
   var audio = new Audio();
   audio.loop = true;
   audio.volume = 0.3;
@@ -40,8 +41,6 @@ function createAndPlay(url) {
       audio.play().catch(function() {});
       checkDuration(audio);
     });
-    // Also try an immediate play to unlock the element in gesture context
-    audio.play().catch(function() {});
   } else {
     audio.src = url;
     audio.addEventListener('loadedmetadata', function() {
@@ -51,16 +50,6 @@ function createAndPlay(url) {
   }
 
   updateToggleUI(true);
-}
-
-export function startBgMusic(url) {
-  stopBgMusic();
-  if (!url || !getSetting('bgMusic', true)) return;
-
-  // Create audio and try to play. If the browser blocks it,
-  // the global interaction listener will retry when the user
-  // next clicks/taps anything on the page.
-  createAndPlay(url);
 }
 
 function checkDuration(audio) {
@@ -101,9 +90,11 @@ function showLongTrackUI() {
     e.stopPropagation();
     if (!currentAudio) return;
     if (currentAudio.paused) {
+      userPaused = false;
       currentAudio.play().catch(function() {});
       bar.classList.remove('audio-player--paused');
     } else {
+      userPaused = true;
       currentAudio.pause();
       bar.classList.add('audio-player--paused');
     }
@@ -151,6 +142,7 @@ export function stopBgMusic() {
   if (currentHls) { currentHls.destroy(); currentHls = null; }
   if (currentAudio) { currentAudio.pause(); currentAudio.src = ''; currentAudio = null; }
   isLongTrack = false;
+  userPaused = false;
 }
 
 function updateToggleUI(playing) {
@@ -184,9 +176,11 @@ export function initBgMusicToggle() {
     if (!currentAudio) return;
     e.stopPropagation();
     if (currentAudio.paused) {
+      userPaused = false;
       currentAudio.play().catch(function() {});
       updateToggleUI(true);
     } else {
+      userPaused = true;
       currentAudio.pause();
       updateToggleUI(false);
     }
