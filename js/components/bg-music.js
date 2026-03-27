@@ -8,11 +8,9 @@ var currentAudio = null;
 var currentHls = null;
 var isLongTrack = false;
 var progressInterval = null;
+var pendingUrl = null;
 
-export function startBgMusic(url) {
-  stopBgMusic();
-  if (!url || !getSetting('bgMusic', true)) return;
-
+function doStartBgMusic(url) {
   if (url.includes('.m3u8') && window.Hls && Hls.isSupported()) {
     var audio = new Audio();
     var hls = new Hls();
@@ -38,6 +36,46 @@ export function startBgMusic(url) {
   }
 
   updateToggleUI(true);
+}
+
+function onFirstInteraction() {
+  document.removeEventListener('click', onFirstInteraction, true);
+  document.removeEventListener('touchstart', onFirstInteraction, true);
+  if (pendingUrl && !currentAudio) {
+    doStartBgMusic(pendingUrl);
+  }
+  pendingUrl = null;
+}
+
+export function startBgMusic(url) {
+  stopBgMusic();
+  if (!url || !getSetting('bgMusic', true)) return;
+
+  // Try playing immediately — if browser blocks it, defer to first interaction
+  pendingUrl = url;
+  var test = new Audio();
+  test.volume = 0;
+  test.muted = true;
+  var p = test.play();
+  if (p && p.then) {
+    p.then(function() {
+      // Autoplay allowed — start immediately
+      test.pause();
+      if (pendingUrl === url) {
+        pendingUrl = null;
+        doStartBgMusic(url);
+      }
+    }).catch(function() {
+      // Autoplay blocked — wait for user gesture
+      test.pause();
+      document.addEventListener('click', onFirstInteraction, true);
+      document.addEventListener('touchstart', onFirstInteraction, true);
+    });
+  } else {
+    // Old browser, just try directly
+    pendingUrl = null;
+    doStartBgMusic(url);
+  }
 }
 
 function checkDuration(audio) {
@@ -124,6 +162,9 @@ function formatTime(s) {
 }
 
 export function stopBgMusic() {
+  pendingUrl = null;
+  document.removeEventListener('click', onFirstInteraction, true);
+  document.removeEventListener('touchstart', onFirstInteraction, true);
   if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
   if (currentHls) { currentHls.destroy(); currentHls = null; }
   if (currentAudio) { currentAudio.pause(); currentAudio.src = ''; currentAudio = null; }
