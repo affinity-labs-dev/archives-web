@@ -11,28 +11,28 @@ var progressInterval = null;
 var pendingUrl = null;
 
 function doStartBgMusic(url) {
+  var audio = new Audio();
+  audio.loop = true;
+  audio.volume = 0.3;
+  currentAudio = audio;
+
   if (url.includes('.m3u8') && window.Hls && Hls.isSupported()) {
-    var audio = new Audio();
+    // Unlock the audio element in gesture context before HLS attaches
+    audio.play().catch(function() {});
     var hls = new Hls();
     hls.loadSource(url);
     hls.attachMedia(audio);
-    audio.loop = true;
-    audio.volume = 0.3;
+    currentHls = hls;
     hls.on(Hls.Events.MANIFEST_PARSED, function() {
-      audio.play().catch(function() {});
+      if (audio.paused) audio.play().catch(function() {});
       checkDuration(audio);
     });
-    currentAudio = audio;
-    currentHls = hls;
   } else {
-    var audio = new Audio(url);
-    audio.loop = true;
-    audio.volume = 0.3;
+    audio.src = url;
     audio.addEventListener('loadedmetadata', function() {
       checkDuration(audio);
     });
     audio.play().catch(function() {});
-    currentAudio = audio;
   }
 
   updateToggleUI(true);
