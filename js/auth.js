@@ -46,7 +46,7 @@ export function mountSignIn(el) {
       },
       elements: {
         card: { background: '#141310', border: '1px solid rgba(240, 234, 224, 0.08)', boxShadow: 'none' },
-        headerTitle: { fontFamily: "'Cormorant Garamond', serif", color: '#F0EAE0' },
+        headerTitle: { fontFamily: "'Erica One', serif", color: '#F0EAE0' },
         headerSubtitle: { color: 'rgba(240, 234, 224, 0.5)' },
         formButtonPrimary: { background: '#D4A04A', color: '#0C0B09', fontWeight: '600' },
         footerActionLink: { color: '#D4A04A' },

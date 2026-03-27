@@ -8,25 +8,40 @@ var currentAudio = null;
 var currentHls = null;
 var isLongTrack = false;
 var progressInterval = null;
-var pendingUrl = null;
+var audioUnlocked = false;
 
-function doStartBgMusic(url) {
+// Register a global one-time listener at module load time.
+// The very first user interaction (click/touch) on the page unlocks audio.
+// If bg music is already waiting, it starts playing immediately.
+function onGlobalInteraction() {
+  audioUnlocked = true;
+  document.removeEventListener('click', onGlobalInteraction, true);
+  document.removeEventListener('touchstart', onGlobalInteraction, true);
+  // If audio was created but couldn't play, kick it now
+  if (currentAudio && currentAudio.paused) {
+    currentAudio.play().catch(function() {});
+  }
+}
+document.addEventListener('click', onGlobalInteraction, true);
+document.addEventListener('touchstart', onGlobalInteraction, true);
+
+function createAndPlay(url) {
   var audio = new Audio();
   audio.loop = true;
   audio.volume = 0.3;
   currentAudio = audio;
 
   if (url.includes('.m3u8') && window.Hls && Hls.isSupported()) {
-    // Unlock the audio element in gesture context before HLS attaches
-    audio.play().catch(function() {});
     var hls = new Hls();
     hls.loadSource(url);
     hls.attachMedia(audio);
     currentHls = hls;
     hls.on(Hls.Events.MANIFEST_PARSED, function() {
-      if (audio.paused) audio.play().catch(function() {});
+      audio.play().catch(function() {});
       checkDuration(audio);
     });
+    // Also try an immediate play to unlock the element in gesture context
+    audio.play().catch(function() {});
   } else {
     audio.src = url;
     audio.addEventListener('loadedmetadata', function() {
@@ -38,24 +53,14 @@ function doStartBgMusic(url) {
   updateToggleUI(true);
 }
 
-function onFirstInteraction() {
-  document.removeEventListener('click', onFirstInteraction, true);
-  document.removeEventListener('touchstart', onFirstInteraction, true);
-  if (pendingUrl && !currentAudio) {
-    doStartBgMusic(pendingUrl);
-  }
-  pendingUrl = null;
-}
-
 export function startBgMusic(url) {
   stopBgMusic();
   if (!url || !getSetting('bgMusic', true)) return;
 
-  // Browsers block unmuted audio without a user gesture.
-  // Always defer to the first click/tap, then start playing.
-  pendingUrl = url;
-  document.addEventListener('click', onFirstInteraction, true);
-  document.addEventListener('touchstart', onFirstInteraction, true);
+  // Create audio and try to play. If the browser blocks it,
+  // the global interaction listener will retry when the user
+  // next clicks/taps anything on the page.
+  createAndPlay(url);
 }
 
 function checkDuration(audio) {
@@ -74,7 +79,7 @@ function showLongTrackUI() {
   if (toggleBtn) toggleBtn.style.display = 'none';
 
   // Inject player bar into the media container
-  var mediaWrap = document.querySelector('.reel-player__video-wrap') || document.querySelector('.carousel__track-wrap');
+  var mediaWrap = document.querySelector('.reel-player__video-wrap') || document.querySelector('.ds-mobile-watch__media') || document.querySelector('.carousel__track-wrap');
   if (!mediaWrap) return;
 
   var bar = document.createElement('div');
@@ -142,9 +147,6 @@ function formatTime(s) {
 }
 
 export function stopBgMusic() {
-  pendingUrl = null;
-  document.removeEventListener('click', onFirstInteraction, true);
-  document.removeEventListener('touchstart', onFirstInteraction, true);
   if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
   if (currentHls) { currentHls.destroy(); currentHls = null; }
   if (currentAudio) { currentAudio.pause(); currentAudio.src = ''; currentAudio = null; }
