@@ -1352,6 +1352,15 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   color: var(--cream-dim);
 }
 
+.ds-mobile-watch__reading h1,
+.ds-mobile-watch__reading h2,
+.ds-mobile-watch__reading h3,
+.ds-mobile-watch__reading h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+
 .ds-mobile-watch__reading p {
   margin-bottom: 12px;
 }
@@ -2239,6 +2248,15 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .reel-player__reading-inner {}
 
+.reel-player__reading h1,
+.reel-player__reading h2,
+.reel-player__reading h3,
+.reel-player__reading h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+
 .reel-player__reading p { margin-bottom: 14px; }
 @media (min-width: 700px) { .reel-player__reading p { margin-bottom: 16px; } }
 
@@ -2589,6 +2607,15 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 @media (min-width: 700px) {
   .scrollable-view__block--text { padding: 28px 32px; font-size: 1.1rem; line-height: 1.9; }
+}
+
+.scrollable-view__block--text h1,
+.scrollable-view__block--text h2,
+.scrollable-view__block--text h3,
+.scrollable-view__block--text h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  margin-bottom: 8px;
 }
 
 .scrollable-view__block--text p { margin-bottom: 14px; }
