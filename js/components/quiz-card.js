@@ -1,5 +1,6 @@
 import { playCorrect, playWrong, playTap } from './sounds.js';
 import { escapeHtml } from '../utils.js';
+import { shakeWrong, bounceCorrect } from '../animations.js';
 
 export function renderQuizCard(question, index, total) {
   const bars = Array.from({ length: total }, (_, i) => {
@@ -48,6 +49,13 @@ export function attachQuizHandlers(container, question, onAnswer) {
 
       btn.classList.add(isCorrect ? 'correct' : 'wrong');
       btn.classList.add('answered');
+
+      // GSAP-powered feedback
+      if (isCorrect) {
+        bounceCorrect(btn);
+      } else {
+        shakeWrong(btn);
+      }
 
       if (!isCorrect) {
         container.querySelectorAll('.quiz__answer').forEach(b => {

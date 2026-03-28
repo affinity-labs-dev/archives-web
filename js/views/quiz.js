@@ -10,13 +10,14 @@ import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
 import { tryStreakCelebration } from '../components/streak-celebration.js';
 import { getStars, getRewardVideo, getResultMessage } from '../components/quiz-helpers.js';
+import { animateCounter, starPopIn, celebrationBurst, headerEntrance } from '../animations.js';
 
 function renderStars(earned, total) {
   var html = '<div class="stars">';
   for (var i = 0; i < total; i++) {
     var filled = i < earned;
-    var delay = i * 0.2;
-    html += '<div class="star ' + (filled ? 'star--filled' : 'star--empty') + '" style="animation-delay:' + delay + 's">'
+    // GSAP handles entrance animation via starPopIn, so no CSS animation-delay
+    html += '<div class="star ' + (filled ? 'star--filled' : 'star--empty') + '" style="opacity:0;transform:scale(0)">'
       + '<svg viewBox="0 0 24 24" fill="' + (filled ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5">'
       + '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'
       + '</svg>'
@@ -27,7 +28,14 @@ function renderStars(earned, total) {
 }
 
 export default function quizView(app, { readableId, moduleIndex }) {
-  app.innerHTML = '<div class="loading"><div class="spinner"></div>Loading</div>';
+  app.innerHTML = '<div class="skeleton-quiz" style="padding:80px var(--page-px) 20px">'
+    + '<div class="skeleton skeleton--text" style="width:200px;margin-bottom:24px"></div>'
+    + '<div class="skeleton skeleton--text" style="margin-bottom:32px"></div>'
+    + '<div class="skeleton skeleton--card" style="height:56px;margin-bottom:12px"></div>'
+    + '<div class="skeleton skeleton--card" style="height:56px;margin-bottom:12px"></div>'
+    + '<div class="skeleton skeleton--card" style="height:56px;margin-bottom:12px"></div>'
+    + '<div class="skeleton skeleton--card" style="height:56px"></div>'
+    + '</div>';
 
   const idx = parseInt(moduleIndex, 10);
   let aborted = false;
@@ -68,7 +76,7 @@ export default function quizView(app, { readableId, moduleIndex }) {
 
       app.innerHTML = renderHeader('Quiz', backHash, quizCrumbs)
         + '<div class="quiz-wrap">'
-        + '<div class="quiz fade-in" id="quiz-container">'
+        + '<div class="quiz" id="quiz-container">'
         + renderQuizCard(questions[current], current, questions.length)
         + '</div></div>';
 
@@ -113,7 +121,7 @@ export default function quizView(app, { readableId, moduleIndex }) {
             { label: advTitle, hash: '/adventure/' + readableId },
             { label: 'Quiz Complete' }
           ])
-        + '<div class="quiz-score fade-in">'
+        + '<div class="quiz-score">'
         + '<video class="quiz-score__video" autoplay muted playsinline>'
         + '<source src="' + escapeHtml(videoSrc) + '" type="video/mp4">'
         + '</video>'
@@ -121,8 +129,9 @@ export default function quizView(app, { readableId, moduleIndex }) {
         + '<div class="quiz-score__content">'
         + '<div class="quiz-score__title">' + escapeHtml(msg.title) + '</div>'
         + '<div class="quiz-score__subtitle">' + escapeHtml(msg.subtitle) + '</div>'
+        + renderStars(stars, 3)
         + '<div class="quiz-score__score-row">'
-        + '<span class="quiz-score__percentage">' + percentage + '%</span>'
+        + '<span class="quiz-score__percentage" id="score-pct">0%</span>'
         + '<span class="quiz-score__correct">' + score + '/' + questions.length + ' correct</span>'
         + '</div>'
         + '<div class="quiz-score__progress-bar"><div class="quiz-score__progress-fill" style="width:' + percentage + '%"></div></div>'
@@ -162,11 +171,35 @@ export default function quizView(app, { readableId, moduleIndex }) {
         });
       }
 
+      // Animate score counter
+      var pctEl = document.getElementById('score-pct');
+      if (pctEl) animateCounter(pctEl, 0, percentage, { suffix: '%', duration: 1.2 });
+
+      // Animate stars pop-in
+      var starEls = app.querySelectorAll('.star');
+      if (starEls.length) starPopIn(starEls);
+
+      // Celebration burst for good scores
+      var scoreContent = app.querySelector('.quiz-score__content');
+      if (percentage >= 70 && scoreContent) {
+        setTimeout(function() { celebrationBurst(scoreContent, { count: percentage === 100 ? 35 : 25 }); }, 600);
+      }
+
+      headerEntrance();
+
       // Play star sound first (needs user-gesture token), then kick the muted video
-      setTimeout(function() { playStars(stars); }, 100);
+      // Reward video has its own celebration music, skip the star chime
       setTimeout(function() {
         var vid = app.querySelector('.quiz-score__video');
-        if (vid && vid.paused) vid.play().catch(function() {});
+        if (vid) {
+          vid.muted = false;
+          vid.volume = 0.7;
+          vid.play().catch(function() {
+            // Browser blocked unmuted autoplay — retry muted
+            vid.muted = true;
+            vid.play().catch(function() {});
+          });
+        }
       }, 200);
     }
 

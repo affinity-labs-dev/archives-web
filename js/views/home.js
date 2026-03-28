@@ -4,9 +4,21 @@ import { getDailyStreak, getDailyProgress, getAllProgress, getCompletedCount } f
 import { escapeHtml, sanitizeUrl } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
+import { heroEntrance, staggerEntrance, revealOnScroll, textReveal } from '../animations.js';
 
 export default function homeView(app) {
-  app.innerHTML = '<div class="loading"><div class="spinner"></div>Loading</div>';
+  app.innerHTML = '<div class="skeleton-home">'
+    + '<div class="skeleton skeleton--hero"></div>'
+    + '<div style="padding:24px var(--page-px)">'
+    + '<div class="skeleton skeleton--text" style="width:60px;margin-bottom:12px"></div>'
+    + '<div class="skeleton skeleton--text" style="width:160px;margin-bottom:20px"></div>'
+    + '<div class="skeleton skeleton--card" style="height:180px;margin-bottom:32px"></div>'
+    + '<div class="skeleton skeleton--text" style="width:60px;margin-bottom:12px"></div>'
+    + '<div class="skeleton skeleton--text" style="width:120px;margin-bottom:20px"></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+    + '<div class="skeleton skeleton--card"></div>'
+    + '<div class="skeleton skeleton--card"></div>'
+    + '</div></div></div>';
   let aborted = false;
 
   Promise.all([getAllEras(), getTodayStory()]).then(function(results) {
@@ -229,7 +241,7 @@ export default function homeView(app) {
           + '<div class="home__section-label">On the Horizon</div>'
           + '<h2 class="home__section-title">Coming Soon</h2>'
           + '</div>'
-          + '<div class="era-grid era-grid--compact stagger-in">' + comingCards + '</div>'
+          + '<div class="era-grid era-grid--compact ">' + comingCards + '</div>'
           + '</div>';
       }
 
@@ -242,10 +254,25 @@ export default function homeView(app) {
         + '<div class="home__section-label">Explore</div>'
         + '<h2 class="home__section-title">All Eras</h2>'
         + '</div>'
-        + '<div class="era-grid stagger-in">' + eraCards + '</div>'
+        + '<div class="era-grid ">' + eraCards + '</div>'
         + '</div>'
         + comingSoonHtml
         + '</div>';
+
+      // Animate hero entrance (title handled separately by textReveal)
+      heroEntrance({
+        bg: '.home__hero-bg',
+        elements: ['.home__hero-badge', '.home__hero-label', '.home__hero-desc', '.home__hero-cta']
+      });
+
+      // Text reveal on hero title (separate from heroEntrance to avoid conflict)
+      var heroTitle = app.querySelector('.home__hero-title');
+      if (heroTitle) textReveal(heroTitle);
+
+      // Scroll-triggered reveals for sections below the fold
+      revealOnScroll('.home__daily');
+      revealOnScroll('.era-grid .era-card');
+      revealOnScroll('.era-grid--compact .era-card');
 
       // Attach click handlers via event delegation
       var hero = document.getElementById('home-hero');

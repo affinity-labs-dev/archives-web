@@ -2,6 +2,7 @@ import { getAdventures, getEra } from '../api.js';
 import { getCompletedCount } from '../state.js';
 import { renderHeader } from '../components/header.js';
 import { escapeHtml, sanitizeUrl } from '../utils.js';
+import { heroEntrance, staggerEntrance, headerEntrance } from '../animations.js';
 
 export default function adventuresView(app, params) {
   var eraId = params.eraId || 'prophets';
@@ -44,17 +45,24 @@ export default function adventuresView(app, params) {
             { label: 'Home', hash: '/' },
             { label: escapeHtml(eraTitle) }
           ]) + `
-        <div class="adventures fade-in">
+        <div class="adventures">
           <div class="adventures__hero">
             ${era?.timeline ? `<div class="adventures__era-badge">${escapeHtml(era.timeline)}</div>` : ''}
             <h1 class="adventures__title">${escapeHtml(eraTitle)}</h1>
             <p class="adventures__desc">${escapeHtml(era?.description)}</p>
           </div>
-          <div class="adventures__grid stagger-in">
+          <div class="adventures__grid">
             ${cards}
           </div>
         </div>
       `;
+
+      // Animate entrance
+      heroEntrance({
+        elements: ['.adventures__era-badge', '.adventures__title', '.adventures__desc']
+      });
+      staggerEntrance(app.querySelectorAll('.adventure-card'), { delay: 0.3 });
+      headerEntrance();
 
       // Attach image fallbacks
       app.querySelectorAll('img[data-fallback]').forEach(function(img) {

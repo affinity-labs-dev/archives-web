@@ -5,9 +5,16 @@ import { renderScrollableView, initScrollableVideos } from '../components/scroll
 import { renderImageCarousel, renderVideoCarousel, initCarousel } from '../components/carousel.js';
 import { startBgMusic, stopBgMusic, renderBgMusicToggle, initBgMusicToggle } from '../components/bg-music.js';
 import { escapeHtml } from '../utils.js';
+import { headerEntrance, revealOnScroll } from '../animations.js';
 
 export default function lessonView(app, { readableId, moduleIndex }) {
-  app.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+  app.innerHTML = '<div class="skeleton-lesson" style="padding:60px var(--page-px) 20px">'
+    + '<div class="skeleton" style="width:100%;aspect-ratio:9/16;max-width:400px;max-height:70vh;margin:0 auto"></div>'
+    + '<div style="margin-top:16px">'
+    + '<div class="skeleton skeleton--text"></div>'
+    + '<div class="skeleton skeleton--text"></div>'
+    + '<div class="skeleton skeleton--text-short"></div>'
+    + '</div></div>';
   const idx = parseInt(moduleIndex, 10);
   let cleanupFn = null;
   let aborted = false;
@@ -110,6 +117,13 @@ export default function lessonView(app, { readableId, moduleIndex }) {
       }
       startBgMusic(mod.background_music_url);
       initBgMusicToggle();
+    }
+
+    headerEntrance();
+
+    // Scroll-reveal content blocks in scrollable views
+    if (mod.content_type === 'scrollable_media_view') {
+      revealOnScroll('.scrollable-view__block');
     }
 
     // Init after DOM render

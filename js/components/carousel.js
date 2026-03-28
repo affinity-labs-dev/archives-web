@@ -116,20 +116,51 @@ export function initCarousel(mod) {
     dot.addEventListener('click', function() { goTo(parseInt(dot.dataset.index, 10)); });
   });
 
-  // Touch/swipe
+  // Touch/swipe with drag-follow and rubber-band
   var startX = 0;
+  var startTime = 0;
   var isDragging = false;
+  var trackWidth = track.offsetWidth || 1;
+
   track.addEventListener('touchstart', function(e) {
     startX = e.touches[0].clientX;
+    startTime = Date.now();
     isDragging = true;
+    trackWidth = track.offsetWidth || 1;
+    track.style.transition = 'none'; // Remove transition during drag
   }, { passive: true });
+
+  track.addEventListener('touchmove', function(e) {
+    if (!isDragging) return;
+    var dx = e.touches[0].clientX - startX;
+    var baseOffset = -(current * 100);
+
+    // Rubber-band at edges: dampen drag when at first/last slide
+    var atEdge = (current === 0 && dx > 0) || (current === total - 1 && dx < 0);
+    if (atEdge) dx *= 0.3; // Dampen to 30%
+
+    var pctOffset = (dx / trackWidth) * 100;
+    track.style.transform = 'translateX(' + (baseOffset + pctOffset) + '%)';
+  }, { passive: true });
+
   track.addEventListener('touchend', function(e) {
     if (!isDragging) return;
     isDragging = false;
+    track.style.transition = ''; // Restore CSS transition
+
     var diff = startX - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) {
+    var elapsed = Date.now() - startTime;
+    var velocity = Math.abs(diff) / Math.max(elapsed, 1);
+
+    // Velocity-sensitive threshold: fast swipes need less distance
+    var threshold = velocity > 0.5 ? 25 : 50;
+
+    if (Math.abs(diff) > threshold) {
       if (diff > 0) goTo(current + 1);
       else goTo(current - 1);
+    } else {
+      // Snap back to current
+      goTo(current);
     }
   });
 

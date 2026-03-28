@@ -1,6 +1,8 @@
 import { isSignedIn } from './auth.js';
+import { getDirection, transitionOut, transitionIn, initGlobalAnimations } from './animations.js';
 
 let currentCleanup = null;
+let isTransitioning = false;
 
 const routes = [];
 
@@ -24,6 +26,7 @@ export function navigate(hash) {
 
 function resolve() {
   if (!isSignedIn()) return;
+  if (isTransitioning) return;
 
   const rawHash = window.location.hash.slice(1) || '/';
   const hash = rawHash.split('?')[0]; // Strip query params
@@ -36,16 +39,45 @@ function resolve() {
         params[key] = decodeURIComponent(match[i + 1]);
       });
 
-      // Clean up previous view
-      if (currentCleanup) {
-        currentCleanup();
-        currentCleanup = null;
-      }
-
+      const direction = getDirection(hash);
       const app = document.getElementById('app');
-      app.innerHTML = '';
-      const cleanup = r.handler(app, params);
-      if (typeof cleanup === 'function') currentCleanup = cleanup;
+
+      // If app has content, animate out then swap
+      if (app.children.length > 0) {
+        isTransitioning = true;
+        app._transDir = direction;
+
+        // Safety timeout in case GSAP hangs
+        var transTimeout = setTimeout(() => { isTransitioning = false; }, 1000);
+
+        transitionOut(app).then(() => {
+          clearTimeout(transTimeout);
+          // Clean up previous view
+          if (currentCleanup) {
+            currentCleanup();
+            currentCleanup = null;
+          }
+
+          app.innerHTML = '';
+          const cleanup = r.handler(app, params);
+          if (typeof cleanup === 'function') currentCleanup = cleanup;
+
+          transitionIn(app, direction);
+          isTransitioning = false;
+        });
+      } else {
+        // First render — no outgoing animation needed
+        if (currentCleanup) {
+          currentCleanup();
+          currentCleanup = null;
+        }
+
+        app.innerHTML = '';
+        const cleanup = r.handler(app, params);
+        if (typeof cleanup === 'function') currentCleanup = cleanup;
+
+        transitionIn(app, direction);
+      }
       return;
     }
   }
@@ -59,6 +91,7 @@ export function forceResolve() {
 }
 
 export function startRouter() {
+  initGlobalAnimations();
   window.addEventListener('hashchange', resolve);
 
   // Esc key navigates back

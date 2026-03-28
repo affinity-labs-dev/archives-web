@@ -2,6 +2,7 @@ import { getAdventure, getEra } from '../api.js';
 import { isComplete, getStars } from '../state.js';
 import { renderHeader } from '../components/header.js';
 import { escapeHtml, sanitizeUrl, sanitizeHtml } from '../utils.js';
+import { heroEntrance, staggerEntrance, initScrollHint, headerEntrance, textReveal } from '../animations.js';
 
 var TYPE_ICONS = {
   reel: '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21"/></svg>',
@@ -28,7 +29,15 @@ function isPortraitModule(index, total) {
 
 export default function adventureDetailView(app, params) {
   var readableId = params.readableId;
-  app.innerHTML = '<div class="loading"><div class="spinner"></div>Loading</div>';
+  app.innerHTML = '<div class="skeleton-detail">'
+    + '<div class="skeleton skeleton--hero" style="height:45vh"></div>'
+    + '<div style="padding:20px var(--page-px)">'
+    + '<div class="skeleton skeleton--text" style="width:100px;margin-bottom:16px"></div>'
+    + '<div style="display:flex;gap:12px;overflow:hidden">'
+    + '<div class="skeleton skeleton--tile"></div>'
+    + '<div class="skeleton skeleton--tile"></div>'
+    + '<div class="skeleton skeleton--tile"></div>'
+    + '</div></div></div>';
   let aborted = false;
 
   getAdventure(readableId).then(function(adv) {
@@ -72,19 +81,51 @@ export default function adventureDetailView(app, params) {
 
     var eraName = escapeHtml((adv.card_content && adv.card_content.era_name) || eraId);
 
+    // Find next module to continue/start
+    var nextModuleIdx = null;
+    var nextModuleLabel = 'Start Learning';
+    var nextModuleName = '';
+    var completedCount = 0;
+    for (var mi = 0; mi < sorted.length; mi++) {
+      if (isComplete(readableId, sorted[mi].id)) {
+        completedCount++;
+      } else if (nextModuleIdx === null) {
+        nextModuleIdx = mi;
+      }
+    }
+    if (nextModuleIdx === null) {
+      // All complete — offer replay of first
+      nextModuleIdx = 0;
+      nextModuleLabel = 'Replay Adventure';
+    } else if (completedCount > 0) {
+      nextModuleLabel = 'Continue';
+    }
+    nextModuleName = escapeHtml(sorted[nextModuleIdx]?.thumbnail_title || 'Module ' + (nextModuleIdx + 1));
+
+    var progressText = completedCount + '/' + sorted.length + ' completed';
+    var heroCta = '<div class="detail-hero__cta-area">'
+      + '<div class="detail-hero__progress">' + progressText + '</div>'
+      + '<button class="detail-hero__cta" id="hero-cta">'
+      + '<span class="detail-hero__cta-label">' + nextModuleLabel + '</span>'
+      + '<span class="detail-hero__cta-module">' + nextModuleName + '</span>'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'
+      + '</button></div>';
+
     app.innerHTML = renderHeader(eraName, '/era/' + encodeURIComponent(eraId), [
           { label: 'Home', hash: '/' },
           { label: eraName, hash: '/era/' + encodeURIComponent(eraId) },
           { label: title }
         ])
-      + '<div class="detail-wrap fade-in">'
+      + '<div class="detail-wrap">'
       + '<div class="detail-hero">'
       + '<img class="detail-hero__img" src="' + bgImage + '" alt="" data-fallback="' + iconUrl + '">'
       + '<div class="detail-hero__overlay">'
       + '<h1 class="detail-hero__title">' + title + '</h1>'
       + '<div class="detail-hero__meta"><span>' + escapeHtml(adv.timeline) + '</span>'
       + (estTime ? '<span>' + estTime + '</span>' : '')
-      + '</div></div></div>'
+      + '</div>'
+      + heroCta
+      + '</div></div>'
       + (story
         ? '<div class="detail-about">'
           + '<button class="detail-about__toggle" id="about-toggle">About this adventure'
@@ -94,8 +135,38 @@ export default function adventureDetailView(app, params) {
         : '')
       + '<div class="module-section">'
       + '<div class="module-section__title">Modules</div>'
-      + '<div class="mtile-grid stagger-in">' + tiles + '</div>'
+      + '<div class="mtile-grid">' + tiles + '</div>'
       + '</div></div>';
+
+    // Hero CTA click handler
+    var heroCta = document.getElementById('hero-cta');
+    if (heroCta) {
+      heroCta.addEventListener('click', function() {
+        window.location.hash = '/lesson/' + readableId + '/' + nextModuleIdx;
+      });
+    }
+
+    // Animate hero + module tiles entrance (title handled separately by textReveal)
+    heroEntrance({
+      bg: '.detail-hero__img',
+      elements: ['.detail-hero__meta', '.detail-hero__cta-area']
+    });
+    headerEntrance();
+
+    // Text reveal on detail title (separate from heroEntrance to avoid conflict)
+    var detailTitle = app.querySelector('.detail-hero__title');
+    if (detailTitle) textReveal(detailTitle);
+
+    var mtileGrid = app.querySelector('.mtile-grid');
+    if (mtileGrid) {
+      staggerEntrance(mtileGrid.querySelectorAll('.mtile'), { delay: 0.3 });
+      // Wrap grid for scroll hint + edge gradients
+      var gridWrap = document.createElement('div');
+      gridWrap.className = 'mtile-grid-wrap';
+      mtileGrid.parentNode.insertBefore(gridWrap, mtileGrid);
+      gridWrap.appendChild(mtileGrid);
+      initScrollHint(mtileGrid);
+    }
 
     // Attach image fallbacks
     app.querySelectorAll('img[data-fallback]').forEach(function(img) {
