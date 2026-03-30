@@ -31,6 +31,7 @@ import PushNotificationService from '@/services/PushNotificationService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
 import AppLogger from '@/services/AppLogger';
+import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 import Purchases from 'react-native-purchases';
 
 // Gamification imports - unified from @/gamification
@@ -69,6 +70,9 @@ Sentry.init({
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: __DEV__,
 });
+
+// AFF-579: Initialize network performance tracking for CDN analytics
+networkPerformanceService.initialize();
 
 // Note: Foreground notification display is handled by Notifications.setNotificationHandler below.
 

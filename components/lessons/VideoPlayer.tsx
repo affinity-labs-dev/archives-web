@@ -7,15 +7,14 @@ import * as Haptics from 'expo-haptics'
 import { useVideoPlayer, VideoView, VideoSource } from 'expo-video'
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import {
-  Dimensions,
   Platform,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
 } from 'react-native'
 import AppLogger from '@/services/AppLogger'
-
-const { width, height } = Dimensions.get('window')
+import { analyticsService } from '@/services/AnalyticsService'
+import { networkPerformanceService } from '@/services/NetworkPerformanceService'
 
 interface VideoPlayerProps {
   videoSource: any
@@ -37,6 +36,14 @@ export default function VideoPlayer({
 
   // Guard against stale statusChange events after player cleanup
   const isReleasedRef = useRef(false)
+
+  // AFF-579: Performance tracking refs
+  const playerCreatedAtRef = useRef<number>(Date.now())
+  const hasTrackedLoadTime = useRef(false)
+  const userInitiatedPauseRef = useRef(false)
+  const bufferStartTimeRef = useRef<number | null>(null)
+  const wasPlayingRef = useRef(false)
+  const hasTrackedErrorRef = useRef(false)
 
   // PERFORMANCE: Optimize videoSource with useMemo
   const optimizedVideoSource: VideoSource = useMemo(() => {
@@ -84,6 +91,16 @@ export default function VideoPlayer({
     return videoSource;
   }, [videoSource])
 
+  // AFF-579: Reset tracking refs when videoSource changes (new video loaded)
+  const videoSourceUri = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
+  useEffect(() => {
+    playerCreatedAtRef.current = Date.now();
+    hasTrackedLoadTime.current = false;
+    hasTrackedErrorRef.current = false;
+    bufferStartTimeRef.current = null;
+    wasPlayingRef.current = false;
+  }, [videoSourceUri]);
+
   // Create video player
   const player = useVideoPlayer(optimizedVideoSource, player => {
     player.loop = shouldLoop;
@@ -128,6 +145,21 @@ export default function VideoPlayer({
 
         if (status === 'readyToPlay') {
           AppLogger.info('video', 'Video ready to play');
+
+          // AFF-579: Track video load time (player creation -> readyToPlay)
+          if (!hasTrackedLoadTime.current && playerCreatedAtRef.current > 0) {
+            const loadTimeMs = Date.now() - playerCreatedAtRef.current;
+            const videoUrl = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
+            const isHLS = videoUrl?.includes('.m3u8') || videoUrl?.includes('/hls/') || videoUrl?.includes('format=m3u8');
+            analyticsService.trackVideoLoadTime({
+              load_time_ms: loadTimeMs,
+              video_url: videoUrl || '',
+              content_type: isHLS ? 'hls' : 'progressive',
+              cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl || ''),
+            });
+            hasTrackedLoadTime.current = true;
+          }
+
           if (!isVideoLoaded) {
             setIsVideoLoaded(true);
           }
@@ -141,6 +173,18 @@ export default function VideoPlayer({
 
         if (status === 'error') {
           AppLogger.error('video', 'Video player entered error state', { uri: typeof videoSource === 'object' ? videoSource?.uri : videoSource });
+
+          // AFF-579: Track CDN error (once per video source)
+          if (!hasTrackedErrorRef.current) {
+            const videoUrl = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
+            analyticsService.trackCDNError({
+              media_type: 'video',
+              url: videoUrl || '',
+              cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl || ''),
+              error_message: error?.message || error?.toString() || 'unknown_video_error',
+            });
+            hasTrackedErrorRef.current = true;
+          }
         }
       } catch (err) {
         AppLogger.error('video', 'Video statusChange handler error', {}, err);
@@ -149,6 +193,41 @@ export default function VideoPlayer({
 
     return () => statusSubscription?.remove();
   }, [player, isVideoLoaded, autoPlay, videoSource]);
+
+  // AFF-579: Detect buffering via playingChange transitions
+  // When isPlaying becomes false without user tap -> likely buffering
+  // Max buffer cap at 30s to filter out app background/foreground transitions
+  useEffect(() => {
+    if (isReleasedRef.current) return;
+
+    const MAX_BUFFER_MS = 30_000; // Ignore stalls > 30s (likely app backgrounded)
+    const MIN_BUFFER_MS = 200;    // Ignore sub-200ms jitter
+
+    if (wasPlayingRef.current && !isPlaying && !userInitiatedPauseRef.current) {
+      // Was playing, now stopped without user action -> buffer stall
+      bufferStartTimeRef.current = Date.now();
+    } else if (!wasPlayingRef.current && isPlaying && bufferStartTimeRef.current) {
+      // Resumed after a buffer stall
+      const bufferDurationMs = Date.now() - bufferStartTimeRef.current;
+      bufferStartTimeRef.current = null;
+
+      if (bufferDurationMs > MIN_BUFFER_MS && bufferDurationMs < MAX_BUFFER_MS) {
+        analyticsService.trackVideoBuffering({
+          adventure_id: '',
+          module_id: '',
+          lesson_id: '',
+          buffer_time_ms: bufferDurationMs,
+          video_url: videoSourceUri || '',
+        });
+      }
+    }
+
+    // Only reset pause flag when user PAUSED (not when they tap to resume)
+    if (!isPlaying) {
+      userInitiatedPauseRef.current = false;
+    }
+    wasPlayingRef.current = isPlaying;
+  }, [isPlaying, videoSourceUri]);
 
   // Progress updates
   useEffect(() => {
@@ -191,8 +270,11 @@ export default function VideoPlayer({
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       if (isPlaying) {
+        userInitiatedPauseRef.current = true; // AFF-579: Only flag pause, not resume
         player.pause();
       } else {
+        // User tapping to resume - clear any pending buffer tracking
+        bufferStartTimeRef.current = null;
         player.play();
       }
     } catch (error) {
