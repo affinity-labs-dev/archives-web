@@ -22,7 +22,7 @@ const streakFlame = require('../../../assets/rive/flamefinal.riv');
 const checkmarkIcon = require('../../../assets/images/streak/check_small.png');
 
 // Audio source constant defined outside component to avoid re-evaluation on every render
-const CELEBRATION_SOUND = require('../../../assets/audio/quiz/correct.wav');
+const CELEBRATION_SOUND = require('../../../assets/audio/quiz/streak_celebration.wav');
 
 // Week day data structure
 interface WeekDay {
@@ -147,7 +147,7 @@ export default function StreakCelebrationScreen({
     if (visible && !skipped) {
       weekData.forEach((day, index) => {
         if (day.completed) {
-          const delay = 1600 + index * 50; // Match checkmark animation timing
+          const delay = index * 50; // Match checkmark animation timing
           const id = setTimeout(() => {
             playCelebration();
           }, delay);
