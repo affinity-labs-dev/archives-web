@@ -466,8 +466,20 @@ export default function TodayScreen() {
   const [slotBModal, setSlotBModal] = useState<ModalState>("none");
   const isModalTransitioning = useRef(false);
   const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
   const [outgoingSlot, setOutgoingSlot] = useState<"A" | "B" | null>(null);
   const { width: screenWidth } = useWindowDimensions();
+
+  // Cleanup on unmount — prevent state updates after component is removed
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      isModalTransitioning.current = false;
+    };
+  }, []);
 
   // Slot A animation values
   const slotATranslateX = useSharedValue(0);
@@ -500,6 +512,12 @@ export default function TodayScreen() {
     newActiveSlot: "A" | "B",
     nextModal: ModalState,
   ) => {
+    // Clear safety timeout (safe to call from JS thread)
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = null;
+    }
+    if (!isMountedRef.current) return; // Component unmounted
     if (!isModalTransitioning.current) return; // Already finished (safety timeout race)
     try {
       activeSlotRef.current = newActiveSlot;
@@ -519,7 +537,13 @@ export default function TodayScreen() {
       setActiveModal(nextModal);
       setOutgoingSlot(null);
     } catch (error) {
-      console.error("❌ [Today] Error in finishTransition:", error);
+      AppLogger.error("❌ [Today] Error in finishTransition:", error);
+      // Force full reset to recover
+      setSlotAModal("none");
+      setSlotBModal("none");
+      setActiveModal("none");
+      setOutgoingSlot(null);
+      activeSlotRef.current = "A";
     } finally {
       isModalTransitioning.current = false;
     }
@@ -575,7 +599,7 @@ export default function TodayScreen() {
     }, 1000);
 
     // Wait one frame for React to mount the incoming content, then animate both
-    requestAnimationFrame(() => {
+    rafRef.current = requestAnimationFrame(() => {
       const duration = 300;
       const timingConfig = { duration, easing: Easing.out(Easing.cubic) };
 
@@ -586,9 +610,8 @@ export default function TodayScreen() {
         outOpacity.value = withTiming(0.5, { duration });
       }
 
-      // Incoming: slide to center — always clean up regardless of finished flag
+      // Incoming: slide to center — finishTransition handles timeout cleanup on JS thread
       inX.value = withTiming(0, timingConfig, () => {
-        if (safetyTimeoutRef.current) runOnJS(clearTimeout)(safetyTimeoutRef.current);
         runOnJS(finishTransition)(incomingSlot, nextModal);
       });
     });
@@ -1593,7 +1616,12 @@ export default function TodayScreen() {
       );
     }
 
-    if (modal === "quiz" && user) {
+    if (modal === "quiz") {
+      if (!user) {
+        AppLogger.error("❌ [Today] Quiz modal opened without authenticated user");
+        closeModal();
+        return null;
+      }
       return (
         <SafeAreaView
           style={{ flex: 1, backgroundColor: ArchivesTheme.colors.creamWhite }}
@@ -1634,6 +1662,7 @@ export default function TodayScreen() {
               }
             }}
             onContinue={async () => {
+              if (isModalTransitioning.current) return;
               await handleQuizComplete();
               closeModal();
             }}
