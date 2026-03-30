@@ -80,6 +80,7 @@ export async function registerUser(
   externalId: string,
   opts?: {
     email?: string | null;
+    userType?: 'authenticated' | 'anonymous';
     metadata?: Record<string, unknown>;
   },
 ): Promise<void> {
@@ -104,6 +105,7 @@ export async function registerUser(
     await apiFetch('/users', 'POST', {
       app_id: APP_ID,
       external_id: externalId,
+      user_type: opts?.userType ?? 'authenticated',
       email: opts?.email ?? null,
       timezone,
       locale,
