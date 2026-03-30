@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics'
 import { useVideoPlayer, VideoView, VideoSource } from 'expo-video'
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import {
+  AppState,
   Platform,
   StyleSheet,
   TouchableWithoutFeedback,
@@ -44,6 +45,7 @@ export default function VideoPlayer({
   const bufferStartTimeRef = useRef<number | null>(null)
   const wasPlayingRef = useRef(false)
   const hasTrackedErrorRef = useRef(false)
+  const appIsActiveRef = useRef(AppState.currentState === 'active')
 
   // PERFORMANCE: Optimize videoSource with useMemo
   const optimizedVideoSource: VideoSource = useMemo(() => {
@@ -90,6 +92,18 @@ export default function VideoPlayer({
 
     return videoSource;
   }, [videoSource])
+
+  // AFF-579: Pause buffer tracking when app backgrounds (calls, Siri, Control Center, etc.)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      appIsActiveRef.current = state === 'active';
+      if (state !== 'active') {
+        // Clear pending buffer on background — not a real stall
+        bufferStartTimeRef.current = null;
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // AFF-579: Reset tracking refs when videoSource changes (new video loaded)
   const videoSourceUri = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
@@ -195,10 +209,12 @@ export default function VideoPlayer({
   }, [player, isVideoLoaded, autoPlay, videoSource]);
 
   // AFF-579: Detect buffering via playingChange transitions
-  // When isPlaying becomes false without user tap -> likely buffering
-  // Max buffer cap at 30s to filter out app background/foreground transitions
+  // Only after readyToPlay (isVideoLoaded), only when app is active
   useEffect(() => {
-    if (isReleasedRef.current) return;
+    if (isReleasedRef.current || !isVideoLoaded || !appIsActiveRef.current) {
+      wasPlayingRef.current = isPlaying;
+      return;
+    }
 
     const MAX_BUFFER_MS = 30_000; // Ignore stalls > 30s (likely app backgrounded)
     const MIN_BUFFER_MS = 200;    // Ignore sub-200ms jitter
@@ -212,12 +228,12 @@ export default function VideoPlayer({
       bufferStartTimeRef.current = null;
 
       if (bufferDurationMs > MIN_BUFFER_MS && bufferDurationMs < MAX_BUFFER_MS) {
-        analyticsService.trackVideoBuffering({
-          adventure_id: '',
-          module_id: '',
-          lesson_id: '',
+        const isHLS = videoSourceUri?.includes('.m3u8') || videoSourceUri?.includes('/hls/') || videoSourceUri?.includes('format=m3u8');
+        analyticsService.trackVideoBufferStall({
           buffer_time_ms: bufferDurationMs,
           video_url: videoSourceUri || '',
+          content_type: isHLS ? 'hls' : 'progressive',
+          cdn_domain: networkPerformanceService.extractCDNDomain(videoSourceUri || ''),
         });
       }
     }
@@ -227,7 +243,7 @@ export default function VideoPlayer({
       userInitiatedPauseRef.current = false;
     }
     wasPlayingRef.current = isPlaying;
-  }, [isPlaying, videoSourceUri]);
+  }, [isPlaying, isVideoLoaded, videoSourceUri]);
 
   // Progress updates
   useEffect(() => {

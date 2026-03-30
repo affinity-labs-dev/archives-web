@@ -134,15 +134,16 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
 
     // AFF-579: Track CDN errors (once per video)
     if (status === 'error' && !hasTrackedErrorRef.current) {
+      const errorMsg = (player as any).error?.message || (player as any).error?.toString() || 'carousel_video_load_error';
       analyticsService.trackCDNError({
         media_type: 'video',
         url: videoUrl,
         cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
-        error_message: 'carousel_video_load_error',
+        error_message: errorMsg,
       });
       hasTrackedErrorRef.current = true;
     }
-  }, [isVideoReady, status, onReady, videoUrl]);
+  }, [isVideoReady, status, onReady, videoUrl, player]);
 
   return (
     <View style={styles.videoContainer}>

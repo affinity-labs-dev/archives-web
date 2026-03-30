@@ -446,7 +446,13 @@ class AnalyticsService {
       anonymous_id: this.anonymousId, // always present
       is_authenticated: !!this.currentUserId,
       // PostHog auto-captures $timestamp on every event
-      // AFF-579: Network context for CDN performance analysis
+    };
+  }
+
+  /** AFF-579: Base properties + network context for CDN performance events only */
+  private getPerformanceProperties() {
+    return {
+      ...this.getBaseProperties(),
       ...networkPerformanceService.getNetworkContext(),
     };
   }
@@ -1735,7 +1741,7 @@ class AnalyticsService {
   }) {
     const event = {
       ...data,
-      ...this.getBaseProperties(),
+      ...this.getPerformanceProperties(),
     };
 
     this.posthog?.capture('video_load_time', event);
@@ -1757,7 +1763,7 @@ class AnalyticsService {
   }) {
     const event = {
       ...data,
-      ...this.getBaseProperties(),
+      ...this.getPerformanceProperties(),
     };
 
     this.posthog?.capture('image_load_time', event);
@@ -1777,7 +1783,7 @@ class AnalyticsService {
   }) {
     const event = {
       ...data,
-      ...this.getBaseProperties(),
+      ...this.getPerformanceProperties(),
     };
 
     this.posthog?.capture('cdn_error', event);
@@ -1797,12 +1803,33 @@ class AnalyticsService {
   }) {
     const event = {
       ...data,
-      ...this.getBaseProperties(),
+      ...this.getPerformanceProperties(),
     };
 
     this.posthog?.capture('content_fetch_time', event);
     if (__DEV__) {
       console.log('📊 [Analytics] Content Fetch Time:', event);
+    }
+  }
+
+  /**
+   * Track mid-playback buffer stall detected by VideoPlayer.
+   * Separate from trackVideoBuffering (which requires lesson context from parent).
+   */
+  trackVideoBufferStall(data: {
+    buffer_time_ms: number;
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_buffer_stall', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Buffer Stall:', event);
     }
   }
 

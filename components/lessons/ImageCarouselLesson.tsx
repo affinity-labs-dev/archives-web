@@ -105,9 +105,9 @@ export default function ImageCarouselLesson({
   // Loading state for first image
   const [isFirstImageLoaded, setIsFirstImageLoaded] = useState(false);
 
-  // AFF-579: Track image load times (only first 3 images, rest likely cached)
+  // AFF-579: Track first image load time (only image 0 has an accurate start timestamp)
   const imageLoadStartRef = useRef<number>(Date.now());
-  const trackedImageLoads = useRef<Set<number>>(new Set());
+  const hasTrackedFirstImageLoad = useRef(false);
   const trackedImageErrors = useRef<Set<number>>(new Set());
 
   // Animation values
@@ -375,22 +375,23 @@ export default function ImageCarouselLesson({
                     if (index === 0) {
                       setIsFirstImageLoaded(true);
                       AppLogger.info('content', 'First carousel image loaded');
-                    }
-                    // AFF-579: Track load time for first 3 images (once per image)
-                    if (index < 3 && !trackedImageLoads.current.has(index)) {
-                      trackedImageLoads.current.add(index);
-                      const loadTimeMs = Date.now() - imageLoadStartRef.current;
-                      analyticsService.trackImageLoadTime({
-                        load_time_ms: loadTimeMs,
-                        image_url: imageUrl,
-                        image_index: index,
-                        total_images: images.length,
-                        cdn_domain: networkPerformanceService.extractCDNDomain(imageUrl),
-                        is_first_image: index === 0,
-                      });
+
+                      // AFF-579: Track load time for first image only (accurate start timestamp)
+                      if (!hasTrackedFirstImageLoad.current) {
+                        hasTrackedFirstImageLoad.current = true;
+                        const loadTimeMs = Date.now() - imageLoadStartRef.current;
+                        analyticsService.trackImageLoadTime({
+                          load_time_ms: loadTimeMs,
+                          image_url: imageUrl,
+                          image_index: 0,
+                          total_images: images.length,
+                          cdn_domain: networkPerformanceService.extractCDNDomain(imageUrl),
+                          is_first_image: true,
+                        });
+                      }
                     }
                   }}
-                  onError={() => {
+                  onError={(e) => {
                     // AFF-579: Track CDN image errors (once per image)
                     if (!trackedImageErrors.current.has(index)) {
                       trackedImageErrors.current.add(index);
@@ -398,7 +399,7 @@ export default function ImageCarouselLesson({
                         media_type: 'image',
                         url: imageUrl,
                         cdn_domain: networkPerformanceService.extractCDNDomain(imageUrl),
-                        error_message: 'image_load_failed',
+                        error_message: e.nativeEvent?.error || 'image_load_failed',
                       });
                     }
                   }}

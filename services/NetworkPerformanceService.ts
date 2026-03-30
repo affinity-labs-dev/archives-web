@@ -15,7 +15,7 @@ import AppLogger from './AppLogger';
 export interface NetworkContext {
   network_type: 'wifi' | 'cellular' | 'ethernet' | 'offline' | 'unknown';
   cellular_generation: '2g' | '3g' | '4g' | '5g' | null;
-  is_connected: boolean;
+  is_connected: boolean | null;
 }
 
 class NetworkPerformanceService {
@@ -25,22 +25,27 @@ class NetworkPerformanceService {
   initialize() {
     if (this.unsubscribe) return; // Already initialized
 
-    // Fetch initial state (listener also fires immediately, this is a fallback)
-    NetInfo.fetch().then((state) => {
-      this.cachedState = state;
-    }).catch((error) => {
-      AppLogger.warn('network', 'NetInfo.fetch() failed, using safe defaults', { error: String(error) });
-    });
+    try {
+      // Fetch initial state (listener also fires immediately, this is a fallback)
+      NetInfo.fetch().then((state) => {
+        this.cachedState = state;
+      }).catch((error) => {
+        AppLogger.warn('network', 'NetInfo.fetch() failed, using safe defaults', { error: String(error) });
+      });
 
-    // Listen for changes
-    this.unsubscribe = NetInfo.addEventListener((state) => {
-      this.cachedState = state;
-    });
+      // Listen for changes
+      this.unsubscribe = NetInfo.addEventListener((state) => {
+        this.cachedState = state;
+      });
+    } catch (error) {
+      // Native module not linked (e.g., after OTA update) — app must not crash
+      AppLogger.error('network', 'NetInfo initialization failed, network context unavailable', {}, error);
+    }
   }
 
   getNetworkContext(): NetworkContext {
     if (!this.cachedState) {
-      return { network_type: 'unknown', cellular_generation: null, is_connected: true };
+      return { network_type: 'unknown', cellular_generation: null, is_connected: null };
     }
 
     const { type, isConnected, details } = this.cachedState;
@@ -71,7 +76,7 @@ class NetworkPerformanceService {
     return {
       network_type: networkType,
       cellular_generation: cellularGeneration,
-      is_connected: isConnected ?? true,
+      is_connected: isConnected ?? null,
     };
   }
 
@@ -84,6 +89,7 @@ class NetworkPerformanceService {
       const { hostname } = new URL(url);
       return hostname;
     } catch {
+      AppLogger.warn('network', 'Failed to extract CDN domain from URL', { url: url?.substring(0, 100) });
       return 'unknown';
     }
   }
