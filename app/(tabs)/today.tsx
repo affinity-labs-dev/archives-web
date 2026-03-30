@@ -1554,7 +1554,10 @@ export default function TodayScreen() {
             animateModalTransition("reading", "video", "forward");
             tracking.trackCardViewed(2);
           }}
-          onDismiss={() => closeModal()}
+          onDismiss={() => {
+            if (isModalTransitioning.current) return;
+            closeModal();
+          }}
         />
       );
     }
@@ -1578,6 +1581,7 @@ export default function TodayScreen() {
             tracking.trackCardViewed(3);
           }}
           onBack={() => {
+            if (isModalTransitioning.current) return;
             if (previousModal === "video") {
               animateModalTransition("video", "none", "backward");
               tracking.trackCardViewed(1);
@@ -1634,6 +1638,7 @@ export default function TodayScreen() {
               closeModal();
             }}
             onDismiss={() => {
+              if (isModalTransitioning.current) return;
               if (previousModal === "reading") {
                 animateModalTransition("reading", "video", "backward");
                 tracking.trackCardViewed(2);
@@ -1642,6 +1647,7 @@ export default function TodayScreen() {
               }
             }}
             onBack={() => {
+              if (isModalTransitioning.current) return;
               if (previousModal === "reading") {
                 animateModalTransition("reading", "video", "backward");
                 tracking.trackCardViewed(2);
