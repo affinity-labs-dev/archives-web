@@ -35,8 +35,6 @@ export default function ArchivesAuthScreen() {
 
   // State management (exact replica of SwiftUI)
   const [isSignInMode, setIsSignInMode] = useState(mode === 'signin') // Set based on route parameter
-  const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'authenticated' | 'back_button' | 'app_closed'>('app_closed')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -84,7 +82,6 @@ export default function ArchivesAuthScreen() {
   // Navigation handlers
   const onBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    setExitAction('back_button')
     router.back()
   }
 
@@ -300,7 +297,6 @@ export default function ArchivesAuthScreen() {
                     is_new_user: isNewUser,
                   })
 
-                  setExitAction('authenticated')
                   await onContinue()
                 }}
                 onError={(error) => {
@@ -342,7 +338,6 @@ export default function ArchivesAuthScreen() {
                     is_new_user: isNewUser,
                   })
 
-                  setExitAction('authenticated')
                   await onContinue()
                 }}
                 onError={(error) => {
@@ -376,7 +371,6 @@ export default function ArchivesAuthScreen() {
                     mode: isSignInMode ? 'signin' : 'signup',
                   })
 
-                  setExitAction('authenticated') // User continuing auth flow
                   router.push({
                     pathname: '/(auth)/email-details',
                     params: { mode: isSignInMode ? 'signin' : 'signup' }

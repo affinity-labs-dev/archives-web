@@ -1,7 +1,7 @@
 // OnboardingQuestion1Screen - First questionnaire screen
 // "How much Middle Eastern history do you already know?"
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -33,13 +33,9 @@ const questionOptions = [
 
 export default function OnboardingQuestion1Screen() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
-  const [screenStartTime] = useState(Date.now())
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { playTap } = useOnboardingTapSound()
-
-  // Use ref to avoid re-running useEffect when exit action changes
-  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   AppLogger.info('navigation', 'OnboardingQ1 initializing')
 
@@ -89,12 +85,10 @@ export default function OnboardingQuestion1Screen() {
       AppLogger.info('navigation', 'OnboardingQ1 answer saved', { answer: answerData.answer })
 
       // Navigate to next question
-      exitActionRef.current = 'continued'
       router.push('/onboarding-question-2')
     } catch (error) {
       AppLogger.error('navigation', 'OnboardingQ1 error saving answer', {}, error)
       // Continue anyway
-      exitActionRef.current = 'continued'
       router.push('/onboarding-question-2')
     }
   }

@@ -369,13 +369,6 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       if (nextAppState === 'active') {
         analyticsService.updateLastActiveAt();
         NotificationBadgeService.clearBadge(); // Clear red dot when app opens
-      } else if (nextAppState === 'background' && isSignedIn) {
-        // Track session end when app goes to background (fixes session_out undercounting)
-        analyticsService.trackUserSessionOut({
-          trigger: 'app_backgrounded',
-          session_duration_seconds: null, // Let method calculate from sessionStartTime
-          had_selected_era: true,
-        });
       }
     };
 

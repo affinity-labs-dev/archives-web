@@ -27,8 +27,6 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 export default function OnboardingVideoScreen() {
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoCompleted, setVideoCompleted] = useState(false)
-  const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView, trackVideoPlayed } = useAnalytics()
 
@@ -138,12 +136,10 @@ export default function OnboardingVideoScreen() {
   // Continue to second video (archives_intro.mp4)
   const handleContinue = async () => {
     try {
-      setExitAction('continued')
       router.replace('/onboarding-video-2')
     } catch (error) {
       AppLogger.error('navigation', 'Onboarding video 1 navigation error', {}, error)
       // Continue anyway to avoid blocking user
-      setExitAction('continued')
       router.replace('/onboarding-video-2')
     }
   }
