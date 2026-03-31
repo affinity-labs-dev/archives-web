@@ -38,6 +38,8 @@ import {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 import Animated, {
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -456,6 +458,165 @@ export default function TodayScreen() {
   const [previousModal, setPreviousModal] = useState<ModalState>("none");
   const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null);
 
+  // Dual-slot architecture for Apple-style push/pop transitions
+  // Two absolutely-positioned slots allow both outgoing and incoming content
+  // to be visible simultaneously during transitions (no white flash).
+  const activeSlotRef = useRef<"A" | "B">("A");
+  const [slotAModal, setSlotAModal] = useState<ModalState>("none");
+  const [slotBModal, setSlotBModal] = useState<ModalState>("none");
+  const isModalTransitioning = useRef(false);
+  const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
+  const [outgoingSlot, setOutgoingSlot] = useState<"A" | "B" | null>(null);
+  const { width: screenWidth } = useWindowDimensions();
+
+  // Cleanup on unmount — prevent state updates after component is removed
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      isModalTransitioning.current = false;
+    };
+  }, []);
+
+  // Slot A animation values
+  const slotATranslateX = useSharedValue(0);
+  const slotAOpacity = useSharedValue(1);
+  const slotAZIndex = useSharedValue(1);
+
+  // Slot B animation values
+  const slotBTranslateX = useSharedValue(0);
+  const slotBOpacity = useSharedValue(0);
+  const slotBZIndex = useSharedValue(0);
+
+  const slotAAnimatedStyle = useAnimatedStyle(() => ({
+    position: "absolute" as const,
+    top: 0, left: 0, right: 0, bottom: 0,
+    transform: [{ translateX: slotATranslateX.value }],
+    opacity: slotAOpacity.value,
+    zIndex: slotAZIndex.value,
+  }));
+
+  const slotBAnimatedStyle = useAnimatedStyle(() => ({
+    position: "absolute" as const,
+    top: 0, left: 0, right: 0, bottom: 0,
+    transform: [{ translateX: slotBTranslateX.value }],
+    opacity: slotBOpacity.value,
+    zIndex: slotBZIndex.value,
+  }));
+
+  // Clean up after transition completes — always releases the lock
+  const finishTransition = (
+    newActiveSlot: "A" | "B",
+    nextModal: ModalState,
+  ) => {
+    // Clear safety timeout (safe to call from JS thread)
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = null;
+    }
+    if (!isMountedRef.current) return; // Component unmounted
+    if (!isModalTransitioning.current) return; // Already finished (safety timeout race)
+    try {
+      activeSlotRef.current = newActiveSlot;
+      // Clear the outgoing slot
+      if (newActiveSlot === "A") {
+        setSlotBModal("none");
+        slotBTranslateX.value = 0;
+        slotBOpacity.value = 0;
+        slotBZIndex.value = 0;
+      } else {
+        setSlotAModal("none");
+        slotATranslateX.value = 0;
+        slotAOpacity.value = 0;
+        slotAZIndex.value = 0;
+      }
+      // Sync activeModal for other effects (music pause, chat message, etc.)
+      setActiveModal(nextModal);
+      setOutgoingSlot(null);
+    } catch (error) {
+      AppLogger.error("❌ [Today] Error in finishTransition:", error);
+      // Force full reset to recover
+      setSlotAModal("none");
+      setSlotBModal("none");
+      setActiveModal("none");
+      setOutgoingSlot(null);
+      activeSlotRef.current = "A";
+    } finally {
+      isModalTransitioning.current = false;
+    }
+  };
+
+  // Apple-style push/pop transition between modal content views
+  const animateModalTransition = (
+    nextModal: ModalState,
+    prevModal: ModalState,
+    direction: "forward" | "backward",
+  ) => {
+    if (isModalTransitioning.current) {
+      console.warn("⚠️ [Today] Transition blocked — already transitioning");
+      return;
+    }
+    isModalTransitioning.current = true;
+    const currentSlot = activeSlotRef.current;
+    setOutgoingSlot(currentSlot);
+
+    const incomingSlot = currentSlot === "A" ? "B" : "A";
+
+    // Get refs for the correct slots
+    const outX = currentSlot === "A" ? slotATranslateX : slotBTranslateX;
+    const outOpacity = currentSlot === "A" ? slotAOpacity : slotBOpacity;
+    const outZ = currentSlot === "A" ? slotAZIndex : slotBZIndex;
+    const inX = incomingSlot === "A" ? slotATranslateX : slotBTranslateX;
+    const inOpacity = incomingSlot === "A" ? slotAOpacity : slotBOpacity;
+    const inZ = incomingSlot === "A" ? slotAZIndex : slotBZIndex;
+    const setIncoming = incomingSlot === "A" ? setSlotAModal : setSlotBModal;
+
+    // Set z-order: forward = incoming on top, backward = outgoing on top
+    if (direction === "forward") {
+      outZ.value = 1;
+      inZ.value = 2;
+    } else {
+      outZ.value = 2;
+      inZ.value = 1;
+    }
+
+    // Position incoming offscreen and render it
+    inX.value = direction === "forward" ? screenWidth : -screenWidth * 0.3;
+    inOpacity.value = 1;
+    setIncoming(nextModal);
+    setPreviousModal(prevModal);
+
+    // Safety timeout: force cleanup if animation doesn't complete in 1s
+    if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+    safetyTimeoutRef.current = setTimeout(() => {
+      if (isModalTransitioning.current) {
+        console.warn("⚠️ [Today] Modal transition timed out, forcing cleanup");
+        finishTransition(incomingSlot, nextModal);
+      }
+    }, 1000);
+
+    // Wait one frame for React to mount the incoming content, then animate both
+    rafRef.current = requestAnimationFrame(() => {
+      const duration = 300;
+      const timingConfig = { duration, easing: Easing.out(Easing.cubic) };
+
+      // Outgoing: slide away + dim slightly
+      const outTarget = direction === "forward" ? -screenWidth * 0.3 : screenWidth;
+      outX.value = withTiming(outTarget, timingConfig);
+      if (direction === "forward") {
+        outOpacity.value = withTiming(0.5, { duration });
+      }
+
+      // Incoming: slide to center — finishTransition handles timeout cleanup on JS thread
+      inX.value = withTiming(0, timingConfig, () => {
+        runOnJS(finishTransition)(incomingSlot, nextModal);
+      });
+    });
+  };
+
   // Open AI chat after quiz modal fully unmounts (fixes modal-on-modal on iOS)
   useEffect(() => {
     if (activeModal === "none" && pendingChatMessage) {
@@ -694,9 +855,10 @@ export default function TodayScreen() {
     configureAudio();
   }, []);
 
-  // Handle StatusBar for fullscreen Explore modal
+  // Handle StatusBar for fullscreen Explore modal (checks slots too for mid-transition)
+  const isReadingVisible = activeModal === "reading" || slotAModal === "reading" || slotBModal === "reading";
   useEffect(() => {
-    if (activeModal === "reading") {
+    if (isReadingVisible) {
       StatusBar.setBarStyle("dark-content");
       if (Platform.OS === "android") {
         StatusBar.setBackgroundColor("transparent");
@@ -707,7 +869,7 @@ export default function TodayScreen() {
         StatusBar.setTranslucent(false);
       }
     }
-  }, [activeModal]);
+  }, [isReadingVisible]);
 
   // Toggle audio playback
   const toggleAudio = () => {
@@ -1251,12 +1413,50 @@ export default function TodayScreen() {
     }
   };
 
-  // Modal opener with card-viewed tracking
+  // Modal opener — puts content in active slot, resets everything
   const openModal = (modal: ModalState) => {
+    if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+    isModalTransitioning.current = false;
+    const slot = activeSlotRef.current;
+    if (slot === "A") {
+      setSlotAModal(modal);
+      slotATranslateX.value = 0;
+      slotAOpacity.value = 1;
+      slotAZIndex.value = 1;
+      setSlotBModal("none");
+      slotBOpacity.value = 0;
+      slotBZIndex.value = 0;
+    } else {
+      setSlotBModal(modal);
+      slotBTranslateX.value = 0;
+      slotBOpacity.value = 1;
+      slotBZIndex.value = 1;
+      setSlotAModal("none");
+      slotAOpacity.value = 0;
+      slotAZIndex.value = 0;
+    }
     setActiveModal(modal);
+    setPreviousModal("none");
     if (modal === "video") tracking.trackCardViewed(1);
     if (modal === "reading") tracking.trackCardViewed(2);
     if (modal === "quiz") tracking.trackCardViewed(3);
+  };
+
+  // Close modal entirely — clear both slots
+  const closeModal = () => {
+    if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+    isModalTransitioning.current = false;
+    setSlotAModal("none");
+    setSlotBModal("none");
+    slotATranslateX.value = 0;
+    slotAOpacity.value = 1;
+    slotAZIndex.value = 1;
+    slotBTranslateX.value = 0;
+    slotBOpacity.value = 0;
+    slotBZIndex.value = 0;
+    activeSlotRef.current = "A";
+    setActiveModal("none");
+    setPreviousModal("none");
   };
 
   // Note: Celebration now triggered directly in handleQuizComplete (not useEffect)
@@ -1334,6 +1534,168 @@ export default function TodayScreen() {
 
   const weekDates = getWeekDates();
   const progress = calculateProgress();
+
+  // Render content for a given modal state (used by both slots)
+  const renderModalContent = (modal: ModalState) => {
+    if (modal === "none") return null;
+
+    const quest = displayedQuest || todayQuest;
+    if (!quest) {
+      console.error("❌ [Today] renderModalContent called with no quest data");
+      return null;
+    }
+
+    if (modal === "video") {
+      const card1 = quest.content.card1;
+      const mediaUrls = Array.isArray(card1.media_url)
+        ? card1.media_url
+        : [card1.media_url];
+
+      return (
+        <TodayVideoLesson
+          contentItem={{
+            id: quest.id,
+            thumbnail_title: card1.title,
+            thumbnail_url: "",
+            media_url: mediaUrls,
+            content_type: card1.content_type || "reel",
+            background_music_url: card1.background_music_url,
+            bottom_content: {
+              title: card1.title,
+              description: card1.content.reading_text,
+              reading_text: card1.content.reading_text,
+              captions: card1.content.captions || [],
+            },
+            order_by: 0,
+          } as ContentItem}
+          progress={progress}
+          onMediaPlayed={() => tracking.trackMediaPlayed("video", quest.id)}
+          onNext={async () => {
+            if (isModalTransitioning.current) return;
+            setWatchCompleted(true);
+            await saveProgress("watch");
+            animateModalTransition("reading", "video", "forward");
+            tracking.trackCardViewed(2);
+          }}
+          onDismiss={() => {
+            if (isModalTransitioning.current) return;
+            closeModal();
+          }}
+        />
+      );
+    }
+
+    if (modal === "reading") {
+      return (
+        <TodayScrollableLesson
+          contentBlocks={
+            quest.content.card2.content_blocks || []
+          }
+          progress={progress}
+          innerVoiceUrl={
+            quest.content.card2.inner_voice
+          }
+          onMediaPlayed={() => tracking.trackMediaPlayed("audio", quest.id)}
+          onContinue={async () => {
+            if (isModalTransitioning.current) return;
+            setExploreCompleted(true);
+            await saveProgress("explore");
+            animateModalTransition("quiz", "reading", "forward");
+            tracking.trackCardViewed(3);
+          }}
+          onBack={() => {
+            if (isModalTransitioning.current) return;
+            if (previousModal === "video") {
+              animateModalTransition("video", "none", "backward");
+              tracking.trackCardViewed(1);
+            } else {
+              closeModal();
+            }
+          }}
+        />
+      );
+    }
+
+    if (modal === "quiz") {
+      if (!user) {
+        AppLogger.error("❌ [Today] Quiz modal opened without authenticated user");
+        closeModal();
+        return null;
+      }
+      return (
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor: ArchivesTheme.colors.creamWhite }}
+          edges={[]}
+        >
+          <Quiz
+            contentItem={
+              {
+                id: quest.id,
+                questions: quest.content.card3.questions,
+                thumbnail_title: quest.content.card3.title,
+                thumbnail_url: "",
+                media_url: [],
+                content_type: "reel",
+                bottom_content: null,
+                order_by: 0,
+              } as ContentItem
+            }
+            adventureId="daily_quest"
+            moduleId={quest.id}
+            eraId="daily_quest"
+            eraName="Daily Quest"
+            isToday={true}
+            progress={progress}
+            showTodayHeader={true}
+            onQuizResults={async (score, correctAnswers, totalQuestions) => {
+              try {
+                await saveQuestCompletion(
+                  user.id,
+                  quest.id,
+                  score,
+                  correctAnswers,
+                  totalQuestions,
+                );
+                console.log("✅ [Today] Quest completion saved to Supabase");
+              } catch (error) {
+                console.error("❌ [Today] Failed to save completion:", error);
+              }
+            }}
+            onContinue={async () => {
+              if (isModalTransitioning.current) return;
+              await handleQuizComplete();
+              closeModal();
+            }}
+            onDismiss={() => {
+              if (isModalTransitioning.current) return;
+              if (previousModal === "reading") {
+                animateModalTransition("reading", "video", "backward");
+                tracking.trackCardViewed(2);
+              } else {
+                closeModal();
+              }
+            }}
+            onBack={() => {
+              if (isModalTransitioning.current) return;
+              if (previousModal === "reading") {
+                animateModalTransition("reading", "video", "backward");
+                tracking.trackCardViewed(2);
+              } else {
+                closeModal();
+              }
+            }}
+            onChatToLearn={(msg) => {
+              pauseCelebrationQueue();
+              setPendingChatMessage(msg);
+              closeModal();
+            }}
+          />
+        </SafeAreaView>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <SafeAreaView style={themeStyles.container} edges={["top"]}>
@@ -1698,7 +2060,7 @@ export default function TodayScreen() {
                 setWatchCompleted(false);
                 setExploreCompleted(false);
                 setQuestCompleted(false);
-                setActiveModal('video');
+                openModal('video');
               }}
               style={{
                 backgroundColor: "rgba(255,255,255,0.2)",
@@ -2054,10 +2416,8 @@ export default function TodayScreen() {
         </View>
       )}
 
-      {/* Single Modal for all lesson types - prevents flash on transitions */}
-      {(activeModal === "video" ||
-        activeModal === "reading" ||
-        activeModal === "quiz") &&
+      {/* Dual-slot modal for Apple-style push/pop transitions */}
+      {(slotAModal !== "none" || slotBModal !== "none") &&
         (displayedQuest || todayQuest) && (
           <Modal
             visible={true}
@@ -2065,164 +2425,20 @@ export default function TodayScreen() {
             presentationStyle="fullScreen"
             statusBarTranslucent={true}
           >
-            {/* Video/Carousel Lesson (WATCH) - TodayVideoLesson handles all types */}
-            {activeModal === "video" && (() => {
-              const card1 = (displayedQuest || todayQuest)!.content.card1;
-
-              // Normalize media_url to array
-              const mediaUrls = Array.isArray(card1.media_url)
-                ? card1.media_url
-                : [card1.media_url];
-
-              return (
-                <TodayVideoLesson
-                  contentItem={{
-                    id: (displayedQuest || todayQuest)!.id,
-                    thumbnail_title: card1.title,
-                    thumbnail_url: "",
-                    media_url: mediaUrls,
-                    content_type: card1.content_type || "reel",
-                    background_music_url: card1.background_music_url,
-                    bottom_content: {
-                      title: card1.title,
-                      description: card1.content.reading_text,
-                      reading_text: card1.content.reading_text,
-                      captions: card1.content.captions || [],
-                    },
-                    order_by: 0,
-                  } as ContentItem}
-                  progress={progress}
-                  onMediaPlayed={() => tracking.trackMediaPlayed('video', (displayedQuest || todayQuest)!.id)}
-                  onNext={async () => {
-                    setWatchCompleted(true);
-                    await saveProgress("watch");
-                    setPreviousModal("video");
-                    openModal("reading");
-                  }}
-                  onDismiss={() => {
-                    setActiveModal("none");
-                    setPreviousModal("none");
-                  }}
-                />
-              );
-            })()}
-
-            {/* Reading View (EXPLORE) */}
-            {activeModal === "reading" && (
-              <TodayScrollableLesson
-                contentBlocks={
-                  (displayedQuest || todayQuest)!.content.card2
-                    .content_blocks || []
-                }
-                progress={progress}
-                innerVoiceUrl={
-                  (displayedQuest || todayQuest)!.content.card2.inner_voice
-                }
-                onMediaPlayed={() => tracking.trackMediaPlayed('audio', (displayedQuest || todayQuest)!.id)}
-                onContinue={async () => {
-                  setExploreCompleted(true);
-                  await saveProgress("explore");
-                  setPreviousModal("reading");
-                  openModal("quiz");
-                }}
-                onBack={() => {
-                  if (previousModal === "video") {
-                    setActiveModal("video");
-                    setPreviousModal("none");
-                  } else {
-                    setActiveModal("none");
-                    setPreviousModal("none");
-                  }
-                }}
-              />
-            )}
-
-            {/* Quiz */}
-            {activeModal === "quiz" && user && (
-              <SafeAreaView
-                style={{
-                  flex: 1,
-                  backgroundColor: ArchivesTheme.colors.creamWhite,
-                }}
-                edges={[]}
+            <View style={{ flex: 1 }}>
+              <Animated.View
+                style={slotAAnimatedStyle}
+                pointerEvents={slotAModal !== "none" && outgoingSlot !== "A" ? "auto" : "none"}
               >
-                <Quiz
-                  contentItem={
-                    {
-                      id: (displayedQuest || todayQuest)!.id,
-                      questions: (displayedQuest || todayQuest)!.content.card3
-                        .questions,
-                      thumbnail_title: (displayedQuest || todayQuest)!.content
-                        .card3.title,
-                      thumbnail_url: "", // TODO: Replace with random image from 3 hardcoded options
-                      media_url: [],
-                      content_type: "reel",
-                      bottom_content: null,
-                      order_by: 0,
-                    } as ContentItem
-                  }
-                  adventureId="daily_quest"
-                  moduleId={(displayedQuest || todayQuest)!.id}
-                  eraId="daily_quest"
-                  eraName="Daily Quest"
-                  isToday={true}
-                  progress={progress}
-                  showTodayHeader={true}
-                  onQuizResults={async (
-                    score,
-                    correctAnswers,
-                    totalQuestions,
-                  ) => {
-                    try {
-                      await saveQuestCompletion(
-                        user.id,
-                        (displayedQuest || todayQuest)!.id,
-                        score,
-                        correctAnswers,
-                        totalQuestions,
-                      );
-                      console.log(
-                        "✅ [Today] Quest completion saved to Supabase",
-                      );
-                    } catch (error) {
-                      console.error(
-                        "❌ [Today] Failed to save completion:",
-                        error,
-                      );
-                    }
-                  }}
-                  onContinue={async () => {
-                    await handleQuizComplete();
-                    setActiveModal("none");
-                    setPreviousModal("none");
-                  }}
-                  onDismiss={() => {
-                    if (previousModal === "reading") {
-                      setActiveModal("reading");
-                      setPreviousModal("video");
-                    } else {
-                      setActiveModal("none");
-                      setPreviousModal("none");
-                    }
-                  }}
-                  onBack={() => {
-                    if (previousModal === "reading") {
-                      setActiveModal("reading");
-                      setPreviousModal("video");
-                    } else {
-                      setActiveModal("none");
-                      setPreviousModal("none");
-                    }
-                  }}
-                  onChatToLearn={(msg) => {
-                    pauseCelebrationQueue();
-                    setPendingChatMessage(msg);
-                    setActiveModal("none");
-                    setPreviousModal("none");
-                  }}
-                />
-              </SafeAreaView>
-            )}
+                {renderModalContent(slotAModal)}
+              </Animated.View>
+              <Animated.View
+                style={slotBAnimatedStyle}
+                pointerEvents={slotBModal !== "none" && outgoingSlot !== "B" ? "auto" : "none"}
+              >
+                {renderModalContent(slotBModal)}
+              </Animated.View>
+            </View>
           </Modal>
         )}
 
