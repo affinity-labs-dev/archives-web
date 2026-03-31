@@ -1,7 +1,7 @@
 // OnboardingRemindersScreen - Notification permission request screen (Question 3)
 // "Get a daily reminder to meet your goal"
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useEffect } from 'react'
 import {
   View,
   Text,
@@ -30,13 +30,9 @@ const scale = (size: number) => (SCREEN_WIDTH / 393) * size // 393 is iPhone 14 
 const verticalScale = (size: number) => (SCREEN_HEIGHT / 852) * size // 852 is iPhone 14 Pro height
 
 export default function OnboardingRemindersScreen() {
-  const [screenStartTime] = useState(Date.now())
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { playTap } = useOnboardingTapSound()
-
-  // Use ref to avoid re-running useEffect when exit action changes
-  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   AppLogger.info('notification', 'OnboardingReminders initializing')
 
@@ -121,11 +117,9 @@ export default function OnboardingRemindersScreen() {
       await AsyncStorage.setItem('onboarding_q3_answer', JSON.stringify(answerData))
 
       // Navigate to next question
-      exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     } catch (error) {
       AppLogger.error('notification', 'OnboardingQ3 enable reminders error', {}, error)
-      exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     }
   }
@@ -155,11 +149,9 @@ export default function OnboardingRemindersScreen() {
       await AsyncStorage.setItem('onboarding_q3_answer', JSON.stringify(answerData))
 
       // Navigate to next question
-      exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     } catch (error) {
       AppLogger.error('notification', 'OnboardingQ3 skip error', {}, error)
-      exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     }
   }

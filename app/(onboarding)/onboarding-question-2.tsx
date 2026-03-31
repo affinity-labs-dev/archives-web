@@ -1,7 +1,7 @@
 // OnboardingQuestion2Screen - Second questionnaire screen
 // "What's your daily learning goal?"
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -32,13 +32,9 @@ const questionOptions = [
 
 export default function OnboardingQuestion2Screen() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
-  const [screenStartTime] = useState(Date.now())
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { playTap } = useOnboardingTapSound()
-
-  // Use ref to avoid re-running useEffect when exit action changes
-  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   AppLogger.info('navigation', 'OnboardingQ2 initializing')
 
@@ -88,12 +84,10 @@ export default function OnboardingQuestion2Screen() {
       AppLogger.info('navigation', 'OnboardingQ2 answer saved', { answer: answerData.answer })
 
       // Navigate to next question (notification permission moved to Q3's "ENABLE REMINDERS" button)
-      exitActionRef.current = 'continued'
       router.push('/onboarding-question-3')
     } catch (error) {
       AppLogger.error('navigation', 'OnboardingQ2 error saving answer', {}, error)
       // Continue anyway
-      exitActionRef.current = 'continued'
       router.push('/onboarding-question-3')
     }
   }

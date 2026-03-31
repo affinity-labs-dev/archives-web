@@ -8,7 +8,7 @@ import { analyticsService } from '@/services/AnalyticsService'
 import AppLogger from '@/services/AppLogger'
 import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import {
   Image,
   Platform,
@@ -22,8 +22,6 @@ import Svg, { Path } from 'react-native-svg'
 export default function OnboardingWelcomeScreen() {
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
-  const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   AppLogger.info('navigation', 'OnboardingWelcome initializing')
 
@@ -41,11 +39,9 @@ export default function OnboardingWelcomeScreen() {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
       }
       AppLogger.info('navigation', 'OnboardingWelcome continuing to Q1')
-      setExitAction('continued')
       router.replace('/onboarding-question-1')
     } catch (error) {
       AppLogger.error('navigation', 'OnboardingWelcome navigation error', {}, error)
-      setExitAction('continued')
       router.replace('/onboarding-question-1')
     }
   }

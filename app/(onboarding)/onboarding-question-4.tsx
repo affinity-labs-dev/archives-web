@@ -1,7 +1,7 @@
 // OnboardingQuestion4Screen - Fourth questionnaire screen
 // "Why are you learning about Middle Eastern history?" - Multi-select
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -33,13 +33,9 @@ const questionOptions = [
 
 export default function OnboardingQuestion4Screen() {
   const [selectedOptions, setSelectedOptions] = useState<number[]>([])
-  const [screenStartTime] = useState(Date.now())
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { playTap } = useOnboardingTapSound()
-
-  // Use ref to avoid re-running useEffect when exit action changes
-  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   AppLogger.info('navigation', 'OnboardingQ4 initializing')
 
@@ -110,13 +106,11 @@ export default function OnboardingQuestion4Screen() {
       AppLogger.info('navigation', 'Onboarding completed - all questions answered')
 
       // Navigate to results screen
-      exitActionRef.current = 'continued'
       router.push('/onboarding-results')
     } catch (error) {
       AppLogger.error('navigation', 'OnboardingQ4 handleContinue error', {}, error)
       // Navigate anyway
       await AsyncStorage.setItem('onboarding_completed', 'true')
-      exitActionRef.current = 'continued'
       router.push('/onboarding-results')
     }
   }

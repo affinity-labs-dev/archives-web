@@ -27,8 +27,6 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 export default function OnboardingVideo2Screen() {
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoCompleted, setVideoCompleted] = useState(false)
-  const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { isSignedIn, signOut } = useAuth()
   const { trackScreenView, trackVideoPlayed } = useAnalytics()
@@ -94,7 +92,6 @@ export default function OnboardingVideo2Screen() {
 
   // Navigate to sign in
   const handleSignIn = () => {
-    setExitAction('continued')
     router.push('/(auth)/archives-auth?mode=signin')
   }
 
@@ -135,11 +132,9 @@ export default function OnboardingVideo2Screen() {
       // Mark both videos as viewed
       await AsyncStorage.setItem('onboarding_videos_viewed', 'true')
 
-      setExitAction('continued')
       router.replace('/onboarding-welcome')
     } catch (error) {
       AppLogger.error('navigation', 'OnboardingVideo2 handleGetStarted failed', {}, error)
-      setExitAction('continued')
       router.replace('/onboarding-welcome')
     }
   }

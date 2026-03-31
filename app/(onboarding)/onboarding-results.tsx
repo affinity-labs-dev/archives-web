@@ -25,14 +25,11 @@ import Svg, { Path } from 'react-native-svg'
 
 export default function OnboardingResultsScreen() {
   const [recommendedEra, setRecommendedEra] = useState('Rise of Islam')
-  const [screenStartTime] = useState(Date.now())
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { requestPermission } = useAppTrackingTransparency()
 
-  // Use refs to prevent duplicate tracking and avoid useEffect dependency issues
   const hasTrackedCompletionRef = useRef(false)
-  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
   AppLogger.info('navigation', 'OnboardingResults initializing')
 
@@ -142,12 +139,10 @@ export default function OnboardingResultsScreen() {
       // Navigate to authentication page after ATT response
       // Note: The authentication screen will handle routing to appropriate tab after successful auth
       AppLogger.info('navigation', 'Navigating to authentication page')
-      exitActionRef.current = 'continued'
       router.push('/(auth)/archives-auth')
     } catch (error) {
       AppLogger.error('auth', 'Error during ATT request or navigation', {}, error)
       // Even if ATT fails, continue to authentication
-      exitActionRef.current = 'continued'
       router.push('/(auth)/archives-auth')
     }
   }

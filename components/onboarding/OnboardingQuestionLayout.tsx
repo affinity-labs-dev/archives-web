@@ -2,7 +2,7 @@
 // Provides: StatusBar, SafeAreaView, and progress bar
 // Each screen provides its own content as children
 
-import React, { useRef } from 'react'
+import React from 'react'
 import {
   View,
   Text,
@@ -38,8 +38,6 @@ export default function OnboardingQuestionLayout({
   const router = useRouter()
   const { requestPermission } = useAppTrackingTransparency()
 
-  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
-
     // Navigate to account creation - with ATT permission request
   const handleSkipOnboarding = async () => {
     try {
@@ -61,12 +59,10 @@ export default function OnboardingQuestionLayout({
       // Navigate to authentication page after ATT response
       // Note: The authentication screen will handle routing to appropriate tab after successful auth
       AppLogger.info('navigation', 'Navigating to authentication page after SKIP', { screenName })
-      exitActionRef.current = 'continued'
       router.push('/(auth)/archives-auth')
     } catch (error) {
       AppLogger.error('auth', 'Error during ATT request or navigation', {}, error)
       // Even if ATT fails, continue to authentication
-      exitActionRef.current = 'continued'
       router.push('/(auth)/archives-auth')
     }
   }
