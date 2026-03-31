@@ -1,5 +1,4 @@
-// OnboardingResultsScreen - Shows recommended era based on quiz answers
-// Displays suggested learning path and prompts account creation
+// OnboardingResultsScreen - Shows the default recommended era and prompts account creation
 
 import React, { useState, useEffect, useRef } from 'react'
 import {
@@ -23,8 +22,10 @@ import { analyticsService } from '@/services/AnalyticsService'
 import AppLogger from '@/services/AppLogger'
 import Svg, { Path } from 'react-native-svg'
 
+const DEFAULT_RECOMMENDED_ERA = 'Prophets of Islam 1'
+
 export default function OnboardingResultsScreen() {
-  const [recommendedEra, setRecommendedEra] = useState('Prophets of Islam 1')
+  const [recommendedEra, setRecommendedEra] = useState(DEFAULT_RECOMMENDED_ERA)
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { requestPermission } = useAppTrackingTransparency()
@@ -86,7 +87,7 @@ export default function OnboardingResultsScreen() {
         awareness_channel: q2Data.answer || null,         // Q2: "How did you learn about Archives?"
         daily_learning_goal: q3Data.answer || null,       // Q3: "What's your daily learning goal?"
         learning_motivation: q4Data.answers || null,      // Q4: "Why are you learning?" (multi-select)
-        onboarding_result: 'Prophets of Islam 1',               // Recommended era
+        onboarding_result: recommendedEra,
       })
 
       AppLogger.info('navigation', 'Onboarding completion tracked', { timeToComplete })
@@ -95,26 +96,13 @@ export default function OnboardingResultsScreen() {
     }
   }
 
-  // Load recommendation based on quiz answers
   const loadRecommendation = async () => {
     try {
-      // For now, default to Umayyad Dynasty
-      // In the future, this could analyze quiz answers to suggest different eras
-      const answers = {
-        q1: await AsyncStorage.getItem('onboarding_q1_answer'),
-        q2: await AsyncStorage.getItem('onboarding_q2_answer'),
-        q3: await AsyncStorage.getItem('onboarding_q3_answer'),
-        q4: await AsyncStorage.getItem('onboarding_q4_answer'),
-      }
-
-      AppLogger.info('navigation', 'Loaded onboarding quiz answers')
-
-      // Based on answers, we could recommend different eras
-      // For now, always recommend Prophets of Islam 1
-      setRecommendedEra('Prophets of Islam 1')
+      // Always recommend the default era for now
+      setRecommendedEra(DEFAULT_RECOMMENDED_ERA)
     } catch (error) {
-      AppLogger.error('navigation', 'Error loading onboarding answers', {}, error)
-      setRecommendedEra('Prophets of Islam 1')
+      AppLogger.error('navigation', 'Error loading recommendation', {}, error)
+      setRecommendedEra(DEFAULT_RECOMMENDED_ERA)
     }
   }
 
@@ -236,7 +224,7 @@ export default function OnboardingResultsScreen() {
 
             <View style={styles.eraOverlay}>
               <Text style={styles.eraTitle} selectable={false}>
-                Prophets of Islam 1
+                {recommendedEra}
               </Text>
             </View>
           </View>
@@ -361,13 +349,6 @@ const styles = StyleSheet.create({
     color: 'white',
     marginBottom: 4,
   },
-  eraSubtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#D7C5B6',
-  },
-
   // Account Creation
   accountPrompt: {
     fontFamily: 'DM Sans',

@@ -526,7 +526,7 @@ console.log('🔔 Notification')    // Push notifications
 - **CelebrationManager component** - New centralized UI manager for all celebration types (XP milestones, adventure complete, achievements)
 - **iOS/Android gesture management** - Stack navigation gestures disabled globally to prevent swipe back to onboarding, Android back button blocked in tabs
 - **Session-based AI chat** - AI conversations now stored in Supabase with session history for follow-up questions
-- **Women of Islam era** - Onboarding now routes to new era (Era 2)
+- **Prophets of Islam 1 era** - Onboarding recommends Prophets of Islam 1 (Era 2)
 - **Account switching fixes** - Progress and achievements properly reset when switching Clerk accounts
 - **Gamification folder restructure** - Reorganized into feature-based architecture:
   - `gamification/engines/` - Core contexts (GamifiedProgress, GamificationOrchestrator, NotificationPromptProvider, AIContext, RewardsContext)
