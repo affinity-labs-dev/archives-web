@@ -479,6 +479,7 @@ export default function AIChatModal({
     // Need either a message or an image to send
     if ((!userMessage && !hasImage) || isLoading) return;
 
+    Keyboard.dismiss();
     setInputText('');
     setError(null);
 
