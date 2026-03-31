@@ -31,11 +31,11 @@ import LoadingOverlay from "@/components/shared/LoadingOverlay";
 import type { ContentItem } from "@/components/shared/types";
 import RenderHtml from 'react-native-render-html';
 import { LESSON_CONSTANTS } from "./LessonConstants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image as ExpoImage } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
 import AppLogger from '@/services/AppLogger';
+import { analyticsService } from '@/services/AnalyticsService';
+import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 
 // Static dimensions (module-level) - Umayyad Dynasty pattern
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
@@ -104,6 +104,11 @@ export default function ImageCarouselLesson({
 
   // Loading state for first image
   const [isFirstImageLoaded, setIsFirstImageLoaded] = useState(false);
+
+  // AFF-579: Track first image load time (only image 0 has an accurate start timestamp)
+  const imageLoadStartRef = useRef<number>(Date.now());
+  const hasTrackedFirstImageLoad = useRef(false);
+  const trackedImageErrors = useRef<Set<number>>(new Set());
 
   // Animation values
   const cardHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
@@ -366,10 +371,38 @@ export default function ImageCarouselLesson({
                   source={{ uri: imageUrl }}
                   style={styles.carouselImage}
                   resizeMode="cover"
-                  onLoad={index === 0 ? () => {
-                    setIsFirstImageLoaded(true);
-                    AppLogger.info('content', 'First carousel image loaded');
-                  } : undefined}
+                  onLoad={() => {
+                    if (index === 0) {
+                      setIsFirstImageLoaded(true);
+                      AppLogger.info('content', 'First carousel image loaded');
+
+                      // AFF-579: Track load time for first image only (accurate start timestamp)
+                      if (!hasTrackedFirstImageLoad.current) {
+                        hasTrackedFirstImageLoad.current = true;
+                        const loadTimeMs = Date.now() - imageLoadStartRef.current;
+                        analyticsService.trackImageLoadTime({
+                          load_time_ms: loadTimeMs,
+                          image_url: imageUrl,
+                          image_index: 0,
+                          total_images: images.length,
+                          cdn_domain: networkPerformanceService.extractCDNDomain(imageUrl),
+                          is_first_image: true,
+                        });
+                      }
+                    }
+                  }}
+                  onError={(e) => {
+                    // AFF-579: Track CDN image errors (once per image)
+                    if (!trackedImageErrors.current.has(index)) {
+                      trackedImageErrors.current.add(index);
+                      analyticsService.trackCDNError({
+                        media_type: 'image',
+                        url: imageUrl,
+                        cdn_domain: networkPerformanceService.extractCDNDomain(imageUrl),
+                        error_message: e.nativeEvent?.error || 'image_load_failed',
+                      });
+                    }
+                  }}
                 />
 
                 {/* Text overlay with caption */}

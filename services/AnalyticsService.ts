@@ -6,6 +6,7 @@
 
 import { usePostHog } from 'posthog-react-native';
 import AppLogger from './AppLogger';
+import { networkPerformanceService } from './NetworkPerformanceService';
 
 // ==================== EVENT TYPES ====================
 
@@ -445,6 +446,14 @@ class AnalyticsService {
       anonymous_id: this.anonymousId, // always present
       is_authenticated: !!this.currentUserId,
       // PostHog auto-captures $timestamp on every event
+    };
+  }
+
+  /** AFF-579: Base properties + network context for CDN performance events only */
+  private getPerformanceProperties() {
+    return {
+      ...this.getBaseProperties(),
+      ...networkPerformanceService.getNetworkContext(),
     };
   }
 
@@ -1717,6 +1726,111 @@ class AnalyticsService {
       $set: allProperties,
     });
     AppLogger.info('auth', 'User properties set in PostHog', { clerkUserId });
+  }
+
+  // ==================== CDN PERFORMANCE TRACKING (AFF-579) ====================
+
+  /**
+   * Track video load time (player creation to readyToPlay)
+   */
+  trackVideoLoadTime(data: {
+    load_time_ms: number;
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_time', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Time:', event);
+    }
+  }
+
+  /**
+   * Track image load time (mount to onLoad)
+   */
+  trackImageLoadTime(data: {
+    load_time_ms: number;
+    image_url: string;
+    image_index: number;
+    total_images: number;
+    cdn_domain: string;
+    is_first_image: boolean;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('image_load_time', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Image Load Time:', event);
+    }
+  }
+
+  /**
+   * Track CDN media loading errors (video or image)
+   */
+  trackCDNError(data: {
+    media_type: 'video' | 'image';
+    url: string;
+    cdn_domain: string;
+    error_message: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('cdn_error', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] CDN Error:', event);
+    }
+  }
+
+  /**
+   * Track Supabase content fetch time (cache vs network)
+   */
+  trackContentFetchTime(data: {
+    fetch_time_ms: number;
+    era_id: string;
+    record_count: number;
+    source: 'cache' | 'supabase';
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('content_fetch_time', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Content Fetch Time:', event);
+    }
+  }
+
+  /**
+   * Track mid-playback buffer stall detected by VideoPlayer.
+   * Separate from trackVideoBuffering (which requires lesson context from parent).
+   */
+  trackVideoBufferStall(data: {
+    buffer_time_ms: number;
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_buffer_stall', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Buffer Stall:', event);
+    }
   }
 
   /**

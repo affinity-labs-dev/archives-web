@@ -4,6 +4,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/hooks/lib/supabase';
 import type { Adventure } from '@/components/shared/types';
+import { analyticsService } from './AnalyticsService';
 
 type UpdateCallback = (eventType: string, data: Adventure) => void;
 
@@ -18,9 +19,17 @@ class AdventuresContentService {
    */
   async loadFromCache(eraId: string): Promise<Adventure[] | null> {
     try {
+      const startTime = Date.now();
       const cached = await AsyncStorage.getItem(`content_era_${eraId}`);
       if (cached) {
         const data = JSON.parse(cached);
+        // AFF-579: Track cache fetch time
+        analyticsService.trackContentFetchTime({
+          fetch_time_ms: Date.now() - startTime,
+          era_id: eraId,
+          record_count: data.length,
+          source: 'cache',
+        });
         console.log(`⚡ Loaded ${data.length} adventures from cache (era: ${eraId})`);
         return data;
       }
@@ -91,6 +100,7 @@ class AdventuresContentService {
   async fetchFromSupabase(eraId: string): Promise<Adventure[]> {
     console.log(`📥 Fetching adventures from Supabase (era: ${eraId})...`);
 
+    const startTime = Date.now();
     const { data, error } = await supabase
       .from('content')
       .select('*')
@@ -101,6 +111,14 @@ class AdventuresContentService {
       console.error('❌ Supabase fetch error:', error);
       throw error;
     }
+
+    // AFF-579: Track Supabase fetch time
+    analyticsService.trackContentFetchTime({
+      fetch_time_ms: Date.now() - startTime,
+      era_id: eraId,
+      record_count: data?.length || 0,
+      source: 'supabase',
+    });
 
     console.log(`✅ Fetched ${data?.length || 0} adventures from Supabase`);
     return data || [];

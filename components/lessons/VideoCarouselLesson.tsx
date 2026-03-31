@@ -32,11 +32,11 @@ import LoadingOverlay from "@/components/shared/LoadingOverlay";
 import type { ContentItem } from "@/components/shared/types";
 import RenderHtml from 'react-native-render-html';
 import { LESSON_CONSTANTS } from "./LessonConstants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image as ExpoImage } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
 import AppLogger from '@/services/AppLogger';
+import { analyticsService } from '@/services/AnalyticsService';
+import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 
 // Static dimensions (module-level) - Umayyad Dynasty pattern
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
@@ -82,6 +82,11 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     uri: videoUrl,
   }), [videoUrl]);
 
+  // AFF-579: Record player creation time for load time measurement
+  const playerCreatedAtRef = useRef<number>(Date.now());
+  const hasTrackedLoadTimeRef = useRef(false);
+  const hasTrackedErrorRef = useRef(false);
+
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = true;
     player.muted = true;
@@ -108,12 +113,37 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     }
   }, [isActive, player]);
 
-  // Notify parent when video is ready (call once)
+  // Notify parent when video is ready (call once) + AFF-579: track load time and errors
   useEffect(() => {
-    if (isVideoReady && onReady) {
-      onReady();
+    if (isVideoReady) {
+      onReady?.();
+
+      // AFF-579: Track video load time
+      if (!hasTrackedLoadTimeRef.current && playerCreatedAtRef.current > 0) {
+        const loadTimeMs = Date.now() - playerCreatedAtRef.current;
+        const contentType = getContentType(videoUrl);
+        analyticsService.trackVideoLoadTime({
+          load_time_ms: loadTimeMs,
+          video_url: videoUrl,
+          content_type: contentType,
+          cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+        });
+        hasTrackedLoadTimeRef.current = true;
+      }
     }
-  }, [isVideoReady, onReady]);
+
+    // AFF-579: Track CDN errors (once per video)
+    if (status === 'error' && !hasTrackedErrorRef.current) {
+      const errorMsg = (player as any).error?.message || (player as any).error?.toString() || 'carousel_video_load_error';
+      analyticsService.trackCDNError({
+        media_type: 'video',
+        url: videoUrl,
+        cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+        error_message: errorMsg,
+      });
+      hasTrackedErrorRef.current = true;
+    }
+  }, [isVideoReady, status, onReady, videoUrl, player]);
 
   return (
     <View style={styles.videoContainer}>
