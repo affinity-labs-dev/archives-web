@@ -24,7 +24,7 @@ import AppLogger from '@/services/AppLogger'
 import Svg, { Path } from 'react-native-svg'
 
 export default function OnboardingResultsScreen() {
-  const [recommendedEra, setRecommendedEra] = useState('Rise of Islam')
+  const [recommendedEra, setRecommendedEra] = useState('Prophets of Islam 1')
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { requestPermission } = useAppTrackingTransparency()
@@ -86,7 +86,7 @@ export default function OnboardingResultsScreen() {
         awareness_channel: q2Data.answer || null,         // Q2: "How did you learn about Archives?"
         daily_learning_goal: q3Data.answer || null,       // Q3: "What's your daily learning goal?"
         learning_motivation: q4Data.answers || null,      // Q4: "Why are you learning?" (multi-select)
-        onboarding_result: 'Rise of Islam',               // Recommended era
+        onboarding_result: 'Prophets of Islam 1',               // Recommended era
       })
 
       AppLogger.info('navigation', 'Onboarding completion tracked', { timeToComplete })
@@ -110,11 +110,11 @@ export default function OnboardingResultsScreen() {
       AppLogger.info('navigation', 'Loaded onboarding quiz answers')
 
       // Based on answers, we could recommend different eras
-      // For now, always recommend Rise of Islam
-      setRecommendedEra('Rise of Islam')
+      // For now, always recommend Prophets of Islam 1
+      setRecommendedEra('Prophets of Islam 1')
     } catch (error) {
       AppLogger.error('navigation', 'Error loading onboarding answers', {}, error)
-      setRecommendedEra('Rise of Islam')
+      setRecommendedEra('Prophets of Islam 1')
     }
   }
 
@@ -217,7 +217,7 @@ export default function OnboardingResultsScreen() {
           {/* Era Recommendation Card */}
           <View style={styles.eraCard}>
             <Image
-              source={require('@/assets/images/eras/era61.jpg')}
+              source={require('@/assets/images/eras/prophets-era.jpeg')}
               style={styles.eraImage}
               resizeMode="cover"
             />
@@ -236,9 +236,9 @@ export default function OnboardingResultsScreen() {
 
             <View style={styles.eraOverlay}>
               <Text style={styles.eraTitle} selectable={false}>
-                Women of Islam
+                Prophets of Islam 1
               </Text>
-                          </View>
+            </View>
           </View>
 
           {/* Account Creation Prompt */}
