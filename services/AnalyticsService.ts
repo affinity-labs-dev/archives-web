@@ -1846,6 +1846,14 @@ class AnalyticsService {
     content_type: 'hls' | 'progressive';
     cdn_domain: string;
   }) {
+    // Guard against NaN/Infinity from expo-video edge cases (e.g. released player)
+    if (!Number.isFinite(data.completion_rate) || !Number.isFinite(data.watch_duration_ms)) {
+      if (__DEV__) {
+        console.warn('📊 [Analytics] Video Completion skipped: invalid metrics', data);
+      }
+      return;
+    }
+
     const event = {
       ...data,
       completion_rate: Math.round(data.completion_rate * 1000) / 1000, // 3 decimal places

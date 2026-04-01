@@ -146,13 +146,13 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
         if (player.status === 'readyToPlay') {
           const currentTime = player.currentTime;
           const duration = player.duration;
-          if (duration > 0) {
+          if (Number.isFinite(currentTime) && Number.isFinite(duration) && duration > 0) {
             maxPositionRef.current = Math.max(maxPositionRef.current, currentTime);
             videoDurationRef.current = duration;
           }
         }
       } catch {
-        // Player may be released
+        // Player released mid-interval — safe to ignore, cleanup will clear interval
       }
     }, 250);
 
@@ -205,6 +205,7 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
           content_type: contentType,
           cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
         });
+        hasTrackedCompletionRef.current = true;
       }
     };
   }, [videoUrl]);
