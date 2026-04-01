@@ -1,4 +1,6 @@
 PODS:
+  - DeviceHealth (1.0.0):
+    - ExpoModulesCore
   - EASClient (1.0.8):
     - ExpoModulesCore
   - EXApplication (7.0.8):
@@ -2556,6 +2558,7 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
+  - DeviceHealth (from `../modules/device-health/ios`)
   - EASClient (from `../node_modules/expo-eas-client/ios`)
   - EXApplication (from `../node_modules/expo-application/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
@@ -2714,6 +2717,8 @@ SPEC REPOS:
     - SwiftUIIntrospect
 
 EXTERNAL SOURCES:
+  DeviceHealth:
+    :path: "../modules/device-health/ios"
   EASClient:
     :path: "../node_modules/expo-eas-client/ios"
   EXApplication:
@@ -2975,6 +2980,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  DeviceHealth: b45a61455b8104bf63a77e639525bef3d382d863
   EASClient: 40dd9e740684782610c49becab2643782ea1a20c
   EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
   EXConstants: 805f35b1b295c542ca6acce836f21a1f9ee104d5
