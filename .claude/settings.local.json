@@ -9,7 +9,8 @@
       "Bash(echo $SENTRY_AUTH_TOKEN)",
       "Read(//Users/huypham/**)",
       "Bash(npx sentry-cli:*)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:docs.expo.dev)"
     ]
   },
   "enableAllProjectMcpServers": true,
