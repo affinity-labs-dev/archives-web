@@ -1,60 +1,58 @@
 package expo.modules.devicehealth
 
+import android.os.Process
+import android.os.SystemClock
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import java.io.RandomAccessFile
 
 class DeviceHealthModule : Module() {
 
-  /** Previous CPU tick snapshot for delta calculation */
-  private var prevTotal: Long = 0
-  private var prevIdle: Long = 0
+  /**
+   * Previous snapshot for delta calculation.
+   * Uses Process.getElapsedCpuTime() (app-specific, no /proc/stat permission needed).
+   */
+  private var prevCpuTimeMs: Long = 0
+  private var prevWallTimeMs: Long = 0
   private var hasPreviousSnapshot = false
 
   override fun definition() = ModuleDefinition {
     Name("DeviceHealth")
 
     AsyncFunction("getCPUUsage") {
-      val cpuLine = RandomAccessFile("/proc/stat", "r").use { reader ->
-        reader.readLine() // "cpu  user nice system idle iowait irq softirq steal ..."
-      }
-
-      // Parse tick values — skip the leading "cpu" label
-      val ticks = cpuLine.split("\\s+".toRegex())
-        .drop(1)
-        .filter { it.isNotEmpty() }
-        .map { it.toLong() }
-
-      // indices: 0=user  1=nice  2=system  3=idle  4=iowait  5=irq  6=softirq  7=steal
-      val idle = ticks[3] + ticks[4]
-      val total = ticks.sum()
+      val cpuTimeMs = Process.getElapsedCpuTime()   // ms of CPU consumed by this process
+      val wallTimeMs = SystemClock.elapsedRealtime() // ms since boot (monotonic)
+      val coreCount = Runtime.getRuntime().availableProcessors()
 
       var usagePercent = -1.0
 
       if (hasPreviousSnapshot) {
-        val deltaTotal = total - prevTotal
-        val deltaIdle = idle - prevIdle
-        if (deltaTotal > 0) {
-          usagePercent = ((deltaTotal - deltaIdle).toDouble() / deltaTotal) * 100.0
+        val cpuDelta = cpuTimeMs - prevCpuTimeMs
+        val wallDelta = wallTimeMs - prevWallTimeMs
+
+        if (wallDelta > 0 && coreCount > 0) {
+          // Normalize: cpuDelta is across all cores, so divide by coreCount for 0-100% range
+          usagePercent = (cpuDelta.toDouble() / (wallDelta * coreCount)) * 100.0
           usagePercent = Math.round(usagePercent * 10.0) / 10.0
+          // Clamp to 0-100 (can exceed 100 on burst scheduling)
+          usagePercent = usagePercent.coerceIn(0.0, 100.0)
         }
       }
 
-      prevTotal = total
-      prevIdle = idle
+      prevCpuTimeMs = cpuTimeMs
+      prevWallTimeMs = wallTimeMs
       hasPreviousSnapshot = true
 
       mapOf(
         "usagePercent" to usagePercent,
-        "coreCount" to Runtime.getRuntime().availableProcessors()
+        "coreCount" to coreCount
       )
     }
 
     /** Reset stored snapshot (call when monitoring session ends) */
     Function("resetCPUSnapshot") {
       hasPreviousSnapshot = false
-      prevTotal = 0
-      prevIdle = 0
+      prevCpuTimeMs = 0
+      prevWallTimeMs = 0
     }
   }
 }
