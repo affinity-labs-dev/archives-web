@@ -66,11 +66,6 @@ public class AppDelegate: ExpoAppDelegate {
         }
     }
 
-
-    // AFF-331: Cap Dynamic Type to default size for consistent UI
-    if #available(iOS 15.0, *) {
-      window?.maximumContentSizeCategory = .large
-    }
     return super.application(application, didFinishLaunchingWithOptions: modifiedLaunchOptions)
   }
 

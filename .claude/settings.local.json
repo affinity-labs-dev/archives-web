@@ -10,7 +10,12 @@
       "Read(//Users/huypham/**)",
       "Bash(npx sentry-cli:*)",
       "WebSearch",
-      "WebFetch(domain:docs.expo.dev)"
+      "WebFetch(domain:docs.expo.dev)",
+      "Bash(git branch:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm info:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
