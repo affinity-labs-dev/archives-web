@@ -1,0 +1,48 @@
+diff --git a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt
+index 610d303..28e3282 100644
+--- a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt
++++ b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt
+@@ -104,9 +104,7 @@ open class ExpoNotificationBuilder(
+     builder.setContentTitle(content.title)
+     builder.setContentText(content.text)
+     builder.setSubText(content.subText)
+-    // Sets the text/contentText as the bigText to allow the notification to be expanded and the
+-    // entire text to be viewed.
+-    builder.setStyle(NotificationCompat.BigTextStyle().bigText(content.text))
++    // Style (BigTextStyle vs BigPictureStyle) is set below after image check
+ 
+     color?.let { builder.color = it.toInt() }
+     notificationContent.badgeCount?.toInt()?.let { builder.setNumber(it) }
+@@ -147,11 +145,30 @@ open class ExpoNotificationBuilder(
+       )
+     )
+ 
+-    if (notificationContent.containsImage()) {
++    val hasImage = notificationContent.containsImage()
++    Log.d("expo-notifications", "BigPictureStyle: containsImage=$hasImage, contentType=${notificationContent::class.java.simpleName}")
++    if (hasImage) {
+       val bitmap = notificationContent.getImage(context)
+-      bitmap?.let { builder.setLargeIcon(it) }
++      Log.d("expo-notifications", "BigPictureStyle: bitmap=${if (bitmap != null) "${bitmap.width}x${bitmap.height}" else "null"}")
++      if (bitmap != null) {
++        // Use BigPictureStyle for rich push notifications with images
++        val style = NotificationCompat.BigPictureStyle()
++          .bigPicture(bitmap)
++          .bigLargeIcon(null as Bitmap?)
++          .setSummaryText(content.text)
++        builder.setStyle(style)
++        builder.setLargeIcon(bitmap)
++        Log.d("expo-notifications", "BigPictureStyle: APPLIED successfully")
++      } else {
++        // Image download failed — fall back to BigTextStyle
++        builder.setStyle(NotificationCompat.BigTextStyle().bigText(content.text))
++        builder.setLargeIcon(largeIcon)
++        Log.d("expo-notifications", "BigPictureStyle: FALLBACK to BigTextStyle (bitmap null)")
++      }
+     } else {
++      builder.setStyle(NotificationCompat.BigTextStyle().bigText(content.text))
+       builder.setLargeIcon(largeIcon)
++      Log.d("expo-notifications", "BigPictureStyle: no image, using BigTextStyle")
+     }
+     return builder.build()
+   }

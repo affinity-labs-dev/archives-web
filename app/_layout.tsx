@@ -453,6 +453,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Also listen for push token changes — FCM/APNs can rotate tokens at any time
   React.useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('🚀 ~ AnalyticsWrapper ~ notification:', JSON.stringify(notification, null, 2));
       // Native APNs puts custom data in trigger.payload, not content.data
       const data = notification.request.content.data
         ?? (notification.request.trigger as any)?.payload;
