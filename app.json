@@ -173,7 +173,8 @@
           "autoLogAppEventsEnabled": true,
           "isAutoInitEnabled": true
         }
-      ]
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true
