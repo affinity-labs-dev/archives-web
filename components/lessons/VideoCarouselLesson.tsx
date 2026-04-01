@@ -87,6 +87,12 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
   const hasTrackedLoadTimeRef = useRef(false);
   const hasTrackedErrorRef = useRef(false);
 
+  // AFF-612: Video completion tracking
+  const maxPositionRef = useRef(0);
+  const videoDurationRef = useRef(0);
+  const watchStartTimeRef = useRef<number>(0);
+  const hasTrackedCompletionRef = useRef(false);
+
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = true;
     player.muted = true;
@@ -108,9 +114,49 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
   useEffect(() => {
     if (isActive) {
       player.play();
+      // AFF-612: Reset watch timer when slide becomes active
+      watchStartTimeRef.current = Date.now();
+      hasTrackedCompletionRef.current = false;
+      maxPositionRef.current = 0;
     } else {
       player.pause();
+      // AFF-612: Fire completion when user swipes away from this video
+      if (watchStartTimeRef.current > 0 && videoDurationRef.current > 0 && !hasTrackedCompletionRef.current) {
+        const completionRate = Math.min(maxPositionRef.current / videoDurationRef.current, 1.0);
+        const contentType = getContentType(videoUrl);
+        analyticsService.trackVideoCompletion({
+          completion_rate: completionRate,
+          watch_duration_ms: Date.now() - watchStartTimeRef.current,
+          video_duration_ms: videoDurationRef.current * 1000,
+          video_url: videoUrl,
+          content_type: contentType,
+          cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+        });
+        hasTrackedCompletionRef.current = true;
+      }
     }
+  }, [isActive, player, videoUrl]);
+
+  // AFF-612: Poll player position for max position tracking
+  useEffect(() => {
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      try {
+        if (player.status === 'readyToPlay') {
+          const currentTime = player.currentTime;
+          const duration = player.duration;
+          if (duration > 0) {
+            maxPositionRef.current = Math.max(maxPositionRef.current, currentTime);
+            videoDurationRef.current = duration;
+          }
+        }
+      } catch {
+        // Player may be released
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
   }, [isActive, player]);
 
   // Notify parent when video is ready (call once) + AFF-579: track load time and errors
@@ -144,6 +190,24 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
       hasTrackedErrorRef.current = true;
     }
   }, [isVideoReady, status, onReady, videoUrl, player]);
+
+  // AFF-612: Fire completion on unmount (user exits lesson while viewing this video)
+  useEffect(() => {
+    return () => {
+      if (!hasTrackedCompletionRef.current && watchStartTimeRef.current > 0 && videoDurationRef.current > 0) {
+        const completionRate = Math.min(maxPositionRef.current / videoDurationRef.current, 1.0);
+        const contentType = getContentType(videoUrl);
+        analyticsService.trackVideoCompletion({
+          completion_rate: completionRate,
+          watch_duration_ms: Date.now() - watchStartTimeRef.current,
+          video_duration_ms: videoDurationRef.current * 1000,
+          video_url: videoUrl,
+          content_type: contentType,
+          cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+        });
+      }
+    };
+  }, [videoUrl]);
 
   return (
     <View style={styles.videoContainer}>

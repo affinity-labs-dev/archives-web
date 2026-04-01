@@ -47,6 +47,12 @@ export default function VideoPlayer({
   const hasTrackedErrorRef = useRef(false)
   const appIsActiveRef = useRef(AppState.currentState === 'active')
 
+  // AFF-612: Video completion tracking refs
+  const maxPositionRef = useRef(0)
+  const videoDurationRef = useRef(0)
+  const watchStartTimeRef = useRef<number>(Date.now())
+  const hasTrackedCompletionRef = useRef(false)
+
   // PERFORMANCE: Optimize videoSource with useMemo
   const optimizedVideoSource: VideoSource = useMemo(() => {
     // Remote URL object
@@ -105,7 +111,7 @@ export default function VideoPlayer({
     return () => sub.remove();
   }, []);
 
-  // AFF-579: Reset tracking refs when videoSource changes (new video loaded)
+  // AFF-579/612: Reset tracking refs when videoSource changes (new video loaded)
   const videoSourceUri = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
   useEffect(() => {
     playerCreatedAtRef.current = Date.now();
@@ -113,6 +119,11 @@ export default function VideoPlayer({
     hasTrackedErrorRef.current = false;
     bufferStartTimeRef.current = null;
     wasPlayingRef.current = false;
+    // AFF-612: Reset completion tracking for new video
+    maxPositionRef.current = 0;
+    videoDurationRef.current = 0;
+    watchStartTimeRef.current = Date.now();
+    hasTrackedCompletionRef.current = false;
   }, [videoSourceUri]);
 
   // Create video player
@@ -245,10 +256,8 @@ export default function VideoPlayer({
     wasPlayingRef.current = isPlaying;
   }, [isPlaying, isVideoLoaded, videoSourceUri]);
 
-  // Progress updates
+  // Progress updates + AFF-612: track max position for completion rate
   useEffect(() => {
-    if (!onPlaybackStatusUpdate) return;
-
     const interval = setInterval(() => {
       if (isReleasedRef.current) return;
       if (player.status === 'readyToPlay') {
@@ -256,13 +265,19 @@ export default function VideoPlayer({
         const duration = player.duration;
 
         if (duration > 0) {
-          onPlaybackStatusUpdate({
-            isLoaded: true,
-            isPlaying: player.playing,
-            positionMillis: currentTime * 1000,
-            durationMillis: duration * 1000,
-            status: 'readyToPlay'
-          });
+          // AFF-612: Track highest position reached (handles looping videos)
+          maxPositionRef.current = Math.max(maxPositionRef.current, currentTime);
+          videoDurationRef.current = duration;
+
+          if (onPlaybackStatusUpdate) {
+            onPlaybackStatusUpdate({
+              isLoaded: true,
+              isPlaying: player.playing,
+              positionMillis: currentTime * 1000,
+              durationMillis: duration * 1000,
+              status: 'readyToPlay'
+            });
+          }
         }
       }
     }, 100);
@@ -270,16 +285,31 @@ export default function VideoPlayer({
     return () => clearInterval(interval);
   }, [player, onPlaybackStatusUpdate]);
 
-  // Cleanup
+  // Cleanup + AFF-612: fire video_completion on unmount
   useEffect(() => {
     return () => {
+      // AFF-612: Track completion rate before cleanup
+      if (!hasTrackedCompletionRef.current && videoDurationRef.current > 0) {
+        const completionRate = Math.min(maxPositionRef.current / videoDurationRef.current, 1.0);
+        const isHLS = videoSourceUri?.includes('.m3u8') || videoSourceUri?.includes('/hls/') || videoSourceUri?.includes('format=m3u8');
+        analyticsService.trackVideoCompletion({
+          completion_rate: completionRate,
+          watch_duration_ms: Date.now() - watchStartTimeRef.current,
+          video_duration_ms: videoDurationRef.current * 1000,
+          video_url: videoSourceUri || '',
+          content_type: isHLS ? 'hls' : 'progressive',
+          cdn_domain: networkPerformanceService.extractCDNDomain(videoSourceUri || ''),
+        });
+        hasTrackedCompletionRef.current = true;
+      }
+
       try {
         player.pause();
       } catch (error) {
         // Silently handle cleanup errors
       }
     };
-  }, [player]);
+  }, [player, videoSourceUri]);
 
   // Handle tap to play/pause
   const handleVideoTap = () => {

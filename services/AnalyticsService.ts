@@ -1741,6 +1741,7 @@ class AnalyticsService {
   }) {
     const event = {
       ...data,
+      time_to_first_frame_ms: data.load_time_ms, // AFF-612: alias for PostHog queries
       ...this.getPerformanceProperties(),
     };
 
@@ -1830,6 +1831,30 @@ class AnalyticsService {
     this.posthog?.capture('video_buffer_stall', event);
     if (__DEV__) {
       console.log('📊 [Analytics] Video Buffer Stall:', event);
+    }
+  }
+
+  /**
+   * AFF-612: Track video completion rate (% of video watched before exit).
+   * Fired on unmount or when user navigates away from a video.
+   */
+  trackVideoCompletion(data: {
+    completion_rate: number; // 0.0–1.0
+    watch_duration_ms: number;
+    video_duration_ms: number;
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+  }) {
+    const event = {
+      ...data,
+      completion_rate: Math.round(data.completion_rate * 1000) / 1000, // 3 decimal places
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_completion', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Completion:', event);
     }
   }
 
