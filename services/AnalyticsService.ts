@@ -378,6 +378,50 @@ interface DailyStoryStreakIncrementedEvent {
   is_first_action_today: boolean;
 }
 
+// ==================== DEVICE HEALTH INTERFACES (AFF-618) ====================
+
+interface DeviceHealthSnapshotEvent {
+  // Memory metrics (from react-native-device-info)
+  memory_used_mb: number;
+  memory_total_mb: number;
+  memory_percent: number;
+  memory_threshold_exceeded: boolean; // >80%
+
+  // CPU metrics (from DeviceHealth native module)
+  cpu_usage_percent: number;
+  cpu_core_count: number;
+  cpu_spike_detected: boolean; // >80% sustained
+
+  // Context
+  screen: string;
+  era_id?: string;
+  adventure_id?: string | number;
+  module_id?: string | number;
+  lesson_id?: string | number;
+}
+
+interface DeviceHealthSummaryEvent {
+  // Peak values over monitoring session
+  peak_memory_mb: number;
+  peak_memory_percent: number;
+  peak_cpu_percent: number;
+  avg_memory_percent: number;
+  avg_cpu_percent: number;
+
+  // Threshold flags
+  memory_threshold_exceeded: boolean;
+  cpu_spike_count: number; // number of consecutive polls >80%
+
+  // Session info
+  monitoring_duration_seconds: number;
+  sample_count: number;
+  screen: string;
+  era_id?: string;
+  adventure_id?: string | number;
+  module_id?: string | number;
+  lesson_id?: string | number;
+}
+
 // ==================== ANALYTICS SERVICE ====================
 
 class AnalyticsService {
@@ -1726,6 +1770,40 @@ class AnalyticsService {
       $set: allProperties,
     });
     AppLogger.info('auth', 'User properties set in PostHog', { clerkUserId });
+  }
+
+  // ==================== DEVICE HEALTH TRACKING (AFF-618) ====================
+
+  /**
+   * Track a single device health snapshot during video playback.
+   * Sent when a threshold is exceeded (memory >80% or CPU spike >80%).
+   */
+  trackDeviceHealthSnapshot(data: DeviceHealthSnapshotEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('device_health_snapshot', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Device Health Snapshot:', event);
+    }
+  }
+
+  /**
+   * Track a summary of device health metrics for a video playback session.
+   * Sent once when monitoring ends (lesson exit or video completion).
+   */
+  trackDeviceHealthSummary(data: DeviceHealthSummaryEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('device_health_summary', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Device Health Summary:', event);
+    }
   }
 
   // ==================== CDN PERFORMANCE TRACKING (AFF-579) ====================

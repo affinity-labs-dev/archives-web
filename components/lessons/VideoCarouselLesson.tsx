@@ -34,6 +34,7 @@ import RenderHtml from 'react-native-render-html';
 import { LESSON_CONSTANTS } from "./LessonConstants";
 import { Image as ExpoImage } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
+import { useDeviceHealthMonitor } from "@/hooks/useDeviceHealthMonitor";
 import AppLogger from '@/services/AppLogger';
 import { analyticsService } from '@/services/AnalyticsService';
 import { networkPerformanceService } from '@/services/NetworkPerformanceService';
@@ -258,6 +259,13 @@ export default function VideoCarouselLesson({
     eraName,
     onContinue,
   });
+
+  // AFF-618: Monitor device health (memory + CPU) during video playback
+  const { startMonitoring, stopMonitoring } = useDeviceHealthMonitor();
+  useEffect(() => {
+    startMonitoring({ screen: 'VideoCarouselLesson', eraId, adventureId, moduleId, lessonId });
+    return () => { stopMonitoring(); };
+  }, [eraId, adventureId, moduleId, lessonId, startMonitoring, stopMonitoring]);
 
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [showReadContent, setShowReadContent] = useState(false);

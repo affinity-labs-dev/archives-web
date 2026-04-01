@@ -33,6 +33,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
+import { useDeviceHealthMonitor } from "@/hooks/useDeviceHealthMonitor";
 
 // VideoPlayer status type (expo-video compatible)
 interface VideoPlaybackStatus {
@@ -101,6 +102,13 @@ export default function ReelLesson({
     eraName,
     onContinue,
   });
+
+  // AFF-618: Monitor device health (memory + CPU) during video playback
+  const { startMonitoring, stopMonitoring } = useDeviceHealthMonitor();
+  useEffect(() => {
+    startMonitoring({ screen: 'ReelLesson', eraId, adventureId, moduleId, lessonId });
+    return () => { stopMonitoring(); };
+  }, [eraId, adventureId, moduleId, lessonId, startMonitoring, stopMonitoring]);
 
   // Video-related states
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
