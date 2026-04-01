@@ -47,6 +47,13 @@ export default function VideoPlayer({
   const hasTrackedErrorRef = useRef(false)
   const appIsActiveRef = useRef(AppState.currentState === 'active')
 
+  // AFF-612: Video completion tracking refs
+  const maxPositionRef = useRef(0)
+  const videoDurationRef = useRef(0)
+  const watchStartTimeRef = useRef<number>(Date.now())
+  const hasTrackedCompletionRef = useRef(false)
+  const videoSourceUriRef = useRef('')
+
   // PERFORMANCE: Optimize videoSource with useMemo
   const optimizedVideoSource: VideoSource = useMemo(() => {
     // Remote URL object
@@ -105,7 +112,7 @@ export default function VideoPlayer({
     return () => sub.remove();
   }, []);
 
-  // AFF-579: Reset tracking refs when videoSource changes (new video loaded)
+  // AFF-579/612: Reset tracking refs when videoSource changes (new video loaded)
   const videoSourceUri = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
   useEffect(() => {
     playerCreatedAtRef.current = Date.now();
@@ -113,6 +120,12 @@ export default function VideoPlayer({
     hasTrackedErrorRef.current = false;
     bufferStartTimeRef.current = null;
     wasPlayingRef.current = false;
+    // AFF-612: Reset completion tracking for new video
+    maxPositionRef.current = 0;
+    videoDurationRef.current = 0;
+    watchStartTimeRef.current = Date.now();
+    hasTrackedCompletionRef.current = false;
+    videoSourceUriRef.current = videoSourceUri;
   }, [videoSourceUri]);
 
   // Create video player
@@ -245,34 +258,58 @@ export default function VideoPlayer({
     wasPlayingRef.current = isPlaying;
   }, [isPlaying, isVideoLoaded, videoSourceUri]);
 
-  // Progress updates
+  // Progress updates + AFF-612: track max position for completion rate
   useEffect(() => {
-    if (!onPlaybackStatusUpdate) return;
-
     const interval = setInterval(() => {
       if (isReleasedRef.current) return;
-      if (player.status === 'readyToPlay') {
-        const currentTime = player.currentTime;
-        const duration = player.duration;
+      try {
+        if (player.status === 'readyToPlay') {
+          const currentTime = player.currentTime;
+          const duration = player.duration;
 
-        if (duration > 0) {
-          onPlaybackStatusUpdate({
-            isLoaded: true,
-            isPlaying: player.playing,
-            positionMillis: currentTime * 1000,
-            durationMillis: duration * 1000,
-            status: 'readyToPlay'
-          });
+          if (Number.isFinite(currentTime) && Number.isFinite(duration) && duration > 0) {
+            // AFF-612: Track highest position reached (handles looping videos)
+            maxPositionRef.current = Math.max(maxPositionRef.current, currentTime);
+            videoDurationRef.current = duration;
+
+            if (onPlaybackStatusUpdate) {
+              onPlaybackStatusUpdate({
+                isLoaded: true,
+                isPlaying: player.playing,
+                positionMillis: currentTime * 1000,
+                durationMillis: duration * 1000,
+                status: 'readyToPlay'
+              });
+            }
+          }
         }
+      } catch {
+        // Player released mid-interval — safe to ignore, cleanup will clear interval
       }
     }, 100);
 
     return () => clearInterval(interval);
   }, [player, onPlaybackStatusUpdate]);
 
-  // Cleanup
+  // Cleanup + AFF-612: fire video_completion on unmount
   useEffect(() => {
     return () => {
+      // AFF-612: Track completion rate before cleanup (all values from refs — no stale closures)
+      if (!hasTrackedCompletionRef.current && videoDurationRef.current > 0) {
+        const url = videoSourceUriRef.current;
+        const completionRate = Math.min(maxPositionRef.current / videoDurationRef.current, 1.0);
+        const isHLS = url?.includes('.m3u8') || url?.includes('/hls/') || url?.includes('format=m3u8');
+        analyticsService.trackVideoCompletion({
+          completion_rate: completionRate,
+          watch_duration_ms: Date.now() - watchStartTimeRef.current,
+          video_duration_ms: videoDurationRef.current * 1000,
+          video_url: url || '',
+          content_type: isHLS ? 'hls' : 'progressive',
+          cdn_domain: networkPerformanceService.extractCDNDomain(url || ''),
+        });
+        hasTrackedCompletionRef.current = true;
+      }
+
       try {
         player.pause();
       } catch (error) {
