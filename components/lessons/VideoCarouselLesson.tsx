@@ -193,6 +193,7 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
           video_url: videoUrl,
           content_type: contentType,
           cdn_domain: cdnDomain,
+          initial_speed_mbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps,
         });
         hasTrackedLoadTimeRef.current = true;
 

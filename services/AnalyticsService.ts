@@ -412,9 +412,6 @@ interface DeviceHealthSummaryEvent {
   memory_threshold_exceeded: boolean;
   cpu_spike_count: number; // number of consecutive polls >80%
 
-  // Network speed test at video start (may be null if test didn't run)
-  initial_speed_mbps?: number;
-
   // Session info
   monitoring_duration_seconds: number;
   sample_count: number;
@@ -1829,6 +1826,7 @@ class AnalyticsService {
     video_url: string;
     content_type: 'hls' | 'progressive';
     cdn_domain: string;
+    initial_speed_mbps?: number;
   }) {
     const event = {
       ...data,

@@ -184,6 +184,7 @@ export default function VideoPlayer({
               video_url: videoUrl || '',
               content_type: isHLS ? 'hls' : 'progressive',
               cdn_domain: cdnDomain,
+              initial_speed_mbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps,
             });
             hasTrackedLoadTime.current = true;
 

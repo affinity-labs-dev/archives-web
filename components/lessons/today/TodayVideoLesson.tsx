@@ -123,6 +123,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
         video_url: videoUrl,
         content_type: 'hls',
         cdn_domain: cdnDomain,
+        initial_speed_mbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps,
       });
       hasTrackedLoadTimeRef.current = true;
     }
