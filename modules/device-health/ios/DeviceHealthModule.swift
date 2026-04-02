@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import Darwin
+import Foundation
 import MachO
 
 public class DeviceHealthModule: Module {
@@ -46,6 +47,97 @@ public class DeviceHealthModule: Module {
         "usagePercent": round(usagePercent * 10) / 10,
         "coreCount": ProcessInfo.processInfo.activeProcessorCount,
       ]
+    }
+
+    // MARK: - Network Traffic Stats
+
+    /// Read cumulative network byte counters from OS.
+    /// Uses getifaddrs() to sum bytes across all network interfaces.
+    /// Returns { bytesReceived, bytesSent } — cumulative since device boot.
+    /// JS layer calculates delta between polls to get throughput.
+    Function("getNetworkStats") { () -> [String: Any] in
+      var bytesReceived: UInt64 = 0
+      var bytesSent: UInt64 = 0
+
+      var ifaddr: UnsafeMutablePointer<ifaddrs>?
+      guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else {
+        return [
+          "bytesReceived": -1,
+          "bytesSent": -1,
+        ] as [String: Any]
+      }
+
+      defer { freeifaddrs(ifaddr) }
+
+      var cursor = firstAddr
+      while true {
+        let addr = cursor.pointee
+
+        // Only count AF_LINK (data link layer) interfaces
+        if addr.ifa_addr?.pointee.sa_family == UInt8(AF_LINK) {
+          if let data = addr.ifa_data {
+            let networkData = data.assumingMemoryBound(to: if_data.self).pointee
+            bytesReceived += UInt64(networkData.ifi_ibytes)
+            bytesSent += UInt64(networkData.ifi_obytes)
+          }
+        }
+
+        guard let next = addr.ifa_next else { break }
+        cursor = next
+      }
+
+      return [
+        "bytesReceived": bytesReceived,
+        "bytesSent": bytesSent,
+      ] as [String: Any]
+    }
+
+    // MARK: - Speed Test
+
+    /// Download a file from a URL and measure throughput.
+    /// Downloads the entire response (no Range header) for accurate measurement.
+    /// Returns { downloadSpeedMbps, bytesDownloaded, durationMs }
+    AsyncFunction("runSpeedTest") { (testUrl: String) async -> [String: Any] in
+      guard let url = URL(string: testUrl) else {
+        return [
+          "downloadSpeedMbps": -1.0,
+          "bytesDownloaded": 0,
+          "durationMs": -1.0,
+        ] as [String: Any]
+      }
+
+      var request = URLRequest(url: url)
+      request.httpMethod = "GET"
+      request.timeoutInterval = 15.0
+      request.cachePolicy = .reloadIgnoringLocalCacheData
+
+      let startTime = CFAbsoluteTimeGetCurrent()
+
+      do {
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let endTime = CFAbsoluteTimeGetCurrent()
+        let durationMs = (endTime - startTime) * 1000.0
+        let bytesDownloaded = data.count
+
+        var speedMbps = -1.0
+        if bytesDownloaded > 0 && durationMs > 0 {
+          speedMbps = (Double(bytesDownloaded) * 8.0) / (durationMs * 1000.0)
+          speedMbps = round(speedMbps * 100) / 100
+        }
+
+        return [
+          "downloadSpeedMbps": speedMbps,
+          "bytesDownloaded": bytesDownloaded,
+          "durationMs": round(durationMs * 10) / 10,
+        ] as [String: Any]
+      } catch {
+        NSLog("[DeviceHealth] Speed test failed: \(error.localizedDescription)")
+        return [
+          "downloadSpeedMbps": -1.0,
+          "bytesDownloaded": 0,
+          "durationMs": -1.0,
+        ] as [String: Any]
+      }
     }
 
     /// Reset stored snapshot (call when monitoring session ends)

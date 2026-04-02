@@ -119,6 +119,24 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
       watchStartTimeRef.current = Date.now();
       hasTrackedCompletionRef.current = false;
       maxPositionRef.current = 0;
+
+      // Run speed test on each slide change (non-blocking)
+      // Skipped if a test is already in-flight
+      const contentType = getContentType(videoUrl);
+      const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+      networkPerformanceService.runSpeedTest().then((speedResult) => {
+        if (speedResult && speedResult.downloadSpeedMbps > 0) {
+          analyticsService.trackNetworkSpeed({
+            download_speed_mbps: speedResult.downloadSpeedMbps,
+            content_size_bytes: speedResult.bytesDownloaded,
+            load_time_ms: speedResult.durationMs,
+            media_type: 'video',
+            content_type: contentType,
+            measurement_method: 'active',
+            cdn_domain: cdnDomain,
+          });
+        }
+      }).catch(() => {});
     } else {
       player.pause();
       // AFF-612: Fire completion when user swipes away from this video
@@ -169,13 +187,32 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
       if (!hasTrackedLoadTimeRef.current && playerCreatedAtRef.current > 0) {
         const loadTimeMs = Date.now() - playerCreatedAtRef.current;
         const contentType = getContentType(videoUrl);
+        const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
         analyticsService.trackVideoLoadTime({
           load_time_ms: loadTimeMs,
           video_url: videoUrl,
           content_type: contentType,
-          cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+          cdn_domain: cdnDomain,
+          initial_speed_mbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps,
         });
         hasTrackedLoadTimeRef.current = true;
+
+        // Run speed test when this slide becomes active (not for pre-rendered next slide)
+        if (isActive) {
+          networkPerformanceService.runSpeedTest().then((speedResult) => {
+            analyticsService.trackNetworkSpeed({
+              download_speed_mbps: speedResult?.downloadSpeedMbps,
+              content_size_bytes: speedResult?.bytesDownloaded,
+              load_time_ms: loadTimeMs,
+              media_type: 'video',
+              content_type: contentType,
+              measurement_method: 'active',
+              cdn_domain: cdnDomain,
+            });
+          }).catch(() => {
+            // Speed test failed — non-critical, ignore
+          });
+        }
       }
     }
 

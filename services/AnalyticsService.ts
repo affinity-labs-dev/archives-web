@@ -422,6 +422,16 @@ interface DeviceHealthSummaryEvent {
   lesson_id?: string | number;
 }
 
+interface NetworkSpeedEvent {
+  download_speed_mbps?: number;      // Present for progressive, absent for HLS
+  content_size_bytes?: number;       // Present for progressive, absent for HLS
+  load_time_ms: number;
+  media_type: 'video' | 'image';
+  content_type: 'hls' | 'progressive';
+  measurement_method: 'passive' | 'active';
+  cdn_domain: string;
+}
+
 // ==================== ANALYTICS SERVICE ====================
 
 class AnalyticsService {
@@ -1816,6 +1826,7 @@ class AnalyticsService {
     video_url: string;
     content_type: 'hls' | 'progressive';
     cdn_domain: string;
+    initial_speed_mbps?: number;
   }) {
     const event = {
       ...data,
@@ -1944,6 +1955,37 @@ class AnalyticsService {
     }
   }
 
+  // ==================== NETWORK SPEED TRACKING ====================
+
+  /** Max network speed events per session to prevent PostHog spam */
+  private networkSpeedEventCount = 0;
+  private static readonly MAX_SPEED_EVENTS = 20;
+
+  /**
+   * Track a passive network speed measurement from an actual media load.
+   * Fired after a video/image load completes and Content-Length is known.
+   * Capped at 20 events per session.
+   */
+  trackNetworkSpeed(data: NetworkSpeedEvent) {
+    if (this.networkSpeedEventCount >= AnalyticsService.MAX_SPEED_EVENTS) return;
+
+    // Guard against invalid data
+    if (!Number.isFinite(data.load_time_ms) || data.load_time_ms <= 0) return;
+    if (data.download_speed_mbps != null && (!Number.isFinite(data.download_speed_mbps) || data.download_speed_mbps <= 0)) return;
+
+    this.networkSpeedEventCount++;
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('network_speed_measurement', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Network Speed:', event);
+    }
+  }
+
   /**
    * Reset analytics (call on logout)
    */
@@ -1953,6 +1995,7 @@ class AnalyticsService {
     this.sessionStartTime = null;
     this.pageStartTimes.clear();
     this.pageClicks.clear();
+    this.networkSpeedEventCount = 0;
     // Note: We keep anonymousId - it persists across sessions
     AppLogger.info('auth', 'Analytics reset (anonymous ID preserved)');
   }

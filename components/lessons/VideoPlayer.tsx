@@ -178,13 +178,35 @@ export default function VideoPlayer({
             const loadTimeMs = Date.now() - playerCreatedAtRef.current;
             const videoUrl = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
             const isHLS = videoUrl?.includes('.m3u8') || videoUrl?.includes('/hls/') || videoUrl?.includes('format=m3u8');
+            const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl || '');
             analyticsService.trackVideoLoadTime({
               load_time_ms: loadTimeMs,
               video_url: videoUrl || '',
               content_type: isHLS ? 'hls' : 'progressive',
-              cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl || ''),
+              cdn_domain: cdnDomain,
+              initial_speed_mbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps,
             });
             hasTrackedLoadTime.current = true;
+
+            // One-time speed test: download ~3.5MB test file to measure bandwidth
+            // Non-blocking — runs in background, does not delay video playback
+            if (videoUrl) {
+              networkPerformanceService.runSpeedTest().then((speedResult) => {
+                analyticsService.trackNetworkSpeed({
+                  download_speed_mbps: speedResult?.downloadSpeedMbps,
+                  content_size_bytes: speedResult?.bytesDownloaded,
+                  load_time_ms: loadTimeMs,
+                  media_type: 'video',
+                  content_type: isHLS ? 'hls' : 'progressive',
+                  measurement_method: 'active',
+                  cdn_domain: cdnDomain,
+                });
+              }).catch((error) => {
+                AppLogger.warn('network', 'Speed test failed on video load', {
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              });
+            }
           }
 
           if (!isVideoLoaded) {

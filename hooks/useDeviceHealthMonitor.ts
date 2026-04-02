@@ -5,6 +5,7 @@ import DeviceInfo from 'react-native-device-info';
 import { getCPUUsage, resetCPUSnapshot } from '@/modules/device-health';
 import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
+import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 
 const POLL_INTERVAL_MS = 5000;
 const MEMORY_THRESHOLD_PERCENT = 80;
@@ -149,6 +150,9 @@ export function useDeviceHealthMonitor() {
 
     // Reset native CPU snapshot so first delta is fresh
     resetCPUSnapshot();
+
+    // Reset network speed session for fresh throughput samples
+    networkPerformanceService.resetSpeedSession();
 
     // Prime the CPU reader (first call returns -1)
     getCPUUsage().catch(() => {});
