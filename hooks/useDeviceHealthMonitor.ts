@@ -5,6 +5,7 @@ import DeviceInfo from 'react-native-device-info';
 import { getCPUUsage, resetCPUSnapshot } from '@/modules/device-health';
 import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
+import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 
 const POLL_INTERVAL_MS = 5000;
 const MEMORY_THRESHOLD_PERCENT = 80;
@@ -150,6 +151,9 @@ export function useDeviceHealthMonitor() {
     // Reset native CPU snapshot so first delta is fresh
     resetCPUSnapshot();
 
+    // Reset network speed session for fresh throughput samples
+    networkPerformanceService.resetSpeedSession();
+
     // Prime the CPU reader (first call returns -1)
     getCPUUsage().catch(() => {});
 
@@ -206,6 +210,9 @@ export function useDeviceHealthMonitor() {
     const avgCpuPercent = totalCpuPercent / samples.length;
     const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
 
+    // Enrich with passive network speed data (if any samples were recorded)
+    const speedData = networkPerformanceService.getAverageSpeed();
+
     analyticsService.trackDeviceHealthSummary({
       peak_memory_mb: Math.round((peakMemoryPercent / 100) * cachedTotalMemory / (1024 * 1024)),
       peak_memory_percent: Math.round(peakMemoryPercent * 10) / 10,
@@ -214,6 +221,13 @@ export function useDeviceHealthMonitor() {
       avg_cpu_percent: Math.round(avgCpuPercent * 10) / 10,
       memory_threshold_exceeded: memoryExceededRef.current,
       cpu_spike_count: maxConsecutiveSpikes,
+      // Network speed (optional — only present if video loads occurred during session)
+      ...(speedData && {
+        avg_download_speed_mbps: speedData.download_speed_mbps,
+        min_download_speed_mbps: speedData.min_speed_mbps,
+        max_download_speed_mbps: speedData.max_speed_mbps,
+        speed_sample_count: speedData.sample_count,
+      }),
       monitoring_duration_seconds: durationSeconds,
       sample_count: samples.length,
       screen: ctx.screen,

@@ -178,13 +178,39 @@ export default function VideoPlayer({
             const loadTimeMs = Date.now() - playerCreatedAtRef.current;
             const videoUrl = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
             const isHLS = videoUrl?.includes('.m3u8') || videoUrl?.includes('/hls/') || videoUrl?.includes('format=m3u8');
+            const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl || '');
             analyticsService.trackVideoLoadTime({
               load_time_ms: loadTimeMs,
               video_url: videoUrl || '',
               content_type: isHLS ? 'hls' : 'progressive',
-              cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl || ''),
+              cdn_domain: cdnDomain,
             });
             hasTrackedLoadTime.current = true;
+
+            // Passive network speed: HEAD request for Content-Length, then record throughput
+            // Non-blocking — runs in background, does not delay video playback
+            if (videoUrl && !isHLS) {
+              networkPerformanceService.fetchContentLength(videoUrl).then((bytes) => {
+                if (bytes) {
+                  const sample = networkPerformanceService.recordThroughput(bytes, loadTimeMs, 'video');
+                  if (sample) {
+                    analyticsService.trackNetworkSpeed({
+                      download_speed_mbps: sample.speedMbps,
+                      content_size_bytes: sample.contentSizeBytes,
+                      load_time_ms: sample.loadTimeMs,
+                      media_type: 'video',
+                      measurement_method: 'passive',
+                      cdn_domain: cdnDomain,
+                    });
+                  }
+                }
+              }).catch((error) => {
+                AppLogger.warn('network', 'Network speed measurement failed', {
+                  url: videoUrl.substring(0, 80),
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              });
+            }
           }
 
           if (!isVideoLoaded) {
