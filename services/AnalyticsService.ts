@@ -412,11 +412,8 @@ interface DeviceHealthSummaryEvent {
   memory_threshold_exceeded: boolean;
   cpu_spike_count: number; // number of consecutive polls >80%
 
-  // Network speed (passive estimation, may be null if no samples)
-  avg_download_speed_mbps?: number;
-  min_download_speed_mbps?: number;
-  max_download_speed_mbps?: number;
-  speed_sample_count?: number;
+  // Network speed test at video start (may be null if test didn't run)
+  initial_speed_mbps?: number;
 
   // Session info
   monitoring_duration_seconds: number;
@@ -429,11 +426,12 @@ interface DeviceHealthSummaryEvent {
 }
 
 interface NetworkSpeedEvent {
-  download_speed_mbps: number;
-  content_size_bytes: number;
+  download_speed_mbps?: number;      // Present for progressive, absent for HLS
+  content_size_bytes?: number;       // Present for progressive, absent for HLS
   load_time_ms: number;
   media_type: 'video' | 'image';
-  measurement_method: 'passive';
+  content_type: 'hls' | 'progressive';
+  measurement_method: 'passive' | 'active';
   cdn_domain: string;
 }
 
@@ -1974,7 +1972,8 @@ class AnalyticsService {
     if (this.networkSpeedEventCount >= AnalyticsService.MAX_SPEED_EVENTS) return;
 
     // Guard against invalid data
-    if (!Number.isFinite(data.download_speed_mbps) || data.download_speed_mbps <= 0) return;
+    if (!Number.isFinite(data.load_time_ms) || data.load_time_ms <= 0) return;
+    if (data.download_speed_mbps != null && (!Number.isFinite(data.download_speed_mbps) || data.download_speed_mbps <= 0)) return;
 
     this.networkSpeedEventCount++;
 

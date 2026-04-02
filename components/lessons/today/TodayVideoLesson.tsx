@@ -6,8 +6,13 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView, VideoSource } from "expo-video";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
+import { useDeviceHealthMonitor } from "@/hooks/useDeviceHealthMonitor";
+import DevHealthOverlay from "@/components/lessons/DevHealthOverlay";
+import { analyticsService } from "@/services/AnalyticsService";
+import { networkPerformanceService } from "@/services/NetworkPerformanceService";
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   Animated,
@@ -59,6 +64,10 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
     [videoUrl]
   );
 
+  // Performance tracking refs
+  const playerCreatedAtRef = useRef<number>(Date.now());
+  const hasTrackedLoadTimeRef = useRef(false);
+
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = shouldLoop;
     player.muted = true;
@@ -73,17 +82,51 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
     }
   });
 
-  // Control playback when isActive changes
+  // Track player status for loading + performance tracking
+  const { status } = useEvent(player, 'statusChange', { status: player.status });
+
+  // Control playback when isActive changes + run speed test
   useEffect(() => {
     // Ensure loop is always set (defensive)
     player.loop = shouldLoop;
 
     if (isActive) {
       player.play();
+
+      // Run speed test on each slide activation (non-blocking)
+      const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+      networkPerformanceService.runSpeedTest().then((speedResult) => {
+        if (speedResult && speedResult.downloadSpeedMbps > 0) {
+          analyticsService.trackNetworkSpeed({
+            download_speed_mbps: speedResult.downloadSpeedMbps,
+            content_size_bytes: speedResult.bytesDownloaded,
+            load_time_ms: speedResult.durationMs,
+            media_type: 'video',
+            content_type: 'hls',
+            measurement_method: 'active',
+            cdn_domain: cdnDomain,
+          });
+        }
+      }).catch(() => {});
     } else {
       player.pause();
     }
-  }, [isActive, player, shouldLoop]);
+  }, [isActive, player, shouldLoop, videoUrl]);
+
+  // Track video load time + speed test on first readyToPlay
+  useEffect(() => {
+    if (status === 'readyToPlay' && !hasTrackedLoadTimeRef.current && playerCreatedAtRef.current > 0) {
+      const loadTimeMs = Date.now() - playerCreatedAtRef.current;
+      const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+      analyticsService.trackVideoLoadTime({
+        load_time_ms: loadTimeMs,
+        video_url: videoUrl,
+        content_type: 'hls',
+        cdn_domain: cdnDomain,
+      });
+      hasTrackedLoadTimeRef.current = true;
+    }
+  }, [status, videoUrl]);
 
   // Status updates for progress tracking
   useEffect(() => {
@@ -91,13 +134,13 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
 
     const interval = setInterval(() => {
       if (player.status === "readyToPlay" && isActive) {
-        const status = {
+        const statusData = {
           isLoaded: true,
           isPlaying: player.playing,
           durationMillis: player.duration * 1000,
           positionMillis: player.currentTime * 1000,
         };
-        onStatusUpdate(status);
+        onStatusUpdate(statusData);
       }
     }, 250);
 
@@ -134,6 +177,14 @@ export default function TodayVideoLesson({
   onDismiss,
 }: TodayVideoLessonProps) {
   const insets = useSafeAreaInsets();
+  const { startMonitoring, stopMonitoring } = useDeviceHealthMonitor();
+
+  // Start device health monitoring on mount
+  useEffect(() => {
+    startMonitoring({ screen: 'TodayVideoLesson' });
+    return () => stopMonitoring();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Background music hook - Auto-play when modal opens
   const backgroundMusic = useBackgroundMusic(
@@ -726,6 +777,9 @@ export default function TodayVideoLesson({
             </View>
           </View>
         </View>
+
+        {/* DEV ONLY: Device health + network speed overlay */}
+        <DevHealthOverlay />
       </GestureHandlerRootView>
     </SafeAreaView>
   );

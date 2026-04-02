@@ -210,8 +210,8 @@ export function useDeviceHealthMonitor() {
     const avgCpuPercent = totalCpuPercent / samples.length;
     const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
 
-    // Enrich with passive network speed data (if any samples were recorded)
-    const speedData = networkPerformanceService.getAverageSpeed();
+    // Enrich with speed test data (if test ran during this session)
+    const speedTest = networkPerformanceService.getLastSpeedTest();
 
     analyticsService.trackDeviceHealthSummary({
       peak_memory_mb: Math.round((peakMemoryPercent / 100) * cachedTotalMemory / (1024 * 1024)),
@@ -221,12 +221,8 @@ export function useDeviceHealthMonitor() {
       avg_cpu_percent: Math.round(avgCpuPercent * 10) / 10,
       memory_threshold_exceeded: memoryExceededRef.current,
       cpu_spike_count: maxConsecutiveSpikes,
-      // Network speed (optional — only present if video loads occurred during session)
-      ...(speedData && {
-        avg_download_speed_mbps: speedData.download_speed_mbps,
-        min_download_speed_mbps: speedData.min_speed_mbps,
-        max_download_speed_mbps: speedData.max_speed_mbps,
-        speed_sample_count: speedData.sample_count,
+      ...(speedTest && speedTest.downloadSpeedMbps > 0 && {
+        initial_speed_mbps: speedTest.downloadSpeedMbps,
       }),
       monitoring_duration_seconds: durationSeconds,
       sample_count: samples.length,

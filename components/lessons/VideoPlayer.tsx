@@ -187,26 +187,21 @@ export default function VideoPlayer({
             });
             hasTrackedLoadTime.current = true;
 
-            // Passive network speed: HEAD request for Content-Length, then record throughput
+            // One-time speed test: download ~3.5MB test file to measure bandwidth
             // Non-blocking — runs in background, does not delay video playback
-            if (videoUrl && !isHLS) {
-              networkPerformanceService.fetchContentLength(videoUrl).then((bytes) => {
-                if (bytes) {
-                  const sample = networkPerformanceService.recordThroughput(bytes, loadTimeMs, 'video');
-                  if (sample) {
-                    analyticsService.trackNetworkSpeed({
-                      download_speed_mbps: sample.speedMbps,
-                      content_size_bytes: sample.contentSizeBytes,
-                      load_time_ms: sample.loadTimeMs,
-                      media_type: 'video',
-                      measurement_method: 'passive',
-                      cdn_domain: cdnDomain,
-                    });
-                  }
-                }
+            if (videoUrl) {
+              networkPerformanceService.runSpeedTest().then((speedResult) => {
+                analyticsService.trackNetworkSpeed({
+                  download_speed_mbps: speedResult?.downloadSpeedMbps,
+                  content_size_bytes: speedResult?.bytesDownloaded,
+                  load_time_ms: loadTimeMs,
+                  media_type: 'video',
+                  content_type: isHLS ? 'hls' : 'progressive',
+                  measurement_method: 'active',
+                  cdn_domain: cdnDomain,
+                });
               }).catch((error) => {
-                AppLogger.warn('network', 'Network speed measurement failed', {
-                  url: videoUrl.substring(0, 80),
+                AppLogger.warn('network', 'Speed test failed on video load', {
                   error: error instanceof Error ? error.message : String(error),
                 });
               });

@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { getCPUUsage, resetCPUSnapshot } from '@/modules/device-health';
+import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 
 interface HealthData {
   memoryUsedMB: number;
@@ -12,6 +13,8 @@ interface HealthData {
   memoryPercent: number;
   cpuPercent: number;
   cpuCores: number;
+  networkType: string;
+  initialSpeedMbps: number | null; // One-time speed test result
 }
 
 const POLL_MS = 2000; // Faster polling for dev visibility
@@ -47,12 +50,19 @@ function OverlayContent() {
       const memTotalMB = total / (1024 * 1024);
       const cpuPercent = cpu.usagePercent;
 
+      // Network context + speed test result
+      const netCtx = networkPerformanceService.getNetworkContext();
+
       setData({
         memoryUsedMB: Math.round(memUsedMB),
         memoryTotalMB: Math.round(memTotalMB),
         memoryPercent: Math.round(memPercent * 10) / 10,
         cpuPercent: Math.round(cpuPercent * 10) / 10,
         cpuCores: cpu.coreCount,
+        networkType: netCtx.cellular_generation
+          ? `${netCtx.network_type} (${netCtx.cellular_generation})`
+          : netCtx.network_type,
+        initialSpeedMbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps ?? null,
       });
 
       if (memPercent > peakMemory) setPeakMemory(Math.round(memPercent * 10) / 10);
@@ -74,12 +84,14 @@ function OverlayContent() {
 
   const memColor = (data?.memoryPercent ?? 0) > 80 ? '#FF4444' : (data?.memoryPercent ?? 0) > 60 ? '#FFAA00' : '#44DD44';
   const cpuColor = (data?.cpuPercent ?? 0) > 80 ? '#FF4444' : (data?.cpuPercent ?? 0) > 50 ? '#FFAA00' : '#44DD44';
+  const testSpeed = data?.initialSpeedMbps ?? 0;
+  const speedColor = testSpeed === 0 ? '#888888' : testSpeed < 2 ? '#FF4444' : testSpeed < 10 ? '#FFAA00' : '#44DD44';
 
   if (minimized) {
     return (
       <TouchableOpacity style={styles.minimized} onPress={() => setMinimized(false)}>
         <Text style={styles.minimizedText}>
-          {data ? `${Math.round(data.memoryPercent)}% | ${data.cpuPercent < 0 ? '—' : `${Math.round(data.cpuPercent)}%`}` : '...'}
+          {data ? `${Math.round(data.memoryPercent)}% | ${data.cpuPercent < 0 ? '—' : `${Math.round(data.cpuPercent)}%`} | ${data.initialSpeedMbps != null ? `${data.initialSpeedMbps}Mbps` : '—'}` : '...'}
         </Text>
       </TouchableOpacity>
     );
@@ -111,6 +123,20 @@ function OverlayContent() {
         </View>
         <Text style={[styles.percent, { color: cpuColor }]}>
           {data?.cpuPercent != null && data.cpuPercent >= 0 ? `${data.cpuPercent}%` : '—'}
+        </Text>
+      </View>
+
+      <View style={styles.row}>
+        <Text style={styles.label}>NET</Text>
+        <Text style={styles.value}>
+          {data?.networkType ?? '—'}
+        </Text>
+      </View>
+
+      <View style={styles.row}>
+        <Text style={styles.label}>SPD</Text>
+        <Text style={[styles.value, { color: speedColor }]}>
+          {data?.initialSpeedMbps != null && data.initialSpeedMbps > 0 ? `${data.initialSpeedMbps} Mbps` : 'Pending...'}
         </Text>
       </View>
 
