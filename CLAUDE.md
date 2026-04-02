@@ -512,13 +512,13 @@ console.log('🔔 Notification')    // Push notifications
 
 **Shared:**
 - EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `3.5.0` | Runtime: `1.0.0` | Expo SDK: 54
+- App version: `4.0.0` | Runtime: `appVersion` | Expo SDK: 54
 - iOS buildNumber: `150` | Android versionCode: `45` (auto-incremented on production builds)
 - New Architecture: Enabled (React Native 0.81.5, React 19.1.0)
 
 ## Important Patterns & Development Context
 
-**Current status:** Branch `3.5.0` | Both platforms LIVE in production
+**Current status:** Branch `4.0.0` | Both platforms LIVE in production
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus
