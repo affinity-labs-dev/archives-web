@@ -367,7 +367,6 @@ export function AIProvider({ children }: AIProviderProps) {
   const openChatToLearn = (hiddenMessage: string) => {
     console.log('🤖 [AIContext] Opening Chat to Learn');
     setPendingHiddenMessage(hiddenMessage);
-    setIsChatOpen(true);
   };
 
   // Clear pending hidden message (called by AIChatModal after processing)
