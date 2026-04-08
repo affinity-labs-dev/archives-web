@@ -19,6 +19,8 @@ import { Image } from 'expo-image';
 import { createVideoPlayer, VideoPlayer } from 'expo-video';
 import { Platform } from 'react-native';
 
+import AppLogger from './AppLogger';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -99,6 +101,11 @@ const TIER_CONFIGS: Record<DeviceTier, Omit<PreloadConfig, 'networkType'>> = {
 
 // Network multipliers (reduce limits on cellular)
 const CELLULAR_MULTIPLIER = 0.5;
+
+// AFF-616: On iOS + cellular, preload only the first N HLS videos instead of
+// skipping all of them. Eliminates cold-start spinner on the next tap with
+// minimal data usage (each HLS player is capped to ~5s of forward buffer).
+const IOS_CELLULAR_HLS_PRELOAD_LIMIT = 2;
 
 // ============================================================================
 // HLS Detection
@@ -230,7 +237,12 @@ export async function getPreloadConfig(): Promise<PreloadConfig> {
 
   configTimestamp = now;
 
-  console.log(`📱 [Preload] Config: tier=${tier}, network=${networkType}, maxVideos=${cachedConfig.maxVideos}, maxImages=${cachedConfig.maxImages}`);
+  AppLogger.info('video', 'Preload config computed', {
+    tier,
+    networkType,
+    maxVideos: cachedConfig.maxVideos,
+    maxImages: cachedConfig.maxImages,
+  });
 
   return cachedConfig;
 }
@@ -268,7 +280,7 @@ export async function preloadImages(
     return 0;
   }
 
-  console.log(`🖼️ [Preload] Starting ${newUrls.length} images...`);
+  AppLogger.info('content', 'Preloading images', { count: newUrls.length });
 
   try {
     // Use expo-image's prefetch with disk caching
@@ -276,14 +288,17 @@ export async function preloadImages(
 
     if (success) {
       newUrls.forEach(url => state.preloadedImages.add(url));
-      console.log(`🖼️ [Preload] ✅ ${newUrls.length} images cached (total: ${state.preloadedImages.size})`);
+      AppLogger.info('content', 'Images cached', {
+        count: newUrls.length,
+        totalPreloaded: state.preloadedImages.size,
+      });
       return newUrls.length;
     } else {
-      console.warn('🖼️ [Preload] ⚠️ Some images failed to prefetch');
+      AppLogger.warn('content', 'Some images failed to prefetch');
       return 0;
     }
   } catch (error) {
-    console.error('🖼️ [Preload] ❌ Error:', error);
+    AppLogger.error('content', 'Image prefetch error', {}, error);
     return 0;
   }
 }
@@ -312,7 +327,7 @@ export async function preloadVideos(
   // ExoPlayer's hardware decoders (OMX) have limited slots (~4-8 per device)
   // Creating preload players exhausts these slots before actual playback
   if (Platform.OS === 'android') {
-    console.log('📹 [Preload] [Android] Video preloading DISABLED - prevents decoder exhaustion');
+    AppLogger.info('video', 'Video preloading disabled on Android to prevent decoder exhaustion');
     return 0;
   }
 
@@ -329,21 +344,42 @@ export async function preloadVideos(
   const hlsUrls = newUrls.filter(isHLSVideo);
   const progressiveUrls = newUrls.filter(url => !isHLSVideo(url));
 
-  console.log(`📹 [Preload] Starting ${newUrls.length} videos (${progressiveUrls.length} MP4, ${hlsUrls.length} HLS)...`);
+  AppLogger.info('video', 'Preloading videos', {
+    total: newUrls.length,
+    mp4Count: progressiveUrls.length,
+    hlsCount: hlsUrls.length,
+  });
 
   let successCount = 0;
   let hlsSkipped = 0;
+  // AFF-616: Track how many HLS videos we've preloaded on iOS cellular so we
+  // can cap them at IOS_CELLULAR_HLS_PRELOAD_LIMIT (was: skip all HLS).
+  let iosCellularHlsPreloaded = 0;
 
   for (const url of newUrls) {
     try {
       const isHLS = isHLSVideo(url);
       const canCache = canCacheVideo(url);
 
-      // For HLS on iOS in light preload mode, skip entirely (too heavy without caching benefit)
+      // AFF-616: On iOS + cellular, preload the first 1-2 HLS videos to
+      // eliminate the cold-start spinner, then skip the rest to keep data
+      // usage minimal. HLS still can't be persistently cached on iOS, but
+      // initial segments will be buffered in-memory by the player.
       if (isHLS && Platform.OS === 'ios' && config.networkType === 'cellular') {
-        hlsSkipped++;
-        console.log(`📹 [Preload] ⏭️ Skipping HLS on iOS cellular: ${url.substring(0, 50)}...`);
-        continue;
+        if (iosCellularHlsPreloaded >= IOS_CELLULAR_HLS_PRELOAD_LIMIT) {
+          hlsSkipped++;
+          AppLogger.info('video', 'Skipping HLS on iOS cellular (limit reached)', {
+            limit: IOS_CELLULAR_HLS_PRELOAD_LIMIT,
+            url: url.substring(0, 80),
+          });
+          continue;
+        }
+        iosCellularHlsPreloaded++;
+        AppLogger.info('video', 'Preloading HLS on iOS cellular', {
+          count: iosCellularHlsPreloaded,
+          limit: IOS_CELLULAR_HLS_PRELOAD_LIMIT,
+          url: url.substring(0, 80),
+        });
       }
 
       // Create player with appropriate caching setting
@@ -367,15 +403,16 @@ export async function preloadVideos(
       state.preloadedVideos.add(url);
       successCount++;
     } catch (error) {
-      console.error(`📹 [Preload] ❌ Failed: ${url}`, error);
+      AppLogger.error('video', 'Video preload failed', { url: url.substring(0, 80) }, error);
     }
   }
 
-  const statusMsg = hlsSkipped > 0
-    ? `✅ ${successCount}/${newUrls.length} buffering, ${hlsSkipped} HLS skipped`
-    : `✅ ${successCount}/${newUrls.length} buffering`;
-
-  console.log(`📹 [Preload] ${statusMsg} (total: ${state.preloadedVideos.size})`);
+  AppLogger.info('video', 'Video preload batch complete', {
+    successCount,
+    total: newUrls.length,
+    hlsSkipped,
+    totalPreloaded: state.preloadedVideos.size,
+  });
 
   return successCount;
 }
@@ -397,7 +434,7 @@ export function releaseVideoPreloads(urls?: string[]): void {
 
       // Pause synchronously to stop generating new native events
       try { player.pause(); } catch (err) {
-        console.warn('📹 [Preload] player.pause() failed before deferred release:', err);
+        AppLogger.warn('video', 'player.pause() failed before deferred release', { error: String(err) });
       }
 
       playersToRelease.push(player);
@@ -410,15 +447,15 @@ export function releaseVideoPreloads(urls?: string[]): void {
     setTimeout(() => {
       for (const player of playersToRelease) {
         try { player.release(); } catch (err) {
-          console.warn('📹 [Preload] player.release() failed (deferred 50ms):', err);
+          AppLogger.warn('video', 'player.release() failed (deferred 50ms)', { error: String(err) });
         }
       }
-      console.log(`📹 [Preload] Released ${playersToRelease.length} players (deferred)`);
+      AppLogger.info('video', 'Released video players (deferred)', { count: playersToRelease.length });
     }, 50);
   }
 
   if (!urls) {
-    console.log('📹 [Preload] Released all video players');
+    AppLogger.info('video', 'Released all video players');
   }
 }
 
@@ -490,7 +527,7 @@ export function isPreloaded(url: string): boolean {
 export function clearAllPreloads(): void {
   releaseVideoPreloads();
   state.preloadedImages.clear();
-  console.log('🧹 [Preload] Cleared all preload caches');
+  AppLogger.info('video', 'Cleared all preload caches');
 }
 
 /**
@@ -500,7 +537,7 @@ export function setupNetworkListener(): () => void {
   const unsubscribe = NetInfo.addEventListener((netState) => {
     const newNetworkType = detectNetworkType(netState);
     if (cachedConfig && cachedConfig.networkType !== newNetworkType) {
-      console.log(`📶 [Preload] Network changed to ${newNetworkType}, refreshing config`);
+      AppLogger.info('network', 'Network changed, refreshing preload config', { newNetworkType });
       invalidateConfigCache();
     }
   });
