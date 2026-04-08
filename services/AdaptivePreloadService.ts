@@ -211,12 +211,21 @@ export async function getPreloadConfig(): Promise<PreloadConfig> {
     return cachedConfig;
   }
 
-  const [netState] = await Promise.all([
-    NetInfo.fetch(),
-  ]);
+  // NetInfo.fetch() can throw when the native module isn't linked (e.g., after
+  // an OTA update before a native rebuild). If it fails, fall back to assuming
+  // cellular — this applies conservative preload limits rather than
+  // aggressively over-preloading on an unknown network.
+  let netState: NetInfoState | null = null;
+  try {
+    netState = await NetInfo.fetch();
+  } catch (error) {
+    AppLogger.warn('network', 'NetInfo.fetch() failed in preload config, assuming cellular', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   const tier = detectDeviceTier();
-  const networkType = detectNetworkType(netState);
+  const networkType: NetworkType = netState ? detectNetworkType(netState) : 'cellular';
   const baseConfig = TIER_CONFIGS[tier];
 
   // Apply network multiplier for cellular
@@ -357,31 +366,20 @@ export async function preloadVideos(
   let iosCellularHlsPreloaded = 0;
 
   for (const url of newUrls) {
+    const isHLS = isHLSVideo(url);
+    const canCache = canCacheVideo(url);
+    const isIosCellularHls = isHLS && Platform.OS === 'ios' && config.networkType === 'cellular';
+
+    // AFF-616: On iOS + cellular, preload the first 1-2 HLS videos to
+    // eliminate the cold-start spinner, then skip the rest to keep data
+    // usage minimal. HLS still can't be persistently cached on iOS, but
+    // initial segments will be buffered in-memory by the player.
+    if (isIosCellularHls && iosCellularHlsPreloaded >= IOS_CELLULAR_HLS_PRELOAD_LIMIT) {
+      hlsSkipped++;
+      continue;
+    }
+
     try {
-      const isHLS = isHLSVideo(url);
-      const canCache = canCacheVideo(url);
-
-      // AFF-616: On iOS + cellular, preload the first 1-2 HLS videos to
-      // eliminate the cold-start spinner, then skip the rest to keep data
-      // usage minimal. HLS still can't be persistently cached on iOS, but
-      // initial segments will be buffered in-memory by the player.
-      if (isHLS && Platform.OS === 'ios' && config.networkType === 'cellular') {
-        if (iosCellularHlsPreloaded >= IOS_CELLULAR_HLS_PRELOAD_LIMIT) {
-          hlsSkipped++;
-          AppLogger.info('video', 'Skipping HLS on iOS cellular (limit reached)', {
-            limit: IOS_CELLULAR_HLS_PRELOAD_LIMIT,
-            url: url.substring(0, 80),
-          });
-          continue;
-        }
-        iosCellularHlsPreloaded++;
-        AppLogger.info('video', 'Preloading HLS on iOS cellular', {
-          count: iosCellularHlsPreloaded,
-          limit: IOS_CELLULAR_HLS_PRELOAD_LIMIT,
-          url: url.substring(0, 80),
-        });
-      }
-
       // Create player with appropriate caching setting
       const player = createVideoPlayer({
         uri: url,
@@ -402,6 +400,13 @@ export async function preloadVideos(
       state.videoPlayers.set(url, player);
       state.preloadedVideos.add(url);
       successCount++;
+
+      // Only increment the iOS cellular HLS counter after the player was
+      // actually created — otherwise a throwing createVideoPlayer() could
+      // consume the limit without preloading anything, defeating AFF-616.
+      if (isIosCellularHls) {
+        iosCellularHlsPreloaded++;
+      }
     } catch (error) {
       AppLogger.error('video', 'Video preload failed', { url: url.substring(0, 80) }, error);
     }
@@ -411,6 +416,8 @@ export async function preloadVideos(
     successCount,
     total: newUrls.length,
     hlsSkipped,
+    iosCellularHlsPreloaded,
+    iosCellularHlsLimit: IOS_CELLULAR_HLS_PRELOAD_LIMIT,
     totalPreloaded: state.preloadedVideos.size,
   });
 
@@ -434,7 +441,9 @@ export function releaseVideoPreloads(urls?: string[]): void {
 
       // Pause synchronously to stop generating new native events
       try { player.pause(); } catch (err) {
-        AppLogger.warn('video', 'player.pause() failed before deferred release', { error: String(err) });
+        AppLogger.warn('video', 'player.pause() failed before deferred release', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       playersToRelease.push(player);
@@ -447,7 +456,9 @@ export function releaseVideoPreloads(urls?: string[]): void {
     setTimeout(() => {
       for (const player of playersToRelease) {
         try { player.release(); } catch (err) {
-          AppLogger.warn('video', 'player.release() failed (deferred 50ms)', { error: String(err) });
+          AppLogger.warn('video', 'player.release() failed (deferred 50ms)', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
       AppLogger.info('video', 'Released video players (deferred)', { count: playersToRelease.length });
@@ -531,18 +542,30 @@ export function clearAllPreloads(): void {
 }
 
 /**
- * Setup network change listener to invalidate config cache
+ * Setup network change listener to invalidate config cache.
+ *
+ * NetInfo.addEventListener() can throw when the native module isn't linked
+ * (e.g., after an OTA update). In that case we log and return a no-op
+ * unsubscribe so the caller's useEffect cleanup doesn't crash.
  */
 export function setupNetworkListener(): () => void {
-  const unsubscribe = NetInfo.addEventListener((netState) => {
-    const newNetworkType = detectNetworkType(netState);
-    if (cachedConfig && cachedConfig.networkType !== newNetworkType) {
-      AppLogger.info('network', 'Network changed, refreshing preload config', { newNetworkType });
-      invalidateConfigCache();
-    }
-  });
-
-  return unsubscribe;
+  try {
+    return NetInfo.addEventListener((netState) => {
+      const newNetworkType = detectNetworkType(netState);
+      if (cachedConfig && cachedConfig.networkType !== newNetworkType) {
+        AppLogger.info('network', 'Network changed, refreshing preload config', { newNetworkType });
+        invalidateConfigCache();
+      }
+    });
+  } catch (error) {
+    AppLogger.error(
+      'network',
+      'NetInfo listener setup failed, preload config will not refresh on network change',
+      {},
+      error,
+    );
+    return () => {}; // no-op unsubscribe
+  }
 }
 
 // Default export for convenience
