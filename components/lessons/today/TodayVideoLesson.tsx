@@ -57,11 +57,18 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
   shouldLoop,
   onStatusUpdate,
 }) => {
+  // Auto-detect HLS for cross-platform compatibility (Android ExoPlayer needs explicit hint)
+  const isHLS = useMemo(
+    () => !!(videoUrl?.includes('.m3u8') || videoUrl?.includes('/hls/') || videoUrl?.includes('format=m3u8')),
+    [videoUrl]
+  );
+
   const videoSource: VideoSource = useMemo(
     () => ({
       uri: videoUrl,
+      contentType: isHLS ? 'hls' : 'progressive',
     }),
-    [videoUrl]
+    [videoUrl, isHLS]
   );
 
   // Performance tracking refs
@@ -102,7 +109,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
             content_size_bytes: speedResult.bytesDownloaded,
             load_time_ms: speedResult.durationMs,
             media_type: 'video',
-            content_type: 'hls',
+            content_type: isHLS ? 'hls' : 'progressive',
             measurement_method: 'active',
             cdn_domain: cdnDomain,
           });
@@ -111,7 +118,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
     } else {
       player.pause();
     }
-  }, [isActive, player, shouldLoop, videoUrl]);
+  }, [isActive, player, shouldLoop, videoUrl, isHLS]);
 
   // Track video load time + speed test on first readyToPlay
   useEffect(() => {
@@ -121,13 +128,13 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
       analyticsService.trackVideoLoadTime({
         load_time_ms: loadTimeMs,
         video_url: videoUrl,
-        content_type: 'hls',
+        content_type: isHLS ? 'hls' : 'progressive',
         cdn_domain: cdnDomain,
         initial_speed_mbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps,
       });
       hasTrackedLoadTimeRef.current = true;
     }
-  }, [status, videoUrl]);
+  }, [status, videoUrl, isHLS]);
 
   // Status updates for progress tracking
   useEffect(() => {
