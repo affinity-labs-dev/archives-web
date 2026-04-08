@@ -13,6 +13,7 @@ import { useDeviceHealthMonitor } from "@/hooks/useDeviceHealthMonitor";
 import DevHealthOverlay from "@/components/lessons/DevHealthOverlay";
 import { analyticsService } from "@/services/AnalyticsService";
 import { networkPerformanceService } from "@/services/NetworkPerformanceService";
+import AppLogger from "@/services/AppLogger";
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   Animated,
@@ -58,10 +59,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
   onStatusUpdate,
 }) => {
   // Auto-detect HLS for cross-platform compatibility (Android ExoPlayer needs explicit hint)
-  const isHLS = useMemo(
-    () => !!(videoUrl?.includes('.m3u8') || videoUrl?.includes('/hls/') || videoUrl?.includes('format=m3u8')),
-    [videoUrl]
-  );
+  const isHLS = videoUrl?.includes('.m3u8') || videoUrl?.includes('/hls/') || videoUrl?.includes('format=m3u8');
 
   const videoSource: VideoSource = useMemo(
     () => ({
@@ -74,6 +72,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
   // Performance tracking refs
   const playerCreatedAtRef = useRef<number>(Date.now());
   const hasTrackedLoadTimeRef = useRef(false);
+  const hasTrackedErrorRef = useRef(false);
 
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = shouldLoop;
@@ -114,7 +113,11 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
             cdn_domain: cdnDomain,
           });
         }
-      }).catch(() => {});
+      }).catch((error) => {
+        AppLogger.warn('network', 'Speed test failed in TodayVideoItem', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     } else {
       player.pause();
     }
@@ -133,6 +136,25 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
         initial_speed_mbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps,
       });
       hasTrackedLoadTimeRef.current = true;
+    }
+  }, [status, videoUrl, isHLS]);
+
+  // Track video player errors (matches VideoPlayer.tsx pattern)
+  useEffect(() => {
+    if (status === 'error' && !hasTrackedErrorRef.current) {
+      const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+      AppLogger.error('video', 'TodayVideoItem player error', {
+        videoUrl: videoUrl?.substring(0, 80),
+        isHLS,
+        cdnDomain,
+      });
+      analyticsService.trackCDNError({
+        media_type: 'video',
+        url: videoUrl,
+        cdn_domain: cdnDomain,
+        error_message: 'today_video_load_error',
+      });
+      hasTrackedErrorRef.current = true;
     }
   }, [status, videoUrl, isHLS]);
 
