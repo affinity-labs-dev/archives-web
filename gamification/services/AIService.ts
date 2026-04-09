@@ -193,7 +193,7 @@ class AIService {
       if (__DEV__) console.log('📝 [AIService] Extracted text:', aiResponse);
       if (__DEV__) console.log('✅ [AIService] Received explanation from Gemini');
 
-      // Parse the response (expecting JSON format)
+      // Parse the response (plain text expected; JSON parsed as legacy fallback)
       return this.parseAIResponse(aiResponse);
     } catch (error) {
       console.error('❌ [AIService] Error getting quiz explanation:', error);

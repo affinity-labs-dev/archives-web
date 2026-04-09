@@ -1,6 +1,6 @@
 // AIQuizExplanation.tsx - AI-powered quiz explanation component
 // Premium users: batch-fetches all explanations in a single API call
-// Free users: fetches Q1 only, shows faded preview + paywall overlay for Q2-Q5
+// Free users: fetches Q1 only, shows full Q1 + ghosted Q2 peek + paywall card for remaining questions
 // Includes 15s timeout with retry CTA (max 2 retries)
 
 import { Question } from '@/components/shared/types';
@@ -314,7 +314,7 @@ export default function AIQuizExplanation({
           userLevel: 'intermediate',
         });
       } else {
-        // Free: only fetch Q1 (Q2-Q5 are behind the paywall, no need to call the API for them)
+        // Free: only fetch Q1 (remaining questions are behind the paywall)
         const q1 = questions[0];
         const q1UserAnswerIndex = userAnswers[0];
         const q1CorrectIndex = q1.answers.findIndex((a) => a.is_correct);
@@ -494,7 +494,7 @@ export default function AIQuizExplanation({
               {/* Ghosted Q2 peek to hint more content behind paywall */}
               {explanations[1] && (
                 <View style={styles.ghostPreviewWrapper} pointerEvents="none">
-                  <ExplanationCard item={{ ...explanations[1], aiExplanation: undefined, loading: false }} />
+                  <ExplanationCard item={{ ...explanations[1], aiExplanation: undefined, loading: false, error: undefined }} />
                 </View>
               )}
 
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
 
-  // Paywall card sits below the fade
+  // Paywall card sits below the ghosted Q2 preview
   paywallCard: {
     backgroundColor: ArchivesTheme.colors.creamWhite ?? '#FDFCF9',
     borderRadius: 20,
