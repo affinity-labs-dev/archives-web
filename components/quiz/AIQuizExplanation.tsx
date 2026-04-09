@@ -8,7 +8,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import { aiService } from '@/gamification';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { analyticsService } from '@/services/AnalyticsService';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
@@ -485,20 +485,18 @@ export default function AIQuizExplanation({
               ))}
             </ScrollView>
           ) : (
-            // ── 🔒 FREE: show Q1 partially faded + paywall ───────────────
+            // ── 🔒 FREE: full Q1 + ghosted Q2 peek + paywall ────────────
             <View style={styles.paywallWrapper}>
 
-              {/* Q1 card — clipped to ~3 lines height */}
-              <View style={styles.previewClip} pointerEvents="none">
-                {explanations[0] && <ExplanationCard item={explanations[0]} />}
-              </View>
+              {/* Q1 card — fully visible */}
+              {explanations[0] && <ExplanationCard item={explanations[0]} />}
 
-              {/* Fade gradient over the preview */}
-              <LinearGradient
-                colors={['transparent', 'rgba(255,255,255,0.92)', '#ffffff']}
-                style={styles.previewFade}
-                pointerEvents="none"
-              />
+              {/* Ghosted Q2 peek to hint more content behind paywall */}
+              {explanations[1] && (
+                <View style={styles.ghostPreviewWrapper} pointerEvents="none">
+                  <ExplanationCard item={{ ...explanations[1], aiExplanation: undefined, loading: false }} />
+                </View>
+              )}
 
               {/* Paywall card */}
               <Animated.View
@@ -517,14 +515,9 @@ export default function AIQuizExplanation({
                   },
                 ]}
               >
-                {/* Lock badge */}
-                <View style={styles.lockBadge}>
-                  <MaterialIcons name="lock" size={24} color={ArchivesTheme.colors.persianOrange} />
-                </View>
-
                 <Text style={styles.paywallTitle}>Unlock All Explanations</Text>
                 <Text style={styles.paywallSubtitle}>
-                  You are seeing a preview of Q1. Upgrade to get personalized insights for all {questions.length} questions.
+                  You are seeing a preview of Q1. Upgrade to get explanations for all {questions.length} questions.
                 </Text>
 
                 {/* Feature rows */}
@@ -545,9 +538,14 @@ export default function AIQuizExplanation({
                   onPress={handleShowPaywall}
                   activeOpacity={0.85}
                 >
-                  <View style={styles.ctaContent}>
+                  <LinearGradient
+                    colors={['#D1A659', '#B88C47']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.ctaGradient}
+                  >
                     <Text style={styles.ctaText}>Upgrade to Premium</Text>
-                  </View>
+                  </LinearGradient>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -663,32 +661,18 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
-  // Clips the preview content to ~3 lines of Q1
-  previewClip: {
-    maxHeight: 220,   // ← tweak this to show more/less of Q1
+  // Ghosted Q2 preview — clipped and dimmed to hint at more content
+  ghostPreviewWrapper: {
+    maxHeight: 70,
     overflow: 'hidden',
-  },
-
-  // Ghost card (Q2) shown dimly so user knows there's more
-  ghostCard: {
-    opacity: 0.25,
-    marginTop: 4,
-  },
-
-  // Gradient fade over the preview
-  previewFade: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 100,
+    opacity: 0.3,
   },
 
   // Paywall card sits below the fade
   paywallCard: {
     backgroundColor: ArchivesTheme.colors.creamWhite ?? '#FDFCF9',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 28,
     marginTop: 8,
     alignItems: 'center',
     borderWidth: 1,
@@ -698,64 +682,53 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
-  },
-  lockBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(201,145,81,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
+    gap: 16,
   },
   paywallTitle: {
     fontFamily: 'DM Sans',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'center',
-    marginBottom: 8,
   },
   paywallSubtitle: {
     fontFamily: 'DM Sans',
     fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
+    color: '#666666',
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 16,
+    lineHeight: 21,
   },
   featureBox: {
     alignSelf: 'stretch',
     backgroundColor: 'white',
     borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 18,
-    gap: 6,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#E0D9C7',
+    gap: 12,
   },
   featureRow: {
     fontFamily: 'DM Sans',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    color: ArchivesTheme.colors.mutedNavy,
+    color: '#404040',
     lineHeight: 20,
   },
   ctaButton: {
     width: '100%',
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
-    marginBottom: 10,
   },
-  ctaContent: {
-    paddingVertical: 15,
+  ctaGradient: {
+    paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: ArchivesTheme.colors.persianOrange,
   },
   ctaText: {
     fontFamily: 'DM Sans',
     color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
     letterSpacing: 0.2,
   },
   restoreText: {

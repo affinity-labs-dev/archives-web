@@ -213,44 +213,48 @@ class AIService {
 
     if (isCorrect) {
       // Prompt for correct answers - reinforce and deepen understanding
-      return `You're explaining ${eraName} history to a user who answered correctly.
+      return `You're an educational history tutor explaining ${eraName} history to a curious learner who answered correctly.
 
 Question: ${questionText}
 Their answer: ${correctAnswer} ✓ (Correct)
 
-Write a helpful explanation in 3-4 sentences that:
-1. Reinforces why this answer is correct
-2. Provides deeper historical context or an interesting related fact
-3. Helps them understand the significance of this concept
+Write a thorough explanation in 3-5 sentences that:
+1. Reinforces why this answer is correct with specific historical evidence
+2. Provides deeper historical context, connections, or an interesting related fact
+3. Helps them understand the broader significance of this concept in ${eraName} history
+
+TONE: Educational and warm — like a knowledgeable tutor who genuinely enjoys the subject. You can be encouraging through the richness of your explanation, but avoid generic praise like "Great job!" or "You got it right!"
 
 STRICT RULES:
 - NEVER start with "Actually", "Well", "So", or similar filler words
 - Start directly with the historical explanation
-- NO praise like "Great job!" or "You got it right!" - they already know it's correct
-- End with the historical insight, not fluff
-- Be concise and informative only
+- End with a meaningful historical insight, not fluff
+- Give enough depth that the learner feels they truly understand the topic
 
-Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
+Write in plain text (NOT JSON).`;
     } else {
-      // Prompt for incorrect answers - explain the mistake
-      return `You're explaining ${eraName} history to a user.
+      // Prompt for incorrect answers - explain the mistake and correct answer
+      return `You're an educational history tutor explaining ${eraName} history to a curious learner who got this question wrong.
 
 Question: ${questionText}
-They answered: ${userAnswer}
+They answered: ${userAnswer} ✗ (Incorrect)
 Correct answer: ${correctAnswer}
 
-Write a helpful explanation in 3-4 sentences that:
-1. Explains why the correct answer is right
-2. Adds one interesting historical fact or context
+Write a thorough explanation in 3-5 sentences that:
+1. Explains why "${correctAnswer}" is the correct answer with specific historical evidence
+2. Briefly clarifies why "${userAnswer}" is not correct — what makes it a common or understandable mistake
+3. Adds an interesting historical fact or context that helps the concept stick
+
+TONE: Educational and encouraging — like a tutor helping someone learn from a mistake. Be warm but never condescending. The goal is to make the learner feel smarter, not embarrassed.
 
 STRICT RULES:
 - NEVER start with "Actually", "Well", "So", or similar filler words
 - Start directly with the historical explanation
-- NO motivational phrases, encouragement, or "keep learning" type endings
-- End with the historical fact, not fluff
-- Be concise and informative only
+- Do NOT say things like "Don't worry" or "Keep trying" — teach, don't console
+- End with a meaningful historical insight, not motivational fluff
+- Give enough depth that the learner genuinely understands why the correct answer is right
 
-Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
+Write in plain text (NOT JSON).`;
     }
   }
 
@@ -314,21 +318,24 @@ Write in plain text (NOT JSON). Just the facts, no cheerleading.`;
       }
     }
 
-    return `You are explaining ${eraName}${adventureName ? ` (${adventureName})` : ''} history to a user who just completed a quiz.
-Provide a brief explanation for each question below.
+    return `You are an educational history tutor explaining ${eraName}${adventureName ? ` (${adventureName})` : ''} history to a curious learner who just completed a quiz.
+Provide a thorough, educational explanation for each question below.
 ${questionsBlock}
-For each question, write 3-4 sentences:
-- If the student answered correctly: reinforce why that answer is right and add deeper historical context
-- If the student answered incorrectly: explain why the correct answer is right and add an interesting historical fact
+For each question, write 3-5 sentences:
+- If the student answered correctly: reinforce why that answer is right with specific historical evidence, and add deeper historical context or connections
+- If the student answered incorrectly: explain why the correct answer is right, briefly clarify why their chosen answer was wrong, and add an interesting historical fact that helps the concept stick
+
+TONE: Educational and warm — like a knowledgeable tutor who genuinely enjoys the subject. Be encouraging through the richness of your explanations, but avoid generic praise or consolation.
 
 STRICT RULES:
 - NEVER start any explanation with "Actually", "Well", "So", or similar filler words
-- Start directly with the historical explanation
-- NO praise, motivational phrases, encouragement, or "keep learning" endings
-- Be concise and informative only
+- Start each explanation directly with the historical content
+- Do NOT say things like "Great job!", "Don't worry", or "Keep trying"
+- End each explanation with a meaningful historical insight, not fluff
+- Give enough depth that the learner genuinely understands each topic
 
 Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 first, Q2 second, etc.):
-[{ "explanation": "3-4 sentence explanation" }, { "explanation": "..." }, ...]`;
+[{ "explanation": "3-5 sentence explanation" }, { "explanation": "..." }, ...]`;
   }
 
   /**
@@ -361,7 +368,7 @@ Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 f
         model: this.textModel,
         contents: [{ text: prompt }],
         config: {
-          maxOutputTokens: 2048,
+          maxOutputTokens: 3072,
           temperature: 1.0,
           thinkingConfig: {
             thinkingLevel: ThinkingLevel.LOW,
