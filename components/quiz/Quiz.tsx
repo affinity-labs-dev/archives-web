@@ -56,8 +56,6 @@ interface QuizProps {
   // Today mode UI - floating header with back button and progress
   progress?: number;           // Today progress percentage (0-100)
   showTodayHeader?: boolean;   // Show floating back button and progress bar
-  // Callback to close parent modal before opening AI chat (fixes modal-on-modal issue)
-  onChatToLearn?: (hiddenMessage: string) => void;
 }
 
 // MCQ Option Button Design
@@ -301,7 +299,6 @@ export default function Quiz({
   onQuizResults,
   progress,
   showTodayHeader = false,
-  onChatToLearn,
 }: QuizProps) {
   const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
   const { reportQuizComplete } = useGamificationOrchestrator();
@@ -627,7 +624,6 @@ export default function Quiz({
         userAnswers={userAnswers}
         isToday={isToday}
         moduleTitle={contentItem.thumbnail_title || undefined}
-        onChatToLearn={onChatToLearn}
       />
     );
   }
