@@ -667,14 +667,17 @@ export function AIProvider({ children }: AIProviderProps) {
     }
   }, [moduleProgress, currentContext.eraId, calculateTotalXP, getStreak, getXPByEra]);
 
-  // Refresh knowledge context and set up RAG tools when chat opens or progress changes
+  // Refresh knowledge context and set up RAG tools when chat opens or progress changes.
+  // Also fires when a Chat-to-Learn session is queued via pendingHiddenMessage, since
+  // those sessions no longer flip isChatOpen (AFF-626 renders AIChatModal inside
+  // QuizResults without going through the global chat-open flow).
   useEffect(() => {
     const hasProgress = (moduleProgress && moduleProgress.length > 0) || (newEraProgress && newEraProgress.length > 0);
-    if (isChatOpen && hasProgress) {
+    if ((isChatOpen || pendingHiddenMessage) && hasProgress) {
       refreshKnowledgeContext();
       setupRAGContext(); // Set up RAG tools context when chat opens
     }
-  }, [isChatOpen, moduleProgress, newEraProgress, refreshKnowledgeContext, setupRAGContext]);
+  }, [isChatOpen, pendingHiddenMessage, moduleProgress, newEraProgress, refreshKnowledgeContext, setupRAGContext]);
 
   const value: AIContextType = {
     isChatOpen,
