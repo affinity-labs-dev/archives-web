@@ -295,6 +295,8 @@ PODS:
   - ExpoWebBrowser (15.0.10):
     - ExpoModulesCore
   - EXStructuredHeaders (5.0.0)
+  - ExtensionStorage (1.0.0):
+    - ExpoModulesCore
   - EXUpdates (29.0.15):
     - EASClient
     - EXManifests
@@ -360,6 +362,8 @@ PODS:
   - libwebp/sharpyuv (1.5.0)
   - libwebp/webp (1.5.0):
     - libwebp/sharpyuv
+  - LiveActivity (0.1.0):
+    - ExpoModulesCore
   - openiap (1.2.4)
   - PostHog (3.42.1)
   - posthog-react-native-session-replay (1.5.1):
@@ -2598,10 +2602,12 @@ DEPENDENCIES:
   - ExpoVideo (from `../node_modules/expo-video/ios`)
   - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
   - EXStructuredHeaders (from `../node_modules/expo-structured-headers/ios`)
+  - "ExtensionStorage (from `../node_modules/@bacons/apple-targets/ios`)"
   - EXUpdates (from `../node_modules/expo-updates/ios`)
   - EXUpdatesInterface (from `../node_modules/expo-updates-interface/ios`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
+  - LiveActivity (from `../modules/live-activity/ios`)
   - posthog-react-native-session-replay (from `../node_modules/posthog-react-native-session-replay`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../node_modules/react-native/Libraries/Required`)
@@ -2797,6 +2803,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-web-browser/ios"
   EXStructuredHeaders:
     :path: "../node_modules/expo-structured-headers/ios"
+  ExtensionStorage:
+    :path: "../node_modules/@bacons/apple-targets/ios"
   EXUpdates:
     :path: "../node_modules/expo-updates/ios"
   EXUpdatesInterface:
@@ -2806,6 +2814,8 @@ EXTERNAL SOURCES:
   hermes-engine:
     :podspec: "../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
     :tag: hermes-2025-07-07-RNv0.81.0-e0fc67142ec0763c6b6153ca2bf96df815539782
+  LiveActivity:
+    :path: "../modules/live-activity/ios"
   posthog-react-native-session-replay:
     :path: "../node_modules/posthog-react-native-session-replay"
   RCTDeprecation:
@@ -3020,6 +3030,7 @@ SPEC CHECKSUMS:
   ExpoVideo: 6907c4872886dce2720d3af20782eb6ee7734110
   ExpoWebBrowser: 17b064c621789e41d4816c95c93f429b84971f52
   EXStructuredHeaders: c951e77f2d936f88637421e9588c976da5827368
+  ExtensionStorage: 5796de20bf181317c376d693fedb64c6781a33ba
   EXUpdates: f20abbc8a9f4e150656fe88126d52f52d4e7793f
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734
   FBAEMKit: 2a6b529993713c185b02bc36f8c91129bf78dfb0
@@ -3033,6 +3044,7 @@ SPEC CHECKSUMS:
   libavif: 5f8e715bea24debec477006f21ef9e95432e254d
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
+  LiveActivity: eac92c6546522b02f945523d716c29571d772148
   openiap: bd45c90b44a0fb4bebaa9c2501598d76c253eb0f
   PostHog: 148d2d62bac68c6da50a2325030b3fb2d6bca95b
   posthog-react-native-session-replay: 4683018ee6a60511c3490255ffdd68867f53df85
@@ -3134,6 +3146,6 @@ SPEC CHECKSUMS:
   SwiftUIIntrospect: fee9aa07293ee280373a591e1824e8ddc869ba5d
   Yoga: 65431d43277b661ebc7289c6c5d82f64ce42cfe0
 
-PODFILE CHECKSUM: fd49048fe184ec37393ceea9f8aafa1c4fe91e16
+PODFILE CHECKSUM: 093b8b492c223c8a44d304eb4d4409f36b8ca328
 
 COCOAPODS: 1.16.2

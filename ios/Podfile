@@ -61,6 +61,7 @@ target 'Archives' do
   end
 end
 
+
 # apple-targets-extension-loader -- Dynamic loading of target configurations
 Dir.glob(File.join(__dir__, '..', 'targets', '**', 'pods.rb')).each do |target_file|
   target_name = File.basename(File.dirname(target_file))
