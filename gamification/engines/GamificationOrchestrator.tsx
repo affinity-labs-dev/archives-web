@@ -1674,7 +1674,7 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         // Live Activity — transition StreakGuard to .saved state
         // This ends the expiring countdown and shows "Streak saved!" banner
         liveActivityManager.onStreakSaved(newStreak).catch((err) => {
-          console.error('⚠️ [Orchestrator] LiveActivity saved transition failed:', err);
+          AppLogger.error('gamification', 'LiveActivity saved transition failed', {}, err);
         });
 
         // Queue celebration
@@ -1825,41 +1825,50 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   // Checks conditions (time >= 21:00, 0 cards today, streak >= 3) and starts
   // StreakGuard activity if appropriate. Runs on every foreground event.
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== 'ios' || !isProgressInitialized) return;
 
-    // Initialize manager on mount (restores persisted activity, cleans orphans)
+    // Initialize manager (restores persisted activity, cleans orphans)
     liveActivityManager.initialize();
 
     const handleAppStateForLiveActivity = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
-        const cloudStreak = getCloudStreak();
-        const today = new Date().toISOString().split('T')[0];
-        const hasCompletedToday = cloudStreak.lastActiveDate === today && cloudStreak.currentStreak > 0;
+        try {
+          const cloudStreak = getCloudStreak();
+          const today = new Date().toISOString().split('T')[0];
+          const hasCompletedToday = cloudStreak.lastActiveDate === today && cloudStreak.currentStreak > 0;
 
-        liveActivityManager.checkAndStartStreakGuard(
-          cloudStreak.currentStreak,
-          hasCompletedToday,
-          cloudStreak.lastActiveDate || today
-        );
+          liveActivityManager.checkAndStartStreakGuard(
+            cloudStreak.currentStreak,
+            hasCompletedToday,
+            cloudStreak.lastActiveDate || today
+          );
+        } catch (err) {
+          // getCloudStreak can throw if progress reloading — safe to skip this cycle
+          AppLogger.warn('gamification', 'LiveActivity skipping foreground check', { error: String(err) });
+        }
       }
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateForLiveActivity);
 
     // Also check on initial mount (user might have opened app after 9 PM)
-    const cloudStreak = getCloudStreak();
-    const today = new Date().toISOString().split('T')[0];
-    const hasCompletedToday = cloudStreak.lastActiveDate === today && cloudStreak.currentStreak > 0;
-    liveActivityManager.checkAndStartStreakGuard(
-      cloudStreak.currentStreak,
-      hasCompletedToday,
-      cloudStreak.lastActiveDate || today
-    );
+    try {
+      const cloudStreak = getCloudStreak();
+      const today = new Date().toISOString().split('T')[0];
+      const hasCompletedToday = cloudStreak.lastActiveDate === today && cloudStreak.currentStreak > 0;
+      liveActivityManager.checkAndStartStreakGuard(
+        cloudStreak.currentStreak,
+        hasCompletedToday,
+        cloudStreak.lastActiveDate || today
+      );
+    } catch (err) {
+      AppLogger.warn('gamification', 'LiveActivity skipping initial check', { error: String(err) });
+    }
 
     return () => {
       subscription?.remove();
     };
-  }, [getCloudStreak]);
+  }, [getCloudStreak, isProgressInitialized]);
 
   return (
     <GamificationOrchestratorContext.Provider
