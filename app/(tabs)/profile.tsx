@@ -789,6 +789,12 @@ export default function ProfileTab() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.testButton}
+          onPress={() => router.push('/live-activity-test')}
+        >
+          <Text style={styles.testButtonText}>LA</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.testButton}
           onPress={() => clearStreakAsyncStorage()}
         >
           <Ionicons name="trash-outline" size={24} color={ArchivesTheme.colors.creamWhite} />
