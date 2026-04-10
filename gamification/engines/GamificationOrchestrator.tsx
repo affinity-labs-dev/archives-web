@@ -26,7 +26,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Modal, Platform } from 'react-native';
 import { liveActivityManager } from '@/services/LiveActivityManager';
-import { registerPushToStartTokens, addPushToStartTokenListener } from '@/modules/live-activity';
 import { calculateTotalXP as calculateTotalXPUtil, useGamifiedProgress } from './GamifiedProgress';
 
 // Import celebration screens
@@ -1831,16 +1830,6 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
     // Initialize manager on mount (restores persisted activity, cleans orphans)
     liveActivityManager.initialize();
 
-    // Register push-to-start token listener (iOS 17.2+)
-    registerPushToStartTokens().catch(() => {
-      // Expected to fail on iOS < 17.2 — silent
-    });
-    const tokenSub = addPushToStartTokenListener((event) => {
-      console.log('🔑 [LiveActivity] Push-to-start token received:', event.token.substring(0, 16) + '...');
-      // TODO: POST token to Supabase via AffinityNotificationService or direct API call
-      // AffinityNotificationService.registerLiveActivityToken(event.token, event.activityType);
-    });
-
     const handleAppStateForLiveActivity = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         const cloudStreak = getCloudStreak();
@@ -1869,7 +1858,6 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
     return () => {
       subscription?.remove();
-      tokenSub?.remove();
     };
   }, [getCloudStreak]);
 
