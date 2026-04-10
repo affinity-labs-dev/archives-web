@@ -41,12 +41,6 @@ struct StreakSavedBanner: View {
           .foregroundColor(.streakSavedGreen)
           .lineLimit(1)
           .minimumScaleFactor(0.6)
-
-        Text("Keep it going \u{2014} complete today\u{2019}s quest")
-          .font(.system(size: 13, weight: .medium))
-          .foregroundColor(.white.opacity(0.7))
-          .lineLimit(1)
-          .minimumScaleFactor(0.8)
       }
       .padding(.leading, 20)
       .padding(.top, 18)
