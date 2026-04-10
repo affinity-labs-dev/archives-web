@@ -20,16 +20,19 @@ struct StreakSavedBanner: View {
       // Layer 1: Flat dark gray background (no gradient — calm success tone)
       Color.streakSavedBackground
 
-      // Layer 2: Celebration mascot (pom-poms), right-aligned
-      HStack {
+      // Layer 2: Celebration mascot (pom-poms), bottom-right aligned
+      VStack {
         Spacer()
-        Image("CelebrationMascot")
-          .resizable()
-          .aspectRatio(contentMode: .fit)
-          .frame(width: 129, height: 117)
+        HStack {
+          Spacer()
+          Image("CelebrationMascot")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 129, height: 117)
+        }
       }
 
-      // Layer 3: Text content, left-aligned
+      // Layer 3: Text content, top-left aligned with bottom spacer to push content up
       VStack(alignment: .leading, spacing: 6) {
         Text("🔥 Streak saved!")
           .font(.system(size: 17, weight: .bold))
@@ -41,10 +44,11 @@ struct StreakSavedBanner: View {
           .foregroundColor(.streakSavedGreen)
           .lineLimit(1)
           .minimumScaleFactor(0.6)
+
+        Spacer()
       }
       .padding(.leading, 20)
       .padding(.top, 18)
-      .padding(.bottom, 18)
       .padding(.trailing, 110)
     }
     .dynamicTypeSize(...DynamicTypeSize.xxLarge)
