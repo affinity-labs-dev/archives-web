@@ -8,6 +8,8 @@ export {
   updateDailyStory,
   endDailyStory,
   endAllActivities,
+  registerPushToStartTokens,
+  addPushToStartTokenListener,
 } from './src/LiveActivityModule';
 
 export type {
@@ -18,4 +20,5 @@ export type {
   StreakGuardUpdateParams,
   DailyStoryStartParams,
   DailyStoryUpdateParams,
+  PushToStartTokenEvent,
 } from './src/LiveActivityModule';

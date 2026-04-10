@@ -37,6 +37,11 @@ public class LiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("LiveActivity")
 
+    // MARK: Events
+    // Push-to-start token events emitted to JS. JS handles POST to backend.
+    // Pattern matches expo-notifications: native emits token, JS calls API.
+    Events("onPushToStartToken")
+
     // MARK: Status
 
     /// Returns whether the user has enabled Live Activities for this app.
@@ -300,6 +305,39 @@ public class LiveActivityModule: Module {
         result.append(["id": activity.id, "type": "DailyStory"])
       }
       return result
+    }
+
+    // MARK: Push-to-start token registration
+
+    /// Start listening for push-to-start tokens for StreakGuard activities.
+    /// When iOS provides a token, this emits an 'onPushToStartToken' event to JS.
+    /// JS is responsible for POSTing the token to the backend.
+    ///
+    /// Architecture rationale: keeping backend API calls in JS means:
+    /// - Same AffinityNotificationService pattern already used for push tokens
+    /// - Hot-reloadable debugging (no native rebuild for API fixes)
+    /// - Consistent error handling with rest of JS codebase
+    AsyncFunction("registerPushToStartTokens") { () async throws in
+      guard #available(iOS 17.2, *) else {
+        throw LiveActivityError.unsupported
+      }
+
+      // Listen for StreakGuard push-to-start tokens
+      Task {
+        for await tokenData in Activity<StreakGuardAttributes>.pushToStartTokenUpdates {
+          let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
+          NSLog("[LiveActivity] Received push-to-start token for StreakGuard: \(tokenString.prefix(16))...")
+
+          // Emit to JS — JS will POST to backend
+          self.sendEvent("onPushToStartToken", [
+            "token": tokenString,
+            "activityType": "StreakGuard",
+            "attributeType": "StreakGuardAttributes",
+          ])
+        }
+      }
+
+      NSLog("[LiveActivity] Push-to-start token listener registered for StreakGuard")
     }
   }
 }

@@ -217,3 +217,45 @@ export async function endAllActivities(): Promise<void> {
   if (!LiveActivityNative) return;
   return LiveActivityNative.endAllActivities();
 }
+
+// MARK: - Push-to-start token events
+
+export interface PushToStartTokenEvent {
+  /** Hex-encoded push-to-start token string */
+  token: string;
+  /** Which activity type this token is for */
+  activityType: 'StreakGuard' | 'DailyStory';
+  /** The Swift AttributeType name (for APNs payload) */
+  attributeType: string;
+}
+
+/**
+ * Start listening for push-to-start tokens (iOS 17.2+).
+ * Native side listens for ActivityKit token updates and emits them to JS.
+ * JS is responsible for POSTing tokens to the backend.
+ *
+ * Architecture: native emits token → JS receives via event → JS calls backend API.
+ * This keeps backend API logic in JS (hot-reloadable, consistent error handling).
+ */
+export async function registerPushToStartTokens(): Promise<void> {
+  if (!LiveActivityNative) return;
+  return LiveActivityNative.registerPushToStartTokens();
+}
+
+/**
+ * Subscribe to push-to-start token events.
+ * Uses the native module directly as event emitter (Expo SDK 54+ pattern).
+ * Call this once at app startup, store the subscription, and remove on cleanup.
+ *
+ * Example:
+ *   const sub = addPushToStartTokenListener((event) => {
+ *     await postTokenToBackend(event.token, event.activityType);
+ *   });
+ *   // Later: sub.remove();
+ */
+export function addPushToStartTokenListener(
+  callback: (event: PushToStartTokenEvent) => void
+): { remove: () => void } {
+  if (!LiveActivityNative) return { remove: () => {} };
+  return LiveActivityNative.addListener('onPushToStartToken', callback);
+}
