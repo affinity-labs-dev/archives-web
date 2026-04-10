@@ -35,6 +35,29 @@ import {
   type ActivityId,
 } from '@/modules/live-activity';
 
+// MARK: - Dev test overrides
+// Set these to true in __DEV__ to bypass trigger conditions for testing.
+// All default to false — production behavior unchanged.
+
+const DEV_OVERRIDES = __DEV__ ? {
+  /** Skip the "time >= 21:00" check — activity can start at any hour */
+  bypassTimeCheck: false,
+  /** Skip the "zero cards completed today" check */
+  bypassCardCheck: false,
+  /** Skip the "streak >= 3" check — works even with streak 0 */
+  bypassStreakCheck: false,
+  /** Override streak count displayed on the banner (null = use real value) */
+  fakeStreakCount: null as number | null,
+  /** Override countdown duration in seconds (null = midnight). 60 = 1 min countdown for quick testing */
+  fakeCountdownSeconds: null as number | null,
+} : {
+  bypassTimeCheck: false,
+  bypassCardCheck: false,
+  bypassStreakCheck: false,
+  fakeStreakCount: null,
+  fakeCountdownSeconds: null,
+};
+
 // MARK: - Constants
 
 const STORAGE_KEY_ACTIVE_STREAK_GUARD = '@live_activity_streak_guard_id';
@@ -47,6 +70,7 @@ const LINGER_SECONDS = 15 * 60; // 15 minutes for saved/failed states
 
 class LiveActivityManager {
   private activeStreakGuardId: ActivityId | null = null;
+  private lastStartedStreak: number = 0; // Track streak count for failed state display
   private midnightTimer: ReturnType<typeof setTimeout> | null = null;
   private initialized = false;
 
@@ -112,28 +136,43 @@ class LiveActivityManager {
   ): Promise<void> {
     if (Platform.OS !== 'ios') return;
 
-    // Already have an active activity
+    // Already have an active activity (tracked in JS memory)
     if (this.activeStreakGuardId) {
-      console.log('🔥 [LiveActivity] StreakGuard already active, skipping');
+      console.log('🔥 [LiveActivity] StreakGuard already active (JS tracked), skipping');
       return;
     }
 
-    // Check all conditions per spec
+    // Also check iOS-side — activity may have been started by push-to-start
+    // (native side, not via JS bridge) so JS doesn't know about it
+    try {
+      const activeOnDevice = await listActiveActivities();
+      const existingStreakGuard = activeOnDevice.find(a => a.type === 'StreakGuard');
+      if (existingStreakGuard) {
+        // Adopt the existing activity so JS can manage it going forward
+        this.activeStreakGuardId = existingStreakGuard.id;
+        console.log('🔥 [LiveActivity] StreakGuard already active (iOS side), adopting:', existingStreakGuard.id);
+        return;
+      }
+    } catch {
+      // listActiveActivities can fail on iOS < 16.2 — continue
+    }
+
+    // Check all conditions per spec (DEV_OVERRIDES bypass individual checks for testing)
     const now = new Date();
     const currentHour = now.getHours();
 
-    if (currentHour < STREAK_GUARD_START_HOUR) {
-      // Before 9 PM — too early
+    if (!DEV_OVERRIDES.bypassTimeCheck && currentHour < STREAK_GUARD_START_HOUR) {
+      console.log('⏰ [LiveActivity] Before 9 PM, skipping');
       return;
     }
 
-    if (hasCompletedAnyCardToday) {
-      // User already completed a card — no urgency
+    if (!DEV_OVERRIDES.bypassCardCheck && hasCompletedAnyCardToday) {
+      console.log('✅ [LiveActivity] Card already completed today, skipping');
       return;
     }
 
-    if (currentStreak < MIN_STREAK_FOR_URGENCY) {
-      // Streak too short — no urgency fatigue for new users
+    if (!DEV_OVERRIDES.bypassStreakCheck && currentStreak < MIN_STREAK_FOR_URGENCY) {
+      console.log('📊 [LiveActivity] Streak too short:', currentStreak, '< ', MIN_STREAK_FOR_URGENCY);
       return;
     }
 
@@ -146,18 +185,26 @@ class LiveActivityManager {
 
     // All conditions met — start the activity
     try {
-      const midnight = new Date();
-      midnight.setHours(24, 0, 0, 0); // Next midnight
-      const endDate = Math.floor(midnight.getTime() / 1000);
+      // Dev overrides for quick testing
+      const displayStreak = DEV_OVERRIDES.fakeStreakCount ?? currentStreak;
+      let endDate: number;
+      if (DEV_OVERRIDES.fakeCountdownSeconds != null) {
+        endDate = Math.floor(Date.now() / 1000) + DEV_OVERRIDES.fakeCountdownSeconds;
+      } else {
+        const midnight = new Date();
+        midnight.setHours(24, 0, 0, 0);
+        endDate = Math.floor(midnight.getTime() / 1000);
+      }
 
       const id = await startStreakGuard({
-        currentStreak,
+        currentStreak: displayStreak,
         streakStartDate,
         state: 'expiring',
         endDate,
       });
 
       this.activeStreakGuardId = id;
+      this.lastStartedStreak = displayStreak;
 
       // Persist for app restart recovery
       const today = new Date().toISOString().split('T')[0];
@@ -185,11 +232,12 @@ class LiveActivityManager {
     if (!this.activeStreakGuardId) return;
 
     try {
-      // Transition to saved state
+      // Transition to saved state — show new streak count (currentStreak + 1)
       await updateStreakGuard({
         id: this.activeStreakGuardId,
         state: 'saved',
-        endDate: 0, // Not meaningful for saved state
+        endDate: 0,
+        currentStreak: newStreakCount,
       });
 
       // End with 15 minute linger
@@ -216,11 +264,12 @@ class LiveActivityManager {
     if (!this.activeStreakGuardId) return;
 
     try {
-      // Transition to failed state
+      // Transition to failed state — keep original streak count (the one that was lost)
       await updateStreakGuard({
         id: this.activeStreakGuardId,
         state: 'failed',
         endDate: 0,
+        currentStreak: this.lastStartedStreak,
       });
 
       // End with 15 minute linger

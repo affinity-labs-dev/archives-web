@@ -79,12 +79,12 @@ public class LiveActivityModule: Module {
       }
 
       let attributes = StreakGuardAttributes(
-        currentStreak: currentStreak,
         streakStartDate: streakStartDate
       )
       let contentState = StreakGuardAttributes.ContentState(
         state: streakState,
-        endDate: endDate
+        endDate: endDate,
+        currentStreak: currentStreak
       )
 
       do {
@@ -105,7 +105,7 @@ public class LiveActivityModule: Module {
 
     /// Updates an existing StreakGuard activity with a new state.
     AsyncFunction("updateStreakGuard") {
-      (id: String, state: String, endDate: Double) async throws in
+      (id: String, state: String, endDate: Double, currentStreak: Int) async throws in
 
       guard #available(iOS 16.2, *) else {
         throw LiveActivityError.unsupported
@@ -121,11 +121,12 @@ public class LiveActivityModule: Module {
 
       let contentState = StreakGuardAttributes.ContentState(
         state: streakState,
-        endDate: endDate
+        endDate: endDate,
+        currentStreak: currentStreak
       )
 
       await activity.update(.init(state: contentState, staleDate: nil))
-      NSLog("[LiveActivity] Updated StreakGuard id=\(id) to state=\(state)")
+      NSLog("[LiveActivity] Updated StreakGuard id=\(id) to state=\(state) streak=\(currentStreak)")
     }
 
     /// Ends a StreakGuard activity, lingering for `dismissInSeconds` before removal.

@@ -98,13 +98,11 @@ struct StreakGuardAttributes: ActivityAttributes {
     /// iOS renders the countdown natively via Text(timerInterval:) without manual updates.
     /// Only meaningful in `.expiring` state; ignored in `.saved` and `.failed`.
     var endDate: Double
+    /// Current streak count — in ContentState (not Attributes) so it can be updated
+    /// when transitioning to `.saved` (currentStreak + 1) without restarting the activity.
+    var currentStreak: Int
   }
 
-  /// Current streak count at the time the activity was started.
-  /// For `.saved` state, this should be updated to the new streak count (currentStreak + 1)
-  /// when the user completes their story.
-  /// For `.failed` state, this is the streak count that was lost.
-  var currentStreak: Int
   /// YYYY-MM-DD when the streak started (for display purposes).
   var streakStartDate: String
 }

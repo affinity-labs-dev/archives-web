@@ -34,6 +34,8 @@ export interface StreakGuardUpdateParams {
   state: StreakState;
   /** Unix epoch seconds (unchanged for most updates, or 0 for terminal states) */
   endDate: number;
+  /** Updated streak count — pass currentStreak + 1 for .saved state */
+  currentStreak: number;
 }
 
 export interface DailyStoryStartParams {
@@ -144,7 +146,7 @@ export async function startStreakGuard(params: StreakGuardStartParams): Promise<
  */
 export async function updateStreakGuard(params: StreakGuardUpdateParams): Promise<void> {
   assertIOS();
-  return LiveActivityNative!.updateStreakGuard(params.id, params.state, params.endDate);
+  return LiveActivityNative!.updateStreakGuard(params.id, params.state, params.endDate, params.currentStreak);
 }
 
 /**

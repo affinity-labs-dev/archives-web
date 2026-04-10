@@ -35,17 +35,17 @@ struct StreakGuardLiveActivity: Widget {
       // Using if/else chain instead of switch — ViewBuilder compatibility.
       if context.state.state == .expiring {
         StreakExpiringBanner(
-          currentStreak: context.attributes.currentStreak,
+          currentStreak: context.state.currentStreak,
           endDate: context.state.endDate
         )
         .activityBackgroundTint(.streakExpiringBackground)
         .activitySystemActionForegroundColor(.streakExpiringTextPrimary)
       } else if context.state.state == .saved {
-        StreakSavedBanner(currentStreak: context.attributes.currentStreak)
+        StreakSavedBanner(currentStreak: context.state.currentStreak)
           .activityBackgroundTint(.streakSavedBackground)
           .activitySystemActionForegroundColor(.white)
       } else {
-        StreakLostBanner(currentStreak: context.attributes.currentStreak)
+        StreakLostBanner(currentStreak: context.state.currentStreak)
           .activityBackgroundTint(.streakExpiringBackground)
           .activitySystemActionForegroundColor(.streakExpiringTextPrimary)
       }
@@ -62,20 +62,20 @@ struct StreakGuardLiveActivity: Widget {
         DynamicIslandExpandedRegion(.bottom) {
           if context.state.state == .expiring {
             StreakExpiringExpandedContent(
-              currentStreak: context.attributes.currentStreak,
+              currentStreak: context.state.currentStreak,
               endDate: context.state.endDate
             )
           } else if context.state.state == .saved {
-            StreakSavedExpandedContent(currentStreak: context.attributes.currentStreak)
+            StreakSavedExpandedContent(currentStreak: context.state.currentStreak)
           } else {
-            StreakLostExpandedContent(currentStreak: context.attributes.currentStreak)
+            StreakLostExpandedContent(currentStreak: context.state.currentStreak)
           }
         }
       } compactLeading: {
         HStack(spacing: 3) {
           Text("🔥")
             .font(.system(size: 14))
-          Text("\(max(1, context.attributes.currentStreak))")
+          Text("\(max(1, context.state.currentStreak))")
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(.white)
         }

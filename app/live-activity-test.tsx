@@ -134,6 +134,7 @@ export default function LiveActivityTestScreen() {
         id: streakGuardId,
         state: 'saved',
         endDate: 0,
+        currentStreak: TEST_STREAK + 1,
       });
       await refreshStatus();
     } catch (error) {
@@ -151,6 +152,7 @@ export default function LiveActivityTestScreen() {
         id: streakGuardId,
         state: 'failed',
         endDate: 0,
+        currentStreak: TEST_STREAK,
       });
       await refreshStatus();
     } catch (error) {
@@ -185,6 +187,128 @@ export default function LiveActivityTestScreen() {
       handleError('End StreakGuard (15min linger)', error);
     }
   }, [streakGuardId, handleError, refreshStatus]);
+
+  // MARK: Auto-simulation sequences
+
+  const [simRunning, setSimRunning] = useState(false);
+
+  const handleSimulateSavedSequence = useCallback(async () => {
+    if (simRunning) return;
+    setSimRunning(true);
+    try {
+      // 1. Start expiring (30s countdown)
+      const endDate = Math.floor(Date.now() / 1000) + 30;
+      const id = await startStreakGuard({
+        currentStreak: TEST_STREAK,
+        streakStartDate: '2026-03-28',
+        state: 'expiring',
+        endDate,
+      });
+      setStreakGuardId(id);
+      await refreshStatus();
+      console.log('[Sim] Started expiring, waiting 10s...');
+
+      // 2. After 10s → transition to saved
+      await new Promise(r => setTimeout(r, 10000));
+      await updateStreakGuard({ id, state: 'saved', endDate: 0, currentStreak: TEST_STREAK + 1 });
+      await refreshStatus();
+      console.log('[Sim] Transitioned to saved, waiting 10s...');
+
+      // 3. After 10s → end with immediate dismissal
+      await new Promise(r => setTimeout(r, 10000));
+      await endStreakGuard(id, 0);
+      setStreakGuardId(null);
+      await refreshStatus();
+      console.log('[Sim] Ended. Sequence complete.');
+    } catch (error) {
+      handleError('Simulate saved sequence', error);
+    } finally {
+      setSimRunning(false);
+    }
+  }, [simRunning, handleError, refreshStatus]);
+
+  const handleSimulateFailedSequence = useCallback(async () => {
+    if (simRunning) return;
+    setSimRunning(true);
+    try {
+      // 1. Start expiring (30s countdown)
+      const endDate = Math.floor(Date.now() / 1000) + 30;
+      const id = await startStreakGuard({
+        currentStreak: TEST_STREAK,
+        streakStartDate: '2026-03-28',
+        state: 'expiring',
+        endDate,
+      });
+      setStreakGuardId(id);
+      await refreshStatus();
+      console.log('[Sim] Started expiring, waiting 10s...');
+
+      // 2. After 10s → transition to failed
+      await new Promise(r => setTimeout(r, 10000));
+      await updateStreakGuard({ id, state: 'failed', endDate: 0, currentStreak: TEST_STREAK });
+      await refreshStatus();
+      console.log('[Sim] Transitioned to failed, waiting 10s...');
+
+      // 3. After 10s → end with immediate dismissal
+      await new Promise(r => setTimeout(r, 10000));
+      await endStreakGuard(id, 0);
+      setStreakGuardId(null);
+      await refreshStatus();
+      console.log('[Sim] Ended. Sequence complete.');
+    } catch (error) {
+      handleError('Simulate failed sequence', error);
+    } finally {
+      setSimRunning(false);
+    }
+  }, [simRunning, handleError, refreshStatus]);
+
+  const handleSimulateFullCycle = useCallback(async () => {
+    if (simRunning) return;
+    setSimRunning(true);
+    try {
+      // 1. Start expiring (60s countdown)
+      const endDate = Math.floor(Date.now() / 1000) + 60;
+      const id = await startStreakGuard({
+        currentStreak: TEST_STREAK,
+        streakStartDate: '2026-03-28',
+        state: 'expiring',
+        endDate,
+      });
+      setStreakGuardId(id);
+      await refreshStatus();
+      console.log('[Sim] Started expiring, waiting 10s...');
+
+      // 2. After 10s → saved
+      await new Promise(r => setTimeout(r, 10000));
+      await updateStreakGuard({ id, state: 'saved', endDate: 0, currentStreak: TEST_STREAK + 1 });
+      await refreshStatus();
+      console.log('[Sim] → saved, waiting 10s...');
+
+      // 3. After 10s → back to expiring (simulate "undo" for testing)
+      await new Promise(r => setTimeout(r, 10000));
+      const newEndDate = Math.floor(Date.now() / 1000) + 30;
+      await updateStreakGuard({ id, state: 'expiring', endDate: newEndDate, currentStreak: TEST_STREAK });
+      await refreshStatus();
+      console.log('[Sim] → expiring again, waiting 10s...');
+
+      // 4. After 10s → failed
+      await new Promise(r => setTimeout(r, 10000));
+      await updateStreakGuard({ id, state: 'failed', endDate: 0, currentStreak: TEST_STREAK });
+      await refreshStatus();
+      console.log('[Sim] → failed, waiting 5s...');
+
+      // 5. After 5s → end
+      await new Promise(r => setTimeout(r, 5000));
+      await endStreakGuard(id, 0);
+      setStreakGuardId(null);
+      await refreshStatus();
+      console.log('[Sim] Full cycle complete.');
+    } catch (error) {
+      handleError('Simulate full cycle', error);
+    } finally {
+      setSimRunning(false);
+    }
+  }, [simRunning, handleError, refreshStatus]);
 
   // MARK: DailyStory handlers
 
@@ -393,6 +517,26 @@ export default function LiveActivityTestScreen() {
             description="Production behavior for .saved and .failed terminal states"
             onPress={handleEndStreakGuardLinger}
             disabled={!streakGuardId}
+          />
+
+          <Text style={styles.subheader}>Auto Simulate</Text>
+          <ActionButton
+            label={simRunning ? 'Simulation running...' : 'Expiring → Saved → End (30s)'}
+            description="Start expiring, after 10s → saved, after 10s → dismiss"
+            onPress={handleSimulateSavedSequence}
+            disabled={!!streakGuardId || simRunning}
+          />
+          <ActionButton
+            label={simRunning ? 'Simulation running...' : 'Expiring → Failed → End (30s)'}
+            description="Start expiring, after 10s → failed, after 10s → dismiss"
+            onPress={handleSimulateFailedSequence}
+            disabled={!!streakGuardId || simRunning}
+          />
+          <ActionButton
+            label={simRunning ? 'Simulation running...' : 'Full Cycle: Expiring → Saved → Expiring → Failed (45s)'}
+            description="All 3 states in sequence — lock phone and watch the banner change"
+            onPress={handleSimulateFullCycle}
+            disabled={!!streakGuardId || simRunning}
           />
         </View>
 

@@ -56,9 +56,9 @@ struct StreakGuardAttributes: ActivityAttributes {
   public struct ContentState: Codable, Hashable {
     var state: StreakState
     var endDate: Double
+    var currentStreak: Int
   }
 
-  var currentStreak: Int
   var streakStartDate: String
 }
 
