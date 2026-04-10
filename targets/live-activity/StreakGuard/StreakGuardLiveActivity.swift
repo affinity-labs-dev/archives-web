@@ -5,7 +5,7 @@ import WidgetKit
 
 // MARK: - StreakGuardLiveActivity
 // Three-state Live Activity for daily streak tracking.
-// Triggered at 22:00 when user hasn't completed today's story yet.
+// Triggered at 21:00 when user hasn't completed today's story yet.
 //
 // Lifecycle:
 //   .expiring → .saved  (user completes story before midnight)
@@ -95,7 +95,7 @@ struct StreakGuardLiveActivity: Widget {
             Date(timeIntervalSinceNow: context.state.endDate - Date().timeIntervalSince1970),
             style: .timer
           )
-          .foregroundColor(.white)
+          .foregroundColor(.streakExpiringTimerPink)
           .monospacedDigit()
           .frame(maxWidth: 32)
         } else if context.state.state == .saved {
@@ -110,7 +110,7 @@ struct StreakGuardLiveActivity: Widget {
         Text("🔥")
           .font(.system(size: 12))
       }
-      .widgetURL(URL(string: "archives://today?source=live_activity"))
+      .widgetURL(URL(string: "archives://today?source=live_activity_urgent"))
       .keylineTint(.streakExpiringWarning)
     }
   }

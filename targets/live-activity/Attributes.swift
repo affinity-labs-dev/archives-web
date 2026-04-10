@@ -52,7 +52,7 @@ struct DailyStoryAttributes: ActivityAttributes {
 /// nonsensical — do not do this from the JS bridge layer.
 ///
 /// Valid transitions:
-///   - `22:00` → `.expiring` (activity.request with countdown to midnight)
+///   - `21:00` → `.expiring` (activity.request with countdown to midnight)
 ///   - `.expiring` → `.saved` (user completes daily story; activity.update)
 ///   - `.expiring` → `.failed` (midnight passes with no card completed; activity.update)
 ///
@@ -83,7 +83,7 @@ public enum StreakState: String, Codable, Hashable {
 }
 
 /// ActivityAttributes for the "streak at risk" Live Activity.
-/// Triggered when a user opens the app after 22:00 without completing today's story.
+/// Triggered when a user opens the app after 21:00 without completing today's story.
 ///
 /// The Dynamic Island design for StreakGuard is compact-only: compactLeading shows
 /// the streak count, compactTrailing shows a circular countdown. The expanded view

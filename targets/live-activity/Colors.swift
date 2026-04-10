@@ -40,6 +40,8 @@ extension Color {
   static let streakExpiringGlowTop = Color(red: 153/255, green: 20/255, blue: 10/255)
   /// Warning badge dot (small red circle next to flame) — #E6402E
   static let streakExpiringWarning = Color(red: 230/255, green: 64/255, blue: 46/255)
+  /// Urgent countdown timer text (compact trailing + expanded) — pink per AFF-705 spec — #FF6B8A
+  static let streakExpiringTimerPink = Color(red: 255/255, green: 107/255, blue: 138/255)
   /// Primary cream text (strong contrast on maroon) — #FFF5ED
   static let streakExpiringTextPrimary = Color(red: 255/255, green: 245/255, blue: 237/255)
   /// Secondary muted tan text (less emphasis for supporting copy) — #BF998C
