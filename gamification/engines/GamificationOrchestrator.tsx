@@ -24,7 +24,9 @@ import { toLocalDateString } from '@/utils/dateUtils';
 import { useUser } from '@clerk/clerk-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Modal } from 'react-native';
+import { AppState, AppStateStatus, Modal, Platform } from 'react-native';
+import { liveActivityManager } from '@/services/LiveActivityManager';
+import { registerPushToStartTokens, addPushToStartTokenListener } from '@/modules/live-activity';
 import { calculateTotalXP as calculateTotalXPUtil, useGamifiedProgress } from './GamifiedProgress';
 
 // Import celebration screens
@@ -1670,6 +1672,12 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         console.log(`📊 [Orchestrator] Analytics updated with streak: ${newStreak}`);
 
+        // Live Activity — transition StreakGuard to .saved state
+        // This ends the expiring countdown and shows "Streak saved!" banner
+        liveActivityManager.onStreakSaved(newStreak).catch((err) => {
+          console.error('⚠️ [Orchestrator] LiveActivity saved transition failed:', err);
+        });
+
         // Queue celebration
         try {
           const weekData = calculateWeekData(newStreak, today, cloudStreak.lastActiveDate, cloudStreak.currentStreak);
@@ -1813,6 +1821,57 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       console.log('🧪 [TEST] Test function exposed! Call global.testStreakIncrement() to simulate next day');
     }
   }, [simulateNextDay]);
+
+  // MARK: Live Activity — StreakGuard trigger on app foreground
+  // Checks conditions (time >= 21:00, 0 cards today, streak >= 3) and starts
+  // StreakGuard activity if appropriate. Runs on every foreground event.
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
+    // Initialize manager on mount (restores persisted activity, cleans orphans)
+    liveActivityManager.initialize();
+
+    // Register push-to-start token listener (iOS 17.2+)
+    registerPushToStartTokens().catch(() => {
+      // Expected to fail on iOS < 17.2 — silent
+    });
+    const tokenSub = addPushToStartTokenListener((event) => {
+      console.log('🔑 [LiveActivity] Push-to-start token received:', event.token.substring(0, 16) + '...');
+      // TODO: POST token to Supabase via AffinityNotificationService or direct API call
+      // AffinityNotificationService.registerLiveActivityToken(event.token, event.activityType);
+    });
+
+    const handleAppStateForLiveActivity = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        const cloudStreak = getCloudStreak();
+        const today = new Date().toISOString().split('T')[0];
+        const hasCompletedToday = cloudStreak.lastActiveDate === today && cloudStreak.currentStreak > 0;
+
+        liveActivityManager.checkAndStartStreakGuard(
+          cloudStreak.currentStreak,
+          hasCompletedToday,
+          cloudStreak.lastActiveDate || today
+        );
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateForLiveActivity);
+
+    // Also check on initial mount (user might have opened app after 9 PM)
+    const cloudStreak = getCloudStreak();
+    const today = new Date().toISOString().split('T')[0];
+    const hasCompletedToday = cloudStreak.lastActiveDate === today && cloudStreak.currentStreak > 0;
+    liveActivityManager.checkAndStartStreakGuard(
+      cloudStreak.currentStreak,
+      hasCompletedToday,
+      cloudStreak.lastActiveDate || today
+    );
+
+    return () => {
+      subscription?.remove();
+      tokenSub?.remove();
+    };
+  }, [getCloudStreak]);
 
   return (
     <GamificationOrchestratorContext.Provider
