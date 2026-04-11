@@ -48,6 +48,13 @@ const TEST_STORY_TITLE = 'The Golden Age of Baghdad';
 const TEST_ERA_TITLE = 'The Golden Age';
 const TEST_STORY_ID = '2026-04-09';
 
+// When a Live Activity transitions to a terminal state (DailyStory: .completed /
+// .incomplete, StreakGuard: .saved / .failed), we immediately end the activity so
+// the Dynamic Island disappears, while passing a 15-min dismissalPolicy so the
+// lock-screen banner stays pinned. Only the in-progress / expiring states should
+// keep the Dynamic Island alive.
+const TERMINAL_LINGER_SECONDS = 15 * 60;
+
 export default function LiveActivityTestScreen() {
   const router = useRouter();
 
@@ -59,8 +66,9 @@ export default function LiveActivityTestScreen() {
   const [streakGuardId, setStreakGuardId] = useState<ActivityId | null>(null);
   const [dailyStoryId, setDailyStoryId] = useState<ActivityId | null>(null);
 
-  // DailyStory local progression tracking (for update button parameters)
-  const [storyCard, setStoryCard] = useState(1);
+  // DailyStory local progression tracking — count of cards completed (0..3).
+  // Kept in lockstep with the 3 boolean flags so progress bar and pills never disagree.
+  const [storyCompleted, setStoryCompleted] = useState(0);
 
   // MARK: Status refresh
 
@@ -136,6 +144,9 @@ export default function LiveActivityTestScreen() {
         endDate: 0,
         currentStreak: TEST_STREAK + 1,
       });
+      // Terminal state → drop Dynamic Island, banner lingers 15 min on lock screen.
+      await endStreakGuard(streakGuardId, TERMINAL_LINGER_SECONDS);
+      setStreakGuardId(null);
       await refreshStatus();
     } catch (error) {
       handleError('Transition to saved', error);
@@ -154,6 +165,9 @@ export default function LiveActivityTestScreen() {
         endDate: 0,
         currentStreak: TEST_STREAK,
       });
+      // Terminal state → drop Dynamic Island, banner lingers 15 min on lock screen.
+      await endStreakGuard(streakGuardId, TERMINAL_LINGER_SECONDS);
+      setStreakGuardId(null);
       await refreshStatus();
     } catch (error) {
       handleError('Transition to failed', error);
@@ -208,18 +222,14 @@ export default function LiveActivityTestScreen() {
       await refreshStatus();
       console.log('[Sim] Started expiring, waiting 10s...');
 
-      // 2. After 10s → transition to saved
+      // 2. After 10s → transition to saved + end(15 min linger).
+      //    Dynamic Island drops immediately; Saved banner pins on lock screen for 15 min.
       await new Promise(r => setTimeout(r, 10000));
       await updateStreakGuard({ id, state: 'saved', endDate: 0, currentStreak: TEST_STREAK + 1 });
-      await refreshStatus();
-      console.log('[Sim] Transitioned to saved, waiting 10s...');
-
-      // 3. After 10s → end with immediate dismissal
-      await new Promise(r => setTimeout(r, 10000));
-      await endStreakGuard(id, 0);
+      await endStreakGuard(id, TERMINAL_LINGER_SECONDS);
       setStreakGuardId(null);
       await refreshStatus();
-      console.log('[Sim] Ended. Sequence complete.');
+      console.log('[Sim] → saved (DI dropped, banner lingers 15 min).');
     } catch (error) {
       handleError('Simulate saved sequence', error);
     } finally {
@@ -243,18 +253,14 @@ export default function LiveActivityTestScreen() {
       await refreshStatus();
       console.log('[Sim] Started expiring, waiting 10s...');
 
-      // 2. After 10s → transition to failed
+      // 2. After 10s → transition to failed + end(15 min linger).
+      //    Dynamic Island drops immediately; Failed banner pins on lock screen for 15 min.
       await new Promise(r => setTimeout(r, 10000));
       await updateStreakGuard({ id, state: 'failed', endDate: 0, currentStreak: TEST_STREAK });
-      await refreshStatus();
-      console.log('[Sim] Transitioned to failed, waiting 10s...');
-
-      // 3. After 10s → end with immediate dismissal
-      await new Promise(r => setTimeout(r, 10000));
-      await endStreakGuard(id, 0);
+      await endStreakGuard(id, TERMINAL_LINGER_SECONDS);
       setStreakGuardId(null);
       await refreshStatus();
-      console.log('[Sim] Ended. Sequence complete.');
+      console.log('[Sim] → failed (DI dropped, banner lingers 15 min).');
     } catch (error) {
       handleError('Simulate failed sequence', error);
     } finally {
@@ -266,43 +272,54 @@ export default function LiveActivityTestScreen() {
     if (simRunning) return;
     setSimRunning(true);
     try {
-      // 1. Start expiring (60s countdown)
-      const endDate = Math.floor(Date.now() / 1000) + 60;
-      const id = await startStreakGuard({
+      // Terminal states now auto-end the activity, so the old "expiring → saved → expiring
+      // → failed" single-activity flow is no longer possible. Run two independent
+      // sub-sequences instead so both terminal banners can be observed in one simulation.
+
+      // === Sub-sequence A: expiring → saved ===
+      // 1. Start first expiring activity (20s countdown)
+      const endDateA = Math.floor(Date.now() / 1000) + 20;
+      const idA = await startStreakGuard({
         currentStreak: TEST_STREAK,
         streakStartDate: '2026-03-28',
         state: 'expiring',
-        endDate,
+        endDate: endDateA,
       });
-      setStreakGuardId(id);
+      setStreakGuardId(idA);
       await refreshStatus();
-      console.log('[Sim] Started expiring, waiting 10s...');
+      console.log('[Sim] [A] Started expiring, waiting 8s...');
 
-      // 2. After 10s → saved
-      await new Promise(r => setTimeout(r, 10000));
-      await updateStreakGuard({ id, state: 'saved', endDate: 0, currentStreak: TEST_STREAK + 1 });
-      await refreshStatus();
-      console.log('[Sim] → saved, waiting 10s...');
-
-      // 3. After 10s → back to expiring (simulate "undo" for testing)
-      await new Promise(r => setTimeout(r, 10000));
-      const newEndDate = Math.floor(Date.now() / 1000) + 30;
-      await updateStreakGuard({ id, state: 'expiring', endDate: newEndDate, currentStreak: TEST_STREAK });
-      await refreshStatus();
-      console.log('[Sim] → expiring again, waiting 10s...');
-
-      // 4. After 10s → failed
-      await new Promise(r => setTimeout(r, 10000));
-      await updateStreakGuard({ id, state: 'failed', endDate: 0, currentStreak: TEST_STREAK });
-      await refreshStatus();
-      console.log('[Sim] → failed, waiting 5s...');
-
-      // 5. After 5s → end
-      await new Promise(r => setTimeout(r, 5000));
-      await endStreakGuard(id, 0);
+      // 2. After 8s → saved + end(15 min). DI drops, saved banner pins.
+      await new Promise(r => setTimeout(r, 8000));
+      await updateStreakGuard({ id: idA, state: 'saved', endDate: 0, currentStreak: TEST_STREAK + 1 });
+      await endStreakGuard(idA, TERMINAL_LINGER_SECONDS);
       setStreakGuardId(null);
       await refreshStatus();
-      console.log('[Sim] Full cycle complete.');
+      console.log('[Sim] [A] → saved (banner lingers), waiting 6s before starting [B]...');
+
+      // 3. Visual pause so saved banner can be inspected before [B] spawns.
+      await new Promise(r => setTimeout(r, 6000));
+
+      // === Sub-sequence B: expiring → failed ===
+      // 4. Start second expiring activity (20s countdown)
+      const endDateB = Math.floor(Date.now() / 1000) + 20;
+      const idB = await startStreakGuard({
+        currentStreak: TEST_STREAK,
+        streakStartDate: '2026-03-28',
+        state: 'expiring',
+        endDate: endDateB,
+      });
+      setStreakGuardId(idB);
+      await refreshStatus();
+      console.log('[Sim] [B] Started expiring, waiting 8s...');
+
+      // 5. After 8s → failed + end(15 min). DI drops, failed banner pins.
+      await new Promise(r => setTimeout(r, 8000));
+      await updateStreakGuard({ id: idB, state: 'failed', endDate: 0, currentStreak: TEST_STREAK });
+      await endStreakGuard(idB, TERMINAL_LINGER_SECONDS);
+      setStreakGuardId(null);
+      await refreshStatus();
+      console.log('[Sim] [B] → failed (banner lingers). Full cycle complete.');
     } catch (error) {
       handleError('Simulate full cycle', error);
     } finally {
@@ -314,21 +331,27 @@ export default function LiveActivityTestScreen() {
 
   const handleStartDailyStory = useCallback(async () => {
     try {
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
       const id = await startDailyStory({
         storyId: TEST_STORY_ID,
         storyTitle: TEST_STORY_TITLE,
         eraTitle: TEST_ERA_TITLE,
         dayNumber: 5,
         totalDays: 7,
+        state: 'inProgress',
         currentCard: 1,
         totalCards: 3,
         progressPercent: 0,
         watchCompleted: false,
         exploreCompleted: false,
         questionsCompleted: false,
+        currentStreak: TEST_STREAK,
+        endDate: Math.floor(midnight.getTime() / 1000),
+        xpEarned: 0,
       });
       setDailyStoryId(id);
-      setStoryCard(1);
+      setStoryCompleted(0);
       await refreshStatus();
     } catch (error) {
       handleError('Start DailyStory', error);
@@ -340,24 +363,41 @@ export default function LiveActivityTestScreen() {
       Alert.alert('No active DailyStory', 'Start one first.');
       return;
     }
-    const nextCard = Math.min(storyCard + 1, 3);
-    const progress = nextCard / 3;
+    if (storyCompleted >= 3) return;
+    // One advance = one more card completed. Flags and progress stay in lockstep:
+    // 1 done → watch ✓ (33%), 2 done → +explore ✓ (66%), 3 done → +questions ✓ (100%).
+    // When the 3rd card lands, auto-flip state → `completed` and award +30 XP so the
+    // banner swaps to the Quest Complete layout instead of lingering on in-progress.
+    const newCount = storyCompleted + 1;
+    const progress = newCount / 3;
+    const reachedCompletion = newCount >= 3;
     try {
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
       await updateDailyStory({
         id: dailyStoryId,
-        currentCard: nextCard,
+        state: reachedCompletion ? 'completed' : 'inProgress',
+        currentCard: Math.min(newCount + 1, 3),
         totalCards: 3,
         progressPercent: progress,
-        watchCompleted: nextCard >= 2,
-        exploreCompleted: nextCard >= 3,
-        questionsCompleted: false,
+        watchCompleted: newCount >= 1,
+        exploreCompleted: newCount >= 2,
+        questionsCompleted: newCount >= 3,
+        currentStreak: TEST_STREAK,
+        endDate: reachedCompletion ? 0 : Math.floor(midnight.getTime() / 1000),
+        xpEarned: reachedCompletion ? 30 : 0,
       });
-      setStoryCard(nextCard);
+      setStoryCompleted(newCount);
+      // Terminal state → drop Dynamic Island, keep banner on lock screen for 15 min.
+      if (reachedCompletion) {
+        await endDailyStory(dailyStoryId, TERMINAL_LINGER_SECONDS);
+        setDailyStoryId(null);
+      }
       await refreshStatus();
     } catch (error) {
       handleError('Advance DailyStory', error);
     }
-  }, [dailyStoryId, storyCard, handleError, refreshStatus]);
+  }, [dailyStoryId, storyCompleted, handleError, refreshStatus]);
 
   const handleCompleteDailyStory = useCallback(async () => {
     if (!dailyStoryId) {
@@ -367,19 +407,294 @@ export default function LiveActivityTestScreen() {
     try {
       await updateDailyStory({
         id: dailyStoryId,
+        state: 'completed',
         currentCard: 3,
         totalCards: 3,
         progressPercent: 1,
         watchCompleted: true,
         exploreCompleted: true,
         questionsCompleted: true,
+        currentStreak: TEST_STREAK,
+        endDate: 0,
+        xpEarned: 30,
       });
-      setStoryCard(3);
+      setStoryCompleted(3);
+      // Terminal state → drop Dynamic Island, banner lingers 15 min on lock screen.
+      await endDailyStory(dailyStoryId, TERMINAL_LINGER_SECONDS);
+      setDailyStoryId(null);
       await refreshStatus();
     } catch (error) {
       handleError('Complete DailyStory', error);
     }
   }, [dailyStoryId, handleError, refreshStatus]);
+
+  const handleIncompleteDailyStory = useCallback(async () => {
+    if (!dailyStoryId) {
+      Alert.alert('No active DailyStory', 'Start one first.');
+      return;
+    }
+    try {
+      // Simulate midnight hit — user only completed 1 of 3 cards
+      await updateDailyStory({
+        id: dailyStoryId,
+        state: 'incomplete',
+        currentCard: 1,
+        totalCards: 3,
+        progressPercent: 1 / 3,
+        watchCompleted: true,
+        exploreCompleted: false,
+        questionsCompleted: false,
+        currentStreak: TEST_STREAK,
+        endDate: 0,
+        xpEarned: 0,
+      });
+      setStoryCompleted(1);
+      // Terminal state → drop Dynamic Island, banner lingers 15 min on lock screen.
+      await endDailyStory(dailyStoryId, TERMINAL_LINGER_SECONDS);
+      setDailyStoryId(null);
+      await refreshStatus();
+    } catch (error) {
+      handleError('Incomplete DailyStory', error);
+    }
+  }, [dailyStoryId, handleError, refreshStatus]);
+
+  // MARK: DailyStory start-in-state shortcuts (to inspect banners directly)
+
+  const handleStartDailyStoryCompleted = useCallback(async () => {
+    try {
+      const id = await startDailyStory({
+        storyId: TEST_STORY_ID,
+        storyTitle: TEST_STORY_TITLE,
+        eraTitle: TEST_ERA_TITLE,
+        dayNumber: 5,
+        totalDays: 7,
+        state: 'completed',
+        currentCard: 3,
+        totalCards: 3,
+        progressPercent: 1,
+        watchCompleted: true,
+        exploreCompleted: true,
+        questionsCompleted: true,
+        currentStreak: TEST_STREAK,
+        endDate: 0,
+        xpEarned: 30,
+      });
+      setStoryCompleted(3);
+      // Terminal state — drop Dynamic Island immediately so only the banner renders.
+      await endDailyStory(id, TERMINAL_LINGER_SECONDS);
+      setDailyStoryId(null);
+      await refreshStatus();
+    } catch (error) {
+      handleError('Start DailyStory (completed)', error);
+    }
+  }, [handleError, refreshStatus]);
+
+  const handleStartDailyStoryIncomplete = useCallback(async () => {
+    try {
+      const id = await startDailyStory({
+        storyId: TEST_STORY_ID,
+        storyTitle: TEST_STORY_TITLE,
+        eraTitle: TEST_ERA_TITLE,
+        dayNumber: 5,
+        totalDays: 7,
+        state: 'incomplete',
+        currentCard: 1,
+        totalCards: 3,
+        progressPercent: 1 / 3,
+        watchCompleted: true,
+        exploreCompleted: false,
+        questionsCompleted: false,
+        currentStreak: TEST_STREAK,
+        endDate: 0,
+        xpEarned: 0,
+      });
+      setStoryCompleted(1);
+      // Terminal state — drop Dynamic Island immediately so only the banner renders.
+      await endDailyStory(id, TERMINAL_LINGER_SECONDS);
+      setDailyStoryId(null);
+      await refreshStatus();
+    } catch (error) {
+      handleError('Start DailyStory (incomplete)', error);
+    }
+  }, [handleError, refreshStatus]);
+
+  // MARK: DailyStory auto-simulation sequences
+
+  const handleSimulateDailyStoryComplete = useCallback(async () => {
+    if (simRunning) return;
+    setSimRunning(true);
+    try {
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
+      const endDate = Math.floor(midnight.getTime() / 1000);
+
+      // 1. Start at card 1 (0%)
+      const id = await startDailyStory({
+        storyId: TEST_STORY_ID,
+        storyTitle: TEST_STORY_TITLE,
+        eraTitle: TEST_ERA_TITLE,
+        dayNumber: 5,
+        totalDays: 7,
+        state: 'inProgress',
+        currentCard: 1,
+        totalCards: 3,
+        progressPercent: 0,
+        watchCompleted: false,
+        exploreCompleted: false,
+        questionsCompleted: false,
+        currentStreak: TEST_STREAK,
+        endDate,
+        xpEarned: 0,
+      });
+      setDailyStoryId(id);
+      setStoryCompleted(0);
+      await refreshStatus();
+      console.log('[Sim] DailyStory started (0/3 done), waiting 8s...');
+
+      // 2. After 8s → 1/3 done (33%, watch ✓)
+      await new Promise(r => setTimeout(r, 8000));
+      await updateDailyStory({
+        id,
+        state: 'inProgress',
+        currentCard: 2,
+        totalCards: 3,
+        progressPercent: 1 / 3,
+        watchCompleted: true,
+        exploreCompleted: false,
+        questionsCompleted: false,
+        currentStreak: TEST_STREAK,
+        endDate,
+        xpEarned: 0,
+      });
+      setStoryCompleted(1);
+      await refreshStatus();
+      console.log('[Sim] → 1/3 done, waiting 8s...');
+
+      // 3. After 8s → 2/3 done (66%, +explore ✓)
+      await new Promise(r => setTimeout(r, 8000));
+      await updateDailyStory({
+        id,
+        state: 'inProgress',
+        currentCard: 3,
+        totalCards: 3,
+        progressPercent: 2 / 3,
+        watchCompleted: true,
+        exploreCompleted: true,
+        questionsCompleted: false,
+        currentStreak: TEST_STREAK,
+        endDate,
+        xpEarned: 0,
+      });
+      setStoryCompleted(2);
+      await refreshStatus();
+      console.log('[Sim] → 2/3 done, waiting 8s...');
+
+      // 4. After 8s → completed (100%, all ✓, +30 XP).
+      //    Follow up with end(15 min) so Dynamic Island drops immediately but the
+      //    Quest Complete banner lingers on lock screen for the spec'd 15 minutes.
+      await new Promise(r => setTimeout(r, 8000));
+      await updateDailyStory({
+        id,
+        state: 'completed',
+        currentCard: 3,
+        totalCards: 3,
+        progressPercent: 1,
+        watchCompleted: true,
+        exploreCompleted: true,
+        questionsCompleted: true,
+        currentStreak: TEST_STREAK,
+        endDate: 0,
+        xpEarned: 30,
+      });
+      setStoryCompleted(3);
+      await endDailyStory(id, TERMINAL_LINGER_SECONDS);
+      setDailyStoryId(null);
+      await refreshStatus();
+      console.log('[Sim] → completed (DI dropped, banner lingers 15 min).');
+    } catch (error) {
+      handleError('Simulate DailyStory complete', error);
+    } finally {
+      setSimRunning(false);
+    }
+  }, [simRunning, handleError, refreshStatus]);
+
+  const handleSimulateDailyStoryIncomplete = useCallback(async () => {
+    if (simRunning) return;
+    setSimRunning(true);
+    try {
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
+      const endDate = Math.floor(midnight.getTime() / 1000);
+
+      // 1. Start at card 1 (0%)
+      const id = await startDailyStory({
+        storyId: TEST_STORY_ID,
+        storyTitle: TEST_STORY_TITLE,
+        eraTitle: TEST_ERA_TITLE,
+        dayNumber: 5,
+        totalDays: 7,
+        state: 'inProgress',
+        currentCard: 1,
+        totalCards: 3,
+        progressPercent: 0,
+        watchCompleted: false,
+        exploreCompleted: false,
+        questionsCompleted: false,
+        currentStreak: TEST_STREAK,
+        endDate,
+        xpEarned: 0,
+      });
+      setDailyStoryId(id);
+      setStoryCompleted(0);
+      await refreshStatus();
+      console.log('[Sim] DailyStory started, waiting 10s...');
+
+      // 2. After 10s → watch done only (stuck at 33%)
+      await new Promise(r => setTimeout(r, 10000));
+      await updateDailyStory({
+        id,
+        state: 'inProgress',
+        currentCard: 2,
+        totalCards: 3,
+        progressPercent: 1 / 3,
+        watchCompleted: true,
+        exploreCompleted: false,
+        questionsCompleted: false,
+        currentStreak: TEST_STREAK,
+        endDate,
+        xpEarned: 0,
+      });
+      setStoryCompleted(1);
+      await refreshStatus();
+      console.log('[Sim] → 1/3 done, waiting 10s then hitting midnight...');
+
+      // 3. After 10s → midnight fires, transition to incomplete.
+      //    Follow up with end(15 min) so Dynamic Island drops immediately but the
+      //    Quest Incomplete banner lingers on lock screen for 15 minutes.
+      await new Promise(r => setTimeout(r, 10000));
+      await updateDailyStory({
+        id,
+        state: 'incomplete',
+        currentCard: 2,
+        totalCards: 3,
+        progressPercent: 1 / 3,
+        watchCompleted: true,
+        exploreCompleted: false,
+        questionsCompleted: false,
+        currentStreak: TEST_STREAK,
+        endDate: 0,
+        xpEarned: 0,
+      });
+      await endDailyStory(id, TERMINAL_LINGER_SECONDS);
+      setDailyStoryId(null);
+      await refreshStatus();
+      console.log('[Sim] → incomplete (DI dropped, banner lingers 15 min).');
+    } catch (error) {
+      handleError('Simulate DailyStory incomplete', error);
+    } finally {
+      setSimRunning(false);
+    }
+  }, [simRunning, handleError, refreshStatus]);
 
   const handleEndDailyStoryImmediate = useCallback(async () => {
     if (!dailyStoryId) {
@@ -389,7 +704,7 @@ export default function LiveActivityTestScreen() {
     try {
       await endDailyStory(dailyStoryId, 0);
       setDailyStoryId(null);
-      setStoryCard(1);
+      setStoryCompleted(0);
       await refreshStatus();
     } catch (error) {
       handleError('End DailyStory', error);
@@ -403,7 +718,7 @@ export default function LiveActivityTestScreen() {
       await endAllActivities();
       setStreakGuardId(null);
       setDailyStoryId(null);
-      setStoryCard(1);
+      setStoryCompleted(0);
       await refreshStatus();
     } catch (error) {
       handleError('End All Activities', error);
@@ -460,7 +775,7 @@ export default function LiveActivityTestScreen() {
           <View style={styles.statusRow}>
             <Text style={styles.statusLabel}>Tracked DailyStory:</Text>
             <Text style={styles.statusValue}>
-              {dailyStoryId ? `Card ${storyCard}/3` : 'None'}
+              {dailyStoryId ? `${storyCompleted}/3 cards done` : 'None'}
             </Text>
           </View>
           <TouchableOpacity style={styles.refreshButton} onPress={refreshStatus}>
@@ -492,14 +807,14 @@ export default function LiveActivityTestScreen() {
 
           <Text style={styles.subheader}>Transition</Text>
           <ActionButton
-            label="Update → Saved"
-            description="User completed story before midnight"
+            label="Update → Saved (+ auto-end)"
+            description="Story completed before midnight — DI drops, banner lingers 15 min"
             onPress={handleTransitionToSaved}
             disabled={!streakGuardId}
           />
           <ActionButton
-            label="Update → Failed"
-            description="Midnight passed, streak lost"
+            label="Update → Failed (+ auto-end)"
+            description="Midnight passed, streak lost — DI drops, banner lingers 15 min"
             onPress={handleTransitionToFailed}
             disabled={!streakGuardId}
             destructive
@@ -521,20 +836,20 @@ export default function LiveActivityTestScreen() {
 
           <Text style={styles.subheader}>Auto Simulate</Text>
           <ActionButton
-            label={simRunning ? 'Simulation running...' : 'Expiring → Saved → End (30s)'}
-            description="Start expiring, after 10s → saved, after 10s → dismiss"
+            label={simRunning ? 'Simulation running...' : 'Expiring → Saved (10s)'}
+            description="Start expiring, after 10s → saved + auto-end (banner lingers 15 min)"
             onPress={handleSimulateSavedSequence}
             disabled={!!streakGuardId || simRunning}
           />
           <ActionButton
-            label={simRunning ? 'Simulation running...' : 'Expiring → Failed → End (30s)'}
-            description="Start expiring, after 10s → failed, after 10s → dismiss"
+            label={simRunning ? 'Simulation running...' : 'Expiring → Failed (10s)'}
+            description="Start expiring, after 10s → failed + auto-end (banner lingers 15 min)"
             onPress={handleSimulateFailedSequence}
             disabled={!!streakGuardId || simRunning}
           />
           <ActionButton
-            label={simRunning ? 'Simulation running...' : 'Full Cycle: Expiring → Saved → Expiring → Failed (45s)'}
-            description="All 3 states in sequence — lock phone and watch the banner change"
+            label={simRunning ? 'Simulation running...' : 'Full Cycle: [A] Expiring→Saved, [B] Expiring→Failed (~22s)'}
+            description="2 separate activities — observe saved banner, then failed banner"
             onPress={handleSimulateFullCycle}
             disabled={!!streakGuardId || simRunning}
           />
@@ -551,23 +866,46 @@ export default function LiveActivityTestScreen() {
           <Text style={styles.subheader}>Start</Text>
           <ActionButton
             label="Start at Card 1 (0%)"
-            description="Fresh story — no cards completed"
+            description="Fresh story — inProgress banner with timer"
             onPress={handleStartDailyStory}
             disabled={!!dailyStoryId}
           />
-
-          <Text style={styles.subheader}>Update</Text>
           <ActionButton
-            label={`Advance to Card ${Math.min(storyCard + 1, 3)} (${Math.round(Math.min(storyCard + 1, 3) / 3 * 100)}%)`}
-            description="Mark next card complete and update ring"
-            onPress={handleAdvanceDailyStory}
-            disabled={!dailyStoryId || storyCard >= 3}
+            label="Start directly in Completed state"
+            description="Skip progression — inspect Quest Complete banner immediately"
+            onPress={handleStartDailyStoryCompleted}
+            disabled={!!dailyStoryId}
           />
           <ActionButton
-            label="Complete all cards (100%)"
-            description="Jump directly to full completion state"
+            label="Start directly in Incomplete state"
+            description="Skip progression — inspect Quest Incomplete banner immediately"
+            onPress={handleStartDailyStoryIncomplete}
+            disabled={!!dailyStoryId}
+          />
+
+          <Text style={styles.subheader}>Transition</Text>
+          <ActionButton
+            label={
+              storyCompleted >= 2
+                ? 'Mark card 3 complete → Completed (+30 XP)'
+                : `Mark card ${Math.min(storyCompleted + 1, 3)} complete (${Math.round(Math.min(storyCompleted + 1, 3) / 3 * 100)}%)`
+            }
+            description={`Currently ${storyCompleted}/3 done — last tap auto-flips to Quest Complete`}
+            onPress={handleAdvanceDailyStory}
+            disabled={!dailyStoryId || storyCompleted >= 3}
+          />
+          <ActionButton
+            label="Update → Completed (+30 XP)"
+            description="All 3 cards done before midnight — success state"
             onPress={handleCompleteDailyStory}
             disabled={!dailyStoryId}
+          />
+          <ActionButton
+            label="Update → Incomplete (midnight hit)"
+            description="Simulate midnight passing with only WATCH done — failure state"
+            onPress={handleIncompleteDailyStory}
+            disabled={!dailyStoryId}
+            destructive
           />
 
           <Text style={styles.subheader}>End</Text>
@@ -576,6 +914,20 @@ export default function LiveActivityTestScreen() {
             description="Remove from lock screen now"
             onPress={handleEndDailyStoryImmediate}
             disabled={!dailyStoryId}
+          />
+
+          <Text style={styles.subheader}>Auto Simulate</Text>
+          <ActionButton
+            label={simRunning ? 'Simulation running...' : 'Card 1 → 2 → 3 → Completed → End (42s)'}
+            description="Walk through full success path: progression every 8s, then dismiss"
+            onPress={handleSimulateDailyStoryComplete}
+            disabled={!!dailyStoryId || simRunning}
+          />
+          <ActionButton
+            label={simRunning ? 'Simulation running...' : 'Card 1 → 1/3 done → Incomplete → End (40s)'}
+            description="Walk through failure path: only WATCH done when midnight hits"
+            onPress={handleSimulateDailyStoryIncomplete}
+            disabled={!!dailyStoryId || simRunning}
           />
         </View>
 
