@@ -9,21 +9,25 @@ import WidgetKit
 //
 // Lifecycle:
 //   .expiring → .saved  (user completes story before midnight)
-//   .expiring → .failed (midnight passes, no cards completed; 15 min linger)
+//   .expiring → .failed (midnight passes, no cards completed)
 //
-// Lock screen banner and Dynamic Island expanded view have dedicated designs
-// for each state (see StreakGuard/ subfolder). Compact Dynamic Island always
-// shows 🔥 + streak count with state-dependent trailing indicator.
+// # State → presentation contract
 //
-// # JS bridge requirements (Phase 1)
+// Lock screen banner has three dedicated designs (.expiring / .saved / .failed).
+// Dynamic Island renders **only for .expiring** — terminal states auto-end the
+// activity (see services/LiveActivityManager.ts → transitionToSaved/Failed),
+// which tears down the Dynamic Island immediately while pinning the banner on
+// the lock screen for 15 minutes via `dismissalPolicy: .after(Date + 15*60)`.
 //
-// When transitioning to a terminal state (.saved or .failed), the JS bridge MUST
-// call `activity.end(using:dismissalPolicy:)` with `dismissalPolicy: .after(Date()
-// .addingTimeInterval(15 * 60))`. Without this, iOS keeps the banner on the lock
-// screen for up to 4 hours — a visible UX bug.
+// This means: any code here that branches the Dynamic Island on .saved/.failed
+// is unreachable. Keep the expanded region + compact variants single-path for
+// .expiring only — they never see the terminal states.
 //
-// The Swift widget itself does not control dismissal timing; it only renders the
-// content state it's given. Dismissal lifecycle is the JS bridge's responsibility.
+// # JS bridge requirements
+//
+// `updateStreakGuard({ state: 'saved'|'failed' })` MUST be followed immediately
+// by `endStreakGuard(id, 15 * 60)`. Without the follow-up end(), iOS would keep
+// the Dynamic Island alive showing stale timer content (endDate = 0 → "0:00").
 // See Attributes.swift for full lifecycle documentation.
 
 @available(iOS 16.2, *)
@@ -51,25 +55,19 @@ struct StreakGuardLiveActivity: Widget {
       }
     } dynamicIsland: { context in
       // MARK: Dynamic Island variants
-      // Expanded mirrors the lock screen banner at reduced text sizes.
+      // Only .expiring reaches Dynamic Island — .saved and .failed auto-end the
+      // activity at transition time, which drops DI immediately. No state branching
+      // needed here; any `.saved`/`.failed` paths would be dead code.
+      //
       // Background color is intentionally NOT set — the system-controlled pill
       // background (black) shows through. Content layout and typography are
-      // preserved from the mini-banner designs.
-      // NOTE: Using if/else instead of switch — SwiftUI DynamicIslandExpandedContentBuilder
-      // does not support `switch` statements on all iOS versions (buildPartialBlock availability).
-      // if/else chain is universally supported by all SwiftUI result builders.
+      // preserved from the expiring mini-banner design.
       DynamicIsland {
         DynamicIslandExpandedRegion(.bottom) {
-          if context.state.state == .expiring {
-            StreakExpiringExpandedContent(
-              currentStreak: context.state.currentStreak,
-              endDate: context.state.endDate
-            )
-          } else if context.state.state == .saved {
-            StreakSavedExpandedContent(currentStreak: context.state.currentStreak)
-          } else {
-            StreakLostExpandedContent(currentStreak: context.state.currentStreak)
-          }
+          StreakExpiringExpandedContent(
+            currentStreak: context.state.currentStreak,
+            endDate: context.state.endDate
+          )
         }
       } compactLeading: {
         HStack(spacing: 3) {
@@ -80,31 +78,18 @@ struct StreakGuardLiveActivity: Widget {
             .foregroundColor(.white)
         }
       } compactTrailing: {
-        // MARK: Compact trailing — state-dependent indicator
-        // - .expiring: circular countdown ring (depletes as time passes)
-        // - .saved:    green checkmark (success confirmation)
-        // - .failed:   red x-mark (streak lost)
-        //
-        // Text countdown instead of circular ProgressView — shows actual time remaining
-        // (e.g., "23:15", "0:30") which is more informative in the small compact trailing space.
-        if context.state.state == .expiring {
-          // Use Text(Date, style: .timer) + .frame(maxWidth: 32) pattern from
-          // proven timer live activity implementations. This constrains pill width.
-          // Ref: https://developer.apple.com/forums/thread/723316
-          Text(
-            Date(timeIntervalSinceNow: context.state.endDate - Date().timeIntervalSince1970),
-            style: .timer
-          )
-          .foregroundColor(.streakExpiringTimerPink)
-          .monospacedDigit()
-          .frame(maxWidth: 32)
-        } else if context.state.state == .saved {
-          Image(systemName: "checkmark.circle.fill")
-            .foregroundColor(.dynIslandCheckGreen)
-        } else {
-          Image(systemName: "xmark.circle.fill")
-            .foregroundColor(.streakExpiringWarning)
-        }
+        // MARK: Compact trailing — countdown timer.
+        // Text(Date, style: .timer) + .frame(maxWidth: 32) pattern from proven timer
+        // live activity implementations. Constrains pill width against the well-known
+        // intrinsic-width bug where timer Text reserves space for the widest string.
+        // Ref: https://developer.apple.com/forums/thread/723316
+        Text(
+          Date(timeIntervalSinceNow: context.state.endDate - Date().timeIntervalSince1970),
+          style: .timer
+        )
+        .foregroundColor(.streakExpiringTimerPink)
+        .monospacedDigit()
+        .frame(maxWidth: 32)
       } minimal: {
         // MARK: Minimal — single 🔥 emoji (smallest representation)
         Text("🔥")
