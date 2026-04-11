@@ -32,7 +32,7 @@ import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
 import AppLogger from '@/services/AppLogger';
 import { networkPerformanceService } from '@/services/NetworkPerformanceService';
-import { registerPushToStartTokens, addPushToStartTokenListener } from '@/modules/live-activity';
+import { addPushToStartTokenListener } from '@/modules/live-activity';
 import Purchases from 'react-native-purchases';
 
 // Gamification imports - unified from @/gamification
@@ -503,14 +503,11 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       AffinityNotificationService.updateDevice({ push_token: newToken });
     });
 
-    // Live Activity push-to-start token registration (iOS 17.2+)
-    // Native listens for ActivityKit pushToStartTokenUpdates and emits to JS.
-    // JS handles POST to backend — same pattern as regular push token above.
+    // Live Activity push-to-start token listener (iOS 17.2+)
+    // Token registration now happens automatically via native OnCreate in LiveActivityModule.swift
+    // (earliest possible point — before React mounts). JS only needs to listen for events.
     let liveActivityTokenSub: { remove: () => void } | undefined;
     if (Platform.OS === 'ios') {
-      registerPushToStartTokens().catch(() => {
-        // Expected to throw on iOS < 17.2 — silent
-      });
       liveActivityTokenSub = addPushToStartTokenListener((event) => {
         AppLogger.info('notification', 'Live Activity push-to-start token received', {
           activityType: event.activityType,

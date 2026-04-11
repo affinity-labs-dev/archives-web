@@ -10,7 +10,7 @@ import WidgetKit
 //   - Attributes.swift                 — ActivityAttributes types + StreakState enum
 //   - Colors.swift                     — Color palette extensions
 //   - StreakGuard/                     — StreakGuardLiveActivity + 6 state variant views
-//   - DailyStory/                      — DailyStoryLiveActivity + CardStatusPill helper
+//   - DailyStory/                      — DailyStoryLiveActivity + banner variants + expanded content
 
 @main
 @available(iOS 16.2, *)

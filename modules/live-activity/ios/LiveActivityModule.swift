@@ -23,6 +23,45 @@ import ActivityKit
 // All AsyncFunctions throw structured errors that propagate as Promise rejections in JS.
 // The JS wrapper catches these and presents friendly error messages to the caller.
 
+// MARK: - Records
+//
+// Expo Modules' `AsyncFunction` typed closures support at most 10 positional arguments.
+// DailyStory start/update need 11–15 fields, so we pass a single `Record` object from JS
+// and let Expo deserialize it into these structs. JS callers pass one plain object,
+// Swift receives a type-checked struct — cleaner and removes positional ordering bugs.
+
+struct DailyStoryStartRecord: Record {
+  @Field var storyId: String = ""
+  @Field var storyTitle: String = ""
+  @Field var eraTitle: String = ""
+  @Field var dayNumber: Int = 1
+  @Field var totalDays: Int = 1
+  @Field var state: String = "inProgress"
+  @Field var currentCard: Int = 1
+  @Field var totalCards: Int = 3
+  @Field var progressPercent: Double = 0
+  @Field var watchCompleted: Bool = false
+  @Field var exploreCompleted: Bool = false
+  @Field var questionsCompleted: Bool = false
+  @Field var currentStreak: Int = 0
+  @Field var endDate: Double = 0
+  @Field var xpEarned: Int = 0
+}
+
+struct DailyStoryUpdateRecord: Record {
+  @Field var id: String = ""
+  @Field var state: String = "inProgress"
+  @Field var currentCard: Int = 1
+  @Field var totalCards: Int = 3
+  @Field var progressPercent: Double = 0
+  @Field var watchCompleted: Bool = false
+  @Field var exploreCompleted: Bool = false
+  @Field var questionsCompleted: Bool = false
+  @Field var currentStreak: Int = 0
+  @Field var endDate: Double = 0
+  @Field var xpEarned: Int = 0
+}
+
 public class LiveActivityModule: Module {
   // MARK: State
 
@@ -41,6 +80,28 @@ public class LiveActivityModule: Module {
     // Push-to-start token events emitted to JS. JS handles POST to backend.
     // Pattern matches expo-notifications: native emits token, JS calls API.
     Events("onPushToStartToken")
+
+    // MARK: Auto-register push-to-start listener on module load
+    // Runs at native module init — before any React component mounts or JS useEffect fires.
+    // This is the earliest possible point to catch one-shot token emissions from iOS.
+    OnCreate {
+      guard #available(iOS 17.2, *) else { return }
+
+      Task {
+        for await tokenData in Activity<StreakGuardAttributes>.pushToStartTokenUpdates {
+          let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
+          NSLog("[LiveActivity] 🔑 Push-to-start token received (OnCreate): \(tokenString.prefix(16))...")
+
+          self.sendEvent("onPushToStartToken", [
+            "token": tokenString,
+            "activityType": "StreakGuard",
+            "attributeType": "StreakGuardAttributes",
+          ])
+        }
+      }
+
+      NSLog("[LiveActivity] Push-to-start token listener auto-registered via OnCreate")
+    }
 
     // MARK: Status
 
@@ -157,20 +218,10 @@ public class LiveActivityModule: Module {
     // MARK: DailyStory
 
     /// Starts a new DailyStory activity.
+    /// Uses a `Record` struct because Expo Modules caps positional AsyncFunction args at 10
+    /// and DailyStory needs 15 fields (story metadata + per-card flags + xp + timer).
     AsyncFunction("startDailyStory") {
-      (
-        storyId: String,
-        storyTitle: String,
-        eraTitle: String,
-        dayNumber: Int,
-        totalDays: Int,
-        currentCard: Int,
-        totalCards: Int,
-        progressPercent: Double,
-        watchCompleted: Bool,
-        exploreCompleted: Bool,
-        questionsCompleted: Bool
-      ) -> String in
+      (params: DailyStoryStartRecord) -> String in
 
       guard #available(iOS 16.2, *) else {
         throw LiveActivityError.unsupported
@@ -180,21 +231,29 @@ public class LiveActivityModule: Module {
         throw LiveActivityError.notAuthorized
       }
 
+      guard let dailyStoryState = DailyStoryState(rawValue: params.state) else {
+        throw LiveActivityError.invalidState(params.state)
+      }
+
       let attributes = DailyStoryAttributes(
-        storyId: storyId,
-        storyTitle: storyTitle,
-        eraTitle: eraTitle,
-        dayNumber: dayNumber,
-        totalDays: totalDays
+        storyId: params.storyId,
+        storyTitle: params.storyTitle,
+        eraTitle: params.eraTitle,
+        dayNumber: params.dayNumber,
+        totalDays: params.totalDays
       )
       let contentState = DailyStoryAttributes.ContentState(
-        currentCard: currentCard,
-        totalCards: totalCards,
-        progressPercent: progressPercent,
+        state: dailyStoryState,
+        currentCard: params.currentCard,
+        totalCards: params.totalCards,
+        progressPercent: params.progressPercent,
         lastUpdated: Date().timeIntervalSince1970,
-        watchCompleted: watchCompleted,
-        exploreCompleted: exploreCompleted,
-        questionsCompleted: questionsCompleted
+        watchCompleted: params.watchCompleted,
+        exploreCompleted: params.exploreCompleted,
+        questionsCompleted: params.questionsCompleted,
+        currentStreak: params.currentStreak,
+        endDate: params.endDate,
+        xpEarned: params.xpEarned
       )
 
       do {
@@ -205,7 +264,7 @@ public class LiveActivityModule: Module {
         )
         let id = activity.id
         self.dailyStoryActivities[id] = activity
-        NSLog("[LiveActivity] Started DailyStory activity id=\(id) title=\(storyTitle)")
+        NSLog("[LiveActivity] Started DailyStory activity id=\(id) title=\(params.storyTitle)")
         return id
       } catch {
         NSLog("[LiveActivity] Failed to start DailyStory: \(error.localizedDescription)")
@@ -215,36 +274,36 @@ public class LiveActivityModule: Module {
 
     /// Updates an existing DailyStory activity's progress state.
     AsyncFunction("updateDailyStory") {
-      (
-        id: String,
-        currentCard: Int,
-        totalCards: Int,
-        progressPercent: Double,
-        watchCompleted: Bool,
-        exploreCompleted: Bool,
-        questionsCompleted: Bool
-      ) async throws in
+      (params: DailyStoryUpdateRecord) async throws in
 
       guard #available(iOS 16.2, *) else {
         throw LiveActivityError.unsupported
       }
 
-      guard let activity = self.dailyStoryActivities[id] as? Activity<DailyStoryAttributes> else {
-        throw LiveActivityError.activityNotFound(id)
+      guard let activity = self.dailyStoryActivities[params.id] as? Activity<DailyStoryAttributes> else {
+        throw LiveActivityError.activityNotFound(params.id)
+      }
+
+      guard let dailyStoryState = DailyStoryState(rawValue: params.state) else {
+        throw LiveActivityError.invalidState(params.state)
       }
 
       let contentState = DailyStoryAttributes.ContentState(
-        currentCard: currentCard,
-        totalCards: totalCards,
-        progressPercent: progressPercent,
+        state: dailyStoryState,
+        currentCard: params.currentCard,
+        totalCards: params.totalCards,
+        progressPercent: params.progressPercent,
         lastUpdated: Date().timeIntervalSince1970,
-        watchCompleted: watchCompleted,
-        exploreCompleted: exploreCompleted,
-        questionsCompleted: questionsCompleted
+        watchCompleted: params.watchCompleted,
+        exploreCompleted: params.exploreCompleted,
+        questionsCompleted: params.questionsCompleted,
+        currentStreak: params.currentStreak,
+        endDate: params.endDate,
+        xpEarned: params.xpEarned
       )
 
       await activity.update(.init(state: contentState, staleDate: nil))
-      NSLog("[LiveActivity] Updated DailyStory id=\(id) card=\(currentCard)/\(totalCards)")
+      NSLog("[LiveActivity] Updated DailyStory id=\(params.id) card=\(params.currentCard)/\(params.totalCards)")
     }
 
     /// Ends a DailyStory activity.

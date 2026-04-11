@@ -61,6 +61,36 @@ extension Color {
   /// Lost banner CTA subtitle — soft lavender — #D6BBFF
   static let streakLostSubtitle = Color(red: 214/255, green: 187/255, blue: 255/255)
 
+  // MARK: DailyStory palette (from Figma 2756:4517)
+  // Neutral dark theme with blue progress bar and gold timer.
+
+  /// DailyStory background — same dark gray as saved state — #1A1A1A
+  static let dailyStoryBackground = Color(red: 26/255, green: 26/255, blue: 26/255)
+  /// Timer text — warm gold indicating time remaining — #FFDF6E
+  static let dailyStoryTimerGold = Color(red: 255/255, green: 223/255, blue: 110/255)
+  /// Progress bar track — very dark blue — #091229
+  static let dailyStoryProgressTrack = Color(red: 9/255, green: 18/255, blue: 41/255)
+  /// Progress bar fill — muted blue — #1E3C88
+  static let dailyStoryProgressFill = Color(red: 30/255, green: 60/255, blue: 136/255)
+  /// Incomplete card label — soft blue (distinct from StreakGuard's gray) — #A2C5FF
+  static let dailyStoryIncompleteBlue = Color(red: 162/255, green: 197/255, blue: 255/255)
+  /// Caption text — soft lavender (shared with StreakLost) — #D6BBFF
+  static let dailyStoryCaptionLavender = Color(red: 214/255, green: 187/255, blue: 255/255)
+  /// Expanded Dynamic Island separator — very dark blue — #0C1836
+  static let dailyStorySeparator = Color(red: 12/255, green: 24/255, blue: 54/255)
+
+  // MARK: DailyStory Incomplete palette (from Figma 2773:4528)
+  // Muted/dimmed versions for failed state.
+
+  /// Incomplete progress bar track — very dark blue — #080F22
+  static let dailyStoryIncompleteTrack = Color(red: 8/255, green: 15/255, blue: 34/255)
+  /// Incomplete progress bar fill — muted gray-blue — #414F66
+  static let dailyStoryIncompleteFill = Color(red: 65/255, green: 79/255, blue: 102/255)
+  /// Missed card label — dark gray-blue — #516380
+  static let dailyStoryMissedLabel = Color(red: 81/255, green: 99/255, blue: 128/255)
+  /// Missed card ✗ — pink — #C63D78
+  static let dailyStoryMissedPink = Color(red: 198/255, green: 61/255, blue: 120/255)
+
   // MARK: Dynamic Island palette (from Figma 2752:4520)
   // Used inside the system-controlled black pill — distinct from lock screen themes.
 

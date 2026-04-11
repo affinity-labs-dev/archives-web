@@ -11,6 +11,12 @@ import { Platform } from 'react-native';
 export type StreakState = 'expiring' | 'saved' | 'failed';
 
 /**
+ * Lifecycle state for the DailyStory Live Activity.
+ * Must match the Swift `DailyStoryState` enum.
+ */
+export type DailyStoryState = 'inProgress' | 'completed' | 'incomplete';
+
+/**
  * Activity ID returned from a start call. Pass back to update/end calls.
  * iOS ActivityKit uses UUID strings internally.
  */
@@ -49,6 +55,8 @@ export interface DailyStoryStartParams {
   dayNumber: number;
   /** Total days in the adventure */
   totalDays: number;
+  /** Lifecycle state — typically 'inProgress' on start */
+  state: DailyStoryState;
   /** 1-indexed current card */
   currentCard: number;
   /** Total number of cards (usually 3) */
@@ -59,17 +67,28 @@ export interface DailyStoryStartParams {
   watchCompleted: boolean;
   exploreCompleted: boolean;
   questionsCompleted: boolean;
+  /** Current streak count — displayed in banner Row 1 and compact leading */
+  currentStreak: number;
+  /** Unix epoch seconds — midnight local. Drives the "5h 12m left" gold timer */
+  endDate: number;
+  /** XP earned — shown as "+N XP" in completed state. Pass 0 for non-completed states. */
+  xpEarned: number;
 }
 
 export interface DailyStoryUpdateParams {
   /** Activity ID returned from startDailyStory */
   id: ActivityId;
+  /** Lifecycle state */
+  state: DailyStoryState;
   currentCard: number;
   totalCards: number;
   progressPercent: number;
   watchCompleted: boolean;
   exploreCompleted: boolean;
   questionsCompleted: boolean;
+  currentStreak: number;
+  endDate: number;
+  xpEarned: number;
 }
 
 export interface ActiveActivityRef {
@@ -165,39 +184,23 @@ export async function endStreakGuard(id: ActivityId, dismissInSeconds: number): 
 /**
  * Start a new DailyStory Live Activity.
  * Typically called when the user backgrounds the app mid-story.
+ *
+ * Passes `params` as a single object (Record on the Swift side) because Expo Modules
+ * caps positional AsyncFunction arguments at 10 and DailyStory needs 15 fields.
  */
 export async function startDailyStory(params: DailyStoryStartParams): Promise<ActivityId> {
   assertIOS();
-  return LiveActivityNative!.startDailyStory(
-    params.storyId,
-    params.storyTitle,
-    params.eraTitle,
-    params.dayNumber,
-    params.totalDays,
-    params.currentCard,
-    params.totalCards,
-    params.progressPercent,
-    params.watchCompleted,
-    params.exploreCompleted,
-    params.questionsCompleted
-  );
+  return LiveActivityNative!.startDailyStory(params);
 }
 
 /**
  * Update an existing DailyStory activity's progress state.
  * Call this as the user completes each card.
+ * Passes `params` as a single object (Record on the Swift side).
  */
 export async function updateDailyStory(params: DailyStoryUpdateParams): Promise<void> {
   assertIOS();
-  return LiveActivityNative!.updateDailyStory(
-    params.id,
-    params.currentCard,
-    params.totalCards,
-    params.progressPercent,
-    params.watchCompleted,
-    params.exploreCompleted,
-    params.questionsCompleted
-  );
+  return LiveActivityNative!.updateDailyStory(params);
 }
 
 /**

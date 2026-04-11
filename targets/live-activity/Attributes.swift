@@ -5,19 +5,30 @@ import ActivityKit
 
 // MARK: - DailyStoryActivity
 
-/// ActivityAttributes for the "daily story in progress" Live Activity.
-/// Triggered when a user exits a daily story mid-way and needs a resume CTA on the lock screen.
+/// Lifecycle state for the DailyStory Live Activity.
 ///
-/// Shares the same underlying story structure (WATCH/EXPLORE/QUESTIONS cards + era context)
-/// as StreakGuardAttributes, so the expanded Dynamic Island view uses identical pills and caption.
+/// Transitions:
+///   - Today tab opened → `.inProgress` (tracking card completion)
+///   - All 3 cards completed → `.completed` ("Quest Complete! +30 XP", 30 min linger)
+///   - Midnight passes incomplete → `.incomplete` ("Quest incomplete", 30 min linger)
+///   - Replaced by StreakGuard → activity ended externally
+public enum DailyStoryState: String, Codable, Hashable {
+  case inProgress  // Active — user working through cards
+  case completed   // All 3 cards done — "Quest Complete! +30 XP"
+  case incomplete  // Midnight passed — "Quest incomplete"
+}
+
+/// ActivityAttributes for the DailyStory Live Activity.
 @available(iOS 16.2, *)
 struct DailyStoryAttributes: ActivityAttributes {
   public struct ContentState: Codable, Hashable {
+    /// Lifecycle state — drives which banner variant renders.
+    var state: DailyStoryState
     /// 1-indexed card number the user was on when they exited.
     var currentCard: Int
     /// Total number of cards in the daily story (usually 3: WATCH / EXPLORE / QUESTIONS).
     var totalCards: Int
-    /// 0.0 – 1.0 progress through the story — drives the circular ring in compact trailing.
+    /// 0.0 – 1.0 progress through the story — drives the circular ring and progress bar.
     var progressPercent: Double
     /// Last-updated timestamp (seconds since 1970).
     var lastUpdated: Double
@@ -27,6 +38,12 @@ struct DailyStoryAttributes: ActivityAttributes {
     var exploreCompleted: Bool
     /// Whether the user has completed the QUESTIONS card.
     var questionsCompleted: Bool
+    /// Current streak count — shown in lock screen banner Row 1.
+    var currentStreak: Int
+    /// End timestamp (seconds since 1970) — usually midnight local time.
+    var endDate: Double
+    /// XP earned — displayed as "+N XP" in completed state banner. 0 for non-completed states.
+    var xpEarned: Int
   }
 
   /// YYYY-MM-DD identifier for the daily story.

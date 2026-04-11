@@ -14,6 +14,7 @@ export {
 
 export type {
   StreakState,
+  DailyStoryState,
   ActivityId,
   ActiveActivityRef,
   StreakGuardStartParams,

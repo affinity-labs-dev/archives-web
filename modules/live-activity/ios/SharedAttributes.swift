@@ -22,10 +22,17 @@ import ActivityKit
 
 // MARK: - DailyStoryActivity
 
+public enum DailyStoryState: String, Codable, Hashable {
+  case inProgress
+  case completed
+  case incomplete
+}
+
 // ActivityAttributes protocol itself is @available(iOS 16.1, *), so conforming
 // structs inherit that availability — no explicit marker needed on the struct.
 struct DailyStoryAttributes: ActivityAttributes {
   public struct ContentState: Codable, Hashable {
+    var state: DailyStoryState
     var currentCard: Int
     var totalCards: Int
     var progressPercent: Double
@@ -33,6 +40,9 @@ struct DailyStoryAttributes: ActivityAttributes {
     var watchCompleted: Bool
     var exploreCompleted: Bool
     var questionsCompleted: Bool
+    var currentStreak: Int
+    var endDate: Double
+    var xpEarned: Int
   }
 
   var storyId: String
