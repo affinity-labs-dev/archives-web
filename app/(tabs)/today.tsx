@@ -15,6 +15,7 @@ import { useDailyStoryTracking } from "@/hooks/useDailyStoryTracking";
 import { supabase } from "@/hooks/lib/supabase";
 import { analyticsService } from "@/services/AnalyticsService";
 import AppLogger from "@/services/AppLogger";
+import { liveActivityManager } from "@/services/LiveActivityManager";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
@@ -537,7 +538,7 @@ export default function TodayScreen() {
       setActiveModal(nextModal);
       setOutgoingSlot(null);
     } catch (error) {
-      AppLogger.error("❌ [Today] Error in finishTransition:", error);
+      AppLogger.error("quiz", "[Today] Error in finishTransition:", {}, error);
       // Force full reset to recover
       setSlotAModal("none");
       setSlotBModal("none");
@@ -1222,6 +1223,9 @@ export default function TodayScreen() {
   const [questCompleted, setQuestCompleted] = useState(false);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
 
+  // Live Activity — cache quiz results for XP plumbing to Live Activity completion
+  const lastQuizCorrectAnswersRef = useRef(0);
+
   // Load progress from AsyncStorage when quest changes
   useEffect(() => {
     // CRITICAL: Reset state IMMEDIATELY when quest changes (synchronous)
@@ -1407,8 +1411,9 @@ export default function TodayScreen() {
     const currentQuest = displayedQuest || todayQuest;
     if (currentQuest?.date && watchCompleted && exploreCompleted) {
       const questDate = currentQuest.date;
-      console.log(`🎬 [Today] Triggering celebration for ${questDate}...`);
-      await reportTodayComplete(questDate);
+      const xpEarned = lastQuizCorrectAnswersRef.current * 10;
+      console.log(`🎬 [Today] Triggering celebration for ${questDate} (XP: ${xpEarned})...`);
+      await reportTodayComplete(questDate, xpEarned);
       console.log(`✅ [Today] Celebration triggered`);
     }
   };
@@ -1505,6 +1510,48 @@ export default function TodayScreen() {
   const isExploreUnlocked = watchCompleted;
   const isQuizUnlocked = watchCompleted && exploreCompleted;
 
+  // Live Activity — update DailyStory progress if activity is running
+  const updateDailyStoryIfActive = useCallback((cards: {
+    watchCompleted: boolean;
+    exploreCompleted: boolean;
+    questionsCompleted: boolean;
+  }) => {
+    if (!liveActivityManager.isDailyStoryActive) return;
+    liveActivityManager.updateDailyStoryProgress({
+      ...cards,
+      currentStreak: streak,
+    }).catch((err) => {
+      AppLogger.error('gamification', 'DailyStory Live Activity update failed', {}, err as Error);
+    });
+  }, [streak]);
+
+  // Live Activity — start DailyStory on first Today tab open of the day
+  // Specs: starts when user opens Today tab, once per day, only if quest incomplete
+  useFocusEffect(
+    useCallback(() => {
+      if (!todayQuest) return;
+
+      // Don't start if quest is already fully completed
+      if (questCompleted && watchCompleted && exploreCompleted) return;
+
+      const today = toLocalDateString(new Date());
+      if (todayQuest.date !== today) return;
+
+      liveActivityManager.startDailyStoryActivity({
+        storyId: todayQuest.id,
+        storyTitle: todayQuest.content.today_title,
+        dayNumber: todayQuest.content.day_number,
+        totalDays: todayQuest.content.total_days,
+        currentStreak: streak,
+        watchCompleted,
+        exploreCompleted,
+        questionsCompleted: questCompleted,
+      }).catch((err) => {
+        AppLogger.error('gamification', 'DailyStory Live Activity start failed', {}, err as Error);
+      });
+    }, [todayQuest, questCompleted, watchCompleted, exploreCompleted, streak])
+  );
+
   // Loading state
   if (loading) {
     return (
@@ -1574,6 +1621,7 @@ export default function TodayScreen() {
             if (isModalTransitioning.current) return;
             setWatchCompleted(true);
             await saveProgress("watch");
+            updateDailyStoryIfActive({ watchCompleted: true, exploreCompleted: false, questionsCompleted: false });
             animateModalTransition("reading", "video", "forward");
             tracking.trackCardViewed(2);
           }}
@@ -1600,6 +1648,7 @@ export default function TodayScreen() {
             if (isModalTransitioning.current) return;
             setExploreCompleted(true);
             await saveProgress("explore");
+            updateDailyStoryIfActive({ watchCompleted: true, exploreCompleted: true, questionsCompleted: false });
             animateModalTransition("quiz", "reading", "forward");
             tracking.trackCardViewed(3);
           }}
@@ -1618,7 +1667,7 @@ export default function TodayScreen() {
 
     if (modal === "quiz") {
       if (!user) {
-        AppLogger.error("❌ [Today] Quiz modal opened without authenticated user");
+        AppLogger.error("quiz", "[Today] Quiz modal opened without authenticated user");
         closeModal();
         return null;
       }
@@ -1648,6 +1697,8 @@ export default function TodayScreen() {
             progress={progress}
             showTodayHeader={true}
             onQuizResults={async (score, correctAnswers, totalQuestions) => {
+              // Cache for Live Activity XP plumbing (read in handleQuizComplete)
+              lastQuizCorrectAnswersRef.current = correctAnswers;
               try {
                 await saveQuestCompletion(
                   user.id,

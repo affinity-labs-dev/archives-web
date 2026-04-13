@@ -338,7 +338,7 @@ interface GamificationOrchestratorContextType {
   /** Report lesson completion - for future triggers */
   reportLessonComplete: (input: LessonCompleteInput) => Promise<void>;
   /** Report Today screen completion (100% progress) - triggers streak update if quest date matches today */
-  reportTodayComplete: (questDate: string) => Promise<void>;
+  reportTodayComplete: (questDate: string, xpEarned?: number) => Promise<void>;
   /** Check if any celebration is currently showing */
   isCelebrating: boolean;
   /** Pause celebration queue (e.g. while AI chat is open) */
@@ -1401,6 +1401,14 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         console.log(`📊 [Orchestrator] Analytics updated with streak: ${newStreak}`);
 
+        // Live Activity — transition StreakGuard to .saved if active
+        // Module quiz completion also saves the streak
+        if (liveActivityManager.isStreakGuardActive) {
+          liveActivityManager.onStreakSaved(newStreak).catch((err) => {
+            AppLogger.error('gamification', 'LiveActivity saved transition failed (quiz)', {}, err);
+          });
+        }
+
         // Queue streak celebration
         try {
           const weekData = calculateWeekData(newStreak, today, cloudStreak.lastActiveDate, cloudStreak.currentStreak);
@@ -1596,8 +1604,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
    * Same streak logic as reportQuizComplete - first completion of day increments streak
    * @param questDate - The date of the completed quest (YYYY-MM-DD format)
    */
-  const reportTodayComplete = useCallback(async (questDate: string) => {
-    console.log(`📊 [Orchestrator] Today screen completed - checking for celebrations`);
+  const reportTodayComplete = useCallback(async (questDate: string, xpEarned?: number) => {
+    console.log(`📊 [Orchestrator] Today screen completed - checking for celebrations (XP: ${xpEarned ?? 0})`);
 
     const today = toLocalDateString(new Date());
     const COMPLETION_DATE_KEY = '@last_streak_completion_date';
@@ -1671,11 +1679,18 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         console.log(`📊 [Orchestrator] Analytics updated with streak: ${newStreak}`);
 
-        // Live Activity — transition StreakGuard to .saved state
-        // This ends the expiring countdown and shows "Streak saved!" banner
-        liveActivityManager.onStreakSaved(newStreak).catch((err) => {
-          AppLogger.error('gamification', 'LiveActivity saved transition failed', {}, err);
-        });
+        // Live Activity — end whichever activity is currently active
+        // (mutually exclusive: StreakGuard displaces DailyStory on start)
+        if (liveActivityManager.isStreakGuardActive) {
+          liveActivityManager.onStreakSaved(newStreak).catch((err) => {
+            AppLogger.error('gamification', 'LiveActivity saved transition failed', {}, err);
+          });
+        }
+        if (liveActivityManager.isDailyStoryActive) {
+          liveActivityManager.onDailyStoryCompleted(newStreak, xpEarned ?? 0).catch((err) => {
+            AppLogger.error('gamification', 'LiveActivity DailyStory completed transition failed', {}, err);
+          });
+        }
 
         // Queue celebration
         try {
