@@ -62,6 +62,8 @@ struct DailyStoryUpdateRecord: Record {
   @Field var xpEarned: Int = 0
 }
 
+private let kPushToStartTokenKey = "LiveActivity_PushToStartToken_StreakGuard"
+
 public class LiveActivityModule: Module {
   // MARK: State
 
@@ -71,6 +73,12 @@ public class LiveActivityModule: Module {
   /// Active DailyStory activities, keyed by activity.id (UUID string).
   private var dailyStoryActivities: [String: Any] = [:]
 
+  /// Guard against duplicate push-to-start listener Tasks.
+  /// If JS calls registerPushToStartTokens() multiple times (React StrictMode,
+  /// component remount), we cancel the previous Task before starting a new one.
+  private var pushToStartListenerTask: Task<Void, Never>?
+
+
   // MARK: Module definition
 
   public func definition() -> ModuleDefinition {
@@ -79,29 +87,7 @@ public class LiveActivityModule: Module {
     // MARK: Events
     // Push-to-start token events emitted to JS. JS handles POST to backend.
     // Pattern matches expo-notifications: native emits token, JS calls API.
-    Events("onPushToStartToken")
-
-    // MARK: Auto-register push-to-start listener on module load
-    // Runs at native module init — before any React component mounts or JS useEffect fires.
-    // This is the earliest possible point to catch one-shot token emissions from iOS.
-    OnCreate {
-      guard #available(iOS 17.2, *) else { return }
-
-      Task {
-        for await tokenData in Activity<StreakGuardAttributes>.pushToStartTokenUpdates {
-          let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
-          NSLog("[LiveActivity] 🔑 Push-to-start token received (OnCreate): \(tokenString.prefix(16))...")
-
-          self.sendEvent("onPushToStartToken", [
-            "token": tokenString,
-            "activityType": "StreakGuard",
-            "attributeType": "StreakGuardAttributes",
-          ])
-        }
-      }
-
-      NSLog("[LiveActivity] Push-to-start token listener auto-registered via OnCreate")
-    }
+    Events("onPushToStartToken", "onActivityPushToken")
 
     // MARK: Status
 
@@ -152,11 +138,25 @@ public class LiveActivityModule: Module {
         let activity = try Activity<StreakGuardAttributes>.request(
           attributes: attributes,
           content: .init(state: contentState, staleDate: nil),
-          pushType: nil
+          pushType: .token
         )
         let id = activity.id
         self.streakGuardActivities[id] = activity
         NSLog("[LiveActivity] Started StreakGuard activity id=\(id) state=\(state)")
+
+        // Listen for activity push token updates — emitted to JS for backend registration
+        Task {
+          for await tokenData in activity.pushTokenUpdates {
+            let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
+            NSLog("[LiveActivity] 🔑 Activity push token for StreakGuard id=\(id): \(tokenString.prefix(16))...")
+            self.sendEvent("onActivityPushToken", [
+              "token": tokenString,
+              "activityType": "StreakGuard",
+              "activityId": id,
+            ])
+          }
+        }
+
         return id
       } catch {
         NSLog("[LiveActivity] Failed to start StreakGuard: \(error.localizedDescription)")
@@ -260,11 +260,25 @@ public class LiveActivityModule: Module {
         let activity = try Activity<DailyStoryAttributes>.request(
           attributes: attributes,
           content: .init(state: contentState, staleDate: nil),
-          pushType: nil
+          pushType: .token
         )
         let id = activity.id
         self.dailyStoryActivities[id] = activity
         NSLog("[LiveActivity] Started DailyStory activity id=\(id) title=\(params.storyTitle)")
+
+        // Listen for activity push token updates — emitted to JS for backend registration
+        Task {
+          for await tokenData in activity.pushTokenUpdates {
+            let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
+            NSLog("[LiveActivity] 🔑 Activity push token for DailyStory id=\(id): \(tokenString.prefix(16))...")
+            self.sendEvent("onActivityPushToken", [
+              "token": tokenString,
+              "activityType": "DailyStory",
+              "activityId": id,
+            ])
+          }
+        }
+
         return id
       } catch {
         NSLog("[LiveActivity] Failed to start DailyStory: \(error.localizedDescription)")
@@ -369,26 +383,48 @@ public class LiveActivityModule: Module {
 
     // MARK: Push-to-start token registration
 
-    /// Start listening for push-to-start tokens for StreakGuard activities.
-    /// When iOS provides a token, this emits an 'onPushToStartToken' event to JS.
-    /// JS is responsible for POSTing the token to the backend.
+    /// Returns the cached push-to-start token from UserDefaults.
+    /// iOS only emits via pushToStartTokenUpdates when the token CHANGES,
+    /// so on subsequent app launches we read from cache instead of waiting.
+    /// Returns null if no token has been cached yet (first install, pre-iOS 17.2).
+    AsyncFunction("getCachedPushToStartToken") { () -> [String: String]? in
+      guard let token = UserDefaults.standard.string(forKey: kPushToStartTokenKey) else {
+        return nil
+      }
+      return [
+        "token": token,
+        "activityType": "StreakGuard",
+        "attributeType": "StreakGuardAttributes",
+      ]
+    }
+
+    /// Start listening for push-to-start token CHANGES.
+    /// On first install iOS emits the initial token; on subsequent launches
+    /// this only fires if iOS rotates the token. JS should call
+    /// getCachedPushToStartToken() first for the current token, then
+    /// registerPushToStartTokens() to catch future rotations.
     ///
-    /// Architecture rationale: keeping backend API calls in JS means:
-    /// - Same AffinityNotificationService pattern already used for push tokens
-    /// - Hot-reloadable debugging (no native rebuild for API fixes)
-    /// - Consistent error handling with rest of JS codebase
+    /// Correct call order in JS:
+    ///   1. addPushToStartTokenListener(callback)     — attach listener
+    ///   2. getCachedPushToStartToken()                — read cached token
+    ///   3. registerPushToStartTokens()                — listen for changes
     AsyncFunction("registerPushToStartTokens") { () async throws in
       guard #available(iOS 17.2, *) else {
         throw LiveActivityError.unsupported
       }
 
-      // Listen for StreakGuard push-to-start tokens
-      Task {
-        for await tokenData in Activity<StreakGuardAttributes>.pushToStartTokenUpdates {
-          let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
-          NSLog("[LiveActivity] Received push-to-start token for StreakGuard: \(tokenString.prefix(16))...")
+      // Cancel previous listener Task (guard against duplicate calls)
+      self.pushToStartListenerTask?.cancel()
 
-          // Emit to JS — JS will POST to backend
+      self.pushToStartListenerTask = Task {
+        for await tokenData in Activity<StreakGuardAttributes>.pushToStartTokenUpdates {
+          guard !Task.isCancelled else { break }
+          let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
+          NSLog("[LiveActivity] 🔑 Push-to-start token for StreakGuard: \(tokenString.prefix(16))...")
+
+          // Cache in UserDefaults so next app launch can read it immediately
+          UserDefaults.standard.set(tokenString, forKey: kPushToStartTokenKey)
+
           self.sendEvent("onPushToStartToken", [
             "token": tokenString,
             "activityType": "StreakGuard",

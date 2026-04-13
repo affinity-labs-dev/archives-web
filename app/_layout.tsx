@@ -32,7 +32,7 @@ import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
 import AppLogger from '@/services/AppLogger';
 import { networkPerformanceService } from '@/services/NetworkPerformanceService';
-import { addPushToStartTokenListener } from '@/modules/live-activity';
+import { addPushToStartTokenListener, addActivityPushTokenListener, getCachedPushToStartToken, registerPushToStartTokens } from '@/modules/live-activity';
 import Purchases from 'react-native-purchases';
 
 // Gamification imports - unified from @/gamification
@@ -503,18 +503,55 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       AffinityNotificationService.updateDevice({ push_token: newToken });
     });
 
-    // Live Activity push-to-start token listener (iOS 17.2+)
-    // Token registration now happens automatically via native OnCreate in LiveActivityModule.swift
-    // (earliest possible point — before React mounts). JS only needs to listen for events.
-    let liveActivityTokenSub: { remove: () => void } | undefined;
+    // Live Activity token listeners (iOS 17.2+)
+    // Push-to-start: cached in UserDefaults (survives app restart), listener for future rotations.
+    // Activity: emitted when activity starts with pushType: .token.
+    let pushToStartSub: { remove: () => void } | undefined;
+    let activityTokenSub: { remove: () => void } | undefined;
     if (Platform.OS === 'ios') {
-      liveActivityTokenSub = addPushToStartTokenListener((event) => {
-        AppLogger.info('notification', 'Live Activity push-to-start token received', {
+      // 1. Attach listener for future token CHANGES (iOS rotates token)
+      pushToStartSub = addPushToStartTokenListener((event) => {
+        AppLogger.info('notification', 'Live Activity push-to-start token changed', {
           activityType: event.activityType,
           tokenPrefix: event.token.substring(0, 16),
         });
-        // TODO: POST token to Supabase or Affinity backend
-        // AffinityNotificationService.registerLiveActivityToken(event.token, event.activityType);
+        AffinityNotificationService.registerLiveActivityToken({
+          pushToken: event.token,
+          tokenType: 'push_to_start',
+          activityType: event.activityType,
+        });
+      });
+
+      // 2. Read cached token (every launch — iOS only emits on change, not on restart)
+      getCachedPushToStartToken().then((cached) => {
+        if (cached) {
+          AppLogger.info('notification', 'Registering cached push-to-start token', {
+            activityType: cached.activityType,
+            tokenPrefix: cached.token.substring(0, 16),
+          });
+          AffinityNotificationService.registerLiveActivityToken({
+            pushToken: cached.token,
+            tokenType: 'push_to_start',
+            activityType: cached.activityType,
+          });
+        }
+      }).catch(() => { /* non-fatal */ });
+
+      // 3. Start native listener for future changes (also caches first-install token)
+      registerPushToStartTokens().catch(() => { /* non-fatal — iOS < 17.2 */ });
+
+      activityTokenSub = addActivityPushTokenListener((event) => {
+        AppLogger.info('notification', 'Live Activity activity push token received', {
+          activityType: event.activityType,
+          activityId: event.activityId,
+          tokenPrefix: event.token.substring(0, 16),
+        });
+        AffinityNotificationService.registerLiveActivityToken({
+          pushToken: event.token,
+          tokenType: 'activity',
+          activityType: event.activityType,
+          activityId: event.activityId,
+        });
       });
     }
 
@@ -522,7 +559,8 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       notificationListener.remove();
       responseListener.remove();
       pushTokenListener.remove();
-      liveActivityTokenSub?.remove();
+      pushToStartSub?.remove();
+      activityTokenSub?.remove();
     };
   }, []);
 

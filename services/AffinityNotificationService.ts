@@ -34,6 +34,11 @@ let _deviceIdentifier: string | null = null;
 let _userReadyResolve: (() => void) | null = null;
 let _userReady: Promise<void> = new Promise((r) => { _userReadyResolve = r; });
 
+// Gate: registerLiveActivityToken() awaits this to ensure the device exists
+// in the backend before attempting token registration. Reset on logout.
+let _deviceReadyResolve: (() => void) | null = null;
+let _deviceReady: Promise<void> = new Promise((r) => { _deviceReadyResolve = r; });
+
 // ── Internal HTTP helper ───────────────────────────────────────────────────────
 
 async function apiFetch(
@@ -181,7 +186,11 @@ export async function registerDevice(): Promise<void> {
       platform: Platform.OS,
       tokenPrefix: deviceToken.substring(0, 24) + '...',
     });
+    _deviceReadyResolve?.();
   } catch (error) {
+    // Non-fatal — still resolve the gate so registerLiveActivityToken
+    // doesn't hang forever (it will fail with its own error)
+    _deviceReadyResolve?.();
     AppLogger.error('notification', 'Failed to register device with Affinity', {}, error);
   }
 }
@@ -246,8 +255,9 @@ export async function logout(): Promise<void> {
 
   _currentUserId = null;
   _deviceIdentifier = null;
-  // Reset the gate for the next sign-in cycle
+  // Reset gates for the next sign-in cycle
   _userReady = new Promise((r) => { _userReadyResolve = r; });
+  _deviceReady = new Promise((r) => { _deviceReadyResolve = r; });
 }
 
 /**
@@ -315,6 +325,64 @@ export async function reportEvent(
   }
 }
 
+/**
+ * Register a Live Activity push token with the backend.
+ *
+ * Two token types:
+ * - push_to_start: for starting activities remotely (iOS 17.2+)
+ * - activity: for updating/ending an existing activity via push
+ *
+ * Non-fatal: failures are logged but never block the UI.
+ * Must be called after registerUser — relies on _currentUserId and _deviceIdentifier.
+ */
+export async function registerLiveActivityToken(params: {
+  pushToken: string;
+  tokenType: 'push_to_start' | 'activity';
+  activityType: string;
+  activityId?: string | null;
+}): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+
+  if (!_currentUserId) {
+    AppLogger.warn('notification', 'registerLiveActivityToken: user not set — skipping');
+    return;
+  }
+
+  // Wait for both user AND device to exist in the backend.
+  // registerDevice() must complete first so the backend can find the
+  // device by device_identifier when creating the live activity token.
+  await _deviceReady;
+
+  if (!_deviceIdentifier) {
+    AppLogger.warn('notification', 'registerLiveActivityToken: device_identifier not available — skipping');
+    return;
+  }
+
+  try {
+    await apiFetch('/live-activities/tokens', 'POST', {
+      app_id: APP_ID,
+      user_external_id: _currentUserId,
+      device_identifier: _deviceIdentifier,
+      push_token: params.pushToken,
+      token_type: params.tokenType,
+      activity_type: params.activityType,
+      activity_id: params.activityId ?? null,
+    });
+
+    AppLogger.info('notification', 'Live Activity token registered', {
+      tokenType: params.tokenType,
+      activityType: params.activityType,
+      activityId: params.activityId ?? null,
+      tokenPrefix: params.pushToken.substring(0, 16) + '...',
+    });
+  } catch (error) {
+    AppLogger.error('notification', 'Failed to register Live Activity token', {
+      tokenType: params.tokenType,
+      activityType: params.activityType,
+    }, error);
+  }
+}
+
 export function getLastRegisteredToken(): string | null {
   return _lastRegisteredToken;
 }
@@ -329,6 +397,7 @@ export default {
   updatePermission,
   updateDevice,
   reportEvent,
+  registerLiveActivityToken,
   logout,
   getLastRegisteredToken,
   getDeviceIdentifier,

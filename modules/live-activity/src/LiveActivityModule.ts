@@ -235,12 +235,29 @@ export interface PushToStartTokenEvent {
 }
 
 /**
- * Start listening for push-to-start tokens (iOS 17.2+).
- * Native side listens for ActivityKit token updates and emits them to JS.
- * JS is responsible for POSTing tokens to the backend.
+ * Returns the cached push-to-start token from UserDefaults.
  *
- * Architecture: native emits token → JS receives via event → JS calls backend API.
- * This keeps backend API logic in JS (hot-reloadable, consistent error handling).
+ * iOS only emits via pushToStartTokenUpdates when the token CHANGES.
+ * On subsequent app launches (token unchanged), the for-await never yields.
+ * This getter reads the token cached by a previous registerPushToStartTokens() call.
+ *
+ * Returns null if no token has been cached yet (first install, or iOS < 17.2).
+ */
+export async function getCachedPushToStartToken(): Promise<PushToStartTokenEvent | null> {
+  if (!LiveActivityNative) return null;
+  return LiveActivityNative.getCachedPushToStartToken();
+}
+
+/**
+ * Start listening for push-to-start token CHANGES (iOS 17.2+).
+ *
+ * On first install: iOS emits the initial token → cached in UserDefaults.
+ * On subsequent launches: only fires if iOS rotates the token.
+ *
+ * Correct usage:
+ *   1. addPushToStartTokenListener(callback)  — attach listener
+ *   2. getCachedPushToStartToken()            — read cached (every launch)
+ *   3. registerPushToStartTokens()            — listen for future changes
  */
 export async function registerPushToStartTokens(): Promise<void> {
   if (!LiveActivityNative) return;
@@ -263,4 +280,30 @@ export function addPushToStartTokenListener(
 ): { remove: () => void } {
   if (!LiveActivityNative) return { remove: () => {} };
   return LiveActivityNative.addListener('onPushToStartToken', callback);
+}
+
+// MARK: - Activity push token events
+
+export interface ActivityPushTokenEvent {
+  /** Hex-encoded activity push token (for update/end via APNs) */
+  token: string;
+  /** Which activity type this token belongs to */
+  activityType: 'StreakGuard' | 'DailyStory';
+  /** ActivityKit activity ID — use as activity_id when registering with backend */
+  activityId: string;
+}
+
+/**
+ * Subscribe to activity push token events.
+ * Emitted when an activity starts with `pushType: .token` and iOS provides
+ * the token (or refreshes it). Each activity instance gets its own token.
+ *
+ * JS is responsible for POSTing these tokens to the backend so the server
+ * can send update/end pushes to specific activities.
+ */
+export function addActivityPushTokenListener(
+  callback: (event: ActivityPushTokenEvent) => void
+): { remove: () => void } {
+  if (!LiveActivityNative) return { remove: () => {} };
+  return LiveActivityNative.addListener('onActivityPushToken', callback);
 }

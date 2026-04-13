@@ -8,8 +8,10 @@ export {
   updateDailyStory,
   endDailyStory,
   endAllActivities,
+  getCachedPushToStartToken,
   registerPushToStartTokens,
   addPushToStartTokenListener,
+  addActivityPushTokenListener,
 } from './src/LiveActivityModule';
 
 export type {
@@ -22,4 +24,5 @@ export type {
   DailyStoryStartParams,
   DailyStoryUpdateParams,
   PushToStartTokenEvent,
+  ActivityPushTokenEvent,
 } from './src/LiveActivityModule';
