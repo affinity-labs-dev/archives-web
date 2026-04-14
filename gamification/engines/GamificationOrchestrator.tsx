@@ -24,7 +24,8 @@ import { toLocalDateString } from '@/utils/dateUtils';
 import { useUser } from '@clerk/clerk-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Modal } from 'react-native';
+import { AppState, AppStateStatus, Modal, Platform } from 'react-native';
+import { liveActivityManager } from '@/services/LiveActivityManager';
 import { calculateTotalXP as calculateTotalXPUtil, useGamifiedProgress } from './GamifiedProgress';
 
 // Import celebration screens
@@ -337,7 +338,7 @@ interface GamificationOrchestratorContextType {
   /** Report lesson completion - for future triggers */
   reportLessonComplete: (input: LessonCompleteInput) => Promise<void>;
   /** Report Today screen completion (100% progress) - triggers streak update if quest date matches today */
-  reportTodayComplete: (questDate: string) => Promise<void>;
+  reportTodayComplete: (questDate: string, xpEarned?: number) => Promise<void>;
   /** Check if any celebration is currently showing */
   isCelebrating: boolean;
   /** Pause celebration queue (e.g. while AI chat is open) */
@@ -1400,6 +1401,14 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         console.log(`📊 [Orchestrator] Analytics updated with streak: ${newStreak}`);
 
+        // Live Activity — transition StreakGuard to .saved if active
+        // Module quiz completion also saves the streak
+        if (liveActivityManager.isStreakGuardActive) {
+          liveActivityManager.onStreakSaved(newStreak).catch((err) => {
+            AppLogger.error('gamification', 'LiveActivity saved transition failed (quiz)', {}, err);
+          });
+        }
+
         // Queue streak celebration
         try {
           const weekData = calculateWeekData(newStreak, today, cloudStreak.lastActiveDate, cloudStreak.currentStreak);
@@ -1595,8 +1604,8 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
    * Same streak logic as reportQuizComplete - first completion of day increments streak
    * @param questDate - The date of the completed quest (YYYY-MM-DD format)
    */
-  const reportTodayComplete = useCallback(async (questDate: string) => {
-    console.log(`📊 [Orchestrator] Today screen completed - checking for celebrations`);
+  const reportTodayComplete = useCallback(async (questDate: string, xpEarned?: number) => {
+    console.log(`📊 [Orchestrator] Today screen completed - checking for celebrations (XP: ${xpEarned ?? 0})`);
 
     const today = toLocalDateString(new Date());
     const COMPLETION_DATE_KEY = '@last_streak_completion_date';
@@ -1669,6 +1678,19 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
         });
 
         console.log(`📊 [Orchestrator] Analytics updated with streak: ${newStreak}`);
+
+        // Live Activity — end whichever activity is currently active
+        // (mutually exclusive: StreakGuard displaces DailyStory on start)
+        if (liveActivityManager.isStreakGuardActive) {
+          liveActivityManager.onStreakSaved(newStreak).catch((err) => {
+            AppLogger.error('gamification', 'LiveActivity saved transition failed', {}, err);
+          });
+        }
+        if (liveActivityManager.isDailyStoryActive) {
+          liveActivityManager.onDailyStoryCompleted(newStreak, xpEarned ?? 0).catch((err) => {
+            AppLogger.error('gamification', 'LiveActivity DailyStory completed transition failed', {}, err);
+          });
+        }
 
         // Queue celebration
         try {
@@ -1813,6 +1835,62 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       console.log('🧪 [TEST] Test function exposed! Call global.testStreakIncrement() to simulate next day');
     }
   }, [simulateNextDay]);
+
+  // MARK: Live Activity — StreakGuard trigger on app foreground
+  // Checks conditions (time >= 21:00, 0 cards today, streak >= 3) and starts
+  // StreakGuard activity if appropriate. Runs on every foreground event.
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !isProgressInitialized) return;
+
+    let isCancelled = false;
+
+    const runCheck = async () => {
+      try {
+        const cloudStreak = getCloudStreak();
+        const today = toLocalDateString(new Date());
+        const hasCompletedToday = cloudStreak.lastActiveDate === today && cloudStreak.currentStreak > 0;
+
+        // Run midnight-crossover check first (JS was suspended while iOS
+        // backgrounded, setTimeout may have missed midnight)
+        await liveActivityManager.checkMidnightCrossover();
+
+        if (isCancelled) return;
+
+        await liveActivityManager.checkAndStartStreakGuard(
+          cloudStreak.currentStreak,
+          hasCompletedToday,
+          cloudStreak.lastActiveDate || today
+        );
+      } catch (err) {
+        AppLogger.warn('gamification', 'LiveActivity foreground check failed', { error: String(err) });
+      }
+    };
+
+    const handleAppStateForLiveActivity = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        runCheck();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateForLiveActivity);
+
+    // Initial mount: await initialize() BEFORE checking StreakGuard to prevent
+    // race where duplicate activity starts before persisted state is restored.
+    (async () => {
+      try {
+        await liveActivityManager.initialize();
+        if (isCancelled) return;
+        await runCheck();
+      } catch (err) {
+        AppLogger.warn('gamification', 'LiveActivity initial setup failed', { error: String(err) });
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+      subscription?.remove();
+    };
+  }, [getCloudStreak, isProgressInitialized]);
 
   return (
     <GamificationOrchestratorContext.Provider

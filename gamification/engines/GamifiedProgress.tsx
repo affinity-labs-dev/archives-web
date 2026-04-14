@@ -721,7 +721,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       const freshData = stateRef.current;
       if (!freshData?.user_id) return;
       saveToCloud(freshData, true).catch(err => {
-        AppLogger.error('sync', '❌ Cloud save retry also FAILED — data only exists locally', {
+        AppLogger.error('sync', 'Cloud save retry also FAILED — data only exists locally', {
           userId, currentStreak: freshData.streak?.currentStreak,
         }, err);
       });
@@ -743,7 +743,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         }, { onConflict: 'user_id' });
 
       if (error) {
-        AppLogger.error('sync', '❌ Cloud save FAILED (upsert)', { userId: data.user_id, isRetry, currentStreak: data.streak?.currentStreak, lastUpdated: data.metadata?.last_updated }, error);
+        AppLogger.error('sync', 'Cloud save FAILED (upsert)', { userId: data.user_id, isRetry, currentStreak: data.streak?.currentStreak, lastUpdated: data.metadata?.last_updated }, error);
         if (!isRetry) scheduleCloudRetry(data.user_id);
         return false;
       }
@@ -751,7 +751,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       AppLogger.info('sync', 'Successfully saved to Supabase');
       return true;
     } catch (error) {
-      AppLogger.error('sync', '❌ Cloud save FAILED (exception)', { userId: data.user_id, isRetry, currentStreak: data.streak?.currentStreak, lastUpdated: data.metadata?.last_updated }, error);
+      AppLogger.error('sync', 'Cloud save FAILED (exception)', { userId: data.user_id, isRetry, currentStreak: data.streak?.currentStreak, lastUpdated: data.metadata?.last_updated }, error);
       if (!isRetry) scheduleCloudRetry(data.user_id);
       return false;
     }
@@ -1336,7 +1336,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
     // State should ALWAYS be loaded when this is called (test waits for isInitialized)
     if (!currentState) {
-      throw new Error('❌ [GamifiedProgress] getStreak called before state initialized! Wait for isInitialized flag.');
+      throw new Error('[GamifiedProgress] getStreak called before state initialized! Wait for isInitialized flag.');
     }
 
     if (__DEV__) {

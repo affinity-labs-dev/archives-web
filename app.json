@@ -2,7 +2,7 @@
   "expo": {
     "name": "Archives",
     "slug": "archives",
-    "version": "4.1.0",
+    "version": "4.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
     "scheme": "archives",
@@ -13,7 +13,7 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "193",
+      "buildNumber": "196",
       "associatedDomains": [
         "applinks:link.archiveszone.app"
       ],
@@ -30,7 +30,9 @@
           }
         ],
         "NSUserTrackingUsageDescription": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true,
+        "NSSupportsLiveActivitiesFrequentUpdates": true
       }
     },
     "android": {

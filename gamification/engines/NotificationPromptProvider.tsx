@@ -341,7 +341,7 @@ export function NotificationPromptProvider({ children }: { children: React.React
         return false;
       }
     } catch (err) {
-      AppLogger.warn('notification', 'shouldPrompt: permission check failed, proceeding cautiously', {}, err);
+      AppLogger.error('notification', 'shouldPrompt: permission check failed, proceeding cautiously', {}, err);
     }
 
     // 3. Check cooldown rules (daily limit + dismiss cooldown)
