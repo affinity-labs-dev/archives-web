@@ -42,22 +42,6 @@ export interface MonthlyUsage {
   image_analyze_count: number;
 }
 
-// Quota limits by subscription status
-export interface QuotaLimits {
-  chat: number;
-  image_generate: number;
-  image_edit: number;
-  image_analyze: number;
-}
-
-// Quota check result
-export interface QuotaCheckResult {
-  allowed: boolean;
-  remaining: number;
-  limit: number;
-  resetDate: string; // First day of next month
-}
-
 export interface AIUserData {
   user_id: string;
   messages: StoredMessage[];
@@ -67,40 +51,8 @@ export interface AIUserData {
   updated_at: string;
 }
 
-// Monthly quota limits
-const QUOTA_LIMITS = {
-  free: {
-    chat: 100,
-    image_generate: 10,
-    image_edit: 10,
-    image_analyze: 50,
-  } as QuotaLimits,
-  subscriber: {
-    chat: -1, // Unlimited
-    image_generate: 100,
-    image_edit: 50,
-    image_analyze: -1, // Unlimited
-  } as QuotaLimits,
-};
-
-// Cost estimates per request type (USD)
-const COST_ESTIMATES = {
-  chat: 0.0005,
-  image_generate: 0.03,
-  image_edit: 0.04,
-  image_analyze: 0.001,
-};
-
 class AIStorageService {
   private bucket = 'ai-images';
-
-  /**
-   * Get current month in YYYY-MM format
-   */
-  private getCurrentMonth(): string {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }
 
   /**
    * Get first day of next month (quota reset date)
@@ -112,101 +64,22 @@ class AIStorageService {
   }
 
   /**
-   * Get empty monthly usage object for current month
-   */
-  private getEmptyMonthlyUsage(): MonthlyUsage {
-    return {
-      month: this.getCurrentMonth(),
-      chat_count: 0,
-      image_generate_count: 0,
-      image_edit_count: 0,
-      image_analyze_count: 0,
-    };
-  }
-
-  /**
-   * Check if user can make a request (within monthly quota)
+   * Check if user can make a request.
+   * Quota enforcement is now handled server-side by the backend.
+   * This method always allows the request; the backend will return 429 if quota is exceeded.
+   * Kept for backward compatibility with AIChatModal.
    */
   async checkQuota(
-    userId: string,
-    requestType: 'chat' | 'image_generate' | 'image_edit' | 'image_analyze',
-    isSubscriber: boolean = false
-  ): Promise<QuotaCheckResult> {
-    try {
-      const currentMonth = this.getCurrentMonth();
-      const limits = isSubscriber ? QUOTA_LIMITS.subscriber : QUOTA_LIMITS.free;
-      const limit = limits[requestType];
-
-      // Unlimited check (-1 means unlimited)
-      if (limit === -1) {
-        return {
-          allowed: true,
-          remaining: -1,
-          limit: -1,
-          resetDate: this.getResetDate(),
-        };
-      }
-
-      // Get current monthly usage
-      const { data } = await supabase
-        .from('ai_user_data')
-        .select('monthly_usage')
-        .eq('user_id', userId)
-        .single();
-
-      let monthlyUsage: MonthlyUsage = data?.monthly_usage || this.getEmptyMonthlyUsage();
-
-      // Reset if different month
-      if (monthlyUsage.month !== currentMonth) {
-        monthlyUsage = this.getEmptyMonthlyUsage();
-      }
-
-      const countKey = `${requestType}_count` as keyof MonthlyUsage;
-      const currentCount = (monthlyUsage[countKey] as number) || 0;
-      const remaining = Math.max(0, limit - currentCount);
-      const allowed = currentCount < limit;
-
-      console.log(`📊 [AIStorage] Quota check: ${requestType} = ${currentCount}/${limit} (${isSubscriber ? 'subscriber' : 'free'})`);
-
-      return {
-        allowed,
-        remaining,
-        limit,
-        resetDate: this.getResetDate(),
-      };
-    } catch (error) {
-      console.error('❌ [AIStorage] Quota check failed:', error);
-      // Allow on error to not block users
-      return {
-        allowed: true,
-        remaining: 999,
-        limit: 999,
-        resetDate: this.getResetDate(),
-      };
-    }
-  }
-
-  /**
-   * Get user's remaining quota for all types
-   */
-  async getRemainingQuota(
-    userId: string,
-    isSubscriber: boolean = false
-  ): Promise<Record<string, QuotaCheckResult>> {
-    const types: Array<'chat' | 'image_generate' | 'image_edit' | 'image_analyze'> = [
-      'chat',
-      'image_generate',
-      'image_edit',
-      'image_analyze',
-    ];
-
-    const results: Record<string, QuotaCheckResult> = {};
-
-    for (const type of types) {
-      results[type] = await this.checkQuota(userId, type, isSubscriber);
-    }
-
-    return results;
+    _userId: string,
+    _requestType: 'chat' | 'image_generate' | 'image_edit' | 'image_analyze',
+    _isSubscriber: boolean = false
+  ): Promise<{ allowed: boolean; remaining: number; limit: number; resetDate: string }> {
+    return {
+      allowed: true,
+      remaining: -1,
+      limit: -1,
+      resetDate: this.getResetDate(),
+    };
   }
 
   /**
@@ -321,84 +194,17 @@ class AIStorageService {
   }
 
   /**
-   * Update usage stats after an AI request (tracks both lifetime and monthly)
+   * Track usage after an AI request.
+   * Actual quota enforcement and usage tracking is now handled by the backend.
+   * This method is kept for backward compatibility with AIChatModal;
+   * it just logs the event client-side.
    */
   async trackUsage(
-    userId: string,
+    _userId: string,
     requestType: 'chat' | 'image_generate' | 'image_edit' | 'image_analyze'
   ): Promise<boolean> {
-    try {
-      const currentMonth = this.getCurrentMonth();
-
-      // First, get current usage
-      const { data: existing } = await supabase
-        .from('ai_user_data')
-        .select('usage, monthly_usage')
-        .eq('user_id', userId)
-        .single();
-
-      const cost = COST_ESTIMATES[requestType];
-
-      // Build updated lifetime usage object
-      const currentUsage: UsageStats = existing?.usage || {
-        total_cost: 0,
-        total_requests: 0,
-        by_type: {
-          chat: { count: 0, cost: 0 },
-          image_generate: { count: 0, cost: 0 },
-          image_edit: { count: 0, cost: 0 },
-          image_analyze: { count: 0, cost: 0 },
-        },
-      };
-
-      const updatedUsage: UsageStats = {
-        total_cost: currentUsage.total_cost + cost,
-        total_requests: currentUsage.total_requests + 1,
-        by_type: {
-          ...currentUsage.by_type,
-          [requestType]: {
-            count: currentUsage.by_type[requestType].count + 1,
-            cost: currentUsage.by_type[requestType].cost + cost,
-          },
-        },
-      };
-
-      // Build updated monthly usage object
-      let monthlyUsage: MonthlyUsage = existing?.monthly_usage || this.getEmptyMonthlyUsage();
-
-      // Reset monthly usage if we're in a new month
-      if (monthlyUsage.month !== currentMonth) {
-        monthlyUsage = this.getEmptyMonthlyUsage();
-      }
-
-      // Increment the appropriate counter
-      const countKey = `${requestType}_count` as keyof MonthlyUsage;
-      (monthlyUsage[countKey] as number) = ((monthlyUsage[countKey] as number) || 0) + 1;
-
-      // Upsert both usage objects
-      const { error } = await supabase
-        .from('ai_user_data')
-        .upsert(
-          {
-            user_id: userId,
-            usage: updatedUsage,
-            monthly_usage: monthlyUsage,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' }
-        );
-
-      if (error) {
-        console.error('❌ [AIStorage] Track usage error:', error);
-        return false;
-      }
-
-      console.log(`📊 [AIStorage] Tracked ${requestType}, monthly: ${monthlyUsage[countKey]}, total cost: $${updatedUsage.total_cost.toFixed(4)}`);
-      return true;
-    } catch (error) {
-      console.error('❌ [AIStorage] Track usage failed:', error);
-      return false;
-    }
+    console.log(`📊 [AIStorage] Usage tracked (client-side): ${requestType}`);
+    return true;
   }
 
   /**

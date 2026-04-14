@@ -2,7 +2,6 @@
 // Uses Gemini to create dynamic puzzle games on-demand
 
 import { aiService } from './AIService';
-import { supabase } from '@/hooks/lib/supabase';
 import type {
   GameType,
   GameDifficulty,
@@ -13,14 +12,6 @@ import type {
   GameGenerationRequest,
 } from '@/gamification/types/games';
 import { DIFFICULTY_SETTINGS } from '@/gamification/types/games';
-
-// Era data from Supabase
-interface EraData {
-  era_id: string;
-  title: string;
-  timeline: string;
-  description: string | null;
-}
 
 // Era-specific puzzle themes with rich contextual details
 interface PuzzleTheme {
@@ -255,7 +246,7 @@ Return ONLY the JSON array, no other text.`;
       });
 
       // Parse AI response
-      const events = JSON.parse(response);
+      const events = JSON.parse(response.text);
 
       return {
         type: 'timeline',
@@ -305,7 +296,7 @@ Return ONLY the JSON object, no other text.`;
         conversationHistory: [],
       });
 
-      const data = JSON.parse(response);
+      const data = JSON.parse(response.text);
 
       return {
         type: 'wordsearch',
@@ -362,101 +353,35 @@ Return ONLY the JSON object, no other text.`;
   }
 
   /**
-   * Generate a historical image for the topic using Gemini AI
+   * Generate a historical image for the topic using backend AI
    * Uses contextual era-based themes if user progress is provided
    *
    * PERFORMANCE NOTE: AI image generation takes 5-10 seconds
    * For faster testing, set USE_AI_IMAGES = false to use instant placeholders
    */
-  /**
-   * Fetch era data from Supabase dynamically
-   */
-  private async fetchEraData(eraId: string): Promise<EraData | null> {
-    try {
-      console.log(`📖 [GameGenerator] Fetching era data for: ${eraId}`);
-
-      const { data, error } = await supabase
-        .from('eras')
-        .select('era_id, title, timeline, description')
-        .eq('era_id', eraId)
-        .single();
-
-      if (error) {
-        console.error(`❌ [GameGenerator] Error fetching era: ${error.message}`);
-        return null;
-      }
-
-      if (!data) {
-        console.warn(`⚠️ [GameGenerator] No era found for: ${eraId}`);
-        return null;
-      }
-
-      console.log(`✅ [GameGenerator] Loaded era: ${data.title} (${data.timeline})`);
-      return data;
-    } catch (error) {
-      console.error(`❌ [GameGenerator] Exception fetching era:`, error);
-      return null;
-    }
-  }
-
   private async findHistoricalImage(topic: string, eraId?: string): Promise<string> {
-    const USE_AI_IMAGES = true; // Set to true to enable AI generation (slower but better quality)
+    const USE_AI_IMAGES = true;
 
     if (!USE_AI_IMAGES) {
-      // Fast mode: Use beautiful historical placeholder images
-      console.log(`🖼️ [GameGenerator] Using placeholder image for: ${topic}`);
-      // Using a high-quality historical architecture placeholder
       return 'https://picsum.photos/seed/' + encodeURIComponent(topic) + '/400/400';
     }
 
-    // Fetch era data from Supabase if era_id is provided
-    let eraData: EraData | null = null;
-    if (eraId) {
-      eraData = await this.fetchEraData(eraId);
-    }
-
-    // Generate variety modifiers for visual diversity
-    const varietyModifiers = this.generateVarietyModifiers();
-
-    if (eraData) {
-      console.log(`🖼️ [GameGenerator] Generating contextual image for: ${eraData.title} (${eraData.timeline})`);
-      console.log(`🎨 [GameGenerator] Variety: ${varietyModifiers}`);
-    } else {
-      console.log(`🖼️ [GameGenerator] Generating generic image for: ${topic}`);
-      console.log(`🎨 [GameGenerator] Variety: ${varietyModifiers}`);
-    }
-
     try {
-      // Build prompt dynamically based on era data
-      const imagePrompt = this.buildEraContextualPrompt(
-        topic,
-        eraData,
-        varietyModifiers
-      );
+      const varietyModifiers = this.generateVarietyModifiers();
+      const imagePrompt = this.buildEraContextualPrompt(topic, null, varietyModifiers);
 
-      // Log the actual prompt being sent to AI (first 500 chars)
-      console.log(`📝 [GameGenerator] AI Prompt:\n${imagePrompt.substring(0, 500)}...`);
-
-      // Call Gemini Image Generation API (takes 5-10 seconds)
       const imageResult = await aiService.generateImage({
         prompt: imagePrompt,
-        context: {
-          eraName: eraData ? `${eraData.title} (${eraData.timeline})` : topic,
-        },
+        context: { eraName: eraId || topic },
       });
 
       if (imageResult) {
-        // Convert base64 image to data URI for React Native Image component
-        const dataUri = `data:${imageResult.mimeType};base64,${imageResult.imageBase64}`;
-        console.log('✅ [GameGenerator] AI image generated successfully');
-        return dataUri;
-      } else {
-        console.warn('⚠️ [GameGenerator] No image returned from AI, using placeholder');
-        return 'https://picsum.photos/seed/' + encodeURIComponent(topic) + '/400/400';
+        return `data:${imageResult.mimeType};base64,${imageResult.imageBase64}`;
       }
+
+      return 'https://picsum.photos/seed/' + encodeURIComponent(topic) + '/400/400';
     } catch (error) {
       console.error('❌ [GameGenerator] Error generating AI image:', error);
-      // Fallback to placeholder on error
       return 'https://picsum.photos/seed/' + encodeURIComponent(topic) + '/400/400';
     }
   }
@@ -509,50 +434,10 @@ Return ONLY the JSON object, no other text.`;
   }
 
   /**
-   * Build optimized prompt for jigsaw puzzle images with contextual details
-   * Specifically for Islamic history educational content
+   * Build era-contextual prompt for jigsaw puzzle images
+   * Era context is now resolved by the backend; this builds the generic puzzle prompt
    */
-  /**
-   * Build era-contextual prompt dynamically from Supabase data
-   */
-  private buildEraContextualPrompt(topic: string, eraData: EraData | null, varietyModifiers: string): string {
-    // If we have era data from Supabase, use it to generate contextual prompt
-    if (eraData) {
-      const eraContext = eraData.description || `Historical period from ${eraData.timeline}`;
-
-      return `Create a beautiful, highly detailed historical scene from "${eraData.title}" (${eraData.timeline}): ${eraContext}, ${varietyModifiers}.
-
-ERA CONTEXT:
-- Era: ${eraData.title}
-- Timeline: ${eraData.timeline}
-- Theme: ${eraContext}
-
-ISLAMIC HISTORY CONTEXT:
-- Show historically accurate Islamic architecture, landscapes, or cultural scenes
-- No depiction of prophets or religious figures (follow Islamic artistic guidelines)
-- Focus on architectural beauty, cultural achievements, and historical settings
-- Geographic accuracy for the time period (${eraData.timeline})
-
-REQUIREMENTS FOR JIGSAW PUZZLE:
-- High visual clarity and detail (suitable for cutting into puzzle pieces)
-- Rich colors and strong contrast between elements
-- Clear architectural or landscape features
-- No text or calligraphy overlays (no Arabic text visible)
-- Balanced composition with interesting visual elements throughout
-- Historically accurate Islamic architectural elements for ${eraData.timeline}
-- Educational and visually engaging for children and families
-
-VISUAL STYLE:
-- Painterly realism with natural lighting as specified
-- Clear forms and edges (important for puzzle cutting)
-- Detailed Islamic geometric patterns and textures
-- Vibrant but historically authentic colors (blues, golds, earth tones)
-- Architectural grandeur and cultural richness
-
-Generate a single high-quality image suitable for a jigsaw puzzle game about ${eraData.title}.`;
-    }
-
-    // Fallback to generic prompt if no era data
+  private buildEraContextualPrompt(topic: string, _eraData: null, varietyModifiers: string): string {
     return `Create a beautiful, detailed historical scene about "${topic}" from Islamic and Middle Eastern history, ${varietyModifiers}.
 
 ISLAMIC HISTORY CONTEXT:
