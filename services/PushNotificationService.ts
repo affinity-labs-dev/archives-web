@@ -40,6 +40,13 @@ export async function requestPushNotificationPermission(): Promise<PushRegistrat
 
     let finalStatus = existingStatus;
 
+    if (existingStatus !== 'granted') {
+      AppLogger.info('notification', 'Requesting permission...');
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+      AppLogger.info('notification', 'Permission request result', { status });
+    }
+
     const permissionStatus: PushPermissionStatus =
       finalStatus === 'granted' ? 'Granted' :
       finalStatus === 'denied' ? 'Denied' : 'NotDetermined';

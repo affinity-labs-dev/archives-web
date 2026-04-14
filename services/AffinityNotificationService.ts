@@ -351,7 +351,19 @@ export async function registerLiveActivityToken(params: {
   // Wait for both user AND device to exist in the backend.
   // registerDevice() must complete first so the backend can find the
   // device by device_identifier when creating the live activity token.
-  await _deviceReady;
+  //
+  // Timeout: if the user denied push permission but allowed Live Activities
+  // (independent iOS permissions), registerDevice() may never run, leaving
+  // _deviceReady unresolved. Time out after 10s and skip token registration.
+  const timeoutMs = 10_000;
+  const timedOut = await Promise.race([
+    _deviceReady.then(() => false),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(true), timeoutMs)),
+  ]);
+  if (timedOut) {
+    AppLogger.warn('notification', 'registerLiveActivityToken: _deviceReady timed out — skipping', { timeoutMs });
+    return;
+  }
 
   if (!_deviceIdentifier) {
     AppLogger.warn('notification', 'registerLiveActivityToken: device_identifier not available — skipping');

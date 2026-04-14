@@ -535,10 +535,14 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
             activityType: cached.activityType,
           });
         }
-      }).catch(() => { /* non-fatal */ });
+      }).catch((err) => {
+        AppLogger.warn('notification', 'getCachedPushToStartToken failed (non-fatal)', { error: String(err) });
+      });
 
       // 3. Start native listener for future changes (also caches first-install token)
-      registerPushToStartTokens().catch(() => { /* non-fatal — iOS < 17.2 */ });
+      registerPushToStartTokens().catch((err) => {
+        AppLogger.warn('notification', 'registerPushToStartTokens failed (iOS < 17.2?)', { error: String(err) });
+      });
 
       activityTokenSub = addActivityPushTokenListener((event) => {
         AppLogger.info('notification', 'Live Activity activity push token received', {

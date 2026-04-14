@@ -30,7 +30,7 @@ import {
   type ActivityId,
 } from '@/modules/live-activity';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -55,7 +55,17 @@ const TEST_STORY_ID = '2026-04-09';
 // keep the Dynamic Island alive.
 const TERMINAL_LINGER_SECONDS = 15 * 60;
 
-export default function LiveActivityTestScreen() {
+// Gate entire route in production — prevents deep-link access via /live-activity-test
+// even though the profile entry button is already __DEV__-gated.
+// Separate wrapper component keeps Rules of Hooks happy in the test screen below.
+export default function LiveActivityTestRoute() {
+  if (!__DEV__) {
+    return <Redirect href="/(tabs)/today" />;
+  }
+  return <LiveActivityTestScreen />;
+}
+
+function LiveActivityTestScreen() {
   const router = useRouter();
 
   // Status state
