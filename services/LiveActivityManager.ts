@@ -422,7 +422,7 @@ class LiveActivityManager {
       const id = await startDailyStory({
         storyId: params.storyId,
         storyTitle: params.storyTitle,
-        eraTitle: 'Daily Quest',
+        eraTitle: params.storyTitle,
         dayNumber: params.dayNumber,
         totalDays: params.totalDays,
         state: 'inProgress',

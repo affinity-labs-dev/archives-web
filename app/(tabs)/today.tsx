@@ -1511,19 +1511,28 @@ export default function TodayScreen() {
   const isQuizUnlocked = watchCompleted && exploreCompleted;
 
   // Live Activity — update DailyStory progress if activity is running
+  // Guard: only update if user is interacting with TODAY's quest (not historical/rewind)
+  // Live Activity always belongs to today's story; updates from past-day quests must be ignored
   const updateDailyStoryIfActive = useCallback((cards: {
     watchCompleted: boolean;
     exploreCompleted: boolean;
     questionsCompleted: boolean;
   }) => {
     if (!liveActivityManager.isDailyStoryActive) return;
+
+    // Only apply updates from today's quest — skip if user is doing a historical quest
+    if (isHistoricalView) return;
+    const quest = displayedQuest || todayQuest;
+    const today = toLocalDateString(new Date());
+    if (!quest || quest.date !== today) return;
+
     liveActivityManager.updateDailyStoryProgress({
       ...cards,
       currentStreak: streak,
     }).catch((err) => {
       AppLogger.error('gamification', 'DailyStory Live Activity update failed', {}, err as Error);
     });
-  }, [streak]);
+  }, [streak, isHistoricalView, displayedQuest, todayQuest]);
 
   // Live Activity — start DailyStory on first Today tab open of the day
   // Specs: starts when user opens Today tab, once per day, only if quest incomplete

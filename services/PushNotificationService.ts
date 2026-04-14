@@ -40,39 +40,31 @@ export async function requestPushNotificationPermission(): Promise<PushRegistrat
 
     let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
-      AppLogger.info('notification', 'Requesting permission...');
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-      AppLogger.info('notification', 'Permission request result', { status });
-    }
-
     const permissionStatus: PushPermissionStatus =
       finalStatus === 'granted' ? 'Granted' :
       finalStatus === 'denied' ? 'Denied' : 'NotDetermined';
 
-    if (finalStatus === 'granted') {
-      try {
-        const tokenData = await Notifications.getDevicePushTokenAsync();
-        const token = tokenData.data;
+    let token: string | null = null;
+    try {
+      const tokenData = await Notifications.getDevicePushTokenAsync();
+      const tokenValue = tokenData.data;
+      token = tokenValue;
 
-        AppLogger.info('notification', 'Got device token', {
-          type: tokenData.type,
-          tokenPrefix: token.substring(0, 20) + '...',
-        });
-
-        // registerDevice() already reads OS permission internally —
-        // no need for a separate updatePermission() call.
-        await AffinityNotificationService.registerDevice();
-
-        return { status: 'Granted', token };
-      } catch (tokenError) {
-        AppLogger.error('notification', 'Error getting device token', {}, tokenError);
-        return { status: 'Granted', token: null };
-      }
+      AppLogger.info('notification', 'Got device token', {
+        type: tokenData.type,
+        tokenPrefix: tokenValue.substring(0, 20) + '...',
+      });
+    } catch (tokenError) {
+      AppLogger.error('notification', 'Error getting device token', {}, tokenError);
     }
 
-    return { status: permissionStatus, token: null };
+    if (token !== null) {
+      // registerDevice() already reads OS permission internally —
+      // no need for a separate updatePermission() call.
+      await AffinityNotificationService.registerDevice();
+    }
+
+    return { status: permissionStatus, token };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes('aps-environment')) {
