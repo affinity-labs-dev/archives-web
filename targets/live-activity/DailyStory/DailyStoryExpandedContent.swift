@@ -89,13 +89,13 @@ private struct DailyStoryExpandedPill: View {
 
   var body: some View {
     HStack(spacing: 4) {
+      Text(completed ? "✓" : "○")
+        .font(.system(size: 13, weight: .bold))
+        .foregroundColor(completed ? .dynIslandCheckGreen : .dailyStoryIncompleteBlue)
       Text(label)
         .font(.system(size: 11, weight: .semibold))
         .tracking(0.55)
         .foregroundColor(completed ? .white : .dailyStoryIncompleteBlue)
-      Text(completed ? "✓" : "○")
-        .font(.system(size: 13, weight: .bold))
-        .foregroundColor(completed ? .dynIslandCheckGreen : .dailyStoryIncompleteBlue)
     }
   }
 }

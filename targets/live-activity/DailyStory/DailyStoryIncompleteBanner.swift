@@ -67,12 +67,14 @@ struct DailyStoryIncompleteBanner: View {
         .frame(height: 6)
 
         // Row 3: Card pills — completed in lavender ✓, missed in pink ✗
+        // `minimumScaleFactor(0.85)` auto-scales "QUESTIONS" on small devices.
         HStack(spacing: 8) {
           IncompleteCardPill(label: "WATCH", completed: watchCompleted)
           IncompleteCardPill(label: "EXPLORE", completed: exploreCompleted)
           IncompleteCardPill(label: "QUESTIONS", completed: questionsCompleted)
           Spacer(minLength: 0)
         }
+        .lineLimit(1)
 
         // Row 4: Caption
         Text("A new quest starts tomorrow")
@@ -100,13 +102,16 @@ private struct IncompleteCardPill: View {
 
   var body: some View {
     HStack(spacing: 5) {
+      Text(completed ? "✓" : "✗")
+        .font(.system(size: 14, weight: .bold))
+        .foregroundColor(completed ? .dailyStoryCaptionLavender : .dailyStoryMissedPink)
       Text(label)
         .font(.system(size: 12, weight: .semibold))
         .tracking(0.6)
         .foregroundColor(completed ? .dailyStoryCaptionLavender : .dailyStoryMissedLabel)
-      Text(completed ? "✓" : "✗")
-        .font(.system(size: 14, weight: .bold))
-        .foregroundColor(completed ? .dailyStoryCaptionLavender : .dailyStoryMissedPink)
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+        .fixedSize(horizontal: true, vertical: false)
     }
   }
 }

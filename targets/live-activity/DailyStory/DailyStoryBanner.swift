@@ -32,6 +32,8 @@ struct DailyStoryBanner: View {
       Color.dailyStoryBackground
 
       // Layer 2: Teacher mascot, bottom-right
+      // Width reduced from 92pt → 75pt so Row 3 pills ("WATCH / EXPLORE / QUESTIONS")
+      // don't wrap on small devices (iPhone SE / mini).
       VStack {
         Spacer()
         HStack {
@@ -39,7 +41,7 @@ struct DailyStoryBanner: View {
           Image("TeacherMascot")
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .frame(width: 92, height: 99)
+            .frame(width: 75, height: 81)
         }
       }
 
@@ -47,9 +49,9 @@ struct DailyStoryBanner: View {
       VStack(alignment: .leading, spacing: 10) {
         // Row 1: Streak label (left) + timer group (right), justify-between across full banner width.
         //
-        // Negative trailing padding cancels 75 of the parent's 95-pt trailing, so Row 1 reaches
+        // Negative trailing padding cancels 58 of the parent's 78-pt trailing, so Row 1 reaches
         // 20pt from the banner's right edge (symmetrical with the 20pt leading). Rows 2–4 keep
-        // the full 95-pt clearance for the teacher mascot anchored bottom-right.
+        // the full 78-pt clearance for the teacher mascot anchored bottom-right.
         //
         // Timer+" left" is a nested HStack (NOT a `Text + Text` concatenation) because
         // `Text(Date, style: .timer)` over-reports its intrinsic width — SwiftUI reserves layout
@@ -95,12 +97,15 @@ struct DailyStoryBanner: View {
         .frame(height: 6)
 
         // Row 3: WATCH / EXPLORE / QUESTIONS pills
+        // On small devices (iPhone SE/mini), `minimumScaleFactor(0.85)` on each pill
+        // auto-scales the text so "QUESTIONS" doesn't wrap its trailing "s".
         HStack(spacing: 8) {
           DailyStoryCardPill(label: "WATCH", completed: watchCompleted)
           DailyStoryCardPill(label: "EXPLORE", completed: exploreCompleted)
           DailyStoryCardPill(label: "QUESTIONS", completed: questionsCompleted)
           Spacer(minLength: 0)
         }
+        .lineLimit(1)
 
         // Row 4: Era caption
         Text("Day \(max(1, dayNumber)) of \(max(1, totalDays)) - \(eraTitle)")
@@ -111,7 +116,7 @@ struct DailyStoryBanner: View {
       .padding(.leading, 16)
       .padding(.top, 16)
       .padding(.bottom, 16)
-      .padding(.trailing, 95)
+      .padding(.trailing, 78)
     }
     .dynamicTypeSize(...DynamicTypeSize.xxLarge)
   }
@@ -128,13 +133,16 @@ private struct DailyStoryCardPill: View {
 
   var body: some View {
     HStack(spacing: 5) {
+      Text(completed ? "✓" : "○")
+        .font(.system(size: 14, weight: .bold))
+        .foregroundColor(completed ? .dynIslandCheckGreen : .dailyStoryIncompleteBlue)
       Text(label)
         .font(.system(size: 12, weight: .semibold))
         .tracking(0.6)
         .foregroundColor(completed ? .white : .dailyStoryIncompleteBlue)
-      Text(completed ? "✓" : "○")
-        .font(.system(size: 14, weight: .bold))
-        .foregroundColor(completed ? .dynIslandCheckGreen : .dailyStoryIncompleteBlue)
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+        .fixedSize(horizontal: true, vertical: false)
     }
   }
 }

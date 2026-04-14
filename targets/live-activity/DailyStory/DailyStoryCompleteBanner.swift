@@ -19,8 +19,8 @@ struct DailyStoryCompleteBanner: View {
       Color.dailyStoryBackground
 
       // Layer 2: Celebration mascot, bottom-right.
-      // Sized to match DailyStoryBanner's teacher mascot proportions (mascot_width ≈ trailing
-      // padding − 5pt margin) so rows 2–4 clear the mascot zone without visual overlap.
+      // Width reduced from 92pt → 75pt to match DailyStoryBanner and prevent
+      // "QUESTIONS" pill from wrapping on small devices (iPhone SE/mini).
       VStack {
         Spacer()
         HStack {
@@ -28,7 +28,7 @@ struct DailyStoryCompleteBanner: View {
           Image("CelebrationMascot")
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .frame(width: 92, height: 91)
+            .frame(width: 75, height: 74)
         }
       }
 
@@ -55,12 +55,15 @@ struct DailyStoryCompleteBanner: View {
           .frame(height: 6)
 
         // Row 3: All cards completed (all green)
+        // `minimumScaleFactor(0.85)` on each pill auto-scales "QUESTIONS"
+        // so it doesn't wrap on small devices.
         HStack(spacing: 8) {
           DailyStoryCompletePill(label: "WATCH")
           DailyStoryCompletePill(label: "EXPLORE")
           DailyStoryCompletePill(label: "QUESTIONS")
           Spacer(minLength: 0)
         }
+        .lineLimit(1)
 
         // Row 4: Era caption
         Text("Day \(max(1, dayNumber)) of \(max(1, totalDays)) - \(eraTitle)")
@@ -71,7 +74,7 @@ struct DailyStoryCompleteBanner: View {
       .padding(.leading, 16)
       .padding(.top, 16)
       .padding(.bottom, 16)
-      .padding(.trailing, 95)
+      .padding(.trailing, 78)
     }
     .dynamicTypeSize(...DynamicTypeSize.xxLarge)
   }
@@ -86,13 +89,16 @@ private struct DailyStoryCompletePill: View {
 
   var body: some View {
     HStack(spacing: 5) {
+      Text("✓")
+        .font(.system(size: 14, weight: .bold))
+        .foregroundColor(.dynIslandCheckGreen)
       Text(label)
         .font(.system(size: 12, weight: .semibold))
         .tracking(0.6)
         .foregroundColor(.white)
-      Text("✓")
-        .font(.system(size: 14, weight: .bold))
-        .foregroundColor(.dynIslandCheckGreen)
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+        .fixedSize(horizontal: true, vertical: false)
     }
   }
 }
