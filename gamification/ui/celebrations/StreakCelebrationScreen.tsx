@@ -58,6 +58,7 @@ export default function StreakCelebrationScreen({
 }: StreakCelebrationScreenProps) {
   const riveRef = useRef<RiveRef>(null);
   const [skipped, setSkipped] = useState(false);
+  const hasTrackedRef = useRef(false);
 
   // Animated value for moving flame + number upward (Duolingo style)
   const translateY = useSharedValue(0);
@@ -114,16 +115,25 @@ export default function StreakCelebrationScreen({
     transform: [{ translateY: translateY.value }],
   }));
 
-  // Track analytics (no haptic on modal open)
+  // Track analytics once per celebration display (no haptic on modal open)
   useEffect(() => {
-    if (visible) {
+    if (visible && !hasTrackedRef.current) {
+      hasTrackedRef.current = true;
       console.log('🔥 [StreakCelebration] Modal visible:', { streakCount, weekData });
-      analyticsService.trackCustomEvent('streak_celebration_shown', {
-        streak_count: streakCount,
-        is_milestone: [3, 7, 14, 30, 50, 100].includes(streakCount),
-      });
+      try {
+        analyticsService.trackStreakCelebrationShown({
+          streak_count: streakCount,
+          is_milestone: [3, 7, 14, 30, 50, 100].includes(streakCount),
+          week_data: weekData.map(d => ({ day: d.day, completed: d.completed, missed: d.missed, is_today: d.isToday })),
+        });
+      } catch (error) {
+        console.error('❌ [StreakCelebration] Failed to track event:', error);
+      }
     }
-  }, [visible, streakCount]);
+    if (!visible) {
+      hasTrackedRef.current = false;
+    }
+  }, [visible, streakCount, weekData]);
 
   // Single haptic feedback when continue button appears
   useEffect(() => {

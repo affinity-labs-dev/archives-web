@@ -378,6 +378,12 @@ interface DailyStoryStreakIncrementedEvent {
   is_first_action_today: boolean;
 }
 
+interface StreakCelebrationShownEvent {
+  streak_count: number;
+  is_milestone: boolean;
+  week_data: { day: string; completed: boolean; missed: boolean; is_today: boolean }[];
+}
+
 // ==================== DEVICE HEALTH INTERFACES (AFF-618) ====================
 
 interface DeviceHealthSnapshotEvent {
@@ -1516,6 +1522,17 @@ class AnalyticsService {
   }
 
   // ==================== END DAILY STORY EVENTS ====================
+
+  // ==================== STREAK CELEBRATION EVENTS ====================
+
+  /**
+   * Track streak celebration screen shown to user
+   */
+  trackStreakCelebrationShown(properties: StreakCelebrationShownEvent) {
+    this.trackCustomEvent('streak_celebration_shown', properties);
+  }
+
+  // ==================== END STREAK CELEBRATION EVENTS ====================
 
   // ==================== END NEW TRACKING EVENTS ====================
 
