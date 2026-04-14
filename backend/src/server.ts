@@ -41,7 +41,8 @@ server.post('/webhook/revenuecat', webhookRoute);
 
 // Start
 const port = parseInt(process.env.PORT || '3000', 10);
-server.listen({ port, host: '0.0.0.0' }, (err, address) => {
+const host = '::';  // Bind to all interfaces (IPv4 + IPv6) — required for Railway
+server.listen({ port, host }, (err, address) => {
   if (err) {
     server.log.error(err);
     process.exit(1);
