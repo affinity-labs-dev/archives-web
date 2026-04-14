@@ -7,10 +7,7 @@ import Quiz from "@/components/quiz/Quiz";
 import type { ContentBlock, ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { toLocalDateString } from "@/utils/dateUtils";
-import {
-  useAI,
-  useGamificationOrchestrator,
-} from "@/gamification";
+import { useGamificationOrchestrator } from "@/gamification";
 import { useDailyStoryTracking } from "@/hooks/useDailyStoryTracking";
 import { supabase } from "@/hooks/lib/supabase";
 import { analyticsService } from "@/services/AnalyticsService";
@@ -351,10 +348,7 @@ export default function TodayScreen() {
     streak,
     reportTodayComplete,
     showStreakCelebration,
-    pauseCelebrationQueue,
-    resumeCelebrationQueue,
   } = useGamificationOrchestrator();
-  const { openChatToLearn, isChatOpen } = useAI();
   const {
     todayQuest,
     loading,
@@ -457,7 +451,6 @@ export default function TodayScreen() {
   type ModalState = "none" | "video" | "reading" | "quiz";
   const [activeModal, setActiveModal] = useState<ModalState>("none");
   const [previousModal, setPreviousModal] = useState<ModalState>("none");
-  const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null);
 
   // Dual-slot architecture for Apple-style push/pop transitions
   // Two absolutely-positioned slots allow both outgoing and incoming content
@@ -617,28 +610,6 @@ export default function TodayScreen() {
       });
     });
   };
-
-  // Open AI chat after quiz modal fully unmounts (fixes modal-on-modal on iOS)
-  useEffect(() => {
-    if (activeModal === "none" && pendingChatMessage) {
-      requestAnimationFrame(() => {
-        openChatToLearn(pendingChatMessage);
-        setPendingChatMessage(null);
-      });
-    }
-  }, [activeModal, pendingChatMessage, openChatToLearn]);
-
-  // Resume celebration queue only on true→false transition (not on initial mount)
-  // Delay 500ms to let AIChatModal dismiss animation complete before presenting celebration
-  const wasChatOpenRef = useRef(false);
-  useEffect(() => {
-    if (wasChatOpenRef.current && !isChatOpen) {
-      const timer = setTimeout(() => resumeCelebrationQueue(), 500);
-      wasChatOpenRef.current = false;
-      return () => clearTimeout(timer);
-    }
-    wasChatOpenRef.current = isChatOpen;
-  }, [isChatOpen, resumeCelebrationQueue]);
 
   // Week navigation and historical content viewing
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -1743,11 +1714,6 @@ export default function TodayScreen() {
               } else {
                 closeModal();
               }
-            }}
-            onChatToLearn={(msg) => {
-              pauseCelebrationQueue();
-              setPendingChatMessage(msg);
-              closeModal();
             }}
           />
         </SafeAreaView>

@@ -24,6 +24,7 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import AppLogger from '@/services/AppLogger';
 import AIQuizExplanation from './AIQuizExplanation';
 import type { Question } from '@/components/shared/types';
+import AIChatModal from '@/gamification/ui/ai/AIChatModal';
 
 const { width } = Dimensions.get('window');
 
@@ -48,8 +49,6 @@ interface QuizResultsProps {
   isToday?: boolean;  // true when called from Today screen
   // Module title for Chat to Learn
   moduleTitle?: string;
-  // Callback to close parent modal before opening AI chat (fixes modal-on-modal issue)
-  onChatToLearn?: (hiddenMessage: string) => void;
 }
 
 // Video Reward Player - Score-based celebration videos (3-tier system)
@@ -143,7 +142,6 @@ export default function QuizResults({
   userAnswers = [],
   isToday = false,
   moduleTitle,
-  onChatToLearn,
 }: QuizResultsProps) {
   // Calculate percentage
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
@@ -151,7 +149,12 @@ export default function QuizResults({
 
   // Access progress context for XP calculations
   const { calculateTotalXP, moduleProgress } = useGamifiedProgress();
-  const { openChatToLearn } = useAI();
+  const {
+    openChatToLearn,
+    messages: aiMessages,
+    currentContext,
+  } = useAI();
+  const [openChat, setOpenChat] = useState(false);
   const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
 
   // Load new user progress data for XP calculations
@@ -179,6 +182,15 @@ export default function QuizResults({
     if (pct >= 34) return 'medium';
     return 'low';
   };
+
+  const handleOpenChatToLearn = (hiddenMessage: string) => {
+    openChatToLearn(hiddenMessage);
+    setOpenChat(true);
+  }
+
+  const handleCloseChatToLearn = () => {
+    setOpenChat(false);
+  }
 
   // Track quiz results viewed ONCE when component mounts (useRef guard prevents re-render duplication)
   const hasTrackedResultsRef = React.useRef(false);
@@ -238,16 +250,7 @@ export default function QuizResults({
     });
     AppLogger.info('quiz', 'Chat to Learn clicked');
 
-    // Pause queue + close modal BEFORE onContinue triggers celebrations
-    if (onChatToLearn) {
-      onChatToLearn(hiddenMessage);
-    } else {
-      openChatToLearn(hiddenMessage);
-    }
-
-    try { onContinue(); } catch (e) {
-      AppLogger.error('quiz', 'onContinue failed during Chat to Learn', {}, e as Error);
-    }
+    handleOpenChatToLearn(hiddenMessage);
   };
 
   const handleContinue = () => {
@@ -278,106 +281,113 @@ export default function QuizResults({
         <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
       )}
 
+      <AIChatModal
+        visible={openChat}
+        onClose={handleCloseChatToLearn}
+        initialMessages={aiMessages}
+        context={currentContext}
+      />
+
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.content}>
-            {/* Video Reward Player with overlaid back button */}
-            <View style={styles.videoWrapper}>
-              <VideoRewardPlayer percentage={percentage} />
+        <View style={styles.content}>
+          {/* Video Reward Player with overlaid back button */}
+          <View style={styles.videoWrapper}>
+            <VideoRewardPlayer percentage={percentage} />
 
-              {/* Back button overlaid on video */}
-              {onBack && (
-                <TouchableOpacity style={styles.backButtonOverlay} onPress={onBack}>
-                  <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Title */}
-            <Text style={[styles.title, { color: messages.themeColor }]}>
-              {messages.title}
-            </Text>
-
-            {/* Subtitle */}
-            <Text style={styles.subtitle}>
-              {messages.subtitle}
-            </Text>
-
-            {/* Statistics card */}
-            <View style={styles.statsCard}>
-              <View style={styles.statsRow}>
-                <View style={styles.statsLeft}>
-                  <Text style={[
-                    styles.percentageText,
-                    { color: messages.themeColor }
-                  ]}>
-                    {percentage}%
-                  </Text>
-                  <Text style={styles.finalScoreText}>Final Score</Text>
-                </View>
-
-                <View style={styles.statsRight}>
-                  {!isToday && (
-                    <View style={styles.xpRow}>
-                      <Ionicons name="star" size={18} color={ArchivesTheme.colors.shoeBrown} />
-                      <Text style={styles.xpText}>{totalPoints} XP</Text>
-                    </View>
-                  )}
-                  <Text style={styles.correctText}>Correct: {correctAnswers}/{totalQuestions}</Text>
-                </View>
-              </View>
-
-              {/* Progress bar */}
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressBarBackground} />
-                <Animated.View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${percentage}%`,
-                      backgroundColor: messages.themeColor
-                    }
-                  ]}
-                />
-              </View>
-            </View>
-
-            {/* AI Quiz Explanation (only if questions data available) */}
-            {questions.length > 0 && userAnswers.length > 0 && (
-              <AIQuizExplanation
-                questions={questions}
-                userAnswers={userAnswers}
-                eraName={eraName}
-                adventureName={`Adventure ${adventureNumber}`}
-                adventureId={adventureId}
-                moduleId={moduleId}
-              />
+            {/* Back button overlaid on video */}
+            {onBack && (
+              <TouchableOpacity style={styles.backButtonOverlay} onPress={onBack}>
+                <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
+              </TouchableOpacity>
             )}
+          </View>
 
-            {/* Action buttons */}
-            <View style={styles.actionButtons}>
-              {/* Continue button */}
-              <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-                <View style={styles.continueButtonContent}>
-                  <Text style={styles.continueButtonText}>Continue</Text>
-                  <Ionicons name="arrow-forward" size={20} color="white" />
-                </View>
-              </TouchableOpacity>
+          {/* Title */}
+          <Text style={[styles.title, { color: messages.themeColor }]}>
+            {messages.title}
+          </Text>
 
-              {/* Chat to Learn button */}
-              <TouchableOpacity style={styles.retakeButton} onPress={handleChatToLearn}>
-                <View style={styles.retakeButtonContent}>
-                  <Ionicons
-                    name="chatbubble-ellipses"
-                    size={24}
-                    color={ArchivesTheme.colors.mossGreen}
-                  />
-                  <Text style={styles.retakeButtonText}>Chat to Learn</Text>
-                </View>
-              </TouchableOpacity>
+          {/* Subtitle */}
+          <Text style={styles.subtitle}>
+            {messages.subtitle}
+          </Text>
+
+          {/* Statistics card */}
+          <View style={styles.statsCard}>
+            <View style={styles.statsRow}>
+              <View style={styles.statsLeft}>
+                <Text style={[
+                  styles.percentageText,
+                  { color: messages.themeColor }
+                ]}>
+                  {percentage}%
+                </Text>
+                <Text style={styles.finalScoreText}>Final Score</Text>
+              </View>
+
+              <View style={styles.statsRight}>
+                {!isToday && (
+                  <View style={styles.xpRow}>
+                    <Ionicons name="star" size={18} color={ArchivesTheme.colors.shoeBrown} />
+                    <Text style={styles.xpText}>{totalPoints} XP</Text>
+                  </View>
+                )}
+                <Text style={styles.correctText}>Correct: {correctAnswers}/{totalQuestions}</Text>
+              </View>
+            </View>
+
+            {/* Progress bar */}
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarBackground} />
+              <Animated.View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${percentage}%`,
+                    backgroundColor: messages.themeColor
+                  }
+                ]}
+              />
             </View>
           </View>
-        </ScrollView>
-      </SafeAreaView>
+
+          {/* AI Quiz Explanation (only if questions data available) */}
+          {questions.length > 0 && userAnswers.length > 0 && (
+            <AIQuizExplanation
+              questions={questions}
+              userAnswers={userAnswers}
+              eraName={eraName}
+              adventureName={`Adventure ${adventureNumber}`}
+              adventureId={adventureId}
+              moduleId={moduleId}
+            />
+          )}
+
+          {/* Action buttons */}
+          <View style={styles.actionButtons}>
+            {/* Continue button */}
+            <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
+              <View style={styles.continueButtonContent}>
+                <Text style={styles.continueButtonText}>Continue</Text>
+                <Ionicons name="arrow-forward" size={20} color="white" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Chat to Learn button */}
+            <TouchableOpacity style={styles.retakeButton} onPress={handleChatToLearn}>
+              <View style={styles.retakeButtonContent}>
+                <Ionicons
+                  name="chatbubble-ellipses"
+                  size={24}
+                  color={ArchivesTheme.colors.mossGreen}
+                />
+                <Text style={styles.retakeButtonText}>Chat to Learn</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

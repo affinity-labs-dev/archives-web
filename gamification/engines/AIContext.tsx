@@ -4,12 +4,12 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser, useAuth } from '@clerk/clerk-expo';
 import { supabase } from '@/hooks/lib/supabase';
 import type { ChatMessage } from '@/gamification/ui/ai/AIChatModal';
 import { useGamifiedProgress } from './GamifiedProgress';
 import { aiContextService, type AIKnowledgeContext } from '@/gamification/services/AIContextService';
-import { aiToolsService, type AIToolsContext } from '@/gamification/services/AIToolsService';
+import { aiService } from '@/gamification/services/AIService';
 
 const CHAT_HISTORY_KEY = 'ai_chat_history';
 const AI_USER_DATA_TABLE = 'ai_user_data';
@@ -132,6 +132,14 @@ export function AIProvider({ children }: AIProviderProps) {
   const { user } = useUser();
   const userId = user?.id;
 
+  // Get Clerk token getter for backend API authentication
+  const { getToken } = useAuth();
+
+  // Wire up AI service with Clerk token getter
+  useEffect(() => {
+    aiService.setTokenGetter(getToken);
+  }, [getToken]);
+
   // Keep ref in sync with state (for async operations)
   useEffect(() => {
     sessionsDataRef.current = sessionsData;
@@ -141,9 +149,6 @@ export function AIProvider({ children }: AIProviderProps) {
   const {
     moduleProgress,
     calculateTotalXP,
-    getModuleProgress,
-    getStreak,
-    getXPByEra,
   } = useGamifiedProgress();
 
   // Load new era progress (Era 2+) from AsyncStorage
@@ -367,7 +372,6 @@ export function AIProvider({ children }: AIProviderProps) {
   const openChatToLearn = (hiddenMessage: string) => {
     console.log('🤖 [AIContext] Opening Chat to Learn');
     setPendingHiddenMessage(hiddenMessage);
-    setIsChatOpen(true);
   };
 
   // Clear pending hidden message (called by AIChatModal after processing)
@@ -571,111 +575,17 @@ export function AIProvider({ children }: AIProviderProps) {
     return aiContextService.formatForPrompt(knowledgeContext);
   }, [knowledgeContext]);
 
-  // Set up RAG tools context when chat opens
-  // This provides aiToolsService with user progress data for function calling
-  const setupRAGContext = useCallback(async () => {
-    try {
-      console.log('🔧 [AIContext] Setting up RAG tools context...');
-
-      // Reload new era progress to ensure fresh data
-      let freshNewEraProgress: any[] = [];
-      try {
-        const stored = await AsyncStorage.getItem('new_user_progress');
-        if (stored) {
-          freshNewEraProgress = JSON.parse(stored);
-        }
-      } catch (e) {
-        console.error('❌ [AIContext] Error loading new era progress for RAG:', e);
-      }
-
-      // Convert legacy moduleProgress (Era 1 - Umayyad) to AIToolsContext format
-      // FIX: Use proper timestamp mapping - unlockedAt is firstAttemptAt, NOT completedAt
-      const legacyProgressItems = (moduleProgress || []).map(m => {
-        const isCompleted = m.quizScore !== undefined && m.quizScore >= 2;
-        return {
-          era_id: 'umayyad', // All legacy modules are Era 1 (Umayyad)
-          adventureId: String(m.adventureId),
-          moduleId: String(m.moduleId),
-          lessonsCompleted: m.lessonsCompleted || [],
-          quizScore: m.quizScore || 0,
-          quizCorrectAnswers: m.quizScore || 0, // In Era 1, quizScore IS the correct answers count
-          isCompleted,
-          quizCompleted: m.quizCompleted || false,
-          // Enhanced timestamps: firstAttemptAt = when started, completedAt = when finished (if completed)
-          firstAttemptAt: m.unlockedAt || new Date().toISOString(),
-          completedAt: isCompleted ? (m.unlockedAt || new Date().toISOString()) : undefined,
-        };
-      });
-
-      // Convert new era progress (Era 2+)
-      const newEraProgressItems = freshNewEraProgress.map(m => ({
-        era_id: m.era_id || 'unknown',
-        adventureId: String(m.adventureId),
-        moduleId: String(m.moduleId),
-        lessonsCompleted: m.lessonsCompleted || [],
-        quizScore: m.quizScore || 0,
-        quizCorrectAnswers: m.quizCorrectAnswers || 0,
-        isCompleted: m.isCompleted || false,
-        quizCompleted: m.quizCompleted || false,
-        // Enhanced timestamps
-        firstAttemptAt: m.first_attempt_at || m.unlockedAt || new Date().toISOString(),
-        completedAt: m.isCompleted ? (m.completedAt || m.unlockedAt) : undefined,
-      }));
-
-      // Combine all progress
-      const allProgress = [...legacyProgressItems, ...newEraProgressItems];
-
-      // Get streak data
-      const streakData = getStreak();
-
-      // Get XP by era
-      const xpByEra = getXPByEra();
-
-      // Calculate first and last activity timestamps
-      const allTimestamps = allProgress
-        .flatMap(p => [p.firstAttemptAt, p.completedAt])
-        .filter((t): t is string => !!t)
-        .map(t => new Date(t).getTime())
-        .filter(t => !isNaN(t));
-
-      const firstActivityAt = allTimestamps.length > 0
-        ? new Date(Math.min(...allTimestamps)).toISOString()
-        : undefined;
-      const lastActiveAt = allTimestamps.length > 0
-        ? new Date(Math.max(...allTimestamps)).toISOString()
-        : undefined;
-
-      // Build context for AIToolsService with enhanced data
-      const ragContext: AIToolsContext = {
-        progress: allProgress,
-        selectedEra: currentContext.eraId,
-        totalXP: calculateTotalXP(),
-        xpByEra,
-        streak: streakData ? {
-          currentStreak: streakData.currentStreak,
-          longestStreak: streakData.longestStreak,
-          lastActiveDate: streakData.lastActiveDate,
-        } : undefined,
-        firstActivityAt,
-        lastActiveAt,
-      };
-
-      // Set the context for RAG tools
-      aiToolsService.setContext(ragContext);
-      console.log(`✅ [AIContext] RAG context set with ${allProgress.length} progress items, streak: ${streakData?.currentStreak || 0} days`);
-    } catch (error) {
-      console.error('❌ [AIContext] Error setting up RAG context:', error);
-    }
-  }, [moduleProgress, currentContext.eraId, calculateTotalXP, getStreak, getXPByEra]);
-
-  // Refresh knowledge context and set up RAG tools when chat opens or progress changes
+  // Refresh knowledge context when chat opens or progress changes.
+  // RAG tools context is now handled by the backend.
+  // Also fires when a Chat-to-Learn session is queued via pendingHiddenMessage, since
+  // those sessions no longer flip isChatOpen (AFF-626 renders AIChatModal inside
+  // QuizResults without going through the global chat-open flow).
   useEffect(() => {
     const hasProgress = (moduleProgress && moduleProgress.length > 0) || (newEraProgress && newEraProgress.length > 0);
-    if (isChatOpen && hasProgress) {
+    if ((isChatOpen || pendingHiddenMessage) && hasProgress) {
       refreshKnowledgeContext();
-      setupRAGContext(); // Set up RAG tools context when chat opens
     }
-  }, [isChatOpen, moduleProgress, newEraProgress, refreshKnowledgeContext, setupRAGContext]);
+  }, [isChatOpen, pendingHiddenMessage, moduleProgress, newEraProgress, refreshKnowledgeContext]);
 
   const value: AIContextType = {
     isChatOpen,
