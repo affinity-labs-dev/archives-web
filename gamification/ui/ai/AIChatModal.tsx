@@ -887,19 +887,17 @@ export default function AIChatModal({
             ) : (
               messages.filter((m) => !m.hidden).map((message) => (
                 <View key={message.id}>
-                  {/* Quiz context banner for Chat to Learn responses */}
+                  {/* Quiz context shown as a regular user message bubble */}
                   {message.quizContext && (
-                    <View style={styles.quizContextBanner}>
-                      <View style={styles.quizContextIcon}>
-                        <Ionicons name="school-outline" size={14} color={ArchivesTheme.colors.persianOrange} />
-                      </View>
-                      <View style={styles.quizContextTextContainer}>
-                        <Text style={styles.quizContextTitle} numberOfLines={1}>
-                          Quiz Review: {message.quizContext.title}
-                        </Text>
-                        <Text style={styles.quizContextDetail}>
-                          {message.quizContext.eraName} {'\u00B7'} {message.quizContext.score}
-                        </Text>
+                    <View style={styles.messageBubble}>
+                      <View style={[styles.userBubble, { width: '100%' }]}>
+                        <View style={styles.userContent}>
+                          <Text style={styles.userText}>
+                            Quiz Review: {message.quizContext.title}
+                            {'\n'}
+                            {message.quizContext.eraName} {'\u00B7'} {message.quizContext.score}
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   )}
@@ -1752,41 +1750,4 @@ const styles = StyleSheet.create({
   },
 
   // Quiz context banner (Chat to Learn)
-  quizContextBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(201, 145, 81, 0.08)',
-    borderLeftWidth: 3,
-    borderLeftColor: ArchivesTheme.colors.persianOrange,
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginHorizontal: 16,
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  quizContextIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(201, 145, 81, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  quizContextTextContainer: {
-    flex: 1,
-  },
-  quizContextTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy,
-  },
-  quizContextDetail: {
-    fontFamily: 'DM Sans',
-    fontSize: 12,
-    color: ArchivesTheme.colors.shoeBrown,
-    marginTop: 1,
-  },
 });
