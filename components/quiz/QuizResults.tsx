@@ -18,8 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { VideoView } from 'expo-video';
 import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useGamifiedProgress, useAI } from '@/gamification';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import AppLogger from '@/services/AppLogger';
 import AIQuizExplanation from './AIQuizExplanation';
@@ -154,6 +156,8 @@ export default function QuizResults({
     messages: aiMessages,
     currentContext,
   } = useAI();
+  const { isSubscribed } = useRevenueCat();
+  const isPaywallPresentedRef = React.useRef(false);
   const [openChat, setOpenChat] = useState(false);
   const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
 
@@ -217,10 +221,7 @@ export default function QuizResults({
     }
   }, [totalXP, newUserProgress, moduleProgress]);
 
-  const handleChatToLearn = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // Build hidden message with quiz context for AI
+  const buildChatMessage = () => {
     const incorrectList = questions
       .map((q, i) => {
         const userAnswerIdx = userAnswers[i];
@@ -233,9 +234,18 @@ export default function QuizResults({
       .join('\n');
 
     const title = moduleTitle || `Module ${moduleNumber}`;
-    const hiddenMessage = incorrectList
+    return incorrectList
       ? `I just finished the quiz on "${title}" in ${eraName}. I got ${correctAnswers}/${totalQuestions} correct (${percentage}%). Here are the questions I got wrong:\n${incorrectList}\n\nHelp me understand these topics better with real historical context.`
       : `I just finished the quiz on "${title}" in ${eraName} and got all ${totalQuestions} questions correct (${percentage}%)! Can you share some deeper historical details about this topic that I might not have learned in the lessons?`;
+  };
+
+  const openChatWithContext = () => {
+    const hiddenMessage = buildChatMessage();
+    handleOpenChatToLearn(hiddenMessage);
+  };
+
+  const handleChatToLearn = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // Track chat to learn click
     analyticsService.trackCustomEvent('quiz_results_chat_to_learn_clicked', {
@@ -247,10 +257,70 @@ export default function QuizResults({
       percentage,
       correct_answers: correctAnswers,
       total_questions: totalQuestions,
+      is_subscriber: isSubscribed,
     });
-    AppLogger.info('quiz', 'Chat to Learn clicked');
+    AppLogger.info('quiz', 'Chat to Learn clicked', { is_subscriber: isSubscribed });
 
-    handleOpenChatToLearn(hiddenMessage);
+    // Premium users go straight to chat
+    if (isSubscribed) {
+      openChatWithContext();
+      return;
+    }
+
+    // Free users see the paywall first
+    if (isPaywallPresentedRef.current) return;
+
+    try {
+      isPaywallPresentedRef.current = true;
+
+      analyticsService.trackCustomEvent('chat_to_learn_paywall_shown', {
+        adventure_id: adventureId,
+        module_id: moduleId,
+        era_id: eraId,
+        era_name: eraName,
+        trigger: 'chat_to_learn',
+      });
+
+      const result = await RevenueCatUI.presentPaywall();
+
+      switch (result) {
+        case PAYWALL_RESULT.PURCHASED:
+        case PAYWALL_RESULT.RESTORED: {
+          AppLogger.info('subscription', `Chat to Learn paywall ${result === PAYWALL_RESULT.PURCHASED ? 'purchase' : 'restore'} completed`);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+          if (result === PAYWALL_RESULT.PURCHASED) {
+            analyticsService.trackSubscribePurchaseCompleted({
+              trigger: 'chat_to_learn',
+            });
+          }
+
+          // User subscribed — proceed to chat
+          openChatWithContext();
+          break;
+        }
+
+        case PAYWALL_RESULT.CANCELLED:
+          AppLogger.info('subscription', 'Chat to Learn paywall cancelled');
+          analyticsService.trackSubscribePurchaseCancelled({
+            trigger: 'chat_to_learn',
+          });
+          break;
+
+        case PAYWALL_RESULT.NOT_PRESENTED:
+          AppLogger.warn('subscription', 'Chat to Learn paywall not presented');
+          break;
+
+        case PAYWALL_RESULT.ERROR:
+          AppLogger.error('subscription', 'Chat to Learn paywall error');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          break;
+      }
+    } catch (error) {
+      AppLogger.error('subscription', 'Chat to Learn paywall exception', {}, error);
+    } finally {
+      isPaywallPresentedRef.current = false;
+    }
   };
 
   const handleContinue = () => {
