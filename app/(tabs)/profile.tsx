@@ -11,6 +11,7 @@ import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen'
 import GameHub from '@/gamification/ui/games/GameHub'
 import { useAdventures } from '@/hooks/useAdventures'
 import { analyticsService } from '@/services/AnalyticsService'
+import { liveActivityManager } from '@/services/LiveActivityManager'
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -477,6 +478,8 @@ export default function ProfileTab() {
       // AFF-151: Prevent _layout.tsx from firing a duplicate clerk_session_ended event
       analyticsService.manualSignOutInProgress = true
 
+      await liveActivityManager.forceEndAll()
+
       // AFF-309: Sign out via Clerk FIRST (needs token from AsyncStorage to revoke session on server),
       // THEN clear local data. Previous order (clear → signOut) wiped the token before Clerk could use it.
       await signOut()
@@ -621,9 +624,11 @@ export default function ProfileTab() {
                 adventures_completed: totalAdventuresCompleted,
               })
 
+              await liveActivityManager.forceEndAll()
+
               // Clear local user data first
               await clearUserData()
-              
+
               // Delete the user account through Clerk
               await user.delete()
               

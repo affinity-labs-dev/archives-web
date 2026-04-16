@@ -1197,6 +1197,9 @@ export default function TodayScreen() {
   // Live Activity — cache quiz results for XP plumbing to Live Activity completion
   const lastQuizCorrectAnswersRef = useRef(0);
 
+  const streakRef = useRef(streak);
+  useEffect(() => { streakRef.current = streak; }, [streak]);
+
   // Load progress from AsyncStorage when quest changes
   useEffect(() => {
     // CRITICAL: Reset state IMMEDIATELY when quest changes (synchronous)
@@ -1522,15 +1525,28 @@ export default function TodayScreen() {
         storyTitle: todayQuest.content.today_title,
         dayNumber: todayQuest.content.day_number,
         totalDays: todayQuest.content.total_days,
-        currentStreak: streak,
+        currentStreak: streakRef.current,
         watchCompleted,
         exploreCompleted,
         questionsCompleted: questCompleted,
       }).catch((err) => {
         AppLogger.error('gamification', 'DailyStory Live Activity start failed', {}, err as Error);
       });
-    }, [todayQuest, questCompleted, watchCompleted, exploreCompleted, streak])
+    }, [todayQuest, questCompleted, watchCompleted, exploreCompleted])
   );
+
+  useEffect(() => {
+    if (!liveActivityManager.isDailyStoryActive) return;
+    if (isHistoricalView) return;
+    liveActivityManager.updateDailyStoryProgress({
+      watchCompleted,
+      exploreCompleted,
+      questionsCompleted: questCompleted,
+      currentStreak: streak,
+    }).catch((err) => {
+      AppLogger.error('gamification', 'DailyStory streak sync failed', {}, err as Error);
+    });
+  }, [streak, watchCompleted, exploreCompleted, questCompleted, isHistoricalView]);
 
   // Loading state
   if (loading) {

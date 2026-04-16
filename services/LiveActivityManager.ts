@@ -94,6 +94,7 @@ class LiveActivityManager {
   // DailyStory state
   private activeDailyStoryId: ActivityId | null = null;
   private dailyStoryMidnightTimer: ReturnType<typeof setTimeout> | null = null;
+  private startingDailyStory = false;
   /** Cached card state for update calls (avoids re-passing immutable fields) */
   private dailyStoryMeta: {
     currentStreak: number;
@@ -230,6 +231,13 @@ class LiveActivityManager {
         this.activeStreakGuardId = existingStreakGuard.id;
         AppLogger.info('gamification', 'StreakGuard already active (iOS side), adopting', { id: existingStreakGuard.id });
         return;
+      }
+      if (!this.activeDailyStoryId) {
+        const existingDailyStory = activeOnDevice.find(a => a.type === 'DailyStory');
+        if (existingDailyStory) {
+          AppLogger.info('gamification', 'Adopting orphaned DailyStory for displacement', { id: existingDailyStory.id });
+          this.activeDailyStoryId = existingDailyStory.id;
+        }
       }
     } catch (err) {
       AppLogger.warn('gamification', 'listActiveActivities failed in checkAndStartStreakGuard', { error: String(err) });
@@ -390,42 +398,41 @@ class LiveActivityManager {
   }): Promise<void> {
     if (Platform.OS !== 'ios') return;
 
-    // Already have an active DailyStory — no-op
-    if (this.activeDailyStoryId) {
-      AppLogger.info('gamification', 'DailyStory already active, skipping');
+    if (this.activeDailyStoryId || this.startingDailyStory) {
+      AppLogger.info('gamification', 'DailyStory already active/starting, skipping');
       return;
     }
+    this.startingDailyStory = true;
 
-    // First-time-only: check if we already started a DailyStory today
-    // (activity may have already ended via .completed/.incomplete/StreakGuard replacement)
-    const today = toLocalDateString(new Date());
-    const startedDate = await AsyncStorage.getItem(STORAGE_KEY_DAILY_STORY_DATE);
-    if (startedDate === today) {
-      AppLogger.info('gamification', 'DailyStory already started today, skipping');
-      return;
-    }
-
-    // Check iOS-side for existing DailyStory (may have been started by push-to-start)
     try {
-      const activeOnDevice = await listActiveActivities();
-      const existingStory = activeOnDevice.find(a => a.type === 'DailyStory');
-      if (existingStory) {
-        this.activeDailyStoryId = existingStory.id;
-        AppLogger.info('gamification', 'DailyStory already active (iOS side), adopting', { id: existingStory.id });
+      // First-time-only: check if we already started a DailyStory today
+      const today = toLocalDateString(new Date());
+      const startedDate = await AsyncStorage.getItem(STORAGE_KEY_DAILY_STORY_DATE);
+      if (startedDate === today) {
+        AppLogger.info('gamification', 'DailyStory already started today, skipping');
         return;
       }
-    } catch (err) {
-      AppLogger.warn('gamification', 'listActiveActivities failed in startDailyStoryActivity', { error: String(err) });
-    }
 
-    // Check if Live Activities are enabled
-    const enabled = await areActivitiesEnabled();
-    if (!enabled) {
-      AppLogger.info('gamification', 'Live Activities not enabled by user');
-      return;
-    }
+      // Check iOS-side for existing DailyStory (may have been started by push-to-start)
+      try {
+        const activeOnDevice = await listActiveActivities();
+        const existingStory = activeOnDevice.find(a => a.type === 'DailyStory');
+        if (existingStory) {
+          this.activeDailyStoryId = existingStory.id;
+          AppLogger.info('gamification', 'DailyStory already active (iOS side), adopting', { id: existingStory.id });
+          return;
+        }
+      } catch (err) {
+        AppLogger.warn('gamification', 'listActiveActivities failed in startDailyStoryActivity', { error: String(err) });
+      }
 
-    try {
+      // Check if Live Activities are enabled
+      const enabled = await areActivitiesEnabled();
+      if (!enabled) {
+        AppLogger.info('gamification', 'Live Activities not enabled by user');
+        return;
+      }
+
       // Calculate midnight endDate
       let endDate: number;
       if (DEV_OVERRIDES.fakeCountdownSeconds != null) {
@@ -480,6 +487,8 @@ class LiveActivityManager {
       AppLogger.info('gamification', 'Started DailyStory', { id, storyId: params.storyId, endDate });
     } catch (error) {
       AppLogger.error('gamification', 'Failed to start DailyStory', {}, error as Error);
+    } finally {
+      this.startingDailyStory = false;
     }
   }
 
@@ -711,10 +720,21 @@ class LiveActivityManager {
         await this.onStreakFailed();
       }
 
-      // DailyStory: if active with stale date, fire .incomplete transition
+      // DailyStory: if active with stale date, silently dismiss (no retroactive
+      // ".incomplete" banner — user opening app next morning shouldn't see yesterday's
+      // terminal state; today's fresh activity will start when they open Today tab).
       if (this.activeDailyStoryId && storedStoryDate && storedStoryDate !== today) {
-        AppLogger.info('gamification', 'DailyStory midnight crossover detected on foreground', { storedDate: storedStoryDate });
-        await this.onDailyStoryIncomplete();
+        AppLogger.info('gamification', 'DailyStory midnight crossover — silently ending stale activity', { storedDate: storedStoryDate });
+        const staleId = this.activeDailyStoryId;
+        this.activeDailyStoryId = null;
+        this.dailyStoryMeta = null;
+        this.cancelDailyStoryMidnightTimeout();
+        try {
+          await endDailyStory(staleId, 0);
+        } catch (err) {
+          AppLogger.warn('gamification', 'endDailyStory during crossover cleanup failed', { error: String(err) });
+        }
+        await this.clearDailyStoryFullState();
       }
 
       // DailyStory date flag stale (no active activity but flag from yesterday):
