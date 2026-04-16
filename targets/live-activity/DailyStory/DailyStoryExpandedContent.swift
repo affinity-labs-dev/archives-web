@@ -37,10 +37,16 @@ struct DailyStoryExpandedContent: View {
       VStack(alignment: .leading, spacing: 10) {
         // Row 1: Streak label + gold timer
         HStack {
-          Text("🔥 \(displayStreak)-day streak")
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundColor(.white)
-            .lineLimit(1)
+          HStack(spacing: 4) {
+            Image("Flame")
+              .resizable()
+              .aspectRatio(contentMode: .fit)
+              .frame(width: 12, height: 14)
+            Text("\(displayStreak)-day streak")
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundColor(.white)
+              .lineLimit(1)
+          }
           Spacer()
           Text(
             Date(timeIntervalSinceNow: endDate - Date().timeIntervalSince1970),
@@ -57,10 +63,10 @@ struct DailyStoryExpandedContent: View {
           .frame(height: 1)
 
         // Row 2: WATCH / EXPLORE / QUESTIONS
-        HStack(spacing: 8) {
-          DailyStoryExpandedPill(label: "WATCH", completed: watchCompleted)
-          DailyStoryExpandedPill(label: "EXPLORE", completed: exploreCompleted)
-          DailyStoryExpandedPill(label: "QUESTIONS", completed: questionsCompleted)
+        HStack(spacing: 25) {
+          DailyStoryExpandedPill(icon: "Watch", completed: watchCompleted)
+          DailyStoryExpandedPill(icon: "Explore", completed: exploreCompleted)
+          DailyStoryExpandedPill(icon: "Questions", completed: questionsCompleted)
           Spacer(minLength: 0)
         }
 
@@ -80,11 +86,11 @@ struct DailyStoryExpandedContent: View {
 }
 
 // MARK: - DailyStoryExpandedPill
-// Card status pill for expanded Dynamic Island — uses blue for incomplete.
+// Card status pill for expanded Dynamic Island — glyph + 18×18 icon.
 
 @available(iOS 16.2, *)
 private struct DailyStoryExpandedPill: View {
-  let label: String
+  let icon: String
   let completed: Bool
 
   var body: some View {
@@ -92,10 +98,10 @@ private struct DailyStoryExpandedPill: View {
       Text(completed ? "✓" : "○")
         .font(.system(size: 13, weight: .bold))
         .foregroundColor(completed ? .dynIslandCheckGreen : .dailyStoryIncompleteBlue)
-      Text(label)
-        .font(.system(size: 11, weight: .semibold))
-        .tracking(0.55)
-        .foregroundColor(completed ? .white : .dailyStoryIncompleteBlue)
+      Image(icon)
+        .resizable()
+        .aspectRatio(contentMode: .fit)
+        .frame(width: 18, height: 18)
     }
   }
 }
