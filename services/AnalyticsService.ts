@@ -1986,6 +1986,80 @@ class AnalyticsService {
     }
   }
 
+  // ==================== VIDEO RELIABILITY TRACKING ====================
+
+  /**
+   * Track a video load attempt — fired when player is created, BEFORE readyToPlay.
+   * Ground truth for total attempts. Paired with video_load_time (success),
+   * cdn_error (explicit failure), video_load_timeout, or video_load_abandoned
+   * to calculate true success rate.
+   */
+  trackVideoLoadAttempted(data: {
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    trigger: 'auto' | 'user_retry';
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_attempted', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Attempted:', event);
+    }
+  }
+
+  /**
+   * Track a video load timeout — fired when 30s pass without reaching readyToPlay
+   * and without an explicit cdn_error. Captures "stuck loading forever" sessions
+   * that are currently invisible in analytics.
+   */
+  trackVideoLoadTimeout(data: {
+    video_url: string;
+    elapsed_ms: number;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    last_known_status: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_timeout', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Timeout:', event);
+    }
+  }
+
+  /**
+   * Track when user navigates away while video is still loading.
+   * Fired on VideoPlayer unmount if neither readyToPlay nor error occurred.
+   * elapsed_ms = how long the user waited before giving up.
+   */
+  trackVideoLoadAbandoned(data: {
+    video_url: string;
+    elapsed_ms: number;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    had_any_playback: boolean;
+  }) {
+    // Guard: only meaningful if user waited at least 500ms (not instant back-nav)
+    if (data.elapsed_ms < 500) return;
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_abandoned', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Abandoned:', event);
+    }
+  }
+
   /**
    * Reset analytics (call on logout)
    */

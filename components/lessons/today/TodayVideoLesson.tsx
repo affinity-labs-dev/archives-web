@@ -74,6 +74,11 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
   const hasTrackedLoadTimeRef = useRef(false);
   const hasTrackedErrorRef = useRef(false);
 
+  // Video reliability tracking refs
+  const hasTrackedAttemptRef = useRef(false);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasTimedOutRef = useRef(false);
+
   const player = useVideoPlayer(videoSource, (player) => {
     player.loop = shouldLoop;
     player.muted = true;
@@ -87,6 +92,42 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
       player.pause();
     }
   });
+
+  // Video reliability: track attempt + start 30s timeout
+  useEffect(() => {
+    if (hasTrackedAttemptRef.current || !videoUrl) return;
+
+    const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+    const contentType = isHLS ? 'hls' as const : 'progressive' as const;
+
+    analyticsService.trackVideoLoadAttempted({
+      video_url: videoUrl,
+      content_type: contentType,
+      cdn_domain: cdnDomain,
+      trigger: 'auto',
+    });
+    hasTrackedAttemptRef.current = true;
+
+    loadTimeoutRef.current = setTimeout(() => {
+      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current) {
+        hasTimedOutRef.current = true;
+        analyticsService.trackVideoLoadTimeout({
+          video_url: videoUrl,
+          elapsed_ms: 30000,
+          content_type: contentType,
+          cdn_domain: cdnDomain,
+          last_known_status: 'loading',
+        });
+      }
+    }, 30000);
+
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    };
+  }, [videoUrl, isHLS]);
 
   // Track player status for loading + performance tracking
   const { status } = useEvent(player, 'statusChange', { status: player.status });
@@ -125,6 +166,12 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
 
   // Track video load time + speed test on first readyToPlay
   useEffect(() => {
+    // Clear 30s timeout on success
+    if (status === 'readyToPlay' && loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+
     if (status === 'readyToPlay' && !hasTrackedLoadTimeRef.current && playerCreatedAtRef.current > 0) {
       const loadTimeMs = Date.now() - playerCreatedAtRef.current;
       const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
@@ -141,6 +188,12 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
 
   // Track video player errors (matches VideoPlayer.tsx pattern)
   useEffect(() => {
+    // Clear 30s timeout on error
+    if (status === 'error' && loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+
     if (status === 'error' && !hasTrackedErrorRef.current) {
       const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
       AppLogger.error('video', 'TodayVideoItem player error', {
@@ -157,6 +210,27 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
       hasTrackedErrorRef.current = true;
     }
   }, [status, videoUrl, isHLS]);
+
+  // Video reliability: track abandoned on unmount if still loading
+  useEffect(() => {
+    const createdAt = playerCreatedAtRef.current;
+    return () => {
+      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current && hasTrackedAttemptRef.current) {
+        const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+        analyticsService.trackVideoLoadAbandoned({
+          video_url: videoUrl,
+          elapsed_ms: Date.now() - createdAt,
+          content_type: isHLS ? 'hls' : 'progressive',
+          cdn_domain: cdnDomain,
+          had_any_playback: false,
+        });
+      }
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    };
+  }, [videoUrl, isHLS]);
 
   // Status updates for progress tracking
   useEffect(() => {

@@ -88,6 +88,11 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
   const hasTrackedLoadTimeRef = useRef(false);
   const hasTrackedErrorRef = useRef(false);
 
+  // Video reliability tracking refs
+  const hasTrackedAttemptRef = useRef(false);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasTimedOutRef = useRef(false);
+
   // AFF-612: Video completion tracking
   const maxPositionRef = useRef(0);
   const videoDurationRef = useRef(0);
@@ -107,6 +112,42 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
       player.pause();
     }
   });
+
+  // Video reliability: track attempt + start 30s timeout
+  useEffect(() => {
+    if (hasTrackedAttemptRef.current || !videoUrl) return;
+
+    const contentType = getContentType(videoUrl);
+    const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+
+    analyticsService.trackVideoLoadAttempted({
+      video_url: videoUrl,
+      content_type: contentType,
+      cdn_domain: cdnDomain,
+      trigger: 'auto',
+    });
+    hasTrackedAttemptRef.current = true;
+
+    loadTimeoutRef.current = setTimeout(() => {
+      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current) {
+        hasTimedOutRef.current = true;
+        analyticsService.trackVideoLoadTimeout({
+          video_url: videoUrl,
+          elapsed_ms: 30000,
+          content_type: contentType,
+          cdn_domain: cdnDomain,
+          last_known_status: 'loading',
+        });
+      }
+    }, 30000);
+
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    };
+  }, [videoUrl]);
 
   // Track player status for loading indicator
   const { status } = useEvent(player, 'statusChange', { status: player.status });
@@ -183,6 +224,12 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     if (isVideoReady) {
       onReady?.();
 
+      // Clear 30s timeout — video loaded successfully
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+
       // AFF-579: Track video load time
       if (!hasTrackedLoadTimeRef.current && playerCreatedAtRef.current > 0) {
         const loadTimeMs = Date.now() - playerCreatedAtRef.current;
@@ -216,6 +263,12 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
       }
     }
 
+    // Clear 30s timeout on error
+    if (status === 'error' && loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+
     // AFF-579: Track CDN errors (once per video)
     if (status === 'error' && !hasTrackedErrorRef.current) {
       const errorMsg = (player as any).error?.message || (player as any).error?.toString() || 'carousel_video_load_error';
@@ -229,9 +282,22 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     }
   }, [isVideoReady, status, onReady, videoUrl, player]);
 
-  // AFF-612: Fire completion on unmount (user exits lesson while viewing this video)
+  // AFF-612: Fire completion on unmount + video_load_abandoned if still loading
   useEffect(() => {
+    const createdAt = playerCreatedAtRef.current;
     return () => {
+      // Video reliability: track abandoned if never loaded
+      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current && hasTrackedAttemptRef.current) {
+        const contentType = getContentType(videoUrl);
+        analyticsService.trackVideoLoadAbandoned({
+          video_url: videoUrl,
+          elapsed_ms: Date.now() - createdAt,
+          content_type: contentType,
+          cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+          had_any_playback: false,
+        });
+      }
+
       if (!hasTrackedCompletionRef.current && watchStartTimeRef.current > 0 && videoDurationRef.current > 0) {
         const completionRate = Math.min(maxPositionRef.current / videoDurationRef.current, 1.0);
         const contentType = getContentType(videoUrl);
@@ -244,6 +310,12 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
           cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
         });
         hasTrackedCompletionRef.current = true;
+      }
+
+      // Clear timeout on unmount
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
       }
     };
   }, [videoUrl]);

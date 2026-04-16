@@ -47,6 +47,11 @@ export default function VideoPlayer({
   const hasTrackedErrorRef = useRef(false)
   const appIsActiveRef = useRef(AppState.currentState === 'active')
 
+  // Video reliability tracking refs
+  const hasTrackedAttemptRef = useRef(false)
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasTimedOutRef = useRef(false)
+
   // AFF-612: Video completion tracking refs
   const maxPositionRef = useRef(0)
   const videoDurationRef = useRef(0)
@@ -126,6 +131,13 @@ export default function VideoPlayer({
     watchStartTimeRef.current = Date.now();
     hasTrackedCompletionRef.current = false;
     videoSourceUriRef.current = videoSourceUri;
+    // Reliability tracking reset
+    hasTrackedAttemptRef.current = false;
+    hasTimedOutRef.current = false;
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
   }, [videoSourceUri]);
 
   // Create video player
@@ -140,6 +152,48 @@ export default function VideoPlayer({
       player.play();
     }
   })
+
+  // Video reliability: track attempt + start 30s timeout
+  useEffect(() => {
+    if (hasTrackedAttemptRef.current) return;
+
+    const url = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
+    if (!url || typeof videoSource === 'number') return; // Skip local assets
+
+    const isHLS = url.includes('.m3u8') || url.includes('/hls/') || url.includes('format=m3u8');
+    const cdnDomain = networkPerformanceService.extractCDNDomain(url);
+    const contentType = isHLS ? 'hls' as const : 'progressive' as const;
+
+    // Event 1: video_load_attempted
+    analyticsService.trackVideoLoadAttempted({
+      video_url: url,
+      content_type: contentType,
+      cdn_domain: cdnDomain,
+      trigger: 'auto',
+    });
+    hasTrackedAttemptRef.current = true;
+
+    // Event 2: 30s timeout — cleared on readyToPlay or error
+    loadTimeoutRef.current = setTimeout(() => {
+      if (!hasTrackedLoadTime.current && !hasTrackedErrorRef.current && !isReleasedRef.current) {
+        hasTimedOutRef.current = true;
+        analyticsService.trackVideoLoadTimeout({
+          video_url: url,
+          elapsed_ms: 30000,
+          content_type: contentType,
+          cdn_domain: cdnDomain,
+          last_known_status: 'loading',
+        });
+      }
+    }, 30000);
+
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    };
+  }, [videoSource]);
 
   // Use proper expo-video event handling
   const { isPlaying } = useEvent(player, 'playingChange', {
@@ -172,6 +226,12 @@ export default function VideoPlayer({
 
         if (status === 'readyToPlay') {
           AppLogger.info('video', 'Video ready to play');
+
+          // Clear 30s timeout — video loaded successfully
+          if (loadTimeoutRef.current) {
+            clearTimeout(loadTimeoutRef.current);
+            loadTimeoutRef.current = null;
+          }
 
           // AFF-579: Track video load time (player creation -> readyToPlay)
           if (!hasTrackedLoadTime.current && playerCreatedAtRef.current > 0) {
@@ -222,6 +282,12 @@ export default function VideoPlayer({
 
         if (status === 'error') {
           AppLogger.error('video', 'Video player entered error state', { uri: typeof videoSource === 'object' ? videoSource?.uri : videoSource });
+
+          // Clear 30s timeout — error was captured explicitly
+          if (loadTimeoutRef.current) {
+            clearTimeout(loadTimeoutRef.current);
+            loadTimeoutRef.current = null;
+          }
 
           // AFF-579: Track CDN error (once per video source)
           if (!hasTrackedErrorRef.current) {
@@ -316,6 +382,21 @@ export default function VideoPlayer({
   // Cleanup + AFF-612: fire video_completion on unmount
   useEffect(() => {
     return () => {
+      // Event 3: video_load_abandoned — user navigated away while still loading
+      if (!hasTrackedLoadTime.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current) {
+        const url = videoSourceUriRef.current;
+        if (url && hasTrackedAttemptRef.current) {
+          const isHLS = url.includes('.m3u8') || url.includes('/hls/') || url.includes('format=m3u8');
+          analyticsService.trackVideoLoadAbandoned({
+            video_url: url,
+            elapsed_ms: Date.now() - playerCreatedAtRef.current,
+            content_type: isHLS ? 'hls' : 'progressive',
+            cdn_domain: networkPerformanceService.extractCDNDomain(url),
+            had_any_playback: false,
+          });
+        }
+      }
+
       // AFF-612: Track completion rate before cleanup (all values from refs — no stale closures)
       if (!hasTrackedCompletionRef.current && videoDurationRef.current > 0) {
         const url = videoSourceUriRef.current;
@@ -330,6 +411,12 @@ export default function VideoPlayer({
           cdn_domain: networkPerformanceService.extractCDNDomain(url || ''),
         });
         hasTrackedCompletionRef.current = true;
+      }
+
+      // Clear timeout on unmount
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
       }
 
       try {
