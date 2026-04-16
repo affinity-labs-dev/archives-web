@@ -195,7 +195,8 @@ export type SubscribeTrigger =
   | 'subscribe_tab'
   | 'daily_story_rewind'
   | 'ai_quiz_explanation'
-  | 'era_locked';
+  | 'era_locked'
+  | 'chat_to_learn';
 
 interface SubscribeScreenViewedEvent {
   trigger: SubscribeTrigger;
@@ -205,7 +206,7 @@ interface SubscribeScreenViewedEvent {
 
 interface SubscribePurchaseCompletedEvent {
   trigger: SubscribeTrigger;
-  plan: SubscriptionType;
+  plan?: SubscriptionType;
   revenue?: number;
   era_id?: string;
   era_name?: string;

@@ -80,7 +80,8 @@
       "Bash(mkdir -p /Users/huypham/Desktop/affinity/Archives_Expo/targets/live-activity/Assets.xcassets/TeacherMascot.imageset)",
       "Bash(cp /Users/huypham/Downloads/ibu-pointing.png /Users/huypham/Downloads/ibu-pointing@2x.png /Users/huypham/Downloads/ibu-pointing@3x.png /Users/huypham/Desktop/affinity/Archives_Expo/targets/live-activity/Assets.xcassets/TeacherMascot.imageset/)",
       "Bash(sips -g pixelWidth -g pixelHeight /Users/huypham/Downloads/ibu-surprise.png)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "mcp__watchr__perform"
     ],
     "additionalDirectories": [
       "/private/tmp/figma-assets/celebration",
