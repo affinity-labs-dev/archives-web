@@ -100,6 +100,8 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
     const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
     const contentType = isHLS ? 'hls' as const : 'progressive' as const;
 
+    AppLogger.info('video', 'TodayVideoItem: player created', { videoUrl: videoUrl?.substring(0, 80), contentType, isHLS });
+
     analyticsService.trackVideoLoadAttempted({
       video_url: videoUrl,
       content_type: contentType,
@@ -111,6 +113,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
     loadTimeoutRef.current = setTimeout(() => {
       if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current) {
         hasTimedOutRef.current = true;
+        AppLogger.warn('video', 'TodayVideoItem: 30s load timeout', { videoUrl: videoUrl?.substring(0, 80), contentType });
         analyticsService.trackVideoLoadTimeout({
           video_url: videoUrl,
           elapsed_ms: 30000,
@@ -130,7 +133,21 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
   }, [videoUrl, isHLS]);
 
   // Track player status for loading + performance tracking
-  const { status } = useEvent(player, 'statusChange', { status: player.status });
+  const { status, error } = useEvent(player, 'statusChange', { status: player.status });
+
+  // Track every status transition for debugging (rate-limited in AnalyticsService)
+  useEffect(() => {
+    const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+    analyticsService.trackVideoStatusChange({
+      video_url: videoUrl,
+      status,
+      error_code: error?.message,
+      error_message: error?.message,
+      time_since_mount_ms: Date.now() - playerCreatedAtRef.current,
+      content_type: isHLS ? 'hls' : 'progressive',
+      cdn_domain: cdnDomain,
+    });
+  }, [status, error, videoUrl, isHLS]);
 
   // Control playback when isActive changes + run speed test
   useEffect(() => {
@@ -174,6 +191,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
 
     if (status === 'readyToPlay' && !hasTrackedLoadTimeRef.current && playerCreatedAtRef.current > 0) {
       const loadTimeMs = Date.now() - playerCreatedAtRef.current;
+      AppLogger.info('video', 'TodayVideoItem: readyToPlay', { videoUrl: videoUrl?.substring(0, 80), loadTimeMs });
       const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
       analyticsService.trackVideoLoadTime({
         load_time_ms: loadTimeMs,
@@ -216,6 +234,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
     const createdAt = playerCreatedAtRef.current;
     return () => {
       if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current && hasTrackedAttemptRef.current) {
+        AppLogger.warn('video', 'TodayVideoItem: abandoned while loading', { videoUrl: videoUrl?.substring(0, 80), elapsedMs: Date.now() - createdAt });
         const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
         analyticsService.trackVideoLoadAbandoned({
           video_url: videoUrl,

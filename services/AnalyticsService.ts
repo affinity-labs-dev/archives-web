@@ -1986,6 +1986,40 @@ class AnalyticsService {
     }
   }
 
+  // ==================== VIDEO STATUS CHANGE TRACKING ====================
+
+  /** Rate-limit: max 20 status change events per session to prevent PostHog spam from retry loops */
+  private videoStatusChangeCount = 0;
+  private static readonly MAX_STATUS_CHANGE_EVENTS = 20;
+
+  /**
+   * Track every video player status transition — fires on each statusChange event.
+   * Gives a full timeline of what the player went through (idle → loading → error → loading → ...).
+   * Rate-limited to 20 events per session to avoid flooding PostHog during retry loops (e.g. 797 errors).
+   */
+  trackVideoStatusChange(data: {
+    video_url: string;
+    status: string;
+    error_code?: string;
+    error_message?: string;
+    time_since_mount_ms: number;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+  }) {
+    if (this.videoStatusChangeCount >= AnalyticsService.MAX_STATUS_CHANGE_EVENTS) return;
+    this.videoStatusChangeCount++;
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_status_change', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Status Change:', event);
+    }
+  }
+
   // ==================== VIDEO RELIABILITY TRACKING ====================
 
   /**
@@ -2070,6 +2104,7 @@ class AnalyticsService {
     this.pageStartTimes.clear();
     this.pageClicks.clear();
     this.networkSpeedEventCount = 0;
+    this.videoStatusChangeCount = 0;
     // Note: We keep anonymousId - it persists across sessions
     AppLogger.info('auth', 'Analytics reset (anonymous ID preserved)');
   }
