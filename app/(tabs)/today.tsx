@@ -93,6 +93,7 @@ interface Card1Content {
   content_type: "reel" | "video_carousel" | "image_carousel";
   title: string;
   media_url: string | string[]; // Single URL for reel, array for carousels
+  media_hls_url?: string | string[]; // HLS version of media_url (preferred when available)
   thumbnail_url?: string; // Background thumbnail for WATCH card
   background_music_url?: string; // Background music for ambient audio
   content: {
@@ -1596,9 +1597,10 @@ export default function TodayScreen() {
 
     if (modal === "video") {
       const card1 = quest.content.card1;
-      const mediaUrls = Array.isArray(card1.media_url)
-        ? card1.media_url
-        : [card1.media_url];
+      const sourceUrl = card1.media_hls_url !== undefined ? card1.media_hls_url : card1.media_url;
+      const mediaUrls = Array.isArray(sourceUrl)
+        ? sourceUrl
+        : [sourceUrl];
 
       return (
         <TodayVideoLesson
