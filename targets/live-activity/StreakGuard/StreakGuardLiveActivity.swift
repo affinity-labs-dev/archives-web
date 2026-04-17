@@ -89,7 +89,7 @@ struct StreakGuardLiveActivity: Widget {
         )
         .foregroundColor(.streakExpiringTimerPink)
         .monospacedDigit()
-        .frame(maxWidth: 32)
+        .frame(maxWidth: 60, alignment: .trailing)
       } minimal: {
         // MARK: Minimal — single 🔥 emoji (smallest representation)
         Text("🔥")

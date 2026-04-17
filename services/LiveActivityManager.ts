@@ -406,6 +406,24 @@ class LiveActivityManager {
       AppLogger.info('gamification', 'DailyStory already active/starting, skipping');
       return;
     }
+
+    // StreakGuard takes priority — never start DailyStory while StreakGuard is running.
+    // Covers both JS-tracked (orchestrator just started it) and iOS-side (started natively
+    // or restored from a previous session before JS initialized).
+    if (this.activeStreakGuardId) {
+      AppLogger.info('gamification', 'StreakGuard active — skipping DailyStory start');
+      return;
+    }
+    try {
+      const activeOnDevice = await listActiveActivities();
+      if (activeOnDevice.some(a => a.type === 'StreakGuard')) {
+        AppLogger.info('gamification', 'StreakGuard active on iOS — skipping DailyStory start');
+        return;
+      }
+    } catch (err) {
+      AppLogger.warn('gamification', 'listActiveActivities failed in StreakGuard pre-check', { error: String(err) });
+    }
+
     this.startingDailyStory = true;
 
     try {
