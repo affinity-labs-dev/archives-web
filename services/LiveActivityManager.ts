@@ -216,6 +216,8 @@ class LiveActivityManager {
   ): Promise<void> {
     if (Platform.OS !== 'ios') return;
 
+    let orphanDailyStoryId: string | null = null;
+
     // Already have an active activity (tracked in JS memory)
     if (this.activeStreakGuardId) {
       AppLogger.info('gamification', 'StreakGuard already active (JS tracked), skipping');
@@ -232,11 +234,13 @@ class LiveActivityManager {
         AppLogger.info('gamification', 'StreakGuard already active (iOS side), adopting', { id: existingStreakGuard.id });
         return;
       }
+      // Track orphaned DailyStory in local var — only adopt into this.activeDailyStoryId
+      // at displacement time. Setting it here would leave zombie state if conditions fail below.
       if (!this.activeDailyStoryId) {
         const existingDailyStory = activeOnDevice.find(a => a.type === 'DailyStory');
         if (existingDailyStory) {
-          AppLogger.info('gamification', 'Adopting orphaned DailyStory for displacement', { id: existingDailyStory.id });
-          this.activeDailyStoryId = existingDailyStory.id;
+          AppLogger.info('gamification', 'Found orphaned DailyStory for potential displacement', { id: existingDailyStory.id });
+          orphanDailyStoryId = existingDailyStory.id;
         }
       }
     } catch (err) {
@@ -271,9 +275,9 @@ class LiveActivityManager {
 
     // All conditions met — displace DailyStory if active, then start StreakGuard
     // Per spec: StreakGuard replaces DailyStory (more urgent message takes priority)
-    if (this.activeDailyStoryId) {
+    if (this.activeDailyStoryId || orphanDailyStoryId) {
       AppLogger.info('gamification', 'Displacing DailyStory — StreakGuard conditions met');
-      const displacedId = this.activeDailyStoryId;
+      const displacedId = this.activeDailyStoryId || orphanDailyStoryId;
       this.cancelDailyStoryMidnightTimeout();
       this.activeDailyStoryId = null;
       this.dailyStoryMeta = null;

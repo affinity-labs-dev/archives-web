@@ -1197,6 +1197,8 @@ export default function TodayScreen() {
   // Live Activity — cache quiz results for XP plumbing to Live Activity completion
   const lastQuizCorrectAnswersRef = useRef(0);
 
+  // Guard: streak starts as 0 before cloud hydration — don't expose pre-hydration value
+  const isStreakHydrated = streak > 0;
   const streakRef = useRef(streak);
   useEffect(() => { streakRef.current = streak; }, [streak]);
 
@@ -1520,6 +1522,9 @@ export default function TodayScreen() {
       const today = toLocalDateString(new Date());
       if (todayQuest.date !== today) return;
 
+      // Skip if streak hasn't hydrated yet — prevents brief "0-day streak" on lock screen
+      if (!isStreakHydrated) return;
+
       liveActivityManager.startDailyStoryActivity({
         storyId: todayQuest.id,
         storyTitle: todayQuest.content.today_title,
@@ -1532,9 +1537,10 @@ export default function TodayScreen() {
       }).catch((err) => {
         AppLogger.error('gamification', 'DailyStory Live Activity start failed', {}, err as Error);
       });
-    }, [todayQuest, questCompleted, watchCompleted, exploreCompleted])
+    }, [todayQuest, questCompleted, watchCompleted, exploreCompleted, isStreakHydrated])
   );
 
+  // Sync streak changes to Live Activity (card completions already handled by onNext callbacks)
   useEffect(() => {
     if (!liveActivityManager.isDailyStoryActive) return;
     if (isHistoricalView) return;
@@ -1546,7 +1552,7 @@ export default function TodayScreen() {
     }).catch((err) => {
       AppLogger.error('gamification', 'DailyStory streak sync failed', {}, err as Error);
     });
-  }, [streak, watchCompleted, exploreCompleted, questCompleted, isHistoricalView]);
+  }, [streak, isHistoricalView]);
 
   // Loading state
   if (loading) {
