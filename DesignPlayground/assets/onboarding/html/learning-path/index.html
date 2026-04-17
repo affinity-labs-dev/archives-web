@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generating Learning Path</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; background: #1a1a2e;
+      font-family: 'Onest', sans-serif; flex-direction: column; gap: 24px;
+    }
+    .phone-frame {
+      width: 393px; height: 852px; background: #fafafa;
+      border-radius: 44px; position: relative; overflow: hidden;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 25px 70px rgba(0,0,0,0.5);
+    }
+
+    /* Main scroll: fast in → slow at center → fast → soft land */
+    .scroll-content {
+      position: absolute; top: 0; left: 0;
+      width: 393px; height: 1698px;
+      transform: translateY(900px);
+      animation: fullScroll 4.5s forwards;
+      animation-delay: 0.2s;
+    }
+    @keyframes fullScroll {
+      0% {
+        transform: translateY(900px);
+        animation-timing-function: cubic-bezier(0.1, 0.9, 0.2, 1);
+      }
+      11% {
+        transform: translateY(291px);
+        animation-timing-function: linear;
+      }
+      50% {
+        transform: translateY(220px);
+        animation-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1);
+      }
+      100% {
+        transform: translateY(-866px);
+      }
+    }
+
+    /* Individual element landing — fly in from below and settle gracefully */
+    .land-in {
+      opacity: 0;
+      transform: translateY(120px) scale(0.92);
+    }
+    @keyframes landIn {
+      0%   { opacity: 0; transform: translateY(120px) scale(0.92); }
+      60%  { opacity: 1; transform: translateY(-8px) scale(1.01); }
+      80%  { transform: translateY(3px) scale(0.995); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .land-1 { animation: landIn 0.9s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: 2.8s; }
+    .land-2 { animation: landIn 0.9s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: 3.1s; }
+    .land-3 { animation: landIn 0.9s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: 3.35s; }
+    .land-4 { animation: landIn 0.9s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: 3.55s; }
+    .land-5 { animation: landIn 0.9s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: 3.75s; }
+    .land-6 { animation: landIn 0.9s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: 3.95s; }
+    .land-7 { animation: landIn 0.9s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: 4.15s; }
+    .land-8 { animation: landIn 0.9s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: 4.45s; }
+
+    /* Simple fade-in for week cards, curves, button */
+    .appear-in {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    @keyframes appearIn {
+      0%   { opacity: 0; transform: translateY(30px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .ap-1 { animation: appearIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: 3.4s; }
+    .ap-2 { animation: appearIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: 3.6s; }
+    .ap-3 { animation: appearIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: 3.8s; }
+    .ap-4 { animation: appearIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: 4.0s; }
+    .ap-5 { animation: appearIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: 4.2s; }
+    .ap-6 { animation: appearIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: 4.4s; }
+
+    /* GET STARTED button — rise-in */
+    .btn-rise {
+      opacity: 0;
+      transform: translateY(110px);
+    }
+    @keyframes riseIn {
+      0%   { opacity: 0; transform: translateY(110px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .btn-rise.active {
+      animation: riseIn 1.05s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      animation-delay: 4.5s;
+    }
+    /* Dashed line fade out after all elements land */
+    .dashed-fade {
+      animation: fadeOutDashed 0.8s ease forwards;
+      animation-delay: 3.8s;
+    }
+    @keyframes fadeOutDashed {
+      0%   { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* Bouncy press on click */
+    .btn-surface {
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .btn-surface:active {
+      transform: translateY(5px);
+    }
+
+    .fc { position: absolute; display: flex; align-items: center; justify-content: center; }
+    .cqs { container-type: size; }
+    .fi { position: absolute; display: block; inset: 0; max-width: none; width: 100%; height: 100%; }
+
+    .replay-btn {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      color: #fff; padding: 10px 28px; border-radius: 12px;
+      font-family: 'Onest', sans-serif; font-size: 15px;
+      cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px;
+    }
+    .replay-btn:hover { background: rgba(255,255,255,0.18); }
+
+    .week-img { position: absolute; width: 106px; height: 104px; border-radius: 20px; overflow: hidden; }
+    .week-img img { position: absolute; width: 142.25%; height: 204.73%; left: -21.13%; top: -47.13%; max-width: none; }
+    .week-title { position: absolute; font-weight: 700; font-size: 16px; color: #1a1a1a; letter-spacing: -0.16px; transform: translateY(-50%); }
+    .week-desc { position: absolute; font-weight: 600; font-size: 14px; color: #1a1a1a; letter-spacing: -0.14px; line-height: 20px; transform: translateY(-50%); }
+  </style>
+</head>
+<body>
+  <div class="phone-frame">
+
+    <!-- Static header -->
+    <div style="position:absolute; z-index:10; top:0; left:0; right:0; height:80px; background:linear-gradient(to bottom, #fafafa 60%, transparent);">
+      <div style="position:absolute; left:20px; top:42px; width:9.596px; height:18.161px;">
+        <div style="position:absolute; inset:-5.51% -10.42%;"><img class="fi" src="assets/union.svg" alt="" /></div>
+      </div>
+      <div style="position:absolute; left:54px; top:51px; width:244px; height:0;">
+        <div style="position:absolute; inset:-5px 0 0 0;"><img class="fi" src="assets/line39.svg" alt="" /></div>
+      </div>
+      <div style="position:absolute; left:54px; top:51px; width:122px; height:0;">
+        <div style="position:absolute; inset:-5px 0 0 0;"><img class="fi" src="assets/line40.svg" alt="" /></div>
+      </div>
+      <p style="position:absolute; transform:translateX(-50%); font-weight:500; line-height:normal; left:349.5px; font-size:20px; color:black; text-align:center; top:33px; white-space:nowrap;">Skip</p>
+    </div>
+
+    <!-- ===== FULL SCROLLING CONTENT ===== -->
+    <div id="scroll-content" class="scroll-content">
+
+      <!-- Heading text (top:95) -->
+      <p style="position:absolute; transform:translateX(-50%); font-weight:700; height:80px; line-height:normal; left:calc(50% + 0.5px); color:#41425e; font-size:30px; text-align:center; top:95px; width:302px;">
+        Generating your personalized learning path
+      </p>
+
+      <!-- Character sub-container: 393x852 at top=-88 to preserve original proportions, z-index above dashed line -->
+      <div style="position:absolute; top:-88px; left:0; width:393px; height:852px; z-index:2;">
+        <div class="fc cqs" style="inset:41.31% 18.83% 22.39% 22.1%;"><div style="flex:none; height:100cqw; transform:rotate(90deg); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/group.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:43.33% 21.95% 42.11% 46.39%;"><div style="flex:none; height:hypot(54.9554cqw,46.7602cqh); transform:rotate(-49.69deg) scaleX(-1); width:hypot(-45.0446cqw,53.2398cqh);"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/group1.svg" alt="" /></div></div></div>
+        <div class="fc" style="height:278.951px; left:187.46px; top:420.14px; width:66.454px;"><div style="flex:none; transform:rotate(90deg) scaleY(-1);"><div style="height:66.454px; position:relative; width:278.951px;"><img class="fi" src="assets/vector284.svg" alt="" /></div></div></div>
+        <div style="position:absolute; inset:65.37% 27.39% 23.14% 60.68%;"><img class="fi" src="assets/group2.svg" alt="" /></div>
+        <div class="fc cqs" style="inset:50.49% 20.61% 30.5% 43.59%;"><div style="flex:none; height:hypot(25.4913cqw,82.6545cqh); transform:rotate(-15deg) scaleX(-1); width:hypot(-74.5087cqw,17.3455cqh);"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/group3.svg" alt="" /></div></div></div>
+        <div style="position:absolute; inset:65.37% 30.55% 21.66% 55.98%;"><img class="fi" src="assets/group4.svg" alt="" /></div>
+        <div class="fc" style="height:265.519px; left:164.22px; top:433.58px; width:85.829px;"><div style="flex:none; transform:rotate(90deg) scaleY(-1);"><div style="height:85.829px; position:relative; width:265.519px;"><img class="fi" src="assets/vector283.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:50.52% 51.62% 49.29% 47.28%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:50.71% 51.54% 49.27% 48.37%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector1.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:42.43% 25.58% 42.2% 40.78%;"><div style="flex:none; height:hypot(63.8352cqw,37.7747cqh); transform:rotate(-59.61deg) scaleX(-1); width:hypot(-36.1648cqw,62.2253cqh);"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/group5.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:49.01% 65.01% 48.91% 27.71%;"><div style="flex:none; height:hypot(97.621cqw,6.47114cqh); transform:rotate(-87.65deg) scaleX(-1); width:hypot(-2.37904cqw,93.5289cqh);"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/group6.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:48.79% 42.22% 37.09% 27.64%;"><div style="flex:none; height:hypot(95.9915cqw,3.88111cqh); transform:rotate(-87.65deg) scaleX(-1); width:hypot(-4.00848cqw,96.1189cqh);"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/face.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:47.71% 45% 33.16% 19.08%;"><div style="flex:none; height:hypot(95.4201cqw,3.39374cqh); transform:rotate(-87.65deg) scaleX(-1); width:hypot(-4.57995cqw,96.6063cqh);"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/group7.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:51.38% 71.03% 35.97% 21.84%;"><div style="flex:none; height:hypot(84.34cqw,0.899931cqh); transform:rotate(-87.65deg) scaleX(-1); width:hypot(-15.66cqw,99.1001cqh);"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/headscarf_tube.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:62.23% 66.54% 34.65% 27.3%;"><div style="flex:none; height:hypot(95.6528cqw,3.57736cqh); transform:rotate(-87.65deg) scaleX(-1); width:hypot(-4.34718cqw,96.4226cqh);"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/group8.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:55.5% 51.63% 38.94% 39.88%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector2.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:55.55% 61.01% 39.55% 34.76%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector3.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:55.5% 59.62% 39.06% 38.1%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector4.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:56.97% 55.39% 39.48% 39.92%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector5.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:59% 57.32% 39.98% 40.46%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector6.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:50.07% 52.43% 45.06% 40.15%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector7.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:50.12% 60.64% 45.59% 35.66%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector8.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:50.07% 59.42% 45.17% 38.59%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector9.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:51.37% 55.72% 45.53% 40.18%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector10.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:53.27% 57.69% 45.84% 40.37%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/vector11.svg" alt="" /></div></div></div>
+        <div class="fc" style="height:43.018px; left:176.88px; top:449.14px; width:46.2px;"><div style="flex:none; transform:rotate(90deg) scaleY(-1);"><div style="height:46.2px; position:relative; width:43.018px;"><div style="position:absolute; inset:0 -4.44% 0 -3.61%;"><img class="fi" src="assets/group506.svg" alt="" /></div></div></div></div>
+        <div class="fc" style="height:27.983px; left:182.37px; top:457.29px; width:9.351px;"><div style="flex:none; transform:rotate(90deg) scaleY(-1);"><div style="height:9.351px; position:relative; width:27.983px;"><img class="fi" src="assets/group505.svg" alt="" /></div></div></div>
+        <div class="fc cqs" style="inset:50.21% 65.52% 40.09% 28.43%;"><div style="flex:none; height:100cqw; transform:rotate(-90deg) scaleX(-1); width:100cqh;"><div style="position:relative; width:100%; height:100%;"><img class="fi" src="assets/group9.svg" alt="" /></div></div></div>
+      </div>
+
+      <!-- Dashed ladder line (top:528) — behind character, fades after landing -->
+      <div class="dashed-fade" style="position:absolute; display:flex; height:417px; align-items:center; justify-content:center; left:197px; top:528px; width:0; z-index:1;">
+        <div style="flex:none; transform:rotate(90deg);">
+          <div style="height:0; position:relative; width:417px;">
+            <div style="position:absolute; inset:-60px 0 0 0;"><img class="fi" src="assets/dashed-line2.svg" alt="" /></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Face icon + Speech bubble — vertically aligned (top:947) -->
+      <div class="land-in land-1">
+        <div style="position:absolute; left:30px; top:950px; width:96px; height:70px;">
+          <img class="fi" src="assets/face-group247.svg" alt="" />
+        </div>
+        <div style="position:absolute; left:143px; top:947px; width:221.215px; height:76px;">
+          <img class="fi" src="assets/speech-bubble.svg" alt="" />
+        </div>
+        <p style="position:absolute; font-weight:600; font-size:18px; color:#1a1a1a; left:178px; top:962px; width:159px; height:47px; line-height:normal;">
+          Your personalized learning path
+        </p>
+      </div>
+
+      <!-- Pills -->
+      <div class="land-in land-2" style="position:absolute; left:0; top:1072px; width:393px; height:50px;">
+        <div style="position:absolute; left:22px; top:0; width:138px; height:50px; background:#8C60CD; border-radius:15px 5px 5px 15px; overflow:hidden; display:flex; align-items:center; padding-left:9px; gap:12px;">
+          <div style="width:27px; height:27px; flex-shrink:0; position:relative;"><img class="fi" src="assets/pill-icon-page.svg" alt="" /></div>
+          <p style="font-weight:700; font-size:22px; color:#fafafa; letter-spacing:0.22px; white-space:nowrap;">3  Eras</p>
+        </div>
+        <div style="position:absolute; left:164px; top:0; width:208px; height:50px; background:#E5D4FF; border-radius:5px 15px 15px 5px; overflow:hidden; display:flex; align-items:center; padding-left:23px; gap:11px;">
+          <div style="width:32px; height:32px; flex-shrink:0; position:relative;"><img class="fi" src="assets/pill-icon-clock.svg" alt="" /></div>
+          <p style="font-weight:700; font-size:14px; color:#1a1a1a; letter-spacing:0.14px; line-height:15px; width:103px;">Less than 5 mins a day</p>
+        </div>
+      </div>
+
+      <!-- Week 1 -->
+      <div class="appear-in ap-1" style="position:absolute; left:0; top:1163px; width:393px; height:104px;">
+        <div class="week-img" style="left:25px; top:0;"><img src="assets/kaaba.png" alt="" /></div>
+        <p class="week-title" style="left:143px; top:21px; width:229px;">Week 1 &bull; Rise of Islam Era</p>
+        <div class="week-desc" style="left:143px; top:66px; width:207px; height:50px;">
+          <p>Explore Mecca before Islam and how a night in Hira Cave changed the world.</p>
+        </div>
+      </div>
+
+      <!-- Curve 1 -->
+      <div class="appear-in ap-2" style="position:absolute; left:84px; top:1267px; width:236px; height:48px;">
+        <div style="position:absolute; inset:-16.67% -0.64% -3.13% -3.39%;"><img style="display:block; max-width:none; width:100%; height:100%;" src="assets/curve1.svg" alt="" /></div>
+      </div>
+
+      <!-- Week 2 -->
+      <div class="appear-in ap-3" style="position:absolute; left:0; top:1315px; width:393px; height:104px;">
+        <div class="week-img" style="left:263px; top:0;"><img src="assets/kaaba.png" alt="" /></div>
+        <p class="week-title" style="left:54px; top:27px; width:197px; text-align:right;">Week 2 &bull; Women of Islam</p>
+        <div class="week-desc" style="left:61px; top:72px; width:190px; height:50px; text-align:right;">
+          <p>Explore Mecca before Islam and how a night in Hira Cave changed the world.</p>
+        </div>
+      </div>
+
+      <!-- Curve 2 -->
+      <div class="appear-in ap-4" style="position:absolute; display:flex; left:84px; top:1419px; width:236px; height:48px; align-items:center; justify-content:center;">
+        <div style="flex:none; transform:rotate(180deg) scaleY(-1);">
+          <div style="width:236px; height:48px; position:relative;">
+            <div style="position:absolute; inset:-16.67% -0.64% -3.13% -3.39%;"><img style="display:block; max-width:none; width:100%; height:100%;" src="assets/curve2.svg" alt="" /></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Week 3 -->
+      <div class="appear-in ap-5" style="position:absolute; left:0; top:1467px; width:393px; height:104px;">
+        <div class="week-img" style="left:25px; top:0;"><img src="assets/kaaba.png" alt="" /></div>
+        <p class="week-title" style="left:143px; top:21px; width:229px;">Week 3 &bull; Rise of Islam Era</p>
+        <div class="week-desc" style="left:143px; top:66px; width:207px; height:50px;">
+          <p>Explore Mecca before Islam and how a night in Hira Cave changed the world.</p>
+        </div>
+      </div>
+
+      <!-- Bottom fade -->
+      <div style="position:absolute; left:0; top:1570px; width:393px; height:130px; background:linear-gradient(to bottom, transparent, #fafafa 30%);"></div>
+
+      <!-- GET STARTED button -->
+      <div class="btn-rise active" style="position:absolute; left:33px; top:1617px; width:327px; height:49px; cursor:pointer;">
+        <div style="position:absolute; inset:4px 0 0 0; background:white; border:1px solid #1a1a1a; border-radius:26.5px;"></div>
+        <div class="btn-surface" style="position:absolute; inset:0 0 4px 0; background:#1a1a1a; border:1px solid #1a1a1a; border-radius:26.5px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+          <p style="font-weight:700; font-size:18px; color:white; letter-spacing:-0.18px; white-space:nowrap;">GET STARTED</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <button class="replay-btn" onclick="replay()">Replay Animation</button>
+  <script>
+    function replay() {
+      document.querySelectorAll('[style*="animation"], .scroll-content, .land-in').forEach(el => {
+        el.style.animation = 'none';
+      });
+      void document.body.offsetWidth;
+      document.querySelectorAll('[style*="animation"], .scroll-content, .land-in').forEach(el => {
+        el.style.animation = '';
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Playground — Structure Map</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Onest', system-ui, sans-serif;
+    background: #FAFAFA;
+    color: #1A1A1A;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* Header */
+  .page-header {
+    margin-bottom: 40px;
+  }
+  .page-title {
+    font-size: 32px;
+    font-weight: 900;
+    color: #1A1A1A;
+    letter-spacing: 0.5px;
+  }
+  .page-subtitle {
+    font-size: 15px;
+    font-weight: 500;
+    color: #737373;
+    margin-top: 8px;
+    line-height: 22px;
+  }
+
+  /* Nav links */
+  .nav-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .nav-link {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  .nav-link.design { background: #1E3C88; color: #FFF; }
+  .nav-link.design:hover { background: #162d66; }
+  .nav-link.structure { background: #E5D4FF; color: #3E2368; }
+
+  /* File Tree */
+  .tree-section {
+    background: #FFFFFF;
+    border-radius: 16px;
+    border: 1px solid #E5E5E5;
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+  .tree-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #E5E5E5;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .tree-header-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #1E3C88;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFF;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .tree-header-text h2 {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .tree-header-text p {
+    font-size: 13px;
+    color: #737373;
+    font-weight: 500;
+  }
+
+  .tree {
+    padding: 0;
+    list-style: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .tree-item {
+    border-bottom: 1px solid #F5F5F5;
+  }
+  .tree-item:last-child { border-bottom: none; }
+
+  .tree-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 14px 24px;
+    gap: 12px;
+    cursor: default;
+    transition: background 0.1s;
+  }
+  .tree-row:hover { background: #FAFAFA; }
+
+  .tree-indent { color: #D0D0D0; white-space: pre; flex-shrink: 0; }
+  .tree-name {
+    font-weight: 600;
+    color: #1A1A1A;
+    white-space: nowrap;
+  }
+  .tree-name.folder { color: #1E3C88; }
+  .tree-name.entry { color: #3E2368; }
+  .tree-desc {
+    font-family: 'Onest', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #999;
+    margin-left: auto;
+    text-align: right;
+    padding-left: 16px;
+    line-height: 18px;
+  }
+
+  /* Detail Cards */
+  .detail-card {
+    background: #FFFFFF;
+    border-radius: 16px;
+    border: 1px solid #E5E5E5;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .detail-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #F0F0F0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .detail-badge {
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .badge-token { background: #E5D4FF; color: #3E2368; }
+  .badge-section { background: #A2C5FF; color: #1E3C88; }
+  .badge-screen { background: #D6FFB8; color: #234200; }
+  .badge-route { background: #FFDD63; color: #1A1A1A; }
+  .badge-html { background: #FFB8B9; color: #6E0B0E; }
+  .badge-asset { background: #F0F0F0; color: #737373; }
+
+  .detail-title {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .detail-body {
+    padding: 20px 24px;
+  }
+  .detail-desc {
+    font-size: 14px;
+    color: #737373;
+    margin-bottom: 16px;
+    line-height: 22px;
+  }
+
+  /* Code blocks */
+  .code-block {
+    background: #1A1A1A;
+    border-radius: 10px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    margin-bottom: 12px;
+  }
+  .code-block code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #E5E5E5;
+    line-height: 1.6;
+  }
+  .code-comment { color: #6B6B6B; }
+  .code-keyword { color: #A2C5FF; }
+  .code-string { color: #D6FFB8; }
+  .code-type { color: #E5D4FF; }
+
+  /* Exports list */
+  .exports-list {
+    list-style: none;
+    padding: 0;
+  }
+  .exports-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #F5F5F5;
+    font-size: 13px;
+  }
+  .exports-list li:last-child { border-bottom: none; }
+  .export-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: #3E2368;
+  }
+  .export-desc {
+    color: #999;
+    font-size: 12px;
+  }
+
+  /* Connection arrows */
+  .connections {
+    margin-top: 16px;
+  }
+  .connection {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 13px;
+  }
+  .conn-arrow {
+    color: #1E3C88;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .conn-file {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: #1E3C88;
+    font-size: 12px;
+  }
+  .conn-desc {
+    color: #999;
+    font-size: 12px;
+  }
+
+  /* Section header */
+  .section-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 16px;
+    margin-top: 40px;
+  }
+
+  /* Mermaid */
+  .mermaid-container {
+    overflow-x: auto;
+    background: #FAFAFA;
+    border-radius: 12px;
+    padding: 24px 16px;
+  }
+  .mermaid {
+    text-align: center;
+  }
+
+  /* VS Code tree */
+  .vscode-tree {
+    background: #1E1E1E;
+    border-radius: 12px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    line-height: 1.8;
+  }
+  .vscode-tree code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #D4D4D4;
+  }
+  .tree-comment {
+    color: #6A9955;
+  }
+  .tree-external {
+    color: #DCDCAA;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 32px 0 0;
+    font-size: 12px;
+    color: #999;
+    border-top: 1px solid #E5E5E5;
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-title">Design Playground — Structure Map</div>
+    <div class="page-subtitle">
+      How the playground is organized, what each file does, and how to use it in your code.
+    </div>
+    <div class="nav-bar">
+      <a class="nav-link design" href="preview.html">Open Design Preview &rarr;</a>
+      <span class="nav-link structure">You are here</span>
+    </div>
+  </div>
+
+  <!-- ─── FILE TREE ─── -->
+  <div class="tree-section">
+    <div class="tree-header">
+      <div class="tree-header-icon">/</div>
+      <div class="tree-header-text">
+        <h2>DesignPlayground/</h2>
+        <p>Self-contained at project root &mdash; no dependencies on existing theme</p>
+      </div>
+    </div>
+    <ul class="tree">
+      <li class="tree-item"><div class="tree-row"><span class="tree-name entry">index.ts</span><span class="tree-desc">Public API &mdash; re-exports everything</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-name entry">theme.ts</span><span class="tree-desc">Single source of truth &mdash; all tokens from Figma</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-name entry">PlaygroundScreen.tsx</span><span class="tree-desc">Main RN screen &mdash; loads fonts, renders all sections</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-name entry">preview.html</span><span class="tree-desc">Browser-viewable design system reference</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-name entry">structure.html</span><span class="tree-desc">This file &mdash; file tree + usage docs</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-name entry">MASTER_PROMPT.md</span><span class="tree-desc">Prompt to rebuild everything from scratch</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent"></span><span class="tree-name folder">sections/</span><span class="tree-desc">One component per design system category</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">  </span><span class="tree-name">TypographySection.tsx</span><span class="tree-desc">Display, Heading, Body, Label type scale</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">  </span><span class="tree-name">ColorsSection.tsx</span><span class="tree-desc">Palette swatches + semantic button tokens</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">  </span><span class="tree-name">ButtonsSection.tsx</span><span class="tree-desc">7 button variants with 3D shadows</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">  </span><span class="tree-name">SpacingSection.tsx</span><span class="tree-desc">Spacing bars, border radius, shadow cards</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">  </span><span class="tree-name">ComponentsSection.tsx</span><span class="tree-desc">Cards, inputs, tags, dividers</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent"></span><span class="tree-name folder">assets/</span><span class="tree-desc">SVGs and font files</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">  </span><span class="tree-name">apple-icon.svg</span><span class="tree-desc">Apple auth button icon from Figma</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">  </span><span class="tree-name folder">fonts/</span><span class="tree-desc">Bounded + Onest font files</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">    </span><span class="tree-name">Bounded-Black.ttf</span><span class="tree-desc">Display font (hero titles)</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">    </span><span class="tree-name">Onest-Black.ttf</span><span class="tree-desc">Heading XL</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">    </span><span class="tree-name">Onest-Bold.ttf</span><span class="tree-desc">Heading M, Label M/XS</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">    </span><span class="tree-name">Onest-SemiBold.ttf</span><span class="tree-desc">Body L/M/XS, Label S</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-indent">    </span><span class="tree-name">Onest-Medium.ttf</span><span class="tree-desc">Body S, Label L</span></div></li>
+    </ul>
+  </div>
+
+  <!-- External files -->
+  <div class="tree-section">
+    <div class="tree-header">
+      <div class="tree-header-icon" style="background:#FFDD63;color:#1A1A1A;">+</div>
+      <div class="tree-header-text">
+        <h2>Files outside the folder</h2>
+        <p>Only 2 lines added to the existing codebase</p>
+      </div>
+    </div>
+    <ul class="tree">
+      <li class="tree-item"><div class="tree-row"><span class="tree-name">app/playground.tsx</span><span class="tree-desc">1 line &mdash; re-exports PlaygroundScreen</span></div></li>
+      <li class="tree-item"><div class="tree-row"><span class="tree-name">app/_layout.tsx</span><span class="tree-desc">+1 line &mdash; Stack.Screen registration</span></div></li>
+    </ul>
+  </div>
+
+  <!-- ─── MERMAID DIAGRAM ─── -->
+  <div class="section-label">Visual overview</div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <span class="detail-badge badge-section">Diagram</span>
+      <span class="detail-title">File tree + dependency flow</span>
+    </div>
+    <div class="detail-body">
+      <div class="mermaid-container">
+        <pre class="mermaid">
+graph TD
+    subgraph DesignPlayground/
+        direction TB
+
+        INDEX[index.ts]
+        THEME[theme.ts]
+        SCREEN[PlaygroundScreen.tsx]
+        PREVIEW[preview.html]
+        STRUCTURE[structure.html]
+        PROMPT[MASTER_PROMPT.md]
+
+        subgraph sections/
+            TYPO[TypographySection.tsx]
+            COLORS[ColorsSection.tsx]
+            BUTTONS[ButtonsSection.tsx]
+            SPACING[SpacingSection.tsx]
+            COMPS[ComponentsSection.tsx]
+        end
+
+        subgraph assets/
+            APPLE[apple-icon.svg]
+            subgraph fonts/
+                F1[Bounded-Black.ttf]
+                F2[Onest-Black.ttf]
+                F3[Onest-Bold.ttf]
+                F4[Onest-SemiBold.ttf]
+                F5[Onest-Medium.ttf]
+            end
+        end
+    end
+
+    subgraph External changes
+        ROUTE[app/playground.tsx]
+        LAYOUT[app/_layout.tsx +1 line]
+        PROFILE[app/tabs/profile.tsx dev button]
+    end
+
+    ROUTE -->|re-exports| SCREEN
+    LAYOUT -->|registers| ROUTE
+    PROFILE -->|navigates to| ROUTE
+
+    SCREEN -->|imports| TYPO
+    SCREEN -->|imports| COLORS
+    SCREEN -->|imports| BUTTONS
+    SCREEN -->|imports| SPACING
+    SCREEN -->|imports| COMPS
+    SCREEN -->|loads| F1
+    SCREEN -->|loads| F2
+    SCREEN -->|loads| F3
+    SCREEN -->|loads| F4
+    SCREEN -->|loads| F5
+
+    TYPO -->|reads| THEME
+    COLORS -->|reads| THEME
+    BUTTONS -->|reads| THEME
+    BUTTONS -->|uses| APPLE
+    SPACING -->|reads| THEME
+    COMPS -->|reads| THEME
+
+    INDEX -->|exports| SCREEN
+    INDEX -->|exports| THEME
+
+    style THEME fill:#E5D4FF,stroke:#3E2368,color:#3E2368
+    style SCREEN fill:#D6FFB8,stroke:#234200,color:#234200
+    style ROUTE fill:#FFDD63,stroke:#1A1A1A,color:#1A1A1A
+    style LAYOUT fill:#FFDD63,stroke:#1A1A1A,color:#1A1A1A
+    style PROFILE fill:#FFDD63,stroke:#1A1A1A,color:#1A1A1A
+    style PREVIEW fill:#FFB8B9,stroke:#6E0B0E,color:#6E0B0E
+    style STRUCTURE fill:#FFB8B9,stroke:#6E0B0E,color:#6E0B0E
+        </pre>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="detail-desc">
+          <span style="display:inline-block;width:12px;height:12px;background:#E5D4FF;border:1px solid #3E2368;border-radius:2px;vertical-align:middle;margin-right:6px;"></span> Token source &nbsp;&nbsp;
+          <span style="display:inline-block;width:12px;height:12px;background:#D6FFB8;border:1px solid #234200;border-radius:2px;vertical-align:middle;margin-right:6px;"></span> Screen &nbsp;&nbsp;
+          <span style="display:inline-block;width:12px;height:12px;background:#FFDD63;border:1px solid #1A1A1A;border-radius:2px;vertical-align:middle;margin-right:6px;"></span> External &nbsp;&nbsp;
+          <span style="display:inline-block;width:12px;height:12px;background:#FFB8B9;border:1px solid #6E0B0E;border-radius:2px;vertical-align:middle;margin-right:6px;"></span> HTML docs
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── VS CODE STYLE FILE TREE ─── -->
+  <div class="detail-card">
+    <div class="detail-header">
+      <span class="detail-badge badge-asset">Tree</span>
+      <span class="detail-title">Folder structure (VS Code style)</span>
+    </div>
+    <div class="detail-body">
+      <pre class="vscode-tree"><code>DesignPlayground/
+├── index.ts                         <span class="tree-comment">public API</span>
+├── theme.ts                         <span class="tree-comment">all tokens from Figma</span>
+├── PlaygroundScreen.tsx              <span class="tree-comment">main screen</span>
+├── preview.html                     <span class="tree-comment">browser design reference</span>
+├── structure.html                   <span class="tree-comment">this file</span>
+├── MASTER_PROMPT.md                 <span class="tree-comment">rebuild prompt</span>
+├── sections/
+│   ├── TypographySection.tsx        <span class="tree-comment">type scale</span>
+│   ├── ColorsSection.tsx            <span class="tree-comment">palette + tokens</span>
+│   ├── ButtonsSection.tsx           <span class="tree-comment">7 button variants</span>
+│   ├── SpacingSection.tsx           <span class="tree-comment">spacing + shadows</span>
+│   └── ComponentsSection.tsx        <span class="tree-comment">cards, inputs, dividers</span>
+└── assets/
+    ├── apple-icon.svg               <span class="tree-comment">auth button icon</span>
+    └── fonts/
+        ├── Bounded-Black.ttf        <span class="tree-comment">display</span>
+        ├── Onest-Black.ttf          <span class="tree-comment">heading XL</span>
+        ├── Onest-Bold.ttf           <span class="tree-comment">heading M, labels</span>
+        ├── Onest-SemiBold.ttf       <span class="tree-comment">body L/M/XS</span>
+        └── Onest-Medium.ttf         <span class="tree-comment">body S, label L</span>
+
+<span class="tree-external">+ app/playground.tsx</span>               <span class="tree-comment">1 line route</span>
+<span class="tree-external">+ app/_layout.tsx</span>                  <span class="tree-comment">+1 line Stack.Screen</span>
+<span class="tree-external">~ app/(tabs)/profile.tsx</span>            <span class="tree-comment">dev button added</span></code></pre>
+    </div>
+  </div>
+
+  <!-- ─── HOW FILES CONNECT ─── -->
+  <div class="section-label">How files connect</div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <span class="detail-badge badge-token">Tokens</span>
+      <span class="detail-title">theme.ts</span>
+    </div>
+    <div class="detail-body">
+      <div class="detail-desc">
+        The single source of truth. All colors, typography, spacing, shadows, and button tokens live here.
+        Every section component imports from this file &mdash; nothing is hardcoded in the sections.
+      </div>
+      <div class="code-block"><code><span class="code-keyword">import</span> { <span class="code-type">colors</span>, <span class="code-type">typography</span>, <span class="code-type">spacing</span> } <span class="code-keyword">from</span> <span class="code-string">'../theme'</span>;</code></div>
+      <ul class="exports-list">
+        <li><span class="export-name">colors</span><span class="export-desc">15 palette colors (Acai, Blue, Accent, Neutral, Success, Error)</span></li>
+        <li><span class="export-name">buttonTokens</span><span class="export-desc">Semantic tokens for 4 button types (surface, shadow, border, text)</span></li>
+        <li><span class="export-name">typography</span><span class="export-desc">12 type styles across Display, Heading, Body, Label</span></li>
+        <li><span class="export-name">fonts</span><span class="export-desc">Font family name constants (Bounded, Onest weights)</span></li>
+        <li><span class="export-name">spacing</span><span class="export-desc">8 spacing tokens (2px to 48px)</span></li>
+        <li><span class="export-name">borderRadius</span><span class="export-desc">6 radius values (8px to pill)</span></li>
+        <li><span class="export-name">shadows</span><span class="export-desc">3 elevation levels (small, medium, large)</span></li>
+        <li><span class="export-name">colorSwatches</span><span class="export-desc">Display metadata for rendering color cards</span></li>
+        <li><span class="export-name">typographyRows</span><span class="export-desc">Display metadata for rendering type samples</span></li>
+        <li><span class="export-name">buttonTokenRows</span><span class="export-desc">Display metadata for rendering token rows</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <span class="detail-badge badge-screen">Screen</span>
+      <span class="detail-title">PlaygroundScreen.tsx</span>
+    </div>
+    <div class="detail-body">
+      <div class="detail-desc">
+        The main entry point. Loads Bounded + Onest fonts, shows a loading spinner until ready,
+        then renders all 5 section components in a scrollable view.
+      </div>
+      <div class="connections">
+        <div class="connection"><span class="conn-arrow">&larr;</span><span class="conn-file">sections/TypographySection.tsx</span></div>
+        <div class="connection"><span class="conn-arrow">&larr;</span><span class="conn-file">sections/ColorsSection.tsx</span></div>
+        <div class="connection"><span class="conn-arrow">&larr;</span><span class="conn-file">sections/ButtonsSection.tsx</span></div>
+        <div class="connection"><span class="conn-arrow">&larr;</span><span class="conn-file">sections/SpacingSection.tsx</span></div>
+        <div class="connection"><span class="conn-arrow">&larr;</span><span class="conn-file">sections/ComponentsSection.tsx</span></div>
+        <div class="connection"><span class="conn-arrow">&larr;</span><span class="conn-file">assets/fonts/*.ttf</span><span class="conn-desc">(loaded via useFonts)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <span class="detail-badge badge-section">Sections</span>
+      <span class="detail-title">sections/*.tsx</span>
+    </div>
+    <div class="detail-body">
+      <div class="detail-desc">
+        Each section is a self-contained React Native component. They all follow the same pattern:
+        section header, blue badge labels, dividers, and StyleSheet.create for styles.
+        All import tokens from <code>theme.ts</code> &mdash; nothing from the old ArchivesTheme.
+      </div>
+      <div class="connections">
+        <div class="connection"><span class="conn-arrow">&larr;</span><span class="conn-file">theme.ts</span><span class="conn-desc">(colors, typography, spacing, shadows)</span></div>
+        <div class="connection"><span class="conn-arrow">&larr;</span><span class="conn-file">react-native-svg</span><span class="conn-desc">(ButtonsSection only, for Apple icon)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <span class="detail-badge badge-route">Route</span>
+      <span class="detail-title">app/playground.tsx</span>
+    </div>
+    <div class="detail-body">
+      <div class="detail-desc">
+        A single re-export line that makes the playground accessible at <code>/playground</code> in the app.
+      </div>
+      <div class="code-block"><code><span class="code-keyword">export</span> { <span class="code-keyword">default</span> } <span class="code-keyword">from</span> <span class="code-string">'@/DesignPlayground/PlaygroundScreen'</span>;</code></div>
+    </div>
+  </div>
+
+  <!-- ─── HOW TO USE ─── -->
+  <div class="section-label">How to use</div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <span class="detail-badge badge-screen">In-App</span>
+      <span class="detail-title">View in the app</span>
+    </div>
+    <div class="detail-body">
+      <div class="code-block"><code><span class="code-comment">// Navigate from anywhere in the app</span>
+<span class="code-keyword">import</span> { router } <span class="code-keyword">from</span> <span class="code-string">'expo-router'</span>;
+router.push(<span class="code-string">'/playground'</span>);</code></div>
+    </div>
+  </div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <span class="detail-badge badge-token">Import</span>
+      <span class="detail-title">Use tokens in your code</span>
+    </div>
+    <div class="detail-body">
+      <div class="code-block"><code><span class="code-comment">// Import the full screen</span>
+<span class="code-keyword">import</span> { <span class="code-type">PlaygroundScreen</span> } <span class="code-keyword">from</span> <span class="code-string">'@/DesignPlayground'</span>;
+
+<span class="code-comment">// Import just the tokens you need</span>
+<span class="code-keyword">import</span> { <span class="code-type">colors</span>, <span class="code-type">typography</span>, <span class="code-type">spacing</span> } <span class="code-keyword">from</span> <span class="code-string">'@/DesignPlayground/theme'</span>;
+
+<span class="code-comment">// Use in styles</span>
+backgroundColor: <span class="code-type">colors</span>.<span class="code-string">acaiPrimary</span>,    <span class="code-comment">// '#3E2368'</span>
+...<span class="code-type">typography</span>.heading.<span class="code-string">xl</span>,              <span class="code-comment">// Onest Black 30</span>
+padding: <span class="code-type">spacing</span>.<span class="code-string">md</span>,                    <span class="code-comment">// 16</span></code></div>
+    </div>
+  </div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <span class="detail-badge badge-html">Browser</span>
+      <span class="detail-title">View in browser</span>
+    </div>
+    <div class="detail-body">
+      <div class="code-block"><code><span class="code-comment"># Design system visual reference</span>
+open DesignPlayground/preview.html
+
+<span class="code-comment"># This structure map</span>
+open DesignPlayground/structure.html</code></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Archives Design System &mdash; Structure Map &middot; Generated 2026-04-17
+  </div>
+</div>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: {
+    primaryColor: '#A2C5FF',
+    primaryTextColor: '#1A1A1A',
+    primaryBorderColor: '#1E3C88',
+    lineColor: '#737373',
+    fontSize: '13px',
+    fontFamily: 'Onest, sans-serif',
+  }});
+</script>
+</body>
+</html>
