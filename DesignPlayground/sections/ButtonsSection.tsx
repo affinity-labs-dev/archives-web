@@ -99,9 +99,10 @@ const buttonConfigs: ButtonConfig[] = [
 // 3D Button Component
 // ─────────────────────────────────────────────
 
-// Matches onboarding: 0→6px down (40%), overshoot -2px (70%), settle 0 (100%)
-const PRESS_EASING = Easing.bezier(0.25, 0.46, 0.45, 0.94);
-const PRESS_DURATION = 350;
+// CTA: surface presses down into shadow (translateY 0→6→-2→0)
+// Option: whole button scales up then elastic settles (1→1.04→1)
+const CTA_EASING = Easing.bezier(0.25, 0.46, 0.45, 0.94);
+const CTA_DURATION = 350;
 
 function PlaygroundButton({ variant, label }: { variant: ButtonVariant; label: string }) {
   const { width: screenWidth } = useWindowDimensions();
@@ -115,37 +116,39 @@ function PlaygroundButton({ variant, label }: { variant: ButtonVariant; label: s
   const isAuth = variant === 'auth-outline' || variant === 'auth-google' || variant === 'auth-email';
   const showShadow = !isAuth;
 
+  // Surface translateY for CTA press-down
   const translateY = useSharedValue(0);
+  // Whole-button scale for Option bounce
   const scale = useSharedValue(1);
 
   const surfaceAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
 
-  const authAnimatedStyle = useAnimatedStyle(() => ({
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
   const onPressIn = () => {
-    if (isAuth) {
-      // Auth: scale down then bounce back
-      scale.value = withSequence(
-        withTiming(0.96, { duration: PRESS_DURATION * 0.4, easing: PRESS_EASING }),
-        withTiming(1.02, { duration: PRESS_DURATION * 0.3, easing: PRESS_EASING }),
-        withTiming(1, { duration: PRESS_DURATION * 0.3, easing: PRESS_EASING }),
-      );
-    } else {
-      // 3D buttons: press down 6px, overshoot -2px, settle 0
+    // Surface presses down to meet shadow, overshoots, settles
+    if (showShadow) {
       translateY.value = withSequence(
-        withTiming(6, { duration: PRESS_DURATION * 0.4, easing: PRESS_EASING }),
-        withTiming(-2, { duration: PRESS_DURATION * 0.3, easing: PRESS_EASING }),
-        withTiming(0, { duration: PRESS_DURATION * 0.3, easing: PRESS_EASING }),
+        withTiming(offset, { duration: CTA_DURATION * 0.4, easing: CTA_EASING }),
+        withTiming(-2, { duration: CTA_DURATION * 0.3, easing: CTA_EASING }),
+        withTiming(0, { duration: CTA_DURATION * 0.3, easing: CTA_EASING }),
+      );
+    }
+    // Auth (no shadow): scale bounce instead
+    if (isAuth) {
+      scale.value = withSequence(
+        withTiming(1.04, { duration: 100, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 250, easing: Easing.out(Easing.elastic(1)) }),
       );
     }
   };
 
   const onPressOut = () => {
-    // Animation is self-completing via withSequence, no action needed
+    // Animations are self-completing via withSequence
   };
 
   // Responsive max widths: keep original sizes as max, but allow shrinking
@@ -154,14 +157,14 @@ function PlaygroundButton({ variant, label }: { variant: ButtonVariant; label: s
 
   return (
     <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
-      <View style={[styles.buttonContainer, { width: containerWidth, height: (isOption ? 49 : 45) + offset }]}>
-        {/* Shadow layer (behind) */}
+      <Animated.View style={[styles.buttonContainer, { width: containerWidth, height: (isOption ? 49 : 45) + offset }, isAuth && containerAnimatedStyle]}>
+        {/* Shadow layer (behind) — stays still */}
         {showShadow && (
           <View style={[styles.shadowLayer, { top: offset, borderRadius: radius }, shadowStyle]} />
         )}
 
-        {/* Surface layer (front) — animated */}
-        <Animated.View style={[styles.surfaceLayer, { borderRadius: radius }, surfaceStyle, isAuth ? authAnimatedStyle : surfaceAnimatedStyle]}>
+        {/* Surface layer — presses down into shadow */}
+        <Animated.View style={[styles.surfaceLayer, { borderRadius: radius }, surfaceStyle, showShadow && surfaceAnimatedStyle]}>
           {variant === 'auth-outline' && (
             <SvgXml xml={appleIconSvg} width={15} height={18} />
           )}
@@ -173,7 +176,7 @@ function PlaygroundButton({ variant, label }: { variant: ButtonVariant; label: s
           )}
           <Text style={[styles.buttonText, textStyle]}>{label}</Text>
         </Animated.View>
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -211,8 +214,6 @@ function getSurfaceStyle(variant: ButtonVariant, radius: number) {
     case 'primary':
       return {
         backgroundColor: colors.onyx,
-        borderWidth: 1,
-        borderColor: colors.onyx,
       };
     case 'secondary':
       return { backgroundColor: '#8C60CD' };

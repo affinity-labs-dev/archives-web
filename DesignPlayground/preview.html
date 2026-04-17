@@ -272,20 +272,17 @@
     70% { transform: translateY(-2px); }
     100% { transform: translateY(0); }
   }
-  @keyframes authPress {
+  @keyframes scaleBounce {
     0% { transform: scale(1); }
-    40% { transform: scale(0.96); }
-    70% { transform: scale(1.02); }
+    30% { transform: scale(1.04); }
     100% { transform: scale(1); }
   }
-  .btn-3d:active .btn-surface {
-    animation: buttonPress 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
+  .btn-3d:active .btn-surface,
   .btn-3d.option:active .btn-surface {
     animation: buttonPress 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
-  .btn-3d.auth:active .btn-surface {
-    animation: authPress 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  .btn-3d.auth:active {
+    animation: scaleBounce 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
   .btn-3d.option .btn-surface {
     bottom: 6px;
