@@ -316,6 +316,7 @@ const styles = StyleSheet.create({
     maxWidth: 350,
     width: '100%',
     height: 50,
+    gap: 4,
   },
   statsBadgeLeft: {
     flexDirection: 'row',
@@ -343,7 +344,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#A2C5FF',
     height: 50,
     flex: 1,
-    marginLeft: -4,
     paddingLeft: 23,
     paddingRight: 16,
     borderTopLeftRadius: 5,
