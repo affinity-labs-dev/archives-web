@@ -25,8 +25,8 @@ export const colors = {
 
   // Accent
   aspenGold: '#FFDD63',
+  pinkPrimary: '#6B1A3D',
   pinkSecondary: '#C63D78',
-  pinkPrimary: '#C63D78',
 
   // Neutral
   onyx: '#1A1A1A',
@@ -256,8 +256,8 @@ export const colorSwatches = {
   ],
   'Accent': [
     { name: 'Aspen Gold', hex: colors.aspenGold, token: '--aspen-gold', description: 'Pantone Aspen Gold \u2014 buttercup yellow.' },
-    { name: 'Pink Secondary', hex: colors.pinkSecondary, token: '--pink', description: 'Pantone Pink Yarrow \u2014 magenta-rose.' },
-    { name: 'Pink Primary', hex: colors.pinkPrimary, token: '--pink', description: 'Pantone Pink Yarrow \u2014 magenta-rose.' },
+    { name: 'Pink Primary', hex: colors.pinkPrimary, token: '--pink-primary', description: 'Deep rose \u2014 primary pink.' },
+    { name: 'Pink Secondary', hex: colors.pinkSecondary, token: '--pink-secondary', description: 'Pantone Pink Yarrow \u2014 magenta-rose.' },
   ],
   'Neutral': [
     { name: 'Onyx', hex: colors.onyx, token: '--onyx', description: 'Pantone Onyx \u2014 near-black.' },
