@@ -2034,6 +2034,9 @@ class AnalyticsService {
     cdn_domain: string;
     trigger: 'auto' | 'user_retry';
   }) {
+    // Reset status change counter per-video so each video gets full 20-event budget
+    this.videoStatusChangeCount = 0;
+
     const event = {
       ...data,
       ...this.getPerformanceProperties(),
@@ -2081,7 +2084,12 @@ class AnalyticsService {
     had_any_playback: boolean;
   }) {
     // Guard: only meaningful if user waited at least 500ms (not instant back-nav)
-    if (data.elapsed_ms < 500) return;
+    if (data.elapsed_ms < 500) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Video Load Abandoned dropped (elapsed < 500ms):', data.elapsed_ms);
+      }
+      return;
+    }
 
     const event = {
       ...data,

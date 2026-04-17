@@ -120,6 +120,19 @@ export default function VideoPlayer({
   // AFF-579/612: Reset tracking refs when videoSource changes (new video loaded)
   const videoSourceUri = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
   useEffect(() => {
+    // Emit abandoned for previous video before resetting flags (prevents orphaned attempts)
+    const prevUrl = videoSourceUriRef.current;
+    if (prevUrl && hasTrackedAttemptRef.current && !hasTrackedLoadTime.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current) {
+      const isHLS = prevUrl.includes('.m3u8') || prevUrl.includes('/hls/') || prevUrl.includes('format=m3u8');
+      analyticsService.trackVideoLoadAbandoned({
+        video_url: prevUrl,
+        elapsed_ms: Date.now() - playerCreatedAtRef.current,
+        content_type: isHLS ? 'hls' : 'progressive',
+        cdn_domain: networkPerformanceService.extractCDNDomain(prevUrl),
+        had_any_playback: false,
+      });
+    }
+
     playerCreatedAtRef.current = Date.now();
     hasTrackedLoadTime.current = false;
     hasTrackedErrorRef.current = false;
@@ -193,7 +206,7 @@ export default function VideoPlayer({
         loadTimeoutRef.current = null;
       }
     };
-  }, [videoSource]);
+  }, [videoSourceUri]);
 
   // Use proper expo-video event handling
   const { isPlaying } = useEvent(player, 'playingChange', {
@@ -219,6 +232,21 @@ export default function VideoPlayer({
         const { status, oldStatus, error } = payload;
 
         AppLogger.info('video', 'Video player status changed', { oldStatus: oldStatus, newStatus: status });
+
+        // Track every status transition for debugging (rate-limited in AnalyticsService)
+        if (status !== 'idle') {
+          const url = videoSourceUriRef.current || '';
+          const isHLS = url.includes('.m3u8') || url.includes('/hls/') || url.includes('format=m3u8');
+          analyticsService.trackVideoStatusChange({
+            video_url: url,
+            status,
+            error_code: error?.code ?? undefined,
+            error_message: error?.message,
+            time_since_mount_ms: Date.now() - playerCreatedAtRef.current,
+            content_type: isHLS ? 'hls' : 'progressive',
+            cdn_domain: networkPerformanceService.extractCDNDomain(url),
+          });
+        }
 
         if (error) {
           AppLogger.error('video', 'Video player error', { uri: typeof videoSource === 'object' ? videoSource?.uri : videoSource }, error);

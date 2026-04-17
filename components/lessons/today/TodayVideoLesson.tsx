@@ -111,7 +111,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
     hasTrackedAttemptRef.current = true;
 
     loadTimeoutRef.current = setTimeout(() => {
-      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current) {
+      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current && !isUnmountedRef.current) {
         hasTimedOutRef.current = true;
         AppLogger.warn('video', 'TodayVideoItem: 30s load timeout', { videoUrl: videoUrl?.substring(0, 80), contentType });
         analyticsService.trackVideoLoadTimeout({
@@ -137,11 +137,12 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
 
   // Track every status transition for debugging (rate-limited in AnalyticsService)
   useEffect(() => {
+    if (status === 'idle') return; // Skip initial idle — wastes rate-limited budget
     const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
     analyticsService.trackVideoStatusChange({
       video_url: videoUrl,
       status,
-      error_code: error?.message,
+      error_code: (error as any)?.code ?? undefined,
       error_message: error?.message,
       time_since_mount_ms: Date.now() - playerCreatedAtRef.current,
       content_type: isHLS ? 'hls' : 'progressive',
@@ -181,14 +182,19 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
     }
   }, [isActive, player, shouldLoop, videoUrl, isHLS]);
 
-  // Track video load time + speed test on first readyToPlay
+  // Unified success/error/abandoned tracking — single useEffect prevents race condition
+  // where cleanup fires abandoned before the success flag is set in a separate effect
+  const isUnmountedRef = useRef(false);
   useEffect(() => {
-    // Clear 30s timeout on success
-    if (status === 'readyToPlay' && loadTimeoutRef.current) {
+    isUnmountedRef.current = false;
+
+    // Clear 30s timeout on terminal states
+    if ((status === 'readyToPlay' || status === 'error') && loadTimeoutRef.current) {
       clearTimeout(loadTimeoutRef.current);
       loadTimeoutRef.current = null;
     }
 
+    // Track readyToPlay (success)
     if (status === 'readyToPlay' && !hasTrackedLoadTimeRef.current && playerCreatedAtRef.current > 0) {
       const loadTimeMs = Date.now() - playerCreatedAtRef.current;
       AppLogger.info('video', 'TodayVideoItem: readyToPlay', { videoUrl: videoUrl?.substring(0, 80), loadTimeMs });
@@ -202,16 +208,8 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
       });
       hasTrackedLoadTimeRef.current = true;
     }
-  }, [status, videoUrl, isHLS]);
 
-  // Track video player errors (matches VideoPlayer.tsx pattern)
-  useEffect(() => {
-    // Clear 30s timeout on error
-    if (status === 'error' && loadTimeoutRef.current) {
-      clearTimeout(loadTimeoutRef.current);
-      loadTimeoutRef.current = null;
-    }
-
+    // Track error
     if (status === 'error' && !hasTrackedErrorRef.current) {
       const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
       AppLogger.error('video', 'TodayVideoItem player error', {
@@ -227,18 +225,16 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
       });
       hasTrackedErrorRef.current = true;
     }
-  }, [status, videoUrl, isHLS]);
 
-  // Video reliability: track abandoned on unmount if still loading
-  useEffect(() => {
-    const createdAt = playerCreatedAtRef.current;
+    // Cleanup: track abandoned only if no terminal event fired
     return () => {
+      isUnmountedRef.current = true;
       if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current && hasTrackedAttemptRef.current) {
-        AppLogger.warn('video', 'TodayVideoItem: abandoned while loading', { videoUrl: videoUrl?.substring(0, 80), elapsedMs: Date.now() - createdAt });
+        AppLogger.warn('video', 'TodayVideoItem: abandoned while loading', { videoUrl: videoUrl?.substring(0, 80), elapsedMs: Date.now() - playerCreatedAtRef.current });
         const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
         analyticsService.trackVideoLoadAbandoned({
           video_url: videoUrl,
-          elapsed_ms: Date.now() - createdAt,
+          elapsed_ms: Date.now() - playerCreatedAtRef.current,
           content_type: isHLS ? 'hls' : 'progressive',
           cdn_domain: cdnDomain,
           had_any_playback: false,
@@ -249,7 +245,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
         loadTimeoutRef.current = null;
       }
     };
-  }, [videoUrl, isHLS]);
+  }, [status, videoUrl, isHLS]);
 
   // Status updates for progress tracking
   useEffect(() => {

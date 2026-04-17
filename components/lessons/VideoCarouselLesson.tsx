@@ -129,7 +129,7 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     hasTrackedAttemptRef.current = true;
 
     loadTimeoutRef.current = setTimeout(() => {
-      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current) {
+      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current && !isUnmountedRef.current) {
         hasTimedOutRef.current = true;
         analyticsService.trackVideoLoadTimeout({
           video_url: videoUrl,
@@ -150,8 +150,24 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
   }, [videoUrl]);
 
   // Track player status for loading indicator
-  const { status } = useEvent(player, 'statusChange', { status: player.status });
+  const { status, error } = useEvent(player, 'statusChange', { status: player.status });
   const isVideoReady = status === 'readyToPlay';
+
+  // Track every status transition for debugging (rate-limited in AnalyticsService)
+  useEffect(() => {
+    if (status === 'idle') return;
+    const contentType = getContentType(videoUrl);
+    const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+    analyticsService.trackVideoStatusChange({
+      video_url: videoUrl,
+      status,
+      error_code: (error as any)?.code ?? undefined,
+      error_message: error?.message,
+      time_since_mount_ms: Date.now() - playerCreatedAtRef.current,
+      content_type: contentType,
+      cdn_domain: cdnDomain,
+    });
+  }, [status, error, videoUrl]);
 
   useEffect(() => {
     if (isActive) {
@@ -219,8 +235,12 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     return () => clearInterval(interval);
   }, [isActive, player]);
 
-  // Notify parent when video is ready (call once) + AFF-579: track load time and errors
+  // Unified success/error/abandoned tracking — single useEffect prevents race condition
+  // where cleanup fires abandoned before the success flag is set in a separate effect
+  const isUnmountedRef = useRef(false);
   useEffect(() => {
+    isUnmountedRef.current = false;
+
     if (isVideoReady) {
       onReady?.();
 
@@ -280,22 +300,25 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
       });
       hasTrackedErrorRef.current = true;
     }
-  }, [isVideoReady, status, onReady, videoUrl, player]);
 
-  // AFF-612: Fire completion on unmount + video_load_abandoned if still loading
-  useEffect(() => {
-    const createdAt = playerCreatedAtRef.current;
+    // Cleanup: abandoned + completion on unmount
     return () => {
+      isUnmountedRef.current = true;
       // Video reliability: track abandoned if never loaded
       if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current && hasTrackedAttemptRef.current) {
         const contentType = getContentType(videoUrl);
         analyticsService.trackVideoLoadAbandoned({
           video_url: videoUrl,
-          elapsed_ms: Date.now() - createdAt,
+          elapsed_ms: Date.now() - playerCreatedAtRef.current,
           content_type: contentType,
           cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
           had_any_playback: false,
         });
+      }
+
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
       }
 
       if (!hasTrackedCompletionRef.current && watchStartTimeRef.current > 0 && videoDurationRef.current > 0) {
@@ -311,14 +334,8 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
         });
         hasTrackedCompletionRef.current = true;
       }
-
-      // Clear timeout on unmount
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
-        loadTimeoutRef.current = null;
-      }
     };
-  }, [videoUrl]);
+  }, [isVideoReady, status, onReady, videoUrl, player, isActive]);
 
   return (
     <View style={styles.videoContainer}>
