@@ -43,7 +43,8 @@ export async function chat(req: ChatRequest, quotaRemaining: QuotaInfo): Promise
   const systemPrompt = buildChatSystemPrompt(
     context,
     context.userProgress,
-    context.knowledgeContext
+    context.knowledgeContext,
+    conversationHistory.length
   );
 
   // Build conversation contents

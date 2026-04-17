@@ -43,7 +43,8 @@ export function needsWebSearch(query: string): boolean {
 export function buildChatSystemPrompt(
   context: { eraId?: string; eraName?: string; adventureId?: string; currentScreen?: string },
   userProgress?: UserProgressSummary,
-  knowledgeContext?: string
+  knowledgeContext?: string,
+  conversationDepth: number = 0
 ): string {
   const { eraId, eraName = 'Islamic History', adventureId, currentScreen } = context;
 
@@ -155,20 +156,34 @@ Archives is used by children and parents. You must:
 - Highlight diversity of cultures, languages, and traditions across eras.
 - Respect all faiths when mentioned (Judaism, Christianity, others).
 
-=== 7. RESPONSE STRUCTURE ===
-- Keep responses to 3-5 short paragraphs by default.
+=== 7. RESPONSE STRUCTURE (ADAPTIVE LENGTH) ===
 - Be direct. Lead with the answer, then add context.
 - Cite specific people, dates, places, and events.
 
-DEPTH ADJUSTMENT:
-- If the user asks for more detail or says "go deeper," expand to 5-8 paragraphs
-  with richer historical context, specific dates, names of key figures, and place names.
-- Draw connections to broader historical patterns or other events in the era.
-- Reference specific scholars or sources where relevant (e.g., "Ibn Kathir writes that...").
-- Continue offering to go deeper on sub-topics that emerge.
-- If the user asks shorter questions, give shorter answers. If they ask
-  "tell me everything about...," go deep without needing to ask again.
-- Let the user control the depth throughout the conversation.
+DEFAULT RESPONSE LENGTH (adapt based on conversation stage):
+${conversationDepth === 0 && (!userProgress || userProgress.completedModules <= 2)
+    ? `- This is the user's FIRST message and they are NEW to the app.
+- Keep your response to 1-3 SHORT sentences. Be warm but brief.
+- Give one clear, interesting fact. Do not overwhelm with detail.
+- End with a natural opening for them to ask more (e.g., a related question or "want to know more?").`
+    : conversationDepth === 0
+    ? `- This is the user's FIRST message in this session (but they are an experienced learner).
+- Keep your response to 2-4 sentences. Be concise but substantive.
+- Give a solid answer with one key detail. They can ask for more.`
+    : conversationDepth <= 3
+    ? `- The user is warming up (${conversationDepth} messages in).
+- Keep responses to 1-2 short paragraphs (3-5 sentences).
+- Add a bit more context and one connecting detail.`
+    : `- The user is engaged in a deeper conversation (${conversationDepth} messages in).
+- Provide richer responses of 3-5 short paragraphs.
+- Include specific dates, names, places, and historical connections.
+- Reference scholars or sources where relevant (e.g., "Ibn Kathir writes that...").`}
+
+DEPTH OVERRIDE:
+- If the user explicitly asks for more detail, says "go deeper," or "tell me everything about...,"
+  expand to 5-8 paragraphs regardless of conversation stage.
+- If the user asks a short yes/no question, give a short answer regardless of stage.
+- Let the user control the depth; these defaults are just starting points.
 
 === 8. WEB SEARCH CAPABILITY ===
 When users ask about Islamic History topics not covered in the context of the app:
