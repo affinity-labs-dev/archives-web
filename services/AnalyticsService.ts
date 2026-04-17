@@ -2004,6 +2004,122 @@ class AnalyticsService {
     }
   }
 
+  // ==================== VIDEO STATUS CHANGE TRACKING ====================
+
+  /** Rate-limit: max 20 status change events per session to prevent PostHog spam from retry loops */
+  private videoStatusChangeCount = 0;
+  private static readonly MAX_STATUS_CHANGE_EVENTS = 20;
+
+  /**
+   * Track every video player status transition — fires on each statusChange event.
+   * Gives a full timeline of what the player went through (idle → loading → error → loading → ...).
+   * Rate-limited to 20 events per session to avoid flooding PostHog during retry loops (e.g. 797 errors).
+   */
+  trackVideoStatusChange(data: {
+    video_url: string;
+    status: string;
+    error_code?: string;
+    error_message?: string;
+    time_since_mount_ms: number;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+  }) {
+    if (this.videoStatusChangeCount >= AnalyticsService.MAX_STATUS_CHANGE_EVENTS) return;
+    this.videoStatusChangeCount++;
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_status_change', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Status Change:', event);
+    }
+  }
+
+  // ==================== VIDEO RELIABILITY TRACKING ====================
+
+  /**
+   * Track a video load attempt — fired when player is created, BEFORE readyToPlay.
+   * Ground truth for total attempts. Paired with video_load_time (success),
+   * cdn_error (explicit failure), video_load_timeout, or video_load_abandoned
+   * to calculate true success rate.
+   */
+  trackVideoLoadAttempted(data: {
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    trigger: 'auto' | 'user_retry';
+  }) {
+    // Reset status change counter per-video so each video gets full 20-event budget
+    this.videoStatusChangeCount = 0;
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_attempted', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Attempted:', event);
+    }
+  }
+
+  /**
+   * Track a video load timeout — fired when 30s pass without reaching readyToPlay
+   * and without an explicit cdn_error. Captures "stuck loading forever" sessions
+   * that are currently invisible in analytics.
+   */
+  trackVideoLoadTimeout(data: {
+    video_url: string;
+    elapsed_ms: number;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    last_known_status: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_timeout', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Timeout:', event);
+    }
+  }
+
+  /**
+   * Track when user navigates away while video is still loading.
+   * Fired on VideoPlayer unmount if neither readyToPlay nor error occurred.
+   * elapsed_ms = how long the user waited before giving up.
+   */
+  trackVideoLoadAbandoned(data: {
+    video_url: string;
+    elapsed_ms: number;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    had_any_playback: boolean;
+  }) {
+    // Guard: only meaningful if user waited at least 500ms (not instant back-nav)
+    if (data.elapsed_ms < 500) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Video Load Abandoned dropped (elapsed < 500ms):', data.elapsed_ms);
+      }
+      return;
+    }
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_abandoned', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Abandoned:', event);
+    }
+  }
+
   /**
    * Reset analytics (call on logout)
    */
@@ -2014,6 +2130,7 @@ class AnalyticsService {
     this.pageStartTimes.clear();
     this.pageClicks.clear();
     this.networkSpeedEventCount = 0;
+    this.videoStatusChangeCount = 0;
     // Note: We keep anonymousId - it persists across sessions
     AppLogger.info('auth', 'Analytics reset (anonymous ID preserved)');
   }
