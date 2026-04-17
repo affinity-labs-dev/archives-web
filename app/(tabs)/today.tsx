@@ -4,6 +4,7 @@
 import TodayScrollableLesson from "@/components/lessons/today/TodayScrollableLesson";
 import TodayVideoLesson from "@/components/lessons/today/TodayVideoLesson";
 import Quiz from "@/components/quiz/Quiz";
+import { useVideoPreloader } from "@/hooks/useVideoPreloader";
 import type { ContentBlock, ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { toLocalDateString } from "@/utils/dateUtils";
@@ -376,6 +377,36 @@ export default function TodayScreen() {
       });
     }
   }, [todayQuest]);
+
+  // Warm disk cache for today's thumbnails so cards render instantly on tab open.
+  // Only prefetch image URLs — video URLs would waste bandwidth trying to decode as images.
+  useEffect(() => {
+    const card1 = todayQuest?.content?.card1;
+    if (!card1) return;
+    const thumbs: string[] = [];
+    if (typeof card1.thumbnail_url === 'string' && card1.thumbnail_url.length > 0) {
+      thumbs.push(card1.thumbnail_url);
+    }
+    if (card1.content_type === 'image_carousel') {
+      const firstMedia = Array.isArray(card1.media_url) ? card1.media_url[0] : card1.media_url;
+      if (typeof firstMedia === 'string' && firstMedia.length > 0) thumbs.push(firstMedia);
+    }
+    if (thumbs.length > 0) {
+      Image.prefetch(thumbs, { cachePolicy: 'disk' }).catch(() => {});
+    }
+  }, [todayQuest]);
+
+  // Preload today's watch video so the modal opens without a cold-start spinner
+  const watchVideoUrls = useMemo(() => {
+    const card1 = todayQuest?.content?.card1;
+    if (!card1) return [];
+    if (card1.content_type !== 'reel' && card1.content_type !== 'video_carousel') return [];
+    const source = card1.media_hls_url ?? card1.media_url;
+    const urls = Array.isArray(source) ? source : [source];
+    return urls.filter((u): u is string => typeof u === 'string' && u.length > 0);
+  }, [todayQuest]);
+
+  useVideoPreloader(watchVideoUrls, { maxVideos: 2 });
 
   const [expandedCard, setExpandedCard] = useState<
     "watch" | "explore" | "questions" | null

@@ -1,3 +1,4 @@
+import AppLogger from '@/services/AppLogger';
 import { requireNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 
@@ -207,7 +208,11 @@ export async function updateDailyStory(params: DailyStoryUpdateParams): Promise<
  * End a DailyStory activity.
  * Pass `0` for immediate removal.
  */
-export async function endDailyStory(id: ActivityId, dismissInSeconds: number): Promise<void> {
+export async function endDailyStory(id: ActivityId | null, dismissInSeconds: number): Promise<void> {
+  if (!id) {
+    AppLogger.warn('gamification', 'No DailyStory ID found, skipping');
+    return;
+  }
   assertIOS();
   return LiveActivityNative!.endDailyStory(id, dismissInSeconds);
 }

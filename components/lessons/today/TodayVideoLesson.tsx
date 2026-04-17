@@ -65,6 +65,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
     () => ({
       uri: videoUrl,
       contentType: isHLS ? 'hls' : 'progressive',
+      useCaching: !(isHLS && Platform.OS === 'ios'),
     }),
     [videoUrl, isHLS]
   );
