@@ -209,13 +209,11 @@ export async function updateDailyStory(params: DailyStoryUpdateParams): Promise<
  * Pass `0` for immediate removal.
  */
 export async function endDailyStory(id: ActivityId | null, dismissInSeconds: number): Promise<void> {
-  assertIOS();
-
   if (!id) {
-    AppLogger.warn('gamification', 'No DailyStory ID found to displace, skipping displacement cleanup');
+    AppLogger.warn('gamification', 'No DailyStory ID found, skipping');
     return;
   }
-
+  assertIOS();
   return LiveActivityNative!.endDailyStory(id, dismissInSeconds);
 }
 
