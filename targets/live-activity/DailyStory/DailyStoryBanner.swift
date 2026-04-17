@@ -31,9 +31,9 @@ struct DailyStoryBanner: View {
       // Layer 1: Dark background
       Color.dailyStoryBackground
 
-      // Layer 2: Teacher mascot, bottom-right
-      // Width reduced from 92pt → 75pt so Row 3 pills ("WATCH / EXPLORE / QUESTIONS")
-      // don't wrap on small devices (iPhone SE / mini).
+      // Layer 2: Teacher mascot, bottom-right — larger and shifted down so
+      // it partially overflows past the banner bottom edge. iOS Live Activity
+      // container clips to its rounded-corner shape automatically.
       VStack {
         Spacer()
         HStack {
@@ -41,12 +41,30 @@ struct DailyStoryBanner: View {
           Image("TeacherMascot")
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .frame(width: 75, height: 81)
+            .frame(width: 120, height: 110)
+            .offset(y: 32)
         }
       }
 
-      // Layer 3: Content — 4 rows with 10px spacing
-      VStack(alignment: .leading, spacing: 10) {
+      // Layer 3: Archives logo, top-right — pinned above mascot.
+      // Logo sits at (top: 10, trailing: 10) well above the mascot whose top
+      // edge starts around y ≈ 48 (banner height ~160 - mascot 110 - offset 16 + padding).
+      VStack {
+        HStack {
+          Spacer()
+          Image("ArchivesLogo")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 72, height: 16)
+            .padding(.top, 14)
+            .padding(.trailing, 14)
+        }
+        Spacer()
+      }
+
+      // Layer 4: Content — 4 rows. Spacing 16 (up from 10) increases banner
+      // height so Archives logo and mascot don't overlap in the right column.
+      VStack(alignment: .leading, spacing: 16) {
         // Row 1: Streak label (left) + timer group (right), justify-between across full banner width.
         //
         // Negative trailing padding cancels 58 of the parent's 78-pt trailing, so Row 1 reaches
@@ -61,10 +79,16 @@ struct DailyStoryBanner: View {
         // .trailing` inside the timer's own frame keeps the digits visually anchored right even
         // as the string shrinks from "5h 12m" to "5h 11m".
         HStack {
-          Text("🔥 \(displayStreak)-day streak")
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundColor(.white)
-            .lineLimit(1)
+          HStack(spacing: 4) {
+            Image("Flame")
+              .resizable()
+              .aspectRatio(contentMode: .fit)
+              .frame(width: 12, height: 14)
+            Text("\(displayStreak)-day streak")
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundColor(.white)
+              .lineLimit(1)
+          }
           Spacer()
           HStack(spacing: 0) {
             Text(
@@ -76,9 +100,6 @@ struct DailyStoryBanner: View {
             .monospacedDigit()
             .multilineTextAlignment(.trailing)
             .frame(maxWidth: 70, alignment: .trailing)
-            Text(" left")
-              .font(.system(size: 13, weight: .medium))
-              .foregroundColor(.dailyStoryTimerGold)
           }
           .fixedSize(horizontal: true, vertical: false)
         }
@@ -99,13 +120,12 @@ struct DailyStoryBanner: View {
         // Row 3: WATCH / EXPLORE / QUESTIONS pills
         // On small devices (iPhone SE/mini), `minimumScaleFactor(0.85)` on each pill
         // auto-scales the text so "QUESTIONS" doesn't wrap its trailing "s".
-        HStack(spacing: 8) {
-          DailyStoryCardPill(label: "WATCH", completed: watchCompleted)
-          DailyStoryCardPill(label: "EXPLORE", completed: exploreCompleted)
-          DailyStoryCardPill(label: "QUESTIONS", completed: questionsCompleted)
+        HStack(spacing: 25) {
+          DailyStoryCardPill(icon: "Watch", completed: watchCompleted)
+          DailyStoryCardPill(icon: "Explore", completed: exploreCompleted)
+          DailyStoryCardPill(icon: "Questions", completed: questionsCompleted)
           Spacer(minLength: 0)
         }
-        .lineLimit(1)
 
         // Row 4: Era caption
         Text("Day \(max(1, dayNumber)) of \(max(1, totalDays)) - \(eraTitle)")
@@ -115,20 +135,20 @@ struct DailyStoryBanner: View {
       }
       .padding(.leading, 16)
       .padding(.top, 16)
-      .padding(.bottom, 16)
-      .padding(.trailing, 78)
+      .padding(.bottom, 20)
+      .padding(.trailing, 115)
     }
     .dynamicTypeSize(...DynamicTypeSize.xxLarge)
   }
 }
 
 // MARK: - DailyStoryCardPill
-// Card status pill for DailyStory banner — uses blue for incomplete (distinct from
-// StreakGuard's gray). Green checkmark for completed (shared).
+// Card status pill — status glyph (✓/○) + 18×18 card icon.
+// Icons render as "original" (white PNG), glyph provides state color.
 
 @available(iOS 16.2, *)
 private struct DailyStoryCardPill: View {
-  let label: String
+  let icon: String
   let completed: Bool
 
   var body: some View {
@@ -136,13 +156,10 @@ private struct DailyStoryCardPill: View {
       Text(completed ? "✓" : "○")
         .font(.system(size: 14, weight: .bold))
         .foregroundColor(completed ? .dynIslandCheckGreen : .dailyStoryIncompleteBlue)
-      Text(label)
-        .font(.system(size: 12, weight: .semibold))
-        .tracking(0.6)
-        .foregroundColor(completed ? .white : .dailyStoryIncompleteBlue)
-        .lineLimit(1)
-        .minimumScaleFactor(0.85)
-        .fixedSize(horizontal: true, vertical: false)
+      Image(icon)
+        .resizable()
+        .aspectRatio(contentMode: .fit)
+        .frame(width: 18, height: 18)
     }
   }
 }

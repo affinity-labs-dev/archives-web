@@ -48,9 +48,15 @@ struct DailyStoryIncompleteBanner: View {
             .foregroundColor(.white)
             .lineLimit(1)
           Spacer()
-          Text("🔥 \(displayStreak)")
-            .font(.system(size: 14, weight: .medium))
-            .foregroundColor(.dailyStoryCaptionLavender)
+          HStack(spacing: 4) {
+            Image("Flame")
+              .resizable()
+              .aspectRatio(contentMode: .fit)
+              .frame(width: 12, height: 14)
+            Text("\(displayStreak)")
+              .font(.system(size: 14, weight: .medium))
+              .foregroundColor(.dailyStoryCaptionLavender)
+          }
         }
 
         // Row 2: Muted progress bar
@@ -68,13 +74,12 @@ struct DailyStoryIncompleteBanner: View {
 
         // Row 3: Card pills — completed in lavender ✓, missed in pink ✗
         // `minimumScaleFactor(0.85)` auto-scales "QUESTIONS" on small devices.
-        HStack(spacing: 8) {
-          IncompleteCardPill(label: "WATCH", completed: watchCompleted)
-          IncompleteCardPill(label: "EXPLORE", completed: exploreCompleted)
-          IncompleteCardPill(label: "QUESTIONS", completed: questionsCompleted)
+        HStack(spacing: 25) {
+          IncompleteCardPill(icon: "Watch", completed: watchCompleted)
+          IncompleteCardPill(icon: "Explore", completed: exploreCompleted)
+          IncompleteCardPill(icon: "Questions", completed: questionsCompleted)
           Spacer(minLength: 0)
         }
-        .lineLimit(1)
 
         // Row 4: Caption
         Text("A new quest starts tomorrow")
@@ -92,12 +97,11 @@ struct DailyStoryIncompleteBanner: View {
 }
 
 // MARK: - IncompleteCardPill
-// Completed cards: lavender label + lavender ✓
-// Missed cards: gray-blue label + pink ✗
+// Completed cards: lavender ✓ + icon. Missed cards: pink ✗ + icon.
 
 @available(iOS 16.2, *)
 private struct IncompleteCardPill: View {
-  let label: String
+  let icon: String
   let completed: Bool
 
   var body: some View {
@@ -105,13 +109,10 @@ private struct IncompleteCardPill: View {
       Text(completed ? "✓" : "✗")
         .font(.system(size: 14, weight: .bold))
         .foregroundColor(completed ? .dailyStoryCaptionLavender : .dailyStoryMissedPink)
-      Text(label)
-        .font(.system(size: 12, weight: .semibold))
-        .tracking(0.6)
-        .foregroundColor(completed ? .dailyStoryCaptionLavender : .dailyStoryMissedLabel)
-        .lineLimit(1)
-        .minimumScaleFactor(0.85)
-        .fixedSize(horizontal: true, vertical: false)
+      Image(icon)
+        .resizable()
+        .aspectRatio(contentMode: .fit)
+        .frame(width: 18, height: 18)
     }
   }
 }

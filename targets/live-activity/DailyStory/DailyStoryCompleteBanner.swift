@@ -57,13 +57,12 @@ struct DailyStoryCompleteBanner: View {
         // Row 3: All cards completed (all green)
         // `minimumScaleFactor(0.85)` on each pill auto-scales "QUESTIONS"
         // so it doesn't wrap on small devices.
-        HStack(spacing: 8) {
-          DailyStoryCompletePill(label: "WATCH")
-          DailyStoryCompletePill(label: "EXPLORE")
-          DailyStoryCompletePill(label: "QUESTIONS")
+        HStack(spacing: 25) {
+          DailyStoryCompletePill(icon: "Watch")
+          DailyStoryCompletePill(icon: "Explore")
+          DailyStoryCompletePill(icon: "Questions")
           Spacer(minLength: 0)
         }
-        .lineLimit(1)
 
         // Row 4: Era caption
         Text("Day \(max(1, dayNumber)) of \(max(1, totalDays)) - \(eraTitle)")
@@ -81,24 +80,21 @@ struct DailyStoryCompleteBanner: View {
 }
 
 // MARK: - DailyStoryCompletePill
-// All-green pill for completed state — always shows white label + green ✓.
+// All-green pill for completed state — green ✓ + 18×18 icon.
 
 @available(iOS 16.2, *)
 private struct DailyStoryCompletePill: View {
-  let label: String
+  let icon: String
 
   var body: some View {
     HStack(spacing: 5) {
       Text("✓")
         .font(.system(size: 14, weight: .bold))
         .foregroundColor(.dynIslandCheckGreen)
-      Text(label)
-        .font(.system(size: 12, weight: .semibold))
-        .tracking(0.6)
-        .foregroundColor(.white)
-        .lineLimit(1)
-        .minimumScaleFactor(0.85)
-        .fixedSize(horizontal: true, vertical: false)
+      Image(icon)
+        .resizable()
+        .aspectRatio(contentMode: .fit)
+        .frame(width: 18, height: 18)
     }
   }
 }

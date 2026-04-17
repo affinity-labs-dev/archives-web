@@ -68,10 +68,10 @@ extension Color {
   static let dailyStoryBackground = Color(red: 26/255, green: 26/255, blue: 26/255)
   /// Timer text — warm gold indicating time remaining — #FFDF6E
   static let dailyStoryTimerGold = Color(red: 255/255, green: 223/255, blue: 110/255)
-  /// Progress bar track — very dark blue — #091229
-  static let dailyStoryProgressTrack = Color(red: 9/255, green: 18/255, blue: 41/255)
-  /// Progress bar fill — muted blue — #1E3C88
-  static let dailyStoryProgressFill = Color(red: 30/255, green: 60/255, blue: 136/255)
+  /// Progress bar track — Blue Primary — #1E3C88
+  static let dailyStoryProgressTrack = Color(red: 30/255, green: 60/255, blue: 136/255)
+  /// Progress bar fill — Blue Secondary — #A2C5FF
+  static let dailyStoryProgressFill = Color(red: 162/255, green: 197/255, blue: 255/255)
   /// Incomplete card label — soft blue (distinct from StreakGuard's gray) — #A2C5FF
   static let dailyStoryIncompleteBlue = Color(red: 162/255, green: 197/255, blue: 255/255)
   /// Caption text — soft lavender (shared with StreakLost) — #D6BBFF
