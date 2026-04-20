@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archives Design System</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;900&display=swap');
+
+  @font-face {
+    font-family: 'Bounded';
+    src: url('./assets/fonts/Bounded-Black.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Onest', system-ui, -apple-system, sans-serif;
+    background: #FFFFFF;
+    color: #1A1A1A;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* Section */
+  .section { margin-bottom: 64px; }
+  .section-header { margin-bottom: 12px; }
+  .section-title {
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #1A1A1A;
+  }
+  .section-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6B6B6B;
+    line-height: 20px;
+    margin-top: 8px;
+  }
+
+  .divider {
+    height: 1px;
+    background: #E5E5E5;
+    margin: 24px 0;
+  }
+
+  /* Badge */
+  .badge-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .badge {
+    background: #1E3C88;
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 100px;
+    letter-spacing: 0.14px;
+    white-space: nowrap;
+  }
+  .badge-desc {
+    font-size: 14px;
+    font-weight: 500;
+    color: #737373;
+  }
+
+  /* ─── TYPOGRAPHY ─── */
+  .type-row {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    padding: 16px 0;
+    border-bottom: 1px solid #F0F0F0;
+  }
+  .type-meta {
+    width: 160px;
+    flex-shrink: 0;
+  }
+  .type-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1A1A1A;
+  }
+  .type-spec {
+    font-size: 12px;
+    font-weight: 600;
+    color: #737373;
+    margin-top: 4px;
+    letter-spacing: -0.12px;
+  }
+  .type-sample {
+    flex: 1;
+    min-width: 0;
+    color: #1A1A1A;
+  }
+
+  /* ─── COLORS ─── */
+  .color-group-label {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1A1A1A;
+    margin-bottom: 12px;
+    margin-top: 8px;
+  }
+  .swatch-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .swatch-card {
+    flex: 1 1 140px;
+    min-width: 140px;
+    border-radius: 16px;
+    border: 1px solid #E5E5E5;
+    overflow: hidden;
+    background: #FFFFFF;
+  }
+  .swatch-color {
+    height: 90px;
+    display: flex;
+    align-items: flex-end;
+    padding: 10px;
+  }
+  .swatch-hex-overlay {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .swatch-info {
+    padding: 12px;
+  }
+  .swatch-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1A1A1A;
+  }
+  .swatch-token {
+    font-size: 11px;
+    font-weight: 600;
+    color: #737373;
+    margin-top: 3px;
+  }
+  .swatch-desc {
+    font-size: 11px;
+    font-weight: 500;
+    color: #999;
+    margin-top: 4px;
+    line-height: 15px;
+  }
+
+  /* Token rows */
+  .token-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #F0F0F0;
+  }
+  .token-swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  .token-info { flex: 1; }
+  .token-key {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1A1A1A;
+  }
+  .token-scopes {
+    font-size: 11px;
+    font-weight: 500;
+    color: #999;
+  }
+  .token-right { text-align: right; flex-shrink: 0; }
+  .token-hex {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1A1A1A;
+    font-variant-numeric: tabular-nums;
+  }
+  .token-cssvar {
+    font-size: 11px;
+    font-weight: 500;
+    color: #737373;
+  }
+  .btn-group-name {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .btn-group-desc {
+    font-size: 13px;
+    font-weight: 500;
+    color: #737373;
+    margin-bottom: 8px;
+  }
+
+  /* ─── BUTTONS ─── */
+  .button-row {
+    padding: 16px 0;
+    border-bottom: 1px solid #F0F0F0;
+  }
+  .button-meta { margin-bottom: 12px; }
+  .variant-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1A1A1A;
+  }
+  .variant-desc {
+    font-size: 12px;
+    font-weight: 500;
+    color: #737373;
+  }
+  .button-preview {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0;
+  }
+  .btn-3d {
+    position: relative;
+    max-width: 327px;
+    width: 100%;
+    height: 49px;
+  }
+  .btn-3d.option { max-width: 300px; width: 100%; height: 55px; }
+  .btn-3d.auth { max-width: 339px; width: 100%; height: 48px; }
+  .btn-shadow {
+    position: absolute;
+    left: 0; right: 0;
+    top: 4px; bottom: 0;
+    border-radius: 26.5px;
+  }
+  .btn-3d.option .btn-shadow {
+    top: 6px;
+    border-radius: 17px;
+  }
+  .btn-surface {
+    position: absolute;
+    left: 0; right: 0;
+    top: 0; bottom: 4px;
+    border-radius: 26.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 22px;
+    font-family: 'Onest', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.18px;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+  }
+  @keyframes buttonPress {
+    0% { transform: translateY(0); }
+    40% { transform: translateY(6px); }
+    70% { transform: translateY(-2px); }
+    100% { transform: translateY(0); }
+  }
+  @keyframes scaleBounce {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+  .btn-3d:active .btn-surface,
+  .btn-3d.option:active .btn-surface {
+    animation: buttonPress 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .btn-3d.auth:active {
+    animation: scaleBounce 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .btn-3d.option .btn-surface {
+    bottom: 6px;
+    border-radius: 17px;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0;
+  }
+  .btn-3d.auth .btn-surface {
+    border-radius: 26.5px;
+    font-weight: 500;
+    font-size: 20px;
+    letter-spacing: -0.2px;
+    line-height: 1;
+  }
+  .btn-3d.auth .btn-shadow { display: none; }
+
+  /* Specs card */
+  .specs-card {
+    background: #F8F8F8;
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 24px;
+  }
+  .specs-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .spec-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+  }
+  .spec-label { font-size: 13px; font-weight: 500; color: #737373; }
+  .spec-value { font-size: 13px; font-weight: 700; color: #1A1A1A; font-variant-numeric: tabular-nums; }
+
+  /* ─── SPACING ─── */
+  .spacing-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 0;
+  }
+  .spacing-label {
+    width: 80px;
+    flex-shrink: 0;
+  }
+  .spacing-name { font-size: 14px; font-weight: 600; }
+  .spacing-px { font-size: 12px; color: #737373; font-weight: 600; }
+  .spacing-track {
+    flex: 1;
+    height: 24px;
+    background: #F0F0F0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .spacing-bar {
+    height: 100%;
+    background: #1E3C88;
+    border-radius: 4px;
+  }
+
+  .radius-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .radius-box-wrap { text-align: center; }
+  .radius-box {
+    width: 60px;
+    height: 60px;
+    background: #FFFFFF;
+    border: 2px solid #1E3C88;
+    margin-bottom: 6px;
+  }
+  .radius-label { font-size: 11px; font-weight: 600; color: #737373; }
+
+  .shadow-card {
+    background: #FFFFFF;
+    border-radius: 16px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1A1A1A;
+  }
+  .shadow-sm { box-shadow: 0 2px 4px rgba(26,26,26,0.08); }
+  .shadow-md { box-shadow: 0 4px 8px rgba(26,26,26,0.12); }
+  .shadow-lg { box-shadow: 0 8px 16px rgba(26,26,26,0.16); }
+
+  /* ─── COMPONENTS ─── */
+  .card-grid {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .preview-card {
+    flex: 1;
+    min-width: 200px;
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .preview-card.elevated {
+    background: #FFFFFF;
+    box-shadow: 0 4px 8px rgba(26,26,26,0.12);
+  }
+  .preview-card.outlined {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E5E5;
+  }
+  .preview-card.filled {
+    background: #E5D4FF;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .card-body {
+    font-size: 14px;
+    font-weight: 500;
+    color: #737373;
+  }
+  .preview-card.filled .card-title { color: #3E2368; }
+  .preview-card.filled .card-body { color: #1A1A1A; }
+
+  .input-preview {
+    margin-bottom: 12px;
+  }
+  .input-field {
+    width: 100%;
+    height: 52px;
+    border-radius: 12px;
+    border: 1.5px solid #E5E5E5;
+    padding: 0 16px;
+    font-family: 'Onest', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: #1A1A1A;
+    background: #FFFFFF;
+    outline: none;
+  }
+  .input-field.focused {
+    border-color: #1E3C88;
+    box-shadow: 0 0 0 3px rgba(30,60,136,0.1);
+  }
+  .input-label-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #737373;
+    margin-bottom: 6px;
+  }
+
+  .tag-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .divider-preview {
+    margin: 8px 0;
+  }
+  .divider-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #737373;
+    margin-bottom: 6px;
+  }
+  .divider-thin { height: 1px; background: #E5E5E5; }
+  .divider-thick { height: 2px; background: #E5E5E5; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 40px 0 0;
+    font-size: 12px;
+    color: #999;
+    border-top: 1px solid #E5E5E5;
+    margin-top: 40px;
+  }
+
+  @media print {
+    .page { max-width: 100%; padding: 20px; }
+    .section { break-inside: avoid; }
+  }
+
+  /* ─── RESPONSIVE: Mobile phones ─── */
+  @media (max-width: 600px) {
+    .page {
+      padding: 24px 16px 48px;
+    }
+
+    .section-title {
+      font-size: 24px;
+    }
+
+    /* Typography rows: stack vertically */
+    .type-row {
+      flex-direction: column;
+      gap: 8px;
+    }
+    .type-meta {
+      width: 100%;
+    }
+
+    /* Color swatch cards: full width on very small screens */
+    .swatch-card {
+      flex: 1 1 100%;
+      min-width: 100%;
+    }
+
+    /* Card grid: stack cards */
+    .card-grid .preview-card {
+      min-width: 100%;
+    }
+
+    /* Token rows: stack on small screens */
+    .token-row {
+      flex-wrap: wrap;
+    }
+    .token-info {
+      min-width: 0;
+    }
+    .token-right {
+      flex-basis: 100%;
+      text-align: left;
+      padding-left: 48px;
+    }
+
+    /* Spacing rows */
+    .spacing-row {
+      gap: 8px;
+    }
+    .spacing-label {
+      width: 60px;
+    }
+
+    /* Badge rows: allow wrapping */
+    .badge-row {
+      flex-wrap: wrap;
+    }
+
+    /* Specs card */
+    .spec-row {
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+  }
+
+  /* ─── RESPONSIVE: Large screens ─── */
+  @media (min-width: 1200px) {
+    .page {
+      max-width: 1100px;
+    }
+
+    .swatch-card {
+      flex: 1 1 160px;
+      max-width: 200px;
+    }
+
+    .card-grid .preview-card {
+      min-width: 220px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ══════════════════════════════════════════ -->
+<!-- TYPOGRAPHY                                -->
+<!-- ══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">TYPOGRAPHY</div>
+    <div class="section-subtitle">Type scale built on Bounded for display and Onest for UI &amp; body.</div>
+  </div>
+  <div class="divider"></div>
+
+  <!-- Display -->
+  <div class="badge-row"><span class="badge">Display</span><span class="badge-desc">Bounded Black &mdash; for hero moments &amp; page titles.</span></div>
+
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Display/Hero</div><div class="type-spec">Bounded Black &middot; 50 / 60 &middot; 0%</div></div>
+    <div class="type-sample" style="font-family:'Bounded',system-ui;font-size:50px;line-height:60px;font-weight:900;text-transform:uppercase;">Welcome, Ahmed!</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Display/Large</div><div class="type-spec">Bounded Black &middot; 28 / 42 &middot; 0%</div></div>
+    <div class="type-sample" style="font-family:'Bounded',system-ui;font-size:28px;line-height:42px;font-weight:900;text-transform:uppercase;">Join over 50,000 learners today</div>
+  </div>
+
+  <!-- Heading -->
+  <div class="badge-row" style="margin-top:32px;"><span class="badge">Heading</span><span class="badge-desc">Onest Black &amp; Bold &mdash; for section titles inside screens.</span></div>
+
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Heading/XL</div><div class="type-spec">Onest Black &middot; 30 &middot; 0%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:30px;font-weight:900;">But we&rsquo;d love for you to try Archives Plus</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Heading/M</div><div class="type-spec">Onest Bold &middot; 22 &middot; 0%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:22px;font-weight:700;">3 Eras</div>
+  </div>
+
+  <!-- Body -->
+  <div class="badge-row" style="margin-top:32px;"><span class="badge">Body</span><span class="badge-desc">Onest &mdash; for paragraphs, inputs, and long form copy.</span></div>
+
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Body/L</div><div class="type-spec">Onest SemiBold &middot; 20 &middot; 0%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:20px;font-weight:600;">Archives is free to use</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Body/M</div><div class="type-spec">Onest SemiBold &middot; 16 &middot; 0%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:16px;font-weight:600;">Your first name</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Body/S</div><div class="type-spec">Onest Medium &middot; 14 &middot; 0%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:14px;font-weight:500;">My 6 year old daughter insists to sit with me on Archives, we love questioning each other.</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Body/XS</div><div class="type-spec">Onest SemiBold &middot; 14 / 20 &middot; &minus;1%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:14px;line-height:20px;font-weight:600;letter-spacing:-0.14px;">Discover the early Prophets and how they shaped Islam, every week a new era.</div>
+  </div>
+
+  <!-- Label -->
+  <div class="badge-row" style="margin-top:32px;"><span class="badge">Label</span><span class="badge-desc">Onest &mdash; for buttons, tags, and UI controls.</span></div>
+
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Label/L</div><div class="type-spec">Onest Medium &middot; 20 &middot; &minus;1%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:20px;font-weight:500;letter-spacing:-0.2px;">Continue with Google</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Label/M</div><div class="type-spec">Onest Bold &middot; 18 &middot; &minus;1%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.18px;">LET&rsquo;S START</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Label/S</div><div class="type-spec">Onest SemiBold &middot; 16 &middot; 0%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:16px;font-weight:600;">Just for fun</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="type-name">Label/XS</div><div class="type-spec">Onest Bold &middot; 14 / 15 &middot; +1%</div></div>
+    <div class="type-sample" style="font-family:'Onest',sans-serif;font-size:14px;line-height:15px;font-weight:700;letter-spacing:0.14px;">Less than 5 mins a day</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- COLORS                                    -->
+<!-- ══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">COLORS</div>
+    <div class="section-subtitle">Palette and semantic tokens for developer handoff. Hex values are the authoritative source.</div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">Palette</span><span class="badge-desc">Brand, accent, neutral &amp; semantic color roles.</span></div>
+
+  <!-- Brand Purple -->
+  <div class="color-group-label">Brand &middot; Purple (Acai)</div>
+  <div class="swatch-grid">
+    <div class="swatch-card"><div class="swatch-color" style="background:#3E2368;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#3E2368</span></div><div class="swatch-info"><div class="swatch-name">Acai Primary</div><div class="swatch-token">--acai-primary</div><div class="swatch-desc">Pantone Acai &mdash; deep purple. Primary brand purple.</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#8C60CD;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#8C60CD</span></div><div class="swatch-info"><div class="swatch-name">Acai Secondary</div><div class="swatch-token">--acai-secondary</div><div class="swatch-desc">Pantone 2665 C (Bellflower) &mdash; mid purple.</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#E5D4FF;"><span class="swatch-hex-overlay" style="color:#1A1A1A;">#E5D4FF</span></div><div class="swatch-info"><div class="swatch-name">Acai Tertiary</div><div class="swatch-token">--acai-tertiary</div><div class="swatch-desc">Pantone Lavender Fog &mdash; pale lavender.</div></div></div>
+  </div>
+
+  <!-- Brand Blue -->
+  <div class="color-group-label">Brand &middot; Blue</div>
+  <div class="swatch-grid">
+    <div class="swatch-card"><div class="swatch-color" style="background:#1E3C88;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#1E3C88</span></div><div class="swatch-info"><div class="swatch-name">Blue Primary</div><div class="swatch-token">--blue-primary</div><div class="swatch-desc">Pantone 2748 C &mdash; deep navy / royal blue.</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#A2C5FF;"><span class="swatch-hex-overlay" style="color:#1A1A1A;">#A2C5FF</span></div><div class="swatch-info"><div class="swatch-name">Blue Secondary</div><div class="swatch-token">--blue-secondary</div><div class="swatch-desc">Light sky blue &mdash; secondary blue accent.</div></div></div>
+  </div>
+
+  <!-- Accent -->
+  <div class="color-group-label">Accent</div>
+  <div class="swatch-grid">
+    <div class="swatch-card"><div class="swatch-color" style="background:#FFDD63;"><span class="swatch-hex-overlay" style="color:#1A1A1A;">#FFDD63</span></div><div class="swatch-info"><div class="swatch-name">Aspen Gold</div><div class="swatch-token">--aspen-gold</div><div class="swatch-desc">Pantone Aspen Gold &mdash; buttercup yellow.</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#6B1A3D;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#6B1A3D</span></div><div class="swatch-info"><div class="swatch-name">Pink Primary</div><div class="swatch-token">--pink-primary</div><div class="swatch-desc">Deep rose &mdash; primary pink.</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#C63D78;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#C63D78</span></div><div class="swatch-info"><div class="swatch-name">Pink Secondary</div><div class="swatch-token">--pink-secondary</div><div class="swatch-desc">Pantone Pink Yarrow &mdash; magenta-rose.</div></div></div>
+  </div>
+
+  <!-- Neutral -->
+  <div class="color-group-label">Neutral</div>
+  <div class="swatch-grid">
+    <div class="swatch-card"><div class="swatch-color" style="background:#1A1A1A;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#1A1A1A</span></div><div class="swatch-info"><div class="swatch-name">Onyx</div><div class="swatch-token">--onyx</div><div class="swatch-desc">Pantone Onyx &mdash; near-black.</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#FAFAFA;border:1px solid #E5E5E5;"><span class="swatch-hex-overlay" style="color:#1A1A1A;">#FAFAFA</span></div><div class="swatch-info"><div class="swatch-name">Snow</div><div class="swatch-token">--snow</div><div class="swatch-desc">Pantone Bright White &mdash; off-white.</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#C3C3C3;"><span class="swatch-hex-overlay" style="color:#1A1A1A;">#C3C3C3</span></div><div class="swatch-info"><div class="swatch-name">Concrete Grey</div><div class="swatch-token">--grey</div><div class="swatch-desc">Pantone Concrete Grey.</div></div></div>
+  </div>
+
+  <!-- Success -->
+  <div class="color-group-label">Success &middot; Correct</div>
+  <div class="swatch-grid">
+    <div class="swatch-card"><div class="swatch-color" style="background:#234200;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#234200</span></div><div class="swatch-info"><div class="swatch-name">Correct Primary</div><div class="swatch-token">--correct-primary</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#5B980C;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#5B980C</span></div><div class="swatch-info"><div class="swatch-name">Correct Secondary</div><div class="swatch-token">--correct-secondary</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#D6FFB8;"><span class="swatch-hex-overlay" style="color:#1A1A1A;">#D6FFB8</span></div><div class="swatch-info"><div class="swatch-name">Correct Tertiary</div><div class="swatch-token">--correct-tertiary</div></div></div>
+  </div>
+
+  <!-- Error -->
+  <div class="color-group-label">Error &middot; Incorrect</div>
+  <div class="swatch-grid">
+    <div class="swatch-card"><div class="swatch-color" style="background:#6E0B0E;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#6E0B0E</span></div><div class="swatch-info"><div class="swatch-name">Incorrect Primary</div><div class="swatch-token">--incorrect-primary</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#C82A4B;"><span class="swatch-hex-overlay" style="color:#FFFFFF;">#C82A4B</span></div><div class="swatch-info"><div class="swatch-name">Incorrect Secondary</div><div class="swatch-token">--incorrect-secondary</div></div></div>
+    <div class="swatch-card"><div class="swatch-color" style="background:#FFB8B9;"><span class="swatch-hex-overlay" style="color:#1A1A1A;">#FFB8B9</span></div><div class="swatch-info"><div class="swatch-name">Incorrect Tertiary</div><div class="swatch-token">--incorrect-tertiary</div></div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Semantic Tokens -->
+  <div class="badge-row"><span class="badge">Semantic Tokens &middot; Buttons</span><span class="badge-desc">Variables bound to button components. Use these keys in code.</span></div>
+
+  <!-- Primary -->
+  <div class="btn-group-name">Button &middot; Primary</div>
+  <div class="btn-group-desc">Dark filled CTA (Continue).</div>
+  <div class="token-row"><div class="token-swatch" style="background:#1A1A1A;"></div><div class="token-info"><div class="token-key">color/primary/surface</div><div class="token-scopes">scopes: FRAME_FILL, SHAPE_FILL</div></div><div class="token-right"><div class="token-hex">#1A1A1A</div><div class="token-cssvar">--color-primary-surface</div></div></div>
+  <div class="token-row"><div class="token-swatch" style="background:#FFFFFF;border:1px solid #E5E5E5;"></div><div class="token-info"><div class="token-key">color/primary/shadow</div><div class="token-scopes">scopes: FRAME_FILL, SHAPE_FILL</div></div><div class="token-right"><div class="token-hex">#FFFFFF</div><div class="token-cssvar">--color-primary-shadow</div></div></div>
+  <div class="token-row"><div class="token-swatch" style="background:#1A1A1A;"></div><div class="token-info"><div class="token-key">color/primary/border</div><div class="token-scopes">scopes: STROKE_COLOR</div></div><div class="token-right"><div class="token-hex">#1A1A1A</div><div class="token-cssvar">--color-primary-border</div></div></div>
+  <div class="token-row"><div class="token-swatch" style="background:#FFFFFF;border:1px solid #E5E5E5;"></div><div class="token-info"><div class="token-key">color/primary/text</div><div class="token-scopes">scopes: TEXT_FILL</div></div><div class="token-right"><div class="token-hex">#FFFFFF</div><div class="token-cssvar">--color-primary-text</div></div></div>
+
+  <!-- Secondary -->
+  <div class="btn-group-name" style="margin-top:16px;">Button &middot; Secondary</div>
+  <div class="btn-group-desc">Purple filled CTA (Start my day).</div>
+  <div class="token-row"><div class="token-swatch" style="background:#E5D4FF;"></div><div class="token-info"><div class="token-key">color/secondary/surface</div><div class="token-scopes">scopes: FRAME_FILL, SHAPE_FILL</div></div><div class="token-right"><div class="token-hex">#E5D4FF</div><div class="token-cssvar">--color-secondary-surface</div></div></div>
+  <div class="token-row"><div class="token-swatch" style="background:#3E2368;"></div><div class="token-info"><div class="token-key">color/secondary/shadow</div><div class="token-scopes">scopes: FRAME_FILL, SHAPE_FILL</div></div><div class="token-right"><div class="token-hex">#3E2368</div><div class="token-cssvar">--color-secondary-shadow</div></div></div>
+  <div class="token-row"><div class="token-swatch" style="background:#1A1A1A;"></div><div class="token-info"><div class="token-key">color/secondary/text</div><div class="token-scopes">scopes: TEXT_FILL</div></div><div class="token-right"><div class="token-hex">#1A1A1A</div><div class="token-cssvar">--color-secondary-text</div></div></div>
+
+  <!-- Tertiary -->
+  <div class="btn-group-name" style="margin-top:16px;">Button &middot; Tertiary</div>
+  <div class="btn-group-desc">Blue filled CTA (Let&rsquo;s start).</div>
+  <div class="token-row"><div class="token-swatch" style="background:#1E3C88;"></div><div class="token-info"><div class="token-key">color/tertiary/surface</div><div class="token-scopes">scopes: FRAME_FILL, SHAPE_FILL</div></div><div class="token-right"><div class="token-hex">#1E3C88</div><div class="token-cssvar">--color-tertiary-surface</div></div></div>
+  <div class="token-row"><div class="token-swatch" style="background:#A2C5FF;"></div><div class="token-info"><div class="token-key">color/tertiary/shadow</div><div class="token-scopes">scopes: FRAME_FILL, SHAPE_FILL</div></div><div class="token-right"><div class="token-hex">#A2C5FF</div><div class="token-cssvar">--color-tertiary-shadow</div></div></div>
+  <div class="token-row"><div class="token-swatch" style="background:#FFFFFF;border:1px solid #E5E5E5;"></div><div class="token-info"><div class="token-key">color/tertiary/text</div><div class="token-scopes">scopes: TEXT_FILL</div></div><div class="token-right"><div class="token-hex">#FFFFFF</div><div class="token-cssvar">--color-tertiary-text</div></div></div>
+
+  <!-- Outline -->
+  <div class="btn-group-name" style="margin-top:16px;">Button &middot; Outline</div>
+  <div class="btn-group-desc">White outlined CTA (Continue with Apple).</div>
+  <div class="token-row"><div class="token-swatch" style="background:#FFFFFF;border:1px solid #E5E5E5;"></div><div class="token-info"><div class="token-key">color/outline/surface</div><div class="token-scopes">scopes: FRAME_FILL, SHAPE_FILL</div></div><div class="token-right"><div class="token-hex">transparent</div><div class="token-cssvar">--color-outline-surface</div></div></div>
+  <div class="token-row"><div class="token-swatch" style="background:#1A1A1A;"></div><div class="token-info"><div class="token-key">color/outline/border</div><div class="token-scopes">scopes: STROKE_COLOR</div></div><div class="token-right"><div class="token-hex">#1A1A1A</div><div class="token-cssvar">--color-outline-border</div></div></div>
+  <div class="token-row"><div class="token-swatch" style="background:#1A1A1A;"></div><div class="token-info"><div class="token-key">color/outline/text</div><div class="token-scopes">scopes: TEXT_FILL</div></div><div class="token-right"><div class="token-hex">#1A1A1A</div><div class="token-cssvar">--color-outline-text</div></div></div>
+
+  <div style="text-align:center;padding-top:16px;font-size:12px;color:#999;">Total: 15 paint styles &middot; 13 button tokens.</div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- BUTTONS                                   -->
+<!-- ══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">BUTTONS</div>
+    <div class="section-subtitle">All button variants with 3D drop-shadow depth effect. Shadow is a separate layer offset behind the surface.</div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">CTA Buttons</span><span class="badge-desc">Primary actions with 3D depth shadow.</span></div>
+
+  <!-- Primary -->
+  <div class="button-row">
+    <div class="button-meta"><div class="variant-label">Primary</div><div class="variant-desc">Dark filled CTA with white shadow + border</div></div>
+    <div class="button-preview">
+      <div class="btn-3d">
+        <div class="btn-shadow" style="background:#FFFFFF;border:1px solid #1A1A1A;"></div>
+        <div class="btn-surface" style="background:#1A1A1A;color:#FFFFFF;border:1px solid #1A1A1A;">CONTINUE</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Secondary -->
+  <div class="button-row">
+    <div class="button-meta"><div class="variant-label">Secondary</div><div class="variant-desc">Purple filled CTA with dark purple shadow</div></div>
+    <div class="button-preview">
+      <div class="btn-3d">
+        <div class="btn-shadow" style="background:#3E2368;"></div>
+        <div class="btn-surface" style="background:#8C60CD;color:#FFFFFF;">START MY DAY</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tertiary -->
+  <div class="button-row">
+    <div class="button-meta"><div class="variant-label">Tertiary</div><div class="variant-desc">Blue filled CTA with light blue shadow</div></div>
+    <div class="button-preview">
+      <div class="btn-3d">
+        <div class="btn-shadow" style="background:#A2C5FF;"></div>
+        <div class="btn-surface" style="background:#1E3C88;color:#FFFFFF;">LET&rsquo;S START</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tertiary Alt -->
+  <div class="button-row">
+    <div class="button-meta"><div class="variant-label">Tertiary Alt</div><div class="variant-desc">Light blue surface with dark blue shadow</div></div>
+    <div class="button-preview">
+      <div class="btn-3d">
+        <div class="btn-shadow" style="background:#1E3C88;"></div>
+        <div class="btn-surface" style="background:#A2C5FF;color:#1A1A1A;">LET&rsquo;S START</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="badge-row"><span class="badge">Auth</span><span class="badge-desc">Authentication buttons with icon.</span></div>
+
+  <!-- Auth — Apple -->
+  <div class="button-row">
+    <div class="button-meta"><div class="variant-label">Auth &mdash; Apple</div><div class="variant-desc">White outlined CTA with Apple icon</div></div>
+    <div class="button-preview">
+      <div class="btn-3d auth">
+        <div class="btn-surface" style="background:#FFFFFF;color:#1A1A1A;border:2px solid #1A1A1A;">
+          <svg width="15" height="18" viewBox="0 0 15 18" fill="none"><path d="M14.5209 6.13681C14.4141 6.21782 12.5273 7.25653 12.5273 9.56616C12.5273 12.2376 14.9281 13.1827 15 13.2061C14.9889 13.2637 14.6186 14.5004 13.7342 15.7606C12.9456 16.8695 12.122 17.9766 10.8691 17.9766C9.61614 17.9766 9.2937 17.2655 7.84732 17.2655C6.43778 17.2655 5.93662 18 4.79057 18C3.64452 18 2.84486 16.9739 1.92544 15.7138C0.860459 14.234 0 11.9352 0 9.75337C0 6.25382 2.32895 4.39784 4.62105 4.39784C5.83896 4.39784 6.8542 5.17912 7.61884 5.17912C8.34664 5.17912 9.48164 4.35103 10.8672 4.35103C11.3923 4.35103 13.2791 4.39784 14.5209 6.13681ZM10.2094 2.86949C10.7825 2.20522 11.1878 1.28353 11.1878 0.361836C11.1878 0.234023 11.1768 0.10441 11.1528 0C10.2205 0.0342034 9.11129 0.606661 8.44245 1.36454C7.91733 1.94779 7.42722 2.86949 7.42722 3.80378C7.42722 3.94419 7.45117 4.08461 7.46223 4.12961C7.52119 4.14041 7.617 4.15302 7.71281 4.15302C8.54932 4.15302 9.6014 3.60576 10.2094 2.86949Z" fill="black"/></svg>
+          Continue with Apple
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth — Google -->
+  <div class="button-row">
+    <div class="button-meta"><div class="variant-label">Auth &mdash; Google</div><div class="variant-desc">White outlined CTA with Google icon</div></div>
+    <div class="button-preview">
+      <div class="btn-3d auth">
+        <div class="btn-surface" style="background:#FFFFFF;color:#1A1A1A;border:2px solid #1A1A1A;">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+          Continue with Google
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth — Email -->
+  <div class="button-row">
+    <div class="button-meta"><div class="variant-label">Auth &mdash; Email</div><div class="variant-desc">White outlined CTA with email icon</div></div>
+    <div class="button-preview">
+      <div class="btn-3d auth">
+        <div class="btn-surface" style="background:#FFFFFF;color:#1A1A1A;border:2px solid #1A1A1A;">
+          <svg width="20" height="16" viewBox="0 0 20 16" fill="none"><path d="M18 0H2C0.9 0 0.01 0.9 0.01 2L0 14C0 15.1 0.9 16 2 16H18C19.1 16 20 15.1 20 14V2C20 0.9 19.1 0 18 0ZM18 4L10 9L2 4V2L10 7L18 2V4Z" fill="black"/></svg>
+          Continue with Email
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="badge-row"><span class="badge">Options</span><span class="badge-desc">Selection buttons for onboarding choices.</span></div>
+
+  <!-- Option Ideal -->
+  <div class="button-row">
+    <div class="button-meta"><div class="variant-label">Option &mdash; Ideal</div><div class="variant-desc">White surface with blue border, blue shadow</div></div>
+    <div class="button-preview">
+      <div class="btn-3d option">
+        <div class="btn-shadow" style="background:#A2C5FF;border:1.5px solid #1E3C88;"></div>
+        <div class="btn-surface" style="background:#FFFFFF;color:#1A1A1A;border:1.5px solid #1E3C88;font-weight:600;font-size:16px;letter-spacing:0;">Connect with heritage</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option Selected -->
+  <div class="button-row">
+    <div class="button-meta"><div class="variant-label">Option &mdash; Selected</div><div class="variant-desc">Blue surface with white border, dark shadow</div></div>
+    <div class="button-preview">
+      <div class="btn-3d option">
+        <div class="btn-shadow" style="background:#1E3C88;"></div>
+        <div class="btn-surface" style="background:#A2C5FF;color:#1A1A1A;border:1.5px solid #FAFAFA;font-weight:600;font-size:16px;letter-spacing:0;">5 min/day &middot; Casual</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Specs -->
+  <div class="specs-card">
+    <div class="specs-title">Button Specs</div>
+    <div class="spec-row"><span class="spec-label">CTA radius</span><span class="spec-value">26.5px</span></div>
+    <div class="spec-row"><span class="spec-label">Option radius</span><span class="spec-value">17px</span></div>
+    <div class="spec-row"><span class="spec-label">CTA shadow offset</span><span class="spec-value">4px</span></div>
+    <div class="spec-row"><span class="spec-label">Option shadow offset</span><span class="spec-value">6px</span></div>
+    <div class="spec-row"><span class="spec-label">Padding (x / y)</span><span class="spec-value">22px / 10px</span></div>
+    <div class="spec-row"><span class="spec-label">Font (CTA)</span><span class="spec-value">Onest Bold 18</span></div>
+    <div class="spec-row"><span class="spec-label">Font (Option)</span><span class="spec-value">Onest SemiBold 16</span></div>
+    <div class="spec-row"><span class="spec-label">Font (Auth)</span><span class="spec-value">Onest Medium 20</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SPACING & LAYOUT                          -->
+<!-- ══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">SPACING &amp; LAYOUT</div>
+    <div class="section-subtitle">Spacing scale, border radii, and elevation tokens.</div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">Spacing Scale</span><span class="badge-desc">8px base unit, from 2px to 48px.</span></div>
+
+  <div class="spacing-row"><div class="spacing-label"><div class="spacing-name">xxs</div><div class="spacing-px">2px</div></div><div class="spacing-track"><div class="spacing-bar" style="width:2px;"></div></div></div>
+  <div class="spacing-row"><div class="spacing-label"><div class="spacing-name">xs</div><div class="spacing-px">4px</div></div><div class="spacing-track"><div class="spacing-bar" style="width:4px;"></div></div></div>
+  <div class="spacing-row"><div class="spacing-label"><div class="spacing-name">sm</div><div class="spacing-px">8px</div></div><div class="spacing-track"><div class="spacing-bar" style="width:8px;"></div></div></div>
+  <div class="spacing-row"><div class="spacing-label"><div class="spacing-name">md</div><div class="spacing-px">16px</div></div><div class="spacing-track"><div class="spacing-bar" style="width:16px;"></div></div></div>
+  <div class="spacing-row"><div class="spacing-label"><div class="spacing-name">lg</div><div class="spacing-px">24px</div></div><div class="spacing-track"><div class="spacing-bar" style="width:24px;"></div></div></div>
+  <div class="spacing-row"><div class="spacing-label"><div class="spacing-name">xl</div><div class="spacing-px">32px</div></div><div class="spacing-track"><div class="spacing-bar" style="width:32px;"></div></div></div>
+  <div class="spacing-row"><div class="spacing-label"><div class="spacing-name">xxl</div><div class="spacing-px">40px</div></div><div class="spacing-track"><div class="spacing-bar" style="width:40px;"></div></div></div>
+  <div class="spacing-row"><div class="spacing-label"><div class="spacing-name">xxxl</div><div class="spacing-px">48px</div></div><div class="spacing-track"><div class="spacing-bar" style="width:48px;"></div></div></div>
+
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">Shadows</span><span class="badge-desc">Three elevation levels.</span></div>
+  <div class="shadow-card shadow-sm">Small &mdash; elevation 2</div>
+  <div class="shadow-card shadow-md">Medium &mdash; elevation 4</div>
+  <div class="shadow-card shadow-lg">Large &mdash; elevation 8</div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- COMPONENTS                                -->
+<!-- ══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">COMPONENTS</div>
+    <div class="section-subtitle">Reusable UI patterns built with the design system tokens.</div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">Cards</span><span class="badge-desc">Three card variants.</span></div>
+  <div class="card-grid">
+    <div class="preview-card elevated"><div class="card-title">Elevated Card</div><div class="card-body">Card body content goes here.</div></div>
+    <div class="preview-card outlined"><div class="card-title">Outlined Card</div><div class="card-body">Card body content goes here.</div></div>
+    <div class="preview-card filled"><div class="card-title">Filled Card</div><div class="card-body">Card body content goes here.</div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">Inputs</span><span class="badge-desc">Text input states.</span></div>
+  <div class="input-preview"><div class="input-label-text">Default</div><input class="input-field" placeholder="Enter your name" readonly></div>
+  <div class="input-preview"><div class="input-label-text">Focused</div><input class="input-field focused" placeholder="Enter your name" readonly></div>
+
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">Dividers</span><span class="badge-desc">Thin and thick separators.</span></div>
+  <div class="divider-preview"><div class="divider-label">Thin (1px)</div><div class="divider-thin"></div></div>
+  <div class="divider-preview"><div class="divider-label">Thick (2px)</div><div class="divider-thick"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SVG ASSETS                                -->
+<!-- ══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">SVG ASSETS</div>
+    <div class="section-subtitle">All SVG icons and illustrations. Checkerboard shows transparency.</div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">Illustrations</span><span class="badge-desc">Onboarding and branding artwork.</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+    <div style="flex:1 1 280px;max-width:420px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:24px;min-height:200px;background:repeating-conic-gradient(#f0f0f0 0% 25%, #fff 0% 50%) 50%/16px 16px;"><img src="assets/welcome.svg" alt="welcome" style="max-width:100%;max-height:280px;"></div>
+      <div style="padding:12px 16px;border-top:1px solid #F0F0F0;"><div style="font-size:14px;font-weight:700;">welcome.svg</div></div>
+    </div>
+    <div style="flex:1 1 280px;max-width:420px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:24px;min-height:200px;background:repeating-conic-gradient(#f0f0f0 0% 25%, #fff 0% 50%) 50%/16px 16px;"><img src="assets/onboardingicon.svg" alt="onboardingicon" style="max-width:100%;max-height:280px;"></div>
+      <div style="padding:12px 16px;border-top:1px solid #F0F0F0;"><div style="font-size:14px;font-weight:700;">onboardingicon.svg</div></div>
+    </div>
+    <div style="flex:1 1 280px;max-width:420px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:24px;min-height:200px;background:repeating-conic-gradient(#f0f0f0 0% 25%, #fff 0% 50%) 50%/16px 16px;"><img src="assets/learnislamic.svg" alt="learnislamic" style="max-width:100%;max-height:280px;"></div>
+      <div style="padding:12px 16px;border-top:1px solid #F0F0F0;"><div style="font-size:14px;font-weight:700;">learnislamic.svg</div></div>
+    </div>
+    <div style="flex:1 1 280px;max-width:420px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:24px;min-height:200px;background:repeating-conic-gradient(#f0f0f0 0% 25%, #fff 0% 50%) 50%/16px 16px;"><img src="assets/sayhitoibu.svg" alt="sayhitoibu" style="max-width:100%;max-height:280px;"></div>
+      <div style="padding:12px 16px;border-top:1px solid #F0F0F0;"><div style="font-size:14px;font-weight:700;">sayhitoibu.svg</div></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">Decorative</span><span class="badge-desc">Lines and divider graphics.</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+    <div style="flex:1 1 280px;max-width:420px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:24px;min-height:120px;background:repeating-conic-gradient(#f0f0f0 0% 25%, #fff 0% 50%) 50%/16px 16px;"><img src="assets/line1.svg" alt="line1" style="max-width:100%;max-height:100px;"></div>
+      <div style="padding:12px 16px;border-top:1px solid #F0F0F0;"><div style="font-size:14px;font-weight:700;">line1.svg</div></div>
+    </div>
+    <div style="flex:1 1 280px;max-width:420px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:24px;min-height:120px;background:repeating-conic-gradient(#f0f0f0 0% 25%, #fff 0% 50%) 50%/16px 16px;"><img src="assets/line2.svg" alt="line2" style="max-width:100%;max-height:100px;"></div>
+      <div style="padding:12px 16px;border-top:1px solid #F0F0F0;"><div style="font-size:14px;font-weight:700;">line2.svg</div></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="badge-row"><span class="badge">Icons</span><span class="badge-desc">UI icons used in buttons and components.</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;">
+    <div style="flex:0 0 120px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:20px;height:80px;background:#1A1A1A;"><img src="assets/apple-icon.svg" alt="apple-icon" style="max-height:30px;"></div>
+      <div style="padding:8px 12px;border-top:1px solid #F0F0F0;"><div style="font-size:12px;font-weight:700;">apple-icon</div></div>
+    </div>
+    <div style="flex:0 0 120px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:20px;height:80px;background:repeating-conic-gradient(#f0f0f0 0% 25%, #fff 0% 50%) 50%/16px 16px;"><img src="assets/stars.svg" alt="stars" style="max-height:30px;"></div>
+      <div style="padding:8px 12px;border-top:1px solid #F0F0F0;"><div style="font-size:12px;font-weight:700;">stars</div></div>
+    </div>
+    <div style="flex:0 0 120px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:20px;height:80px;background:#1E3C88;"><img src="assets/book.svg" alt="book" style="max-height:30px;"></div>
+      <div style="padding:8px 12px;border-top:1px solid #F0F0F0;"><div style="font-size:12px;font-weight:700;">book</div></div>
+    </div>
+    <div style="flex:0 0 120px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:20px;height:80px;background:repeating-conic-gradient(#f0f0f0 0% 25%, #fff 0% 50%) 50%/16px 16px;"><img src="assets/clock.svg" alt="clock" style="max-height:30px;"></div>
+      <div style="padding:8px 12px;border-top:1px solid #F0F0F0;"><div style="font-size:12px;font-weight:700;">clock</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  Archives Design System &mdash; Generated from Figma &middot; 2026-04-17
+</div>
+
+</div>
+</body>
+</html>
