@@ -1205,6 +1205,24 @@ export default function ProfileTab() {
                   </TouchableOpacity>
                 )}
 
+                {/* UI Primitives Playground - Dev mode only */}
+                {__DEV__ && (
+                  <TouchableOpacity
+                    style={[styles.settingsOption, { backgroundColor: '#E5F0FF' }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                      setShowSettingsModal(false)
+                      setTimeout(() => router.push('/ui-playground'), 300)
+                    }}
+                  >
+                    <View style={styles.settingsOptionIcon}>
+                      <Ionicons name="cube" size={24} color="#1E3C88" />
+                    </View>
+                    <Text style={[styles.settingsOptionText, { color: '#1E3C88' }]}>UI Primitives Playground</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#1E3C88" opacity={0.5} />
+                  </TouchableOpacity>
+                )}
+
                 {/* Privacy Policy */}
                 <TouchableOpacity 
                   style={styles.settingsOption} 
