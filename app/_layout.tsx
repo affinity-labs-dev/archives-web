@@ -661,6 +661,11 @@ export default Sentry.wrap(function RootLayout() {
     "DM Sans Bold": require("../assets/fonts/DM_Sans-Bold.ttf"),
     "Cormorant": require("../assets/fonts/Cormorant.ttf"),
     "Cormorant-Bold": require("../assets/fonts/Cormorant-Bold.ttf"),
+    "Bounded-Black": require("../assets/fonts/Bounded-Black.ttf"),
+    "Onest-Black": require("../assets/fonts/Onest-Black.ttf"),
+    "Onest-Bold": require("../assets/fonts/Onest-Bold.ttf"),
+    "Onest-SemiBold": require("../assets/fonts/Onest-SemiBold.ttf"),
+    "Onest-Medium": require("../assets/fonts/Onest-Medium.ttf"),
   });
 
   // Hide splash screen when fonts are loaded
