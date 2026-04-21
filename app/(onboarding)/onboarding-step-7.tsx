@@ -55,18 +55,15 @@ export default function OnboardingStep7Screen() {
   };
 
   const goToLogIn = () => {
-    router.push('/(auth)/archives-auth?mode=signin' as never);
+    router.push('/onboarding-login' as never);
   };
 
   const goToSignUp = () => {
-    router.push('/(auth)/archives-auth?mode=signup' as never);
+    router.push('/onboarding-signup' as never);
   };
 
   const goToEmail = () => {
-    router.push({
-      pathname: '/(auth)/email-details',
-      params: { mode: 'signup' },
-    });
+    router.push('/onboarding-login' as never);
   };
 
   return (

@@ -23,6 +23,16 @@ export interface AuthOutlineButtonProps {
    */
   compact?: boolean;
 
+  /**
+   * Filled purple (acaiSecondary) state for toggle buttons that indicate the
+   * currently-selected mode on the login / signup screens. Default `false`
+   * renders the standard white-surface outline style.
+   *
+   * Note: the icon passed via `icon` is rendered as-is; callers should tint it
+   * to white (or another contrasting color) when `active` is true.
+   */
+  active?: boolean;
+
   style?: StyleProp<ViewStyle>;
 }
 
@@ -40,6 +50,7 @@ export function AuthOutlineButton({
   onPress,
   isDisabled,
   compact = false,
+  active = false,
   style,
 }: AuthOutlineButtonProps) {
   return (
@@ -49,6 +60,7 @@ export function AuthOutlineButton({
       style={({ pressed }) => [
         styles.button,
         compact ? styles.buttonCompact : styles.buttonFull,
+        active && styles.buttonActive,
         pressed && styles.buttonPressed,
         isDisabled && styles.buttonDisabled,
         style,
@@ -58,7 +70,7 @@ export function AuthOutlineButton({
       <Typography
         size={20}
         weight="500"
-        color="onyx"
+        color={active ? 'white' : 'onyx'}
         letterSpacing={-0.2}
         style={styles.label}
       >
@@ -86,6 +98,10 @@ const styles = StyleSheet.create({
   buttonCompact: {
     paddingHorizontal: 16,
     gap: 5,
+  },
+  buttonActive: {
+    backgroundColor: colors.acaiSecondary,
+    borderColor: colors.acaiSecondary,
   },
   buttonPressed: {
     opacity: 0.75,
