@@ -8,6 +8,7 @@
 export const colors = {
   // Brand · Purple (Acai)
   acaiPrimary: '#3E2368',
+  acaiDeep: '#482E6E',
   acaiSecondary: '#8C60CD',
   acaiTertiary: '#E5D4FF',
 

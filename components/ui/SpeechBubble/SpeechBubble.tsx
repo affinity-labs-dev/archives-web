@@ -49,6 +49,13 @@ export interface SpeechBubbleProps {
   style?: StyleProp<ViewStyle>;
   padding?: number;
   tail?: TailDirection | TailConfig;
+  /**
+   * When `true`, bubble stretches to full parent width (cross-axis) and keeps
+   * constant width as content grows — useful for typewriter content where you
+   * want stable layout instead of the bubble expanding character-by-character.
+   * Defaults to `false` (content-hugging).
+   */
+  fullWidth?: boolean;
 }
 
 const DEFAULT_TAIL_SIZE = 18;
@@ -86,6 +93,7 @@ export const SpeechBubble = forwardRef<SpeechBubbleHandle, SpeechBubbleProps>(
       style,
       padding = spacing.md,
       tail,
+      fullWidth = false,
     },
     ref,
   ) => {
@@ -167,6 +175,7 @@ export const SpeechBubble = forwardRef<SpeechBubbleHandle, SpeechBubbleProps>(
         style={[
           styles.wrapper,
           {
+            alignSelf: fullWidth ? 'stretch' : 'flex-start',
             marginLeft: tailMargin.left,
             marginRight: tailMargin.right,
             marginTop: tailMargin.top,
@@ -287,7 +296,6 @@ function getTailPosition(
 
 const styles = StyleSheet.create({
   wrapper: {
-    alignSelf: 'flex-start',
     position: 'relative',
   },
   tailSvg: {

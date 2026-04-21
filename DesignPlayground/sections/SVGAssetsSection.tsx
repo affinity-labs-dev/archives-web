@@ -88,7 +88,7 @@ export default function SVGAssetsSection() {
 
       <View style={[styles.illustrationGrid, isNarrow && styles.illustrationGridNarrow]}>
         <SVGCard name="welcome.svg" source={require('../assets/welcome.svg')} height={200} />
-        <SVGCard name="onboardingicon.svg" source={require('../assets/onboardingicon.svg')} height={200} />
+        <SVGCard name="top-1-icon.svg" source={require('../assets/top-1-icon.svg')} height={120} />
         <SVGCard name="learnislamic.svg" source={require('../assets/learnislamic.svg')} height={160} />
         <SVGCard name="sayhitoibu.svg" source={require('../assets/sayhitoibu.svg')} height={160} />
       </View>

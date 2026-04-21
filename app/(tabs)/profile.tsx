@@ -1223,6 +1223,24 @@ export default function ProfileTab() {
                   </TouchableOpacity>
                 )}
 
+                {/* Onboarding V2 — Phase 2 - Dev mode only */}
+                {__DEV__ && (
+                  <TouchableOpacity
+                    style={[styles.settingsOption, { backgroundColor: '#FFF0E5' }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                      setShowSettingsModal(false)
+                      setTimeout(() => router.push('/onboarding-step-1' as never), 300)
+                    }}
+                  >
+                    <View style={styles.settingsOptionIcon}>
+                      <Ionicons name="rocket" size={24} color="#C99151" />
+                    </View>
+                    <Text style={[styles.settingsOptionText, { color: '#C99151' }]}>Onboarding V2 — Hero</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#C99151" opacity={0.5} />
+                  </TouchableOpacity>
+                )}
+
                 {/* Privacy Policy */}
                 <TouchableOpacity 
                   style={styles.settingsOption} 
