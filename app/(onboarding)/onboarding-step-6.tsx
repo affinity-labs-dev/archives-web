@@ -96,8 +96,7 @@ export default function OnboardingStep6Screen() {
 
   const goNext = () => {
     setStep(7);
-    // TODO Phase 2 continuation: route to /onboarding-step-7 when built
-    router.back();
+    router.push('/onboarding-step-7' as never);
   };
 
   return (
