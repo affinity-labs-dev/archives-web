@@ -1,10 +1,18 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 
 import { Typography } from '@/components/ui/Typography';
 import { AnimatedEntrance } from '@/components/ui/animations';
-import type { ColorKey, SizeKey } from '@/components/ui/theme';
+import { sizeConfigs, type ColorKey, type SizeKey } from '@/components/ui/theme';
+
+/**
+ * Bounded-Black is a wide display font — empirically each uppercase character
+ * takes ~0.95× fontSize horizontally. Cap the size so the longest line always
+ * fits within (screenWidth - horizontal safety padding), preventing wrap.
+ */
+const BOUNDED_CHAR_WIDTH_RATIO = 0.95;
+const HORIZONTAL_SAFETY_PX = 40;
 
 export interface WelcomeStackedTextProps {
   /** Text to render. Automatically uppercased. */
@@ -96,10 +104,26 @@ export function WelcomeStackedText({
   style,
 }: WelcomeStackedTextProps) {
   const uppercased = text.toUpperCase();
+  const { width: screenWidth } = useWindowDimensions();
+
+  // Compute responsive size — cap the requested size so the longest line fits
+  // within the viewport. All layers + outline copies use this same value so
+  // they stay pixel-aligned (no per-line shrink mismatch).
+  const requestedSize = typeof size === 'number' ? size : sizeConfigs[size];
+  const longestLineLength = uppercased
+    .split('\n')
+    .reduce((max, line) => (line.length > max ? line.length : max), 0);
+  const maxSizeForWidth = longestLineLength > 0
+    ? Math.floor(
+        (screenWidth - HORIZONTAL_SAFETY_PX) /
+          (longestLineLength * BOUNDED_CHAR_WIDTH_RATIO),
+      )
+    : requestedSize;
+  const finalSize = Math.min(requestedSize, maxSizeForWidth);
 
   const sharedTypographyProps = {
     family: 'bounded' as const,
-    size,
+    size: finalSize,
     uppercase: true,
     weight: '900' as const,
     align: 'center' as const,
