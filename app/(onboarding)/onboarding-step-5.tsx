@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import {
   Typography,
@@ -52,6 +52,18 @@ export default function OnboardingStep5Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const [typewriterDone, setTypewriterDone] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  // Remount key for OptionList — bumped on every focus so that returning from
+  // a pushed screen (e.g., step-6) replays the entrance stagger. Needed because
+  // `exitSignal` moves cards to translateX: -500 one-way; flipping it back to
+  // false doesn't revert position.
+  const [optionsKey, setOptionsKey] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsExiting(false);
+      setOptionsKey((k) => k + 1);
+    }, []),
+  );
 
   const canContinue = interests.length > 0;
 
@@ -60,8 +72,7 @@ export default function OnboardingStep5Screen() {
     setIsExiting(true);
     setTimeout(() => {
       setStep(6);
-      // TODO Phase 2 continuation: route to /onboarding-step-6 when built
-      router.back();
+      router.push('/onboarding-step-6' as never);
     }, EXIT_ANIMATION_MS);
   };
 
@@ -85,7 +96,6 @@ export default function OnboardingStep5Screen() {
                 <SpeechBubble
                   borderWidth={1.5}
                   autoPlay={false}
-                  fullWidth
                   tail={{ direction: 'left', offset: 0.4, depth: 10, size: 14 }}
                   padding={spacing.md}
                 >
@@ -113,6 +123,7 @@ export default function OnboardingStep5Screen() {
 
               <View style={styles.optionsList}>
                 <OptionList
+                  key={optionsKey}
                   options={INTEREST_OPTIONS}
                   selectionMode="multi"
                   value={interests}

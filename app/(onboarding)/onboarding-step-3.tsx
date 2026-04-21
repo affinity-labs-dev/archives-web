@@ -78,7 +78,6 @@ export default function OnboardingStep3Screen() {
                 <SpeechBubble
                   borderWidth={1.5}
                   autoPlay={false}
-                  fullWidth
                   tail={{ direction: 'left', offset: 0.4, depth: 10, size: 14 }}
                   padding={spacing.md}
                 >
