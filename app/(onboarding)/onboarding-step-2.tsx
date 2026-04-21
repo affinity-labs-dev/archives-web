@@ -60,9 +60,9 @@ export default function SayHiToIbuScreen() {
   const goNext = () => {
     router.push('/onboarding-step-3' as never);
   };
+
   const goToLogin = () => {
-    // TODO Phase 2 Screen 7: wire to create-account / sign-in
-    router.push('/(auth)/archives-auth' as never);
+    router.push('/onboarding-step-7' as never);
   };
 
   return (
