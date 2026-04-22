@@ -162,11 +162,10 @@ export function DepthButton({
                 top: resolvedShadowOffset,
                 borderRadius: resolvedRadius,
                 backgroundColor: resolvedShadowColor,
-                ...(resolvedBorderColor !== undefined &&
-                  variant === 'primary' && {
-                    borderWidth: 1,
-                    borderColor: resolvedBorderColor,
-                  }),
+                ...(resolvedBorderColor !== undefined && {
+                  borderWidth: 1,
+                  borderColor: resolvedBorderColor,
+                }),
               },
             ]}
           />

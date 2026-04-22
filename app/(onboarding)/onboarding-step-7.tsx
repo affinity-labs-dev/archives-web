@@ -63,10 +63,10 @@ export default function OnboardingStep7Screen() {
   };
 
   const goToEmail = () => {
-    // TEMP: wired to step-10 for testing until step-8/9 designs are ready.
-    // Revert to '/onboarding-auth?mode=signin' once the notification step is
-    // reachable via its proper place in the flow.
-    router.push('/onboarding-step-10' as never);
+    // TEMP: wired to step-9 (notification) for testing until step-8 design
+    // is ready. Revert to '/onboarding-auth?mode=signin' once the proper
+    // flow is in place.
+    router.push('/onboarding-step-9' as never);
   };
 
   return (
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   topBar: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    minHeight: 28,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,

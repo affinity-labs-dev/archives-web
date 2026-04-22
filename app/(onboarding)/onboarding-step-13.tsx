@@ -1,179 +1,179 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, StatusBar, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { SvgXml } from 'react-native-svg';
 import { router } from 'expo-router';
 
-import Rive, { Alignment, Fit } from 'rive-react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-
-import { Typography, colors, spacing, easings } from '@/components/ui';
+import {
+  Typography,
+  DepthButton,
+  colors,
+  spacing,
+  easings,
+} from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
-import { useOnboardingStore } from '@/stores/onboardingStore';
+import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const reruledLoadingRive = require('@/assets/rive/reruled-loading.riv');
-
-const LOADING_MESSAGES = [
-  'Analyzing your interests...',
-  'Building your learning path...',
-  'Personalizing your experience...',
-];
-const FINAL_MESSAGE = 'Your learning path is ready!';
-
-const CYCLE_INTERVAL_MS = 1200;
-const EXIT_DURATION_MS = 400;        // loading group fade-out
-const FINAL_ENTER_DELAY_MS = 500;    // wait for exit before final enters
-const FINAL_ENTER_DURATION_MS = 700; // final message fade+scale in
-const FINAL_VISIBLE_MS = 1800;       // hold final state before auto-advance
-const AUTO_ADVANCE_TOTAL_MS =
-  LOADING_MESSAGES.length * CYCLE_INTERVAL_MS +
-  EXIT_DURATION_MS +
-  FINAL_ENTER_DELAY_MS +
-  FINAL_ENTER_DURATION_MS +
-  FINAL_VISIBLE_MS;
+const mascotImg = require('@/assets/images/ibu-teacher.png');
 
 /**
- * Screen 13 — Generating personalized learning path (auto-advance).
+ * Screen 15 — Free trial soft paywall.
  *
- * Figma: 3282:8114. Follows the 01-onboarding HTML prototype: mascot fades
- * in centered, three loading messages cross-fade every 1.2s, then a final
- * "Your learning path is ready!" state settles before auto-advancing to
- * the next phase. No user interaction required (back + skip still work).
+ * Figma: 3282:7420. Aspen Gold background, minimal header (back only, no
+ * progress/skip since onboarding is effectively complete), eyebrow +
+ * multi-line hero title with "Archives Plus" highlighted in acaiPrimary,
+ * teacher mascot centered, and a SEE MY FREE OFFER CTA anchored to the
+ * bottom — same position/size as step-14 GET STARTED so the flow doesn't
+ * shift between screens.
  *
- * Total runtime: 3 cycles × 1200ms + 1800ms final = 5400ms.
+ * TEMP: CTA routes straight to /(tabs)/today. Replace with RevenueCat
+ * paywall presentation when the real offering is wired up.
  */
-export default function OnboardingStep13Screen() {
-  const setStep = useOnboardingStore((s) => s.setStep);
-  const [messageIndex, setMessageIndex] = useState(0);
-  const [showFinal, setShowFinal] = useState(false);
+export default function OnboardingStep15Screen() {
+  const handleBack = () => router.back();
 
-  useEffect(() => {
-    const cycleTimer = setInterval(() => {
-      setMessageIndex((i) => {
-        const next = i + 1;
-        if (next >= LOADING_MESSAGES.length) {
-          clearInterval(cycleTimer);
-          setShowFinal(true);
-          return i;
-        }
-        return next;
-      });
-    }, CYCLE_INTERVAL_MS);
-
-    const advanceTimer = setTimeout(() => {
-      setStep(14);
-      router.replace('/onboarding-step-14' as never);
-    }, AUTO_ADVANCE_TOTAL_MS);
-
-    return () => {
-      clearInterval(cycleTimer);
-      clearTimeout(advanceTimer);
-    };
-  }, [setStep]);
+  const handleSeeOffer = () => {
+    router.replace('/(tabs)/today' as never);
+  };
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.centerBlock}>
-          {/* Two groups that swap via Reanimated entering/exiting — the
-              loading group (Rive + cycling message) fades out, then the
-              final message fades + scales in. Delay on the final group's
-              entering waits for the loading group's exit to finish. */}
-          {!showFinal && (
-            <Animated.View
-              entering={FadeIn.duration(800)}
-              exiting={FadeOut.duration(EXIT_DURATION_MS)}
-              style={styles.loadingGroup}
-            >
-              {/* Wrap Rive in a fixed-size View so its native component
-                  cannot greedy-flex beyond the intended bounding box. */}
-              <View style={styles.riveBox}>
-                <Rive
-                  source={reruledLoadingRive}
-                  autoplay
-                  fit={Fit.Cover}
-                  alignment={Alignment.Center}
-                  style={styles.riveFill}
-                />
-              </View>
+        {/* Minimal header — back arrow only */}
+        <AnimatedEntrance
+          preset={{
+            translateY: { from: -20, to: 0 },
+            opacity: { from: 0, to: 1 },
+            duration: 300,
+            easing: easings.power2Out,
+          }}
+        >
+          <View style={styles.header}>
+            <Pressable onPress={handleBack} hitSlop={16}>
+              <SvgXml xml={backArrowSvg} width={18} height={22} />
+            </Pressable>
+          </View>
+        </AnimatedEntrance>
 
-              {/* Key change triggers entrance replay on each message swap */}
-              <AnimatedEntrance
-                key={`msg-${messageIndex}`}
-                preset={{
-                  translateY: { from: 10, to: 0 },
-                  opacity: { from: 0, to: 1 },
-                  duration: 350,
-                  easing: easings.power2Out,
-                }}
-                style={styles.textGap}
-              >
-                <Typography
-                  size={20}
-                  weight="600"
-                  color="onyx"
-                  align="center"
-                  lineHeight={26}
-                >
-                  {LOADING_MESSAGES[messageIndex]}
-                </Typography>
-              </AnimatedEntrance>
-            </Animated.View>
-          )}
+        <View style={styles.content}>
+          {/* Eyebrow */}
+          <AnimatedEntrance preset="fadeIn" delay={300}>
+            <Typography size={20} weight="600" color="onyx" align="center">
+              Archives is free to use
+            </Typography>
+          </AnimatedEntrance>
 
-          {showFinal && (
-            <Animated.View
-              entering={FadeIn.duration(FINAL_ENTER_DURATION_MS).delay(
-                FINAL_ENTER_DELAY_MS,
-              )}
-            >
-              <Typography
-                family="bounded"
-                size={22}
-                lineHeight={28}
-                color="onyx"
-                align="center"
-                uppercase
-              >
-                {FINAL_MESSAGE}
-              </Typography>
-            </Animated.View>
-          )}
+          {/* Hero title — nested Text for inline color span */}
+          <AnimatedEntrance
+            preset={{
+              translateY: { from: 40, to: 0 },
+              opacity: { from: 0, to: 1 },
+              scale: { from: 0.9, to: 1 },
+              duration: 700,
+              easing: easings.backOut17,
+            }}
+            delay={500}
+            style={styles.titleWrapper}
+          >
+            <Text style={styles.heroTitle}>
+              {'But we’d love for you to try '}
+              <Text style={styles.heroTitleAcai}>Archives Plus</Text>
+              {' for 7 days free too!'}
+            </Text>
+          </AnimatedEntrance>
+
+          {/* Mascot */}
+          <AnimatedEntrance
+            preset={{
+              scale: { from: 0.6, to: 1 },
+              opacity: { from: 0, to: 1 },
+              duration: 700,
+              easing: easings.backOut17,
+            }}
+            delay={900}
+            style={styles.mascotWrapper}
+          >
+            <Image source={mascotImg} style={styles.mascot} contentFit="contain" />
+          </AnimatedEntrance>
         </View>
+
+        {/* CTA — outside content flex so it anchors to screen bottom,
+            matching step-14 GET STARTED positioning. */}
+        <AnimatedEntrance
+          preset={{
+            translateY: { from: 60, to: 0 },
+            opacity: { from: 0, to: 1 },
+            duration: 500,
+            easing: easings.backOut2,
+          }}
+          delay={1200}
+          style={styles.bottomBar}
+        >
+          <DepthButton
+            surfaceColor="onyx"
+            shadowColor="white"
+            borderColor="onyx"
+            onPress={handleSeeOffer}
+          >
+            <Typography variant="label.m" color="white">
+              SEE MY FREE OFFER
+            </Typography>
+          </DepthButton>
+        </AnimatedEntrance>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.snow },
+  root: { flex: 1, backgroundColor: colors.aspenGold },
   safe: { flex: 1 },
-  centerBlock: {
-    flex: 1,
-    alignItems: 'center',
+
+  header: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    minHeight: 28,
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
   },
-  loadingGroup: {
+
+  content: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
     alignItems: 'center',
   },
-  riveBox: {
-    width: 220,
-    height: 220,
-    overflow: 'hidden',
-    backgroundColor: 'transparent',
-  },
-  riveFill: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'transparent',
-    // Scale the Rive artwork up so the built-in padding around the book
-    // gets cropped by the box's overflow:hidden. Book visibly ~35% larger
-    // than its natural Contain fit.
-    transform: [{ scale: 1.15 }],
-  },
-  textGap: {
+
+  titleWrapper: {
     marginTop: spacing.xs,
+    width: '100%',
+  },
+  heroTitle: {
+    fontFamily: 'Onest-Black',
+    fontSize: 30,
+    lineHeight: 36,
+    color: colors.onyx,
+    textAlign: 'center',
+  },
+  heroTitleAcai: {
+    color: colors.acaiPrimary,
+  },
+
+  mascotWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  mascot: {
+    width: 280,
+    height: 280,
+  },
+
+  bottomBar: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
   },
 });

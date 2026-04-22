@@ -17,7 +17,7 @@ import { Mascot } from '@/components/onboarding/Mascot/Mascot';
 import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
 import { useOnboardingStore, type InterestKey } from '@/stores/onboardingStore';
 
-const INTEREST_OPTIONS: Array<{ id: InterestKey; label: string }> = [
+const INTEREST_OPTIONS: { id: InterestKey; label: string }[] = [
   { id: 'fun', label: 'Just for fun' },
   { id: 'heritage', label: 'Connect with heritage' },
   { id: 'children', label: 'Teach my children' },
@@ -77,14 +77,14 @@ export default function OnboardingStep5Screen() {
   };
 
   const handleSkip = () => {
-    router.push('/(auth)/archives-auth' as never);
+    router.push('/onboarding-step-7' as never);
   };
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <OnboardingHeader currentStep={5} totalSteps={14} onSkip={handleSkip} />
+        <OnboardingHeader currentStep={5} totalSteps={12} onSkip={handleSkip} />
 
         <View style={styles.body}>
           {/* Phase A — Mascot + bubble slide in from left as one unit */}

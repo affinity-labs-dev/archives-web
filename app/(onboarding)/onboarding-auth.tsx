@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   topBar: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    minHeight: 28,
   },
   body: { flex: 1 },
   scrollContent: {

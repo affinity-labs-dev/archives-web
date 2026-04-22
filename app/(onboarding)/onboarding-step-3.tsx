@@ -55,14 +55,14 @@ export default function OnboardingStep3Screen() {
   };
 
   const handleSkip = () => {
-    router.push('/(auth)/archives-auth' as never);
+    router.push('/onboarding-step-7' as never);
   };
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <OnboardingHeader currentStep={3} totalSteps={14} onSkip={handleSkip} />
+        <OnboardingHeader currentStep={3} totalSteps={12} onSkip={handleSkip} />
 
         <KeyboardAvoidingView
           style={styles.body}
@@ -72,7 +72,7 @@ export default function OnboardingStep3Screen() {
           {/* Phase A — Mascot + bubble slide in from left as one unit */}
           <AnimatedEntrance preset="slideFromLeft" delay={100}>
             <View style={styles.mascotRow}>
-              <Mascot size={96} autoPlayEntrance={false} />
+              <Mascot size={110} autoPlayEntrance={false} />
 
               <View style={styles.bubbleWrapper}>
                 <SpeechBubble

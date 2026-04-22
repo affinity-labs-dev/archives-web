@@ -30,6 +30,7 @@ import AffinityNotificationService from '@/services/AffinityNotificationService'
 import PushNotificationService from '@/services/PushNotificationService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
+import { useOnboardingStore } from '@/stores/onboardingStore';
 import AppLogger from '@/services/AppLogger';
 import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 import { addPushToStartTokenListener, addActivityPushTokenListener, getCachedPushToStartToken, registerPushToStartTokens } from '@/modules/live-activity';
@@ -195,6 +196,19 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Initialize OTA update checks (foreground check + Sentry tags + PostHog tracking)
   useOTAUpdates();
+
+  // Bind Clerk user id to onboarding store on first sign-in. The resume-flow
+  // routing guard in app/index.tsx reads this to detect account switches
+  // (user signs out + signs in as someone else → onboarding state is reset).
+  // Idempotent: only binds when userIdAtStart is not yet set, so token
+  // refreshes that re-run this effect don't clobber anything.
+  const bindOnboardingToUser = useOnboardingStore((s) => s.bindToUser);
+  const onboardingUserId = useOnboardingStore((s) => s.userIdAtStart);
+  React.useEffect(() => {
+    if (isSignedIn && user?.id && !onboardingUserId) {
+      bindOnboardingToUser(user.id);
+    }
+  }, [isSignedIn, user?.id, onboardingUserId, bindOnboardingToUser]);
 
   // Register user with Affinity Notification Service on sign-in
   React.useEffect(() => {

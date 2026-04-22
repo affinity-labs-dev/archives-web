@@ -132,12 +132,12 @@ export default function OnboardingStep6Screen() {
           </View>
 
           <View style={styles.statsRow}>
-            <Image source={avgRatingBadge} style={styles.statBadge} contentFit="contain" />
             <Image
               source={lessonsCompletedBadge}
               style={styles.statBadge}
               contentFit="contain"
             />
+            <Image source={avgRatingBadge} style={styles.statBadge} contentFit="contain" />
           </View>
         </AnimatedEntrance>
 
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   topBar: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    minHeight: 28,
   },
   titleBlock: {
     paddingTop: spacing.md,

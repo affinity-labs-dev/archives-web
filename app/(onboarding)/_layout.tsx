@@ -16,17 +16,17 @@ export default function OnboardingLayout() {
       {/* New flow (Phase 2+) */}
       <Stack.Screen name="onboarding-step-1" options={{ animation: 'fade' }} />
       <Stack.Screen name="onboarding-step-2" options={{ animation: 'fade' }} />
-      <Stack.Screen name="onboarding-step-3" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding-step-3" options={{ animation: 'fade' }} />
       <Stack.Screen name="onboarding-step-4" options={{ animation: 'fade' }} />
-      <Stack.Screen name="onboarding-step-5" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="onboarding-step-6" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="onboarding-step-7" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="onboarding-auth" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="onboarding-step-10" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="onboarding-step-11" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="onboarding-step-12" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding-step-5" options={{ animation: 'fade' }} />
+      <Stack.Screen name="onboarding-step-6" options={{ animation: 'fade' }} />
+      <Stack.Screen name="onboarding-step-7" options={{ animation: 'fade' }} />
+      <Stack.Screen name="onboarding-auth" options={{ animation: 'fade' }} />
+      <Stack.Screen name="onboarding-step-9" options={{ animation: 'fade' }} />
+      <Stack.Screen name="onboarding-step-10" options={{ animation: 'fade' }} />
+      <Stack.Screen name="onboarding-step-11" options={{ animation: 'fade' }} />
+      <Stack.Screen name="onboarding-step-12" options={{ animation: 'fade' }} />
       <Stack.Screen name="onboarding-step-13" options={{ animation: 'fade' }} />
-      <Stack.Screen name="onboarding-step-14" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }
