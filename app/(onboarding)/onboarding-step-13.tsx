@@ -62,8 +62,7 @@ export default function OnboardingStep13Screen() {
 
     const advanceTimer = setTimeout(() => {
       setStep(14);
-      // TODO Phase 2: push to /onboarding-step-14 when built
-      router.replace('/(tabs)/today' as never);
+      router.replace('/onboarding-step-14' as never);
     }, AUTO_ADVANCE_TOTAL_MS);
 
     return () => {

@@ -26,6 +26,7 @@ export default function OnboardingLayout() {
       <Stack.Screen name="onboarding-step-11" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="onboarding-step-12" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="onboarding-step-13" options={{ animation: 'fade' }} />
+      <Stack.Screen name="onboarding-step-14" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }
