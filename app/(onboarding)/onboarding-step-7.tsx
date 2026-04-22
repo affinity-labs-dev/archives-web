@@ -63,10 +63,7 @@ export default function OnboardingStep7Screen() {
   };
 
   const goToEmail = () => {
-    // TEMP: wired to step-9 (notification) for testing until step-8 design
-    // is ready. Revert to '/onboarding-auth?mode=signin' once the proper
-    // flow is in place.
-    router.push('/onboarding-step-9' as never);
+    router.push('/onboarding-auth?mode=signin' as never);
   };
 
   return (

@@ -494,7 +494,7 @@ export default function ProfileTab() {
       // Now safe to clear all local data (token already revoked)
       await AsyncStorage.clear()
       console.log('✅ All local data cleared')
-      router.replace('/onboarding-video')
+      router.replace('/onboarding-step-1')
     } catch (error) {
       console.error('Sign out error:', error)
     }
@@ -633,7 +633,7 @@ export default function ProfileTab() {
               await user.delete()
               
               // Navigate to onboarding for fresh start
-              router.replace('/onboarding-video')
+              router.replace('/onboarding-step-1')
               
             } catch (error) {
               setIsDeletingAccount(false)

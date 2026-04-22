@@ -80,16 +80,17 @@ const WEEKS: WeekEntry[] = [
  */
 export default function OnboardingStep12Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
-  const submit = useOnboardingStore((s) => s.submit);
   const markCompleted = useOnboardingStore((s) => s.markCompleted);
 
-  const handleGetStarted = async () => {
+  const handleGetStarted = () => {
     // TODO: branch on subscription state — if the user already has an active
     // Archives Plus entitlement (via RevenueCat), skip step-13 (soft paywall)
     // and go straight to `/(tabs)/today`. Otherwise push step-13 as now.
     setStep(12);
+    // markCompleted flips status → 'completed'. useOnboardingSync picks up
+    // the terminal transition and fires `flushOnboardingAnswers` (immediate
+    // cloud upsert), so we don't block navigation on the network round trip.
     markCompleted();
-    await submit();
     router.push('/onboarding-step-13' as never);
   };
 

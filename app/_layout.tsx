@@ -31,6 +31,7 @@ import PushNotificationService from '@/services/PushNotificationService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { useOnboardingSync } from '@/hooks/useOnboardingSync';
 import AppLogger from '@/services/AppLogger';
 import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 import { addPushToStartTokenListener, addActivityPushTokenListener, getCachedPushToStartToken, registerPushToStartTokens } from '@/modules/live-activity';
@@ -168,6 +169,14 @@ if (Platform.OS === 'android') {
   }).then((channel) => {
     console.log('🔔 [Android] Notification channel created/verified:', JSON.stringify(channel));
   });
+}
+
+// Sync bridge placed inside GamifiedProgressProvider so it can read
+// `state.onboarding_answers` and invoke `writeOnboardingAnswers` /
+// `flushOnboardingAnswers`. Renders nothing — pure effect orchestrator.
+function OnboardingSyncBridge() {
+  useOnboardingSync();
+  return null;
 }
 
 // Analytics initialization wrapper that must be inside PostHogProvider
@@ -815,6 +824,7 @@ export default Sentry.wrap(function RootLayout() {
                   <AdventuresContentProvider>
                     <RewardsProvider>
                       <GamifiedProgressProvider>
+                        <OnboardingSyncBridge />
                         <PreferencesProvider>
                           <NotificationPromptProvider>
                             <GamificationOrchestratorProvider>

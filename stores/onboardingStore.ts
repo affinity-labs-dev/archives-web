@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { OnboardingAnswers } from '@/gamification/engines/GamifiedProgress';
 
 /**
  * Onboarding store — holds all data collected across the 13-step flow and
@@ -51,7 +52,10 @@ interface OnboardingState {
 
   // Lifecycle
   status: OnboardingStatus;
+  /** ms timestamp of first setStep call — marks when user actually started the flow. */
+  startedAt: number | null;
   onboardingCompletedAt: number | null;
+  onboardingSkippedAt: number | null;
   /** Clerk user id bound to this onboarding session — used to detect account switch. */
   userIdAtStart: string | null;
 
@@ -69,7 +73,14 @@ interface OnboardingState {
   markSkipped: () => void;
   bindToUser: (userId: string) => void;
   reset: () => void;
-  submit: () => Promise<void>;
+  /** Pure builder — snapshot current state into cloud payload shape. */
+  buildPayload: () => OnboardingAnswers;
+  /**
+   * Hydrate from cloud-loaded OnboardingAnswers. Guarded against overwriting
+   * local progress — caller should only invoke when local `status` is
+   * `not_started` (meaning: fresh install, nothing collected locally yet).
+   */
+  hydrateFromCloud: (answers: OnboardingAnswers) => void;
   _setHasHydrated: (v: boolean) => void;
 }
 
@@ -82,7 +93,9 @@ const INITIAL_STATE = {
   totalSteps: TOTAL_ONBOARDING_STEPS,
   lastStepVisited: 1,
   status: 'not_started' as OnboardingStatus,
+  startedAt: null as number | null,
   onboardingCompletedAt: null as number | null,
+  onboardingSkippedAt: null as number | null,
   userIdAtStart: null as string | null,
 };
 
@@ -114,6 +127,8 @@ export const useOnboardingStore = create<OnboardingState>()(
           // Auto-transition not_started → in_progress on first movement.
           // Don't overwrite completed/skipped — those are terminal.
           status: state.status === 'not_started' ? 'in_progress' : state.status,
+          // Stamp start time once — reused by the cloud payload.
+          startedAt: state.startedAt ?? Date.now(),
         })),
 
       markCompleted: () =>
@@ -125,17 +140,50 @@ export const useOnboardingStore = create<OnboardingState>()(
       markSkipped: () =>
         set({
           status: 'skipped',
+          onboardingSkippedAt: Date.now(),
         }),
 
       bindToUser: (userId) => set({ userIdAtStart: userId }),
 
       reset: () => set({ ...INITIAL_STATE }),
 
-      submit: async () => {
-        const { name, interests, dailyGoalMinutes, ageGroup } = get();
-        console.log('🚀 Onboarding submit', { name, interests, dailyGoalMinutes, ageGroup });
-        // TODO Phase 3 finish screen: POST aggregated payload to backend
+      buildPayload: () => {
+        const s = get();
+        const effectiveStatus: OnboardingStatus =
+          s.status === 'not_started' ? 'in_progress' : s.status;
+        const startedAtIso = new Date(s.startedAt ?? Date.now()).toISOString();
+        return {
+          version: 2,
+          name: s.name || null,
+          interests: s.interests,
+          daily_goal_minutes: s.dailyGoalMinutes,
+          age_group: s.ageGroup,
+          status: effectiveStatus,
+          started_at: startedAtIso,
+          completed_at: s.onboardingCompletedAt
+            ? new Date(s.onboardingCompletedAt).toISOString()
+            : null,
+          skipped_at: s.onboardingSkippedAt
+            ? new Date(s.onboardingSkippedAt).toISOString()
+            : null,
+        };
       },
+
+      hydrateFromCloud: (answers) =>
+        set({
+          name: answers.name ?? '',
+          interests: answers.interests as InterestKey[],
+          dailyGoalMinutes: answers.daily_goal_minutes,
+          ageGroup: answers.age_group,
+          status: answers.status,
+          startedAt: new Date(answers.started_at).getTime(),
+          onboardingCompletedAt: answers.completed_at
+            ? new Date(answers.completed_at).getTime()
+            : null,
+          onboardingSkippedAt: answers.skipped_at
+            ? new Date(answers.skipped_at).getTime()
+            : null,
+        }),
 
       _setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
@@ -152,7 +200,9 @@ export const useOnboardingStore = create<OnboardingState>()(
         totalSteps: state.totalSteps,
         lastStepVisited: state.lastStepVisited,
         status: state.status,
+        startedAt: state.startedAt,
         onboardingCompletedAt: state.onboardingCompletedAt,
+        onboardingSkippedAt: state.onboardingSkippedAt,
         userIdAtStart: state.userIdAtStart,
       }),
       onRehydrateStorage: () => (state) => {
