@@ -302,7 +302,7 @@ const CONNECTOR_HEIGHT = 48;
 // Card image is 106×106; half-width = 53. Connector horizontal padding equals
 // this so the stretched SVG's endpoints align with the vertical center-lines
 // of the adjacent cards' images on any screen width.
-const IMAGE_HALF = 53;
+const IMAGE_WIDTH = 106;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.snow },
@@ -372,8 +372,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
   },
   weekThumb: {
-    width: 106,
-    height: 106,
+    width: IMAGE_WIDTH,
+    height: IMAGE_WIDTH,
     borderRadius: 15,
   },
   weekInfo: {
@@ -384,10 +384,10 @@ const styles = StyleSheet.create({
   connector: {
     width: '100%',
     height: CONNECTOR_HEIGHT,
-    paddingLeft: IMAGE_HALF - 5,
-    paddingRight: IMAGE_HALF - 5,
+    paddingLeft: IMAGE_WIDTH / 2 - 5,
+    paddingRight: IMAGE_WIDTH / 2 - 5,
     position: 'absolute',
-    top: 2 * IMAGE_HALF, 
+    top: IMAGE_WIDTH, 
     zIndex: 10,
   },
 
