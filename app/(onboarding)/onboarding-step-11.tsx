@@ -20,7 +20,7 @@ const LOADING_MESSAGES = [
 ];
 const FINAL_MESSAGE = 'Your learning path is ready!';
 
-const CYCLE_INTERVAL_MS = 200;
+const CYCLE_INTERVAL_MS = 2000;
 const EXIT_DURATION_MS = 400;        // loading group fade-out
 const FINAL_ENTER_DELAY_MS = 500;    // wait for exit before final enters
 const FINAL_ENTER_DURATION_MS = 700; // final message fade+scale in
