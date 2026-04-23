@@ -28,6 +28,7 @@ import { AuthInput } from '@/components/onboarding/auth/AuthInput';
 import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
 import { personAddSvg, personCheckSvg } from '@/components/onboarding/icons/personIcons';
 import { analyticsService } from '@/services/AnalyticsService';
+import { useOnboardingStore } from '@/stores/onboardingStore';
 
 /**
  * Single-screen auth flow — merged login + signup. Initial mode comes from the
@@ -55,6 +56,8 @@ import { analyticsService } from '@/services/AnalyticsService';
  */
 export default function OnboardingAuthScreen() {
   const params = useLocalSearchParams<{ mode?: string; email?: string }>();
+  const setIsSignUpMode = useOnboardingStore((s) => s.setIsSignUpMode);
+
   const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn();
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp();
 
@@ -89,7 +92,15 @@ export default function OnboardingAuthScreen() {
   };
 
   const onContinue = async () => {
-    router.replace('/(tabs)/today' as never);
+    // New sign-ups flow through the post-signup celebration (step 8) and
+    // the personalize phases (9-12). Sign-in of an existing account skips
+    // straight to the main app — their profile is already set up.
+    if (isSignInMode) {
+      router.replace('/(tabs)/today' as never);
+    } else {
+      setIsSignUpMode(true);
+      setTimeout(() => router.replace('/onboarding-step-8' as never), 300);
+    }
   };
 
   const validateInputs = (): boolean => {

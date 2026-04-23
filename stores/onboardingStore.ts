@@ -44,6 +44,7 @@ interface OnboardingState {
   interests: InterestKey[];
   dailyGoalMinutes: DailyGoalMinutes | null;
   ageGroup: AgeGroup | null;
+  isSignUpMode: boolean;
 
   // Navigation / progress
   currentStep: number;
@@ -68,6 +69,7 @@ interface OnboardingState {
   setInterests: (keys: InterestKey[]) => void;
   setDailyGoal: (minutes: DailyGoalMinutes | null) => void;
   setAgeGroup: (group: AgeGroup | null) => void;
+  setIsSignUpMode: (isSignUpMode: boolean) => void;
   setStep: (step: number) => void;
   markCompleted: () => void;
   markSkipped: () => void;
@@ -86,6 +88,7 @@ interface OnboardingState {
 
 const INITIAL_STATE = {
   name: '',
+  isSignUpMode: false,
   interests: [] as InterestKey[],
   dailyGoalMinutes: null as DailyGoalMinutes | null,
   ageGroup: null as AgeGroup | null,
@@ -119,6 +122,8 @@ export const useOnboardingStore = create<OnboardingState>()(
       setDailyGoal: (minutes) => set({ dailyGoalMinutes: minutes }),
 
       setAgeGroup: (group) => set({ ageGroup: group }),
+
+      setIsSignUpMode: (isSignUpMode) => set({ isSignUpMode }),
 
       setStep: (step) =>
         set((state) => ({

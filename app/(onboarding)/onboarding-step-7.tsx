@@ -41,13 +41,20 @@ const ibuJumpingRive = require('@/assets/rive/ibu-jumping.riv');
  */
 export default function OnboardingStep7Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
+  const setIsSignUpMode = useOnboardingStore((s) => s.setIsSignUpMode);
 
   const onAuthSuccess = (isNewUser: boolean) => {
     setStep(8);
     AppLogger.info('auth', 'Onboarding step-7 auth success', { isNewUser });
-    // TODO Phase 2: when step-8 (Daily Goal) is built, route there for new users
-    // instead of jumping straight into the app.
-    router.replace('/(tabs)/today' as never);
+    // New users go through the post-signup celebration + personalize flow.
+    // Returning users (signed in on an existing account) skip straight to
+    // the main app — they've already done onboarding on a prior install.
+    if (isNewUser) {
+      setIsSignUpMode(true);
+      setTimeout(() => router.replace('/onboarding-step-8' as never), 300);
+    } else {
+      router.replace('/(tabs)/today' as never);
+    }
   };
 
   const onAuthError = (error: { message: string }) => {
