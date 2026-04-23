@@ -6,10 +6,12 @@ import {
   Pressable,
   Text,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Redirect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useClerk } from '@clerk/clerk-expo';
 
 import {
   Typography,
@@ -24,6 +26,7 @@ import { AccountAvatar } from '@/components/onboarding/auth/AccountAvatar';
 import {
   getActiveAccount,
   removeRememberedAccount,
+  upsertRememberedAccount,
   type RememberedAccount,
 } from '@/services/RememberedAccountService';
 import { useRememberedOAuth } from '@/hooks/useRememberedOAuth';
@@ -60,6 +63,7 @@ export default function WelcomeBackScreen() {
   const [isLoadingAccount, setIsLoadingAccount] = React.useState(true);
   const [oauthError, setOauthError] = React.useState<string | null>(null);
   const resetOnboarding = useOnboardingStore((s) => s.reset);
+  const clerk = useClerk();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -83,9 +87,67 @@ export default function WelcomeBackScreen() {
   }, []);
 
   const handleOAuthSuccess = React.useCallback(() => {
+    // OAuth just resolved — Clerk's singleton should have the active user
+    // populated by the time `setActive()` awaited inside useRememberedOAuth.
+    // Compare the signed-in email to what the welcome-back card promised:
+    // Google's account picker lets users choose ANY linked account, so
+    // "CONTINUE AS BASEL" can end up signing in as someone else. Surface
+    // the mismatch instead of silently swapping identities.
+    const activeUser = clerk.user;
+    const activeEmail = activeUser?.primaryEmailAddress?.emailAddress ?? null;
+    const expected = account?.email?.trim().toLowerCase() ?? null;
+    const actual = activeEmail?.trim().toLowerCase() ?? null;
+
+    if (account && activeUser && actual && expected && actual !== expected) {
+      AppLogger.warn('auth', 'Welcome-back: email mismatch after OAuth', {
+        expected,
+        actual,
+      });
+      Alert.alert(
+        'Different account',
+        `You signed in as ${activeEmail}, not ${account.email}. Continue as the new account?`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: async () => {
+              try {
+                await clerk.signOut();
+              } catch (err) {
+                AppLogger.warn('auth', 'Welcome-back: signOut after mismatch failed', {
+                  err: String(err),
+                });
+              }
+            },
+          },
+          {
+            text: 'Continue',
+            onPress: async () => {
+              try {
+                await upsertRememberedAccount({
+                  userId: activeUser.id,
+                  firstName: activeUser.firstName ?? null,
+                  email: activeEmail!,
+                  avatarUrl: activeUser.imageUrl ?? null,
+                  lastAuthMethod: account.lastAuthMethod,
+                  lastSignedInAt: Date.now(),
+                });
+              } catch (err) {
+                AppLogger.warn('auth', 'Welcome-back: upsert new account failed', {
+                  err: String(err),
+                });
+              }
+              router.replace('/(tabs)/today' as never);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     AppLogger.info('auth', 'Welcome-back OAuth success → /(tabs)/today');
     router.replace('/(tabs)/today' as never);
-  }, []);
+  }, [account, clerk]);
 
   const handleOAuthError = React.useCallback((err: { message: string }) => {
     AppLogger.warn('auth', 'Welcome-back OAuth error', { message: err.message });

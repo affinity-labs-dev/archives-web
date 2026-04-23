@@ -11,6 +11,7 @@ import React from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider, ClerkLoaded, useUser } from "@clerk/clerk-expo";
 import { tokenCache } from "@/services/ClerkTokenCache";
@@ -861,7 +862,8 @@ export default Sentry.wrap(function RootLayout() {
         flex: 1,
         backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined
       }}>
-        <PostHogProvider apiKey={posthogApiKey} options={posthogOptions} autocapture={posthogAutocaptureOptions}>
+        <KeyboardProvider>
+          <PostHogProvider apiKey={posthogApiKey} options={posthogOptions} autocapture={posthogAutocaptureOptions}>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
             <ClerkLoaded>
               <AnalyticsWrapper>
@@ -903,6 +905,7 @@ export default Sentry.wrap(function RootLayout() {
             </ClerkLoaded>
           </ClerkProvider>
         </PostHogProvider>
+        </KeyboardProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

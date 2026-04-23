@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 
 import {
   Typography,
@@ -72,7 +72,12 @@ export function DailyGoalPhase({
             </Typography>
           </AnimatedEntrance>
 
-          <View style={styles.optionsList}>
+          <ScrollView
+            style={styles.optionsScroll}
+            contentContainerStyle={styles.optionsScrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
             <OptionList
               options={DAILY_GOAL_OPTIONS.map((o) => ({ id: o.id, label: o.label }))}
               selectionMode="single"
@@ -81,11 +86,9 @@ export function DailyGoalPhase({
               exitSignal={exitSignal}
               animateIn
             />
-          </View>
+          </ScrollView>
         </View>
       )}
-
-      <View style={styles.flex} />
 
       {typewriterDone && (
         <AnimatedEntrance preset="slideFromBottom" delay={CONTINUE_DELAY_AFTER_TYPEWRITER}>
@@ -111,12 +114,20 @@ export function DailyGoalPhase({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   optionsSection: {
+    flex: 1,
     marginTop: spacing.xl,
     gap: spacing.md,
+    minHeight: 0,
   },
-  optionsList: {
-    minHeight: 240,
+  // Bleed to screen edges so the OptionList horizontal slide animations
+  // aren't clipped at the parent body's spacing.lg padding.
+  optionsScroll: {
+    flex: 1,
+    marginHorizontal: -spacing.lg,
   },
-  flex: { flex: 1 },
+  optionsScrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
   bottom: { paddingBottom: spacing.lg },
 });

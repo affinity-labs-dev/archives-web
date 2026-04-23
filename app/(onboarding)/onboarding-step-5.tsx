@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { View, StyleSheet, StatusBar, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
@@ -121,7 +121,12 @@ export default function OnboardingStep5Screen() {
                 </Typography>
               </AnimatedEntrance>
 
-              <View style={styles.optionsList}>
+              <ScrollView
+                style={styles.optionsScroll}
+                contentContainerStyle={styles.optionsScrollContent}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
                 <OptionList
                   key={optionsKey}
                   options={INTEREST_OPTIONS}
@@ -131,11 +136,9 @@ export default function OnboardingStep5Screen() {
                   exitSignal={isExiting}
                   animateIn
                 />
-              </View>
+              </ScrollView>
             </View>
           )}
-
-          <View style={styles.flex} />
 
           {/* Phase D — CONTINUE rises from below after options settle */}
           {typewriterDone && (
@@ -179,12 +182,22 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   optionsSection: {
+    flex: 1,
     marginTop: spacing.xl,
     gap: spacing.md,
+    minHeight: 0,
   },
-  optionsList: {
-    minHeight: 320,
+  // Bleed out to the screen edges so OptionList's entrance (slide from
+  // right) and exit (slide to x:-500) aren't clipped at the body's
+  // spacing.lg horizontal padding. paddingHorizontal in the content
+  // container restores the visual x position of the cards.
+  optionsScroll: {
+    flex: 1,
+    marginHorizontal: -spacing.lg,
   },
-  flex: { flex: 1 },
+  optionsScrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
   bottom: { paddingBottom: spacing.lg },
 });

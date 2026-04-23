@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SvgXml } from 'react-native-svg';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useSignIn, useSignUp } from '@clerk/clerk-expo';
@@ -230,15 +228,13 @@ export default function OnboardingAuthScreen() {
           </Pressable>
         </View>
 
-        <KeyboardAvoidingView
+        <KeyboardAwareScrollView
           style={styles.body}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={16}
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
             {/* Title */}
             <AnimatedEntrance
               preset={{
@@ -446,8 +442,7 @@ export default function OnboardingAuthScreen() {
                 </Typography>
               </DepthButton>
             </AnimatedEntrance>
-          </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
     </View>
   );
