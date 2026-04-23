@@ -199,6 +199,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       partialize: (state) => ({
         name: state.name,
         interests: state.interests,
+        isSignUpMode: state.isSignUpMode,
         dailyGoalMinutes: state.dailyGoalMinutes,
         ageGroup: state.ageGroup,
         currentStep: state.currentStep,

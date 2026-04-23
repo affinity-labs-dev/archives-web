@@ -1223,24 +1223,6 @@ export default function ProfileTab() {
                   </TouchableOpacity>
                 )}
 
-                {/* Design Playground - Dev mode only */}
-                {__DEV__ && (
-                  <TouchableOpacity
-                    style={[styles.settingsOption, { backgroundColor: '#F0EAFF' }]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                      setShowSettingsModal(false)
-                      setTimeout(() => router.push('/playground'), 300)
-                    }}
-                  >
-                    <View style={styles.settingsOptionIcon}>
-                      <Ionicons name="color-palette" size={24} color="#3E2368" />
-                    </View>
-                    <Text style={[styles.settingsOptionText, { color: '#3E2368' }]}>Design Playground</Text>
-                    <Ionicons name="chevron-forward" size={20} color="#3E2368" opacity={0.5} />
-                  </TouchableOpacity>
-                )}
-
                 {/* UI Primitives Playground - Dev mode only */}
                 {__DEV__ && (
                   <TouchableOpacity
@@ -1256,24 +1238,6 @@ export default function ProfileTab() {
                     </View>
                     <Text style={[styles.settingsOptionText, { color: '#1E3C88' }]}>UI Primitives Playground</Text>
                     <Ionicons name="chevron-forward" size={20} color="#1E3C88" opacity={0.5} />
-                  </TouchableOpacity>
-                )}
-
-                {/* Onboarding V2 — Phase 2 - Dev mode only */}
-                {__DEV__ && (
-                  <TouchableOpacity
-                    style={[styles.settingsOption, { backgroundColor: '#FFF0E5' }]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                      setShowSettingsModal(false)
-                      setTimeout(() => router.push('/onboarding-step-1' as never), 300)
-                    }}
-                  >
-                    <View style={styles.settingsOptionIcon}>
-                      <Ionicons name="rocket" size={24} color="#C99151" />
-                    </View>
-                    <Text style={[styles.settingsOptionText, { color: '#C99151' }]}>Onboarding V2 — Hero</Text>
-                    <Ionicons name="chevron-forward" size={20} color="#C99151" opacity={0.5} />
                   </TouchableOpacity>
                 )}
 
