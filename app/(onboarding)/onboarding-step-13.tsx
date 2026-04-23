@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { SvgXml } from 'react-native-svg';
 import { router } from 'expo-router';
+import { useUser } from '@clerk/clerk-expo';
 
 import {
   Typography,
@@ -14,6 +15,8 @@ import {
 } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
 import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
+import { markOnboardingPaywallSeen } from '@/services/PaywallGateService';
+import AppLogger from '@/services/AppLogger';
 
 const mascotImg = require('@/assets/images/ibu-teacher.png');
 
@@ -31,6 +34,20 @@ const mascotImg = require('@/assets/images/ibu-teacher.png');
  * paywall presentation when the real offering is wired up.
  */
 export default function OnboardingStep15Screen() {
+  const { user } = useUser();
+
+  // Mark paywall-seen on MOUNT (not on CTA tap) so a force-quit mid-paywall
+  // still counts as "already shown" next sign-in. Fail-safe behavior: if
+  // `user?.id` isn't ready yet the effect re-runs when it is.
+  useEffect(() => {
+    if (!user?.id) return;
+    markOnboardingPaywallSeen(user.id).catch((err) => {
+      AppLogger.warn('paywall', 'Mark onboarding paywall seen failed', {
+        err: String(err),
+      });
+    });
+  }, [user?.id]);
+
   const handleBack = () => router.back();
 
   const handleSeeOffer = () => {

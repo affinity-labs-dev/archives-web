@@ -83,9 +83,6 @@ export default function OnboardingStep12Screen() {
   const markCompleted = useOnboardingStore((s) => s.markCompleted);
 
   const handleGetStarted = () => {
-    // TODO: branch on subscription state — if the user already has an active
-    // Archives Plus entitlement (via RevenueCat), skip step-13 (soft paywall)
-    // and go straight to `/(tabs)/today`. Otherwise push step-13 as now.
     setStep(12);
     // markCompleted flips status → 'completed'. useOnboardingSync picks up
     // the terminal transition and fires `flushOnboardingAnswers` (immediate

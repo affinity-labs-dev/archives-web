@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SvgXml } from 'react-native-svg';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { useClerk, useSignIn, useSignUp } from '@clerk/clerk-expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
@@ -27,6 +27,8 @@ import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
 import { personAddSvg, personCheckSvg } from '@/components/onboarding/icons/personIcons';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { resolvePostSignInRoute } from '@/services/PaywallGateService';
 
 /**
  * Single-screen auth flow — merged login + signup. Initial mode comes from the
@@ -53,9 +55,17 @@ import { useOnboardingStore } from '@/stores/onboardingStore';
  *   t=750  CONTINUE button
  */
 export default function OnboardingAuthScreen() {
+  const { isSubscribed } = useRevenueCat();
   const params = useLocalSearchParams<{ mode?: string; email?: string }>();
+  const setStep = useOnboardingStore((s) => s.setStep);
   const setIsSignUpMode = useOnboardingStore((s) => s.setIsSignUpMode);
+  const markCompleted = useOnboardingStore((s) => s.markCompleted);
 
+  // `useClerk()` exposes the Clerk instance directly — after `await
+  // setActive`, `clerk.user?.id` is synchronously updated. `useUser()` is
+  // reactive and may lag a React render, which is too late for the
+  // immediate route decision in `onContinue()`.
+  const clerk = useClerk();
   const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn();
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp();
 
@@ -94,8 +104,14 @@ export default function OnboardingAuthScreen() {
     // the personalize phases (9-12). Sign-in of an existing account skips
     // straight to the main app — their profile is already set up.
     if (isSignInMode) {
-      router.replace('/(tabs)/today' as never);
+      markCompleted();
+      // Per-user paywall gate: show /onboarding-step-13 only on the first
+      // sign-in for this Clerk user_id on this install. See
+      // PaywallGateService for the full contract.
+      const route = await resolvePostSignInRoute(clerk.user?.id, isSubscribed);
+      router.replace(route as never);
     } else {
+      setStep(8);
       setIsSignUpMode(true);
       setTimeout(() => router.replace('/onboarding-step-8' as never), 300);
     }

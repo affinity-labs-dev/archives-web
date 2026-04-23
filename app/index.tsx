@@ -24,7 +24,7 @@ import { hasRememberedAccount } from '@/services/RememberedAccountService';
  *      resume at STEP_ROUTE_MAP[currentStep].
  *   5. Signed-in + no onboarding state → existing returning user →
  *      /(tabs)/today.
- *   6. Not signed-in + status = in_progress + currentStep ∈ [1..7] → resume
+ *   6. Not signed-in + status = in_progress + currentStep >= 8 → resume
  *      pre-auth onboarding at that step. Active mid-flow beats /welcome-back
  *      because a user who was *just* in onboarding hasn't really "left off"
  *      yet.
@@ -122,10 +122,7 @@ export default function Index() {
     return <Redirect href="/(tabs)/today" />;
   }
 
-  // 6. Not signed-in + pre-auth mid-flow → resume the in-progress onboarding.
-  //    Takes priority over welcome-back: a user who's actively working through
-  //    steps 1-7 hasn't "left off" yet.
-  if (status === 'in_progress' && currentStep >= 1 && currentStep <= 7) {
+  if (status === 'in_progress' && currentStep >= 8) {
     const route = STEP_ROUTE_MAP[currentStep];
     if (route) {
       AppLogger.info('navigation', `Resuming pre-auth onboarding at step ${currentStep}`, {

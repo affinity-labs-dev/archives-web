@@ -5,6 +5,7 @@ import { SvgXml } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import Rive, { Alignment, Fit } from 'rive-react-native';
 import { router } from 'expo-router';
+import { useClerk } from '@clerk/clerk-expo';
 
 import { Typography, colors, spacing, easings } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
@@ -15,6 +16,8 @@ import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
 import { personAddSvg, personCheckSvg } from '@/components/onboarding/icons/personIcons';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import AppLogger from '@/services/AppLogger';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { resolvePostSignInRoute } from '@/services/PaywallGateService';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ibuJumpingRive = require('@/assets/rive/ibu-jumping.riv');
@@ -40,21 +43,34 @@ const ibuJumpingRive = require('@/assets/rive/ibu-jumping.riv');
  *   divider @ 550ms, apple @ 600ms, google @ 700ms, email @ 800ms.
  */
 export default function OnboardingStep7Screen() {
+  const { isSubscribed } = useRevenueCat();
+  // `useClerk()` exposes the Clerk instance directly, which updates
+  // synchronously under `await setActive()` inside the OAuth buttons. By the
+  // time `onAuthSuccess` fires, `clerk.user?.id` is the freshly-signed-in
+  // user — more reliable than `useUser()` whose React state may lag a tick.
+  const clerk = useClerk();
+
   const setStep = useOnboardingStore((s) => s.setStep);
   const setIsSignUpMode = useOnboardingStore((s) => s.setIsSignUpMode);
+  const markCompleted = useOnboardingStore((s) => s.markCompleted);
 
-  const onAuthSuccess = (isNewUser: boolean) => {
-    setStep(8);
+  const onAuthSuccess = async (isNewUser: boolean) => {
     AppLogger.info('auth', 'Onboarding step-7 auth success', { isNewUser });
     // New users go through the post-signup celebration + personalize flow.
     // Returning users (signed in on an existing account) skip straight to
     // the main app — they've already done onboarding on a prior install.
     if (isNewUser) {
+      setStep(8);
       setIsSignUpMode(true);
       setTimeout(() => router.replace('/onboarding-step-8' as never), 300);
-    } else {
-      router.replace('/(tabs)/today' as never);
+      return;
     }
+
+    markCompleted();
+    // Per-user paywall gate: show /onboarding-step-13 only the first time
+    // this Clerk user_id signs in on this install. See PaywallGateService.
+    const route = await resolvePostSignInRoute(clerk.user?.id, isSubscribed);
+    router.replace(route as never);
   };
 
   const onAuthError = (error: { message: string }) => {

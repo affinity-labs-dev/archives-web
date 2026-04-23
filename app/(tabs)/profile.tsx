@@ -16,6 +16,11 @@ import {
   clearAllRememberedAccounts,
   upsertRememberedAccount,
 } from '@/services/RememberedAccountService'
+import {
+  getPaywallSeenSnapshot,
+  removeUserFromPaywallSeen,
+  restorePaywallSeenSnapshot,
+} from '@/services/PaywallGateService'
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -502,6 +507,11 @@ export default function ProfileTab() {
           }
         : null
 
+      // Snapshot the paywall-seen list for the same reason we snapshot the
+      // remembered account: `AsyncStorage.clear()` below wipes it, and we
+      // need the gate to keep working on the next sign-in.
+      const paywallSeenSnapshot = await getPaywallSeenSnapshot()
+
       await liveActivityManager.forceEndAll()
 
       // AFF-309: Sign out via Clerk FIRST (needs token from AsyncStorage to revoke session on server),
@@ -523,6 +533,12 @@ export default function ProfileTab() {
       // render the returning-user card on next cold start.
       if (rememberedSnapshot) {
         await upsertRememberedAccount(rememberedSnapshot)
+      }
+
+      // Re-persist the paywall-seen list so returning users don't hit the
+      // onboarding paywall again after sign-out → sign-in.
+      if (paywallSeenSnapshot) {
+        await restorePaywallSeenSnapshot(paywallSeenSnapshot)
       }
 
       router.replace((rememberedSnapshot ? '/welcome-back' : '/onboarding-step-1') as never)
@@ -664,6 +680,12 @@ export default function ProfileTab() {
               // too. Without this, /welcome-back would keep offering the
               // deleted account on next cold start.
               await clearAllRememberedAccounts()
+
+              // Also drop this user_id from the paywall-seen list so the
+              // list doesn't accumulate dead ids over time.
+              if (user?.id) {
+                await removeUserFromPaywallSeen(user.id)
+              }
 
               // Delete the user account through Clerk
               await user.delete()
