@@ -16,8 +16,17 @@ import { easings, durations, safeDuration } from '@/components/ui/theme';
 import { ibuFaceSvg } from './ibuFaceSvg';
 
 export interface MascotProps {
-  /** Width of mascot. Defaults to 120. */
+  /**
+   * Square size — applies to both width and height unless one of `width` /
+   * `height` is provided explicitly. Defaults to 120.
+   */
   size?: number;
+
+  /** Explicit width override. Falls back to `size` when omitted. */
+  width?: number;
+
+  /** Explicit height override. Falls back to `size` when omitted. */
+  height?: number;
 
   /** Play slide-in entrance on mount. Default `true`. */
   autoPlayEntrance?: boolean;
@@ -51,11 +60,18 @@ export interface MascotProps {
  */
 export function Mascot({
   size = 120,
+  width,
+  height,
   autoPlayEntrance = true,
   enableIdleLoops = true,
   style,
   renderArtwork,
 }: MascotProps) {
+  // Resolve final dimensions. When explicit width/height are omitted, fall
+  // back to the square `size` so existing `<Mascot size={N} />` callers keep
+  // working without changes.
+  const resolvedWidth = width ?? size;
+  const resolvedHeight = height ?? size;
   // Entrance
   const entranceX = useSharedValue(autoPlayEntrance ? -120 : 0);
   const entranceRotate = useSharedValue(autoPlayEntrance ? -8 : 0);
@@ -117,10 +133,17 @@ export function Mascot({
   const artwork =
     renderArtwork !== undefined
       ? renderArtwork()
-      : <SvgXml xml={ibuFaceSvg} width={size} height={size} />;
+      : <SvgXml xml={ibuFaceSvg} width={resolvedWidth} height={resolvedHeight} />;
 
   return (
-    <Animated.View style={[styles.container, { width: size, height: size }, entranceStyle, style]}>
+    <Animated.View
+      style={[
+        styles.container,
+        { width: resolvedWidth, height: resolvedHeight },
+        entranceStyle,
+        style,
+      ]}
+    >
       <Animated.View style={[styles.inner, idleStyle]}>{artwork}</Animated.View>
     </Animated.View>
   );

@@ -12,6 +12,10 @@ import GameHub from '@/gamification/ui/games/GameHub'
 import { useAdventures } from '@/hooks/useAdventures'
 import { analyticsService } from '@/services/AnalyticsService'
 import { liveActivityManager } from '@/services/LiveActivityManager'
+import {
+  clearAllRememberedAccounts,
+  upsertRememberedAccount,
+} from '@/services/RememberedAccountService'
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -478,6 +482,26 @@ export default function ProfileTab() {
       // AFF-151: Prevent _layout.tsx from firing a duplicate clerk_session_ended event
       analyticsService.manualSignOutInProgress = true
 
+      // Snapshot current identity BEFORE Clerk sign-out unmounts the user
+      // object. Stored so /welcome-back can greet them by name after the
+      // AsyncStorage wipe below (we re-persist the snapshot once the wipe
+      // is done so it survives).
+      const rememberedSnapshot = user?.id && user?.primaryEmailAddress?.emailAddress
+        ? {
+            userId: user.id,
+            firstName: user.firstName ?? null,
+            email: user.primaryEmailAddress.emailAddress,
+            avatarUrl: user.imageUrl ?? null,
+            lastAuthMethod: (() => {
+              const provider = user.externalAccounts?.[0]?.provider ?? null
+              if (provider === 'apple') return 'oauth_apple' as const
+              if (provider === 'google') return 'oauth_google' as const
+              return 'email' as const
+            })(),
+            lastSignedInAt: Date.now(),
+          }
+        : null
+
       await liveActivityManager.forceEndAll()
 
       // AFF-309: Sign out via Clerk FIRST (needs token from AsyncStorage to revoke session on server),
@@ -494,7 +518,14 @@ export default function ProfileTab() {
       // Now safe to clear all local data (token already revoked)
       await AsyncStorage.clear()
       console.log('✅ All local data cleared')
-      router.replace('/onboarding-step-1')
+
+      // Re-persist the remembered-account snapshot so /welcome-back can
+      // render the returning-user card on next cold start.
+      if (rememberedSnapshot) {
+        await upsertRememberedAccount(rememberedSnapshot)
+      }
+
+      router.replace((rememberedSnapshot ? '/welcome-back' : '/onboarding-step-1') as never)
     } catch (error) {
       console.error('Sign out error:', error)
     }
@@ -629,9 +660,14 @@ export default function ProfileTab() {
               // Clear local user data first
               await clearUserData()
 
+              // Delete account = hard reset of the remembered-identity cache
+              // too. Without this, /welcome-back would keep offering the
+              // deleted account on next cold start.
+              await clearAllRememberedAccounts()
+
               // Delete the user account through Clerk
               await user.delete()
-              
+
               // Navigate to onboarding for fresh start
               router.replace('/onboarding-step-1')
               

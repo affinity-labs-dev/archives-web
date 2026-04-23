@@ -54,14 +54,16 @@ import { analyticsService } from '@/services/AnalyticsService';
  *   t=750  CONTINUE button
  */
 export default function OnboardingAuthScreen() {
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; email?: string }>();
   const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn();
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp();
 
   const [isSignInMode, setIsSignInMode] = useState(params.mode === 'signin');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
+  // Pre-fill email when provided via query param (welcome-back screen routes
+  // email-auth users here with their remembered email to save a tap).
+  const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);

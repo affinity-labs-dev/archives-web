@@ -1,5 +1,5 @@
 // App Entry Point — smart router for new, returning, and mid-flow onboarding users.
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Redirect } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
 import { usePostHog } from 'posthog-react-native';
@@ -10,11 +10,13 @@ import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { STEP_ROUTE_MAP, POST_SIGNUP_STEPS } from '@/constants/OnboardingRoutes';
+import { hasRememberedAccount } from '@/services/RememberedAccountService';
 
 /**
  * Routing decision tree (first-match wins):
  *
- *   1. Wait for Clerk + Zustand rehydration → LoadingScreen.
+ *   1. Wait for Clerk + Zustand rehydration + remembered-account check →
+ *      LoadingScreen.
  *   2. Signed-in + Clerk user.id ≠ userIdAtStart → account switch → reset +
  *      fresh start at step 1.
  *   3. Signed-in + status ∈ {completed, skipped} → /(tabs)/today.
@@ -23,8 +25,12 @@ import { STEP_ROUTE_MAP, POST_SIGNUP_STEPS } from '@/constants/OnboardingRoutes'
  *   5. Signed-in + no onboarding state → existing returning user →
  *      /(tabs)/today.
  *   6. Not signed-in + status = in_progress + currentStep ∈ [1..7] → resume
- *      pre-auth onboarding at that step.
- *   7. Default → /onboarding-step-1.
+ *      pre-auth onboarding at that step. Active mid-flow beats /welcome-back
+ *      because a user who was *just* in onboarding hasn't really "left off"
+ *      yet.
+ *   7. Not signed-in + a remembered account exists (from a prior successful
+ *      sign-in on this install) → /welcome-back for one-tap re-auth.
+ *   8. Default → /onboarding-step-1.
  */
 export default function Index() {
   const { isSignedIn, isLoaded, user } = useUser();
@@ -35,6 +41,26 @@ export default function Index() {
   const currentStep = useOnboardingStore((s) => s.currentStep);
   const userIdAtStart = useOnboardingStore((s) => s.userIdAtStart);
   const reset = useOnboardingStore((s) => s.reset);
+
+  // Cold-start check for a remembered-identity cache. Kept local to this
+  // screen because the check is only relevant during the routing decision —
+  // no consumer downstream needs it. Starts `null` (= still loading) so the
+  // router waits before making a decision.
+  const [hasRemembered, setHasRemembered] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    hasRememberedAccount()
+      .then((result) => {
+        if (!cancelled) setHasRemembered(result);
+      })
+      .catch((err) => {
+        AppLogger.warn('navigation', 'Remembered-account check failed', { err: String(err) });
+        if (!cancelled) setHasRemembered(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (posthog && Platform.OS !== 'web') {
@@ -47,10 +73,9 @@ export default function Index() {
     }
   }, [posthog, isSignedIn, isLoaded]);
 
-  // 1. Wait for both Clerk and onboarding store hydration. Without the
-  //    hasHydrated gate the guard would read INITIAL_STATE on cold start
-  //    and bounce signed-in resuming users straight to tabs.
-  if (!isLoaded || !hasHydrated) {
+  // 1. Wait for Clerk, onboarding rehydration, and remembered-account probe.
+  //    Without all three the guard would make a decision on incomplete data.
+  if (!isLoaded || !hasHydrated || hasRemembered === null) {
     return <LoadingScreen />;
   }
 
@@ -71,7 +96,7 @@ export default function Index() {
     new_state: (isSignedIn ? 'signed_in' : 'signed_out') as 'signed_in' | 'signed_out',
     user_id: user?.id ?? null,
     had_selected_era: false,
-    app_state: `routing:status=${status},step=${currentStep},signed_in=${!!isSignedIn}`,
+    app_state: `routing:status=${status},step=${currentStep},signed_in=${!!isSignedIn},remembered=${hasRemembered}`,
   };
   analyticsService.trackAuthStateChange(routingData);
 
@@ -97,7 +122,9 @@ export default function Index() {
     return <Redirect href="/(tabs)/today" />;
   }
 
-  // 6. Not signed-in + pre-auth mid-flow → resume
+  // 6. Not signed-in + pre-auth mid-flow → resume the in-progress onboarding.
+  //    Takes priority over welcome-back: a user who's actively working through
+  //    steps 1-7 hasn't "left off" yet.
   if (status === 'in_progress' && currentStep >= 1 && currentStep <= 7) {
     const route = STEP_ROUTE_MAP[currentStep];
     if (route) {
@@ -108,7 +135,13 @@ export default function Index() {
     }
   }
 
-  // 7. Default: fresh start
+  // 7. Not signed-in + a remembered identity exists → offer one-tap re-auth.
+  if (hasRemembered) {
+    AppLogger.info('navigation', 'Routing to /welcome-back (remembered account found)');
+    return <Redirect href={'/welcome-back' as never} />;
+  }
+
+  // 8. Default: fresh install, start from the top.
   AppLogger.info('navigation', 'Starting onboarding from step 1');
   return <Redirect href="/onboarding-step-1" />;
 }

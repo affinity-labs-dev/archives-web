@@ -31,6 +31,7 @@ import PushNotificationService from '@/services/PushNotificationService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { upsertRememberedAccount } from '@/services/RememberedAccountService';
 import { useOnboardingSync } from '@/hooks/useOnboardingSync';
 import AppLogger from '@/services/AppLogger';
 import { networkPerformanceService } from '@/services/NetworkPerformanceService';
@@ -218,6 +219,50 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       bindOnboardingToUser(user.id);
     }
   }, [isSignedIn, user?.id, onboardingUserId, bindOnboardingToUser]);
+
+  // Remembered-account snapshot — keeps the local cache (used by
+  // /welcome-back) in sync with the current Clerk identity. Runs on every
+  // sign-in and on profile changes so that existing users who upgrade to the
+  // version that introduces /welcome-back get snapshotted silently next time
+  // they open the app — no special migration step required.
+  React.useEffect(() => {
+    if (!isSignedIn || !user?.id) return;
+    const email = user.primaryEmailAddress?.emailAddress ?? null;
+    if (!email) return; // Snapshot needs an email to render the card.
+    // Heuristic: prefer an OAuth provider if linked, else treat as email auth.
+    // Clerk exposes `provider` without the `oauth_` prefix (e.g. 'apple').
+    const externalProvider = user.externalAccounts?.[0]?.provider ?? null;
+    const lastAuthMethod: 'oauth_apple' | 'oauth_google' | 'email' =
+      externalProvider === 'apple'
+        ? 'oauth_apple'
+        : externalProvider === 'google'
+          ? 'oauth_google'
+          : 'email';
+
+    (async () => {
+      try {
+        const snapshot = {
+          userId: user.id,
+          firstName: user.firstName ?? null,
+          email,
+          avatarUrl: user.imageUrl ?? null,
+          lastAuthMethod,
+          lastSignedInAt: Date.now(),
+        };
+        await upsertRememberedAccount(snapshot);
+      } catch (err) {
+        AppLogger.warn('auth', 'Remembered-account snapshot failed', {
+          err: String(err),
+        });
+      }
+    })();
+  }, [
+    isSignedIn,
+    user?.id,
+    user?.firstName,
+    user?.imageUrl,
+    user?.primaryEmailAddress?.emailAddress,
+  ]);
 
   // Register user with Affinity Notification Service on sign-in
   React.useEffect(() => {
@@ -839,6 +884,7 @@ export default Sentry.wrap(function RootLayout() {
                                   <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
                                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                                   <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                  <Stack.Screen name="welcome-back" options={{ headerShown: false }} />
                                   <Stack.Screen name="playground" options={{ headerShown: false }} />
                                   <Stack.Screen name="+not-found" />
                                 </Stack>
