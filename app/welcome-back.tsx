@@ -277,7 +277,11 @@ export default function WelcomeBackScreen() {
             </Typography>
           </AnimatedEntrance>
 
-          {/* Account card */}
+          {/* Account card — doubles as a second tappable surface for the
+              primary CTA. `handleContinue` owns all auth dispatch logic
+              (haptic, OAuth vs email routing, loading state) so the card
+              and the button share one entry point. Disabled during OAuth
+              flight to match the button's visual + interaction gate. */}
           <AnimatedEntrance
             preset={{
               translateY: { from: 30, to: 0 },
@@ -288,7 +292,18 @@ export default function WelcomeBackScreen() {
             delay={450}
             style={styles.cardWrapper}
           >
-            <View style={styles.card}>
+            <Pressable
+              onPress={handleContinue}
+              disabled={isLoadingOAuth}
+              accessibilityRole="button"
+              accessibilityLabel={ctaLabel}
+              accessibilityState={{ disabled: isLoadingOAuth }}
+              style={({ pressed }) => [
+                styles.card,
+                pressed && !isLoadingOAuth && styles.cardPressed,
+                isLoadingOAuth && styles.cardDisabled,
+              ]}
+            >
               <AccountAvatar
                 imageUrl={account.avatarUrl}
                 firstName={account.firstName}
@@ -307,7 +322,7 @@ export default function WelcomeBackScreen() {
                   {account.email}
                 </Typography>
               </View>
-            </View>
+            </Pressable>
           </AnimatedEntrance>
 
           {/* CTA */}
@@ -407,6 +422,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, // 16px — matches Figma avatar left offset
     gap: spacing.md,
     overflow: 'hidden',
+  },
+  // Light press feedback on the card — matches the iOS convention of a
+  // subtle opacity dip on tap. Skipped when the button-level loading
+  // spinner is active (handled via `isLoadingOAuth` in the Pressable style
+  // callback) so the UI doesn't flicker while waiting on OAuth.
+  cardPressed: {
+    opacity: 0.7,
+  },
+  cardDisabled: {
+    opacity: 0.5,
   },
   cardText: {
     flex: 1,
