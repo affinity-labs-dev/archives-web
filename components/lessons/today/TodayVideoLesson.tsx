@@ -139,11 +139,26 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
   // Track every status transition for debugging (rate-limited in AnalyticsService)
   useEffect(() => {
     if (status === 'idle') return; // Skip initial idle — wastes rate-limited budget
+
+    // Skip iOS AVPlayer cancellation (carousel preload tearing down a still-loading
+    // player). Not a real status transition worth tracking — see the matching
+    // filter in the error handler below for the full explanation.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errAny = error as any;
+    const isCancellation =
+      status === 'error' &&
+      ((typeof errAny?.message === 'string' &&
+        errAny.message.includes('Operation Stopped')) ||
+        errAny?.code === -999 ||
+        errAny?.code === 'NSURLErrorCancelled' ||
+        errAny?.code === 'AVErrorCancelled');
+    if (isCancellation) return;
+
     const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
     analyticsService.trackVideoStatusChange({
       video_url: videoUrl,
       status,
-      error_code: (error as any)?.code ?? undefined,
+      error_code: errAny?.code ?? undefined,
       error_message: error?.message,
       time_since_mount_ms: Date.now() - playerCreatedAtRef.current,
       content_type: isHLS ? 'hls' : 'progressive',
@@ -210,19 +225,93 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
       hasTrackedLoadTimeRef.current = true;
     }
 
-    // Track error
+    // Track error — recoverable (carousel skips this item, others still play),
+    // so use `warn` to keep Sentry breadcrumbs flowing without triggering the
+    // dev LogBox red-screen overlay on every transient CDN hiccup.
     if (status === 'error' && !hasTrackedErrorRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const errAny = error as any;
+      const errorMessage: string | null = errAny?.message ?? null;
+      const errorCode = errAny?.code ?? errAny?.errorCode ?? null;
+
+      // Filter out iOS AVPlayer's normal cancellation signal. When the
+      // carousel preloads the next item then advances, the previous item's
+      // <TodayVideoItem> unmounts mid-load → AVPlayer surfaces this as
+      // "Failed to load the player item: Operation Stopped" (AVErrorCancelled
+      // / NSURLErrorCancelled, code -999). It's not a real failure — the
+      // CDN is fine, the file is fine, the player just got torn down before
+      // its network request finished. Dropping it from the warn/CDN-error
+      // path so we don't pollute Sentry breadcrumbs and analytics with
+      // normal lifecycle events.
+      const isCancellation =
+        (typeof errorMessage === 'string' &&
+          errorMessage.includes('Operation Stopped')) ||
+        errorCode === -999 ||
+        errorCode === 'NSURLErrorCancelled' ||
+        errorCode === 'AVErrorCancelled';
+
+      if (isCancellation) {
+        AppLogger.info(
+          'video',
+          'TodayVideoItem cancelled (normal lifecycle, not a real error)',
+          {
+            videoUrl: videoUrl?.substring(0, 80),
+            isHLS,
+            elapsedSinceMountMs: Date.now() - playerCreatedAtRef.current,
+          },
+        );
+        hasTrackedErrorRef.current = true;
+        return;
+      }
+
       const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
-      AppLogger.error('video', 'TodayVideoItem player error', {
-        videoUrl: videoUrl?.substring(0, 80),
+
+      AppLogger.warn('video', 'TodayVideoItem player error', {
+        videoUrl, // full URL — needed for copy/paste debugging the failing CDN response
         isHLS,
         cdnDomain,
+        errorMessage,
+        errorCode,
+        errorDomain: errAny?.domain ?? null,
+        errorRaw: error ? String(error) : null,
+        playerDuration: player?.duration ?? null,
+        playerCurrentTime: player?.currentTime ?? null,
+        elapsedSinceMountMs: Date.now() - playerCreatedAtRef.current,
       });
+
+      // Best-effort HEAD probe to surface what the server is actually
+      // returning. Only useful for genuine failures (skipped above for
+      // cancellations) — exposes Content-Type, byte-range support, status
+      // code, CloudFront cache state. See the cancellation comment for
+      // the lifecycle that *was* triggering this.
+      fetch(videoUrl, { method: 'HEAD' })
+        .then((res) => {
+          AppLogger.info('video', 'TodayVideoItem error: HEAD probe', {
+            videoUrl,
+            status: res.status,
+            statusText: res.statusText,
+            contentType: res.headers.get('content-type'),
+            contentLength: res.headers.get('content-length'),
+            acceptRanges: res.headers.get('accept-ranges'),
+            cacheControl: res.headers.get('cache-control'),
+            etag: res.headers.get('etag'),
+            xCache: res.headers.get('x-cache'), // CloudFront cache hit/miss
+            xAmzCfId: res.headers.get('x-amz-cf-id'), // CloudFront request id (for AWS support)
+          });
+        })
+        .catch((probeErr) => {
+          AppLogger.warn('video', 'TodayVideoItem error: HEAD probe failed', {
+            videoUrl,
+            probeError:
+              probeErr instanceof Error ? probeErr.message : String(probeErr),
+          });
+        });
+
       analyticsService.trackCDNError({
         media_type: 'video',
         url: videoUrl,
         cdn_domain: cdnDomain,
-        error_message: 'today_video_load_error',
+        error_message: errorMessage ?? 'today_video_load_error',
       });
       hasTrackedErrorRef.current = true;
     }
@@ -465,12 +554,15 @@ export default function TodayVideoLesson({
               style={{ flex: 1 }}
             >
               {mediaUrls.map((mediaUrl, index) => {
-                // LAZY LOADING for videos: Only render current and next video
-                // (Images are lightweight, so render all)
+                // Only render the ACTIVE video — never preload the next one.
+                // Two simultaneous <TodayVideoItem> instances for the same
+                // CloudFront origin race over iOS's NSURLSession connection
+                // pool; combined with React strict-mode's dev double-mount,
+                // one request gets cancelled and the video stays black.
+                // Images are cheap, so we still render all of them.
                 const shouldRenderMedia =
                   contentType === "image_carousel" ||
-                  index === currentMediaIndex ||
-                  index === currentMediaIndex + 1;
+                  index === currentMediaIndex;
 
                 return (
                   <View key={index} style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}>
