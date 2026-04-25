@@ -12,8 +12,11 @@ import TodayHeader from "@/components/today/TodayHeader";
 import TodayProgressBar from "@/components/today/TodayProgressBar";
 import { DepthButton, Typography, easings } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
+import { useTodayPaywall } from "@/hooks/useTodayPaywall";
+import { useTodayProgress } from "@/hooks/useTodayProgress";
+import { useTodayQuest } from "@/hooks/useTodayQuest";
 import { useVideoPreloader } from "@/hooks/useVideoPreloader";
-import type { ContentBlock, ContentItem } from "@/components/shared/types";
+import type { ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { toLocalDateString } from "@/utils/dateUtils";
 import { useGamificationOrchestrator } from "@/gamification";
@@ -25,7 +28,6 @@ import { liveActivityManager } from "@/services/LiveActivityManager";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
@@ -40,7 +42,6 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 import Animated, {
   Easing,
   runOnJS,
@@ -55,257 +56,14 @@ import { useFocusEffect } from "@react-navigation/native";
 const themeStyles = ArchivesTheme.common.today;
 
 // ============================================================================
-// TYPES & INTERFACES (from useToday.ts)
+// MAIN COMPONENT
 // ============================================================================
 
-interface Card1Content {
-  content_type: "reel" | "video_carousel" | "image_carousel";
-  title: string;
-  media_url: string | string[]; // Single URL for reel, array for carousels
-  media_hls_url?: string | string[]; // HLS version of media_url (preferred when available)
-  thumbnail_url?: string; // Background thumbnail for WATCH card
-  background_music_url?: string; // Background music for ambient audio
-  content: {
-    reading_text: string;
-    captions?: string[]; // Optional captions for carousel items
-  };
-}
+// (Quest fetching, types, and per-section progress have moved to:
+//  - hooks/useTodayQuest.ts
+//  - hooks/useTodayProgress.ts
+//  - hooks/useTodayPaywall.ts )
 
-interface Card2Content {
-  content_type: "scrollable_media_view";
-  title: string;
-  thumbnail_title?: string; // Display title for card2 (explore)
-  inner_image: string;
-  inner_voice: string;
-  content: string;
-  content_blocks?: ContentBlock[]; // New content_blocks array structure
-}
-
-interface Card3Content {
-  title: string;
-  questions: Array<{
-    question_id: string;
-    question_text: string;
-    question_type: "mcq" | "trueFalse";
-    answers: Array<{
-      answer_id: string;
-      text: string;
-      is_correct: boolean;
-    }>;
-    explanation: string;
-    order: number;
-  }>;
-}
-
-interface TodayContent {
-  card1: Card1Content;
-  card2: Card2Content;
-  card3: Card3Content;
-  today_title: string;
-  day_number: number;
-  total_days: number;
-}
-
-interface Today {
-  id: string;
-  date: string;
-  content: TodayContent;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-interface TodayProgress {
-  user_id: string;
-  daily_quest_id: string;
-  watch_completed?: boolean;
-  explore_completed?: boolean;
-  score: number;
-  correct_answers: number;
-  total_questions: number;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-// ============================================================================
-// CUSTOM HOOK (from useToday.ts)
-// ============================================================================
-
-function useToday(userId?: string) {
-  const [todayQuest, setTodayQuest] = useState<Today | null>(null);
-  const [questProgress, setQuestProgress] = useState<TodayProgress | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Extract fetch function so it can be reused by realtime subscription
-  const fetchTodayQuest = async (showLoading = true) => {
-    try {
-      if (showLoading) {
-        setLoading(true);
-      }
-      setError(null);
-
-      const today = new Date();
-      const todayDate = toLocalDateString(today);
-
-      console.log(`🔍 [useToday] Fetching quest for ${todayDate}`);
-
-      const { data: questData, error: questError } = await supabase
-        .from("daily_content")
-        .select("*")
-        .eq("date", todayDate)
-        .in("is_active", [true, "TRUE", "true"])
-        .single();
-
-      if (questError) {
-        console.error("❌ [useToday] Error fetching quest:", questError);
-        setError("No quest available for today");
-        setTodayQuest(null);
-        setLoading(false);
-        return;
-      }
-
-      console.log(
-        "✅ [useToday] Quest fetched:",
-        questData?.content?.card1?.title,
-      );
-      setTodayQuest(questData as Today);
-
-      if (userId && questData) {
-        try {
-          const { data: progressData, error: progressError } = await supabase
-            .from("user_daily_quest_progress")
-            .select("*")
-            .eq("user_id", userId)
-            .eq("daily_quest_id", questData.id)
-            .maybeSingle();
-
-          if (progressError) {
-            console.warn(
-              "⚠️ [useToday] Progress query failed:",
-              progressError.message,
-            );
-          } else if (progressData) {
-            console.log("✅ [useToday] User already completed this quest");
-            setQuestProgress(progressData as TodayProgress);
-          }
-        } catch (err) {
-          console.warn("⚠️ [useToday] Progress check failed:", err);
-        }
-      }
-
-      setLoading(false);
-    } catch (err) {
-      console.error("❌ [useToday] Unexpected error:", err);
-      setError("Failed to load daily quest");
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    // Initial fetch
-    fetchTodayQuest(true);
-
-    // Subscribe to realtime changes on daily_content table
-    const channel = supabase
-      .channel("daily-content-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "daily_content" },
-        (payload) => {
-          console.log(
-            "🔄 [useToday] Realtime update received:",
-            payload.eventType,
-          );
-          // Refetch without showing loading spinner for smoother UX
-          fetchTodayQuest(false);
-        },
-      )
-      .subscribe((status) => {
-        console.log("📡 [useToday] Realtime subscription status:", status);
-      });
-
-    // Cleanup subscription on unmount
-    return () => {
-      console.log("🔌 [useToday] Unsubscribing from realtime");
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
-
-  const saveQuestCompletion = async (
-    userId: string,
-    questId: string,
-    score: number,
-    correctAnswers: number,
-    totalQuestions: number,
-  ) => {
-    try {
-      console.log(
-        `💾 [useToday] Saving completion: ${correctAnswers}/${totalQuestions} (Score: ${score})`,
-      );
-
-      // Check if a record already exists
-      const { data: existing } = await supabase
-        .from("user_daily_quest_progress")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("daily_quest_id", questId)
-        .maybeSingle();
-
-      // If exists and new score is lower, keep the better score
-      if (existing && existing.score >= score) {
-        console.log(
-          `✅ [useToday] Keeping existing better score: ${existing.score}`,
-        );
-        setQuestProgress(existing as TodayProgress);
-        return existing;
-      }
-
-      // Upsert: Insert new or update with better score
-      const { data, error } = await supabase
-        .from("user_daily_quest_progress")
-        .upsert(
-          {
-            user_id: userId,
-            daily_quest_id: questId,
-            score,
-            correct_answers: correctAnswers,
-            total_questions: totalQuestions,
-          },
-          {
-            onConflict: "user_id,daily_quest_id",
-          },
-        )
-        .select()
-        .single();
-
-      if (error) {
-        console.error("❌ [useToday] Error saving completion:", error);
-        throw error;
-      }
-
-      console.log(
-        `✅ [useToday] Completion saved (${existing ? "Updated" : "New"})`,
-      );
-      setQuestProgress(data as TodayProgress);
-      return data;
-    } catch (err) {
-      console.error("❌ [useToday] Failed to save completion:", err);
-      throw err;
-    }
-  };
-
-  return {
-    todayQuest,
-    questProgress,
-    loading,
-    error,
-    isCompleted: !!questProgress,
-    saveQuestCompletion,
-  };
-}
 
 // ============================================================================
 // MAIN COMPONENT
@@ -323,7 +81,7 @@ export default function TodayScreen() {
     todayQuest,
     loading,
     saveQuestCompletion,
-  } = useToday(user?.id);
+  } = useTodayQuest(user?.id);
 
   // Track page view for Today tab
   useFocusEffect(
@@ -562,102 +320,48 @@ export default function TodayScreen() {
   const [completedDatesCache, setCompletedDatesCache] =
     useState<Set<string> | null>(null);
 
-  // Flag to prevent race condition between purchase completion and subscription state update
-  // Using ref (not state) because we don't need re-renders when this changes
-  const justPurchasedRef = useRef(false);
-
-  // Ref to prevent multiple simultaneous paywall presentations
-  const isPaywallPresentedRef = useRef(false);
-
-  // Present paywall using imperative API (Android-safe, no overlay needed)
-  const handleShowPaywall = async (date: Date) => {
-    if (isPaywallPresentedRef.current) {
-      AppLogger.warn('subscription', 'Paywall already presented, skipping');
-      return;
-    }
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-
-    // Track paywall view triggered from daily story rewind
-    analyticsService.trackSubscribeScreenViewed({
-      trigger: 'daily_story_rewind',
-    });
-
+  // Fetch historical quest by date from Supabase
+  const fetchQuestByDate = async (dateString: string) => {
     try {
-      isPaywallPresentedRef.current = true;
-      const result = await RevenueCatUI.presentPaywall();
+      console.log(`📅 [Today] Fetching quest for date: ${dateString}`);
+      const { data, error } = await supabase
+        .from("daily_content")
+        .select("*")
+        .eq("date", dateString)
+        .maybeSingle();
 
-      switch (result) {
-        case PAYWALL_RESULT.PURCHASED:
-        case PAYWALL_RESULT.RESTORED: {
-          const action = result === PAYWALL_RESULT.PURCHASED ? 'Purchase' : 'Restore';
-          AppLogger.info('subscription', `${action} completed`, { trigger: 'daily_story_rewind' });
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-          // Set flag and schedule cleanup BEFORE async work so it always clears
-          // even if fetchQuestByDate throws
-          justPurchasedRef.current = true;
-          setTimeout(() => {
-            justPurchasedRef.current = false;
-            AppLogger.info('subscription', 'Purchase protection window ended');
-          }, 5000);
-
-          if (result === PAYWALL_RESULT.PURCHASED) {
-            analyticsService.trackSubscribePurchaseCompleted({
-              trigger: 'daily_story_rewind',
-              plan: 'yearly', // TODO: imperative API doesn't return purchased plan; update if monthly added
-            });
-          } else {
-            analyticsService.trackSubscribeRestoreSuccess({
-              trigger: 'daily_story_rewind',
-            });
-          }
-
-          // Unlock the gated date immediately
-          const dateStr = toLocalDateString(date);
-          AppLogger.info('subscription', `Unlocking content for: ${dateStr}`);
-          const historicalQuest = await fetchQuestByDate(dateStr);
-          setSelectedDate(date);
-          setIsHistoricalView(true);
-          setDisplayedQuest(historicalQuest);
-          break;
-        }
-
-        case PAYWALL_RESULT.CANCELLED:
-          AppLogger.info('subscription', 'Paywall cancelled');
-          analyticsService.trackSubscribePurchaseCancelled({
-            trigger: 'daily_story_rewind',
-          });
-          break;
-
-        case PAYWALL_RESULT.NOT_PRESENTED:
-          AppLogger.warn('subscription', 'Paywall not presented (no offerings or config issue)', { result });
-          analyticsService.trackSubscribePurchaseFailed({
-            trigger: 'daily_story_rewind',
-            error_code: 'NOT_PRESENTED',
-          });
-          break;
-
-        case PAYWALL_RESULT.ERROR:
-          AppLogger.error('subscription', 'Paywall error', { result });
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          analyticsService.trackSubscribePurchaseFailed({
-            trigger: 'daily_story_rewind',
-            error_code: 'ERROR',
-          });
-          break;
+      if (error) {
+        console.error(
+          `❌ [Today] Error fetching quest for ${dateString}:`,
+          error,
+        );
+        return null;
       }
-    } catch (error) {
-      AppLogger.error('subscription', 'Error presenting paywall', { trigger: 'daily_story_rewind' }, error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      analyticsService.trackSubscribePurchaseFailed({
-        trigger: 'daily_story_rewind',
-        error_code: error instanceof Error ? error.message : 'unknown',
-      });
-    } finally {
-      isPaywallPresentedRef.current = false;
+
+      if (!data) {
+        console.log(`📅 [Today] No content found for ${dateString}`);
+        return null;
+      }
+
+      console.log(`✅ [Today] Quest loaded for ${dateString}:`, data);
+      return data;
+    } catch (err) {
+      console.error(`❌ [Today] Exception fetching quest:`, err);
+      return null;
     }
   };
+
+  // Paywall presentation flow for daily-story rewind. Owns `justPurchasedRef`
+  // (race-guard against the subscription-expiration recovery effect) and the
+  // re-entrancy guard. On unlock, navigates the calendar to the gated date.
+  const { handleShowPaywall, justPurchasedRef } = useTodayPaywall({
+    fetchQuestByDate,
+    onUnlockHistoricalDate: (date, quest) => {
+      setSelectedDate(date);
+      setIsHistoricalView(true);
+      setDisplayedQuest(quest);
+    },
+  });
 
   // Set displayedQuest when todayQuest loads (for current day)
   useEffect(() => {
@@ -687,7 +391,7 @@ export default function TodayScreen() {
       setIsHistoricalView(false);
       setDisplayedQuest(todayQuest);
     }
-  }, [isSubscribed, isSubscriptionLoading, isHistoricalView, todayQuest]);
+  }, [isSubscribed, isSubscriptionLoading, isHistoricalView, todayQuest, justPurchasedRef]);
 
   // Audio player for voiceover (from inner_voice URL in Supabase)
   const player = useAudioPlayer(
@@ -749,37 +453,6 @@ export default function TodayScreen() {
     } else {
       console.log("▶️ [Today] Playing audio");
       player.play();
-    }
-  };
-
-  // Fetch historical quest by date from Supabase
-  const fetchQuestByDate = async (dateString: string) => {
-    try {
-      console.log(`📅 [Today] Fetching quest for date: ${dateString}`);
-      const { data, error } = await supabase
-        .from("daily_content")
-        .select("*")
-        .eq("date", dateString)
-        .maybeSingle();
-
-      if (error) {
-        console.error(
-          `❌ [Today] Error fetching quest for ${dateString}:`,
-          error,
-        );
-        return null;
-      }
-
-      if (!data) {
-        console.log(`📅 [Today] No content found for ${dateString}`);
-        return null;
-      }
-
-      console.log(`✅ [Today] Quest loaded for ${dateString}:`, data);
-      return data;
-    } catch (err) {
-      console.error(`❌ [Today] Exception fetching quest:`, err);
-      return null;
     }
   };
 
@@ -869,11 +542,26 @@ export default function TodayScreen() {
     }
   };
 
-  // Track completion state for each section (per quest ID via AsyncStorage)
-  const [watchCompleted, setWatchCompleted] = useState(false);
-  const [exploreCompleted, setExploreCompleted] = useState(false);
-  const [questCompleted, setQuestCompleted] = useState(false);
-  const [isLoadingProgress, setIsLoadingProgress] = useState(false);
+  // Per-section completion state for the active quest. Loads from Supabase
+  // (with AsyncStorage fallback), exposes setters + a save helper that
+  // round-trips to both stores, and derives `progress` / unlock flags.
+  const {
+    watchCompleted,
+    exploreCompleted,
+    questCompleted,
+    progress,
+    isExploreUnlocked,
+    isQuizUnlocked,
+    setWatchCompleted,
+    setExploreCompleted,
+    setQuestCompleted,
+    saveProgress,
+  } = useTodayProgress({
+    displayedQuest,
+    todayQuest,
+    userId: user?.id,
+    isHistoricalView,
+  });
 
   // Live Activity — cache quiz results for XP plumbing to Live Activity completion
   const lastQuizCorrectAnswersRef = useRef(0);
@@ -882,179 +570,6 @@ export default function TodayScreen() {
   const isStreakHydrated = streak > 0;
   const streakRef = useRef(streak);
   useEffect(() => { streakRef.current = streak; }, [streak]);
-
-  // Load progress from AsyncStorage when quest changes
-  useEffect(() => {
-    // CRITICAL: Reset state IMMEDIATELY when quest changes (synchronous)
-    // This prevents showing stale progress from previous date during async load
-    setIsLoadingProgress(true);
-    setWatchCompleted(false);
-    setExploreCompleted(false);
-    setQuestCompleted(false);
-
-    const loadProgress = async () => {
-      // When viewing historical date with no content, don't fall back to today's quest
-      if (isHistoricalView && !displayedQuest) {
-        console.log(
-          "📅 [Today] Historical date with no content - keeping progress at 0%",
-        );
-        setIsLoadingProgress(false);
-        return;
-      }
-
-      const currentQuestId = displayedQuest?.id || todayQuest?.id;
-      if (!currentQuestId) {
-        setIsLoadingProgress(false);
-        return;
-      }
-
-      try {
-        // PRIMARY: Load all progress from Supabase (watch, explore, quiz)
-        if (user?.id) {
-          const { data, error } = await supabase
-            .from("user_daily_quest_progress")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("daily_quest_id", currentQuestId)
-            .maybeSingle();
-
-          if (error) {
-            console.warn("⚠️ [Today] Supabase query error:", error.message);
-          }
-
-          if (data) {
-            // Load from Supabase (single source of truth)
-            const watchDone = !!data.watch_completed;
-            const exploreDone = !!data.explore_completed;
-            // Quiz is only completed if score > 0 (not just if the field exists)
-            const quizDone =
-              data.score !== undefined && data.score !== null && data.score > 0;
-
-            setWatchCompleted(watchDone);
-            setExploreCompleted(exploreDone);
-            setQuestCompleted(quizDone);
-
-            console.log(
-              `✅ [Today] Loaded progress from Supabase for ${currentQuestId}:`,
-              {
-                watch: watchDone,
-                explore: exploreDone,
-                quiz: quizDone,
-                score: data.score,
-              },
-            );
-
-            // BACKUP: Cache to AsyncStorage for offline access
-            const key = `@today_progress_${currentQuestId}`;
-            await AsyncStorage.setItem(
-              key,
-              JSON.stringify({
-                watch: !!data.watch_completed,
-                explore: !!data.explore_completed,
-                completedDate: data.created_at || null,
-              }),
-            );
-            return;
-          }
-        }
-
-        // FALLBACK: If Supabase has no data or user not logged in, try AsyncStorage
-        const key = `@today_progress_${currentQuestId}`;
-        const stored = await AsyncStorage.getItem(key);
-
-        if (stored) {
-          const progress = JSON.parse(stored);
-          const watchDone = progress.watch || false;
-          const exploreDone = progress.explore || false;
-
-          setWatchCompleted(watchDone);
-          setExploreCompleted(exploreDone);
-
-          console.log(
-            `📖 [Today] Loaded progress from AsyncStorage (offline) for ${currentQuestId}:`,
-            progress,
-          );
-        }
-        // Note: If no stored data anywhere, state already reset to false at useEffect start
-      } catch (error) {
-        console.error("❌ [Today] Error loading progress:", error);
-      } finally {
-        setIsLoadingProgress(false);
-      }
-    };
-
-    loadProgress();
-  }, [
-    displayedQuest?.id,
-    todayQuest?.id,
-    user?.id,
-    isHistoricalView,
-    displayedQuest,
-  ]);
-
-  // Save watch/explore progress to Supabase (with AsyncStorage backup)
-  const saveProgress = async (section: "watch" | "explore") => {
-    const currentQuestId = displayedQuest?.id || todayQuest?.id;
-    if (!currentQuestId || !user?.id) {
-      console.warn(
-        "⚠️ [Today] Cannot save progress - missing quest ID or user",
-      );
-      return;
-    }
-
-    try {
-      const fieldName =
-        section === "watch" ? "watch_completed" : "explore_completed";
-
-      // PRIMARY: Save to Supabase using upsert
-      const { error: upsertError } = await supabase
-        .from("user_daily_quest_progress")
-        .upsert(
-          {
-            user_id: user.id,
-            daily_quest_id: currentQuestId,
-            [fieldName]: true,
-            // Provide defaults for NOT NULL fields when creating new row
-            score: 0,
-            correct_answers: 0,
-            total_questions: 0,
-          },
-          {
-            onConflict: "user_id,daily_quest_id",
-            ignoreDuplicates: false, // Update existing row
-          },
-        );
-
-      if (upsertError) {
-        console.error(
-          `❌ [Today] Supabase upsert error for ${section}:`,
-          upsertError,
-        );
-      } else {
-        console.log(
-          `✅ [Today] Saved ${section} completion to Supabase for ${currentQuestId}`,
-        );
-      }
-
-      // BACKUP: Save to AsyncStorage for offline access
-      const key = `@today_progress_${currentQuestId}`;
-      const stored = await AsyncStorage.getItem(key);
-      const existing = stored ? JSON.parse(stored) : {};
-
-      const current = {
-        watch: section === "watch" ? true : existing.watch || false,
-        explore: section === "explore" ? true : existing.explore || false,
-        completedDate: existing.completedDate || null,
-      };
-
-      await AsyncStorage.setItem(key, JSON.stringify(current));
-      console.log(
-        `💾 [Today] Cached ${section} completion to AsyncStorage for ${currentQuestId}`,
-      );
-    } catch (error) {
-      console.error("❌ [Today] Error saving progress:", error);
-    }
-  };
 
   // Handle quiz completion
   const handleQuizComplete = async () => {
@@ -1147,25 +662,6 @@ export default function TodayScreen() {
     loadCompletedDates();
   }, [user?.id, questCompleted]); // Refetch when user changes or quest completed
   // eslint-disable-next-line react-hooks/exhaustive-deps
-
-  // Calculate progress percentage based on actual completion
-  const calculateProgress = () => {
-    // During loading transition, always show 0% to prevent flash of old progress
-    if (isLoadingProgress) return 0;
-
-    let completed = 0;
-    if (watchCompleted) completed++;
-    if (exploreCompleted) completed++;
-    if (questCompleted) completed++; // Only use questCompleted (loaded per date from Supabase)
-    return Math.round((completed / 3) * 100);
-  };
-
-  // SEQUENTIAL UNLOCK LOGIC:
-  // - WATCH: Always available
-  // - EXPLORE: Unlocked after WATCH completed
-  // - QUIZ: Unlocked after EXPLORE completed
-  const isExploreUnlocked = watchCompleted;
-  const isQuizUnlocked = watchCompleted && exploreCompleted;
 
   // Live Activity — update DailyStory progress if activity is running
   // Guard: only update if user is interacting with TODAY's quest (not historical/rewind)
@@ -1261,8 +757,6 @@ export default function TodayScreen() {
       </SafeAreaView>
     );
   }
-
-  const progress = calculateProgress();
 
   const headerTitle = (() => {
     if (isHistoricalView && !displayedQuest) {
@@ -1572,100 +1066,6 @@ export default function TodayScreen() {
           </View>
         ) : (
           <>
-            {/* Completion Banner - Shows when quest is completed, allows replay */}
-            {/* {isCompleted && (
-          <View
-            style={{
-              backgroundColor: ArchivesTheme.colors.persianOrange,
-              borderRadius: 16,
-              padding: 20,
-              marginBottom: 20,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  backgroundColor: "rgba(255,255,255,0.2)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginRight: 16,
-                }}
-              >
-                <Ionicons name="checkmark-circle" size={32} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    fontFamily: "DM Sans",
-                    fontSize: 18,
-                    fontWeight: "700",
-                    color: "#FFFFFF",
-                    marginBottom: 4,
-                  }}
-                >
-                  Quest Complete! 🎉
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: "DM Sans",
-                    fontSize: 14,
-                    fontWeight: "400",
-                    color: "rgba(255,255,255,0.9)",
-                  }}
-                >
-                  {questProgress?.score !== undefined
-                    ? `Best score: ${questProgress.score}%`
-                    : "Great job today!"}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={async () => {
-                // Clear AsyncStorage progress
-                const currentQuestId = displayedQuest?.id || todayQuest?.id;
-                if (currentQuestId) {
-                  const key = `@today_progress_${currentQuestId}`;
-                  await AsyncStorage.removeItem(key);
-                  console.log(`🗑️ [Today] Cleared progress for ${currentQuestId}`);
-                }
-                // Clear celebration shown flag for testing
-                await AsyncStorage.removeItem('@daily_story_end_shown_date');
-                console.log('🗑️ [Today] Cleared daily story end celebration flag');
-                // Reset state
-                setWatchCompleted(false);
-                setExploreCompleted(false);
-                setQuestCompleted(false);
-                openModal('video');
-              }}
-              style={{
-                backgroundColor: "rgba(255,255,255,0.2)",
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                borderRadius: 12,
-                borderWidth: 1.5,
-                borderColor: "rgba(255,255,255,0.4)",
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: "DM Sans",
-                  fontSize: 14,
-                  fontWeight: "700",
-                  color: "#FFFFFF",
-                }}
-              >
-                Replay
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )} */}
-
             {(() => {
               const quest = displayedQuest || todayQuest;
               const card1 = quest?.content?.card1;
