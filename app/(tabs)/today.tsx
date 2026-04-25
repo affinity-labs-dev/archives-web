@@ -10,19 +10,22 @@ import TodayHeader from "@/components/today/TodayHeader";
 import TodayProgressBar from "@/components/today/TodayProgressBar";
 import { DepthButton, Typography, easings } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
-import { useDailyStoryLiveActivity } from "@/hooks/useDailyStoryLiveActivity";
-import { useTodayCardsData } from "@/hooks/useTodayCardsData";
-import { useTodayHistory } from "@/hooks/useTodayHistory";
-import { useTodayModalSlots, type ModalState } from "@/hooks/useTodayModalSlots";
-import { useTodayPaywall } from "@/hooks/useTodayPaywall";
-import { useTodayProgress } from "@/hooks/useTodayProgress";
-import { useTodayQuest } from "@/hooks/useTodayQuest";
+import {
+  useDailyStoryLiveActivity,
+  useDailyStoryTracking,
+  useTodayCardsData,
+  useTodayHistory,
+  useTodayModalSlots,
+  useTodayPaywall,
+  useTodayProgress,
+  useTodayQuest,
+  type ModalState,
+} from "@/hooks/today";
 import { useVideoPreloader } from "@/hooks/useVideoPreloader";
 import type { ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { toLocalDateString } from "@/utils/dateUtils";
 import { useGamificationOrchestrator } from "@/gamification";
-import { useDailyStoryTracking } from "@/hooks/useDailyStoryTracking";
 import { analyticsService } from "@/services/AnalyticsService";
 import AppLogger from "@/services/AppLogger";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
