@@ -12,6 +12,8 @@ import TodayHeader from "@/components/today/TodayHeader";
 import TodayProgressBar from "@/components/today/TodayProgressBar";
 import { DepthButton, Typography, easings } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
+import { useDailyStoryLiveActivity } from "@/hooks/useDailyStoryLiveActivity";
+import { useTodayModalSlots, type ModalState } from "@/hooks/useTodayModalSlots";
 import { useTodayPaywall } from "@/hooks/useTodayPaywall";
 import { useTodayProgress } from "@/hooks/useTodayProgress";
 import { useTodayQuest } from "@/hooks/useTodayQuest";
@@ -24,7 +26,6 @@ import { useDailyStoryTracking } from "@/hooks/useDailyStoryTracking";
 import { supabase } from "@/hooks/lib/supabase";
 import { analyticsService } from "@/services/AnalyticsService";
 import AppLogger from "@/services/AppLogger";
-import { liveActivityManager } from "@/services/LiveActivityManager";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
@@ -39,16 +40,9 @@ import {
   ScrollView,
   StatusBar,
   Text,
-  useWindowDimensions,
   View,
 } from "react-native";
-import Animated, {
-  Easing,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -135,169 +129,25 @@ export default function TodayScreen() {
   useVideoPreloader(watchVideoUrls, { maxVideos: 2 });
 
 
-  // Single enum state for modal management (prevents flicker during transitions)
-  type ModalState = "none" | "video" | "reading" | "quiz";
-  const [activeModal, setActiveModal] = useState<ModalState>("none");
-  const [previousModal, setPreviousModal] = useState<ModalState>("none");
-
-  // Dual-slot architecture for Apple-style push/pop transitions
-  // Two absolutely-positioned slots allow both outgoing and incoming content
-  // to be visible simultaneously during transitions (no white flash).
-  const activeSlotRef = useRef<"A" | "B">("A");
-  const [slotAModal, setSlotAModal] = useState<ModalState>("none");
-  const [slotBModal, setSlotBModal] = useState<ModalState>("none");
-  const isModalTransitioning = useRef(false);
-  const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const isMountedRef = useRef(true);
-  const [outgoingSlot, setOutgoingSlot] = useState<"A" | "B" | null>(null);
-  const { width: screenWidth } = useWindowDimensions();
-
-  // Cleanup on unmount — prevent state updates after component is removed
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      isModalTransitioning.current = false;
-    };
-  }, []);
-
-  // Slot A animation values
-  const slotATranslateX = useSharedValue(0);
-  const slotAOpacity = useSharedValue(1);
-  const slotAZIndex = useSharedValue(1);
-
-  // Slot B animation values
-  const slotBTranslateX = useSharedValue(0);
-  const slotBOpacity = useSharedValue(0);
-  const slotBZIndex = useSharedValue(0);
-
-  const slotAAnimatedStyle = useAnimatedStyle(() => ({
-    position: "absolute" as const,
-    top: 0, left: 0, right: 0, bottom: 0,
-    transform: [{ translateX: slotATranslateX.value }],
-    opacity: slotAOpacity.value,
-    zIndex: slotAZIndex.value,
-  }));
-
-  const slotBAnimatedStyle = useAnimatedStyle(() => ({
-    position: "absolute" as const,
-    top: 0, left: 0, right: 0, bottom: 0,
-    transform: [{ translateX: slotBTranslateX.value }],
-    opacity: slotBOpacity.value,
-    zIndex: slotBZIndex.value,
-  }));
-
-  // Clean up after transition completes — always releases the lock
-  const finishTransition = (
-    newActiveSlot: "A" | "B",
-    nextModal: ModalState,
-  ) => {
-    // Clear safety timeout (safe to call from JS thread)
-    if (safetyTimeoutRef.current) {
-      clearTimeout(safetyTimeoutRef.current);
-      safetyTimeoutRef.current = null;
-    }
-    if (!isMountedRef.current) return; // Component unmounted
-    if (!isModalTransitioning.current) return; // Already finished (safety timeout race)
-    try {
-      activeSlotRef.current = newActiveSlot;
-      // Clear the outgoing slot
-      if (newActiveSlot === "A") {
-        setSlotBModal("none");
-        slotBTranslateX.value = 0;
-        slotBOpacity.value = 0;
-        slotBZIndex.value = 0;
-      } else {
-        setSlotAModal("none");
-        slotATranslateX.value = 0;
-        slotAOpacity.value = 0;
-        slotAZIndex.value = 0;
-      }
-      // Sync activeModal for other effects (music pause, chat message, etc.)
-      setActiveModal(nextModal);
-      setOutgoingSlot(null);
-    } catch (error) {
-      AppLogger.error("quiz", "[Today] Error in finishTransition:", {}, error);
-      // Force full reset to recover
-      setSlotAModal("none");
-      setSlotBModal("none");
-      setActiveModal("none");
-      setOutgoingSlot(null);
-      activeSlotRef.current = "A";
-    } finally {
-      isModalTransitioning.current = false;
-    }
-  };
-
-  // Apple-style push/pop transition between modal content views
-  const animateModalTransition = (
-    nextModal: ModalState,
-    prevModal: ModalState,
-    direction: "forward" | "backward",
-  ) => {
-    if (isModalTransitioning.current) {
-      console.warn("⚠️ [Today] Transition blocked — already transitioning");
-      return;
-    }
-    isModalTransitioning.current = true;
-    const currentSlot = activeSlotRef.current;
-    setOutgoingSlot(currentSlot);
-
-    const incomingSlot = currentSlot === "A" ? "B" : "A";
-
-    // Get refs for the correct slots
-    const outX = currentSlot === "A" ? slotATranslateX : slotBTranslateX;
-    const outOpacity = currentSlot === "A" ? slotAOpacity : slotBOpacity;
-    const outZ = currentSlot === "A" ? slotAZIndex : slotBZIndex;
-    const inX = incomingSlot === "A" ? slotATranslateX : slotBTranslateX;
-    const inOpacity = incomingSlot === "A" ? slotAOpacity : slotBOpacity;
-    const inZ = incomingSlot === "A" ? slotAZIndex : slotBZIndex;
-    const setIncoming = incomingSlot === "A" ? setSlotAModal : setSlotBModal;
-
-    // Set z-order: forward = incoming on top, backward = outgoing on top
-    if (direction === "forward") {
-      outZ.value = 1;
-      inZ.value = 2;
-    } else {
-      outZ.value = 2;
-      inZ.value = 1;
-    }
-
-    // Position incoming offscreen and render it
-    inX.value = direction === "forward" ? screenWidth : -screenWidth * 0.3;
-    inOpacity.value = 1;
-    setIncoming(nextModal);
-    setPreviousModal(prevModal);
-
-    // Safety timeout: force cleanup if animation doesn't complete in 1s
-    if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
-    safetyTimeoutRef.current = setTimeout(() => {
-      if (isModalTransitioning.current) {
-        console.warn("⚠️ [Today] Modal transition timed out, forcing cleanup");
-        finishTransition(incomingSlot, nextModal);
-      }
-    }, 1000);
-
-    // Wait one frame for React to mount the incoming content, then animate both
-    rafRef.current = requestAnimationFrame(() => {
-      const duration = 300;
-      const timingConfig = { duration, easing: Easing.out(Easing.cubic) };
-
-      // Outgoing: slide away + dim slightly
-      const outTarget = direction === "forward" ? -screenWidth * 0.3 : screenWidth;
-      outX.value = withTiming(outTarget, timingConfig);
-      if (direction === "forward") {
-        outOpacity.value = withTiming(0.5, { duration });
-      }
-
-      // Incoming: slide to center — finishTransition handles timeout cleanup on JS thread
-      inX.value = withTiming(0, timingConfig, () => {
-        runOnJS(finishTransition)(incomingSlot, nextModal);
-      });
-    });
-  };
+  // Dual-slot push/pop modal animation system. Owns slot state, shared
+  // values, animated styles, and the transition functions. `onCardViewed`
+  // bridges the inline `tracking.trackCardViewed(...)` calls without
+  // entangling the hook with PostHog.
+  const {
+    activeModal,
+    previousModal,
+    slotAModal,
+    slotBModal,
+    outgoingSlot,
+    slotAAnimatedStyle,
+    slotBAnimatedStyle,
+    isModalTransitioning,
+    openModal,
+    closeModal,
+    animateModalTransition,
+  } = useTodayModalSlots({
+    onCardViewed: (cardIndex) => tracking.trackCardViewed(cardIndex),
+  });
 
   // Week navigation and historical content viewing
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -566,10 +416,17 @@ export default function TodayScreen() {
   // Live Activity — cache quiz results for XP plumbing to Live Activity completion
   const lastQuizCorrectAnswersRef = useRef(0);
 
-  // Guard: streak starts as 0 before cloud hydration — don't expose pre-hydration value
-  const isStreakHydrated = streak > 0;
-  const streakRef = useRef(streak);
-  useEffect(() => { streakRef.current = streak; }, [streak]);
+  // iOS Live Activity coordination — starts on first Today focus, syncs
+  // streak changes, exposes `updateDailyStoryIfActive` for onNext callbacks.
+  const { updateDailyStoryIfActive } = useDailyStoryLiveActivity({
+    todayQuest,
+    displayedQuest,
+    isHistoricalView,
+    watchCompleted,
+    exploreCompleted,
+    questCompleted,
+    streak,
+  });
 
   // Handle quiz completion
   const handleQuizComplete = async () => {
@@ -588,52 +445,6 @@ export default function TodayScreen() {
       await reportTodayComplete(questDate, xpEarned);
       console.log(`✅ [Today] Celebration triggered`);
     }
-  };
-
-  // Modal opener — puts content in active slot, resets everything
-  const openModal = (modal: ModalState) => {
-    if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
-    isModalTransitioning.current = false;
-    const slot = activeSlotRef.current;
-    if (slot === "A") {
-      setSlotAModal(modal);
-      slotATranslateX.value = 0;
-      slotAOpacity.value = 1;
-      slotAZIndex.value = 1;
-      setSlotBModal("none");
-      slotBOpacity.value = 0;
-      slotBZIndex.value = 0;
-    } else {
-      setSlotBModal(modal);
-      slotBTranslateX.value = 0;
-      slotBOpacity.value = 1;
-      slotBZIndex.value = 1;
-      setSlotAModal("none");
-      slotAOpacity.value = 0;
-      slotAZIndex.value = 0;
-    }
-    setActiveModal(modal);
-    setPreviousModal("none");
-    if (modal === "video") tracking.trackCardViewed(1);
-    if (modal === "reading") tracking.trackCardViewed(2);
-    if (modal === "quiz") tracking.trackCardViewed(3);
-  };
-
-  // Close modal entirely — clear both slots
-  const closeModal = () => {
-    if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
-    isModalTransitioning.current = false;
-    setSlotAModal("none");
-    setSlotBModal("none");
-    slotATranslateX.value = 0;
-    slotAOpacity.value = 1;
-    slotAZIndex.value = 1;
-    slotBTranslateX.value = 0;
-    slotBOpacity.value = 0;
-    slotBZIndex.value = 0;
-    activeSlotRef.current = "A";
-    setActiveModal("none");
-    setPreviousModal("none");
   };
 
   // Note: Celebration now triggered directly in handleQuizComplete (not useEffect)
@@ -662,74 +473,6 @@ export default function TodayScreen() {
     loadCompletedDates();
   }, [user?.id, questCompleted]); // Refetch when user changes or quest completed
   // eslint-disable-next-line react-hooks/exhaustive-deps
-
-  // Live Activity — update DailyStory progress if activity is running
-  // Guard: only update if user is interacting with TODAY's quest (not historical/rewind)
-  // Live Activity always belongs to today's story; updates from past-day quests must be ignored
-  const updateDailyStoryIfActive = useCallback((cards: {
-    watchCompleted: boolean;
-    exploreCompleted: boolean;
-    questionsCompleted: boolean;
-  }) => {
-    if (!liveActivityManager.isDailyStoryActive) return;
-
-    // Only apply updates from today's quest — skip if user is doing a historical quest
-    if (isHistoricalView) return;
-    const quest = displayedQuest || todayQuest;
-    const today = toLocalDateString(new Date());
-    if (!quest || quest.date !== today) return;
-
-    liveActivityManager.updateDailyStoryProgress({
-      ...cards,
-      currentStreak: streak,
-    }).catch((err) => {
-      AppLogger.error('gamification', 'DailyStory Live Activity update failed', {}, err as Error);
-    });
-  }, [streak, isHistoricalView, displayedQuest, todayQuest]);
-
-  // Live Activity — start DailyStory on first Today tab open of the day
-  // Specs: starts when user opens Today tab, once per day, only if quest incomplete
-  useFocusEffect(
-    useCallback(() => {
-      if (!todayQuest) return;
-
-      // Don't start if quest is already fully completed
-      if (questCompleted && watchCompleted && exploreCompleted) return;
-
-      const today = toLocalDateString(new Date());
-      if (todayQuest.date !== today) return;
-
-      // Skip if streak hasn't hydrated yet — prevents brief "0-day streak" on lock screen
-      if (!isStreakHydrated) return;
-
-      liveActivityManager.startDailyStoryActivity({
-        storyId: todayQuest.id,
-        storyTitle: todayQuest.content.today_title,
-        dayNumber: todayQuest.content.day_number,
-        totalDays: todayQuest.content.total_days,
-        currentStreak: streakRef.current,
-        watchCompleted,
-        exploreCompleted,
-        questionsCompleted: questCompleted,
-      }).catch((err) => {
-        AppLogger.error('gamification', 'DailyStory Live Activity start failed', {}, err as Error);
-      });
-    }, [todayQuest, questCompleted, watchCompleted, exploreCompleted, isStreakHydrated])
-  );
-
-  // Sync streak changes to Live Activity (card completions already handled by onNext callbacks)
-  useEffect(() => {
-    if (!liveActivityManager.isDailyStoryActive) return;
-    if (isHistoricalView) return;
-    liveActivityManager.updateDailyStoryProgress({
-      watchCompleted,
-      exploreCompleted,
-      questionsCompleted: questCompleted,
-      currentStreak: streak,
-    }).catch((err) => {
-      AppLogger.error('gamification', 'DailyStory streak sync failed', {}, err as Error);
-    });
-  }, [streak, isHistoricalView]);
 
   // Loading state
   if (loading) {
