@@ -13,26 +13,27 @@ interface UseTodayPaywallArgs {
   onUnlockHistoricalDate: (date: Date, quest: Today | null) => void;
   /** Same Supabase `fetchQuestByDate` the rest of today.tsx uses. */
   fetchQuestByDate: (dateString: string) => Promise<Today | null>;
+  /**
+   * Race-guard ref shared with useTodayHistory's subscription-expiration
+   * effect. We set it `true` for 5s after a successful purchase so the
+   * recovery effect doesn't reset the view back to today before
+   * RevenueCat's listener has updated `isSubscribed`. Owned by the
+   * caller (today.tsx) so both hooks can share the same ref.
+   */
+  justPurchasedRef: React.MutableRefObject<boolean>;
 }
 
 /**
  * Paywall presentation flow for the daily-story rewind feature.
  *
- * Owns:
- * - `justPurchasedRef`: race-guard so the "subscription expired while historical"
- *   effect doesn't reset the user's view back to today before RevenueCat's
- *   listener has updated `isSubscribed`.
- * - `isPaywallPresentedRef`: prevents double-presentation if the user
- *   double-taps a locked date.
- *
- * `justPurchasedRef` is exposed via the return so the consumer can read it
- * from the subscription-expiration recovery effect.
+ * Owns the re-entrancy guard internally. The cross-hook race guard
+ * (`justPurchasedRef`) is owned by the caller and passed in.
  */
 export function useTodayPaywall({
   onUnlockHistoricalDate,
   fetchQuestByDate,
+  justPurchasedRef,
 }: UseTodayPaywallArgs) {
-  const justPurchasedRef = useRef(false);
   const isPaywallPresentedRef = useRef(false);
 
   const handleShowPaywall = async (date: Date) => {
@@ -142,6 +143,5 @@ export function useTodayPaywall({
 
   return {
     handleShowPaywall,
-    justPurchasedRef,
   };
 }

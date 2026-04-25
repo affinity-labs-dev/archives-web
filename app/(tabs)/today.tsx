@@ -13,6 +13,7 @@ import TodayProgressBar from "@/components/today/TodayProgressBar";
 import { DepthButton, Typography, easings } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
 import { useDailyStoryLiveActivity } from "@/hooks/useDailyStoryLiveActivity";
+import { useTodayHistory } from "@/hooks/useTodayHistory";
 import { useTodayModalSlots, type ModalState } from "@/hooks/useTodayModalSlots";
 import { useTodayPaywall } from "@/hooks/useTodayPaywall";
 import { useTodayProgress } from "@/hooks/useTodayProgress";
@@ -23,7 +24,6 @@ import ArchivesTheme from "@/constants/ArchivesTheme";
 import { toLocalDateString } from "@/utils/dateUtils";
 import { useGamificationOrchestrator } from "@/gamification";
 import { useDailyStoryTracking } from "@/hooks/useDailyStoryTracking";
-import { supabase } from "@/hooks/lib/supabase";
 import { analyticsService } from "@/services/AnalyticsService";
 import AppLogger from "@/services/AppLogger";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
@@ -32,7 +32,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -149,12 +149,32 @@ export default function TodayScreen() {
     onCardViewed: (cardIndex) => tracking.trackCardViewed(cardIndex),
   });
 
-  // Week navigation and historical content viewing
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [displayedQuest, setDisplayedQuest] = useState<
-    typeof todayQuest | null
-  >(null);
-  const [isHistoricalView, setIsHistoricalView] = useState(false);
+  // Race-guard shared between paywall (writes) and history's
+  // subscription-expiration effect (reads). Owned here so both hooks can
+  // see the same ref.
+  const justPurchasedRef = useRef(false);
+
+  // Calendar / historical-date navigation state. Owns selectedDate,
+  // displayedQuest, isHistoricalView, completedDatesCache, the Supabase
+  // fetchers, and the 3 sync effects (todayQuest → displayedQuest,
+  // subscription-expired recovery, completed-dates cache refresh).
+  const {
+    selectedDate,
+    setSelectedDate,
+    displayedQuest,
+    setDisplayedQuest,
+    isHistoricalView,
+    setIsHistoricalView,
+    completedDatesCache,
+    fetchQuestByDate,
+    refreshCompletedDates,
+  } = useTodayHistory({
+    todayQuest,
+    userId: user?.id,
+    isSubscribed,
+    isSubscriptionLoading,
+    justPurchasedRef,
+  });
 
   // Daily story PostHog tracking
   const tracking = useDailyStoryTracking({
@@ -166,82 +186,17 @@ export default function TodayScreen() {
     isSubscribed,
   });
 
-  // Cache for completed quest dates (for calendar display)
-  const [completedDatesCache, setCompletedDatesCache] =
-    useState<Set<string> | null>(null);
-
-  // Fetch historical quest by date from Supabase
-  const fetchQuestByDate = async (dateString: string) => {
-    try {
-      console.log(`📅 [Today] Fetching quest for date: ${dateString}`);
-      const { data, error } = await supabase
-        .from("daily_content")
-        .select("*")
-        .eq("date", dateString)
-        .maybeSingle();
-
-      if (error) {
-        console.error(
-          `❌ [Today] Error fetching quest for ${dateString}:`,
-          error,
-        );
-        return null;
-      }
-
-      if (!data) {
-        console.log(`📅 [Today] No content found for ${dateString}`);
-        return null;
-      }
-
-      console.log(`✅ [Today] Quest loaded for ${dateString}:`, data);
-      return data;
-    } catch (err) {
-      console.error(`❌ [Today] Exception fetching quest:`, err);
-      return null;
-    }
-  };
-
-  // Paywall presentation flow for daily-story rewind. Owns `justPurchasedRef`
-  // (race-guard against the subscription-expiration recovery effect) and the
-  // re-entrancy guard. On unlock, navigates the calendar to the gated date.
-  const { handleShowPaywall, justPurchasedRef } = useTodayPaywall({
+  // Paywall presentation flow for daily-story rewind. Re-entrancy guard
+  // lives inside the hook; the cross-hook `justPurchasedRef` is shared.
+  const { handleShowPaywall } = useTodayPaywall({
     fetchQuestByDate,
+    justPurchasedRef,
     onUnlockHistoricalDate: (date, quest) => {
       setSelectedDate(date);
       setIsHistoricalView(true);
       setDisplayedQuest(quest);
     },
   });
-
-  // Set displayedQuest when todayQuest loads (for current day)
-  useEffect(() => {
-    const today = toLocalDateString(new Date());
-    const selectedDateStr = toLocalDateString(selectedDate);
-
-    if (todayQuest && selectedDateStr === today) {
-      setDisplayedQuest(todayQuest);
-      setIsHistoricalView(false);
-    }
-  }, [todayQuest, selectedDate]);
-
-  // Handle subscription expiration while viewing historical content
-  useEffect(() => {
-    // Skip reset if user just completed a purchase (prevents race condition)
-    // The RevenueCat listener hasn't updated isSubscribed yet, but purchase was successful
-    if (justPurchasedRef.current) {
-      AppLogger.info('subscription', 'Skipping reset - purchase just completed, waiting for subscription state sync');
-      return;
-    }
-
-    // If user is viewing historical content and subscription expires, reset to today
-    if (isHistoricalView && !isSubscribed && !isSubscriptionLoading) {
-      AppLogger.warn('subscription', 'Subscription expired while viewing historical content - resetting to today');
-      const today = new Date();
-      setSelectedDate(today);
-      setIsHistoricalView(false);
-      setDisplayedQuest(todayQuest);
-    }
-  }, [isSubscribed, isSubscriptionLoading, isHistoricalView, todayQuest, justPurchasedRef]);
 
   // Audio player for voiceover (from inner_voice URL in Supabase)
   const player = useAudioPlayer(
@@ -348,50 +303,6 @@ export default function TodayScreen() {
     }
   };
 
-  // Fetch completed quest dates from Supabase for calendar display
-  const fetchCompletedQuestDates = async (
-    startDate: Date,
-    endDate: Date,
-  ): Promise<Set<string>> => {
-    if (!user?.id) return new Set();
-
-    try {
-      const startDateStr = toLocalDateString(startDate);
-      const endDateStr = toLocalDateString(endDate);
-
-      // Only mark dates as completed if ALL sections are done:
-      // watch_completed = true, explore_completed = true, score > 0 (quiz done)
-      const { data, error } = await supabase
-        .from("user_daily_quest_progress")
-        .select(
-          "daily_quest_id, daily_content!fk_daily_quest!inner(date), watch_completed, explore_completed, score",
-        )
-        .eq("user_id", user.id)
-        .eq("watch_completed", true)
-        .eq("explore_completed", true)
-        .gt("score", 0)
-        .gte("daily_content.date", startDateStr)
-        .lte("daily_content.date", endDateStr);
-
-      if (error) {
-        console.error("❌ [Calendar] Error fetching completed dates:", error);
-        return new Set();
-      }
-
-      const completedDates = new Set(
-        data?.map((row: any) => row.daily_content.date) || [],
-      );
-      console.log(
-        "📅 [Calendar] Fetched completed dates:",
-        Array.from(completedDates),
-      );
-      return completedDates;
-    } catch (error) {
-      console.error("❌ [Calendar] Exception fetching completed dates:", error);
-      return new Set();
-    }
-  };
-
   // Per-section completion state for the active quest. Loads from Supabase
   // (with AsyncStorage fallback), exposes setters + a save helper that
   // round-trips to both stores, and derives `progress` / unlock flags.
@@ -412,6 +323,12 @@ export default function TodayScreen() {
     userId: user?.id,
     isHistoricalView,
   });
+
+  // Refresh the calendar's completed-dates cache when the user finishes
+  // the current day. (User-id changes are handled inside useTodayHistory.)
+  useEffect(() => {
+    if (questCompleted) refreshCompletedDates();
+  }, [questCompleted, refreshCompletedDates]);
 
   // Live Activity — cache quiz results for XP plumbing to Live Activity completion
   const lastQuizCorrectAnswersRef = useRef(0);
@@ -449,30 +366,6 @@ export default function TodayScreen() {
 
   // Note: Celebration now triggered directly in handleQuizComplete (not useEffect)
   // This ensures animation shows only when user actively completes quiz, not when loading completed quest
-
-  // Fetch completed quest dates for calendar display
-  useEffect(() => {
-    const loadCompletedDates = async () => {
-      if (!user?.id) {
-        setCompletedDatesCache(new Set());
-        return;
-      }
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // Fetch for a wider range to cover both week view and month modal
-      // Go back 60 days to cover historical data
-      const startDate = new Date(today);
-      startDate.setDate(today.getDate() - 60);
-
-      const completedDates = await fetchCompletedQuestDates(startDate, today);
-      setCompletedDatesCache(completedDates);
-    };
-
-    loadCompletedDates();
-  }, [user?.id, questCompleted]); // Refetch when user changes or quest completed
-  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Loading state
   if (loading) {
