@@ -6,6 +6,7 @@ import TodayVideoLesson from "@/components/lessons/today/TodayVideoLesson";
 import Quiz from "@/components/quiz/Quiz";
 import TodayCalendar from "@/components/today/TodayCalendar";
 import TodayCardDeck from "@/components/today/TodayCardDeck";
+import TodayEmptyState from "@/components/today/TodayEmptyState";
 import TodayHeader from "@/components/today/TodayHeader";
 import TodayProgressBar from "@/components/today/TodayProgressBar";
 import { DepthButton, Typography, easings } from "@/components/ui";
@@ -30,8 +31,6 @@ import { analyticsService } from "@/services/AnalyticsService";
 import AppLogger from "@/services/AppLogger";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
-import { Ionicons } from "@expo/vector-icons";
-import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
@@ -92,7 +91,7 @@ export default function TodayScreen() {
   // Debug logging
   useEffect(() => {
     if (todayQuest) {
-      console.log("📋 [Today UI] Quest loaded:", {
+      AppLogger.info("daily", "Quest loaded", {
         card1_media: todayQuest.content?.card1?.media_url,
         card2_voice: todayQuest.content?.card2?.inner_voice,
         card3_questions: todayQuest.content?.card3?.questions?.length,
@@ -200,29 +199,6 @@ export default function TodayScreen() {
     },
   });
 
-  // Audio player for voiceover (from inner_voice URL in Supabase)
-  const player = useAudioPlayer(
-    todayQuest?.content?.card2?.inner_voice || null,
-  );
-
-  // Configure audio mode for silent mode playback
-  useEffect(() => {
-    const configureAudio = async () => {
-      try {
-        await setAudioModeAsync({
-          playsInSilentMode: true, // Audio plays even in silent mode
-        });
-        console.log(
-          "🎵 [Today] Audio mode configured for silent mode playback",
-        );
-      } catch (error) {
-        console.error("🎵 [Today] Failed to configure audio mode:", error);
-      }
-    };
-
-    configureAudio();
-  }, []);
-
   // Handle StatusBar for fullscreen Explore modal (checks slots too for mid-transition)
   const isReadingVisible = activeModal === "reading" || slotAModal === "reading" || slotBModal === "reading";
   useEffect(() => {
@@ -239,37 +215,13 @@ export default function TodayScreen() {
     }
   }, [isReadingVisible]);
 
-  // Toggle audio playback
-  const toggleAudio = () => {
-    console.log("🎵 [Today] Toggle audio clicked");
-    console.log("   Player loaded:", player.isLoaded);
-    console.log("   Player playing:", player.playing);
-    console.log(
-      "   Audio URI:",
-      todayQuest?.content?.card2?.inner_voice ? "Yes" : "No",
-    );
-
-    if (!player.isLoaded) {
-      console.log("❌ [Today] Player not loaded yet");
-      return;
-    }
-
-    if (player.playing) {
-      console.log("⏸️ [Today] Pausing audio");
-      player.pause();
-    } else {
-      console.log("▶️ [Today] Playing audio");
-      player.play();
-    }
-  };
-
   // Handle calendar date click
   const handleDateClick = async (date: Date) => {
     const dateStr = toLocalDateString(date);
     const today = toLocalDateString(new Date());
     const isPastDate = dateStr < today;
 
-    console.log(`📅 [Today] Date clicked: ${dateStr}`);
+    AppLogger.info("daily", "Date clicked", { dateStr });
 
     // Track rewind tapped for past dates
     if (isPastDate) {
@@ -279,13 +231,13 @@ export default function TodayScreen() {
 
     // Wait for subscription status to load before making gate decisions
     if (isPastDate && isSubscriptionLoading) {
-      console.log(`⏳ [Today] Waiting for subscription status...`);
+      AppLogger.info("daily", "Waiting for subscription status");
       return;
     }
 
     if (dateStr === today) {
       // Viewing current day - always allowed
-      console.log(`✅ [Today] Returning to current day`);
+      AppLogger.info("daily", "Returning to current day");
       setSelectedDate(date);
       setDisplayedQuest(todayQuest);
       setIsHistoricalView(false);
@@ -293,11 +245,11 @@ export default function TodayScreen() {
       // Past date and not subscribed - track block and show paywall
       const daysAgo = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
       tracking.trackRewindBlocked(dateStr, daysAgo);
-      console.log(`🔒 [Today] Subscription required for: ${dateStr}`);
+      AppLogger.info("daily", "Subscription required for date", { dateStr });
       await handleShowPaywall(date);
     } else {
       // Past date and subscribed - load historical content
-      console.log(`📜 [Today] Loading historical content for ${dateStr}`);
+      AppLogger.info("daily", "Loading historical content", { dateStr });
       setSelectedDate(date);
       setIsHistoricalView(true);
       const historicalQuest = await fetchQuestByDate(dateStr);
@@ -364,7 +316,7 @@ export default function TodayScreen() {
   // Handle quiz completion
   const handleQuizComplete = async () => {
     setQuestCompleted(true);
-    console.log("✅ [Today] Quiz completed, quest finished!");
+    AppLogger.info("daily", "Quiz completed, quest finished");
 
     // Track daily story completed
     await tracking.trackCompleted();
@@ -374,9 +326,9 @@ export default function TodayScreen() {
     if (currentQuest?.date && watchCompleted && exploreCompleted) {
       const questDate = currentQuest.date;
       const xpEarned = lastQuizCorrectAnswersRef.current * 10;
-      console.log(`🎬 [Today] Triggering celebration for ${questDate} (XP: ${xpEarned})...`);
+      AppLogger.info("daily", "Triggering celebration", { questDate, xpEarned });
       await reportTodayComplete(questDate, xpEarned);
-      console.log(`✅ [Today] Celebration triggered`);
+      AppLogger.info("daily", "Celebration triggered");
     }
   };
 
@@ -454,7 +406,7 @@ export default function TodayScreen() {
 
     const quest = displayedQuest || todayQuest;
     if (!quest) {
-      console.error("❌ [Today] renderModalContent called with no quest data");
+      AppLogger.error("daily", "renderModalContent called with no quest data");
       return null;
     }
 
@@ -574,9 +526,9 @@ export default function TodayScreen() {
                   correctAnswers,
                   totalQuestions,
                 );
-                console.log("✅ [Today] Quest completion saved to Supabase");
+                AppLogger.info("daily", "Quest completion saved to Supabase");
               } catch (error) {
-                console.error("❌ [Today] Failed to save completion:", error);
+                AppLogger.error("daily", "Failed to save completion", {}, error);
               }
             }}
             onContinue={async () => {
@@ -674,48 +626,7 @@ export default function TodayScreen() {
         {/* No Quest Available - Shows inline when no content exists (historical or today) */}
         {(isHistoricalView && !displayedQuest) ||
         (!isHistoricalView && !todayQuest) ? (
-          <View
-            style={{
-              flex: 1,
-              paddingVertical: 80,
-              paddingHorizontal: 32,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Ionicons
-              name="calendar-outline"
-              size={64}
-              color={ArchivesTheme.colors.persianOrange}
-              style={{ marginBottom: 20 }}
-            />
-            <Text
-              style={{
-                fontFamily: "DM Sans",
-                fontSize: 22,
-                fontWeight: "700",
-                color: ArchivesTheme.colors.persianOrange,
-                marginBottom: 12,
-                textAlign: "center",
-              }}
-            >
-              {isHistoricalView ? "No Quest Available" : "No Quest Today"}
-            </Text>
-            <Text
-              style={{
-                fontFamily: "DM Sans",
-                fontSize: 15,
-                fontWeight: "400",
-                color: ArchivesTheme.colors.shoeBrown,
-                textAlign: "center",
-                lineHeight: 22,
-              }}
-            >
-              {isHistoricalView
-                ? "There's no daily content for this date. Try selecting a different day from the calendar."
-                : "Check back tomorrow for a new daily quest!"}
-            </Text>
-          </View>
+          <TodayEmptyState isHistoricalView={isHistoricalView} />
         ) : (
           <>
             <AnimatedEntrance

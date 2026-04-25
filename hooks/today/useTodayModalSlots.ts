@@ -133,7 +133,7 @@ export function useTodayModalSlots({
     direction: "forward" | "backward",
   ) => {
     if (isModalTransitioning.current) {
-      console.warn("⚠️ [Today] Transition blocked — already transitioning");
+      AppLogger.warn("daily", "Transition blocked — already transitioning");
       return;
     }
     isModalTransitioning.current = true;
@@ -170,7 +170,7 @@ export function useTodayModalSlots({
     if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
     safetyTimeoutRef.current = setTimeout(() => {
       if (isModalTransitioning.current) {
-        console.warn("⚠️ [Today] Modal transition timed out, forcing cleanup");
+        AppLogger.warn("daily", "Modal transition timed out, forcing cleanup");
         finishTransition(incomingSlot, nextModal);
       }
     }, 1000);

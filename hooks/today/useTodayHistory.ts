@@ -55,7 +55,7 @@ export function useTodayHistory({
     dateString: string,
   ): Promise<Today | null> => {
     try {
-      console.log(`📅 [Today] Fetching quest for date: ${dateString}`);
+      AppLogger.info("daily", "Fetching quest for date", { dateString });
       const { data, error } = await supabase
         .from("daily_content")
         .select("*")
@@ -63,22 +63,19 @@ export function useTodayHistory({
         .maybeSingle();
 
       if (error) {
-        console.error(
-          `❌ [Today] Error fetching quest for ${dateString}:`,
-          error,
-        );
+        AppLogger.error("daily", "Error fetching quest by date", { dateString }, error);
         return null;
       }
 
       if (!data) {
-        console.log(`📅 [Today] No content found for ${dateString}`);
+        AppLogger.info("daily", "No content found for date", { dateString });
         return null;
       }
 
-      console.log(`✅ [Today] Quest loaded for ${dateString}:`, data);
+      AppLogger.info("daily", "Quest loaded for date", { dateString });
       return data as Today;
     } catch (err) {
-      console.error(`❌ [Today] Exception fetching quest:`, err);
+      AppLogger.error("daily", "Exception fetching quest by date", { dateString }, err);
       return null;
     }
   };
@@ -109,7 +106,7 @@ export function useTodayHistory({
         .lte("daily_content.date", endDateStr);
 
       if (error) {
-        console.error("❌ [Calendar] Error fetching completed dates:", error);
+        AppLogger.error("daily", "Error fetching completed dates", {}, error);
         return new Set();
       }
 
@@ -117,13 +114,13 @@ export function useTodayHistory({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data?.map((row: any) => row.daily_content.date) || [],
       );
-      console.log(
-        "📅 [Calendar] Fetched completed dates:",
-        Array.from(completedDates),
-      );
+      AppLogger.info("daily", "Fetched completed dates", {
+        count: completedDates.size,
+        dates: Array.from(completedDates),
+      });
       return completedDates;
     } catch (error) {
-      console.error("❌ [Calendar] Exception fetching completed dates:", error);
+      AppLogger.error("daily", "Exception fetching completed dates", {}, error);
       return new Set();
     }
   };

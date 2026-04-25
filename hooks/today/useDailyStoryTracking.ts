@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { analyticsService } from '@/services/AnalyticsService';
+import AppLogger from '@/services/AppLogger';
 
 type EntrySource = 'today_tab' | 'notification' | 'rewind' | 'deep_link';
 
@@ -47,7 +48,7 @@ export function useDailyStoryTracking({
     }
 
     if (!hasTrackedViewRef.current) {
-      console.log(`📊 [DailyStoryTracking] Story viewed: ${storyId} (${storyDate})`);
+      AppLogger.info("daily", "Story viewed", { storyId, storyDate });
       analyticsService.trackDailyStoryViewed({
         story_id: storyId,
         story_date: storyDate,
@@ -74,7 +75,12 @@ export function useDailyStoryTracking({
         const cardsSeen = cardsSeenRef.current.size;
         const scrollDepth = Math.min(cardsSeen / 3, 1);
 
-        console.log(`📊 [DailyStoryTracking] Story dismissed: ${storyId}, time: ${timeSpent}s, cards: ${cardsSeen}, completed: ${completedRef.current}`);
+        AppLogger.info("daily", "Story dismissed", {
+          storyId,
+          timeSpent,
+          cardsSeen,
+          completed: completedRef.current,
+        });
         analyticsService.trackDailyStoryDismissed({
           story_id: storyId,
           time_spent_seconds: timeSpent,
@@ -92,7 +98,7 @@ export function useDailyStoryTracking({
 
     cardsSeenRef.current.add(cardIndex);
     const cardName = cardIndex === 1 ? 'WATCH' : cardIndex === 2 ? 'EXPLORE' : 'QUESTIONS';
-    console.log(`📊 [DailyStoryTracking] Card viewed: ${cardName} (${cardIndex})`);
+    AppLogger.info("daily", "Card viewed", { cardName, cardIndex });
 
     analyticsService.trackDailyStoryCardViewed({
       story_id: storyId,
@@ -107,7 +113,7 @@ export function useDailyStoryTracking({
     completedRef.current = true;
     const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
 
-    console.log(`📊 [DailyStoryTracking] Story completed: ${storyId}, time: ${timeSpent}s`);
+    AppLogger.info("daily", "Story completed", { storyId, timeSpent });
     analyticsService.trackDailyStoryCompleted({
       story_id: storyId,
       story_date: storyDate,
@@ -127,7 +133,7 @@ export function useDailyStoryTracking({
         daily_story_completion_rate: completionRate,
       });
     } catch (error) {
-      console.error('📊 [DailyStoryTracking] Error updating person properties:', error);
+      AppLogger.error("daily", "Error updating person properties", {}, error);
     }
   }, [storyId, storyDate, entrySource]);
 
@@ -135,7 +141,7 @@ export function useDailyStoryTracking({
   const trackMediaPlayed = useCallback((mediaType: 'audio' | 'video', mediaId: string) => {
     if (!storyId) return;
 
-    console.log(`📊 [DailyStoryTracking] Media played: ${mediaType} - ${mediaId}`);
+    AppLogger.info("daily", "Media played", { mediaType, mediaId });
     analyticsService.trackDailyStoryMediaPlayed({
       story_id: storyId,
       media_type: mediaType,
@@ -145,7 +151,7 @@ export function useDailyStoryTracking({
 
   // Track rewind tapped (past story from calendar)
   const trackRewindTapped = useCallback((tapStoryDate: string, daysAgo: number) => {
-    console.log(`📊 [DailyStoryTracking] Rewind tapped: ${tapStoryDate} (${daysAgo} days ago)`);
+    AppLogger.info("daily", "Rewind tapped", { tapStoryDate, daysAgo });
     analyticsService.trackDailyStoryRewindTapped({
       story_date: tapStoryDate,
       is_subscribed: isSubscribed,
@@ -155,7 +161,7 @@ export function useDailyStoryTracking({
 
   // Track rewind blocked (non-subscriber gated)
   const trackRewindBlocked = useCallback((blockedStoryDate: string, daysAgo: number) => {
-    console.log(`📊 [DailyStoryTracking] Rewind blocked: ${blockedStoryDate} (${daysAgo} days ago)`);
+    AppLogger.info("daily", "Rewind blocked", { blockedStoryDate, daysAgo });
     analyticsService.trackDailyStoryRewindBlocked({
       story_date: blockedStoryDate,
       days_ago: daysAgo,
@@ -166,7 +172,10 @@ export function useDailyStoryTracking({
   const trackStreakIncremented = useCallback((currentStreak: number, isFirstActionToday: boolean) => {
     if (!storyId) return;
 
-    console.log(`📊 [DailyStoryTracking] Streak incremented: ${currentStreak} (first today: ${isFirstActionToday})`);
+    AppLogger.info("daily", "Streak incremented", {
+      currentStreak,
+      isFirstActionToday,
+    });
     analyticsService.trackDailyStoryStreakIncremented({
       story_id: storyId,
       current_streak: currentStreak,
@@ -192,7 +201,7 @@ async function incrementCounter(key: string): Promise<number> {
     await AsyncStorage.setItem(key, String(newValue));
     return newValue;
   } catch (error) {
-    console.error(`📊 [DailyStoryTracking] Error incrementing ${key}:`, error);
+    AppLogger.error("daily", "Error incrementing counter", { key }, error);
     return 1;
   }
 }

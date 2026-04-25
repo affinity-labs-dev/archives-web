@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 
 import { supabase } from "@/hooks/lib/supabase";
+import AppLogger from "@/services/AppLogger";
 
 import type { Today } from "./useTodayQuest";
 
@@ -48,8 +49,9 @@ export function useTodayProgress({
     const loadProgress = async () => {
       // When viewing historical date with no content, don't fall back to today's quest
       if (isHistoricalView && !displayedQuest) {
-        console.log(
-          "📅 [Today] Historical date with no content - keeping progress at 0%",
+        AppLogger.info(
+          "daily",
+          "Historical date with no content - keeping progress at 0%",
         );
         setIsLoadingProgress(false);
         return;
@@ -72,7 +74,9 @@ export function useTodayProgress({
             .maybeSingle();
 
           if (error) {
-            console.warn("⚠️ [Today] Supabase query error:", error.message);
+            AppLogger.warn("daily", "Supabase progress query error", {
+              message: error.message,
+            });
           }
 
           if (data) {
@@ -87,15 +91,13 @@ export function useTodayProgress({
             setExploreCompleted(exploreDone);
             setQuestCompleted(quizDone);
 
-            console.log(
-              `✅ [Today] Loaded progress from Supabase for ${currentQuestId}:`,
-              {
-                watch: watchDone,
-                explore: exploreDone,
-                quiz: quizDone,
-                score: data.score,
-              },
-            );
+            AppLogger.info("daily", "Loaded progress from Supabase", {
+              currentQuestId,
+              watch: watchDone,
+              explore: exploreDone,
+              quiz: quizDone,
+              score: data.score,
+            });
 
             // BACKUP: Cache to AsyncStorage for offline access
             const key = `@today_progress_${currentQuestId}`;
@@ -123,14 +125,14 @@ export function useTodayProgress({
           setWatchCompleted(watchDone);
           setExploreCompleted(exploreDone);
 
-          console.log(
-            `📖 [Today] Loaded progress from AsyncStorage (offline) for ${currentQuestId}:`,
+          AppLogger.info("daily", "Loaded progress from AsyncStorage (offline)", {
+            currentQuestId,
             progress,
-          );
+          });
         }
         // Note: If no stored data anywhere, state already reset to false at useEffect start
       } catch (error) {
-        console.error("❌ [Today] Error loading progress:", error);
+        AppLogger.error("daily", "Error loading progress", {}, error);
       } finally {
         setIsLoadingProgress(false);
       }
@@ -149,8 +151,9 @@ export function useTodayProgress({
   const saveProgress = async (section: "watch" | "explore") => {
     const currentQuestId = displayedQuest?.id || todayQuest?.id;
     if (!currentQuestId || !userId) {
-      console.warn(
-        "⚠️ [Today] Cannot save progress - missing quest ID or user",
+      AppLogger.warn(
+        "daily",
+        "Cannot save progress - missing quest ID or user",
       );
       return;
     }
@@ -179,14 +182,17 @@ export function useTodayProgress({
         );
 
       if (upsertError) {
-        console.error(
-          `❌ [Today] Supabase upsert error for ${section}:`,
+        AppLogger.error(
+          "daily",
+          "Supabase upsert error",
+          { section },
           upsertError,
         );
       } else {
-        console.log(
-          `✅ [Today] Saved ${section} completion to Supabase for ${currentQuestId}`,
-        );
+        AppLogger.info("daily", "Saved section completion to Supabase", {
+          section,
+          currentQuestId,
+        });
       }
 
       // BACKUP: Save to AsyncStorage for offline access
@@ -201,11 +207,12 @@ export function useTodayProgress({
       };
 
       await AsyncStorage.setItem(key, JSON.stringify(current));
-      console.log(
-        `💾 [Today] Cached ${section} completion to AsyncStorage for ${currentQuestId}`,
-      );
+      AppLogger.info("daily", "Cached section completion to AsyncStorage", {
+        section,
+        currentQuestId,
+      });
     } catch (error) {
-      console.error("❌ [Today] Error saving progress:", error);
+      AppLogger.error("daily", "Error saving progress", {}, error);
     }
   };
 

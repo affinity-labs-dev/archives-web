@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { supabase } from "@/hooks/lib/supabase";
 import type { ContentBlock } from "@/components/shared/types";
+import AppLogger from "@/services/AppLogger";
 import { toLocalDateString } from "@/utils/dateUtils";
 
 // ============================================================================
@@ -100,7 +101,7 @@ export function useTodayQuest(userId?: string) {
       const today = new Date();
       const todayDate = toLocalDateString(today);
 
-      console.log(`🔍 [useToday] Fetching quest for ${todayDate}`);
+      AppLogger.info("daily", "Fetching today's quest", { todayDate });
 
       const { data: questData, error: questError } = await supabase
         .from("daily_content")
@@ -110,17 +111,16 @@ export function useTodayQuest(userId?: string) {
         .single();
 
       if (questError) {
-        console.error("❌ [useToday] Error fetching quest:", questError);
+        AppLogger.error("daily", "Error fetching quest", {}, questError);
         setError("No quest available for today");
         setTodayQuest(null);
         setLoading(false);
         return;
       }
 
-      console.log(
-        "✅ [useToday] Quest fetched:",
-        questData?.content?.card1?.title,
-      );
+      AppLogger.info("daily", "Quest fetched", {
+        title: questData?.content?.card1?.title,
+      });
       setTodayQuest(questData as Today);
 
       if (userId && questData) {
@@ -133,22 +133,23 @@ export function useTodayQuest(userId?: string) {
             .maybeSingle();
 
           if (progressError) {
-            console.warn(
-              "⚠️ [useToday] Progress query failed:",
-              progressError.message,
-            );
+            AppLogger.warn("daily", "Progress query failed", {
+              message: progressError.message,
+            });
           } else if (progressData) {
-            console.log("✅ [useToday] User already completed this quest");
+            AppLogger.info("daily", "User already completed this quest");
             setQuestProgress(progressData as TodayProgress);
           }
         } catch (err) {
-          console.warn("⚠️ [useToday] Progress check failed:", err);
+          AppLogger.warn("daily", "Progress check failed", {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
 
       setLoading(false);
     } catch (err) {
-      console.error("❌ [useToday] Unexpected error:", err);
+      AppLogger.error("daily", "Unexpected error fetching today's quest", {}, err);
       setError("Failed to load daily quest");
       setLoading(false);
     }
@@ -165,21 +166,20 @@ export function useTodayQuest(userId?: string) {
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_content" },
         (payload) => {
-          console.log(
-            "🔄 [useToday] Realtime update received:",
-            payload.eventType,
-          );
+          AppLogger.info("daily", "Realtime update received", {
+            eventType: payload.eventType,
+          });
           // Refetch without showing loading spinner for smoother UX
           fetchTodayQuest(false);
         },
       )
       .subscribe((status) => {
-        console.log("📡 [useToday] Realtime subscription status:", status);
+        AppLogger.info("daily", "Realtime subscription status", { status });
       });
 
     // Cleanup subscription on unmount
     return () => {
-      console.log("🔌 [useToday] Unsubscribing from realtime");
+      AppLogger.info("daily", "Unsubscribing from realtime");
       supabase.removeChannel(channel);
     };
   }, [userId]);
@@ -192,9 +192,11 @@ export function useTodayQuest(userId?: string) {
     totalQuestions: number,
   ) => {
     try {
-      console.log(
-        `💾 [useToday] Saving completion: ${correctAnswers}/${totalQuestions} (Score: ${score})`,
-      );
+      AppLogger.info("daily", "Saving completion", {
+        correctAnswers,
+        totalQuestions,
+        score,
+      });
 
       // Check if a record already exists
       const { data: existing } = await supabase
@@ -206,9 +208,9 @@ export function useTodayQuest(userId?: string) {
 
       // If exists and new score is lower, keep the better score
       if (existing && existing.score >= score) {
-        console.log(
-          `✅ [useToday] Keeping existing better score: ${existing.score}`,
-        );
+        AppLogger.info("daily", "Keeping existing better score", {
+          existingScore: existing.score,
+        });
         setQuestProgress(existing as TodayProgress);
         return existing;
       }
@@ -232,17 +234,17 @@ export function useTodayQuest(userId?: string) {
         .single();
 
       if (error) {
-        console.error("❌ [useToday] Error saving completion:", error);
+        AppLogger.error("daily", "Error saving completion", {}, error);
         throw error;
       }
 
-      console.log(
-        `✅ [useToday] Completion saved (${existing ? "Updated" : "New"})`,
-      );
+      AppLogger.info("daily", "Completion saved", {
+        operation: existing ? "Updated" : "New",
+      });
       setQuestProgress(data as TodayProgress);
       return data;
     } catch (err) {
-      console.error("❌ [useToday] Failed to save completion:", err);
+      AppLogger.error("daily", "Failed to save completion", {}, err);
       throw err;
     }
   };
