@@ -5,14 +5,13 @@ import TodayScrollableLesson from "@/components/lessons/today/TodayScrollableLes
 import TodayVideoLesson from "@/components/lessons/today/TodayVideoLesson";
 import Quiz from "@/components/quiz/Quiz";
 import TodayCalendar from "@/components/today/TodayCalendar";
-import TodayCardDeck, {
-  type TodayCardData,
-} from "@/components/today/TodayCardDeck";
+import TodayCardDeck from "@/components/today/TodayCardDeck";
 import TodayHeader from "@/components/today/TodayHeader";
 import TodayProgressBar from "@/components/today/TodayProgressBar";
 import { DepthButton, Typography, easings } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
 import { useDailyStoryLiveActivity } from "@/hooks/useDailyStoryLiveActivity";
+import { useTodayCardsData } from "@/hooks/useTodayCardsData";
 import { useTodayHistory } from "@/hooks/useTodayHistory";
 import { useTodayModalSlots, type ModalState } from "@/hooks/useTodayModalSlots";
 import { useTodayPaywall } from "@/hooks/useTodayPaywall";
@@ -329,6 +328,20 @@ export default function TodayScreen() {
   useEffect(() => {
     if (questCompleted) refreshCompletedDates();
   }, [questCompleted, refreshCompletedDates]);
+
+  // Card-deck data: builds the [explore, watch, questions] tuple from
+  // the active quest + completion state. Memoized so unrelated parent
+  // renders don't churn TodayCardDeck's per-card crossfade effects.
+  const cardsData = useTodayCardsData({
+    todayQuest,
+    displayedQuest,
+    watchCompleted,
+    exploreCompleted,
+    questCompleted,
+    isExploreUnlocked,
+    isQuizUnlocked,
+    openModal,
+  });
 
   // Live Activity — cache quiz results for XP plumbing to Live Activity completion
   const lastQuizCorrectAnswersRef = useRef(0);
@@ -702,61 +715,17 @@ export default function TodayScreen() {
           </View>
         ) : (
           <>
-            {(() => {
-              const quest = displayedQuest || todayQuest;
-              const card1 = quest?.content?.card1;
-              const card2 = quest?.content?.card2;
-
-              const cardsData: [TodayCardData, TodayCardData, TodayCardData] = [
-                {
-                  kind: "explore",
-                  kicker: "Explore",
-                  title: card2?.thumbnail_title ?? "",
-                  minutes: exploreCompleted ? "DONE" : "1 MIN",
-                  pillLabel: "Start",
-                  imageSource: require("@/assets/images/eras/era1-bg.jpg"),
-                  onPress: () => {
-                    if (isExploreUnlocked) openModal("reading");
-                  },
-                },
-                {
-                  kind: "watch",
-                  kicker: "Watch",
-                  title: card1?.title ?? "",
-                  minutes: watchCompleted ? "DONE" : "2 MIN",
-                  pillLabel: "Watch",
-                  imageSource: require("@/assets/images/adventure-backgrounds/UmmayadDynasty.png"),
-                  onPress: () => {
-                    if (card1?.media_url) openModal("video");
-                  },
-                },
-                {
-                  kind: "questions",
-                  kicker: "Questions",
-                  title: "Test your knowledge",
-                  minutes: questCompleted ? "DONE" : "2 MIN",
-                  pillLabel: "Start",
-                  imageSource: require("@/assets/images/eras/era2-bg.jpg"),
-                  onPress: () => {
-                    if (isQuizUnlocked) openModal("quiz");
-                  },
-                },
-              ];
-
-              return (
-                <AnimatedEntrance
-                  delay={650}
-                  preset={{
-                    translateY: { from: 60, to: 0 },
-                    opacity: { from: 0, to: 1 },
-                    duration: 550,
-                    easing: easings.backOut14,
-                  }}
-                >
-                  <TodayCardDeck cards={cardsData} />
-                </AnimatedEntrance>
-              );
-            })()}
+            <AnimatedEntrance
+              delay={650}
+              preset={{
+                translateY: { from: 60, to: 0 },
+                opacity: { from: 0, to: 1 },
+                duration: 550,
+                easing: easings.backOut14,
+              }}
+            >
+              <TodayCardDeck cards={cardsData} />
+            </AnimatedEntrance>
 
             {/* Bottom Spacing for fixed button */}
             <View style={{ height: 100 }} />
