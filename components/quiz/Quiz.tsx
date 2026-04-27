@@ -39,12 +39,14 @@ import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen'
 import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
 import {
+  ConfettiBurst,
   DepthButton,
   ScrollFade,
   Typography,
   colors,
   easings,
   safeDuration,
+  type ConfettiBurstHandle,
 } from '@/components/ui';
 
 // Used by era quizzes and Today screen (isToday=true, adventureId="daily_quest")
@@ -97,6 +99,12 @@ interface QuizOptionButtonProps {
   /** Submit has been pressed; option is no longer interactive. */
   showResult?: boolean;
   onPress: () => void;
+  /**
+   * Hands the parent a ref to the option's outer wrapper view so it can
+   * `measureInWindow` the option's screen position — used by the confetti
+   * burst to anchor the puff at the selected option's center.
+   */
+  registerView?: (view: View | null) => void;
 }
 
 function QuizOptionButton({
@@ -107,6 +115,7 @@ function QuizOptionButton({
   isUserCorrect,
   showResult,
   onPress,
+  registerView,
 }: QuizOptionButtonProps) {
   // Visual state machine — extends the OptionCard pattern (default +
   // selected use blue; correct + incorrect add the green/red reveal
@@ -269,27 +278,34 @@ function QuizOptionButton({
     ],
   }));
 
+  // Outer wrapper exists purely to host a non-animated ref the parent can
+  // `measureInWindow` (Reanimated's Animated.View ref points at a managed
+  // shadow node, which complicates measurement on Android). `collapsable`
+  // forces RN to keep this view in the native hierarchy on Android even
+  // when it has no styling impact — without it, measurements return 0,0.
   return (
-    <Animated.View style={[styles.optionWrap, animatedStyle]}>
-      <DepthButton
-        variant={variant}
-        size="medium"
-        surfaceColor={surfaceToken}
-        shadowColor={shadowToken}
-        borderColor={borderToken}
-        onPress={onPress}
-        isDisabled={showResult}
-      >
-        <Typography
-          family="onest"
-          weight={state === "default" ? "500" : "600"}
-          extraColor={colors.black}
-          style={styles.optionText}
+    <View ref={registerView} collapsable={false}>
+      <Animated.View style={[styles.optionWrap, animatedStyle]}>
+        <DepthButton
+          variant={variant}
+          size="medium"
+          surfaceColor={surfaceToken}
+          shadowColor={shadowToken}
+          borderColor={borderToken}
+          onPress={onPress}
+          isDisabled={showResult}
         >
-          {text}
-        </Typography>
-      </DepthButton>
-    </Animated.View>
+          <Typography
+            family="onest"
+            weight={state === "default" ? "500" : "600"}
+            extraColor={colors.black}
+            style={styles.optionText}
+          >
+            {text}
+          </Typography>
+        </DepthButton>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -631,6 +647,13 @@ export default function Quiz({
   const [showMilestone, setShowMilestone] = useState(false);
   const [milestoneData, setMilestoneData] = useState<{milestoneXP: number; totalXP: number} | null>(null);
 
+  // Confetti ref + per-option view refs. Used on a correct submit to
+  // anchor the puff at the selected option's screen-space center
+  // (mock `index.html:2671-2679`). Refs are populated via `registerView`
+  // callbacks on each `QuizOptionButton`.
+  const confettiRef = useRef<ConfettiBurstHandle>(null);
+  const optionViewRefs = useRef<(View | null)[]>([]);
+
   // Load initial XP when quiz starts (ERA-SPECIFIC)
   useEffect(() => {
     const loadInitialXP = async () => {
@@ -738,6 +761,21 @@ export default function Quiz({
       // Normal correct answer flow (if no milestone)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       playCorrect();
+
+      // Confetti puff anchored at the selected option's center.
+      // Palette + spec ported from mock `index.html:2675-2679`:
+      //   particleCount: 45, spread: 55, startVelocity: 28,
+      //   colors: ['#5B980C', '#D6FFB8', '#234200', '#AAD86A', '#7BC23B']
+      // measureInWindow returns screen-space coords that match the
+      // overlay's StyleSheet.absoluteFill positioning. Guard on `w > 0`
+      // because measureInWindow can resolve to (0,0,0,0) on Android if
+      // the view was detached between submit and the async callback —
+      // emitting from (0,0) would be worse than no burst.
+      const optionView = optionViewRefs.current[selectedAnswer];
+      optionView?.measureInWindow((x, y, w, h) => {
+        if (w === 0 && h === 0) return;
+        confettiRef.current?.fire({ x: x + w / 2, y: y + h / 2 });
+      });
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       playIncorrect();
@@ -1001,6 +1039,9 @@ export default function Quiz({
                 isUserCorrect={isCorrect}
                 showResult={showFeedback}
                 onPress={() => handleAnswerSelect(index)}
+                registerView={(view) => {
+                  optionViewRefs.current[index] = view;
+                }}
               />
             ))}
           </View>
@@ -1059,6 +1100,15 @@ export default function Quiz({
         explanation={currentQuestion.explanation || 'Good job!'}
         bottomInset={insets.bottom}
         onContinue={handleContinueToNext}
+      />
+
+      {/* Confetti overlay — mounts at the very top of the tree so its
+          particles render above the option grid AND the feedback sheet's
+          backdrop. `pointerEvents="none"` (set inside the component) means
+          taps still reach CONTINUE. Palette ported from mock 2675-2679. */}
+      <ConfettiBurst
+        ref={confettiRef}
+        colors={['#5B980C', '#D6FFB8', '#234200', '#AAD86A', '#7BC23B']}
       />
 
       {/* Mid-Quiz Milestone Modal (ERA-SPECIFIC) */}

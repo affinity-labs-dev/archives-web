@@ -56,3 +56,6 @@ export type { PaginationDotsProps } from './PaginationDots';
 
 export { ScrollFade } from './ScrollFade';
 export type { ScrollFadeProps } from './ScrollFade';
+
+export { ConfettiBurst } from './ConfettiBurst';
+export type { ConfettiBurstHandle, ConfettiBurstProps } from './ConfettiBurst';
