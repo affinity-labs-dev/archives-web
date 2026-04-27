@@ -49,6 +49,12 @@ interface UseTodayCardsDataArgs {
   watchCompleted: boolean;
   exploreCompleted: boolean;
   questCompleted: boolean;
+  /**
+   * Quiz correct-answer count (0..3) once the quiz has been submitted; null
+   * before then. Forwarded onto every card so the centered card can render
+   * the star row when the user is viewing a completed day.
+   */
+  quizCorrectAnswers: number | null;
   isExploreUnlocked: boolean;
   isQuizUnlocked: boolean;
   openModal: (modal: "video" | "reading" | "quiz") => void;
@@ -74,6 +80,7 @@ export function useTodayCardsData({
   watchCompleted,
   exploreCompleted,
   questCompleted,
+  quizCorrectAnswers,
   isExploreUnlocked,
   isQuizUnlocked,
   openModal,
@@ -87,6 +94,8 @@ export function useTodayCardsData({
       ...CARD_CONFIGS.explore,
       title: card2?.thumbnail_title ?? "",
       minutes: exploreCompleted ? "DONE" : CARD_CONFIGS.explore.defaultMinutes,
+      completed: exploreCompleted,
+      quizCorrectAnswers,
       onPress: () => {
         if (isExploreUnlocked) openModal("reading");
       },
@@ -96,6 +105,8 @@ export function useTodayCardsData({
       ...CARD_CONFIGS.watch,
       title: card1?.title ?? "",
       minutes: watchCompleted ? "DONE" : CARD_CONFIGS.watch.defaultMinutes,
+      completed: watchCompleted,
+      quizCorrectAnswers,
       onPress: () => {
         if (card1?.media_url) openModal("video");
       },
@@ -105,6 +116,8 @@ export function useTodayCardsData({
       ...CARD_CONFIGS.questions,
       title: "Test your knowledge",
       minutes: questCompleted ? "DONE" : CARD_CONFIGS.questions.defaultMinutes,
+      completed: questCompleted,
+      quizCorrectAnswers,
       onPress: () => {
         if (isQuizUnlocked) openModal("quiz");
       },
@@ -117,6 +130,7 @@ export function useTodayCardsData({
     watchCompleted,
     exploreCompleted,
     questCompleted,
+    quizCorrectAnswers,
     isExploreUnlocked,
     isQuizUnlocked,
     openModal,

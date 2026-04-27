@@ -22,9 +22,15 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Path, SvgXml } from "react-native-svg";
 
 import { Typography, colors, easings, safeDuration } from "@/components/ui";
+
+import {
+  completedStarSvg,
+  incompleteStarSvg,
+  rewatchIconSvg,
+} from "./icons/todayIcons";
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -37,6 +43,20 @@ export interface TodayCardData {
   minutes: string;
   pillLabel: string;
   imageSource?: ImageSource | number;
+  /**
+   * When true, the card swaps its right-side pill for the green
+   * Rewatch / Restart-my-day variant (mock `index.html:1196,1893-1908`).
+   * Per-card so each section's pill flips independently as the user
+   * progresses through watch → explore → questions.
+   */
+  completed?: boolean;
+  /**
+   * Quiz correct-answer count (0..3) once the quiz has been submitted; null
+   * before then. Drives the gold-star row that appears at the top of the
+   * centered card. Same value is forwarded to all three cards so the row
+   * follows whichever is currently centered.
+   */
+  quizCorrectAnswers?: number | null;
   onPress: () => void;
 }
 
@@ -44,6 +64,14 @@ interface TodayCardDeckProps {
   cards: [TodayCardData, TodayCardData, TodayCardData];
   initialCenterIdx?: number;
   onCenterChange?: (idx: number) => void;
+  /**
+   * Forwarded to each Card so the completed-pill entrance animation only
+   * plays for genuine user-action flips. While `true` (Supabase fetch in
+   * flight, day switch, etc.) the pill snaps to whatever `completed` says
+   * without animating — prevents a Watch→Rewatch flash on screen mount
+   * for already-completed days.
+   */
+  isLoading?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -119,6 +147,93 @@ const PlayArrowIcon = ({
 );
 
 // ──────────────────────────────────────────────────────────
+// Star row — viewBox + drop shadow live in the SVG XML files
+// (`assets/svg/today/{completed,incomplete}_star.svg`). The XML strings
+// are imported above; rendering is delegated to `<SvgXml>` so we don't
+// duplicate the path / filter markup here.
+// Star entrance — mock `index.html:1898-1901`:
+//   gsap.from(stars, { scale: 0, opacity: 0, ease: 'back.out(2)',
+//                      duration: 0.5, stagger: 0.08 })
+// `back.out(N)` ≡ `Easing.out(Easing.back(N))` in Reanimated, no spring
+// approximation — keeps the overshoot identical to the mock.
+const STAR_ENTRANCE_MS = 500;
+const STAR_STAGGER_MS = 80;
+
+interface StarProps {
+  filled: boolean;
+  visible: boolean;
+  delayMs: number;
+  width: number;
+  height: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+function StarSlot({
+  filled,
+  visible,
+  delayMs,
+  width,
+  height,
+  style,
+}: StarProps) {
+  // Always start collapsed (scale 0, opacity 0) and let the effect drive
+  // the entrance. The parent gates StarSlot mount on `showStars`, so a fresh
+  // mount here means we genuinely want the back.out(2) pop to play.
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      // Entrance — mock `index.html:1898-1901`:
+      //   gsap.from(stars, { scale: 0, opacity: 0,
+      //                      ease: 'back.out(2)', duration: 0.5,
+      //                      stagger: 0.08 })
+      opacity.value = withDelay(
+        safeDuration(delayMs),
+        withTiming(1, {
+          duration: safeDuration(STAR_ENTRANCE_MS),
+          easing: easings.power2Out,
+        })
+      );
+      scale.value = withDelay(
+        safeDuration(delayMs),
+        withTiming(1, {
+          duration: safeDuration(STAR_ENTRANCE_MS),
+          easing: Easing.out(Easing.back(2)),
+        })
+      );
+    } else {
+      // Exit — quick fade for the rare case where `visible` flips back
+      // (e.g. carousel slide between a completed and non-completed day).
+      opacity.value = withTiming(0, { duration: safeDuration(180) });
+      scale.value = withTiming(0, { duration: safeDuration(180) });
+    }
+  }, [visible, delayMs, opacity, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  // Asset choice is the only thing that varies — fills (gold/grey) and
+  // the drop-shadow filter live inside the SVG XML files themselves.
+  const xml = filled ? completedStarSvg : incompleteStarSvg;
+
+  return (
+    <Animated.View style={[style, animatedStyle]} pointerEvents="none">
+      <SvgXml xml={xml} width={width} height={height} />
+    </Animated.View>
+  );
+}
+
+// Star-row layout — pixel positions copied verbatim from the mock CSS
+// `index.html:391-393` (and the figma node 3977:10165/10166/10167).
+// Card is 252px wide; left/top values are absolute inside that bounds.
+const STAR_LEFT = { left: 110.96, top: 30.4, w: 35.7, h: 36.7 };
+const STAR_MID = { left: 146.66, top: 17.24, w: 51.0, h: 52.4 };
+const STAR_RIGHT = { left: 197.67, top: 30.4, w: 35.7, h: 36.7 };
+
+// ──────────────────────────────────────────────────────────
 // Card subcomponent
 // ──────────────────────────────────────────────────────────
 
@@ -129,6 +244,10 @@ interface CardProps {
   translateX: SharedValue<number>;
   scale: SharedValue<number>;
   opacity: SharedValue<number>;
+  // Suppresses the Watch↔Rewatch crossfade while progress is being fetched
+  // or refetched (day switch, app cold-start). Cards still render the
+  // correct pill state — they just snap instead of tween.
+  isLoading: boolean;
   onTap: () => void;
 }
 
@@ -139,10 +258,150 @@ function Card({
   translateX,
   scale,
   opacity,
+  isLoading,
   onTap,
 }: CardProps) {
   const contentOpacity = useSharedValue(isCenter ? 1 : 0);
   const imageScale = useSharedValue(1);
+
+  // Per-card completion state — drives the pill swap (green Rewatch /
+  // Restart-my-day) and exposes the quiz correct-answer count to the star
+  // row. Stars only render on the WATCH card (figma 3977:10158); they
+  // stay mounted whenever watch is completed and toggle visibility via the
+  // wrapper's opacity (NOT mount/unmount) so a fresh back-out entrance
+  // doesn't replay every time the user swipes watch in/out of center.
+  //
+  // `stableCompleted` is the value the UI actually renders against — it
+  // mirrors the prop, but ONLY updates while we're not loading. While a
+  // fetch is in flight, the prop can flap (synchronous reset to false
+  // followed by an async response back to true) but `stableCompleted`
+  // sits still, so the pill never flashes Restart→Watch→Restart on a
+  // same-quest refetch. Starts `null` on initial mount so neither pill is
+  // shown until the first load actually settles.
+  const completed = !!data.completed;
+  const [stableCompleted, setStableCompleted] = useState<boolean | null>(
+    null,
+  );
+  useEffect(() => {
+    if (isLoading) return;
+    setStableCompleted(completed);
+  }, [completed, isLoading]);
+  const stableCompletedBool = stableCompleted === true;
+  const quizCorrectAnswers = data.quizCorrectAnswers;
+  const renderStars =
+    data.kind === "watch" &&
+    stableCompletedBool &&
+    quizCorrectAnswers != null;
+  const completedLabel =
+    data.kind === "watch" ? "Rewatch" : "Restart my day";
+
+  // Star-row visibility — opacity-only, runs on UI thread, doesn't fight
+  // the slide spring or the card hum. The inner StarSlots only animate
+  // their own scale once on mount (the completion-flip entrance).
+  const starsRowOpacity = useSharedValue(isCenter ? 1 : 0);
+  useEffect(() => {
+    starsRowOpacity.value = withTiming(isCenter ? 1 : 0, {
+      duration: safeDuration(180),
+      easing: easings.power2Out,
+    });
+  }, [isCenter, starsRowOpacity]);
+  const starsRowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: starsRowOpacity.value,
+  }));
+
+  // Completed-pill entrance — mock `index.html:1903-1907`:
+  //   gsap.from(rewatch, { opacity: 0, y: 4, ease: 'back.out(1.4)',
+  //                        duration: 0.35 })
+  //
+  // Initial values are all 0 (neither pill visible) until `stableCompleted`
+  // settles for the first time. This avoids the cold-start flash where a
+  // pre-completed day would briefly render the default pill before the
+  // Supabase response snaps it to the green pill.
+  const completedPillOpacity = useSharedValue(0);
+  const completedPillTranslateY = useSharedValue(4);
+  const defaultPillOpacity = useSharedValue(0);
+
+  // First-stable-set tracker. When the Card has never seen a non-loading
+  // value before, the next `stableCompleted` update is treated as a snap
+  // (no animation) — that's either the very first load completing, or a
+  // day-switch settling. Both should appear instantly with the right pill.
+  // Reset to true whenever loading kicks back in so subsequent settles
+  // also snap rather than animate from the previous day's state.
+  const shouldSnapNextRef = useRef(true);
+  useEffect(() => {
+    if (isLoading) shouldSnapNextRef.current = true;
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (stableCompleted === null) {
+      // Still waiting for the first stable load. Pills stay at 0/0/0.
+      return;
+    }
+
+    const target = stableCompleted;
+
+    if (shouldSnapNextRef.current) {
+      // First settle (cold start) or post-load settle (day switch) —
+      // snap to the right pill without playing the back-out crossfade.
+      shouldSnapNextRef.current = false;
+      completedPillOpacity.value = target ? 1 : 0;
+      completedPillTranslateY.value = target ? 0 : 4;
+      defaultPillOpacity.value = target ? 0 : 1;
+      return;
+    }
+
+    // Genuine in-session flip (user finished a section / quiz) → animate.
+    if (target) {
+      // Default pill fades out first (200ms), completed pill rises after a
+      // tiny gap with the back-out overshoot.
+      defaultPillOpacity.value = withTiming(0, {
+        duration: safeDuration(200),
+        easing: easings.power2Out,
+      });
+      completedPillOpacity.value = withDelay(
+        safeDuration(120),
+        withTiming(1, {
+          duration: safeDuration(350),
+          easing: Easing.out(Easing.back(1.4)),
+        })
+      );
+      completedPillTranslateY.value = withDelay(
+        safeDuration(120),
+        withTiming(0, {
+          duration: safeDuration(350),
+          easing: Easing.out(Easing.back(1.4)),
+        })
+      );
+    } else {
+      // Reverse: completed pill drops out, default pill fades back in.
+      completedPillOpacity.value = withTiming(0, {
+        duration: safeDuration(180),
+      });
+      completedPillTranslateY.value = withTiming(4, {
+        duration: safeDuration(180),
+      });
+      defaultPillOpacity.value = withDelay(
+        safeDuration(120),
+        withTiming(1, {
+          duration: safeDuration(220),
+          easing: easings.power2Out,
+        })
+      );
+    }
+  }, [
+    stableCompleted,
+    completedPillOpacity,
+    completedPillTranslateY,
+    defaultPillOpacity,
+  ]);
+
+  const completedPillStyle = useAnimatedStyle(() => ({
+    opacity: completedPillOpacity.value,
+    transform: [{ translateY: completedPillTranslateY.value }],
+  }));
+  const defaultPillStyle = useAnimatedStyle(() => ({
+    opacity: defaultPillOpacity.value,
+  }));
 
   // Day-switch crossfade state — track current vs. outgoing image and title.
   // When parent changes `data.imageSource` / `data.title`, we keep the OLD
@@ -364,6 +623,53 @@ function Card({
           pointerEvents="none"
         />
 
+        {/* Star row — top-right of the centered card when the day is complete.
+            Positions are absolute pixel offsets from the card's top-left so
+            the layout matches Figma 3977:10165/10166/10167 verbatim. */}
+        {renderStars && (
+          <Animated.View
+            style={[StyleSheet.absoluteFill, starsRowAnimatedStyle]}
+            pointerEvents="none"
+          >
+            <StarSlot
+              filled={(quizCorrectAnswers ?? 0) >= 1}
+              visible={true}
+              delayMs={0}
+              width={STAR_LEFT.w}
+              height={STAR_LEFT.h}
+              style={{
+                position: "absolute",
+                left: STAR_LEFT.left,
+                top: STAR_LEFT.top,
+              }}
+            />
+            <StarSlot
+              filled={(quizCorrectAnswers ?? 0) >= 2}
+              visible={true}
+              delayMs={STAR_STAGGER_MS}
+              width={STAR_MID.w}
+              height={STAR_MID.h}
+              style={{
+                position: "absolute",
+                left: STAR_MID.left,
+                top: STAR_MID.top,
+              }}
+            />
+            <StarSlot
+              filled={(quizCorrectAnswers ?? 0) >= 3}
+              visible={true}
+              delayMs={STAR_STAGGER_MS * 2}
+              width={STAR_RIGHT.w}
+              height={STAR_RIGHT.h}
+              style={{
+                position: "absolute",
+                left: STAR_RIGHT.left,
+                top: STAR_RIGHT.top,
+              }}
+            />
+          </Animated.View>
+        )}
+
         <Animated.View
           style={[styles.content, contentStyle]}
           pointerEvents={isCenter ? "box-none" : "none"}
@@ -394,16 +700,71 @@ function Card({
                 {currentMinutes}
               </Typography>
             </Animated.View>
-            <TouchableOpacity
-              style={styles.pill}
-              activeOpacity={0.85}
-              onPress={data.onPress}
-            >
-              <PlayArrowIcon width={10} height={12} color={colors.white} />
-              <Typography variant="body.s" weight="600" color="white">
-                {data.pillLabel}
-              </Typography>
-            </TouchableOpacity>
+
+            {/* Pill stack — sized by an invisible sizer (the completed
+                label, which is always the wider of the two on every card),
+                so `bottomRow`'s gap to the minutes text is reserved before
+                the user finishes the day. Both visible pills are absolute
+                overlays anchored to the right edge so the crossfade doesn't
+                shift the layout. */}
+            <View style={styles.pillStack}>
+              <View style={[styles.pill, styles.pillSizer]} aria-hidden>
+                <SvgXml xml={rewatchIconSvg} width={14} height={16} />
+                <Typography
+                  variant="body.s"
+                  weight="600"
+                  color="white"
+                >
+                  {completedLabel}
+                </Typography>
+              </View>
+
+              <Animated.View
+                style={[styles.pillOverlay, defaultPillStyle]}
+                pointerEvents={stableCompletedBool ? "none" : "auto"}
+              >
+                <TouchableOpacity
+                  style={styles.pill}
+                  activeOpacity={0.85}
+                  onPress={data.onPress}
+                  disabled={stableCompletedBool}
+                >
+                  <PlayArrowIcon
+                    width={10}
+                    height={12}
+                    color={colors.white}
+                  />
+                  <Typography
+                    variant="body.s"
+                    weight="600"
+                    color="white"
+                  >
+                    {data.pillLabel}
+                  </Typography>
+                </TouchableOpacity>
+              </Animated.View>
+
+              <Animated.View
+                style={[styles.pillOverlay, completedPillStyle]}
+                pointerEvents={stableCompletedBool ? "auto" : "none"}
+              >
+                <TouchableOpacity
+                  style={[styles.pill, styles.completedPill]}
+                  activeOpacity={0.85}
+                  onPress={data.onPress}
+                  disabled={!stableCompletedBool}
+                >
+                  <SvgXml xml={rewatchIconSvg} width={14} height={16} />
+                  <Typography
+                    variant="body.s"
+                    weight="600"
+                    color="white"
+                  >
+                    {completedLabel}
+                  </Typography>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
           </View>
         </Animated.View>
       </TouchableOpacity>
@@ -469,6 +830,7 @@ export default function TodayCardDeck({
   cards,
   initialCenterIdx = 1,
   onCenterChange,
+  isLoading = false,
   style,
 }: TodayCardDeckProps) {
   const [centerIdx, setCenterIdx] = useState(initialCenterIdx);
@@ -592,6 +954,7 @@ export default function TodayCardDeck({
                 translateX={xs[i]}
                 scale={scs[i]}
                 opacity={ops[i]}
+                isLoading={isLoading}
                 onTap={() => {
                   if (isCenter) {
                     card.onPress();
@@ -674,7 +1037,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   bottomRow: {
-    gap: 8,
+    gap: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
@@ -688,5 +1051,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
+  },
+  // Pill stack — relative parent. The sizer drives the layout width
+  // (always uses the wider "completed" label so the row's right edge
+  // doesn't shift when the user finishes the day); both visible pills
+  // are absolute overlays anchored to the right edge.
+  pillStack: {
+    position: "relative",
+  },
+  pillSizer: {
+    opacity: 0,
+  },
+  pillOverlay: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  completedPill: {
+    backgroundColor: colors.correctSecondary, // #5B980C — Figma 3977:10162
   },
 });

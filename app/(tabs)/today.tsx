@@ -264,12 +264,15 @@ export default function TodayScreen() {
     watchCompleted,
     exploreCompleted,
     questCompleted,
+    quizCorrectAnswers,
+    isLoadingProgress,
     progress,
     isExploreUnlocked,
     isQuizUnlocked,
     setWatchCompleted,
     setExploreCompleted,
     setQuestCompleted,
+    setQuizCorrectAnswers,
     saveProgress,
   } = useTodayProgress({
     displayedQuest,
@@ -293,6 +296,7 @@ export default function TodayScreen() {
     watchCompleted,
     exploreCompleted,
     questCompleted,
+    quizCorrectAnswers,
     isExploreUnlocked,
     isQuizUnlocked,
     openModal,
@@ -518,6 +522,10 @@ export default function TodayScreen() {
             onQuizResults={async (score, correctAnswers, totalQuestions) => {
               // Cache for Live Activity XP plumbing (read in handleQuizComplete)
               lastQuizCorrectAnswersRef.current = correctAnswers;
+              // Surface the score so the deck's center card shows the
+              // gold/grey star row immediately — without it we'd have to
+              // wait for the next Supabase reload before stars appear.
+              setQuizCorrectAnswers(correctAnswers);
               try {
                 await saveQuestCompletion(
                   user.id,
@@ -638,7 +646,10 @@ export default function TodayScreen() {
                 easing: easings.backOut14,
               }}
             >
-              <TodayCardDeck cards={cardsData} />
+              <TodayCardDeck
+                cards={cardsData}
+                isLoading={isLoadingProgress}
+              />
             </AnimatedEntrance>
 
             {/* Bottom Spacing for fixed button */}
@@ -675,7 +686,7 @@ export default function TodayScreen() {
             }}
           >
             <Typography variant="label.m" color="white">
-              {progress === 100 ? "DAY COMPLETE!" : "START MY DAY"}
+              {progress === 100 ? "RESTART MY DAY" : "START MY DAY"}
             </Typography>
           </DepthButton>
         </AnimatedEntrance>

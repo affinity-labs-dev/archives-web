@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/hooks/lib/supabase";
 import AppLogger from "@/services/AppLogger";
@@ -35,16 +35,40 @@ export function useTodayProgress({
   const [watchCompleted, setWatchCompleted] = useState(false);
   const [exploreCompleted, setExploreCompleted] = useState(false);
   const [questCompleted, setQuestCompleted] = useState(false);
+  // Quiz correct-answer count (0..3) — null until the quiz has been submitted
+  // for the current quest. Drives the star row on the completed card variant.
+  const [quizCorrectAnswers, setQuizCorrectAnswers] = useState<number | null>(
+    null,
+  );
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
+
+  // Tracks the quest id the most recent load was scoped to, so we can
+  // distinguish a real day-switch (id changed → reset to avoid showing
+  // stale "DONE" pills from yesterday during the fetch) from a same-quest
+  // re-run of this effect caused by `displayedQuest`'s object reference
+  // changing (realtime push, parent re-render rebuilding the tuple, etc.).
+  // Same-quest re-runs must NOT reset state — otherwise the deck flashes
+  // Restart-my-day → Watch → Restart-my-day every time the realtime
+  // subscription ticks.
+  const lastLoadedQuestIdRef = useRef<string | null>(null);
 
   // Load progress from AsyncStorage when quest changes
   useEffect(() => {
-    // CRITICAL: Reset state IMMEDIATELY when quest changes (synchronous)
-    // This prevents showing stale progress from previous date during async load
-    setIsLoadingProgress(true);
-    setWatchCompleted(false);
-    setExploreCompleted(false);
-    setQuestCompleted(false);
+    const nextQuestId = displayedQuest?.id || todayQuest?.id || null;
+    const isQuestChange = lastLoadedQuestIdRef.current !== nextQuestId;
+
+    if (isQuestChange) {
+      // CRITICAL: Reset state IMMEDIATELY when quest *identity* changes.
+      // This prevents yesterday's progress bleeding into today's UI while
+      // the new quest's progress is being fetched. Same-quest refetches
+      // skip this — they keep the existing pill state visible until the
+      // network response arrives, then update in place.
+      setIsLoadingProgress(true);
+      setWatchCompleted(false);
+      setExploreCompleted(false);
+      setQuestCompleted(false);
+      setQuizCorrectAnswers(null);
+    }
 
     const loadProgress = async () => {
       // When viewing historical date with no content, don't fall back to today's quest
@@ -90,6 +114,14 @@ export function useTodayProgress({
             setWatchCompleted(watchDone);
             setExploreCompleted(exploreDone);
             setQuestCompleted(quizDone);
+            // Surface the actual correct-answer count for the star row.
+            // Null when the quiz hasn't been submitted yet so the card
+            // doesn't render a misleading "0/3 grey" star line.
+            setQuizCorrectAnswers(
+              typeof data.correct_answers === "number"
+                ? data.correct_answers
+                : null,
+            );
 
             AppLogger.info("daily", "Loaded progress from Supabase", {
               currentQuestId,
@@ -138,6 +170,12 @@ export function useTodayProgress({
       }
     };
 
+    // Mark the quest as "loaded under this id" so subsequent re-runs of
+    // this effect with the same id are recognized as same-quest refetches
+    // (and skip the synchronous reset above). Set before the async work
+    // starts — by the time another render fires this effect, this ref is
+    // already up-to-date even if the network response hasn't arrived.
+    lastLoadedQuestIdRef.current = nextQuestId;
     loadProgress();
   }, [
     displayedQuest?.id,
@@ -237,6 +275,7 @@ export function useTodayProgress({
     watchCompleted,
     exploreCompleted,
     questCompleted,
+    quizCorrectAnswers,
     isLoadingProgress,
     progress,
     isExploreUnlocked,
@@ -244,6 +283,7 @@ export function useTodayProgress({
     setWatchCompleted,
     setExploreCompleted,
     setQuestCompleted,
+    setQuizCorrectAnswers,
     saveProgress,
   };
 }
