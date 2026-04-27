@@ -1,5 +1,6 @@
 import React, {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -94,6 +95,19 @@ interface ParticleViewProps {
   gravity: number;
 }
 
+/**
+ * Per-particle animated wrapper.
+ *
+ * The worklet body intentionally captures ONLY primitive numbers in its
+ * lexical scope (no `particle.X` property accesses, no plain-object
+ * captures). The Reanimated babel plugin's auto-workletization is
+ * sensitive to closure shape — a SIGABRT in `Function::getHostFunction`
+ * inside `WorkletRuntimeDecorator::decorate $_2` (the `_scheduleOnJS`
+ * trampoline) would fire on every frame's rAF flush when a complex
+ * closure tripped up the worklet runtime registration. Pre-extracting
+ * fields to local primitives keeps the closure shape uniform and
+ * matches the patterns Reanimated tests cover.
+ */
 function ParticleView({
   particle,
   progress,
@@ -101,22 +115,31 @@ function ParticleView({
   originY,
   gravity,
 }: ParticleViewProps) {
+  // Pre-extract every per-particle param so the worklet body below
+  // captures plain numbers (not object property accesses through a JS
+  // closure). Each render rebinds these locals to the latest particle
+  // values, so re-randomization between bursts still works.
+  const angleRad = particle.angleRad;
+  const velocity = particle.velocity;
+  const rotStart = particle.rotStart;
+  const rotSpeed = particle.rotSpeed;
+  const driftAmp = particle.driftAmp;
+  const driftFreq = particle.driftFreq;
+  const fadeStart = particle.fadeStart;
+
   const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
     const t = progress.value;
     const dx =
-      Math.cos(particle.angleRad) * particle.velocity * t +
-      Math.sin(t * Math.PI * particle.driftFreq) * particle.driftAmp * t;
+      Math.cos(angleRad) * velocity * t +
+      Math.sin(t * Math.PI * driftFreq) * driftAmp * t;
     const dy =
-      Math.sin(particle.angleRad) * particle.velocity * t +
-      0.5 * gravity * 1000 * t * t;
-    const rotation = particle.rotStart + particle.rotSpeed * t;
+      Math.sin(angleRad) * velocity * t + 0.5 * gravity * 1000 * t * t;
+    const rotation = rotStart + rotSpeed * t;
     const fadeT =
-      t < particle.fadeStart
+      t < fadeStart
         ? 1
-        : Math.max(
-            0,
-            1 - (t - particle.fadeStart) / (1 - particle.fadeStart),
-          );
+        : Math.max(0, 1 - (t - fadeStart) / (1 - fadeStart));
     return {
       opacity: fadeT,
       transform: [
@@ -147,13 +170,13 @@ function ParticleView({
 }
 
 /**
- * Reanimated-driven particle burst. Imperative `fire(origin)` API lets the
- * consumer measure a target view (option, button, etc.) and emit from its
- * center — see `Quiz.tsx` for the canonical usage.
+ * Reanimated-driven particle burst. Imperative `fire(origin)` API lets
+ * the consumer measure a target view (option, button, etc.) and emit
+ * from its center — see `Quiz.tsx` for the canonical usage.
  *
- * One shared `progress` value drives all particles via worklet math — 45
- * particles cost a single per-frame transform recompute on the UI thread,
- * so the burst stays at 60fps on iOS and mid-tier Android.
+ * One shared `progress` value drives all particles via worklet math —
+ * 45 particles cost a single per-frame transform recompute on the UI
+ * thread, so the burst stays at 60fps on iOS and mid-tier Android.
  *
  * No Skia / canvas dependency — picks up Reanimated v3 and
  * react-native-worklets which are already in the codebase.
@@ -180,10 +203,10 @@ export const ConfettiBurst = forwardRef<ConfettiBurstHandle, ConfettiBurstProps>
     const [seed, setSeed] = useState(0);
 
     // Mounted-guard for the worklet→JS callback. scheduleOnRN delivers
-    // setActive(false) some time after withTiming completes; if the host
-    // unmounted in the meantime (e.g. user navigated out of the quiz mid
-    // burst), calling setState here would warn and leak. The guard reads
-    // the latest mount status synchronously inside the JS callback.
+    // the burst-end handler some time after withTiming completes; if the
+    // host unmounted in the meantime (e.g. user navigated out of the
+    // quiz mid-burst), calling setState here would warn and leak. The
+    // ref is read synchronously inside the JS callback.
     const isMountedRef = useRef(true);
     useEffect(() => {
       isMountedRef.current = true;
@@ -192,6 +215,18 @@ export const ConfettiBurst = forwardRef<ConfettiBurstHandle, ConfettiBurstProps>
         cancelAnimation(progress);
       };
     }, [progress]);
+
+    // Stable JS callback for scheduleOnRN. Inline arrows captured by
+    // a worklet → scheduleOnRN are fragile under the Reanimated babel
+    // plugin (the inner closure can fail to register as a callable on
+    // the worklet runtime, which surfaces as a SIGABRT every frame).
+    // A useCallback gives scheduleOnRN a stable reference that matches
+    // the pattern used elsewhere (e.g. QuizFeedbackSheet's onContinue).
+    const handleBurstEnd = useCallback(() => {
+      if (!isMountedRef.current) return;
+      setActive(false);
+      onDone?.();
+    }, [onDone]);
 
     const particles = useMemo(
       () => makeParticles(count, spread, startVelocity, palette),
@@ -220,11 +255,7 @@ export const ConfettiBurst = forwardRef<ConfettiBurstHandle, ConfettiBurstProps>
           (finished) => {
             'worklet';
             if (finished) {
-              scheduleOnRN(() => {
-                if (!isMountedRef.current) return;
-                setActive(false);
-                onDone?.();
-              });
+              scheduleOnRN(handleBurstEnd);
             }
           },
         );
