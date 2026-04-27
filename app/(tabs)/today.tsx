@@ -10,7 +10,7 @@ import TodayCardDeck from "@/components/today/TodayCardDeck";
 import TodayEmptyState from "@/components/today/TodayEmptyState";
 import TodayHeader from "@/components/today/TodayHeader";
 import TodayProgressBar from "@/components/today/TodayProgressBar";
-import { DepthButton, Typography, colors, easings } from "@/components/ui";
+import { DepthButton, ScrollFade, Typography, colors, easings } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
 import {
   useDailyStoryLiveActivity,
@@ -746,6 +746,15 @@ export default function TodayScreen() {
           }}
           style={themeStyles.bottomButtonContainer}
         >
+          {/* Soft fade-out — masks the hard horizontal edge where the
+              ScrollView's last visible card meets the fixed button
+              container. Same shared design-system overlay used by the
+              quiz screen and the onboarding personalize phases.
+              `themeStyles.bottomButtonContainer` is absolute-positioned
+              with a snow background, so the ScrollFade defaults
+              (top: -height, fades into the parent's bg color) drop in
+              cleanly. */}
+          <ScrollFade color={colors.snow} />
           <DepthButton
             isFullWidth
             variant="secondary"
