@@ -493,6 +493,7 @@ const styles = StyleSheet.create({
   },
   weekRow: {
     flexDirection: "row",
+    paddingBottom: spacing.sm,
   },
   dayColumn: {
     alignItems: "center",
