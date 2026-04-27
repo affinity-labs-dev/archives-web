@@ -97,19 +97,6 @@ export default function TodayScreen() {
   // today" indicator doesn't read on top of a results summary.
   const [isQuizResultsVisible, setIsQuizResultsVisible] = useState(false);
 
-  // Quiz unmounts when the modal closes (and never fires
-  // onResultsChange(false) on its way out), so reset chrome-related
-  // quiz state whenever neither slot is showing the quiz. Without
-  // this, the next time any modal opens after a completed quiz, the
-  // chrome would mount with hideProgress / transparent header still
-  // active from the prior session.
-  useEffect(() => {
-    if (slotAModal !== "quiz" && slotBModal !== "quiz") {
-      setIsQuizResultsVisible(false);
-      setIsQuizFeedbackVisible(false);
-    }
-  }, [slotAModal, slotBModal]);
-
   // Track page view for Today tab
   useFocusEffect(
     useCallback(() => {
@@ -181,6 +168,19 @@ export default function TodayScreen() {
   } = useTodayModalSlots({
     onCardViewed: (cardIndex) => tracking.trackCardViewed(cardIndex),
   });
+
+  // Quiz unmounts when the modal closes (and never fires
+  // onResultsChange(false) on its way out), so reset chrome-related
+  // quiz state whenever neither slot is showing the quiz. Without
+  // this, the next time any modal opens after a completed quiz, the
+  // chrome would mount with hideProgress / transparent header still
+  // active from the prior session.
+  useEffect(() => {
+    if (slotAModal !== "quiz" && slotBModal !== "quiz") {
+      setIsQuizResultsVisible(false);
+      setIsQuizFeedbackVisible(false);
+    }
+  }, [slotAModal, slotBModal]);
 
   // Race-guard shared between paywall (writes) and history's
   // subscription-expiration effect (reads). Owned here so both hooks can
@@ -692,7 +692,7 @@ export default function TodayScreen() {
           onSelectDate={handleDateClick}
           completedDates={completedDatesCache ?? new Set<string>()}
           isSubscribed={isSubscribed}
-          style={{ marginBottom: 22 }}
+          style={{ marginBottom: 16 }}
           entranceDelay={180}
         />
 
