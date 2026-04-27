@@ -11,8 +11,6 @@ import {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
-  interpolate,
-  interpolateColor,
   type SharedValue,
   useAnimatedStyle,
   useSharedValue,
@@ -24,7 +22,13 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import Svg, { Path, SvgXml } from "react-native-svg";
 
-import { Typography, colors, easings, safeDuration } from "@/components/ui";
+import {
+  PaginationDots,
+  Typography,
+  colors,
+  easings,
+  safeDuration,
+} from "@/components/ui";
 
 import {
   completedStarSvg,
@@ -772,55 +776,9 @@ function Card({
   );
 }
 
-// ──────────────────────────────────────────────────────────
-// Pagination dot (pill on active, circle on inactive)
-// Figma 4158:5569 (colors) + mock `index.html:459-470` (300ms transition)
-// ──────────────────────────────────────────────────────────
-
-const DOT_INACTIVE_WIDTH = 6;
-const DOT_ACTIVE_WIDTH = 18;
-const DOT_HEIGHT = 6;
-const DOT_TRANSITION_MS = 300;
-
-function Dot({
-  isActive,
-  onPress,
-}: {
-  isActive: boolean;
-  onPress: () => void;
-}) {
-  const progress = useSharedValue(isActive ? 1 : 0);
-
-  useEffect(() => {
-    progress.value = withTiming(isActive ? 1 : 0, {
-      duration: safeDuration(DOT_TRANSITION_MS),
-      easing: Easing.inOut(Easing.ease),
-    });
-  }, [isActive, progress]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    width: interpolate(
-      progress.value,
-      [0, 1],
-      [DOT_INACTIVE_WIDTH, DOT_ACTIVE_WIDTH]
-    ),
-    backgroundColor: interpolateColor(
-      progress.value,
-      [0, 1],
-      [colors.concreteGrey, colors.bluePrimary]
-    ),
-  }));
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-    >
-      <Animated.View style={[styles.dot, animatedStyle]} />
-    </TouchableOpacity>
-  );
-}
+// (Pagination dots have moved to a shared design-system primitive:
+// `components/ui/PaginationDots`. Used by both the home-screen card
+// deck and the in-modal video/image carousel.)
 
 // ──────────────────────────────────────────────────────────
 // Deck (main export)
@@ -968,15 +926,12 @@ export default function TodayCardDeck({
         </View>
       </GestureDetector>
 
-      <View style={styles.dotsRow}>
-        {cards.map((card, i) => (
-          <Dot
-            key={card.kind}
-            isActive={i === centerIdx}
-            onPress={() => goToIdx(i)}
-          />
-        ))}
-      </View>
+      <PaginationDots
+        count={cards.length}
+        activeIndex={centerIdx}
+        onSelect={goToIdx}
+        style={styles.dotsRow}
+      />
     </View>
   );
 }
@@ -994,16 +949,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // The dots row is rendered by PaginationDots; this style only
+  // adds the deck-specific top margin (the row's flex layout is owned
+  // by the shared component).
   dotsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
     marginTop: 16,
-  },
-  dot: {
-    height: DOT_HEIGHT,
-    borderRadius: 3,
   },
   cardWrap: {
     position: "absolute",
