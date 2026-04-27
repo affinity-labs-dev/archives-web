@@ -52,3 +52,6 @@ export type { ReviewCardProps } from './ReviewCard';
 
 export { PaginationDots } from './PaginationDots';
 export type { PaginationDotsProps } from './PaginationDots';
+
+export { ScrollFade } from './ScrollFade';
+export type { ScrollFadeProps } from './ScrollFade';
