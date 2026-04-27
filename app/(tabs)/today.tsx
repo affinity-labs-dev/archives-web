@@ -4,12 +4,13 @@
 import TodayScrollableLesson from "@/components/lessons/today/TodayScrollableLesson";
 import TodayVideoLesson from "@/components/lessons/today/TodayVideoLesson";
 import Quiz from "@/components/quiz/Quiz";
+import TodayLessonChrome from "@/components/today/TodayLessonChrome";
 import TodayCalendar from "@/components/today/TodayCalendar";
 import TodayCardDeck from "@/components/today/TodayCardDeck";
 import TodayEmptyState from "@/components/today/TodayEmptyState";
 import TodayHeader from "@/components/today/TodayHeader";
 import TodayProgressBar from "@/components/today/TodayProgressBar";
-import { DepthButton, Typography, easings } from "@/components/ui";
+import { DepthButton, Typography, colors, easings } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
 import {
   useDailyStoryLiveActivity,
@@ -494,11 +495,38 @@ export default function TodayScreen() {
         closeModal();
         return null;
       }
+      // Quiz body wraps in TodayLessonChrome for the floating back +
+      // progress header; bottom CTAs are hidden because Quiz owns its
+      // own SUBMIT / feedback-sheet CONTINUE buttons (figma 3379:5286 +
+      // 5131 + 5167 — buttons live inside the quiz / feedback sheet, not
+      // on the chrome). The chrome's back button maps to closeModal so
+      // the back gesture exits the entire modal stack.
+      const handleQuizBack = () => {
+        if (isModalTransitioning.current) return;
+        if (previousModal === "reading") {
+          animateModalTransition("reading", "video", "backward");
+          tracking.trackCardViewed(2);
+        } else {
+          closeModal();
+        }
+      };
       return (
         <SafeAreaView
-          style={{ flex: 1, backgroundColor: ArchivesTheme.colors.creamWhite }}
+          style={{ flex: 1, backgroundColor: colors.snow }}
           edges={[]}
         >
+          <TodayLessonChrome
+            progress={progress}
+            onBack={handleQuizBack}
+            headerBackground={colors.snow}
+            backIconColor={colors.bluePrimary}
+            progressLabelColor={colors.bluePrimary}
+            progressFillColor={colors.bluePrimary}
+            progressTrackColor={colors.blueSecondary}
+            hideBottomCtas
+            // Chrome's bottom CTA row is hidden, but the prop is required.
+            rightCta={null}
+          >
           <Quiz
             contentItem={
               {
@@ -517,8 +545,6 @@ export default function TodayScreen() {
             eraId="daily_quest"
             eraName="Daily Quest"
             isToday={true}
-            progress={progress}
-            showTodayHeader={true}
             onQuizResults={async (score, correctAnswers, totalQuestions) => {
               // Cache for Live Activity XP plumbing (read in handleQuizComplete)
               lastQuizCorrectAnswersRef.current = correctAnswers;
@@ -563,6 +589,7 @@ export default function TodayScreen() {
               }
             }}
           />
+          </TodayLessonChrome>
         </SafeAreaView>
       );
     }

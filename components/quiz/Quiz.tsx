@@ -4,15 +4,25 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Animated,
+  Modal,
   Platform,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,9 +36,16 @@ import type { ContentItem } from '@/components/shared/types';
 import QuizResults from './QuizResults';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
-import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
+import {
+  DepthButton,
+  ScrollFade,
+  Typography,
+  colors,
+  easings,
+  safeDuration,
+} from '@/components/ui';
 
 // Used by era quizzes and Today screen (isToday=true, adventureId="daily_quest")
 interface QuizProps {
@@ -53,214 +70,484 @@ interface QuizProps {
   // Today mode - skips gamification saving, calls onQuizResults with score
   isToday?: boolean;         // true when called from Today screen
   onQuizResults?: (score: number, correctAnswers: number, totalQuestions: number) => Promise<void>;
-  // Today mode UI - floating header with back button and progress
-  progress?: number;           // Today progress percentage (0-100)
-  showTodayHeader?: boolean;   // Show floating back button and progress bar
 }
 
-// MCQ Option Button Design
-interface MCQOptionButtonProps {
-  letter: string;
+// ──────────────────────────────────────────────────────────
+// QuizOptionButton — universal MCQ + True/False option per figma
+// 3379:5273-5284 (default + selected) / 5107-5118 (correct) / 5142-5154
+// (incorrect). Layered shadow + surface like a DepthButton, with
+// per-state colors and tap/submit animations ported from the mock
+// (`Downloads/02 daily story/index.html:2640-2697`).
+// ──────────────────────────────────────────────────────────
+
+// Width is the only geometry constant we control — height (49), radius
+// (17) and shadow offset (6) all come from DepthButton's `size="medium"`
+// spec, which already matches the figma values 1:1.
+const OPTION_WIDTH = 300;
+
+interface QuizOptionButtonProps {
   text: string;
   isSelected: boolean;
+  /** Reveal phase only — this option IS the canonical correct answer. */
   isCorrect?: boolean;
+  /** Reveal phase only — this option WAS the user's wrong selection. */
   isWrong?: boolean;
+  /** Reveal phase only — true when the user picked the correct answer. */
+  isUserCorrect?: boolean;
+  /** Submit has been pressed; option is no longer interactive. */
   showResult?: boolean;
   onPress: () => void;
 }
 
-function MCQOptionButton({
-  letter,
+function QuizOptionButton({
   text,
   isSelected,
   isCorrect,
   isWrong,
+  isUserCorrect,
   showResult,
   onPress,
-}: MCQOptionButtonProps) {
-  // Determine colors based on state - match Umayyad design
-  const getShadowColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (showResult && isWrong) return ArchivesTheme.colors.concreteGrey;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return ArchivesTheme.colors.concreteGrey;
-  };
+}: QuizOptionButtonProps) {
+  // Visual state machine — extends the OptionCard pattern (default +
+  // selected use blue; correct + incorrect add the green/red reveal
+  // states for the quiz). All four states pipe through `DepthButton`
+  // with surface/shadow/border color overrides per figma 3379:5273-5280
+  // (default + selected) / 5107-5114 (correct) / 5142-5149 (incorrect).
+  const state: "default" | "selected" | "correct" | "incorrect" =
+    showResult && isCorrect
+      ? "correct"
+      : showResult && isWrong
+      ? "incorrect"
+      : isSelected
+      ? "selected"
+      : "default";
 
-  const getBorderColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return 'rgba(128,128,128,0.3)';
-  };
+  // Color tokens forwarded to DepthButton's surface/shadow/border slots.
+  // The `tertiary` variant has no built-in border, so we layer one in via
+  // the override; `tertiary-alt` already comes with a 2px border. We use
+  // `tertiary-alt` for every state so the 1.5px outline reads consistently
+  // across default/correct/incorrect, and switch to `tertiary` only for
+  // selected (matches OptionCard).
+  const variant: "tertiary" | "tertiary-alt" =
+    state === "selected" ? "tertiary" : "tertiary-alt";
+  const surfaceToken: "white" | "blueSecondary" | "correctTertiary" | "incorrectTertiary" =
+    state === "correct"
+      ? "correctTertiary"
+      : state === "incorrect"
+      ? "incorrectTertiary"
+      : state === "selected"
+      ? "blueSecondary"
+      : "white";
+  const shadowToken: "blueSecondary" | "bluePrimary" | "correctSecondary" | "incorrectPrimary" =
+    state === "correct"
+      ? "correctSecondary"
+      : state === "incorrect"
+      ? "incorrectPrimary"
+      : state === "selected"
+      ? "bluePrimary"
+      : "blueSecondary";
+  const borderToken: "bluePrimary" | "snow" | "correctSecondary" | "incorrectSecondary" =
+    state === "correct"
+      ? "correctSecondary"
+      : state === "incorrect"
+      ? "incorrectSecondary"
+      : state === "selected"
+      ? "snow"
+      : "bluePrimary";
 
-  const getContentBorderColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return 'rgba(128,128,128,0.2)';
-  };
+  // Per-option Reanimated transforms. Three independent shared values:
+  //   - scale: pop on select, bounce on correct submit
+  //   - translateX: shake on incorrect submit
+  //   - translateY: lift during the celebratory bounce
+  const scale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+
+  // Pop animation when transitioning to selected — mock
+  // `index.html:2647-2650`. Scale 1→1.04 (100ms power2.out) →
+  // 1 (250ms elastic.out(1, 0.4)).
+  const wasSelectedRef = useRef(isSelected);
+  useEffect(() => {
+    const wasSelected = wasSelectedRef.current;
+    wasSelectedRef.current = isSelected;
+    if (!wasSelected && isSelected) {
+      scale.value = withSequence(
+        withTiming(1.04, {
+          duration: safeDuration(100),
+          easing: easings.power2Out,
+        }),
+        withTiming(1, {
+          duration: safeDuration(250),
+          easing: Easing.out(Easing.elastic(1)),
+        }),
+      );
+    }
+  }, [isSelected, scale]);
+
+  // Reveal animations — only fire on the showResult false→true edge so
+  // re-renders don't replay the bounce/shake.
+  const wasShowingResultRef = useRef(false);
+  useEffect(() => {
+    const wasShowing = wasShowingResultRef.current;
+    wasShowingResultRef.current = !!showResult;
+    if (wasShowing || !showResult) return;
+
+    if (isCorrect && isUserCorrect) {
+      // User picked correctly — celebratory bounce.
+      // Mock `index.html:2668-2670`:
+      //   scale 1.08 + y -6 (180ms power2.out) → 1 + 0 (450ms elastic.out(1, 0.45))
+      scale.value = withSequence(
+        withTiming(1.08, {
+          duration: safeDuration(180),
+          easing: easings.power2Out,
+        }),
+        withTiming(1, {
+          duration: safeDuration(450),
+          easing: Easing.out(Easing.elastic(1)),
+        }),
+      );
+      translateY.value = withSequence(
+        withTiming(-6, {
+          duration: safeDuration(180),
+          easing: easings.power2Out,
+        }),
+        withTiming(0, {
+          duration: safeDuration(450),
+          easing: Easing.out(Easing.elastic(1)),
+        }),
+      );
+    } else if (isCorrect && !isUserCorrect) {
+      // User picked wrong; this is the right answer — yoyo bounce drawing
+      // the eye 350ms after the shake starts (mock 2695-2697).
+      scale.value = withDelay(
+        safeDuration(350),
+        withRepeat(
+          withTiming(1.04, {
+            duration: safeDuration(250),
+            easing: easings.power2Out,
+          }),
+          2,
+          true,
+        ),
+      );
+    } else if (isWrong) {
+      // User picked wrong — shake (mock 2687-2693). Six-step x sequence.
+      translateX.value = withSequence(
+        withTiming(-10, {
+          duration: safeDuration(60),
+          easing: easings.power2Out,
+        }),
+        withTiming(10, {
+          duration: safeDuration(80),
+          easing: easings.power2InOut,
+        }),
+        withTiming(-8, {
+          duration: safeDuration(80),
+          easing: easings.power2InOut,
+        }),
+        withTiming(6, {
+          duration: safeDuration(80),
+          easing: easings.power2InOut,
+        }),
+        withTiming(-4, {
+          duration: safeDuration(80),
+          easing: easings.power2InOut,
+        }),
+        withTiming(0, {
+          duration: safeDuration(100),
+          easing: easings.power2Out,
+        }),
+      );
+    }
+  }, [showResult, isCorrect, isWrong, isUserCorrect, scale, translateX, translateY]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
 
   return (
-    <TouchableOpacity
-      style={styles.mcqOptionContainer}
-      onPress={onPress}
-      disabled={showResult}
-      activeOpacity={0.7}
-    >
-      {/* Shadow layer - 3D depth effect */}
-      <View style={[styles.mcqOptionShadow, { backgroundColor: getShadowColor() }]} />
-
-      {/* Border layer - 4px stroke */}
-      <View style={[styles.mcqOptionBorder, { borderColor: getBorderColor() }]} />
-
-      {/* Content layer - white background with 2px overlay */}
-      <View style={[styles.mcqOptionContent, { borderColor: getContentBorderColor() }]}>
-        {/* Letter badge */}
-        <View style={styles.mcqOptionLetterContainer}>
-          <View style={styles.mcqOptionLetterCircle}>
-            <Text style={styles.mcqOptionLetter}>{letter}</Text>
-          </View>
-        </View>
-
-        {/* Text */}
-        <View style={styles.mcqOptionTextContainer}>
-          <Text style={styles.mcqOptionText}>{text}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+    <Animated.View style={[styles.optionWrap, animatedStyle]}>
+      <DepthButton
+        variant={variant}
+        size="medium"
+        surfaceColor={surfaceToken}
+        shadowColor={shadowToken}
+        borderColor={borderToken}
+        onPress={onPress}
+        isDisabled={showResult}
+      >
+        <Typography
+          family="onest"
+          weight={state === "default" ? "500" : "600"}
+          extraColor={colors.black}
+          style={styles.optionText}
+        >
+          {text}
+        </Typography>
+      </DepthButton>
+    </Animated.View>
   );
 }
 
-// True/False Option Button - Umayyad Dynasty Design
-interface ROITrueFalseOptionButtonProps {
-  isTrue: boolean;
-  isSelected: boolean;
-  isCorrect?: boolean;
-  isWrong?: boolean;
-  showResult?: boolean;
-  onPress: () => void;
-}
+// ──────────────────────────────────────────────────────────
+// QuizFeedbackSheet — figma 3379:5130 (correct) / 5165 (incorrect).
+// Backdrop fade + back-out slide-up + staggered content entrance per
+// mock `index.html:2699-2717`. CONTINUE button is a DepthButton with
+// the matching color pair (correct: green, incorrect: red).
+// ──────────────────────────────────────────────────────────
 
-function ROITrueFalseOptionButton({
-  isTrue,
-  isSelected,
-  isCorrect,
-  isWrong,
-  showResult,
-  onPress,
-}: ROITrueFalseOptionButtonProps) {
-  // Determine colors based on state - match Umayyad design
-  const getShadowColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (showResult && isWrong) return ArchivesTheme.colors.concreteGrey;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return ArchivesTheme.colors.concreteGrey;
-  };
+const FEEDBACK_SHEET_HEIGHT = 200;
+const FEEDBACK_OPEN_MS = 500;
+const FEEDBACK_CLOSE_MS = 320;
+const FEEDBACK_STAGGER_DELAY_MS = 220;
+const FEEDBACK_STAGGER_GAP_MS = 60;
+const FEEDBACK_ITEM_DURATION_MS = 320;
 
-  const getBorderColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return 'rgba(128,128,128,0.3)';
-  };
-
-  const getContentBorderColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return 'rgba(128,128,128,0.2)';
-  };
-
-  return (
-    <TouchableOpacity
-      style={styles.trueFalseContainer}
-      onPress={onPress}
-      disabled={showResult}
-      activeOpacity={0.7}
-    >
-      {/* Shadow layer - 3D depth effect */}
-      <View style={[styles.trueFalseShadow, { backgroundColor: getShadowColor() }]} />
-
-      {/* Border layer - 4px stroke */}
-      <View style={[styles.trueFalseBorder, { borderColor: getBorderColor() }]} />
-
-      {/* Content layer - white background with 2px overlay */}
-      <View style={[styles.trueFalseContent, { borderColor: getContentBorderColor() }]}>
-        {/* Icon circle */}
-        <View style={styles.trueFalseIconCircle}>
-          <Ionicons
-            name={isTrue ? "checkmark" : "close"}
-            size={24}
-            color="white"
-          />
-        </View>
-
-        {/* Text */}
-        <Text style={styles.trueFalseText}>{isTrue ? "True" : "False"}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-// Bottom Sheet Feedback - ROI Design
-interface ROIFeedbackSheetProps {
-  isVisible: boolean;
+interface QuizFeedbackSheetProps {
+  visible: boolean;
   isCorrect: boolean;
   points: number;
   explanation: string;
   bottomInset: number;
+  onContinue: () => void;
 }
 
-function ROIFeedbackSheet({
-  isVisible,
+function QuizFeedbackSheet({
+  visible,
   isCorrect,
   points,
   explanation,
   bottomInset,
-}: ROIFeedbackSheetProps) {
-  const slideAnim = useRef(new Animated.Value(300)).current;
+  onContinue,
+}: QuizFeedbackSheetProps) {
+  const sheetTranslateY = useSharedValue(FEEDBACK_SHEET_HEIGHT);
+  const backdropOpacity = useSharedValue(0);
+  const titleY = useSharedValue(10);
+  const titleOpacity = useSharedValue(0);
+  const xpY = useSharedValue(10);
+  const xpOpacity = useSharedValue(0);
+  const expY = useSharedValue(10);
+  const expOpacity = useSharedValue(0);
+  const btnY = useSharedValue(10);
+  const btnOpacity = useSharedValue(0);
 
+  // Open animation — fires on visible flip true. Close is driven by the
+  // CONTINUE tap below (animation completion calls onContinue).
   useEffect(() => {
-    if (isVisible) {
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 80,
-        friction: 12,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      slideAnim.setValue(300);
-    }
-  }, [isVisible, slideAnim]);
+    if (!visible) return;
 
-  if (!isVisible) return null;
+    // Reset all elements to their starting offsets so re-opens animate
+    // fresh (the user might dismiss + re-trigger feedback for the next
+    // question without unmounting the sheet).
+    sheetTranslateY.value = FEEDBACK_SHEET_HEIGHT;
+    titleY.value = 10;
+    titleOpacity.value = 0;
+    xpY.value = 10;
+    xpOpacity.value = 0;
+    expY.value = 10;
+    expOpacity.value = 0;
+    btnY.value = 10;
+    btnOpacity.value = 0;
+
+    // Backdrop fades to 0.3 alongside the sheet.
+    backdropOpacity.value = withTiming(0.3, {
+      duration: safeDuration(FEEDBACK_OPEN_MS),
+      easing: easings.backOut14,
+    });
+    // Sheet slides up — back.out(1.2) per mock.
+    sheetTranslateY.value = withTiming(0, {
+      duration: safeDuration(FEEDBACK_OPEN_MS),
+      easing: easings.backOut14,
+    });
+
+    // Stagger inner contents: title → xp → exp → btn at 60ms gaps,
+    // 320ms `back.out(1.6)` each, 220ms after sheet starts.
+    const innerEasing = easings.backOut14;
+    const animate = (
+      yShared: typeof titleY,
+      oShared: typeof titleOpacity,
+      delayMs: number,
+    ) => {
+      yShared.value = withDelay(
+        safeDuration(delayMs),
+        withTiming(0, {
+          duration: safeDuration(FEEDBACK_ITEM_DURATION_MS),
+          easing: innerEasing,
+        }),
+      );
+      oShared.value = withDelay(
+        safeDuration(delayMs),
+        withTiming(1, {
+          duration: safeDuration(FEEDBACK_ITEM_DURATION_MS),
+          easing: innerEasing,
+        }),
+      );
+    };
+    animate(titleY, titleOpacity, FEEDBACK_STAGGER_DELAY_MS + FEEDBACK_STAGGER_GAP_MS * 0);
+    animate(xpY, xpOpacity, FEEDBACK_STAGGER_DELAY_MS + FEEDBACK_STAGGER_GAP_MS * 1);
+    animate(expY, expOpacity, FEEDBACK_STAGGER_DELAY_MS + FEEDBACK_STAGGER_GAP_MS * 2);
+    animate(btnY, btnOpacity, FEEDBACK_STAGGER_DELAY_MS + FEEDBACK_STAGGER_GAP_MS * 3);
+  }, [
+    visible,
+    sheetTranslateY,
+    backdropOpacity,
+    titleY,
+    titleOpacity,
+    xpY,
+    xpOpacity,
+    expY,
+    expOpacity,
+    btnY,
+    btnOpacity,
+  ]);
+
+  // Tap-handler runs the close animation, then notifies the parent.
+  // Parent will then unmount the sheet via its showFeedback toggle.
+  const handleTapContinue = () => {
+    backdropOpacity.value = withTiming(0, {
+      duration: safeDuration(FEEDBACK_CLOSE_MS),
+      easing: easings.power2In,
+    });
+    sheetTranslateY.value = withTiming(
+      FEEDBACK_SHEET_HEIGHT,
+      {
+        duration: safeDuration(FEEDBACK_CLOSE_MS),
+        easing: easings.power2In,
+      },
+      // Worklet completion callback runs on the UI thread — `scheduleOnRN`
+      // (the worklets-package replacement for the deprecated
+      // `runOnJS`) hops back to the JS thread to invoke the parent's
+      // onContinue. Using a plain `require()` here would call CommonJS
+      // from the UI runtime and crash Hermes (SIGABRT in the
+      // `AnimationFrameBatchinator::flush` path), so the import has to
+      // be hoisted to the module scope.
+      (finished) => {
+        "worklet";
+        if (finished) {
+          scheduleOnRN(onContinue);
+        }
+      },
+    );
+  };
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetTranslateY.value }],
+  }));
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: titleY.value }],
+  }));
+  const xpStyle = useAnimatedStyle(() => ({
+    opacity: xpOpacity.value,
+    transform: [{ translateY: xpY.value }],
+  }));
+  const expStyle = useAnimatedStyle(() => ({
+    opacity: expOpacity.value,
+    transform: [{ translateY: expY.value }],
+  }));
+  const btnStyle = useAnimatedStyle(() => ({
+    opacity: btnOpacity.value,
+    transform: [{ translateY: btnY.value }],
+  }));
+
+  if (!visible) return null;
+
+  const sheetBg = isCorrect ? colors.correctTertiary : colors.incorrectTertiary;
+  const titleColor = isCorrect ? colors.correctPrimary : colors.incorrectPrimary;
+  const xpColor = colors.correctSecondary;
+  const explanationColor = isCorrect ? colors.correctPrimary : colors.incorrectPrimary;
+  const ctaSurface = isCorrect ? "correctSecondary" : "incorrectSecondary";
+  const ctaShadow = isCorrect ? "correctPrimary" : "incorrectPrimary";
 
   return (
     <>
-      {/* Overlay */}
-      <View style={styles.roiFeedbackOverlay} />
-
-      {/* Bottom sheet */}
+      <Animated.View
+        style={[styles.feedbackBackdrop, backdropStyle]}
+        pointerEvents={visible ? "auto" : "none"}
+      />
       <Animated.View
         style={[
-          styles.roiFeedbackSheet,
+          styles.feedbackSheet,
           {
-            backgroundColor: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.persianOrange,
-            transform: [{ translateY: slideAnim }],
-            paddingBottom: 80 + bottomInset, // Content space + safe area
+            backgroundColor: sheetBg,
+            paddingBottom: bottomInset + 24,
           },
+          sheetStyle,
         ]}
       >
-        {/* Header with points badge (correct only) */}
-        <View style={styles.roiFeedbackHeader}>
-          <Text style={styles.roiFeedbackTitle}>
-            {isCorrect ? 'Correct!' : 'Incorrect!'}
-          </Text>
+        <View style={styles.feedbackHeader}>
+          <View style={styles.feedbackTitleRow}>
+            <Animated.View style={[styles.feedbackIconWrap, titleStyle]}>
+              <Ionicons
+                name={isCorrect ? "checkmark-circle" : "close-circle"}
+                size={28}
+                color={titleColor}
+              />
+            </Animated.View>
+            <Animated.View style={titleStyle}>
+              <Typography
+                family="onest"
+                weight="900"
+                size={24}
+                extraColor={titleColor}
+                style={styles.feedbackTitle}
+              >
+                {isCorrect ? "CORRECT!" : "INCORRECT!"}
+              </Typography>
+            </Animated.View>
+          </View>
           {isCorrect && (
-            <View style={styles.roiPointsBadge}>
-              <Text style={styles.roiPointsText}>+{points} points</Text>
-            </View>
+            <Animated.View style={xpStyle}>
+              <Typography
+                family="onest"
+                weight="700"
+                size={14}
+                extraColor={xpColor}
+                style={styles.feedbackXp}
+              >
+                {`+${points} XP`}
+              </Typography>
+            </Animated.View>
           )}
         </View>
 
-        {/* Explanation */}
-        <Text style={styles.roiFeedbackExplanation}>{explanation}</Text>
+        <Animated.View style={expStyle}>
+          <Typography
+            family="onest"
+            weight="500"
+            size={14}
+            extraColor={explanationColor}
+            style={styles.feedbackExplanation}
+          >
+            {explanation}
+          </Typography>
+        </Animated.View>
+
+        <Animated.View style={[styles.feedbackContinue, btnStyle]}>
+          <DepthButton
+            variant="secondary"
+            surfaceColor={ctaSurface}
+            shadowColor={ctaShadow}
+            onPress={handleTapContinue}
+          >
+            <Typography
+              family="onest"
+              weight="700"
+              size={18}
+              extraColor={colors.white}
+              style={styles.feedbackContinueLabel}
+            >
+              CONTINUE
+            </Typography>
+          </DepthButton>
+        </Animated.View>
       </Animated.View>
     </>
   );
@@ -297,8 +584,6 @@ export default function Quiz({
   adventureData,
   isToday = false,
   onQuizResults,
-  progress,
-  showTodayHeader = false,
 }: QuizProps) {
   const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
   const { reportQuizComplete } = useGamificationOrchestrator();
@@ -629,179 +914,151 @@ export default function Quiz({
   }
 
   return (
-    <SafeAreaView style={styles.roiContainer} edges={showTodayHeader ? [] : ['top']}>
-      {showTodayHeader ? (
-        // Today mode - transparent status bar for fullscreen
+    <SafeAreaView style={styles.quizContainer} edges={isToday ? [] : ['top']}>
+      {isToday ? (
+        // Today mode — chrome (TodayLessonChrome) provides the floating
+        // back button + progress bar; status bar stays light/transparent.
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} />
       ) : (
-        // Adventure mode - normal status bar
+        // Adventure mode — own status bar over the snow body.
         Platform.OS === 'android' && (
-          <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+          <StatusBar barStyle="dark-content" backgroundColor={colors.snow} />
         )
       )}
 
-      {/* Today mode - Fixed Header with Progress Bar */}
-      {showTodayHeader && progress !== undefined && (
-        <View
-          style={{
-            backgroundColor: ArchivesTheme.colors.creamWhite,
-            paddingTop: insets.top + 8,
-            paddingBottom: 12,
-            paddingHorizontal: 16,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          {/* Back Button */}
-          <TouchableOpacity
-            style={ArchivesTheme.common.today.watchBackButton}
-            onPress={onBack || onDismiss}
-          >
-            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-          </TouchableOpacity>
+      <ScrollView
+        style={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingTop: isToday ? insets.top + 55 : 0,
+          paddingBottom: 16,
+        }}
+      >
+        <View style={styles.questionContent}>
+          {/* Adventure-mode header — quiz title + back button (kept for
+              the existing brown brand). Today mode uses the chrome's
+              back button and skips this block. */}
+          {!isToday && (
+            <View style={styles.adventureHeader}>
+              {onBack && (
+                <TouchableOpacity style={styles.adventureBackButton} onPress={onBack}>
+                  <Ionicons name="chevron-back" size={24} color="#4D392E" />
+                </TouchableOpacity>
+              )}
+              <View style={styles.adventureTitleContainer}>
+                <Text style={styles.adventureQuizTitle}>{quizTitle}</Text>
+              </View>
+            </View>
+          )}
 
-          {/* Progress Bar */}
-          <View style={{ flex: 1 }}>
-            <View style={ArchivesTheme.common.today.watchProgressContainer}>
-              <Text style={[ArchivesTheme.common.today.watchProgressLabel, { color: ArchivesTheme.colors.shoeBrown }]}>
-                Progress today
-              </Text>
-              <Text style={[ArchivesTheme.common.today.watchProgressPercentage, { color: ArchivesTheme.colors.shoeBrown }]}>
-                {progress}%
-              </Text>
-            </View>
-            <View style={[ArchivesTheme.common.today.watchProgressBar, { backgroundColor: ArchivesTheme.colors.shoeBrown + "30" }]}>
-              <View
-                style={[
-                  ArchivesTheme.common.today.watchProgressFill,
-                  { width: `${progress}%`, backgroundColor: ArchivesTheme.colors.persianOrange },
-                ]}
+          {/* Question counter — figma 3379:5267 (Onest Medium 14, black,
+              center, letter-spacing -0.14). Single-line caption above
+              the image. */}
+          <Typography
+            family="onest"
+            weight="500"
+            size={14}
+            extraColor={colors.black}
+            style={styles.questionCounter}
+          >
+            {`Question ${questionNumber} of ${totalQuestions}`}
+          </Typography>
+
+          {/* Question image — preserved from previous design. Random per
+              question, slight rotation, transparent background. */}
+          <View style={styles.imageSection}>
+            <Image
+              source={QUIZ_IMAGES[QUIZ_IMAGE_KEYS[randomImageIndex]]}
+              style={styles.questionImage}
+              contentFit="contain"
+              transition={300}
+            />
+          </View>
+
+          {/* Question text — figma 3379:5285 (Onest SemiBold 18, black,
+              center, letter-spacing -0.18). */}
+          <Typography
+            family="onest"
+            weight="600"
+            size={18}
+            align="center"
+            extraColor={colors.black}
+            style={styles.questionText}
+          >
+            {currentQuestion.question_text}
+          </Typography>
+
+          {/* Answer options — same `QuizOptionButton` for MCQ and T/F.
+              The only difference is the option count (2 vs 4). */}
+          <View style={styles.optionsGroup}>
+            {options.map((option, index) => (
+              <QuizOptionButton
+                key={index}
+                text={option}
+                isSelected={selectedAnswer === index}
+                isCorrect={showFeedback && index === correctAnswerIndex}
+                isWrong={showFeedback && selectedAnswer === index && !isCorrect}
+                isUserCorrect={isCorrect}
+                showResult={showFeedback}
+                onPress={() => handleAnswerSelect(index)}
               />
-            </View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* SUBMIT — flows as a regular flex child below the ScrollView
+          (`flex: 0` slot, fixed natural height) so the option list can
+          never overflow underneath it. Previously this was
+          `position: absolute` with manual bottom-padding math on the
+          ScrollView, which broke on shorter devices. The slot's
+          paddingBottom honors the safe-area inset for home-indicator
+          spacing, paddingTop adds breathing room above the button. */}
+      {!showFeedback && (
+        <View
+          style={[
+            styles.submitContainer,
+            { paddingBottom: insets.bottom + 16 },
+          ]}
+          pointerEvents={selectedAnswer === null ? 'none' : 'auto'}
+        >
+          {/* Soft fade-out overlay — masks the hard horizontal edge
+              where the ScrollView's last visible option meets the
+              submit slot. Shared design-system primitive used by both
+              this screen and the onboarding personalize phases. */}
+          <ScrollFade color={colors.snow} />
+          <View style={{ opacity: selectedAnswer === null ? 0.4 : 1 }}>
+            <DepthButton
+              variant="secondary"
+              surfaceColor="correctSecondary"
+              shadowColor="correctPrimary"
+              onPress={handleSubmit}
+            >
+              <Typography
+                family="onest"
+                weight="700"
+                size={18}
+                extraColor={colors.white}
+                style={styles.submitLabel}
+              >
+                SUBMIT
+              </Typography>
+            </DepthButton>
           </View>
         </View>
       )}
 
-      <ScrollView
-        style={styles.roiScrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.questionContent}>
-          {/* Header */}
-          <View style={styles.roiHeader}>
-          {!showTodayHeader && onBack && (
-            <TouchableOpacity style={styles.roiBackButton} onPress={onBack}>
-              <Ionicons name="chevron-back" size={24} color="#4D392E" />
-            </TouchableOpacity>
-          )}
-          <View style={styles.roiTitleContainer}>
-            {/* Hide quiz title for Today screen, show for regular modules */}
-            {!isToday && <Text style={styles.roiQuizTitle}>{quizTitle}</Text>}
-            <Text style={styles.roiQuestionCounter}>
-              Question {questionNumber} of {totalQuestions}
-            </Text>
-          </View>
-        </View>
-
-        {/* Question Image - Randomly selected from quiz images */}
-        <View style={styles.roiImageSection}>
-          <View style={styles.roiImageBackground} />
-          <Image
-            source={QUIZ_IMAGES[QUIZ_IMAGE_KEYS[randomImageIndex]]}
-            style={styles.roiQuestionImage}
-            contentFit="contain"
-            transition={300}
-          />
-        </View>
-
-        {/* Question */}
-        <Text style={styles.roiQuestionText}>{currentQuestion.question_text}</Text>
-
-        {/* Answer options - Conditional rendering based on question type */}
-        {currentQuestion.question_type === 'trueFalse' ? (
-          // True/False layout - Horizontal buttons
-          <View style={styles.trueFalseOptionsGroup}>
-            {options.map((option, index) => {
-              const isTrue = option.toLowerCase().includes('true');
-              return (
-                <ROITrueFalseOptionButton
-                  key={index}
-                  isTrue={isTrue}
-                  isSelected={selectedAnswer === index}
-                  isCorrect={showFeedback && index === correctAnswerIndex}
-                  isWrong={showFeedback && selectedAnswer === index && !isCorrect}
-                  showResult={showFeedback}
-                  onPress={() => handleAnswerSelect(index)}
-                />
-              );
-            })}
-          </View>
-        ) : (
-          // MCQ layout - Vertical stack
-          <View style={styles.questionOptionsGroup}>
-            {options.map((option, index) => {
-              const letter = String.fromCharCode(65 + index); // A, B, C, D
-              return (
-                <MCQOptionButton
-                  key={index}
-                  letter={letter}
-                  text={option}
-                  isSelected={selectedAnswer === index}
-                  isCorrect={showFeedback && index === correctAnswerIndex}
-                  isWrong={showFeedback && selectedAnswer === index && !isCorrect}
-                  showResult={showFeedback}
-                  onPress={() => handleAnswerSelect(index)}
-                />
-              );
-            })}
-          </View>
-        )}
-
-          {/* Spacer for submit button */}
-          <View style={{ height: 120 }} />
-        </View>
-      </ScrollView>
-
-      {/* Submit button - Always visible, stays on top with z-index */}
-      <View style={[styles.submitButtonContainer, { bottom: Math.max(50, insets.bottom + 30) }]}>
-        {/* Shadow layer - 3D depth effect */}
-        <View
-          style={[
-            styles.submitButtonShadow,
-            { backgroundColor: showFeedback ? 'rgba(0,0,0,0.3)' : (selectedAnswer !== null ? ArchivesTheme.colors.mossGreenShadow : 'rgba(0,0,0,0.3)') },
-          ]}
-        />
-        {/* Button */}
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            { backgroundColor: showFeedback ? 'white' : (selectedAnswer !== null ? ArchivesTheme.colors.mossGreen : 'gray') },
-          ]}
-          onPress={showFeedback ? handleContinueToNext : handleSubmit}
-          disabled={!showFeedback && selectedAnswer === null}
-          activeOpacity={1}
-        >
-          <Text style={[
-            styles.submitButtonText,
-            showFeedback && {
-              color: isCorrect
-                ? ArchivesTheme.colors.mossGreen      // Green text for correct
-                : ArchivesTheme.colors.persianOrange  // Orange text for incorrect
-            }
-          ]}>
-            {showFeedback ? "CONTINUE" : "SUBMIT"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Feedback bottom sheet */}
-      <ROIFeedbackSheet
-        isVisible={showFeedback}
+      {/* Feedback bottom sheet — replaces both the old Submit-as-Continue
+          button and the legacy ROIFeedbackSheet. Owns its own slide-up
+          animation + content stagger; CONTINUE tap runs close animation,
+          then calls back to advance to the next question. */}
+      <QuizFeedbackSheet
+        visible={showFeedback}
         isCorrect={isCorrect}
         points={pointsPerQuestion}
         explanation={currentQuestion.explanation || 'Good job!'}
         bottomInset={insets.bottom}
+        onContinue={handleContinueToNext}
       />
 
       {/* Mid-Quiz Milestone Modal (ERA-SPECIFIC) */}
@@ -825,31 +1082,33 @@ export default function Quiz({
   );
 }
 
+
 const styles = StyleSheet.create({
-  roiContainer: {
+  // Snow body — matches figma 3379:5265 / 5106 / 5141 (`bg-[#fafafa]`).
+  quizContainer: {
     flex: 1,
-    backgroundColor: '#F4EBDB',
+    backgroundColor: colors.snow,
   },
-  roiScrollView: {
+  scroll: {
     flex: 1,
   },
   questionContent: {
-    // Main content container - EXACT iOS measurements
-    paddingHorizontal: 20, // Standard horizontal padding
-    paddingTop: 5,         // Reduced padding for better spacing
-    paddingBottom: 15,     // Minimal bottom padding
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
 
-  // Header
-  roiHeader: {
+  // Adventure-mode header (back button + quiz title) — kept for the
+  // existing brown brand. Today mode skips this entirely (chrome owns it).
+  adventureHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 10,
-    marginBottom: 20,
+    marginBottom: 12,
   },
-  roiBackButton: {
+  adventureBackButton: {
     position: 'absolute',
-    left: 0, // Now 0 since questionContent has paddingHorizontal: 20
+    left: 0,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -858,271 +1117,138 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
   },
-  roiTitleContainer: {
+  adventureTitleContainer: {
     flex: 1,
     alignItems: 'center',
   },
-  roiQuizTitle: {
+  adventureQuizTitle: {
     fontFamily: 'DM Sans',
     fontSize: 18,
     fontWeight: '600',
     color: ArchivesTheme.colors.mutedNavy,
   },
-  roiQuestionCounter: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#4D392E',
-    marginTop: 2,
+
+  // "Question N of M" — figma 3379:5267.
+  questionCounter: {
+    textAlign: 'center',
+    letterSpacing: -0.14,
+    marginTop: 8,
+    marginBottom: 16,
   },
 
-  // Image section
-  roiImageSection: {
+  // Image block — kept transparent + slight rotation per existing
+  // pattern (figma shows the ImageBackground from 3379:5119/5155 as a
+  // light-grey card behind the image; we omit that to match the default
+  // 5265 state which has no card backdrop).
+  imageSection: {
     alignItems: 'center',
-    marginBottom: 30,
-    position: 'relative',
+    marginBottom: 20,
+    height: 180,
+    justifyContent: 'center',
   },
-  roiImageBackground: {
-    position: 'absolute',
-    width: 232.5,
-    height: 120.42,
-    backgroundColor: 'white',
-    borderRadius: 19,
-    top: 40,
-  },
-  roiQuestionImage: {
-    width: 176.09,
-    height: 176.09,
+  questionImage: {
+    width: 175,
+    height: 175,
     transform: [{ rotate: '-1deg' }],
   },
 
-  // Question
-  roiQuestionText: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#4D392E',
+  // Question text — figma 3379:5285 (Onest SemiBold 18 black, center,
+  // letter-spacing -0.18).
+  questionText: {
+    letterSpacing: -0.18,
+    marginBottom: 28,
+  },
+
+  // Options column — both MCQ and T/F use this layout. The pill widths
+  // are fixed (300px) per figma; horizontal centering via alignItems.
+  optionsGroup: {
+    alignItems: 'center',
+    gap: 20,
+  },
+
+  // Option button wrapper — fixes a 300px width frame so DepthButton's
+  // `isFullWidth` (default true) stretches the surface to match figma
+  // 3379:5273-5280. The wrapper also hosts the per-option Reanimated
+  // transforms (scale pop / shake / bounce) so they don't fight the
+  // DepthButton's internal layout.
+  optionWrap: {
+    width: OPTION_WIDTH,
+  },
+  optionText: {
     textAlign: 'center',
-    paddingHorizontal: 0, // Removed - handled by questionContent container
-    marginBottom: 25,
-    lineHeight: 28,
+    letterSpacing: -0.18,
+    paddingHorizontal: 12,
   },
 
-  // Options - Umayyad Dynasty Design
-  questionOptionsGroup: {
-    alignItems: 'center', // Center 320px buttons
-    paddingHorizontal: 0,
+  // SUBMIT button slot — sits as a regular flex child below the
+  // ScrollView so the option list can never overflow under it on
+  // short devices. paddingBottom is set inline with the safe-area
+  // inset so the button clears the home indicator. Inner opacity
+  // fade (0.4 ↔ 1) follows whether an option is selected, per the
+  // mock's `q-submit-wrap.muted` semantics (`index.html:796`).
+  submitContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
   },
-  mcqOptionContainer: {
-    position: 'relative',
-    marginBottom: 18, // EXACT iOS: VStack(spacing: 18)
-  },
-  mcqOptionShadow: {
-    position: 'absolute',
-    width: 322, // EXACT SwiftUI: .frame(width: 322, height: 50)
-    height: 50,
-    borderRadius: 16,
-    top: 7, // EXACT SwiftUI: .offset(y: 7) - 3D depth effect
-  },
-  mcqOptionBorder: {
-    position: 'absolute',
-    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
-    height: 50,
-    borderRadius: 16,
-    borderWidth: 4, // EXACT SwiftUI: lineWidth: 4
-  },
-  mcqOptionContent: {
-    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
-    height: 50,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 2, // EXACT SwiftUI: overlay stroke
-  },
-  mcqOptionLetterContainer: {
-    paddingLeft: 20,
-  },
-  mcqOptionLetterCircle: {
-    width: 30, // EXACT SwiftUI: .frame(width: 30, height: 30)
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(139,96,64,0.4)', // EXACT SwiftUI: Color("ShoeBrown").opacity(0.4)
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mcqOptionLetter: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
-    fontSize: 18,
-    color: 'white',
-  },
-  mcqOptionTextContainer: {
-    flex: 1,
-    paddingLeft: 20, // Space after circle
-    paddingRight: 20,
-    paddingVertical: 8, // Vertical padding for better text spacing
-    justifyContent: 'center',
-  },
-  mcqOptionText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
-    fontSize: 18,
-    color: ArchivesTheme.colors.shoeBrown,
-    lineHeight: 22,
-    flexWrap: 'wrap',
+  submitLabel: {
+    letterSpacing: -0.18,
   },
 
-  // True/False Options - Umayyad Dynasty Design
-  trueFalseOptionsGroup: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20, // Space between True and False buttons
-    paddingHorizontal: 0,
-  },
-  trueFalseContainer: {
-    position: 'relative',
-  },
-  trueFalseShadow: {
-    position: 'absolute',
-    width: 132, // EXACT: Vertical button 132x120px
-    height: 120,
-    borderRadius: 20,
-    top: 7, // EXACT: 3D depth effect
-  },
-  trueFalseBorder: {
-    position: 'absolute',
-    width: 130, // EXACT: Border layer
-    height: 120,
-    borderRadius: 20,
-    borderWidth: 4,
-  },
-  trueFalseContent: {
-    width: 130, // EXACT: Content layer
-    height: 120,
-    backgroundColor: '#F7F7F7', // Slightly off-white for True/False
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  trueFalseIconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(77, 57, 46, 0.4)', // ShoeBrown with 40% opacity (matches MCQ circle)
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  trueFalseText: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '500',
-    color: ArchivesTheme.colors.shoeBrown,
-  },
-
-  // Submit button - Umayyad Dynasty Design
-  submitButtonContainer: {
-    position: 'absolute',
-    // bottom: dynamic - set inline with useSafeAreaInsets
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    zIndex: 10, // Keep button on top of feedback sheet
-  },
-  submitButtonShadow: {
-    position: 'absolute',
-    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
-    height: 50,
-    borderRadius: 16,
-    top: 7, // EXACT SwiftUI: .offset(y: 7) - 3D depth effect
-  },
-  submitButton: {
-    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
-    height: 50,
-    borderRadius: 16, // EXACT SwiftUI: .cornerRadius(16)
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitButtonText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 22))
-    fontSize: 22,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-
-  // Feedback Bottom Sheet - ROI Design
-  roiFeedbackOverlay: {
+  // Feedback sheet — figma 3379:5130 (correct) + 5165 (incorrect).
+  // Backdrop sits above the body but below the sheet (zIndex
+  // calibrated so the SUBMIT button is hidden when sheet is open).
+  feedbackBackdrop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.30)',
+    backgroundColor: '#000000',
+    zIndex: 10,
   },
-  roiFeedbackSheet: {
+  feedbackSheet: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
-    height: 260,
+    bottom: 0,
+    paddingHorizontal: 24,
+    paddingTop: 18,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingHorizontal: 32,
-    paddingTop: 18,
-    // paddingBottom: dynamic - set inline with useSafeAreaInsets (80 + insets.bottom)
-    zIndex: 5, // Keep sheet behind button
+    zIndex: 20,
   },
-  roiFeedbackHeader: {
+  feedbackHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  feedbackTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 8,
   },
-  roiFeedbackTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'white',
-  },
-  roiPointsBadge: {
-    backgroundColor: 'white',
-    borderRadius: 13,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  roiPointsText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.persianOrange,
-  },
-  roiFeedbackExplanation: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'white',
-    lineHeight: 18.21,
-    marginBottom: 20,
-  },
-  roiContinueButton: {
-    width: '100%',
-    height: 54,
-    borderRadius: 17,
+  feedbackIconWrap: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  roiContinueButtonInner: {
-    width: '100%',
-    height: 51,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
+  feedbackTitle: {
+    letterSpacing: -0.24,
   },
-  roiContinueButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '700',
+  feedbackXp: {
+    letterSpacing: -0.14,
+  },
+  feedbackExplanation: {
+    letterSpacing: -0.14,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  feedbackContinue: {
+    marginTop: 4,
+  },
+  feedbackContinueLabel: {
+    letterSpacing: -0.18,
   },
 });
