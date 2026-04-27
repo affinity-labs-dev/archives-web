@@ -326,9 +326,17 @@ export default function Quiz({
       setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
       setQuestionStartTime(Date.now()); // Reset timer for next question
     } else {
-      // Last question - show results screen
+      // Last question — show results screen.
+      // Fire `onResultsChange` synchronously (alongside setShowResults)
+      // so React 18 batches BOTH state updates into a single commit.
+      // Without this, the parent (today.tsx) only finds out about the
+      // results view AFTER Quiz has already returned <QuizResults />,
+      // and there's a one-frame gap where the chrome still renders its
+      // progress bar above the results screen. The useEffect below is
+      // the safety net for any other state path that flips showResults.
       setShowFeedback(false);
       setShowResults(true);
+      onResultsChange?.(true);
     }
   };
 

@@ -97,6 +97,19 @@ export default function TodayScreen() {
   // today" indicator doesn't read on top of a results summary.
   const [isQuizResultsVisible, setIsQuizResultsVisible] = useState(false);
 
+  // Quiz unmounts when the modal closes (and never fires
+  // onResultsChange(false) on its way out), so reset chrome-related
+  // quiz state whenever neither slot is showing the quiz. Without
+  // this, the next time any modal opens after a completed quiz, the
+  // chrome would mount with hideProgress / transparent header still
+  // active from the prior session.
+  useEffect(() => {
+    if (slotAModal !== "quiz" && slotBModal !== "quiz") {
+      setIsQuizResultsVisible(false);
+      setIsQuizFeedbackVisible(false);
+    }
+  }, [slotAModal, slotBModal]);
+
   // Track page view for Today tab
   useFocusEffect(
     useCallback(() => {
