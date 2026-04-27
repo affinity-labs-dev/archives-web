@@ -37,6 +37,11 @@ interface TodayLessonChromeProps {
   progressFillColor?: string;
   progressTrackColor?: string;
 
+  /** Hide the progress bar — back button stays. Used by the today
+   *  quiz once the user reaches the results screen, where a "Progress
+   *  today" indicator no longer fits the surface. */
+  hideProgress?: boolean;
+
   /** Bottom-row CTAs. `leftCta` is optional — when omitted, `rightCta`
    *  takes the entire row width via its flex:1 slot. */
   leftCta?: React.ReactNode;
@@ -62,6 +67,7 @@ export default function TodayLessonChrome({
   progressLabelColor = colors.white,
   progressFillColor = colors.white,
   progressTrackColor = "rgba(255, 255, 255, 0.4)",
+  hideProgress = false,
   leftCta,
   rightCta,
   hideBottomCtas = false,
@@ -104,15 +110,17 @@ export default function TodayLessonChrome({
         <TouchableOpacity style={themeStyles.watchBackButton} onPress={onBack}>
           <Ionicons name="chevron-back" size={24} color={backIconColor} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <TodayProgressBar
-            progress={progress}
-            label="Progress today"
-            labelColor={progressLabelColor}
-            fillColor={progressFillColor}
-            trackColor={progressTrackColor}
-          />
-        </View>
+        {!hideProgress && (
+          <View style={{ flex: 1 }}>
+            <TodayProgressBar
+              progress={progress}
+              label="Progress today"
+              labelColor={progressLabelColor}
+              fillColor={progressFillColor}
+              trackColor={progressTrackColor}
+            />
+          </View>
+        )}
       </View>
 
       {/* Bottom CTAs — absolute, anchored to safe-area bottom + 16px.

@@ -92,6 +92,11 @@ export default function TodayScreen() {
   // the screen unless we get out of the way.
   const [isQuizFeedbackVisible, setIsQuizFeedbackVisible] = useState(false);
 
+  // Track when Quiz reaches its post-quiz results screen so we can
+  // hide the chrome's progress bar (back button stays). The "Progress
+  // today" indicator doesn't read on top of a results summary.
+  const [isQuizResultsVisible, setIsQuizResultsVisible] = useState(false);
+
   // Track page view for Today tab
   useFocusEffect(
     useCallback(() => {
@@ -543,6 +548,7 @@ export default function TodayScreen() {
             progressLabelColor={colors.bluePrimary}
             progressFillColor={colors.bluePrimary}
             progressTrackColor={colors.blueSecondary}
+            hideProgress={isQuizResultsVisible}
             hideBottomCtas
             // Chrome's bottom CTA row is hidden, but the prop is required.
             rightCta={null}
@@ -566,6 +572,7 @@ export default function TodayScreen() {
             eraName="Daily Quest"
             isToday={true}
             onFeedbackChange={({ visible }) => setIsQuizFeedbackVisible(visible)}
+            onResultsChange={setIsQuizResultsVisible}
             onQuizResults={async (score, correctAnswers, totalQuestions) => {
               // Cache for Live Activity XP plumbing (read in handleQuizComplete)
               lastQuizCorrectAnswersRef.current = correctAnswers;

@@ -72,6 +72,14 @@ interface QuizProps {
    * top of the screen looks unaffected by the feedback overlay).
    */
   onFeedbackChange?: (state: { visible: boolean; isCorrect: boolean }) => void;
+  /**
+   * Optional — fires when the post-quiz results screen opens or
+   * closes. Today mode uses this to hide the chrome's progress bar
+   * once the user reaches the results view (the "Progress today"
+   * label no longer makes sense over a results summary; the back
+   * button stays for navigation).
+   */
+  onResultsChange?: (visible: boolean) => void;
 }
 
 // QuizOptionButton, QuizFeedbackSheet, and QUIZ_IMAGES live in their
@@ -93,6 +101,7 @@ export default function Quiz({
   isToday = false,
   onQuizResults,
   onFeedbackChange,
+  onResultsChange,
 }: QuizProps) {
   const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
   const { reportQuizComplete } = useGamificationOrchestrator();
@@ -196,6 +205,13 @@ export default function Quiz({
     currentQuestionIndex,
     onFeedbackChange,
   ]);
+
+  // Notify parent when the post-quiz results screen mounts/unmounts so
+  // the today chrome can hide its progress bar (back button stays).
+  // Adventure mode passes no callback → no-op.
+  useEffect(() => {
+    onResultsChange?.(showResults);
+  }, [showResults, onResultsChange]);
 
   // Early return if no questions
   if (questions.length === 0) {
