@@ -72,6 +72,15 @@ interface QuizProps {
   // Today mode - skips gamification saving, calls onQuizResults with score
   isToday?: boolean;         // true when called from Today screen
   onQuizResults?: (score: number, correctAnswers: number, totalQuestions: number) => Promise<void>;
+  /**
+   * Optional — fires when the per-question feedback sheet opens or
+   * closes. Today mode uses this to make the surrounding chrome's
+   * floating header transparent while feedback is visible, so Quiz's
+   * existing dim backdrop bleeds through behind the back button +
+   * progress bar (otherwise the chrome header masks the dim and the
+   * top of the screen looks unaffected by the feedback overlay).
+   */
+  onFeedbackChange?: (state: { visible: boolean; isCorrect: boolean }) => void;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -600,6 +609,7 @@ export default function Quiz({
   adventureData,
   isToday = false,
   onQuizResults,
+  onFeedbackChange,
 }: QuizProps) {
   const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
   const { reportQuizComplete } = useGamificationOrchestrator();
@@ -680,6 +690,29 @@ export default function Quiz({
 
     loadInitialXP();
   }, [eraId]);
+
+  // Notify parent (today.tsx's chrome wrapper) when the per-question
+  // feedback sheet opens or closes. The wrapper makes the chrome
+  // header transparent during feedback so Quiz's dim backdrop covers
+  // the floating progress + back-button area too. Adventure mode
+  // passes no callback, making this a no-op there. Hook sits above
+  // the `questions.length === 0` early return so it's called
+  // unconditionally on every render.
+  useEffect(() => {
+    const list = contentItem.questions || [];
+    if (list.length === 0) return;
+    const correctIdx = list[currentQuestionIndex]?.answers.findIndex(
+      (a) => a.is_correct,
+    );
+    const isCorrect = selectedAnswer === correctIdx;
+    onFeedbackChange?.({ visible: showFeedback, isCorrect });
+  }, [
+    showFeedback,
+    selectedAnswer,
+    contentItem,
+    currentQuestionIndex,
+    onFeedbackChange,
+  ]);
 
   // Early return if no questions
   if (questions.length === 0) {

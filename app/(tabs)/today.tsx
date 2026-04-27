@@ -34,7 +34,13 @@ import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -78,6 +84,13 @@ export default function TodayScreen() {
     loading,
     saveQuestCompletion,
   } = useTodayQuest(user?.id);
+
+  // Track quiz feedback visibility so we can make the chrome's
+  // floating header transparent while the per-question feedback sheet
+  // is up — Quiz's dim backdrop already covers the body, but the
+  // chrome's z-indexed absolute header masks the dim at the top of
+  // the screen unless we get out of the way.
+  const [isQuizFeedbackVisible, setIsQuizFeedbackVisible] = useState(false);
 
   // Track page view for Today tab
   useFocusEffect(
@@ -515,10 +528,17 @@ export default function TodayScreen() {
           style={{ flex: 1, backgroundColor: colors.snow }}
           edges={[]}
         >
+          {/* While the quiz feedback sheet is open, drop the chrome
+              header background to transparent so Quiz's dim backdrop
+              (which already absolute-fills the entire screen behind
+              the chrome) bleeds through behind the back button +
+              progress bar — without this, the chrome's z-indexed
+              absolute header masks the dim and only the body looks
+              dimmed. */}
           <TodayLessonChrome
             progress={progress}
             onBack={handleQuizBack}
-            headerBackground={colors.snow}
+            headerBackground={isQuizFeedbackVisible ? "transparent" : colors.snow}
             backIconColor={colors.bluePrimary}
             progressLabelColor={colors.bluePrimary}
             progressFillColor={colors.bluePrimary}
@@ -545,6 +565,7 @@ export default function TodayScreen() {
             eraId="daily_quest"
             eraName="Daily Quest"
             isToday={true}
+            onFeedbackChange={({ visible }) => setIsQuizFeedbackVisible(visible)}
             onQuizResults={async (score, correctAnswers, totalQuestions) => {
               // Cache for Live Activity XP plumbing (read in handleQuizComplete)
               lastQuizCorrectAnswersRef.current = correctAnswers;
