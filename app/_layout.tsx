@@ -11,6 +11,7 @@ import React from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider, ClerkLoaded, useUser } from "@clerk/clerk-expo";
 import { tokenCache } from "@/services/ClerkTokenCache";
@@ -30,6 +31,9 @@ import AffinityNotificationService from '@/services/AffinityNotificationService'
 import PushNotificationService from '@/services/PushNotificationService';
 import NotificationBadgeService from '@/services/NotificationBadgeService';
 import { useOTAUpdates } from '@/hooks/useOTAUpdates';
+import { useOnboardingStore } from '@/stores/onboardingStore';
+import { upsertRememberedAccount } from '@/services/RememberedAccountService';
+import { useOnboardingSync } from '@/hooks/useOnboardingSync';
 import AppLogger from '@/services/AppLogger';
 import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 import { addPushToStartTokenListener, addActivityPushTokenListener, getCachedPushToStartToken, registerPushToStartTokens } from '@/modules/live-activity';
@@ -169,6 +173,14 @@ if (Platform.OS === 'android') {
   });
 }
 
+// Sync bridge placed inside GamifiedProgressProvider so it can read
+// `state.onboarding_answers` and invoke `writeOnboardingAnswers` /
+// `flushOnboardingAnswers`. Renders nothing — pure effect orchestrator.
+function OnboardingSyncBridge() {
+  useOnboardingSync();
+  return null;
+}
+
 // Analytics initialization wrapper that must be inside PostHogProvider
 function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const posthog = usePostHog();
@@ -195,6 +207,63 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Initialize OTA update checks (foreground check + Sentry tags + PostHog tracking)
   useOTAUpdates();
+
+  // Bind Clerk user id to onboarding store on first sign-in. The resume-flow
+  // routing guard in app/index.tsx reads this to detect account switches
+  // (user signs out + signs in as someone else → onboarding state is reset).
+  // Idempotent: only binds when userIdAtStart is not yet set, so token
+  // refreshes that re-run this effect don't clobber anything.
+  const bindOnboardingToUser = useOnboardingStore((s) => s.bindToUser);
+  const onboardingUserId = useOnboardingStore((s) => s.userIdAtStart);
+  React.useEffect(() => {
+    if (isSignedIn && user?.id && !onboardingUserId) {
+      bindOnboardingToUser(user.id);
+    }
+  }, [isSignedIn, user?.id, onboardingUserId, bindOnboardingToUser]);
+
+  // Remembered-account snapshot — keeps the local cache (used by
+  // /welcome-back) in sync with the current Clerk identity. Runs on every
+  // sign-in and on profile changes so that existing users who upgrade to the
+  // version that introduces /welcome-back get snapshotted silently next time
+  // they open the app — no special migration step required.
+  React.useEffect(() => {
+    if (!isSignedIn || !user?.id) return;
+    const email = user.primaryEmailAddress?.emailAddress ?? null;
+    if (!email) return; // Snapshot needs an email to render the card.
+    // Heuristic: prefer an OAuth provider if linked, else treat as email auth.
+    // Clerk exposes `provider` without the `oauth_` prefix (e.g. 'apple').
+    const externalProvider = user.externalAccounts?.[0]?.provider ?? null;
+    const lastAuthMethod: 'oauth_apple' | 'oauth_google' | 'email' =
+      externalProvider === 'apple'
+        ? 'oauth_apple'
+        : externalProvider === 'google'
+          ? 'oauth_google'
+          : 'email';
+
+    (async () => {
+      try {
+        const snapshot = {
+          userId: user.id,
+          firstName: user.firstName ?? null,
+          email,
+          avatarUrl: user.imageUrl ?? null,
+          lastAuthMethod,
+          lastSignedInAt: Date.now(),
+        };
+        await upsertRememberedAccount(snapshot);
+      } catch (err) {
+        AppLogger.warn('auth', 'Remembered-account snapshot failed', {
+          err: String(err),
+        });
+      }
+    })();
+  }, [
+    isSignedIn,
+    user?.id,
+    user?.firstName,
+    user?.imageUrl,
+    user?.primaryEmailAddress?.emailAddress,
+  ]);
 
   // Register user with Affinity Notification Service on sign-in
   React.useEffect(() => {
@@ -661,6 +730,11 @@ export default Sentry.wrap(function RootLayout() {
     "DM Sans Bold": require("../assets/fonts/DM_Sans-Bold.ttf"),
     "Cormorant": require("../assets/fonts/Cormorant.ttf"),
     "Cormorant-Bold": require("../assets/fonts/Cormorant-Bold.ttf"),
+    "Bounded-Black": require("../assets/fonts/Bounded-Black.ttf"),
+    "Onest-Black": require("../assets/fonts/Onest-Black.ttf"),
+    "Onest-Bold": require("../assets/fonts/Onest-Bold.ttf"),
+    "Onest-SemiBold": require("../assets/fonts/Onest-SemiBold.ttf"),
+    "Onest-Medium": require("../assets/fonts/Onest-Medium.ttf"),
   });
 
   // Hide splash screen when fonts are loaded
@@ -788,7 +862,8 @@ export default Sentry.wrap(function RootLayout() {
         flex: 1,
         backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined
       }}>
-        <PostHogProvider apiKey={posthogApiKey} options={posthogOptions} autocapture={posthogAutocaptureOptions}>
+        <KeyboardProvider>
+          <PostHogProvider apiKey={posthogApiKey} options={posthogOptions} autocapture={posthogAutocaptureOptions}>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
             <ClerkLoaded>
               <AnalyticsWrapper>
@@ -796,6 +871,7 @@ export default Sentry.wrap(function RootLayout() {
                   <AdventuresContentProvider>
                     <RewardsProvider>
                       <GamifiedProgressProvider>
+                        <OnboardingSyncBridge />
                         <PreferencesProvider>
                           <NotificationPromptProvider>
                             <GamificationOrchestratorProvider>
@@ -810,6 +886,7 @@ export default Sentry.wrap(function RootLayout() {
                                   <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
                                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                                   <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                  <Stack.Screen name="welcome-back" options={{ headerShown: false }} />
                                   <Stack.Screen name="playground" options={{ headerShown: false }} />
                                   <Stack.Screen name="+not-found" />
                                 </Stack>
@@ -828,6 +905,7 @@ export default Sentry.wrap(function RootLayout() {
             </ClerkLoaded>
           </ClerkProvider>
         </PostHogProvider>
+        </KeyboardProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

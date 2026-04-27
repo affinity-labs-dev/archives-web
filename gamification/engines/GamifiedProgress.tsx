@@ -95,6 +95,27 @@ export interface Achievement {
   moduleId?: string;
 }
 
+/**
+ * Onboarding answers captured across the 13-step onboarding flow.
+ *
+ * Written to `gamification_data.data.onboarding_answers` so it rides the
+ * existing debounced cloud sync path and survives reinstalls.
+ *
+ * `status` is terminal on `completed` | `skipped`; `in_progress` means the
+ * user authenticated mid-flow and partial data was flushed.
+ */
+export interface OnboardingAnswers {
+  version: 2;
+  name: string | null;
+  interests: string[];
+  daily_goal_minutes: 5 | 10 | 15 | 20 | null;
+  age_group: '13-17' | '18-24' | '25-34' | '35-44' | '45+' | null;
+  status: 'in_progress' | 'completed' | 'skipped';
+  started_at: string;
+  completed_at: string | null;
+  skipped_at: string | null;
+}
+
 export interface BehaviorData {
   session_style: string;
   avg_attempts_per_visit: number;
@@ -148,6 +169,11 @@ export interface GamifiedProgressState {
     total_quiz_attempts: number;
     total_modules_attempted: number;
   };
+
+  // Onboarding data collected during the 13-step flow (optional — absent
+  // for users who completed onboarding pre-AFF-786 or existing accounts
+  // whose row predates this schema extension).
+  onboarding_answers?: OnboardingAnswers;
 }
 
 export interface QuestionResult {
@@ -219,6 +245,14 @@ interface GamifiedProgressContextType {
   // Sync & reload
   reloadData: () => Promise<void>;
   syncToCloud: () => Promise<void>;
+
+  // Onboarding sync — merges `onboarding_answers` into the current
+  // GamifiedProgressState and writes via existing sync path. `write` uses
+  // the debounced 2s cloud upsert (intermediate edits); `flush` bypasses
+  // the debounce for terminal state transitions where we want the ACK
+  // before navigating.
+  writeOnboardingAnswers: (answers: OnboardingAnswers) => Promise<void>;
+  flushOnboardingAnswers: (answers: OnboardingAnswers) => Promise<void>;
 }
 
 // ========== XP CALCULATION FUNCTIONS ==========
@@ -1477,6 +1511,48 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     await saveToCloud(currentState);
   }, []);
 
+  const mergeOnboardingAnswers = (
+    current: GamifiedProgressState,
+    answers: OnboardingAnswers,
+  ): GamifiedProgressState => ({
+    ...current,
+    onboarding_answers: answers,
+    metadata: {
+      ...current.metadata,
+      last_updated: new Date().toISOString(),
+    },
+  });
+
+  const writeOnboardingAnswers = useCallback(
+    async (answers: OnboardingAnswers): Promise<void> => {
+      const current = stateRef.current;
+      if (!current) {
+        AppLogger.warn('sync', 'writeOnboardingAnswers: state not ready, skipping');
+        return;
+      }
+      await saveState(mergeOnboardingAnswers(current, answers));
+    },
+    [saveState],
+  );
+
+  const flushOnboardingAnswers = useCallback(
+    async (answers: OnboardingAnswers): Promise<void> => {
+      const current = stateRef.current;
+      if (!current) {
+        AppLogger.warn('sync', 'flushOnboardingAnswers: state not ready, skipping');
+        return;
+      }
+      const merged = mergeOnboardingAnswers(current, answers);
+      // Update ref + local eagerly so if cloud fails, local is already correct.
+      stateRef.current = merged;
+      setState(merged);
+      await saveToLocal(merged);
+      // Bypass debounce — immediate upsert; saveToCloud handles its own retry.
+      await saveToCloud(merged);
+    },
+    [],
+  );
+
   // ========== CONTEXT VALUE ==========
 
   const contextValue: GamifiedProgressContextType = {
@@ -1527,6 +1603,9 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
     reloadData,
     syncToCloud,
+
+    writeOnboardingAnswers,
+    flushOnboardingAnswers,
   };
 
   return (

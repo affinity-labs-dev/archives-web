@@ -36,9 +36,12 @@ export default function SSOCallback() {
         // User has already completed era selection - go to Today tab (AFF-319)
         router.replace('/(tabs)/today');
       } else {
-        // Authentication failed or was cancelled - return to auth screen
-        AppLogger.warn('auth', 'SSO callback: not signed in, returning to auth');
-        router.replace('/(auth)/archives-auth');
+        // Authentication failed or was cancelled — return to the new-flow
+        // create-account screen so the user can retry with a different
+        // provider. Legacy `/(auth)/archives-auth` is kept as fallback but
+        // is no longer the default entry point post-AFF-786.
+        AppLogger.warn('auth', 'SSO callback: not signed in, returning to onboarding-step-7');
+        router.replace('/onboarding-step-7');
       }
     };
 

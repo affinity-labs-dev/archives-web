@@ -28,6 +28,7 @@ import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
 import { toLocalDateString } from '@/utils/dateUtils';
 import { NotificationPermissionModal } from '@/gamification/ui/achievement/AchievementGrid';
+import { useOnboardingStore } from '@/stores/onboardingStore';
 
 // ============================================================
 // TYPES
@@ -186,6 +187,9 @@ const NotificationPromptContext = createContext<NotificationPromptContextType | 
 // ============================================================
 
 export function NotificationPromptProvider({ children }: { children: React.ReactNode }) {
+  const isSignUpMode = useOnboardingStore((s) => s.isSignUpMode);
+  console.log('🚀 ~ NotificationPromptProvider ~ isSignUpMode:', isSignUpMode);
+
   const [state, setState] = useState<NotificationPromptState>(DEFAULT_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
   const stateRef = useRef<NotificationPromptState>(DEFAULT_STATE);
@@ -209,9 +213,11 @@ export function NotificationPromptProvider({ children }: { children: React.React
   // Handles: initial load, account switching, sign-out → sign-in
   useEffect(() => {
     const userId = isSignedIn && user?.id ? user.id : null;
+    console.log('🚀 ~ NotificationPromptProvider ~ isSignUpMode:', isSignUpMode);
 
     // Skip if same user (prevent unnecessary reloads on Clerk token refreshes)
     if (userId === currentUserIdRef.current) return;
+    if (isSignUpMode) return;
     currentUserIdRef.current = userId;
 
     if (!userId) {
@@ -285,7 +291,7 @@ export function NotificationPromptProvider({ children }: { children: React.React
         AppLogger.error('notification', 'Sign-in permission check failed', {}, err);
       }
     })();
-  }, [isSignedIn, user?.id]);
+  }, [isSignedIn, user?.id, isSignUpMode]);
 
   // ---- Helper: save with current user ID ----
   const saveCurrentState = useCallback(async (updated: NotificationPromptState) => {

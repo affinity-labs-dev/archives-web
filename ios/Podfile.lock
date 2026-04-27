@@ -1714,6 +1714,51 @@ PODS:
     - FBSDKGamingServicesKit (~> 18.0)
     - FBSDKShareKit (~> 18.0)
     - React-Core
+  - react-native-keyboard-controller (1.21.6):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - react-native-keyboard-controller/common (= 1.21.6)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-keyboard-controller/common (1.21.6):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - react-native-netinfo (11.4.1):
     - React-Core
   - react-native-pager-view (6.9.1):
@@ -2645,6 +2690,7 @@ DEPENDENCIES:
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-bottom-tabs (from `../node_modules/react-native-bottom-tabs`)
   - react-native-fbsdk-next (from `../node_modules/react-native-fbsdk-next`)
+  - react-native-keyboard-controller (from `../node_modules/react-native-keyboard-controller`)
   - "react-native-netinfo (from `../node_modules/@react-native-community/netinfo`)"
   - react-native-pager-view (from `../node_modules/react-native-pager-view`)
   - react-native-render-html (from `../node_modules/react-native-render-html`)
@@ -2888,6 +2934,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-bottom-tabs"
   react-native-fbsdk-next:
     :path: "../node_modules/react-native-fbsdk-next"
+  react-native-keyboard-controller:
+    :path: "../node_modules/react-native-keyboard-controller"
   react-native-netinfo:
     :path: "../node_modules/@react-native-community/netinfo"
   react-native-pager-view:
@@ -3086,6 +3134,7 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: f5972fb404f7c363ff34b2292e72a716956c590c
   react-native-bottom-tabs: 22f8b0167c75ba041323e3472110760142735096
   react-native-fbsdk-next: 325e4973a478f098bb9406fb2a13fa2e1f5dffeb
+  react-native-keyboard-controller: d58adb7d2d8d98978ae55255a1fe0262dfbdb728
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-pager-view: 2722f7d8a8e8d54fac8c6a8160f821aed9150dfa
   react-native-render-html: 5afc4751f1a98621b3009432ef84c47019dcb2bd
