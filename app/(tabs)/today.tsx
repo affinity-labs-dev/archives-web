@@ -556,7 +556,15 @@ export default function TodayScreen() {
           <TodayLessonChrome
             progress={progress}
             onBack={handleQuizBack}
-            headerBackground={isQuizFeedbackVisible ? "transparent" : colors.snow}
+            headerBackground={
+              // Transparent during feedback (so the dim backdrop covers
+              // the header zone) AND during results (so QuizResults's
+              // cream body bleeds up under the back button instead of
+              // a snow-on-cream seam at the top of the screen).
+              isQuizFeedbackVisible || isQuizResultsVisible
+                ? "transparent"
+                : colors.snow
+            }
             backIconColor={colors.bluePrimary}
             progressLabelColor={colors.bluePrimary}
             progressFillColor={colors.bluePrimary}
