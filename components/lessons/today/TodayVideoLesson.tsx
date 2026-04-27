@@ -856,16 +856,19 @@ export default function TodayVideoLesson({
 // ──────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  // Backdrop dim — sits above the video, below the sheet. Tapping it
-  // collapses the sheet (mirrors mock `s2-sheet-backdrop` in
-  // `index.html:1300`).
+  // Backdrop dim — sits above the video AND above the caption/dots
+  // (zIndex 80) so when the sheet opens the dim covers the caption
+  // text instead of leaving it bright. Tapping it collapses the sheet.
   backdrop: {
     backgroundColor: "#000",
-    zIndex: 50,
+    zIndex: 90,
   },
   // Bottom-anchored reading sheet. translateY shared value drives the
   // open/close slide; the BlurView + tint layer beneath provides the
   // figma 3365:9380 visual (`backdrop-blur 5px` + `rgba(0,0,0,0.8)`).
+  // zIndex 100 lifts it above caption (80), dots (80), and backdrop (90)
+  // — RN zIndex is sibling-only, so all four numbers compete directly
+  // inside the chrome's body slot.
   sheet: {
     position: "absolute",
     left: 0,
@@ -875,7 +878,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     overflow: "hidden",
-    zIndex: 60,
+    zIndex: 100,
   },
   sheetTint: {
     backgroundColor: "rgba(0, 0, 0, 0.6)",
