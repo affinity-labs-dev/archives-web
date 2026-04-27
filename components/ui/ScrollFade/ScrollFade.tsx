@@ -40,7 +40,7 @@ const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 export function ScrollFade({
   color,
-  height = 40,
+  height = 30,
   style,
   pointerEvents = "none",
 }: ScrollFadeProps) {

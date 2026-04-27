@@ -75,7 +75,7 @@ export default function TodayProgressBar({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 12,
+    gap: 8,
   },
   header: {
     flexDirection: "row",
