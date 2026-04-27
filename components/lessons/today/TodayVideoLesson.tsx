@@ -2,8 +2,18 @@
 // Supports: reel (single video), video_carousel (multiple videos), image_carousel (multiple images)
 
 import type { ContentItem } from "@/components/shared/types";
+import TodayLessonChrome from "@/components/today/TodayLessonChrome";
+import {
+  DepthButton,
+  PaginationDots,
+  Typography,
+  colors,
+  easings,
+  safeDuration,
+} from "@/components/ui";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useEvent } from 'expo';
@@ -16,15 +26,20 @@ import { networkPerformanceService } from "@/services/NetworkPerformanceService"
 import AppLogger from "@/services/AppLogger";
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
-  Animated,
   Dimensions,
   Platform,
   ScrollView,
   StatusBar,
-  Text,
+  StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 import {
   GestureHandlerRootView,
   ScrollView as GestureHandlerScrollView,
@@ -32,17 +47,36 @@ import {
   State,
 } from "react-native-gesture-handler";
 import RenderHtml from "react-native-render-html";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Static dimensions - Use "screen" for Android, "window" for iOS (matches adventure pattern)
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get(
   Platform.OS === 'android' ? "screen" : "window"
 );
 
-const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.75;
+// Sheet height = bottom 67% of screen (matches Figma 3365:9379/9380:
+// height=573 on a 852-tall iPhone 16). Mock CSS uses 520px fixed; the
+// percentage approach scales correctly across device sizes.
+const SHEET_HEIGHT = Math.round(SCREEN_HEIGHT * 0.67);
+
+// Reading-card animation timings — copied verbatim from
+// `Downloads/02 daily story/index.html:2403-2435` (`openReadSheet` /
+// `closeReadSheet`). Theme easings map 1:1 to GSAP names:
+//   back.out(1.4) → easings.backOut14
+//   back.out(2)   → easings.backOut2
+//   power2.out    → easings.power2Out
+//   power2.in     → easings.power2In
+const SHEET_OPEN_DURATION_MS = 420;
+const SHEET_CLOSE_DURATION_MS = 320;
+const HANDLE_DELAY_MS = 200;
+const HANDLE_DURATION_MS = 300;
+const TITLE_DELAY_MS = 250;
+const TITLE_DURATION_MS = 350;
+const BODY_DELAY_MS = 300;
+const BODY_DURATION_MS = 400;
+const BACKDROP_OPEN_DURATION_MS = 350;
+const BACKDROP_CLOSE_DURATION_MS = 280;
+const BACKDROP_TARGET_OPACITY = 0.45;
 
 // Video item component for carousel (matches VideoCarouselLesson pattern)
 interface TodayVideoItemProps {
@@ -414,11 +448,35 @@ export default function TodayVideoLesson({
   // Carousel state
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
-  // Card state - Initially hidden (height 0)
+  // Card state - Initially hidden (sheet sits SHEET_HEIGHT below screen
+  // baseline so a `translateY(0)` brings it fully into view).
   const [isCardExpanded, setIsCardExpanded] = useState(false);
   const [hasFinishedReading, setHasFinishedReading] = useState(false);
-  const cardHeight = useRef(new Animated.Value(0)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
+
+  // Reading-card animation shared values — one per element the mock tweens
+  // independently (sheet, handle, title, body, backdrop). Each is animated
+  // by `expandCard` / `collapseCard` below.
+  const sheetTranslateY = useSharedValue(SHEET_HEIGHT);
+  const handleScaleX = useSharedValue(0);
+  const titleOpacity = useSharedValue(0);
+  const bodyOpacity = useSharedValue(0);
+  const backdropOpacity = useSharedValue(0);
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetTranslateY.value }],
+  }));
+  const handleAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: handleScaleX.value }],
+  }));
+  const titleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+  }));
+  const bodyAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: bodyOpacity.value,
+  }));
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
 
   // Video state
   const [videoCompleted, setVideoCompleted] = useState(false);
@@ -452,39 +510,60 @@ export default function TodayVideoLesson({
     };
   }, []);
 
-  // Expand/collapse card
+  // Expand / collapse — ports `openReadSheet` / `closeReadSheet` from the
+  // mock (`Downloads/02 daily story/index.html:2403-2435`) verbatim. The
+  // sheet slides up with a back-out overshoot, then the handle scales in,
+  // then the title and body fade in staggered. The backdrop fades in over
+  // the same window. Close reverses the sheet with a `power2.in` slide
+  // and snaps the inner content opacities to 0 (matching `gsap.set`).
   const expandCard = () => {
     setIsCardExpanded(true);
-    Animated.parallel([
-      Animated.spring(cardHeight, {
-        toValue: EXPANDED_HEIGHT,
-        tension: 100,
-        friction: 15,
-        useNativeDriver: false,
+    sheetTranslateY.value = withTiming(0, {
+      duration: safeDuration(SHEET_OPEN_DURATION_MS),
+      easing: easings.backOut14,
+    });
+    handleScaleX.value = withDelay(
+      safeDuration(HANDLE_DELAY_MS),
+      withTiming(1, {
+        duration: safeDuration(HANDLE_DURATION_MS),
+        easing: easings.backOut2,
       }),
-      Animated.timing(cardOpacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: false,
+    );
+    titleOpacity.value = withDelay(
+      safeDuration(TITLE_DELAY_MS),
+      withTiming(1, {
+        duration: safeDuration(TITLE_DURATION_MS),
+        easing: easings.power2Out,
       }),
-    ]).start();
+    );
+    bodyOpacity.value = withDelay(
+      safeDuration(BODY_DELAY_MS),
+      withTiming(1, {
+        duration: safeDuration(BODY_DURATION_MS),
+        easing: easings.power2Out,
+      }),
+    );
+    backdropOpacity.value = withTiming(BACKDROP_TARGET_OPACITY, {
+      duration: safeDuration(BACKDROP_OPEN_DURATION_MS),
+      easing: easings.power2Out,
+    });
   };
 
   const collapseCard = () => {
     setIsCardExpanded(false);
-    Animated.parallel([
-      Animated.spring(cardHeight, {
-        toValue: 0, // Hide completely
-        tension: 100,
-        friction: 15,
-        useNativeDriver: false,
-      }),
-      Animated.timing(cardOpacity, {
-        toValue: 0,
-        duration: 350,
-        useNativeDriver: false,
-      }),
-    ]).start();
+    sheetTranslateY.value = withTiming(SHEET_HEIGHT, {
+      duration: safeDuration(SHEET_CLOSE_DURATION_MS),
+      easing: easings.power2In,
+    });
+    // Mock uses `gsap.set` (instant) for h3/p on close — the sheet itself
+    // animates out so animating their opacity too looks redundant.
+    titleOpacity.value = 0;
+    bodyOpacity.value = 0;
+    handleScaleX.value = 0;
+    backdropOpacity.value = withTiming(0, {
+      duration: safeDuration(BACKDROP_CLOSE_DURATION_MS),
+      easing: easings.power2In,
+    });
   };
 
   // Handle swipe gesture
@@ -542,6 +621,52 @@ export default function TodayVideoLesson({
           ArchivesTheme.common.today.watchModalContainer,
           Platform.OS === 'android' && { width: SCREEN_WIDTH, height: SCREEN_HEIGHT }
         ]}>
+          <TodayLessonChrome
+            progress={progress}
+            onBack={onDismiss}
+            // Light tone defaults match the video backdrop — white text +
+            // translucent-white track over the active video.
+            leftCta={
+              <DepthButton
+                variant="secondary"
+                surfaceColor="pinkSecondary"
+                shadowColor="pinkPrimary"
+                onPress={() => {
+                  if (isCardExpanded) {
+                    collapseCard();
+                  } else {
+                    expandCard();
+                  }
+                }}
+                leftIcon={
+                  <Ionicons name="menu" size={18} color={colors.white} />
+                }
+              >
+                <Typography
+                  family="onest"
+                  size={18}
+                  weight="700"
+                  extraColor={colors.white}
+                  style={styles.ctaLabel}
+                >
+                  {isCardExpanded ? "COLLAPSE" : "READ"}
+                </Typography>
+              </DepthButton>
+            }
+            rightCta={
+              <DepthButton variant="secondary" onPress={onNext}>
+                <Typography
+                  family="onest"
+                  size={18}
+                  weight="700"
+                  extraColor={colors.white}
+                  style={styles.ctaLabel}
+                >
+                  CONTINUE
+                </Typography>
+              </DepthButton>
+            }
+          >
           {/* Media Background - Swipeable Carousel */}
           <View style={ArchivesTheme.common.today.watchVideoContainer}>
             <ScrollView
@@ -584,410 +709,139 @@ export default function TodayVideoLesson({
                       <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, backgroundColor: "black" }} />
                     )}
 
-                    {/* Caption Overlay for this media item */}
-                    {captions[index] && index === currentMediaIndex && (
-                      <View
-                        style={{
-                          position: "absolute",
-                          bottom: 100,
-                          left: 16,
-                          right: 16,
-                          backgroundColor: "rgba(0, 0, 0, 0.6)",
-                          borderRadius: 8,
-                          padding: 12,
-                          zIndex: 5,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: "white",
-                            fontFamily: "DM Sans",
-                            fontSize: 14,
-                            lineHeight: 20,
-                            textAlign: "center",
-                          }}
-                        >
-                          {captions[index]}
-                        </Text>
-                      </View>
-                    )}
                   </View>
                 );
               })}
             </ScrollView>
           </View>
 
-          {/* Fixed Header - Progress Bar (Absolute positioned over video) */}
-          <View
-            style={{
-              position: "absolute",
-              top: Platform.OS === "ios" ? 50 : 40,
-              left: 0,
-              right: 0,
-              paddingBottom: 8,
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              zIndex: 100,
-            }}
-          >
-            {/* Back Button */}
-            <TouchableOpacity
-              style={ArchivesTheme.common.today.watchBackButton}
-              onPress={onDismiss}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={24}
-                color="white"
-              />
-            </TouchableOpacity>
-
-            {/* Progress Bar */}
-            <View style={{ flex: 1 }}>
-              <View style={ArchivesTheme.common.today.watchProgressContainer}>
-                <Text
-                  style={[
-                    ArchivesTheme.common.today.watchProgressLabel,
-                    { color: "white" },
-                  ]}
-                >
-                  Progress today
-                </Text>
-                <Text
-                  style={[
-                    ArchivesTheme.common.today.watchProgressPercentage,
-                    { color: "white" },
-                  ]}
-                >
-                  {progress}%
-                </Text>
-              </View>
-              <View style={ArchivesTheme.common.today.watchProgressBar}>
-                <View
-                  style={[
-                    ArchivesTheme.common.today.watchProgressFill,
-                    { width: `${progress}%` },
-                  ]}
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Progress Dots - Only for carousels */}
-          {isCarousel && (
+          {/* Caption — top-anchored hero text per figma 3507:7980. Uses
+              the design-system `display.large` variant (Bounded Black 28
+              uppercase) so it matches every other hero moment in the app.
+              `textShadow` mimics the figma's `text-shadow-[1px_1px_4px_black]`
+              and gives legibility on top of arbitrary video frames. */}
+          {captions[currentMediaIndex] && (
             <View
-              style={{
-                position: "absolute",
-                top: Platform.OS === "ios" ? 110 : 100,
-                left: 0,
-                right: 0,
-                flexDirection: "row",
-                justifyContent: "center",
-                gap: 8,
-                zIndex: 90,
-              }}
+              pointerEvents="none"
+              style={[
+                styles.captionContainer,
+                // Caption sits below the floating header. `insets.top` plus
+                // ~72px clears the back button + progress bar; figma 3507:7980
+                // anchors the headline at ~14% from the top of the screen.
+                { top: insets.top + 72 },
+              ]}
             >
-              {mediaUrls.map((_, index) => (
-                <View
-                  key={index}
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor:
-                      index === currentMediaIndex
-                        ? "white"
-                        : "rgba(255, 255, 255, 0.4)",
-                  }}
-                />
-              ))}
+              <Typography
+                variant="display.large"
+                color="white"
+                style={styles.captionText}
+              >
+                {captions[currentMediaIndex]}
+              </Typography>
             </View>
           )}
 
-          {/* Reading Card - Always rendered, animated visibility */}
-          {Platform.OS === "ios" ? (
-            <PanGestureHandler
-              ref={panGestureRef}
-              onGestureEvent={handleSwipeGesture}
-              onHandlerStateChange={handleSwipeGesture}
-              activeOffsetY={[-10, 10]}
-              failOffsetX={[-20, 20]}
+          {/* Progress Dots — bottom-anchored, just above the floating CTAs
+              per figma 3522:8033 (top: 723 of 867). Shared component with
+              the home-screen card deck; white tones for legibility on the
+              dark video. */}
+          {isCarousel && (
+            <View
+              style={[
+                styles.dotsContainer,
+                // Sits above the CTA row: insets.bottom + 16 (CTA paddingBottom)
+                // + 45 (CTA height) + 16 (breathing room) = the bottom edge
+                // of the dots line.
+                { bottom: insets.bottom + 100 },
+              ]}
+              pointerEvents="none"
             >
-              <Animated.View
-                style={[
-                  ArchivesTheme.common.today.watchCardContainer,
-                  { height: cardHeight, opacity: cardOpacity },
-                ]}
-              >
-                  <TouchableOpacity
-                    style={ArchivesTheme.common.today.watchReadingCard}
-                    activeOpacity={1}
-                    onPress={collapseCard}
-                  >
-                    {/* Card Handle */}
-                    <View style={ArchivesTheme.common.today.watchCardHandle} />
-
-                    {/* Expanded Content */}
-                    <Animated.View
-                      style={ArchivesTheme.common.today.watchExpandedContent}
-                    >
-                      <GestureHandlerScrollView
-                        style={ArchivesTheme.common.today.watchExpandedScroll}
-                        showsVerticalScrollIndicator={false}
-                        onScroll={handleReadingScroll}
-                        scrollEventThrottle={100}
-                        bounces={false}
-                        waitFor={Platform.select({ ios: panGestureRef, default: undefined })}
-                      >
-                        <View
-                          style={
-                            ArchivesTheme.common.today.watchExpandedContentInner
-                          }
-                        >
-                          {/* Title */}
-                          <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                          <View
-                            style={ArchivesTheme.common.today.watchTitleSection}
-                          >
-                            <Text
-                              style={ArchivesTheme.common.today.watchSheetTitle}
-                            >
-                              {contentItem.thumbnail_title || "Content"}
-                            </Text>
-                          </View>
-                          </TouchableOpacity>
-
-                          {/* HTML Content */}
-                          {contentItem.bottom_content?.reading_text && (
-                            <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                            <View
-                              style={
-                                ArchivesTheme.common.today
-                                  .watchHistoricalSection
-                              }
-                            >
-                              <RenderHtml
-                                contentWidth={SCREEN_WIDTH - 40}
-                                source={{
-                                  html: contentItem.bottom_content.reading_text,
-                                }}
-                                tagsStyles={{
-                                  body: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 18,
-                                    lineHeight: 20,
-                                  },
-                                  h1: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 24,
-                                    fontWeight: "700",
-                                    marginBottom: 12,
-                                  },
-                                  h2: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 20,
-                                    fontWeight: "700",
-                                    marginBottom: 10,
-                                  },
-                                  h3: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 18,
-                                    fontWeight: "600",
-                                    marginBottom: 8,
-                                  },
-                                  p: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 18,
-                                    lineHeight: 20,
-                                    marginBottom: 12,
-                                  },
-                                  strong: {
-                                    fontWeight: "600",
-                                    color: "white",
-                                  },
-                                  em: { fontStyle: "italic", color: "white" },
-                                }}
-                              />
-                            </View>
-                            </TouchableOpacity>
-                          )}
-
-                          <View style={{ height: 100 }} />
-                        </View>
-                      </GestureHandlerScrollView>
-                    </Animated.View>
-                  </TouchableOpacity>
-                </Animated.View>
-              </PanGestureHandler>
-            ) : (
-              <PanGestureHandler
-                ref={panGestureRef}
-                onGestureEvent={handleSwipeGesture}
-                onHandlerStateChange={handleSwipeGesture}
-                activeOffsetY={[-10, 10]}
-                failOffsetX={[-20, 20]}
-              >
-                <Animated.View
-                  style={[
-                    ArchivesTheme.common.today.watchCardContainer,
-                    { height: cardHeight, opacity: cardOpacity },
-                  ]}
-                >
-                  <TouchableOpacity
-                    style={ArchivesTheme.common.today.watchReadingCard}
-                    activeOpacity={1}
-                    onPress={collapseCard}
-                  >
-                    {/* Card Handle */}
-                    <View style={ArchivesTheme.common.today.watchCardHandle} />
-
-                    {/* Expanded Content */}
-                    <Animated.View
-                      style={ArchivesTheme.common.today.watchExpandedContent}
-                    >
-                      <GestureHandlerScrollView
-                        style={ArchivesTheme.common.today.watchExpandedScroll}
-                        showsVerticalScrollIndicator={false}
-                        onScroll={handleReadingScroll}
-                        scrollEventThrottle={100}
-                        bounces={false}
-                        waitFor={Platform.select({ ios: panGestureRef, default: undefined })}
-                      >
-                        <View
-                          style={
-                            ArchivesTheme.common.today.watchExpandedContentInner
-                          }
-                        >
-                          {/* Title */}
-                          <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                          <View
-                            style={ArchivesTheme.common.today.watchTitleSection}
-                          >
-                            <Text
-                              style={ArchivesTheme.common.today.watchSheetTitle}
-                            >
-                              {contentItem.thumbnail_title || "Content"}
-                            </Text>
-                          </View>
-                          </TouchableOpacity>
-
-                          {/* HTML Content */}
-                          {contentItem.bottom_content?.reading_text && (
-                            <TouchableOpacity onPress={collapseCard} activeOpacity={0.9}>
-                            <View
-                              style={
-                                ArchivesTheme.common.today
-                                  .watchHistoricalSection
-                              }
-                            >
-                              <RenderHtml
-                                contentWidth={SCREEN_WIDTH - 40}
-                                source={{
-                                  html: contentItem.bottom_content.reading_text,
-                                }}
-                                tagsStyles={{
-                                  body: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 18,
-                                    lineHeight: 20,
-                                  },
-                                  h1: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 24,
-                                    fontWeight: "700",
-                                    marginBottom: 12,
-                                  },
-                                  h2: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 20,
-                                    fontWeight: "700",
-                                    marginBottom: 10,
-                                  },
-                                  h3: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 18,
-                                    fontWeight: "600",
-                                    marginBottom: 8,
-                                  },
-                                  p: {
-                                    color: "white",
-                                    fontFamily: "DM Sans",
-                                    fontSize: 18,
-                                    lineHeight: 20,
-                                    marginBottom: 12,
-                                  },
-                                  strong: {
-                                    fontWeight: "600",
-                                    color: "white",
-                                  },
-                                  em: { fontStyle: "italic", color: "white" },
-                                }}
-                              />
-                            </View>
-                            </TouchableOpacity>
-                          )}
-
-                          <View style={{ height: 100 }} />
-                        </View>
-                      </GestureHandlerScrollView>
-                    </Animated.View>
-                  </TouchableOpacity>
-                </Animated.View>
-              </PanGestureHandler>
-            )}
-
-          {/* Fixed Bottom Buttons - Float over video, always visible */}
-          <View
-            style={[
-              ArchivesTheme.common.today.watchFloatingButtonContainer,
-              { bottom: 0 },
-            ]}
-          >
-            <View style={ArchivesTheme.common.today.watchButtonRow}>
-              {/* Read Button - Left */}
-              <TouchableOpacity
-                style={ArchivesTheme.common.today.watchReadButton}
-                onPress={() => {
-                  if (isCardExpanded) {
-                    collapseCard();
-                  } else {
-                    expandCard();
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="menu" size={20} color="white" />
-                <Text style={ArchivesTheme.common.today.watchReadButtonText}>
-                  Read
-                </Text>
-              </TouchableOpacity>
-
-              {/* Continue Button - Right */}
-              <TouchableOpacity
-                style={ArchivesTheme.common.today.watchContinueButton}
-                onPress={onNext}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={ArchivesTheme.common.today.watchContinueButtonText}
-                >
-                  Continue
-                </Text>
-                <Ionicons name="arrow-forward" size={20} color="white" />
-              </TouchableOpacity>
+              <PaginationDots
+                count={mediaUrls.length}
+                activeIndex={currentMediaIndex}
+                activeColor={colors.white}
+                inactiveColor="rgba(255, 255, 255, 0.4)"
+              />
             </View>
-          </View>
+          )}
+
+          {/* Backdrop — fades 0→0.45 over 350ms when the sheet opens (mock
+              `index.html:576-582`). Tapping it collapses the sheet. */}
+          <Animated.View
+            style={[StyleSheet.absoluteFill, styles.backdrop, backdropAnimatedStyle]}
+            pointerEvents={isCardExpanded ? "auto" : "none"}
+          >
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={collapseCard}
+            />
+          </Animated.View>
+
+          {/* Reading sheet — bottom-anchored, slides in with `back.out(1.4)`,
+              dark translucent + blurred background per figma 3365:9380.
+              Single PanGestureHandler with the same swipe-down-to-close
+              behavior across iOS + Android (the prior file duplicated this
+              block per platform with no actual differences). */}
+          <PanGestureHandler
+            ref={panGestureRef}
+            onGestureEvent={handleSwipeGesture}
+            onHandlerStateChange={handleSwipeGesture}
+            activeOffsetY={[-10, 10]}
+            failOffsetX={[-20, 20]}
+          >
+            <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
+              <BlurView
+                intensity={Platform.OS === "ios" ? 30 : 18}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={[StyleSheet.absoluteFill, styles.sheetTint]} />
+
+              {/* Drag handle — scaleX 0→1 with back.out(2) once the sheet
+                  has settled (200ms delay matches mock `delay: 0.2`). */}
+              <Animated.View style={[styles.handle, handleAnimatedStyle]} />
+
+              <GestureHandlerScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={styles.sheetScroll}
+                showsVerticalScrollIndicator={false}
+                onScroll={handleReadingScroll}
+                scrollEventThrottle={100}
+                bounces={false}
+                waitFor={Platform.select({ ios: panGestureRef, default: undefined })}
+              >
+                <Animated.View style={titleAnimatedStyle}>
+                  <Typography
+                    family="onest"
+                    size={22}
+                    weight="700"
+                    extraColor={colors.white}
+                    style={styles.title}
+                  >
+                    {contentItem.thumbnail_title || "Content"}
+                  </Typography>
+                </Animated.View>
+
+                {contentItem.bottom_content?.reading_text && (
+                  <Animated.View style={bodyAnimatedStyle}>
+                    <RenderHtml
+                      contentWidth={SCREEN_WIDTH - 56}
+                      source={{
+                        html: contentItem.bottom_content.reading_text,
+                      }}
+                      tagsStyles={readingHtmlStyles}
+                    />
+                  </Animated.View>
+                )}
+
+                {/* Bottom spacer leaves room for the floating CTAs */}
+                <View style={{ height: 120 }} />
+              </GestureHandlerScrollView>
+            </Animated.View>
+          </PanGestureHandler>
+
+          </TodayLessonChrome>
         </View>
 
         {/* DEV ONLY: Device health + network speed overlay */}
@@ -996,3 +850,130 @@ export default function TodayVideoLesson({
     </SafeAreaView>
   );
 }
+
+// ──────────────────────────────────────────────────────────
+// Reading-sheet styles + RenderHtml tag styles
+// ──────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  // Backdrop dim — sits above the video, below the sheet. Tapping it
+  // collapses the sheet (mirrors mock `s2-sheet-backdrop` in
+  // `index.html:1300`).
+  backdrop: {
+    backgroundColor: "#000",
+    zIndex: 50,
+  },
+  // Bottom-anchored reading sheet. translateY shared value drives the
+  // open/close slide; the BlurView + tint layer beneath provides the
+  // figma 3365:9380 visual (`backdrop-blur 5px` + `rgba(0,0,0,0.8)`).
+  sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: SHEET_HEIGHT,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    overflow: "hidden",
+    zIndex: 60,
+  },
+  sheetTint: {
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  sheetScroll: {
+    paddingTop: 26,
+    paddingHorizontal: 24,
+  },
+  // 76×4 white pill, 60% opacity — figma 3365:9381 + mock CSS
+  // `index.html:593`. Horizontally centered via marginHorizontal: auto.
+  handle: {
+    width: 76,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
+    alignSelf: "center",
+    marginTop: 13,
+    marginBottom: 16,
+    zIndex: 10,
+  },
+  title: {
+    marginBottom: 14,
+    letterSpacing: -0.3,
+  },
+  // CTA label refinement — DepthButton's Typography children take this via
+  // `style` prop. Onest at -0.18 letter-spacing matches the figma 3526:8087
+  // / 3365:9397 specs. Chrome owns the bottom-row geometry; this only tunes
+  // the per-label kerning.
+  ctaLabel: {
+    letterSpacing: -0.18,
+  },
+  // Caption — top-anchored hero text per figma 3507:7980. `top` is set
+  // inline with insets so the headline sits below the floating chrome
+  // header on every device size.
+  captionContainer: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    alignItems: "center",
+    zIndex: 80,
+  },
+  // The Typography variant `display.large` provides Bounded Black 28
+  // uppercase + line-height. We layer the figma's `text-shadow-[1px_1px_4px_black]`
+  // here so it carries through across any video-frame background.
+  captionText: {
+    textAlign: "center",
+    lineHeight: 35,
+    textShadowColor: "rgba(0, 0, 0, 1)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 4,
+  },
+  // Progress dots — bottom-anchored above the floating CTA row.
+  dotsContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 80,
+  },
+});
+
+// HTML body styling for the reading content. Onest matches figma 3365:9384
+// (font-['Onest:Medium']). Color is white so it reads on the dark sheet bg.
+const readingHtmlStyles = {
+  body: {
+    color: colors.white,
+    fontFamily: "Onest",
+    fontSize: 16,
+    lineHeight: 25,
+  },
+  h1: {
+    color: colors.white,
+    fontFamily: "Onest",
+    fontSize: 24,
+    fontWeight: "700" as const,
+    marginBottom: 12,
+  },
+  h2: {
+    color: colors.white,
+    fontFamily: "Onest",
+    fontSize: 20,
+    fontWeight: "700" as const,
+    marginBottom: 10,
+  },
+  h3: {
+    color: colors.white,
+    fontFamily: "Onest",
+    fontSize: 18,
+    fontWeight: "600" as const,
+    marginBottom: 8,
+  },
+  p: {
+    color: colors.white,
+    fontFamily: "Onest",
+    fontSize: 16,
+    lineHeight: 25,
+    marginBottom: 12,
+  },
+  strong: { fontWeight: "600" as const, color: colors.white },
+  em: { fontStyle: "italic" as const, color: colors.white },
+};
