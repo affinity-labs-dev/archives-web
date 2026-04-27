@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useWindowDimensions } from "react-native";
-import Animated, {
+import {
   Easing,
   runOnJS,
   useAnimatedStyle,
@@ -22,14 +21,19 @@ interface UseTodayModalSlotsArgs {
 }
 
 /**
- * Dual-slot push/pop modal animation system.
+ * Dual-slot crossfade modal animation system.
  *
  * Two absolutely-positioned slots (A and B) allow both outgoing and
- * incoming modal content to be visible simultaneously during transitions
- * (no white flash between video → reading → quiz).
+ * incoming modal content to be visible simultaneously during the
+ * crossfade — no white flash between video → reading → quiz, AND
+ * because both slots render their lesson chrome at the same screen
+ * position, the floating header (back arrow + progress bar) appears
+ * stationary through the transition. Matches the daily-story HTML
+ * mock (`Downloads/02 daily story/index.html:1720-1768`) which uses
+ * a `power2.inOut` 0.4s opacity crossfade for the same reason.
  *
  * `openModal` and `closeModal` set state instantly without animation;
- * `animateModalTransition` runs the Apple-style 300ms slide between two
+ * `animateModalTransition` runs the 400ms crossfade between two
  * already-mounted modal contents.
  */
 export function useTodayModalSlots({
@@ -46,7 +50,6 @@ export function useTodayModalSlots({
   const rafRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
   const [outgoingSlot, setOutgoingSlot] = useState<"A" | "B" | null>(null);
-  const { width: screenWidth } = useWindowDimensions();
 
   // Cleanup on unmount — prevent state updates after component is removed
   useEffect(() => {
@@ -68,10 +71,17 @@ export function useTodayModalSlots({
   const slotBOpacity = useSharedValue(0);
   const slotBZIndex = useSharedValue(0);
 
+  // Crossfade-only — translateX is intentionally left out of the
+  // animated style so the slots stay locked at the same screen
+  // position. Each lesson renders its own TodayLessonChrome at the
+  // same `top` offset, so during the opacity crossfade the user
+  // perceives the chrome as stationary (mock `index.html:1720-1768`
+  // — same `power2.inOut` 0.4s crossfade pattern). The translateX
+  // shared values are kept around purely so existing call sites that
+  // still write to them don't break; they're just not read here.
   const slotAAnimatedStyle = useAnimatedStyle(() => ({
     position: "absolute" as const,
     top: 0, left: 0, right: 0, bottom: 0,
-    transform: [{ translateX: slotATranslateX.value }],
     opacity: slotAOpacity.value,
     zIndex: slotAZIndex.value,
   }));
@@ -79,7 +89,6 @@ export function useTodayModalSlots({
   const slotBAnimatedStyle = useAnimatedStyle(() => ({
     position: "absolute" as const,
     top: 0, left: 0, right: 0, bottom: 0,
-    transform: [{ translateX: slotBTranslateX.value }],
     opacity: slotBOpacity.value,
     zIndex: slotBZIndex.value,
   }));
@@ -151,18 +160,21 @@ export function useTodayModalSlots({
     const inZ = incomingSlot === "A" ? slotAZIndex : slotBZIndex;
     const setIncoming = incomingSlot === "A" ? setSlotAModal : setSlotBModal;
 
-    // Set z-order: forward = incoming on top, backward = outgoing on top
-    if (direction === "forward") {
-      outZ.value = 1;
-      inZ.value = 2;
-    } else {
-      outZ.value = 2;
-      inZ.value = 1;
-    }
+    // Z-order: incoming sits on top so its fade-in covers the
+    // outgoing fade-out cleanly — forward and backward both put the
+    // new content above. Direction is preserved as a parameter for
+    // call-site compatibility but doesn't change the visual.
+    outZ.value = 1;
+    inZ.value = 2;
 
-    // Position incoming offscreen and render it
-    inX.value = direction === "forward" ? screenWidth : -screenWidth * 0.3;
-    inOpacity.value = 1;
+    // Crossfade: incoming starts at full transparency, outgoing
+    // starts at full opacity. Both slots stay at the same screen
+    // position (translateX is intentionally not animated). Reset
+    // any leftover slide offset from the prior implementation so
+    // legacy state can't accidentally shift the new content.
+    inX.value = 0;
+    outX.value = 0;
+    inOpacity.value = 0;
     setIncoming(nextModal);
     setPreviousModal(prevModal);
 
@@ -175,20 +187,21 @@ export function useTodayModalSlots({
       }
     }, 1000);
 
-    // Wait one frame for React to mount the incoming content, then animate both
+    // Wait one frame for React to mount the incoming content, then
+    // crossfade. Mock `index.html:1767` uses `power2.inOut` over
+    // 0.4s — `Easing.inOut(Easing.quad)` is the 1:1 RN equivalent.
     rafRef.current = requestAnimationFrame(() => {
-      const duration = 300;
-      const timingConfig = { duration, easing: Easing.out(Easing.cubic) };
+      const duration = 400;
+      const timingConfig = { duration, easing: Easing.inOut(Easing.quad) };
 
-      // Outgoing: slide away + dim slightly
-      const outTarget = direction === "forward" ? -screenWidth * 0.3 : screenWidth;
-      outX.value = withTiming(outTarget, timingConfig);
-      if (direction === "forward") {
-        outOpacity.value = withTiming(0.5, { duration });
-      }
+      // Outgoing: fade out fully so it doesn't ghost behind the new
+      // content after the transition settles.
+      outOpacity.value = withTiming(0, timingConfig);
 
-      // Incoming: slide to center — finishTransition handles timeout cleanup on JS thread
-      inX.value = withTiming(0, timingConfig, () => {
+      // Incoming: fade in. finishTransition runs on the JS thread
+      // when the fade lands, hides the outgoing slot, and unlocks
+      // the transition state.
+      inOpacity.value = withTiming(1, timingConfig, () => {
         runOnJS(finishTransition)(incomingSlot, nextModal);
       });
     });
