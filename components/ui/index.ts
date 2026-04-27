@@ -49,3 +49,6 @@ export type { StatsBadgeProps } from './StatsBadge';
 
 export { ReviewCard } from './ReviewCard';
 export type { ReviewCardProps } from './ReviewCard';
+
+export { PaginationDots } from './PaginationDots';
+export type { PaginationDotsProps } from './PaginationDots';
