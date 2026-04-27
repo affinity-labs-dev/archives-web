@@ -114,11 +114,16 @@ export function useTodayProgress({
             setWatchCompleted(watchDone);
             setExploreCompleted(exploreDone);
             setQuestCompleted(quizDone);
-            // Surface the actual correct-answer count for the star row.
-            // Null when the quiz hasn't been submitted yet so the card
-            // doesn't render a misleading "0/3 grey" star line.
+            // Surface the correct-answer count ONLY when the quiz has
+            // genuinely been submitted. A row can exist in Supabase with
+            // `correct_answers: 0` from earlier `saveProgress("watch" |
+            // "explore")` upserts (which seed score=0, correct_answers=0
+            // as NOT NULL defaults) — gating on `quizDone` ensures the
+            // star row stays hidden until the user has actually finished
+            // the quiz, instead of showing a misleading "0/3 grey" line
+            // as soon as a watch/explore section is saved.
             setQuizCorrectAnswers(
-              typeof data.correct_answers === "number"
+              quizDone && typeof data.correct_answers === "number"
                 ? data.correct_answers
                 : null,
             );
