@@ -19,6 +19,7 @@ export type {
   DepthButtonVariant,
   DepthButtonSize,
   DepthButtonPressEffect,
+  DepthButtonHaptic,
 } from './DepthButton';
 
 export { AuthButton } from './AuthButton';

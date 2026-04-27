@@ -7,6 +7,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 import { colors, easings, durations, safeDuration } from '@/components/ui/theme';
 
@@ -26,6 +27,7 @@ export function DepthButton({
   shadowOffset,
   isDisabled = false,
   isFullWidth = true,
+  haptic = 'light',
   leftIcon,
   rightIcon,
   onPressIn,
@@ -68,6 +70,26 @@ export function DepthButton({
 
   const handlePressIn = (event: Parameters<NonNullable<DepthButtonProps['onPressIn']>>[0]) => {
     if (isDisabled) return;
+
+    // Haptic on press-in — fired before the press animation starts so
+    // the tactile feedback aligns with the visual effect. The user's
+    // global haptic setting is honored automatically via the
+    // monkey-patch in `services/GlobalHapticsWrapper.ts` (imported at
+    // app boot in `_layout.tsx`); when off, every `Haptics.impactAsync`
+    // call resolves to a no-op without us needing to read the setting
+    // locally. Fire-and-forget so the button stays responsive.
+    if (haptic !== 'none') {
+      const style =
+        haptic === 'heavy'
+          ? Haptics.ImpactFeedbackStyle.Heavy
+          : haptic === 'medium'
+            ? Haptics.ImpactFeedbackStyle.Medium
+            : Haptics.ImpactFeedbackStyle.Light;
+      Haptics.impactAsync(style).catch(() => {
+        // Silently ignore — haptics are non-critical, and on iOS
+        // simulator + some Android variants the call can reject.
+      });
+    }
 
     if (resolvedPressEffect === 'dip') {
       const total = safeDuration(durations.ctaPressTotal);
