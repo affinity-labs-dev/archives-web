@@ -20,6 +20,7 @@ import {
   DepthButton,
   Typography,
   colors,
+  durations,
   easings,
   safeDuration,
 } from '@/components/ui';
@@ -47,6 +48,24 @@ export interface QuizOptionButtonProps {
    * burst to anchor the puff at the selected option's center.
    */
   registerView?: (view: View | null) => void;
+  /**
+   * Index in the option list — drives the entrance/exit stagger so options
+   * cascade in (and out) one after another. Mirrors `OptionCard`.
+   */
+  animationIndex?: number;
+  /**
+   * Plays the slide-from-right entrance on mount. Defaults to true so the
+   * options always animate in when the question changes (parent uses a
+   * per-question `key` to remount, replaying the entrance).
+   */
+  animateIn?: boolean;
+  /**
+   * Set to true to fire the slide-to-left exit cascade — same vocabulary as
+   * `OptionList`'s `exitSignal`. The parent flips this true before swapping
+   * to the next question; once the cascade completes the parent advances
+   * the index and a fresh entrance plays via the key remount.
+   */
+  exitSignal?: boolean;
 }
 
 export default function QuizOptionButton({
@@ -58,6 +77,9 @@ export default function QuizOptionButton({
   showResult,
   onPress,
   registerView,
+  animationIndex = 0,
+  animateIn = true,
+  exitSignal = false,
 }: QuizOptionButtonProps) {
   // Visual state machine — extends the OptionCard pattern (default +
   // selected use blue; correct + incorrect add the green/red reveal
@@ -118,13 +140,63 @@ export default function QuizOptionButton({
           ? 'snow'
           : 'bluePrimary';
 
-  // Per-option Reanimated transforms. Three independent shared values:
+  // Per-option Reanimated transforms. Five independent shared values:
   //   - scale: pop on select, bounce on correct submit
-  //   - translateX: shake on incorrect submit
+  //   - translateX: shake on incorrect submit AND entrance/exit slide
   //   - translateY: lift during the celebratory bounce
+  //   - rotate: tilt during entrance (mirrors OptionCard)
+  //   - opacity: entrance fade-in / exit fade-out
+  // `translateX` is reused across entrance and shake — entrance writes
+  // complete (settled at 0) long before any submit-driven shake fires, so
+  // sequencing the same shared value across both phases is safe.
   const scale = useSharedValue(1);
-  const translateX = useSharedValue(0);
+  const translateX = useSharedValue(animateIn ? 400 : 0);
   const translateY = useSharedValue(0);
+  const rotate = useSharedValue(animateIn ? 3 : 0);
+  const opacity = useSharedValue(animateIn ? 0 : 1);
+
+  // Entrance — slide in from the right with a slight tilt + fade. Mirrors
+  // OptionCard.tsx (3-axis stagger 80ms × index, 550ms back.out(1.4)).
+  useEffect(() => {
+    if (!animateIn) return;
+    const delay = safeDuration(animationIndex * durations.cardStaggerInterval);
+    const dur = safeDuration(durations.cardStagger);
+    translateX.value = withDelay(
+      delay,
+      withTiming(0, { duration: dur, easing: easings.backOut14 }),
+    );
+    rotate.value = withDelay(
+      delay,
+      withTiming(0, { duration: dur, easing: easings.backOut14 }),
+    );
+    opacity.value = withDelay(
+      delay,
+      withTiming(1, { duration: dur, easing: easings.backOut14 }),
+    );
+  }, [animateIn, animationIndex, translateX, rotate, opacity]);
+
+  // Exit — slide off-left, tilt the other way, fade out. Mirrors OptionCard
+  // exit (350ms power3.in, 40ms × index stagger). Parent flips `exitSignal`
+  // true on advance-to-next-question; once the cascade completes it bumps
+  // the question index, the keyed remount drops these instances, and a
+  // fresh entrance plays on the new question's options.
+  useEffect(() => {
+    if (!exitSignal) return;
+    const delay = safeDuration(animationIndex * durations.cardExitInterval);
+    const dur = safeDuration(durations.cardExit);
+    translateX.value = withDelay(
+      delay,
+      withTiming(-500, { duration: dur, easing: easings.power3In }),
+    );
+    rotate.value = withDelay(
+      delay,
+      withTiming(-8, { duration: dur, easing: easings.power3In }),
+    );
+    opacity.value = withDelay(
+      delay,
+      withTiming(0, { duration: dur, easing: easings.power3In }),
+    );
+  }, [exitSignal, animationIndex, translateX, rotate, opacity]);
 
   // Pop animation when transitioning to selected — mock
   // `index.html:2647-2650`. Scale 1→1.04 (100ms power2.out) →
@@ -236,8 +308,10 @@ export default function QuizOptionButton({
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
+      { rotate: `${rotate.value}deg` },
       { scale: scale.value },
     ],
+    opacity: opacity.value,
   }));
 
   // Outer wrapper exists purely to host a non-animated ref the parent can

@@ -37,8 +37,10 @@ import {
   ScrollFade,
   Typography,
   colors,
+  durations,
   type ConfettiBurstHandle,
 } from '@/components/ui';
+import { AnimatedEntrance } from '@/components/ui/animations';
 
 // Used by era quizzes and Today screen (isToday=true, adventureId="daily_quest")
 interface QuizProps {
@@ -143,6 +145,11 @@ export default function Quiz({
   const [showResults, setShowResults] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [userAnswers, setUserAnswers] = useState<number[]>([]); // Track all user answers for AI explanations
+  // Exit-cascade gate for the option list — flipped true between
+  // questions so the current options slide off-left (mirrors
+  // OptionList.tsx's `exitSignal`). Reset to false alongside the
+  // question-index bump so the new options enter fresh from the right.
+  const [optionsExiting, setOptionsExiting] = useState(false);
 
   // Mid-quiz milestone detection
   const [initialXP, setInitialXP] = useState(0);
@@ -319,12 +326,25 @@ export default function Quiz({
   // Handle continue to next question
   const handleContinueToNext = () => {
     if (questionNumber < totalQuestions) {
-      // Not last question - clear UI and move to next
+      // Not last question — fire the option exit cascade first, then
+      // advance the question index after the cascade completes. The
+      // SUBMIT slot is gated on `!optionsExiting` so it stays hidden
+      // during the cascade and animates back in via slideFromBottom
+      // once the new question's options have entered.
       setShowFeedback(false);
-      setSelectedAnswer(null);
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
-      setQuestionStartTime(Date.now()); // Reset timer for next question
+      setOptionsExiting(true);
+      // Total cascade time = base exit duration + per-card stagger.
+      // Matches OptionList's exit math (350ms + 40ms × index).
+      const exitTotalMs =
+        durations.cardExit +
+        durations.cardExitInterval * Math.max(0, options.length - 1);
+      setTimeout(() => {
+        setSelectedAnswer(null);
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+        setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
+        setQuestionStartTime(Date.now()); // Reset timer for next question
+        setOptionsExiting(false);
+      }, exitTotalMs);
     } else {
       // Last question — show results screen.
       // Fire `onResultsChange` synchronously (alongside setShowResults)
@@ -567,11 +587,14 @@ export default function Quiz({
           </Typography>
 
           {/* Answer options — same `QuizOptionButton` for MCQ and T/F.
-              The only difference is the option count (2 vs 4). */}
+              The only difference is the option count (2 vs 4).
+              `key` is per-question so React drops + remounts on every
+              advance, replaying the entrance stagger from the right
+              (mirrors OptionList's animateIn/exitSignal pattern). */}
           <View style={styles.optionsGroup}>
             {options.map((option, index) => (
               <QuizOptionButton
-                key={index}
+                key={`q${currentQuestionIndex}-${index}`}
                 text={option}
                 isSelected={selectedAnswer === index}
                 isCorrect={showFeedback && index === correctAnswerIndex}
@@ -582,6 +605,9 @@ export default function Quiz({
                 registerView={(view) => {
                   optionViewRefs.current[index] = view;
                 }}
+                animationIndex={index}
+                animateIn
+                exitSignal={optionsExiting}
               />
             ))}
           </View>
@@ -595,38 +621,53 @@ export default function Quiz({
           ScrollView, which broke on shorter devices. The slot's
           paddingBottom honors the safe-area inset for home-indicator
           spacing, paddingTop adds breathing room above the button. */}
-      {!showFeedback && (
-        <View
-          style={[
-            styles.submitContainer,
-            { paddingBottom: insets.bottom + 16 },
-          ]}
-          pointerEvents={selectedAnswer === null ? 'none' : 'auto'}
+      {/* SUBMIT slot — gated on `!optionsExiting` so it stays hidden
+          during the inter-question exit cascade. When the new question
+          mounts, AnimatedEntrance fires the slideFromBottom (y 60 → 0,
+          opacity 0 → 1, 600ms back.out(2)) preset — the same shape used
+          by the CONTINUE button on onboarding-step-5. The 900ms delay
+          lets the option entrance stagger settle before the SUBMIT
+          rises into view, matching the mock spec ordering. The
+          per-question `key` causes the entrance to replay on each new
+          question rather than only on first mount. */}
+      {!showFeedback && !optionsExiting && (
+        <AnimatedEntrance
+          key={`submit-q${currentQuestionIndex}`}
+          preset="slideFromBottom"
+          delay={900}
         >
-          {/* Soft fade-out overlay — masks the hard horizontal edge
-              where the ScrollView's last visible option meets the
-              submit slot. Shared design-system primitive used by both
-              this screen and the onboarding personalize phases. */}
-          <ScrollFade color={colors.snow} />
-          <View style={{ opacity: selectedAnswer === null ? 0.4 : 1 }}>
-            <DepthButton
-              variant="secondary"
-              surfaceColor="correctSecondary"
-              shadowColor="correctPrimary"
-              onPress={handleSubmit}
-            >
-              <Typography
-                family="onest"
-                weight="700"
-                size={18}
-                extraColor={colors.white}
-                style={styles.submitLabel}
+          <View
+            style={[
+              styles.submitContainer,
+              { paddingBottom: insets.bottom + 16 },
+            ]}
+            pointerEvents={selectedAnswer === null ? 'none' : 'auto'}
+          >
+            {/* Soft fade-out overlay — masks the hard horizontal edge
+                where the ScrollView's last visible option meets the
+                submit slot. Shared design-system primitive used by both
+                this screen and the onboarding personalize phases. */}
+            <ScrollFade color={colors.snow} />
+            <View style={{ opacity: selectedAnswer === null ? 0.4 : 1 }}>
+              <DepthButton
+                variant="secondary"
+                surfaceColor="correctSecondary"
+                shadowColor="correctPrimary"
+                onPress={handleSubmit}
               >
-                SUBMIT
-              </Typography>
-            </DepthButton>
+                <Typography
+                  family="onest"
+                  weight="700"
+                  size={18}
+                  extraColor={colors.white}
+                  style={styles.submitLabel}
+                >
+                  SUBMIT
+                </Typography>
+              </DepthButton>
+            </View>
           </View>
-        </View>
+        </AnimatedEntrance>
       )}
 
       {/* Feedback bottom sheet — replaces both the old Submit-as-Continue
