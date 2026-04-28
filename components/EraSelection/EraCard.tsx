@@ -17,8 +17,15 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Typography } from '@/components/ui';
+import { AnimatedEntrance } from '@/components/ui/animations';
 import { colors, spacing, radius, safeDuration } from '@/components/ui/theme';
 import { Era, isEraAccessible } from '@/hooks/useEras';
+
+// Premium chip enters 180ms AFTER its parent card lands (per the
+// Downloads/04 eras/ enterEras() timeline — card start 700ms, chip start
+// 880ms). Caller passes the row's entranceDelay; we offset from there so
+// the chip pops on top of an already-settled card.
+const CHIP_DELAY_OFFSET = 180;
 
 // Local image mapping (until remote URLs are set up)
 const ERA_IMAGE_MAP: Record<string, any> = {
@@ -40,6 +47,13 @@ interface EraCardProps {
   onSelect: (era: Era) => void;
   hasSubscription?: boolean;
   isFoundingMember?: boolean;
+  /**
+   * Optional row-level entrance delay (ms). When provided, the "Premium"
+   * chip on locked premium cards animates with `chipPop` at
+   * `entranceDelay + CHIP_DELAY_OFFSET` to land 180ms after the card row
+   * settles (matches the mock's enterEras() timeline).
+   */
+  entranceDelay?: number;
 }
 
 function EraCardComponent({
@@ -48,6 +62,7 @@ function EraCardComponent({
   onSelect,
   hasSubscription = false,
   isFoundingMember = false,
+  entranceDelay,
 }: EraCardProps) {
   const handlePress = React.useCallback(() => onSelect(era), [onSelect, era]);
   const isFullWidth = era.card_layout === 'full_width';
@@ -119,11 +134,21 @@ function EraCardComponent({
         {showLock && (
           <View style={styles.lockOverlay}>
             <View style={styles.lockBadge}>
-              <MaterialIcons name="lock" size={15} color={colors.white} />
+              <MaterialIcons name="lock" size={24} color={colors.white} />
               {isPremium && (
-                <Typography family="onest" size={14} weight="600" color="white" letterSpacing={-0.14}>
-                  Premium
-                </Typography>
+                <AnimatedEntrance
+                  preset="chipPop"
+                  delay={(entranceDelay ?? 0) + CHIP_DELAY_OFFSET}
+                  // entranceDelay === undefined means EraList told us we're
+                  // past the initial entrance window (e.g. card recycled by
+                  // LegendList during scroll) → skip the chip pop entirely
+                  // so the recycled card renders fully visible immediately.
+                  autoPlay={entranceDelay !== undefined}
+                >
+                  <Typography family="onest" size={14} weight="600" color="white" letterSpacing={-0.14}>
+                    Premium
+                  </Typography>
+                </AnimatedEntrance>
               )}
             </View>
           </View>
@@ -188,11 +213,21 @@ function EraCardComponent({
         {showLock && (
           <View style={styles.gridLockOverlay}>
             <View style={styles.lockBadge}>
-              <MaterialIcons name="lock" size={13} color={colors.white} />
+              <MaterialIcons name="lock" size={24} color={colors.white} />
               {isPremium && (
-                <Typography family="onest" size={14} weight="600" color="white" letterSpacing={-0.14}>
-                  Premium
-                </Typography>
+                <AnimatedEntrance
+                  preset="chipPop"
+                  delay={(entranceDelay ?? 0) + CHIP_DELAY_OFFSET}
+                  // entranceDelay === undefined means EraList told us we're
+                  // past the initial entrance window (e.g. card recycled by
+                  // LegendList during scroll) → skip the chip pop entirely
+                  // so the recycled card renders fully visible immediately.
+                  autoPlay={entranceDelay !== undefined}
+                >
+                  <Typography family="onest" size={14} weight="600" color="white" letterSpacing={-0.14}>
+                    Premium
+                  </Typography>
+                </AnimatedEntrance>
               )}
             </View>
           </View>
