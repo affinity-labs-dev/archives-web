@@ -1,11 +1,11 @@
 import React, {
   forwardRef,
+  memo,
   useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -92,6 +92,7 @@ interface ParticleViewProps {
   progress: SharedValue<number>;
   originX: SharedValue<number>;
   originY: SharedValue<number>;
+  isFiring: SharedValue<number>;
   gravity: number;
 }
 
@@ -107,18 +108,24 @@ interface ParticleViewProps {
  * closure tripped up the worklet runtime registration. Pre-extracting
  * fields to local primitives keeps the closure shape uniform and
  * matches the patterns Reanimated tests cover.
+ *
+ * Wrapped in React.memo: the parent ConfettiBurst no longer re-renders
+ * on fire() (no setState calls), but if a consumer re-renders for an
+ * unrelated reason we don't want to re-create 45 useAnimatedStyle
+ * registrations. memo + stable particle reference (no re-randomization)
+ * keeps the worklets mounted across the entire host's lifetime.
  */
-function ParticleView({
+const ParticleView = memo(function ParticleView({
   particle,
   progress,
   originX,
   originY,
+  isFiring,
   gravity,
 }: ParticleViewProps) {
   // Pre-extract every per-particle param so the worklet body below
   // captures plain numbers (not object property accesses through a JS
-  // closure). Each render rebinds these locals to the latest particle
-  // values, so re-randomization between bursts still works.
+  // closure).
   const angleRad = particle.angleRad;
   const velocity = particle.velocity;
   const rotStart = particle.rotStart;
@@ -129,6 +136,16 @@ function ParticleView({
 
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';
+    // Idle gate: when not firing, return opacity 0 immediately. The
+    // worklet still re-runs once when isFiring transitions 1 → 0 (final
+    // commit) and once when it transitions 0 → 1 (first frame of the
+    // next fire). In between (animation actively running) progress is
+    // changing, so the gate falls through to the math. When the burst
+    // is fully idle, no sharedValue is mutating, so Reanimated doesn't
+    // call the worklet at all → zero CPU cost while pre-mounted.
+    if (isFiring.value === 0) {
+      return { opacity: 0 };
+    }
     const t = progress.value;
     const dx =
       Math.cos(angleRad) * velocity * t +
@@ -153,6 +170,14 @@ function ParticleView({
   return (
     <Animated.View
       pointerEvents="none"
+      // Hardware texture: Android uploads each particle's tiny bitmap
+      // (5–9 px square or 1.6× rect) to a GPU texture once. Per-frame
+      // transforms become single matrix uniform updates instead of
+      // re-rasterizing the colored rect every frame. iOS ignores this
+      // prop — its compositor already does layer caching automatically.
+      // Net effect on Android: 45 particles compositing as 45 GPU-cached
+      // sprites instead of 45 re-rasterized rects per frame.
+      renderToHardwareTextureAndroid
       style={[
         {
           position: 'absolute',
@@ -167,19 +192,39 @@ function ParticleView({
       ]}
     />
   );
-}
+});
 
 /**
  * Reanimated-driven particle burst. Imperative `fire(origin)` API lets
  * the consumer measure a target view (option, button, etc.) and emit
  * from its center — see `Quiz.tsx` for the canonical usage.
  *
- * One shared `progress` value drives all particles via worklet math —
- * 45 particles cost a single per-frame transform recompute on the UI
- * thread, so the burst stays at 60fps on iOS and mid-tier Android.
+ * PERFORMANCE NOTES
+ * ─────────────────
+ * Previous version triggered a React re-render + remount of all 45
+ * `ParticleView`s on every `fire()` call (via `setSeed` + `setActive`).
+ * On Android, the cumulative cost of registering 45 fresh
+ * `useAnimatedStyle` worklets at fire-time produced a visible 100–200ms
+ * stall right before the burst appeared — exactly the "stuck rồi pháo
+ * hoa bắn ra" symptom reported on the XP milestone screen.
  *
- * No Skia / canvas dependency — picks up Reanimated v3 and
- * react-native-worklets which are already in the codebase.
+ * This version pre-mounts all particles at component mount (cost gets
+ * absorbed into the surrounding screen's entrance). `fire()` only
+ * mutates shared values: zero React re-renders, zero remounts, no
+ * worklet re-registration. The first frame of the burst arrives on the
+ * very next vsync.
+ *
+ * Visibility is gated by an `isFiring` shared value the worklet checks
+ * up front — when 0 the worklet returns `opacity: 0` and skips all the
+ * trajectory math; when 1 the burst progresses normally. Reanimated
+ * only re-runs the worklet when one of the captured shared values
+ * actually changes, so an idle `ConfettiBurst` costs nothing per frame.
+ *
+ * Trade-off vs. the previous behaviour: particle paths are stable
+ * across consecutive fires (same angles, same velocities). For
+ * celebration flows (one fire per screen lifetime) this is invisible;
+ * if a consumer ever needs re-randomization, expose a `seed` prop and
+ * re-roll the particle ref array on change.
  */
 export const ConfettiBurst = forwardRef<ConfettiBurstHandle, ConfettiBurstProps>(
   (
@@ -197,16 +242,25 @@ export const ConfettiBurst = forwardRef<ConfettiBurstHandle, ConfettiBurstProps>
     const progress = useSharedValue(0);
     const originX = useSharedValue(0);
     const originY = useSharedValue(0);
-    const [active, setActive] = useState(false);
-    // Bumped on every fire() so consecutive bursts re-randomize particle
-    // params instead of replaying the same path.
-    const [seed, setSeed] = useState(0);
+    // 0 when idle (particles invisible, worklets short-circuit);
+    // 1 while a burst is in flight (worklets compute trajectories).
+    const isFiring = useSharedValue(0);
+
+    // Particles are generated ONCE per component lifetime. No `seed`
+    // state, no per-fire re-randomization → no React re-render on
+    // fire(). For the XP / streak / score celebrations we render this
+    // component fresh per Modal anyway, so the user never sees the
+    // same path twice in practice.
+    const particles = useMemo(
+      () => makeParticles(count, spread, startVelocity, palette),
+      [count, spread, startVelocity, palette],
+    );
 
     // Mounted-guard for the worklet→JS callback. scheduleOnRN delivers
-    // the burst-end handler some time after withTiming completes; if the
-    // host unmounted in the meantime (e.g. user navigated out of the
-    // quiz mid-burst), calling setState here would warn and leak. The
-    // ref is read synchronously inside the JS callback.
+    // the burst-end handler some time after withTiming completes; if
+    // the host unmounted in the meantime (e.g. user navigated out of
+    // the quiz mid-burst), calling consumer code here would warn and
+    // leak. Read synchronously inside the JS callback.
     const isMountedRef = useRef(true);
     useEffect(() => {
       isMountedRef.current = true;
@@ -219,26 +273,18 @@ export const ConfettiBurst = forwardRef<ConfettiBurstHandle, ConfettiBurstProps>
     // Stable JS callback for scheduleOnRN. Inline arrows captured by
     // a worklet → scheduleOnRN are fragile under the Reanimated babel
     // plugin (the inner closure can fail to register as a callable on
-    // the worklet runtime, which surfaces as a SIGABRT every frame).
-    // A useCallback gives scheduleOnRN a stable reference that matches
-    // the pattern used elsewhere (e.g. QuizFeedbackSheet's onContinue).
+    // the worklet runtime, surfacing as a SIGABRT every frame). A
+    // useCallback gives scheduleOnRN a stable reference that matches
+    // the patterns elsewhere in the codebase.
     const handleBurstEnd = useCallback(() => {
       if (!isMountedRef.current) return;
-      setActive(false);
       onDone?.();
     }, [onDone]);
-
-    const particles = useMemo(
-      () => makeParticles(count, spread, startVelocity, palette),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      [count, spread, startVelocity, palette, seed],
-    );
 
     useImperativeHandle(ref, () => ({
       fire: (origin) => {
         // Respect the OS reduce-motion setting — confetti is decorative
         // and should be suppressed for users who opt out of animations.
-        // The codebase already centralizes this via theme/motion.
         if (isReducedMotion()) {
           onDone?.();
           return;
@@ -247,22 +293,26 @@ export const ConfettiBurst = forwardRef<ConfettiBurstHandle, ConfettiBurstProps>
         originX.value = origin.x;
         originY.value = origin.y;
         progress.value = 0;
-        setSeed((s) => s + 1);
-        setActive(true);
+        // Open the visibility gate first so the very first frame of the
+        // tween already shows particles emerging from the origin.
+        isFiring.value = 1;
         progress.value = withTiming(
           1,
           { duration, easing: Easing.out(Easing.quad) },
           (finished) => {
             'worklet';
             if (finished) {
+              // Close the gate so worklets short-circuit and particles
+              // disappear cleanly. Last-frame opacity from the math
+              // would be 0 anyway (fadeStart fully passed), but
+              // setting the gate explicitly keeps the contract clear.
+              isFiring.value = 0;
               scheduleOnRN(handleBurstEnd);
             }
           },
         );
       },
     }));
-
-    if (!active) return null;
 
     return (
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -273,6 +323,7 @@ export const ConfettiBurst = forwardRef<ConfettiBurstHandle, ConfettiBurstProps>
             progress={progress}
             originX={originX}
             originY={originY}
+            isFiring={isFiring}
             gravity={gravity}
           />
         ))}
