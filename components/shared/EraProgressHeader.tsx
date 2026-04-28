@@ -1,13 +1,16 @@
 // Reusable Era Progress Header (v5.0 Design System)
 // Uses interlocking pill design from StatsBadge + v5.0 ProgressBar
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedReaction,
+  withDelay,
   withSequence,
   withTiming,
+  runOnJS,
   Easing,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +38,34 @@ const XPIcon = ({ size = 14, color = '#FFFFFF' }: { size?: number; color?: strin
 );
 
 const PILL_HEIGHT = 63;
+
+// Count-up hook — animates a number from 0 to target on the UI thread
+function useCountUp(target: number, duration: number = 800, delay: number = 0): number {
+  const [display, setDisplay] = useState(0);
+  const animatedValue = useSharedValue(0);
+
+  useEffect(() => {
+    animatedValue.value = 0;
+    animatedValue.value = withDelay(
+      safeDuration(delay),
+      withTiming(target, {
+        duration: safeDuration(duration),
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+  }, [target, duration, delay]);
+
+  useAnimatedReaction(
+    () => Math.round(animatedValue.value),
+    (current, previous) => {
+      if (current !== previous) {
+        runOnJS(setDisplay)(current);
+      }
+    },
+  );
+
+  return display;
+}
 
 interface EraProgressHeaderProps {
   title: string;
@@ -65,6 +96,14 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
   const progressPercentage = totalQuestions > 0
     ? Math.round((correctAnswers / totalQuestions) * 100)
     : 0;
+
+  const xpValue = totalXP || correctAnswers * 10;
+
+  // Count-up animations — start after slideFromTop entrance is mostly visible (~400ms)
+  const COUNT_UP_DELAY = 400;
+  const displayPercentage = useCountUp(progressPercentage, 800, COUNT_UP_DELAY);
+  const displayStreak = useCountUp(streak, 600, COUNT_UP_DELAY);
+  const displayXP = useCountUp(xpValue, 800, COUNT_UP_DELAY);
 
   // Independent press animations — translateY dip (like DepthButton)
   const leftDip = useSharedValue(0);
@@ -117,12 +156,12 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
                   {title}
                 </Typography>
                 <Typography family="onest" size={16} weight="700" color="onyx">
-                  {progressPercentage}%
+                  {displayPercentage}%
                 </Typography>
               </View>
 
               <ProgressBar
-                percent={progressPercentage}
+                percent={displayPercentage}
                 height={4}
                 fillColor="bluePrimary"
                 trackColor="snow"
@@ -144,7 +183,7 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
                 <StreakIcon size={16} color={colors.bluePrimary} />
               </View>
               <Typography family="onest" size={12} weight="600" color="bluePrimary">
-                {streak}{' '}
+                {displayStreak}{' '}
               </Typography>
               <Typography family="onest" size={11} weight="400" color="bluePrimary">
                 {streak === 1 ? 'day' : 'days'}
@@ -155,7 +194,7 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
                 <XPIcon size={16} color={colors.bluePrimary} />
               </View>
               <Typography family="onest" size={12} weight="600" color="bluePrimary">
-                {totalXP || correctAnswers * 10}{' '}
+                {displayXP}{' '}
               </Typography>
               <Typography family="onest" size={11} weight="400" color="bluePrimary">
                 XP
