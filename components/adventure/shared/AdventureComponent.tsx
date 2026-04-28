@@ -1,6 +1,6 @@
 import { colors } from '@/components/ui/theme';
 import { AnimatedEntrance } from '@/components/ui/animations';
-import { FontAwesome } from '@expo/vector-icons';
+import StarsReplayBadge from '@/components/icons/StarsReplayBadge';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -14,31 +14,6 @@ import {
 } from 'react-native';
 import Svg, { G, Mask, Path, Rect } from 'react-native-svg';
 import type { Adventure, ContentItem } from '@/components/shared/types';
-
-// SVG Icon Components - Original correct version
-const PlayArrowIcon = () => (
-  <Svg width={42} height={42} viewBox="0 0 42 42" fill="none">
-    <Mask id="mask0_466_4365" maskUnits="userSpaceOnUse" x={0} y={0} width={42} height={42}>
-      <Rect width={42} height={42} fill="#D9D9D9" />
-    </Mask>
-    <G mask="url(#mask0_466_4365)">
-      <Path
-        d="M14 30.0559V11.9434C14 11.4475 14.175 11.0319 14.525 10.6965C14.875 10.3611 15.2833 10.1934 15.75 10.1934C15.8958 10.1934 16.049 10.2152 16.2094 10.259C16.3698 10.3027 16.5229 10.3684 16.6688 10.4559L30.9312 19.5121C31.1938 19.6871 31.3906 19.9059 31.5219 20.1684C31.6531 20.4309 31.7188 20.7079 31.7188 20.9996C31.7188 21.2913 31.6531 21.5684 31.5219 21.8309C31.3906 22.0934 31.1938 22.3121 30.9312 22.4871L16.6688 31.5434C16.5229 31.6309 16.3698 31.6965 16.2094 31.7402C16.049 31.784 15.8958 31.8059 15.75 31.8059C15.2833 31.8059 14.875 31.6382 14.525 31.3027C14.175 30.9673 14 30.5517 14 30.0559ZM17.5 26.8621L26.6875 20.9996L17.5 15.1371V26.8621Z"
-        fill="white"
-      />
-    </G>
-  </Svg>
-);
-
-// Replay Icon - Google Material Symbols
-const ReplayIcon = ({ size = 34 }: { size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 -960 960 960" fill="none">
-    <Path
-      d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440q0-17 11.5-28.5T160-480q17 0 28.5 11.5T200-440q0 117 81.5 198.5T480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720h-6l34 34q12 12 11.5 28T508-630q-12 12-28.5 12.5T451-629L348-732q-12-12-12-28t12-28l103-103q12-12 28.5-11.5T508-890q11 12 11.5 28T508-834l-34 34h6q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-440q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80Z"
-      fill="white"
-    />
-  </Svg>
-);
 
 // Adventure Icon - Loads from icon_url
 const AdventureIcon = ({ iconUrl }: { iconUrl: string | null }) => {
@@ -69,37 +44,6 @@ const AdventureIcon = ({ iconUrl }: { iconUrl: string | null }) => {
   );
 };
 
-// Star Badge Component - Ionicons style matching Era 1 (Umayyad Dynasty)
-const StarBadge = ({ starCount, isLarge }: { starCount: number; isLarge: boolean }) => {
-  // Calculate star sizes relative to card type (Era 1 pattern)
-  // Middle star is ~18% larger than side stars for emphasis
-  const baseSize = 22;                          // Side stars - same size for all cards
-  const middleSize = baseSize * 1.18;           // Middle star (18% larger)
-  const middleOffset = -(middleSize / 2);       // Dynamic centering offset
-
-  return (
-    <View style={styles.starBadge}>
-      <FontAwesome
-        name="star"
-        size={baseSize}
-        color={starCount >= 1 ? "#DFB723" : "#A9A9A9"}
-        style={styles.leftStar}
-      />
-      <FontAwesome
-        name="star"
-        size={middleSize}
-        color={starCount >= 2 ? "#DFB723" : "#A9A9A9"}
-        style={[styles.middleStar, { marginLeft: middleOffset }]}
-      />
-      <FontAwesome
-        name="star"
-        size={baseSize}
-        color={starCount >= 3 ? "#DFB723" : "#A9A9A9"}
-        style={styles.rightStar}
-      />
-    </View>
-  );
-};
 
 // Thumbnail component to handle video player hook properly
 interface ThumbnailProps {
@@ -189,9 +133,10 @@ interface AdventureComponentProps {
   onCardPress?: (contentItem: ContentItem, adventureId: string) => void;
   onTitlePress?: (adventure: Adventure) => void;
   isLocked?: boolean;
+  isVisible?: boolean;
 }
 
-const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(function AdventureComponent({ adventure, userProgress, onCardPress, onTitlePress, isLocked = false }) {
+const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(function AdventureComponent({ adventure, userProgress, onCardPress, onTitlePress, isLocked = false, isVisible = true }) {
   // Sort by order_by and take first 5 items
   const sortedContent = [...(adventure.content_list || [])]
     .sort((a, b) => a.order_by - b.order_by)
@@ -203,62 +148,35 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
   const gap = screenWidth * 0.021; // ~8px gap between columns
   const cardWidth = (screenWidth - containerPadding * 2 - gap) / 2;
 
-  // Layout configurations based on adv_design from Supabase
-  // Add new layouts here as needed (list, grid_2x3, etc.)
-  const getCardPositions = (advDesign: string) => {
-    switch (advDesign) {
-      case 'bento_grid':
-      default:
-        // 5-card asymmetric bento grid layout
-        return [
-          // Card 1 - Large left
-          {
-            left: containerPadding,
-            top: cardWidth * 0.36,
-            width: cardWidth,
-            height: cardWidth * 1.15
-          },
-          // Card 2 - Small left bottom
-          {
-            left: containerPadding,
-            top: cardWidth * 1.54,
-            width: cardWidth,
-            height: cardWidth * 0.55
-          },
-          // Card 3 - Small right top
-          {
-            left: containerPadding + cardWidth + gap,
-            top: 0,
-            width: cardWidth,
-            height: cardWidth * 0.55
-          },
-          // Card 4 - Small right middle
-          {
-            left: containerPadding + cardWidth + gap,
-            top: cardWidth * 0.58,
-            width: cardWidth,
-            height: cardWidth * 0.55
-          },
-          // Card 5 - Large right bottom
-          {
-            left: containerPadding + cardWidth + gap,
-            top: cardWidth * 1.16,
-            width: cardWidth,
-            height: cardWidth * 1.15
-          },
-        ];
-    }
-  };
+  // Layout: Row-based bento grid matching Figma
+  // Row 1: Two tall cards (1, 2) side by side
+  // Row 2: One full-width short card (3)
+  // Row 3: Two short cards (4, 5) side by side
+  const fullWidth = screenWidth - containerPadding * 2;
+  const tallHeight = cardWidth * 1.2;
+  const shortHeight = cardWidth * 0.55;
+  const rowGap = gap;
 
-  // Get positions based on adventure's adv_design from Supabase
-  const cardPositions = getCardPositions(adventure.adv_design || 'bento_grid');
+  const cardPositions = [
+    // Card 1 — tall left
+    { left: containerPadding, top: 0, width: cardWidth, height: tallHeight },
+    // Card 2 — tall right
+    { left: containerPadding + cardWidth + gap, top: 0, width: cardWidth, height: tallHeight },
+    // Card 3 — full-width
+    { left: containerPadding, top: tallHeight + rowGap, width: fullWidth, height: shortHeight },
+    // Card 4 — short left
+    { left: containerPadding, top: tallHeight + shortHeight + rowGap * 2, width: cardWidth, height: shortHeight },
+    // Card 5 — short right
+    { left: containerPadding + cardWidth + gap, top: tallHeight + shortHeight + rowGap * 2, width: cardWidth, height: shortHeight },
+  ];
 
-  // Calculate container height based on card dimensions
-  const containerHeight = cardWidth * 2.08;
+  // Container height = all rows + gaps
+  const containerHeight = tallHeight + shortHeight + shortHeight + rowGap * 2;
 
   const renderCard = (item: ContentItem, index: number) => {
     const cardStyle = cardPositions[index];
-    const isLarge = index === 0 || index === 4; // Cards 1 and 5 are large
+    const isLarge = index === 0 || index === 1; // Cards 1 and 2 are tall
+    const isWide = index === 2; // Card 3 is full-width
 
     // Determine if this content type should show play button when uncompleted
     // Only show play button for reel content
@@ -276,6 +194,7 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
 
     return (
       <View key={item.id} style={[styles.cardWrapper, cardStyle]}>
+        <AnimatedEntrance preset="fadeIn" delay={200 + index * 100} duration={500} autoPlay={isVisible} style={{ flex: 1 }}>
         <TouchableOpacity
           style={styles.card}
           activeOpacity={isLocked ? 1 : 0.9}
@@ -301,43 +220,22 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
           {/* Solid overlay for image visibility */}
           <View style={styles.cardOverlay} />
 
-          {/* Conditional Layout based on completion and card size */}
+          {/* Completed state */}
           {isCompleted ? (
             isLarge ? (
-              // LARGE CARD - Centered replay + stars above + title below
-              <>
-                <View style={styles.replayButtonContainer}>
-                  {starCount > 0 && (
-                    <View style={styles.starBadgePosition}>
-                      <StarBadge starCount={starCount} isLarge={isLarge} />
-                    </View>
-                  )}
-                  <View style={styles.replayButton}>
-                    <ReplayIcon size={34} />
-                  </View>
-                </View>
-                <View style={styles.cardTitleContainerCompleted}>
-                  <Text style={styles.cardTitleLarge}>{item.thumbnail_title}</Text>
-                </View>
-              </>
+              // TALL CARDS (1, 2) — single centered column
+              <View style={styles.completedColumn}>
+                <StarsReplayBadge starCount={starCount} size={65} />
+                <Text style={styles.completedTitleCenter} numberOfLines={3}>{item.thumbnail_title}</Text>
+              </View>
             ) : (
-              // SMALL CARD - Horizontal layout: replay+stars LEFT, title RIGHT
-              <View style={styles.smallCardCompletedContainer}>
-                {/* Left side: Replay button with stars above */}
-                <View style={styles.smallCardLeftSide}>
-                  {starCount > 0 && (
-                    <View style={styles.smallCardStarsPosition}>
-                      <StarBadge starCount={starCount} isLarge={isLarge} />
-                    </View>
-                  )}
-                  <View style={styles.smallReplayButton}>
-                    <ReplayIcon size={34} />
-                  </View>
+              // WIDE/SHORT CARDS (3, 4, 5) — two columns: stars left, title right
+              <View style={styles.completedTwoCol}>
+                <View style={styles.completedLeftCol}>
+                  <StarsReplayBadge starCount={starCount} size={55} />
                 </View>
-
-                {/* Right side: Title text */}
-                <View style={styles.smallCardRightSide}>
-                  <Text style={styles.cardTitle}>{item.thumbnail_title}</Text>
+                <View style={styles.completedRightCol}>
+                  <Text style={styles.completedTitleLeft} numberOfLines={3}>{item.thumbnail_title}</Text>
                 </View>
               </View>
             )
@@ -357,11 +255,12 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
 
               {/* Card Title CENTERED for all uncompleted */}
               <View style={styles.cardTitleContainerCentered}>
-                <Text style={isLarge ? styles.cardTitleLarge : styles.cardTitle}>{item.thumbnail_title}</Text>
+                <Text style={(isLarge || isWide) ? styles.cardTitleLarge : styles.cardTitle}>{item.thumbnail_title}</Text>
               </View>
             </>
           )}
         </TouchableOpacity>
+        </AnimatedEntrance>
       </View>
     );
   };
@@ -369,7 +268,7 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
   return (
     <View style={styles.adventureContainer}>
       {/* ERA Badge */}
-      <AnimatedEntrance preset="fadeIn" delay={750}>
+      <AnimatedEntrance preset="fadeIn" duration={500} autoPlay={isVisible}>
         <View style={styles.eraBadge}>
           <Text style={styles.eraText}>{adventure.card_content?.era_name || adventure.era_id}</Text>
           <Text style={styles.adventureText}>ADVENTURE {adventure.order_by}</Text>
@@ -377,7 +276,7 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
       </AnimatedEntrance>
 
       {/* Main Title */}
-      <AnimatedEntrance preset="slideFromBottom" delay={820}>
+      <AnimatedEntrance preset="slideFromBottom" duration={600} autoPlay={isVisible}>
         <View style={styles.titleSection}>
           <TouchableOpacity
             onPress={() => {
@@ -408,7 +307,7 @@ const AdventureComponent: React.FC<AdventureComponentProps> = React.memo(functio
       </AnimatedEntrance>
 
       {/* Timeline */}
-      <AnimatedEntrance preset="fadeIn" delay={950}>
+      <AnimatedEntrance preset="fadeIn" delay={100} duration={500} autoPlay={isVisible}>
         <Text style={styles.dateRange}>{adventure.timeline}</Text>
       </AnimatedEntrance>
 
@@ -507,27 +406,6 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
 
-  // Card Elements
-  replayButtonContainer: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    width: 50,
-    height: 50,
-    marginLeft: -25,
-    marginTop: -25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3,
-  },
-  replayButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'transparent',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   playIconTopLeft: {
     position: 'absolute',
     top: 2,
@@ -538,9 +416,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 31,
+    height: 31,
+    borderRadius: 15.5,
     backgroundColor: colors.onyx,
     justifyContent: 'center',
     alignItems: 'center',
@@ -548,7 +426,7 @@ const styles = StyleSheet.create({
   },
   numberText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 16,
     fontFamily: 'Onest-Bold',
     fontWeight: '700',
     textAlign: 'center',
@@ -564,21 +442,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     zIndex: 3,
   },
-  cardTitleContainerCompleted: {
-    position: 'absolute',
-    top: '65%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    zIndex: 3,
-  },
   cardTitle: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Onest-SemiBold',
-    lineHeight: 14,
+    lineHeight: 15,
     textAlign: 'left',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 1 },
@@ -586,105 +455,66 @@ const styles = StyleSheet.create({
   },
   cardTitleLarge: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Onest-SemiBold',
-    lineHeight: 14,
+    lineHeight: 15,
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
 
-  // Star Badge - EXACT screenshot positioning (tight arc around button)
-  starBadgePosition: {
-    position: 'absolute',
-    top: 10, // Positioned below button
-    left: 0,
-    right: 0,
-    height: 30,
+  // Tall cards (1, 2) — single centered column
+  completedColumn: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 20,
-  },
-  starBadge: {
-    width: 70,
-    height: 25,
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  starBadgeBackground: {
-    display: 'none',
-  },
-  leftStar: {
-    position: 'absolute',
-    left: '0%',              // Relative positioning (0% from left - absolute edge)
-    top: -22.5,              // Moved up 35px from 50% (12.5px)
-    transform: [{ rotate: '-60deg' }], // Dramatic arc angle
-    borderRadius: 50,        // Era 1 glow effect
-  },
-  middleStar: {
-    position: 'absolute',
-    left: '50%',             // Centered horizontally
-    // marginLeft calculated dynamically in component
-    top: -35,                // Moved up 35px from 0%
-    borderRadius: 50,        // Era 1 glow effect
-  },
-  rightStar: {
-    position: 'absolute',
-    right: '2%',             // Adjusted inward to balance visual spacing with rotation
-    top: -22.5,              // Moved up 35px from 50% (12.5px)
-    transform: [{ rotate: '60deg' }],  // Dramatic arc angle
-    borderRadius: 50,        // Era 1 glow effect
-  },
-
-  // Small Card Completed Layout (Horizontal)
-  smallCardCompletedContainer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 20,
-    paddingRight: 12,
-    paddingTop: 25,
+    gap: 4,
     zIndex: 3,
+    paddingHorizontal: 10,
   },
-  smallCardLeftSide: {
-    position: 'relative',
-    width: 50,
-    height: 50,
+  completedTitleCenter: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'Onest-SemiBold',
+    lineHeight: 15,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  // Wide/Short cards (3, 4, 5) — two columns
+  completedTwoCol: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    gap: 6,
+    zIndex: 3,
+    padding: 10,
   },
-  smallCardStarsPosition: {
-    position: 'absolute',
-    top: 10,
-    left: -10,
-    right: -10,
-    height: 30,
-    justifyContent: 'center',
+  completedLeftCol: {
     alignItems: 'center',
-    zIndex: 20,
-  },
-  smallReplayButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
     justifyContent: 'center',
-    alignItems: 'center',
+    gap: 2,
   },
-  smallCardRightSide: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    paddingBottom: 12,
-    paddingRight: 7,
+  completedRightCol: {
+    justifyContent: 'center',
+    flexShrink: 1,
+  },
+  completedTitleLeft: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'Onest-SemiBold',
+    lineHeight: 15,
+    textAlign: 'left',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

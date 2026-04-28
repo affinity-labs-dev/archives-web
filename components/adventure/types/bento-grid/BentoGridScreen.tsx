@@ -12,8 +12,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useMemo, useState } from 'react';
-import { Dimensions, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Dimensions, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View, ViewToken } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import AdventureCard from './AdventureCard';
@@ -41,6 +41,21 @@ interface BentoGridScreenProps {
 }
 
 const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh, onScrollActivity, showPullToRefreshHint = false }) => {
+  // Track which adventures have scrolled into view (fires animation once)
+  const [visibleAdventures, setVisibleAdventures] = useState<Set<string>>(new Set());
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    setVisibleAdventures(prev => {
+      const next = new Set(prev);
+      viewableItems.forEach(item => {
+        if (item.isViewable && item.item?.readable_id) {
+          next.add(item.item.readable_id);
+        }
+      });
+      return next.size !== prev.size ? next : prev;
+    });
+  }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 18 }).current;
+
   const [selectedLesson, setSelectedLesson] = useState<{
     contentItem: ContentItem;
     adventureId: string;
@@ -231,7 +246,8 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     return totalHeight;
   }, [adventures, firstLockedAdventureId]);
 
-  // Render function for FlatList items (memoized for performance)
+  // Render function for FlatList items (memoized — recreates when visibility changes)
+  // AdventureComponent is React.memo'd, so only items whose isVisible changed re-render deeply.
   const renderAdventureItem = useCallback(({ item: adventure }: { item: Adventure }) => {
     const isLocked = !adventureUnlockStatus[adventure.readable_id];
     const isFirstLocked = adventure.readable_id === firstLockedAdventureId;
@@ -244,6 +260,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
           onCardPress={handleCardPress}
           onTitlePress={handleAdventureStarted}
           isLocked={isLocked}
+          isVisible={visibleAdventures.has(adventure.readable_id)}
         />
 
         {/* Single continuous overlay - only on first locked adventure, extends to cover all */}
@@ -273,7 +290,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
         )}
       </View>
     );
-  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, lockOverlayHeight, handleCardPress, handleAdventureStarted]);
+  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, lockOverlayHeight, handleCardPress, handleAdventureStarted, visibleAdventures]);
 
   // Key extractor for FlatList (memoized)
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);
@@ -310,12 +327,15 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
               colors={[colors.bluePrimary]}
             />
           }
+          // Visibility-triggered animations
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           // Performance optimizations
           removeClippedSubviews={Platform.OS === 'android'}
           maxToRenderPerBatch={5}
           updateCellsBatchingPeriod={100}
           initialNumToRender={3}
-          windowSize={5} // Render 5 screens (2 above + current + 2 below)
+          windowSize={5}
         />
       </View>
 
