@@ -9,41 +9,21 @@
  * — the consumer picks the right asset rather than tinting at runtime.
  */
 
+// Star SVGs without `<g filter>` — the drop shadow is applied via RN
+// native `shadowColor`/`shadowOffset` on the wrapper View instead. The
+// original Figma export used a Skia-style `feGaussianBlur` + `feOffset`
+// + `feComposite` filter graph; that renders correctly on iOS but Android
+// react-native-svg historically clips the filter region (causing the
+// middle star to lose its top ~1/3 in our deck). Keeping just the path
+// here + delegating shadow to RN gives identical visuals on both
+// platforms with zero filter-region quirks.
 export const completedStarSvg = `<svg width="37" height="38" viewBox="0 0 37 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g filter="url(#filter0_d_3977_10165)">
 <path d="M16.3039 0.514733C16.7438 -0.170064 17.7447 -0.170064 18.1845 0.514734L23.0941 8.1585C23.2455 8.39412 23.4798 8.56434 23.7506 8.63546L32.5374 10.9427C33.3246 11.1494 33.6339 12.1014 33.1186 12.7313L27.3661 19.7627C27.1887 19.9794 27.0993 20.2548 27.1153 20.5344L27.6362 29.6041C27.6829 30.4167 26.8732 31.005 26.1148 30.7095L17.65 27.4114C17.389 27.3097 17.0994 27.3097 16.8385 27.4114L8.37365 30.7095C7.61529 31.005 6.80554 30.4167 6.85221 29.6041L7.37314 20.5344C7.3892 20.2548 7.29971 19.9794 7.12239 19.7627L1.36989 12.7313C0.85453 12.1014 1.16383 11.1494 1.95103 10.9427L10.7378 8.63546C11.0087 8.56434 11.243 8.39412 11.3943 8.1585L16.3039 0.514733Z" fill="#FFDD63"/>
-</g>
-<defs>
-<filter id="filter0_d_3977_10165" x="-0.000369072" y="0" width="36.7241" height="37.4905" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-<feFlood flood-opacity="0" result="BackgroundImageFix"/>
-<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-<feOffset dx="1.11756" dy="4.47023"/>
-<feGaussianBlur stdDeviation="1.11756"/>
-<feComposite in2="hardAlpha" operator="out"/>
-<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0"/>
-<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3977_10165"/>
-<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_3977_10165" result="shape"/>
-</filter>
-</defs>
 </svg>
 `;
 
 export const incompleteStarSvg = `<svg width="37" height="38" viewBox="0 0 37 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g filter="url(#filter0_d_3977_10166)">
 <path d="M16.134 0.556432C16.5651 -0.183689 17.6343 -0.18369 18.0654 0.556431L22.6223 8.3802C22.7802 8.65132 23.0448 8.84357 23.3515 8.90997L32.2005 10.8262C33.0376 11.0075 33.368 12.0244 32.7973 12.6631L26.7647 19.4146C26.5556 19.6486 26.4545 19.9597 26.4861 20.2718L27.3982 29.2799C27.4845 30.132 26.6195 30.7605 25.8357 30.4151L17.5504 26.7641C17.2632 26.6375 16.9362 26.6375 16.649 26.7641L8.36372 30.4151C7.57993 30.7605 6.71491 30.132 6.80119 29.2799L7.71325 20.2718C7.74486 19.9597 7.64378 19.6486 7.43473 19.4146L1.40206 12.6631C0.831372 12.0244 1.16178 11.0075 1.99889 10.8262L10.8479 8.90997C11.1545 8.84357 11.4192 8.65132 11.5771 8.3802L16.134 0.556432Z" fill="#C3C3C3"/>
-</g>
-<defs>
-<filter id="filter0_d_3977_10166" x="-0.000369072" y="0" width="36.4351" height="37.2171" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-<feFlood flood-opacity="0" result="BackgroundImageFix"/>
-<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-<feOffset dx="1.11756" dy="4.47023"/>
-<feGaussianBlur stdDeviation="1.11756"/>
-<feComposite in2="hardAlpha" operator="out"/>
-<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0"/>
-<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3977_10166"/>
-<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_3977_10166" result="shape"/>
-</filter>
-</defs>
 </svg>
 `;
 

@@ -219,15 +219,63 @@ function StarSlot({
     transform: [{ scale: scale.value }],
   }));
 
-  // Asset choice is the only thing that varies — fills (gold/grey) and
-  // the drop-shadow filter live inside the SVG XML files themselves.
+  // Asset choice is the only thing that varies — fills (gold/grey).
+  // Drop shadow is applied via RN native shadow style below (not via
+  // SVG filter), because Android's react-native-svg clips the SVG
+  // filter region inconsistently — the middle star's top ~1/3 was
+  // disappearing on Android Z Fold 6 due to that clip. Native RN
+  // shadow renders the same on both platforms.
   const xml = filled ? completedStarSvg : incompleteStarSvg;
 
   return (
-    <Animated.View style={[style, animatedStyle]} pointerEvents="none">
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        style,
+        // Explicit width/height so Yoga has hard dimensions for the
+        // wrapper. Without these, the wrapper would size to SvgXml's
+        // intrinsic content — which Android react-native-svg doesn't
+        // advertise reliably, causing 0×0 layout boxes that get clipped
+        // by ancestor `overflow: hidden`.
+        { width, height, overflow: 'visible' },
+        // Native drop shadow replaces the SVG `<g filter>` we stripped
+        // out of `completedStarSvg` / `incompleteStarSvg`. Values match
+        // the original Figma filter (feOffset dx 1.12 dy 4.47, blur
+        // stdDeviation 1.12, opacity 0.6) — slightly scaled with star
+        // size below.
+        starShadowStyle(width),
+        animatedStyle,
+      ]}
+    >
       <SvgXml xml={xml} width={width} height={height} />
     </Animated.View>
   );
+}
+
+// Star drop-shadow constants — match the SVG filter that was stripped
+// (feOffset 1.12 dy 4.47 + Gaussian blur 1.12 at the original 37px
+// reference width). Scales with star size so the visual weight stays
+// proportional across STAR_LEFT/MID/RIGHT.
+const STAR_SHADOW_REFERENCE_WIDTH = 37;
+const STAR_SHADOW_OFFSET_X = 1.11756;
+const STAR_SHADOW_OFFSET_Y = 4.47023;
+const STAR_SHADOW_BLUR = 1.11756;
+const STAR_SHADOW_OPACITY = 0.6;
+
+function starShadowStyle(width: number) {
+  const scale = width / STAR_SHADOW_REFERENCE_WIDTH;
+  return {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: STAR_SHADOW_OFFSET_X * scale,
+      height: STAR_SHADOW_OFFSET_Y * scale,
+    },
+    shadowOpacity: STAR_SHADOW_OPACITY,
+    shadowRadius: STAR_SHADOW_BLUR * scale,
+    // Android's elevation tracks vertical offset roughly — the original
+    // SVG shadow has dy 4.47, so elevation 4 reads close on Android.
+    elevation: 4,
+  };
 }
 
 // Star-row layout — pixel positions copied verbatim from the mock CSS
