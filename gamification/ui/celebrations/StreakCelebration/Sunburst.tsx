@@ -1,15 +1,27 @@
 // 6 alternating purple wedges (30° on, 30° off pattern from the HTML
-// mock's conic-gradient). Drawn as SVG paths inside a 2000×2000
-// canvas; rotation is driven by an external sharedValue so the parent
-// can chain it onto the entrance timeline.
+// mock's conic-gradient). The wedge geometry was originally drawn with
+// react-native-svg <Path> elements inside a 2000×2000 <Svg>; under a
+// continuously-rotating parent transform, Skia on Android couldn't
+// cache the path rasterization and re-rasterized 4M offscreen pixels
+// every frame — major source of the device-old crash + lag we saw.
+//
+// Now: a SINGLE pre-rasterized PNG (1024×1024 transparent, six wedges
+// baked in at the same fill colour). Rotation is a GPU matrix uniform
+// on an Animated.Image — the bitmap is uploaded to a hardware texture
+// once and reused for every frame. iOS already did this; Android now
+// gets it explicitly via `renderToHardwareTextureAndroid`.
+//
+// We render the PNG at the SUNBURST_DIAMETER coordinate the constants
+// expose (still 2000) so the on-screen coverage is unchanged — the
+// upscale is a one-time bilinear filter, far cheaper than per-frame
+// path rasterization.
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { Path } from 'react-native-svg';
 
 import {
   SUNBURST_CENTER_X,
@@ -18,23 +30,10 @@ import {
   SUNBURST_RADIUS,
 } from './constants';
 
-const SUNBURST_FILL = 'rgba(180, 138, 255, 0.45)';
-
-function wedgePath(startDeg: number, endDeg: number): string {
-  // Convert to SVG coords: 0deg points up (-y), clockwise positive.
-  const toRad = (deg: number) => ((deg - 90) * Math.PI) / 180;
-  const x1 = SUNBURST_RADIUS + SUNBURST_RADIUS * Math.cos(toRad(startDeg));
-  const y1 = SUNBURST_RADIUS + SUNBURST_RADIUS * Math.sin(toRad(startDeg));
-  const x2 = SUNBURST_RADIUS + SUNBURST_RADIUS * Math.cos(toRad(endDeg));
-  const y2 = SUNBURST_RADIUS + SUNBURST_RADIUS * Math.sin(toRad(endDeg));
-  // 30° wedge < 180° so largeArcFlag = 0; sweepFlag = 1 for clockwise.
-  return `M${SUNBURST_RADIUS},${SUNBURST_RADIUS} L${x1},${y1} A${SUNBURST_RADIUS},${SUNBURST_RADIUS} 0 0 1 ${x2},${y2} Z`;
-}
-
-// 6 visible wedges centered at 0°, 60°, 120°, 180°, 240°, 300°.
-const SUNBURST_WEDGES = [0, 60, 120, 180, 240, 300].map((center) => ({
-  d: wedgePath(center - 15, center + 15),
-}));
+// PNG export of the same six 30° wedges (rgba(180,138,255,0.45)) on a
+// 1024×1024 transparent canvas. See `assets/images/celebrations/` for
+// the bake script that produced it.
+const SUNBURST_PNG = require('../../../../assets/images/celebrations/sunburst-purple.png');
 
 interface SunburstProps {
   opacity: SharedValue<number>;
@@ -47,8 +46,15 @@ export function Sunburst({ opacity, rotation }: SunburstProps) {
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
   return (
+    // Animated wrapper drives the rotation; the Image inside stays
+    // static. `renderToHardwareTextureAndroid` is a View-only prop, so
+    // the wrapper is what gets baked to a GPU layer — and since the
+    // Image isn't redrawing or relaying out, the wrapper's bitmap stays
+    // valid across every rotation frame. iOS uses its own compositor
+    // and ignores the prop.
     <Animated.View
       pointerEvents="none"
+      renderToHardwareTextureAndroid
       style={[
         styles.sunburst,
         {
@@ -58,15 +64,12 @@ export function Sunburst({ opacity, rotation }: SunburstProps) {
         animatedStyle,
       ]}
     >
-      <Svg
-        width={SUNBURST_DIAMETER}
-        height={SUNBURST_DIAMETER}
-        viewBox={`0 0 ${SUNBURST_DIAMETER} ${SUNBURST_DIAMETER}`}
-      >
-        {SUNBURST_WEDGES.map((w, i) => (
-          <Path key={i} d={w.d} fill={SUNBURST_FILL} />
-        ))}
-      </Svg>
+      <Image
+        source={SUNBURST_PNG}
+        fadeDuration={0}
+        resizeMode="stretch"
+        style={styles.image}
+      />
     </Animated.View>
   );
 }
@@ -76,5 +79,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: SUNBURST_DIAMETER,
     height: SUNBURST_DIAMETER,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
 });
