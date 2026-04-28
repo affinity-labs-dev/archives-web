@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Platform,
   ScrollView,
@@ -77,6 +77,15 @@ function VoicePulseRing({
   return (
     <Animated.View
       pointerEvents="none"
+      // Force the ring onto a stable Android hardware-texture layer so
+      // the per-frame scale + opacity tweens don't flip the View
+      // between hardware and software-layer compositing strategies on
+      // each frame. The flip-flopping was the source of the layout
+      // invalidation cascade up through the chrome → ScrollView body
+      // jitter (visible scroll position bobbing while the audio plays).
+      // iOS ignores this prop — its compositor handles layer caching
+      // automatically and was never affected.
+      renderToHardwareTextureAndroid={active}
       style={[
         StyleSheet.absoluteFill,
         {
@@ -179,8 +188,27 @@ export default function TodayScrollableLesson({
   const status = useAudioPlayerStatus(player);
   const hasTrackedMediaRef = useRef(false);
 
-  // Sort content blocks by order
-  const sortedBlocks = (contentBlocks || []).sort((a, b) => a.order - b.order);
+  // Derive a stable boolean from `status`. `useAudioPlayerStatus`
+  // returns a fresh status object reference on every audio tick (~60+
+  // updates/sec while the audio is playing). Reading `.playing` off
+  // `status` directly forces the entire component to re-render on
+  // every tick — and because the leftCta JSX (DepthButton + pulse ring)
+  // and the body ScrollView are both inline in this component, EACH
+  // tick re-evaluated the lesson body. On Android that meant the
+  // ScrollView's child measurements were re-run mid-scroll, producing
+  // the visible "jitter" the user reported while VoiceOver played.
+  // Pulling the boolean out as a primitive lets `useMemo` below cache
+  // the heavy bits across ticks (boolean equality is reference-stable).
+  const isPlaying = !!status?.playing;
+
+  // Sort content blocks by order. Memoized: the previous version called
+  // `.sort()` inline which (a) mutated the prop array and (b) returned
+  // a fresh sorted-array reference per render → ScrollView's child
+  // identity churn → measurement re-runs on every audio status tick.
+  const sortedBlocks = useMemo(
+    () => [...(contentBlocks || [])].sort((a, b) => a.order - b.order),
+    [contentBlocks],
+  );
 
   // Audio setup
   useEffect(() => {
@@ -189,6 +217,19 @@ export default function TodayScrollableLesson({
       interruptionMode: 'mixWithOthers',
       interruptionModeAndroid: 'duckOthers',
     });
+  }, []);
+
+  // StatusBar config — imperative one-shot on mount (was previously a
+  // JSX <StatusBar> rendered on every commit, which on Android fires the
+  // window flags through the bridge again on each parent re-render →
+  // window manager re-layout → visible jitter on the chrome + parent
+  // tab bar). Imperative call fires once and stays put.
+  useEffect(() => {
+    StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setBackgroundColor('transparent');
+      StatusBar.setTranslucent(true);
+    }
   }, []);
 
   // Cleanup audio on unmount
@@ -208,7 +249,7 @@ export default function TodayScrollableLesson({
   const toggleAudio = () => {
     if (!innerVoiceUrl || !player) return;
 
-    if (status.playing) {
+    if (isPlaying) {
       player.pause();
     } else {
       player.play();
@@ -220,56 +261,78 @@ export default function TodayScrollableLesson({
     }
   };
 
-  // Render individual block based on type
-  const renderBlock = (block: ContentBlock, blockIndex: number) => {
-    const key = `${block.type}-${block.order}-${blockIndex}`;
+  // Memoized lesson body — re-renders ONLY when the blocks or layout
+  // dimensions actually change. Critically, this skips re-render on
+  // every audio-status tick (which happens 60+ times/sec while the
+  // VoiceOver plays), eliminating the cascade of measurement re-runs
+  // that was bobbing the ScrollView's scroll position on Android.
+  const lessonBody = useMemo(() => {
+    const renderBlock = (block: ContentBlock, blockIndex: number) => {
+      const key = `${block.type}-${block.order}-${blockIndex}`;
 
-    switch (block.type) {
-      case 'video':
-        return (
-          <View key={key} style={blockStyles.mediaSection}>
-            <VideoBlock
-              url={block.url || ''}
-              autoplay={block.autoplay}
-              loop={block.loop !== false}
-              style={blockStyles.media}
-            />
-          </View>
-        );
+      switch (block.type) {
+        case 'video':
+          return (
+            <View key={key} style={blockStyles.mediaSection}>
+              <VideoBlock
+                url={block.url || ''}
+                autoplay={block.autoplay}
+                loop={block.loop !== false}
+                style={blockStyles.media}
+              />
+            </View>
+          );
 
-      case 'image':
-        return (
-          <View key={key} style={blockStyles.mediaSection}>
-            <Image
-              source={{ uri: block.url || '' }}
-              style={blockStyles.media}
-              contentFit="cover"
-            />
-          </View>
-        );
+        case 'image':
+          return (
+            <View key={key} style={blockStyles.mediaSection}>
+              <Image
+                source={{ uri: block.url || '' }}
+                style={blockStyles.media}
+                contentFit="cover"
+              />
+            </View>
+          );
 
-      case 'text':
-        return (
-          <View key={key} style={blockStyles.textSection}>
-            <RenderHtml
-              contentWidth={
-                contentWidth - LAYOUT_CONSTANTS.textHorizontalPadding * 2
-              }
-              source={{ html: block.content || '' }}
-              tagsStyles={readingHtmlStyles}
-            />
-          </View>
-        );
+        case 'text':
+          return (
+            <View key={key} style={blockStyles.textSection}>
+              <RenderHtml
+                contentWidth={
+                  contentWidth - LAYOUT_CONSTANTS.textHorizontalPadding * 2
+                }
+                source={{ html: block.content || '' }}
+                tagsStyles={readingHtmlStyles}
+              />
+            </View>
+          );
 
-      default:
-        return null;
-    }
-  };
+        default:
+          return null;
+      }
+    };
+
+    return (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 80,
+          paddingBottom: insets.bottom + 90,
+          paddingHorizontal: LAYOUT_CONSTANTS.textHorizontalPadding,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        {sortedBlocks.map((block, index) => renderBlock(block, index))}
+      </ScrollView>
+    );
+  }, [sortedBlocks, contentWidth, insets.top, insets.bottom]);
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={[]}>
       <View style={{ flex: 1, backgroundColor: colors.snow }}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} />
+        {/* StatusBar config moved to the useEffect on mount above. JSX
+            <StatusBar> here re-applies on every render, causing Android
+            window flag re-commits + visible chrome jitter. */}
 
         <TodayLessonChrome
           progress={progress}
@@ -293,7 +356,7 @@ export default function TodayScrollableLesson({
                   onPress={toggleAudio}
                   leftIcon={
                     <Ionicons
-                      name={status.playing ? "pause" : "play"}
+                      name={isPlaying ? "pause" : "play"}
                       size={18}
                       color={colors.white}
                     />
@@ -306,10 +369,10 @@ export default function TodayScrollableLesson({
                     extraColor={colors.white}
                     style={{ letterSpacing: -0.18 }}
                   >
-                    {status.playing ? "PAUSE" : "VOICEOVER"}
+                    {isPlaying ? "PAUSE" : "VOICEOVER"}
                   </Typography>
                 </DepthButton>
-                <VoicePulseRing active={status.playing} />
+                <VoicePulseRing active={isPlaying} />
               </View>
             ) : null
           }
@@ -327,20 +390,9 @@ export default function TodayScrollableLesson({
             </DepthButton>
           }
         >
-          {/* Body — ScrollView with top padding clearing the floating
-              header (insets.top + ~72px header height + 8px breathing
-              room) and bottom padding clearing the CTA row. */}
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{
-              paddingTop: insets.top + 80,
-              paddingBottom: insets.bottom + 90,
-              paddingHorizontal: LAYOUT_CONSTANTS.textHorizontalPadding,
-            }}
-            showsVerticalScrollIndicator={false}
-          >
-            {sortedBlocks.map((block, index) => renderBlock(block, index))}
-          </ScrollView>
+          {/* Body — memoized ScrollView that doesn't re-render on
+              audio-status ticks. See `lessonBody` useMemo above. */}
+          {lessonBody}
         </TodayLessonChrome>
       </View>
     </SafeAreaView>

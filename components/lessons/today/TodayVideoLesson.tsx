@@ -611,10 +611,12 @@ export default function TodayVideoLesson({
       edges={[]}
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
-        {/* Android StatusBar - Match adventure lesson pattern */}
-        {Platform.OS === "android" && (
-          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-        )}
+        {/* StatusBar config moved to the useEffect on mount above —
+            keeping a JSX <StatusBar> here would re-apply the props on
+            every render, and on Android each commit re-fires window
+            flags through the bridge → window manager re-layout →
+            visible jitter on the modal contents and the parent tab bar.
+            The mount-time imperative call fires once and stays put. */}
 
         {/* Main Content Area - Video fills entire screen */}
         <View style={[

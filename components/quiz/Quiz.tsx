@@ -107,8 +107,40 @@ export default function Quiz({
 }: QuizProps) {
   const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
   const { reportQuizComplete } = useGamificationOrchestrator();
-  const insets = useSafeAreaInsets();
+  const liveInsets = useSafeAreaInsets();
+  // Stable insets — caches first non-zero values from
+  // `useSafeAreaInsets()` so the quiz body's `paddingTop: insets.top +
+  // 55` doesn't reflow if SafeAreaProvider context re-fires on Android
+  // Modal entrance. Without caching, the entrance animation would
+  // commit the wrong paddingTop for a frame, then jump to the right
+  // value as the provider settled.
+  const cachedInsetsRef = useRef(liveInsets);
+  if (
+    cachedInsetsRef.current.top === 0 &&
+    cachedInsetsRef.current.bottom === 0 &&
+    (liveInsets.top > 0 || liveInsets.bottom > 0)
+  ) {
+    cachedInsetsRef.current = liveInsets;
+  }
+  const insets = cachedInsetsRef.current;
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
+
+  // StatusBar config — imperative one-shot on mount. The previous JSX
+  // <StatusBar> at the top of the render tree re-applied on every
+  // commit; on Android each commit re-fires window flags through the
+  // bridge → window manager re-layout → chrome + parent tab bar
+  // jitter on every quiz state change.
+  useEffect(() => {
+    StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      if (isToday) {
+        StatusBar.setBackgroundColor('transparent');
+        StatusBar.setTranslucent(true);
+      } else {
+        StatusBar.setBackgroundColor(colors.snow);
+      }
+    }
+  }, [isToday]);
 
   // Extract adventure number from adventureId (e.g., "roi_adventure_1" → 1)
   const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
@@ -513,16 +545,14 @@ export default function Quiz({
 
   return (
     <SafeAreaView style={styles.quizContainer} edges={isToday ? [] : ['top']}>
-      {isToday ? (
-        // Today mode — chrome (TodayLessonChrome) provides the floating
-        // back button + progress bar; status bar stays light/transparent.
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} />
-      ) : (
-        // Adventure mode — own status bar over the snow body.
-        Platform.OS === 'android' && (
-          <StatusBar barStyle="dark-content" backgroundColor={colors.snow} />
-        )
-      )}
+      {/* StatusBar config moved to the mount-time useEffect below.
+          JSX <StatusBar> here re-applied props on every render — and on
+          Android each commit re-fires window flags through the bridge,
+          causing window manager re-layout. Inside Today's modal that
+          translates directly into the chrome + parent tab bar shaking
+          for a frame on every quiz re-render (state changes during
+          countdown, feedback transitions, results, etc.). The
+          imperative one-shot in the useEffect fires once and stays put. */}
 
       <ScrollView
         style={styles.scroll}
@@ -641,31 +671,38 @@ export default function Quiz({
               styles.submitContainer,
               { paddingBottom: insets.bottom + 16 },
             ]}
-            pointerEvents={selectedAnswer === null ? 'none' : 'auto'}
           >
             {/* Soft fade-out overlay — masks the hard horizontal edge
                 where the ScrollView's last visible option meets the
                 submit slot. Shared design-system primitive used by both
                 this screen and the onboarding personalize phases. */}
             <ScrollFade color={colors.snow} />
-            <View style={{ opacity: selectedAnswer === null ? 0.4 : 1 }}>
-              <DepthButton
-                variant="secondary"
-                surfaceColor="correctSecondary"
-                shadowColor="correctPrimary"
-                onPress={handleSubmit}
+            {/* Disabled state goes through DepthButton's `isDisabled` prop
+                — that path uses a veil overlay on top of the surface +
+                shadow stack, preserving 3D depth and rendering correctly
+                on both iOS and Android. The previous wrapper-View opacity
+                approach (`<View opacity:0.4>`) re-introduced the Android
+                alpha-multiplication bug: surface + shadow strip both got
+                50% alpha, shadow bled through the surface, and the green
+                Submit looked desaturated/broken. Pointer events are
+                already gated inside DepthButton when `isDisabled`. */}
+            <DepthButton
+              variant="secondary"
+              surfaceColor="correctSecondary"
+              shadowColor="correctPrimary"
+              isDisabled={selectedAnswer === null}
+              onPress={handleSubmit}
+            >
+              <Typography
+                family="onest"
+                weight="700"
+                size={18}
+                extraColor={colors.white}
+                style={styles.submitLabel}
               >
-                <Typography
-                  family="onest"
-                  weight="700"
-                  size={18}
-                  extraColor={colors.white}
-                  style={styles.submitLabel}
-                >
-                  SUBMIT
-                </Typography>
-              </DepthButton>
-            </View>
+                SUBMIT
+              </Typography>
+            </DepthButton>
           </View>
         </AnimatedEntrance>
       )}

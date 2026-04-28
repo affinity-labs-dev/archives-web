@@ -51,7 +51,11 @@ import {
   View,
 } from "react-native";
 import Animated from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
 // Theme styles
@@ -84,6 +88,16 @@ export default function TodayScreen() {
     loading,
     saveQuestCompletion,
   } = useTodayQuest(user?.id);
+
+  // Read safe-area insets imperatively from context (set up at app
+  // boot via SafeAreaProvider in `_layout.tsx`). Synchronous from the
+  // first render — no async settling pass like SafeAreaView's internal
+  // useEffect introduces. The async pass was causing layout jitter on
+  // Android post-login: SafeAreaView mounted with default insets at
+  // frame 1, then committed real insets at frame 2, shifting the whole
+  // tab content (and the parent tab bar via the shared flex column).
+  // Same pattern StreakCelebrationScreen adopted to fix its own jump.
+  const insets = useSafeAreaInsets();
 
   // Track quiz feedback visibility so we can make the chrome's
   // floating header transparent while the per-question feedback sheet
@@ -233,7 +247,19 @@ export default function TodayScreen() {
 
   // Handle StatusBar for fullscreen Explore modal (checks slots too for mid-transition)
   const isReadingVisible = activeModal === "reading" || slotAModal === "reading" || slotBModal === "reading";
+  // Skip the initial false → false call: when this screen first mounts
+  // and no reading modal is open, the prior code unconditionally fired
+  // `StatusBar.setTranslucent(false)`. On some Android devices that
+  // triggers a one-shot window relayout (status bar mode commit) which
+  // shifts the whole tab content + native tab bar by ~status bar height.
+  // The ref tracks whether we have ever transitioned, so the toggle
+  // only runs on actual reading-modal open/close — never just on first
+  // paint after login.
+  const prevReadingVisibleRef = useRef(isReadingVisible);
   useEffect(() => {
+    if (prevReadingVisibleRef.current === isReadingVisible) return;
+    prevReadingVisibleRef.current = isReadingVisible;
+
     if (isReadingVisible) {
       StatusBar.setBarStyle("dark-content");
       if (Platform.OS === "android") {
@@ -371,10 +397,11 @@ export default function TodayScreen() {
   // Note: Celebration now triggered directly in handleQuizComplete (not useEffect)
   // This ensures animation shows only when user actively completes quiz, not when loading completed quest
 
-  // Loading state
+  // Loading state — plain View + insets.top instead of SafeAreaView
+  // for the same async-settle reason as the main return below.
   if (loading) {
     return (
-      <SafeAreaView style={themeStyles.container} edges={["top"]}>
+      <View style={[themeStyles.container, { paddingTop: insets.top }]}>
         <View
           style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
         >
@@ -394,7 +421,7 @@ export default function TodayScreen() {
             Loading today’s quest...
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -647,7 +674,12 @@ export default function TodayScreen() {
   };
 
   return (
-    <SafeAreaView style={themeStyles.container} edges={["top"]}>
+    // Plain View + paddingTop from `useSafeAreaInsets()` — synchronous
+    // from the first render, which fixes the Android post-login layout
+    // jitter that SafeAreaView's internal async inset-settling pass was
+    // causing (whole tab content + parent bottom-tab-bar shaking up and
+    // down for 1-2 frames after entrance animations finished).
+    <View style={[themeStyles.container, { paddingTop: insets.top }]}>
       <ScrollView
         style={themeStyles.scrollView}
         contentContainerStyle={themeStyles.scrollContent}
@@ -768,7 +800,18 @@ export default function TodayScreen() {
         </AnimatedEntrance>
       )}
 
-      {/* Dual-slot modal for Apple-style push/pop transitions */}
+      {/* Dual-slot modal for Apple-style push/pop transitions.
+          SafeAreaProvider wrapper is critical on Android: the Modal opens
+          its own window when `statusBarTranslucent={true}`, and the
+          app-root SafeAreaProvider does NOT automatically propagate into
+          that new window. Inner consumers of `useSafeAreaInsets()`
+          (TodayLessonChrome, TodayVideoLesson, etc.) would otherwise
+          read stale or zero insets on the first frame, then receive
+          real values async — driving the chrome's `paddingTop:
+          insets.top + 8` to jitter and shaking the entire modal layout
+          (and the parent tab bar) for a beat after open. iOS reuses
+          the keyWindow so it didn't surface, but the wrapper is safe
+          on both platforms. */}
       {(slotAModal !== "none" || slotBModal !== "none") &&
         (displayedQuest || todayQuest) && (
           <Modal
@@ -777,23 +820,25 @@ export default function TodayScreen() {
             presentationStyle="fullScreen"
             statusBarTranslucent={true}
           >
-            <View style={{ flex: 1 }}>
-              <Animated.View
-                style={slotAAnimatedStyle}
-                pointerEvents={slotAModal !== "none" && outgoingSlot !== "A" ? "auto" : "none"}
-              >
-                {renderModalContent(slotAModal)}
-              </Animated.View>
-              <Animated.View
-                style={slotBAnimatedStyle}
-                pointerEvents={slotBModal !== "none" && outgoingSlot !== "B" ? "auto" : "none"}
-              >
-                {renderModalContent(slotBModal)}
-              </Animated.View>
-            </View>
+            <SafeAreaProvider>
+              <View style={{ flex: 1 }}>
+                <Animated.View
+                  style={slotAAnimatedStyle}
+                  pointerEvents={slotAModal !== "none" && outgoingSlot !== "A" ? "auto" : "none"}
+                >
+                  {renderModalContent(slotAModal)}
+                </Animated.View>
+                <Animated.View
+                  style={slotBAnimatedStyle}
+                  pointerEvents={slotBModal !== "none" && outgoingSlot !== "B" ? "auto" : "none"}
+                >
+                  {renderModalContent(slotBModal)}
+                </Animated.View>
+              </View>
+            </SafeAreaProvider>
           </Modal>
         )}
 
-    </SafeAreaView>
+    </View>
   );
 }

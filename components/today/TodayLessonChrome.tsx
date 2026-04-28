@@ -4,7 +4,7 @@
 // `leftCta` / `rightCta` slots so each lesson keeps full control over
 // labels, icons, and color overrides.
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -73,7 +73,27 @@ export default function TodayLessonChrome({
   hideBottomCtas = false,
   children,
 }: TodayLessonChromeProps) {
-  const insets = useSafeAreaInsets();
+  // Stable insets — caches the first non-zero values from
+  // `useSafeAreaInsets()` so the chrome's absolute-positioned header /
+  // bottom CTAs don't reflow if the SafeAreaProvider context re-fires
+  // (which happens once on Android Modal open as the new window's
+  // safe-area gets measured). Without caching, `paddingTop:
+  // insets.top + 8` would shift mid-animation and visibly shake the
+  // entire modal layout including the parent tab bar.
+  const liveInsets = useSafeAreaInsets();
+  const cachedInsetsRef = useRef(liveInsets);
+  if (
+    cachedInsetsRef.current.top === 0 &&
+    cachedInsetsRef.current.bottom === 0 &&
+    (liveInsets.top > 0 || liveInsets.bottom > 0)
+  ) {
+    // Atomic upgrade from "no insets yet" to first stable read. Mutating
+    // the ref during render is safe here because we're only ever
+    // upgrading from zero → real values exactly once per mount, never
+    // back the other way.
+    cachedInsetsRef.current = liveInsets;
+  }
+  const insets = cachedInsetsRef.current;
 
   // CTA-row visibility tween — opacity-only, runs entirely on the UI
   // thread, doesn't disturb the rest of the chrome layout. Pointer
