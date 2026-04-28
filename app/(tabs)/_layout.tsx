@@ -6,6 +6,7 @@ import ErasIcon from "@/components/icons/ErasIcon";
 import ProfileIcon from "@/components/icons/ProfileIcon";
 import SubscribeIcon from "@/components/icons/SubscribeIcon";
 import TodayIcon from "@/components/icons/TodayIcon";
+import { colors } from "@/components/ui";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
 import { Tabs } from "expo-router";
@@ -36,7 +37,7 @@ const getScreenOptions = (bottomInset: number): BottomTabNavigationOptions => ({
   tabBarActiveTintColor: ArchivesTheme.colors.persianOrange,
   tabBarInactiveTintColor: ArchivesTheme.colors.mutedNavy + "99", // 60% opacity
   tabBarStyle: {
-    backgroundColor: ArchivesTheme.colors.creamWhite,
+    backgroundColor: colors.snow,
     borderTopWidth: 0,
     // Dynamic height: 56px base + safe area bottom inset
     height: 56 + Math.max(bottomInset, 8),

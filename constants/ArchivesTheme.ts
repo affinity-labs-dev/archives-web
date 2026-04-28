@@ -401,7 +401,7 @@ export const ArchivesTheme = {
       // Layout
       container: {
         flex: 1,
-        backgroundColor: "#F4EBDB", // creamWhite
+        backgroundColor: "#FAFAFA", // colors.background / colors.snow
       },
       scrollView: {
         flex: 1,
@@ -505,6 +505,7 @@ export const ArchivesTheme = {
 
       // Progress Tracker
       progressContainer: {
+        marginTop: 24,
         marginBottom: 20,
       },
       progressHeader: {
@@ -681,8 +682,7 @@ export const ArchivesTheme = {
         right: 0,
         paddingHorizontal: 20,
         paddingVertical: 16,
-        backgroundColor: "#F4EBDB", // creamWhite
-        alignItems: "center" as const,
+        backgroundColor: "#FAFAFA", // colors.background / colors.snow
       },
       startButtonShadow: {
         position: "absolute" as const,

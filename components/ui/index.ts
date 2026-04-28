@@ -19,6 +19,7 @@ export type {
   DepthButtonVariant,
   DepthButtonSize,
   DepthButtonPressEffect,
+  DepthButtonHaptic,
 } from './DepthButton';
 
 export { AuthButton } from './AuthButton';
@@ -49,3 +50,12 @@ export type { StatsBadgeProps } from './StatsBadge';
 
 export { ReviewCard } from './ReviewCard';
 export type { ReviewCardProps } from './ReviewCard';
+
+export { PaginationDots } from './PaginationDots';
+export type { PaginationDotsProps } from './PaginationDots';
+
+export { ScrollFade } from './ScrollFade';
+export type { ScrollFadeProps } from './ScrollFade';
+
+export { ConfettiBurst } from './ConfettiBurst';
+export type { ConfettiBurstHandle, ConfettiBurstProps } from './ConfettiBurst';

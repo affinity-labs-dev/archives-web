@@ -19,6 +19,20 @@ export type DepthButtonSize = 'large' | 'medium' | 'small';
  */
 export type DepthButtonPressEffect = 'dip' | 'bounce' | 'none';
 
+/**
+ * Haptic feedback intensity fired on press-in:
+ * - `'light'`: soft tap (default for most CTAs)
+ * - `'medium'`: stronger tap (primary actions, confirmations)
+ * - `'heavy'`: strong tap (destructive actions, "force" actions)
+ * - `'none'`: no haptic
+ *
+ * The actual haptic playback is gated by the user's global haptic
+ * setting (managed by `PreferencesContext`) — when disabled in
+ * Settings, all values silently no-op via the global expo-haptics
+ * monkey-patch in `services/GlobalHapticsWrapper.ts`.
+ */
+export type DepthButtonHaptic = 'light' | 'medium' | 'heavy' | 'none';
+
 export interface DepthButtonVariantSpec {
   surface: ColorKey;
   shadow: ColorKey | 'transparent';
@@ -84,6 +98,15 @@ export interface DepthButtonProps extends Omit<PressableProps, 'style' | 'childr
    * Stretch to parent width. Defaults to `true`.
    */
   isFullWidth?: boolean;
+
+  /**
+   * Haptic feedback intensity on press-in. Defaults to `'light'`.
+   * Set to `'none'` to opt out per-button (e.g. tertiary list items
+   * where each tap-haptic would feel noisy). The user-level setting
+   * still gates ALL haptics globally — this prop only controls the
+   * intensity when the global setting is on.
+   */
+  haptic?: DepthButtonHaptic;
 
   /**
    * Icon rendered before children.

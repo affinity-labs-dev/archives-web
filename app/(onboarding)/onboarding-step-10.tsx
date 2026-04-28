@@ -117,7 +117,7 @@ export default function OnboardingStep10Screen() {
           {/* Mascot + bubble shell — mounts once, stays put. */}
           <AnimatedEntrance preset="slideFromLeft" delay={100}>
             <View style={styles.mascotRow}>
-              <Mascot size={96} autoPlayEntrance={false} />
+              <Mascot width={110} height={96} autoPlayEntrance={false} />
 
               <View style={styles.bubbleWrapper}>
                 <SpeechBubble

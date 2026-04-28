@@ -103,6 +103,68 @@ export const ENTRANCE_PRESETS = {
     duration: 600,
     easing: easings.backOut14,
   },
+
+  // ─── Drop / rise variants (tuned per Quiz redesign mock) ───────────────
+  // These are gentler than the onboarding presets above — small translation
+  // distances + fade, suitable for body-of-screen elements (headlines,
+  // cards, action rows). Used by QuizResults entrance timeline; reusable
+  // anywhere the same staggered-rise feel is needed.
+
+  /** Small drop from above with gentle settle. 600ms `back.out(2)`. */
+  dropFromAbove: {
+    translateY: { from: -20, to: 0 },
+    opacity: { from: 0, to: 1 },
+    duration: 600,
+    easing: easings.backOut2,
+  },
+
+  /** Hero/celebration drop with elastic overshoot. 700ms. */
+  elasticHeroDrop: {
+    translateY: { from: -20, to: 0 },
+    opacity: { from: 0, to: 1 },
+    duration: 700,
+    easing: Easing.out(Easing.elastic(1)),
+  },
+
+  /** Subtle 12px rise + fade — secondary text, sub-labels. 400ms `power2.out`. */
+  riseSubtle: {
+    translateY: { from: 12, to: 0 },
+    opacity: { from: 0, to: 1 },
+    duration: 400,
+    easing: easings.power2Out,
+  },
+
+  /** 20px rise + fade — headlines, primary text. 550ms `back.out(1.4)`. */
+  riseSoft: {
+    translateY: { from: 20, to: 0 },
+    opacity: { from: 0, to: 1 },
+    duration: 550,
+    easing: easings.backOut14,
+  },
+
+  /** 30px rise + fade — score cards, content panels. 500ms `back.out(1.4)`. */
+  riseCard: {
+    translateY: { from: 30, to: 0 },
+    opacity: { from: 0, to: 1 },
+    duration: 500,
+    easing: easings.backOut14,
+  },
+
+  /** 30px rise + fade — staggered list items / pills. 450ms `back.out(1.4)`. */
+  riseListItem: {
+    translateY: { from: 30, to: 0 },
+    opacity: { from: 0, to: 1 },
+    duration: 450,
+    easing: easings.backOut14,
+  },
+
+  /** 30px rise + fade with snappy bounce — CTA buttons. 450ms `back.out(2)`. */
+  riseCta: {
+    translateY: { from: 30, to: 0 },
+    opacity: { from: 0, to: 1 },
+    duration: 450,
+    easing: easings.backOut2,
+  },
 } as const satisfies Record<string, EntranceConfig>;
 
 export type EntrancePresetKey = keyof typeof ENTRANCE_PRESETS;

@@ -1,54 +1,55 @@
-// Streak Celebration Screen - Full screen display of daily streak progress
-// Shows streak count, week calendar, and motivational text
-// Matches Figma design with cream background
-
-import ArchivesTheme from '@/constants/ArchivesTheme';
+import {
+  ConfettiBurst,
+  DepthButton,
+  Typography,
+  colors,
+  easings,
+  safeDuration,
+  type ConfettiBurstHandle,
+} from '@/components/ui';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
 import { createAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Rive, { Alignment, Fit, RiveRef } from 'rive-react-native';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+import {
+  ANIM,
+  BUTTON_BOTTOM_OFFSET,
+  BUTTON_HORIZONTAL_PADDING,
+  CARD_PADDING_BOTTOM,
+  CARD_PADDING_HORIZONTAL,
+  CARD_PADDING_TOP,
+  CELEBRATION_SOUND,
+  DayIndicator,
+  FLAME_HEIGHT,
+  FLAME_SIZE,
+  FLAME_TOP_RELATIVE_TO_CARD,
+  MESSAGE_PADDING_HORIZONTAL,
+  PEDESTAL_HEIGHT,
+  PEDESTAL_TOP_RELATIVE_TO_CARD,
+  PEDESTAL_WIDTH,
+  SCREEN_HEIGHT,
+  SCREEN_PADDING_HORIZONTAL,
+  SCREEN_WIDTH,
+  STREAK_FLAME,
+  Sunburst,
+  getMotivationalQuote,
+  useCountUp,
+  useStreakEntranceAnimation,
+  type StreakCelebrationScreenProps,
+} from './StreakCelebration';
 
-// Import Rive animation from assets (relative path)
-const streakFlame = require('../../../assets/rive/flamefinal.riv');
-
-// Import checkmark PNG
-const checkmarkIcon = require('../../../assets/images/streak/check_small.png');
-
-// Audio source constant defined outside component to avoid re-evaluation on every render
-const CELEBRATION_SOUND = require('../../../assets/audio/quiz/streak_celebration.wav');
-
-// Week day data structure
-interface WeekDay {
-  day: string;
-  completed: boolean;
-  missed: boolean;
-  isToday: boolean;
-}
-
-interface StreakCelebrationScreenProps {
-  visible: boolean;
-  streakCount: number;
-  weekData: WeekDay[]; // 7 days (Mo-Su) with completion status
-  onContinue: () => void;
-}
-
-// Motivational quotes based on streak length
-const getMotivationalQuote = (streak: number): string => {
-  if (streak === 1) return "Great start! The journey of a thousand miles begins with a single step.";
-  if (streak < 7) return "Keep it up! Consistency is the key to mastery.";
-  if (streak === 7) return "One week strong! The scholars of old learned a little every day too.";
-  if (streak < 30) return "Great scholars and travelers learned a little every day too. Just like you!";
-  if (streak === 30) return "One month of dedication! You are building an incredible habit.";
-  if (streak < 100) return "Your commitment is inspiring! The path to wisdom is walked daily.";
-  return "Legendary dedication! You are truly embodying the spirit of lifelong learning.";
-};
+// AnimatedTextInput: canonical RN pattern for driving text from
+// Reanimated worklets. <Text> has no `text` prop (body is children),
+// but TextInput does — so animatedProps can update text directly on
+// the UI thread without going through React.
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 export default function StreakCelebrationScreen({
   visible,
@@ -57,444 +58,477 @@ export default function StreakCelebrationScreen({
   onContinue,
 }: StreakCelebrationScreenProps) {
   const riveRef = useRef<RiveRef>(null);
-  const [skipped, setSkipped] = useState(false);
   const hasTrackedRef = useRef(false);
+  const confettiRef = useRef<ConfettiBurstHandle>(null);
+  // Read safe-area insets imperatively from context (set up at app
+  // boot via SafeAreaProvider in `_layout.tsx`). Synchronous from the
+  // first render — no async settling pass like SafeAreaView's
+  // internal useEffect can introduce, which on Modal contents was
+  // causing the parent height to shrink mid-render and the card's
+  // `top: '22%'` to recompute to a smaller pixel value, visibly
+  // shifting the card.
+  const insets = useSafeAreaInsets();
 
-  // Animated value for moving flame + number upward (Duolingo style)
-  const translateY = useSharedValue(0);
+  // All Reanimated state + the entrance/reset useEffect lives in the
+  // hook. We get back the bundled animatedStyles (one per element)
+  // plus the per-day arrays + the raw shared values that need to be
+  // passed to children (Sunburst) or driven imperatively
+  // (exitOpacity from the close handler).
+  const anim = useStreakEntranceAnimation({ visible, weekData });
 
-  // Fire-and-forget: create a fresh player per play call.
-  // Avoids Android ENDED state issues entirely — each player is always brand-new.
+  // Audio: fire-and-forget per-day chime aligned with the done-day
+  // pop-in stagger. Single player per call so Android's ENDED-state
+  // bug doesn't bite.
   const playCelebration = useCallback(() => {
     try {
       const player = createAudioPlayer(CELEBRATION_SOUND);
       player.volume = 0.5;
       player.play();
-      // Release player after sound finishes (~1s is enough for correct.wav)
       setTimeout(() => {
-        try { player.remove(); } catch (_) {}
+        try {
+          player.remove();
+        } catch (_) {}
       }, 1000);
     } catch (error) {
       console.log('❌ Error playing celebration sound:', error);
     }
   }, []);
 
-  // Reset skipped state when modal closes
+  // Fire confetti + chime when the count-up lands. The 100ms breath
+  // matches the prior `confetti.delay = countUp.delay + countUp.dur +
+  // 100` constant — gives the user a beat to register the final digit
+  // before the burst overlays it. Routed through the count-up's own
+  // onComplete so the timing is exact (not best-effort via setTimeout).
+  const handleCountComplete = useCallback(() => {
+    setTimeout(() => {
+      confettiRef.current?.fire({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT * 0.4 });
+      playCelebration();
+    }, 100);
+  }, [playCelebration]);
+
+  // Count-up driven by Reanimated shared value + AnimatedTextInput.
+  // `animatedProps` writes the digit directly into the TextInput's
+  // text prop on the UI thread — no React re-render per frame, which
+  // was the source of the "1, 2, 3 lag" on Android.
+  const { animatedProps: countAnimatedProps } = useCountUp({
+    visible,
+    streakCount,
+    onComplete: handleCountComplete,
+  });
+
+  // Single haptic feedback when the CONTINUE button lands.
   useEffect(() => {
-    if (!visible) {
-      setSkipped(false);
-      translateY.value = 0; // Reset position
-    }
+    if (!visible) return;
+    const t = setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, ANIM.button.delay);
+    return () => clearTimeout(t);
   }, [visible]);
 
-  // Track Rive animation loading
-  useEffect(() => {
-    if (visible && riveRef.current) {
-      console.log('🔥 [StreakCelebration] Rive ref loaded successfully');
-    }
-  }, [visible, riveRef.current]);
-
-  // Move flame + number UP from bottom (Duolingo style)
-  useEffect(() => {
-    if (visible && !skipped) {
-      console.log('🔥 [StreakCelebration] Starting animation sequence');
-      // Start from below screen (reasonable bottom position, not extreme)
-      translateY.value = SCREEN_HEIGHT * 0.35;
-      // Animate up to center position
-      translateY.value = withSpring(SCREEN_HEIGHT * 0.25, { damping: 20, stiffness: 90 });
-      // At 1.5s, move to final position
-      translateY.value = withDelay(1500, withSpring(0, { damping: 20, stiffness: 90 }));
-    } else if (skipped) {
-      // Instant position (centered inside card)
-      translateY.value = 0;
-    }
-  }, [visible, skipped]);
-
-  // Animated style for the hero container (flame + number + text)
-  const heroAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  // Track analytics once per celebration display (no haptic on modal open)
+  // Analytics — once per visible flip-true.
   useEffect(() => {
     if (visible && !hasTrackedRef.current) {
       hasTrackedRef.current = true;
-      console.log('🔥 [StreakCelebration] Modal visible:', { streakCount, weekData });
       try {
         analyticsService.trackStreakCelebrationShown({
           streak_count: streakCount,
           is_milestone: [3, 7, 14, 30, 50, 100].includes(streakCount),
-          week_data: weekData.map(d => ({ day: d.day, completed: d.completed, missed: d.missed, is_today: d.isToday })),
+          week_data: weekData.map((d) => ({
+            day: d.day,
+            completed: d.completed,
+            missed: d.missed,
+            is_today: d.isToday,
+          })),
         });
       } catch (error) {
         console.error('❌ [StreakCelebration] Failed to track event:', error);
       }
     }
-    if (!visible) {
-      hasTrackedRef.current = false;
-    }
+    if (!visible) hasTrackedRef.current = false;
   }, [visible, streakCount, weekData]);
 
-  // Single haptic feedback when continue button appears
-  useEffect(() => {
-    if (visible && !skipped) {
-      // Continue button appears (2.0s)
-      const timer = setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }, 2000);
-
-      return () => {
-        clearTimeout(timer);
-      };
-    }
-  }, [visible, skipped]);
-
-  // Play celebration sounds for checkmarks (staggered with animation)
-  // Fixes REACT-NATIVE-97: track timeout IDs and clear on unmount/dismiss
-  useEffect(() => {
-    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
-
-    if (visible && !skipped) {
-      weekData.forEach((day, index) => {
-        if (day.completed) {
-          const delay = index * 50; // Match checkmark animation timing
-          const id = setTimeout(() => {
-            playCelebration();
-          }, delay);
-          timeoutIds.push(id);
-        }
-      });
-    }
-
-    return () => {
-      timeoutIds.forEach(clearTimeout);
-    };
-  }, [visible, skipped, weekData, playCelebration]);
+  // ─── Close handler — runs the local exit fade, then dismisses ───
+  // Both the close X (light haptic) and the CONTINUE button (medium
+  // haptic) flow through this. The fade lands at opacity 0 in 150ms
+  // (`power2.in`), then the worklet completion hops back to JS via
+  // `scheduleOnRN` and fires the parent's `onContinue` — guaranteeing
+  // the visual close is finished before the orchestrator clears
+  // `currentCelebration` and the today tab re-renders. 150ms is the
+  // sweet spot: fast enough to feel snappy, slow enough that the
+  // parent's state cascade has time to commit before the underlying
+  // view repaints.
+  const { exitOpacity } = anim;
+  const handleClose = useCallback(
+    (haptic: Haptics.ImpactFeedbackStyle) => {
+      Haptics.impactAsync(haptic);
+      exitOpacity.value = withTiming(
+        0,
+        { duration: safeDuration(150), easing: easings.power2In },
+        (finished) => {
+          'worklet';
+          if (finished) {
+            scheduleOnRN(onContinue);
+          }
+        },
+      );
+    },
+    [exitOpacity, onContinue],
+  );
 
   return (
-    <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
-      <SafeAreaView style={styles.container}>
-          {/* Close Button - Top Right */}
-          <TouchableOpacity
+    // `transparent={true}` removes the Modal's opaque white default
+    // backing. With it on, our local exit fade reveals whatever was
+    // underneath (today tab) instead of flashing a white panel
+    // before the Modal's native fade-out finishes. The fade-in
+    // animationType still works for the open.
+    <Modal visible={visible} animationType="fade" transparent={true} statusBarTranslucent>
+      <Animated.View style={[styles.container, anim.exitAnimatedStyle]}>
+        {/* Sunburst — sits behind everything, below the close button. */}
+        <Sunburst opacity={anim.sunburstOpacity} rotation={anim.sunburstRotation} />
+
+        <View
+          style={[
+            styles.safe,
+            { paddingTop: insets.top, paddingBottom: insets.bottom },
+          ]}
+        >
+          {/* Close — top-right X. Routes through handleClose so the
+              local exit fade runs before onContinue fires (otherwise
+              the parent's calendar re-render races the Modal's native
+              fade-out and clobbers data mid-close). */}
+          <Pressable
             style={styles.closeButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onContinue();
-            }}
-            activeOpacity={0.7}
+            hitSlop={16}
+            onPress={() => handleClose(Haptics.ImpactFeedbackStyle.Light)}
           >
-            <Ionicons name="close" size={32} color={ArchivesTheme.colors.shoeBrown} />
-          </TouchableOpacity>
+            <Ionicons name="close" size={32} color={colors.onyx} />
+          </Pressable>
 
-          {/* Flame Area - Rive Animation - Appears immediately */}
-          <Animated.View style={[styles.flameArea, heroAnimatedStyle]}>
-            <Rive
-              ref={riveRef}
-              source={streakFlame}
-              autoplay={true}
-              animationName="burning_flame"
-              fit={Fit.Contain}
-              alignment={Alignment.Center}
-              style={styles.riveAnimation}
-            />
-          </Animated.View>
+          {/* Center column — flex: 1 + justifyContent center optically
+              centers the card vertically on every device. Replaces the
+              previous screen-relative `top: 218` math. */}
+          <View style={styles.contentColumn}>
+            <Animated.View style={[styles.card, anim.cardAnimatedStyle]}>
+              {/* Flame Rive — absolute, peeks 74 px above the card top. */}
+              <Animated.View style={[styles.flame, anim.flameAnimatedStyle]} pointerEvents="none">
+                <Rive
+                  ref={riveRef}
+                  source={STREAK_FLAME}
+                  autoplay
+                  animationName="burning_flame"
+                  fit={Fit.Contain}
+                  alignment={Alignment.Center}
+                  style={styles.flameRive}
+                />
+              </Animated.View>
 
-          {/* Main Card - Fades in at final position after text moves up */}
-          <Animated.View
-            entering={skipped ? undefined : FadeIn.delay(1600).duration(300)}
-            style={styles.card}
-          />
+              {/* Streak number — flex child. paddingTop on the card
+                  clears the flame area so the number lands below the
+                  visible flame footprint.
 
-          {/* Big Streak Number - Zooms in at 1.0s */}
-          <Animated.Text
-            entering={skipped ? undefined : ZoomIn.delay(1000).duration(400).springify()}
-            style={[styles.streakNumber, heroAnimatedStyle]}
-          >
-            {streakCount}
-          </Animated.Text>
+                  AnimatedTextInput drives the digit ticker on the UI
+                  thread via animatedProps (zero React re-render per
+                  frame). The wrapper Animated.View handles the
+                  separate entrance scale/opacity (numberAnimatedStyle).
+                  TextInput is styled to look exactly like the previous
+                  Typography output: same font, size, weight color,
+                  letterSpacing, lineHeight. The flag set below
+                  (`editable={false}`, `caretHidden`, etc.) makes it
+                  behave as a static label visually. */}
+              <Animated.View style={anim.numberAnimatedStyle}>
+                <AnimatedTextInput
+                  editable={false}
+                  caretHidden
+                  selectTextOnFocus={false}
+                  showSoftInputOnFocus={false}
+                  underlineColorAndroid="transparent"
+                  allowFontScaling={false}
+                  defaultValue="0"
+                  animatedProps={countAnimatedProps}
+                  style={styles.numberTextInput}
+                />
+              </Animated.View>
 
-          {/* "day streak!" text - Fades in at 1.3s (after zoom) */}
-          <Animated.Text
-            entering={skipped ? undefined : FadeIn.delay(1300).duration(200)}
-            style={[styles.streakText, heroAnimatedStyle]}
-          >
-            day streak!
-          </Animated.Text>
-
-          {/* Week Calendar Widget - Fades in at final position after text moves up */}
-          <Animated.View
-            entering={skipped ? undefined : FadeIn.delay(1600).duration(300)}
-            style={styles.calendarWidget}
-          >
-            {/* Day Labels (Mo-Su) */}
-            <View style={styles.dayLabels}>
-              {weekData.map(({ day, completed }) => (
-                <Text
-                  key={day}
-                  style={[
-                    styles.dayLabel,
-                    !completed && styles.dayLabelFuture,
-                  ]}
+              {/* DAY STREAK label */}
+              <Animated.View style={[styles.labelSlot, anim.labelAnimatedStyle]}>
+                <Typography
+                  family="bounded"
+                  weight="900"
+                  size={25}
+                  align="center"
+                  uppercase
+                  extraColor={colors.black}
+                  style={styles.labelText}
                 >
-                  {day}
-                </Text>
-              ))}
-            </View>
+                  {'Day Streak!'}
+                </Typography>
+              </Animated.View>
 
-            {/* Day Indicators (checkmarks/circles) - Stagger starts at 1.6s */}
-            <View style={styles.dayIndicators}>
-              {weekData.map(({ day, completed, missed, isToday }, index) => (
-                <Animated.View
-                  key={day}
-                  entering={skipped ? undefined : FadeIn.delay(1600 + index * 50).duration(200)}
-                >
-                  {completed ? (
-                    <View style={[styles.checkmark, isToday && styles.checkmarkToday]}>
-                      <Image source={checkmarkIcon} style={styles.checkmarkIcon} />
-                    </View>
-                  ) : missed ? (
-                    <View style={styles.missedCircle}>
-                      <Text style={styles.missedDash}>—</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.emptyCircle} />
-                  )}
+              {/* Week card — alignSelf stretch fills card-minus-padding
+                  (= 327px). */}
+              <Animated.View style={[styles.weekCard, anim.weekAnimatedStyle]}>
+                <Animated.View style={[styles.weekLabelsRow, anim.weekLabelsAnimatedStyle]}>
+                  {weekData.map(({ day, completed }) => (
+                    <Typography
+                      key={day}
+                      family="onest"
+                      weight="600"
+                      size={14}
+                      align="center"
+                      extraColor={completed ? colors.white : '#F4EBDB'}
+                      style={styles.weekLabelText}
+                    >
+                      {day}
+                    </Typography>
+                  ))}
                 </Animated.View>
-              ))}
-            </View>
-          </Animated.View>
+                <View style={styles.weekIndicatorsRow}>
+                  {weekData.map(({ day, completed, missed, isToday }, idx) => {
+                    const state: 'done' | 'missed' | 'pending' = completed
+                      ? 'done'
+                      : missed
+                        ? 'missed'
+                        : 'pending';
+                    return (
+                      <DayIndicator
+                        key={day}
+                        state={state}
+                        isToday={isToday}
+                        scale={anim.dayScales[idx]}
+                        opacity={anim.dayOpacities[idx]}
+                        checkScale={state === 'done' ? anim.checkScales[idx] : undefined}
+                        checkOpacity={state === 'done' ? anim.checkOpacities[idx] : undefined}
+                      />
+                    );
+                  })}
+                </View>
+              </Animated.View>
 
-          {/* Motivational Text - Fades in after calendar */}
-          <Animated.Text
-            entering={skipped ? undefined : FadeIn.delay(1800).duration(300)}
-            style={styles.motivationalText}
-          >
-            {getMotivationalQuote(streakCount)}
-          </Animated.Text>
+              {/* Motivational message — flex child, 1–3 lines, card
+                  grows to fit. width 288 matches the Figma message bbox. */}
+              <Animated.View style={[styles.messageSlot, anim.messageAnimatedStyle]}>
+                <Typography
+                  family="onest"
+                  weight="600"
+                  size={16}
+                  align="center"
+                  extraColor={colors.onyx}
+                  style={styles.messageText}
+                >
+                  {getMotivationalQuote(streakCount)}
+                </Typography>
+              </Animated.View>
+            </Animated.View>
+          </View>
 
-          {/* Continue Button - Fades in last */}
-          <Animated.View
-            entering={skipped ? undefined : FadeIn.delay(2000).duration(300)}
-            style={styles.continueButton}
-          >
-            <TouchableOpacity
-              style={styles.continueButtonInner}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                onContinue();
-              }}
-              activeOpacity={0.8}
+          {/* CONTINUE — DepthButton onyx surface + white shadow, matches
+              the design-system primary CTA shell used across the
+              redesign. Same `handleClose` flow as the X — local fade
+              first, then onContinue. */}
+          <Animated.View style={[styles.ctaSlot, anim.buttonAnimatedStyle]}>
+            <DepthButton
+              surfaceColor="onyx"
+              shadowColor="white"
+              borderColor="onyx"
+              onPress={() => handleClose(Haptics.ImpactFeedbackStyle.Medium)}
             >
-              <Text style={styles.continueButtonText}>LET&apos;S LEARN</Text>
-            </TouchableOpacity>
+              <Typography variant="label.m" color="white">
+                CONTINUE
+              </Typography>
+            </DepthButton>
           </Animated.View>
-      </SafeAreaView>
+        </View>
+
+        {/* Confetti — fires once at +1.65s; renders above the card so
+            particles visibly burst over the flame + number. */}
+        <ConfettiBurst
+          ref={confettiRef}
+          colors={['#E5D4FF', '#C6A8FF', '#F5804C', '#F5A62C', '#FFE36B', '#1E3C88', '#7E3FD8']}
+          count={110}
+          spread={90}
+          startVelocity={42}
+          gravity={1.0}
+        />
+      </Animated.View>
     </Modal>
   );
 }
 
-const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 400);
-const FLAME_SIZE = Math.min(SCREEN_WIDTH * 0.55, 220);
-// Card positioned to contain number and text in center
-const CARD_TOP = SCREEN_HEIGHT * 0.35;
-// Flame above card (overlapping slightly per Figma)
-const FLAME_TOP = CARD_TOP - FLAME_SIZE * 1.0;
-// Number inside card with top padding (centered in screen middle)
-const NUMBER_TOP = CARD_TOP + SCREEN_HEIGHT * 0.02;
-// Text close below number
-const TEXT_TOP = NUMBER_TOP + SCREEN_HEIGHT * 0.14;
+// ─────────────────────────────────────────────────────────
+// Styles — only the ones owned by this file's JSX. Sub-component
+// styles (sunburst, dayCircle*) live in their own files.
+// ─────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-    zIndex: 2000, // Ensure above all other UI (matches achievement popup pattern)
-    elevation: 2000, // Android layering
+    backgroundColor: colors.acaiTertiary,
+    overflow: 'hidden',
+  },
+  safe: {
+    flex: 1,
   },
   closeButton: {
     position: 'absolute',
     top: SCREEN_HEIGHT * 0.07,
     right: 24,
-    zIndex: 100, // Above all content (matches achievement close button)
-    elevation: 100, // Android
+    zIndex: 100,
+    elevation: 100,
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  flameArea: {
-    position: 'absolute',
-    top: FLAME_TOP,
-    width: FLAME_SIZE,
-    height: FLAME_SIZE,
-    alignSelf: 'center',
-    overflow: 'visible',
-    zIndex: 20, // Above white card
-    elevation: 20, // Android
+  // Card-host wrapper — flex:1 fills the SafeArea so the card's
+  // percentage `top` anchor (below) computes against the safe-area
+  // height. NO MORE flex-centering math — the previous
+  // `justifyContent: center` form computed card position as
+  // `(parentHeight - cardHeight) / 2`, which re-runs whenever cardHeight
+  // changes by even a sub-pixel during the entrance (Reanimated worklet
+  // commits, text-metric finalization, etc.) and visibly shifts the
+  // card. With the card absolute-positioned at `top: 22%`, its position
+  // is anchored to the PARENT's height only — totally independent of
+  // anything happening inside the card.
+  contentColumn: {
+    flex: 1,
   },
-  riveAnimation: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'transparent',
-  },
+  // Card is absolute-positioned at 22% of SafeArea height — that
+  // ratio is the Figma anchor (218 / (852 - 47 status bar inset) =
+  // 22.2%) and scales proportionally across devices. left/right
+  // padding gives the card the design-system gutter without a
+  // hardcoded width. Inside the card, content still flows via flex
+  // column (paddingTop clears the flame, alignItems centers the
+  // children, message text wraps inside its paddingHorizontal inset).
   card: {
     position: 'absolute',
-    top: CARD_TOP,
-    left: (SCREEN_WIDTH - CARD_WIDTH) / 2,
-    backgroundColor: '#FFFFFF',
+    top: '22%',
+    left: SCREEN_PADDING_HORIZONTAL,
+    right: SCREEN_PADDING_HORIZONTAL,
+    paddingTop: CARD_PADDING_TOP,
+    paddingHorizontal: CARD_PADDING_HORIZONTAL,
+    paddingBottom: CARD_PADDING_BOTTOM,
+    alignItems: 'center',
+    backgroundColor: colors.white,
     borderRadius: 30,
-    width: CARD_WIDTH,
-    height: SCREEN_HEIGHT * 0.48,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 10,
   },
-  streakNumber: {
+  // Flame + pedestal are absolute INSIDE the card — they overflow
+  // above the top edge so the flame "sits on" the card. Card has no
+  // `overflow: hidden` so this works. Centered via `left: 50%` +
+  // negative `marginLeft` (RN's equivalent of CSS
+  // `transform: translateX(-50%)` since the parent width is unknown
+  // at style-eval time). The +4 shifts horizontally to match Figma's
+  // `left: calc(50% + 4px)` anchor.
+  pedestal: {
     position: 'absolute',
-    top: NUMBER_TOP,
-    left: 0,
-    right: 0,
-    fontFamily: 'DM Sans',
-    fontSize: Math.min(SCREEN_WIDTH * 0.25, 100),
-    fontWeight: '600',
-    color: '#41425E',
-    lineHeight: Math.min(SCREEN_WIDTH * 0.35, 140),
-    textAlign: 'center',
-    zIndex: 20, // Above white card
-    elevation: 20, // Android
+    top: PEDESTAL_TOP_RELATIVE_TO_CARD,
+    left: '50%',
+    marginLeft: -PEDESTAL_WIDTH / 2 + 4,
+    width: PEDESTAL_WIDTH,
+    height: PEDESTAL_HEIGHT,
+    zIndex: 2,
   },
-  streakText: {
+  flame: {
     position: 'absolute',
-    top: TEXT_TOP,
-    left: 0,
-    right: 0,
-    fontFamily: 'DM Sans',
-    fontSize: Math.min(SCREEN_WIDTH * 0.065, 25),
-    fontWeight: '700',
-    color: '#41425E',
-    lineHeight: 32,
+    top: FLAME_TOP_RELATIVE_TO_CARD,
+    left: '50%',
+    marginLeft: -FLAME_SIZE / 2 + 4,
+    width: FLAME_SIZE,
+    height: FLAME_HEIGHT,
+    zIndex: 3,
+  },
+  flameRive: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
+  },
+  numberText: {
+    letterSpacing: -1,
+    lineHeight: 99,
+  },
+  // AnimatedTextInput styled to look identical to the previous
+  // Typography output (family="bounded" weight="900" size=90 black).
+  // Extra resets are needed because TextInput has different defaults
+  // than Text on Android: `padding: 0` kills the implicit input chrome
+  // padding, `includeFontPadding: false` removes Android's baseline
+  // metric pad that would otherwise mis-center the digits, and
+  // `textAlignVertical: 'center'` matches `<Text>`'s vertical baseline.
+  numberTextInput: {
+    fontFamily: 'Bounded-Black',
+    fontSize: 90,
+    color: '#000000',
     textAlign: 'center',
+    letterSpacing: -1,
+    lineHeight: 99,
+    padding: 0,
+    margin: 0,
     includeFontPadding: false,
-    zIndex: 20, // Above white card
-    elevation: 20, // Android
+    textAlignVertical: 'center',
+    // Min width keeps single-digit values from collapsing to zero
+    // intrinsic width during the count-up's first few frames (TextInput
+    // sizes to content; with no min width "0" → "1" → "2" subtly
+    // breathes the surrounding layout). Tuned for 3 digits at 90pt.
+    minWidth: 180,
   },
-  calendarWidget: {
-    position: 'absolute',
-    top: CARD_TOP + SCREEN_HEIGHT * 0.22,
-    left: (SCREEN_WIDTH - CARD_WIDTH) / 2 + CARD_WIDTH * 0.05,
-    width: CARD_WIDTH * 0.9,
-    height: SCREEN_HEIGHT * 0.13,
-    backgroundColor: '#41425E',
+  // Gap from number to label per Figma (216.5 - 192.5 = ~24px after
+  // accounting for line-height boxes).
+  labelSlot: {
+    marginTop: 8,
+  },
+  labelText: {
+    letterSpacing: -0.3,
+    lineHeight: 28,
+  },
+  weekCard: {
+    alignSelf: 'stretch', // fills card width minus padding (= 327px)
+    marginTop: 18,
+    backgroundColor: colors.black,
     borderRadius: 25,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    zIndex: 20, // Above white card
-    elevation: 20, // Android
+    paddingHorizontal: 21,
+    paddingTop: 24,
+    paddingBottom: 24,
   },
-  dayLabels: {
+  weekLabelsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    width: '100%',
   },
-  dayLabel: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    width: 32,
-    textAlign: 'center',
+  weekLabelText: {
+    width: 26,
   },
-  dayLabelFuture: {
-    color: '#C3C3C3',
-  },
-  dayIndicators: {
+  weekIndicatorsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  checkmark: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#C99151',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: 12,
   },
-  checkmarkToday: {
-    transform: [{ scale: 1.1 }],
-    shadowColor: '#C99151',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 5,
+  // Message slot — alignSelf stretch fills card-content width, then
+  // paddingHorizontal narrows the text bbox so the message wraps to a
+  // shorter line than the week card above it (matches Figma's 288 in
+  // 358 ratio without hardcoding either width).
+  messageSlot: {
+    marginTop: 24,
+    alignSelf: 'stretch',
+    paddingHorizontal: MESSAGE_PADDING_HORIZONTAL,
   },
-  missedCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#999999',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  missedDash: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    lineHeight: 32,
-  },
-  checkmarkIcon: {
-    width: 30,
-    height: 30,
-    resizeMode: 'contain',
-  },
-  emptyCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#222446',
-  },
-  motivationalText: {
-    position: 'absolute',
-    top: CARD_TOP + SCREEN_HEIGHT * 0.38,
-    left: (SCREEN_WIDTH - CARD_WIDTH * 0.8) / 2,
-    width: CARD_WIDTH * 0.8,
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#C99151',
-    textAlign: 'center',
+  messageText: {
     lineHeight: 21,
-    zIndex: 25, // Above white card (which has elevation: 10)
-    elevation: 25, // Android
   },
-  continueButton: {
+  // CTA absolute-positioned at the SafeArea bottom — pulled out of
+  // flex flow so its intrinsic-size measurements (DepthButton shadow
+  // ascent, Onest font glyph metrics finalizing post-mount) can't
+  // propagate into `contentColumn`'s flex:1 sizing math and shift
+  // the card vertically. left/right padding gives the DepthButton
+  // (isFullWidth default) its proper Figma width without a hardcoded
+  // `width: 327`.
+  ctaSlot: {
     position: 'absolute',
-    bottom: SCREEN_HEIGHT * 0.06,
-    left: (SCREEN_WIDTH - CARD_WIDTH) / 2,
-    width: CARD_WIDTH,
-    height: 52,
-    zIndex: 30, // Above everything
-    elevation: 30, // Android
-  },
-  continueButtonInner: {
-    flex: 1,
-    borderRadius: 26,
-    backgroundColor: '#959C00',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#6E7300',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
-  },
-  continueButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.18,
+    bottom: BUTTON_BOTTOM_OFFSET,
+    left: BUTTON_HORIZONTAL_PADDING,
+    right: BUTTON_HORIZONTAL_PADDING,
   },
 });
