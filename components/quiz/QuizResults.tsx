@@ -31,15 +31,8 @@ import AIChatModal from '@/gamification/ui/ai/AIChatModal';
 import type { Question } from '@/components/shared/types';
 import {
   ActionPill,
-  CTA_PRESET,
-  HEADLINE_PRESET,
   HIGH_TIER_CONFETTI_PALETTE,
-  MASCOT_HIGH,
-  MASCOT_LOW_MED,
   Mascot,
-  PILL_PRESET,
-  SCORE_CARD_PRESET,
-  SUBHEAD_PRESET,
   ScoreCard,
   TIER_SPECS,
   tierFor,
@@ -328,9 +321,10 @@ export default function QuizResults({
     setShowExplanations((prev) => !prev);
   }, []);
 
-  // Mascot entrance preset varies by tier — high tier uses elastic overshoot.
+  // Mascot entrance preset varies by tier — high tier uses elastic overshoot
+  // for a more celebratory feel, low/medium use a gentler back.out(2) drop.
   const mascotPreset = useMemo(
-    () => (tier === 'high' ? MASCOT_HIGH : MASCOT_LOW_MED),
+    () => (tier === 'high' ? 'elasticHeroDrop' : 'dropFromAbove'),
     [tier],
   );
 
@@ -369,7 +363,7 @@ export default function QuizResults({
         </AnimatedEntrance>
 
         {/* 2. Headline — 450ms delay */}
-        <AnimatedEntrance preset={HEADLINE_PRESET} delay={450}>
+        <AnimatedEntrance preset="riseSoft" delay={450}>
           <Typography
             variant="display.large"
             family="bounded"
@@ -382,7 +376,7 @@ export default function QuizResults({
         </AnimatedEntrance>
 
         {/* 3. Subhead — 700ms delay */}
-        <AnimatedEntrance preset={SUBHEAD_PRESET} delay={700}>
+        <AnimatedEntrance preset="riseSubtle" delay={700}>
           <Typography
             family="onest"
             size="lg"
@@ -396,7 +390,7 @@ export default function QuizResults({
         </AnimatedEntrance>
 
         {/* 4. Score card — 850ms delay (count-up starts at 1150ms) */}
-        <AnimatedEntrance preset={SCORE_CARD_PRESET} delay={850}>
+        <AnimatedEntrance preset="riseCard" delay={850}>
           <ScoreCard
             percentage={percentage}
             totalPoints={totalPoints}
@@ -413,7 +407,7 @@ export default function QuizResults({
         <View style={styles.bottomGroup}>
           {/* 5/6. Action pills — 1900ms + 80ms stagger */}
           <View style={styles.pillStack}>
-            <AnimatedEntrance preset={PILL_PRESET} delay={1900}>
+            <AnimatedEntrance preset="riseListItem" delay={1900}>
               <ActionPill
                 icon="bulb"
                 label="Understand your answers"
@@ -421,7 +415,7 @@ export default function QuizResults({
               />
             </AnimatedEntrance>
 
-            <AnimatedEntrance preset={PILL_PRESET} delay={1980}>
+            <AnimatedEntrance preset="riseListItem" delay={1980}>
               <View style={styles.pillSpacer}>
                 <ActionPill
                   icon="chat"
@@ -433,7 +427,7 @@ export default function QuizResults({
           </View>
 
           {/* 7. Continue CTA — 2150ms delay */}
-          <AnimatedEntrance preset={CTA_PRESET} delay={2150}>
+          <AnimatedEntrance preset="riseCta" delay={2150}>
             <View style={styles.ctaWrap}>
               <DepthButton
                 variant="secondary"
