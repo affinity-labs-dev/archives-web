@@ -1,37 +1,51 @@
-// AIQuizExplanation.tsx - AI-powered quiz explanation component
-// Premium users: batch-fetches all explanations in a single API call
-// Free users: fetches Q1 only, shows full Q1 + ghosted Q2 peek + paywall card for remaining questions
-// Includes 15s timeout with retry CTA (max 2 retries)
+// AIQuizExplanation.tsx — AFF-818 redesign
+// Bottom-sheet modal that exposes AI-generated quiz explanations.
+// Figma:
+//   • Subscribed:    3527:6490  (scrollable list, all 3 questions)
+//   • Non-subscribed: 3527:6460 (Q1 only + paywall overlay, no scroll)
+//
+// Modal presentation matches the Settings / Avatar modals (`pageSheet` +
+// slide-from-bottom) so it lands as a familiar iOS-native bottom sheet.
+// Auto-fetches on `visible=true`, applying a 15s timeout + 2-retry budget
+// in both modes (batch for subscribed, Q1-only for free).
 
 import { Question } from '@/components/shared/types';
-import ArchivesTheme from '@/constants/ArchivesTheme';
 import { aiService } from '@/gamification';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
+  Dimensions,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+
+import { SvgXml } from 'react-native-svg';
+
+import { DepthButton, Typography, colors } from '@/components/ui';
 import AppLogger from '@/services/AppLogger';
+import { starBulletSvg } from './icons/starBulletSvg';
 
 interface AIQuizExplanationProps {
+  /** Drives the bottom-sheet visibility. Passing true also kicks off the fetch. */
+  visible: boolean;
+  /** Called when the user dismisses the sheet (close button or swipe). */
+  onClose: () => void;
   questions: Question[];
-  userAnswers: number[]; // Array of user's answer indices
+  userAnswers: number[];
   eraName: string;
   adventureName?: string;
   adventureId: string;
   moduleId: string;
-  onClose?: () => void;
 }
 
 interface ExplanationItem {
@@ -45,113 +59,244 @@ interface ExplanationItem {
   error?: string;
 }
 
-// ─── Small reusable card ────────────────────────────────────────────────────
+const MAX_RETRIES = 2;
+const TIMEOUT_MS = 15_000;
 
-function ExplanationCard({ item }: { item: ExplanationItem }) {
+// ─── Question card ──────────────────────────────────────────────────────────
+// Single Q block: badge + question + "Your answer:" line + bulb + AI text.
+// Used for both subscribed (3 stacked) and the Q1 preview for free users.
+function ExplanationCard({
+  item,
+  showDivider,
+}: {
+  item: ExplanationItem;
+  showDivider: boolean;
+}) {
+  const answerColor = item.isCorrect
+    ? colors.correctSecondary
+    : colors.incorrectSecondary;
+
   return (
-    <View style={styles.explanationCard}>
-      <View style={styles.questionBadge}>
-        <Text style={styles.questionBadgeText}>Q{item.questionNumber}</Text>
+    <View style={cardStyles.wrap}>
+      <View style={cardStyles.badge}>
+        <Typography family="onest" size="xs" weight="600" color="onyx">
+          Q{item.questionNumber}
+        </Typography>
       </View>
 
-      <Text style={styles.questionText}>{item.questionText}</Text>
+      <Typography
+        family="onest"
+        size="md"
+        weight="600"
+        color="onyx"
+        style={cardStyles.question}
+      >
+        {item.questionText}
+      </Typography>
 
-      <View style={styles.answersContainer}>
-        <View style={styles.answerRow}>
-          <Ionicons
-            name={item.isCorrect ? 'checkmark-circle' : 'close-circle'}
-            size={18}
-            color={item.isCorrect ? '#27AE60' : '#E74C3C'}
-          />
-          <Text style={styles.answerLabel}>Your answer:</Text>
-          <Text style={[styles.userAnswerText, item.isCorrect && styles.correctAnswerText]}>
-            {item.userAnswer}
-          </Text>
-        </View>
-        {!item.isCorrect && (
-          <View style={styles.answerRow}>
-            <Ionicons name="checkmark-circle" size={18} color="#27AE60" />
-            <Text style={styles.answerLabel}>Correct:</Text>
-            <Text style={styles.correctAnswerText}>{item.correctAnswer}</Text>
-          </View>
-        )}
+      <View style={cardStyles.answerRow}>
+        <Typography family="onest" size="sm" weight="500" color="onyx">
+          Your answer:{' '}
+        </Typography>
+        <Typography
+          family="onest"
+          size="sm"
+          weight="500"
+          style={{ color: answerColor }}
+        >
+          {item.userAnswer}
+        </Typography>
       </View>
 
       {item.loading ? (
-        <View style={styles.explanationLoading}>
-          <ActivityIndicator size="small" color={ArchivesTheme.colors.persianOrange} />
+        <View style={cardStyles.loadingBlock}>
+          <ActivityIndicator size="small" color={colors.acaiSecondary} />
         </View>
       ) : item.error ? (
-        <Text style={styles.errorText}>{item.error}</Text>
+        <Typography
+          family="onest"
+          size="sm"
+          weight="500"
+          style={cardStyles.errorText}
+        >
+          {item.error}
+        </Typography>
       ) : item.aiExplanation ? (
-        <View style={styles.aiExplanationContainer}>
-          <Ionicons name="bulb-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
-          <Text style={styles.aiExplanationText}>
+        <View style={cardStyles.explanationRow}>
+          <Ionicons
+            name="bulb"
+            size={18}
+            color={colors.acaiSecondary}
+            style={cardStyles.bulbIcon}
+          />
+          <Typography
+            family="onest"
+            size="md"
+            weight="400"
+            color="onyx"
+            style={cardStyles.explanationText}
+          >
             {item.aiExplanation}
-          </Text>
+          </Typography>
         </View>
       ) : null}
+
+      {showDivider && <View style={cardStyles.divider} />}
     </View>
   );
 }
 
-const MAX_RETRIES = 2;
-const TIMEOUT_MS = 15_000;
+// ─── Paywall overlay ────────────────────────────────────────────────────────
+// Free-tier card matching Figma 3527:6460 — light-blue surface with white
+// inner feature panel + UPGRADE CTA + restore link.
+function PaywallCard({
+  questionsCount,
+  onUpgrade,
+}: {
+  questionsCount: number;
+  onUpgrade: () => void;
+}) {
+  return (
+    <View style={paywallStyles.card}>
+      <View style={paywallStyles.titleRow}>
+        <Ionicons name="lock-closed" size={20} color={colors.onyx} />
+        <Typography
+          family="onest"
+          size="lg"
+          weight="600"
+          color="onyx"
+          style={paywallStyles.title}
+        >
+          Unlock All Explanations
+        </Typography>
+      </View>
 
-// ─── Main Component ─────────────────────────────────────────────────────────
+      <Typography
+        family="onest"
+        size="sm"
+        weight="500"
+        color="onyx"
+        style={paywallStyles.subtitle}
+      >
+        You are seeing a preview of Q1. Upgrade to get explanations for all{' '}
+        {questionsCount} questions.
+      </Typography>
+
+      <View style={paywallStyles.featureBox}>
+        {[
+          'AI explanations for every question',
+          'Understand your mistakes deeply',
+          'Personalized study tips',
+          'Unlimited quiz attempts',
+        ].map((label) => (
+          <View key={label} style={paywallStyles.featureRow}>
+            <SvgXml
+              xml={starBulletSvg}
+              width={14}
+              height={14}
+              style={paywallStyles.featureIcon}
+            />
+            <Typography
+              family="onest"
+              size="xs"
+              weight="500"
+              color="onyx"
+              style={paywallStyles.featureText}
+            >
+              {label}
+            </Typography>
+          </View>
+        ))}
+      </View>
+
+      {/* Full-width UPGRADE button — DepthButton's `isFullWidth` default
+          stretches to the parent's content box. No outer paddingHorizontal
+          wrapper here so it matches the feature box's width edge-to-edge,
+          matching Figma 3527:6487. */}
+      <DepthButton
+        variant="secondary"
+        size="large"
+        onPress={onUpgrade}
+        haptic="medium"
+        style={paywallStyles.cta}
+      >
+        <Typography family="onest" size="lg" weight="700" color="white">
+          UPGRADE
+        </Typography>
+      </DepthButton>
+
+      <TouchableOpacity onPress={onUpgrade} activeOpacity={0.7}>
+        <Typography
+          family="onest"
+          size="xs"
+          weight="500"
+          color="onyx"
+          style={paywallStyles.restore}
+        >
+          Already subscribed? Restore purchase
+        </Typography>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────
 
 export default function AIQuizExplanation({
+  visible,
+  onClose,
   questions,
   userAnswers,
   eraName,
   adventureName,
   adventureId,
   moduleId,
-  onClose,
 }: AIQuizExplanationProps) {
   const [explanations, setExplanations] = useState<ExplanationItem[]>([]);
-  const [showExplanations, setShowExplanations] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const paywallAnim = useRef(new Animated.Value(0)).current;
   const isPaywallPresentedRef = useRef(false);
-  const timeoutIdRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const isMountedRef = useRef(true);
+  const hasFetchedRef = useRef(false);
 
-  // Subscription check for paywall
   const { isSubscribed } = useRevenueCat();
   const isSubscribedRef = useRef(isSubscribed);
   isSubscribedRef.current = isSubscribed;
   const prevSubscribedRef = useRef(isSubscribed);
 
-  // Cleanup: Dismiss paywall on unmount, clear pending timeout
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
       if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
-      if (isPaywallPresentedRef.current) {
-        AppLogger.info('ai', 'AIQuizExplanation unmounting');
-        try {
-          // Note: RevenueCat doesn't have a direct dismiss method for imperative API
-          // The paywall auto-dismisses when user taps X or completes purchase
-          // This ref just tracks state for debugging
-          isPaywallPresentedRef.current = false;
-        } catch (error) {
-          AppLogger.error('ai', 'AIQuizExplanation cleanup error', {}, error);
-        }
-      }
     };
   }, []);
 
-  // Prepare explanation items on mount
+  // Reset fetch guard whenever the modal opens — lets the user re-open the
+  // sheet and refetch (e.g. after subscribing on a different screen and
+  // returning here). Closing then reopening counts as a fresh session.
+  useEffect(() => {
+    if (!visible) {
+      hasFetchedRef.current = false;
+      setLoadingAll(false);
+      setTimedOut(false);
+      setRetryCount(0);
+    }
+  }, [visible]);
+
+  // Build the explanation skeleton from quiz data — runs whenever the
+  // inputs change (new quiz, new answers).
   useEffect(() => {
     const items: ExplanationItem[] = questions.map((question, index) => {
       const userAnswerIndex = userAnswers[index];
-      const correctAnswerIndex = question.answers.findIndex((a) => a.is_correct);
+      const correctAnswerIndex = question.answers.findIndex(
+        (a) => a.is_correct,
+      );
       const isCorrect = userAnswerIndex === correctAnswerIndex;
-
       return {
         questionNumber: index + 1,
         questionText: question.question_text,
@@ -161,111 +306,28 @@ export default function AIQuizExplanation({
         loading: false,
       };
     });
-
     setExplanations(items);
   }, [questions, userAnswers]);
 
-  // Re-fetch all explanations when user subscribes mid-session
-  useEffect(() => {
-    if (isSubscribed && !prevSubscribedRef.current && showExplanations && explanations.length > 0 && !loadingAll) {
-      AppLogger.info('ai', 'User subscribed mid-session, fetching all explanations');
-      setRetryCount(0);
-      handleGetExplanations();
-    }
-    prevSubscribedRef.current = isSubscribed;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSubscribed]);
-
-  // Present paywall using imperative API (Android-safe)
-  const handleShowPaywall = async () => {
-    // Prevent multiple simultaneous presentations
-    if (isPaywallPresentedRef.current) {
-      if (__DEV__) console.log('⚠️ [AIQuizExplanation] Paywall already presented, skipping');
-      return;
-    }
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // Track paywall view with standardized event
-    analyticsService.trackSubscribeScreenViewed({
-      trigger: 'ai_quiz_explanation',
-    });
-
-    try {
-      isPaywallPresentedRef.current = true;
-      const result = await RevenueCatUI.presentPaywall();
-
-      switch (result) {
-        case PAYWALL_RESULT.PURCHASED:
-          AppLogger.info('subscription', 'Premium purchase completed via quiz explanation');
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          analyticsService.trackSubscribePurchaseCompleted({
-            trigger: 'ai_quiz_explanation',
-            plan: 'yearly',
-          });
-          break;
-
-        case PAYWALL_RESULT.RESTORED:
-          AppLogger.info('subscription', 'Subscription restore completed via quiz explanation');
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          analyticsService.trackSubscribeRestoreSuccess({
-            trigger: 'ai_quiz_explanation',
-          });
-          break;
-
-        case PAYWALL_RESULT.CANCELLED:
-          if (__DEV__) console.log('🚫 [AIQuizExplanation] Paywall cancelled');
-          analyticsService.trackSubscribePurchaseCancelled({
-            trigger: 'ai_quiz_explanation',
-          });
-          break;
-
-        case PAYWALL_RESULT.NOT_PRESENTED:
-        case PAYWALL_RESULT.ERROR:
-          AppLogger.warn('subscription', 'Paywall presentation issue', { result });
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          analyticsService.trackSubscribePurchaseFailed({
-            trigger: 'ai_quiz_explanation',
-            error_code: result,
-          });
-          break;
-      }
-    } catch (error) {
-      AppLogger.error('subscription', 'Error presenting paywall', {}, error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      analyticsService.trackSubscribePurchaseFailed({
-        trigger: 'ai_quiz_explanation',
-        error_code: error instanceof Error ? error.message : 'unknown',
-      });
-    } finally {
-      isPaywallPresentedRef.current = false;
-    }
-  };
-
-  // Generate AI explanations (subscription-aware + timeout)
-  // Reads isSubscribedRef.current to avoid stale closure issues
-  const handleGetExplanations = async () => {
+  // ─── Fetch logic ─────────────────────────────────────────────────────
+  const handleGetExplanations = useCallback(async () => {
     if (!aiService.isAvailable()) {
-      alert('AI explanations are not available. Please contact support.');
+      AppLogger.warn('ai', 'AI service not available');
       return;
     }
+    if (questions.length === 0) return;
 
     const subscribed = isSubscribedRef.current;
     const fetchMode = subscribed ? 'batch' : 'single';
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowExplanations(true);
     setLoadingAll(true);
     setTimedOut(false);
 
-    // Track AI explanation request
     analyticsService.trackCustomEvent('ai_quiz_explanation_requested', {
       adventure_id: adventureId,
       module_id: moduleId,
       era_name: eraName,
       total_questions: questions.length,
-      correct_questions: explanations.filter((e) => e.isCorrect).length,
-      incorrect_questions: explanations.filter((e) => !e.isCorrect).length,
       is_subscriber: subscribed,
       fetch_mode: fetchMode,
     });
@@ -275,80 +337,55 @@ export default function AIQuizExplanation({
       fetchMode,
     });
 
-    // Animate in
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
-    // Animate paywall in slightly after content fades in (free users only)
-    if (!subscribed) {
-      setTimeout(() => {
-        Animated.spring(paywallAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 80,
-          friction: 9,
-        }).start();
-      }, 400);
-    }
-
     const startTime = Date.now();
 
     try {
-      // Wrap API call with 15s timeout.
-      // Note: getBatchedExplanations() may internally fall back to sequential
-      // calls if batch parsing fails, which could take 4-5s. The 15s timeout covers both paths.
       const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutIdRef.current = setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_MS);
+        timeoutIdRef.current = setTimeout(
+          () => reject(new Error('TIMEOUT')),
+          TIMEOUT_MS,
+        );
       });
 
       let apiPromise: Promise<{ explanation: string }[]>;
-
       if (subscribed) {
-        // Premium: batch all questions in one call
         apiPromise = aiService.getBatchedExplanations(questions, userAnswers, {
           eraName,
           adventureName,
           userLevel: 'intermediate',
         });
       } else {
-        // Free: only fetch Q1 (remaining questions are behind the paywall)
         const q1 = questions[0];
         const q1UserAnswerIndex = userAnswers[0];
         const q1CorrectIndex = q1.answers.findIndex((a) => a.is_correct);
-        apiPromise = aiService.getQuizExplanation({
-          questionText: q1.question_text,
-          correctAnswer: q1.answers[q1CorrectIndex]?.text || 'Unknown',
-          userAnswer: q1.answers[q1UserAnswerIndex]?.text || 'No answer',
-          questionType: q1.question_type,
-          eraName,
-          adventureName,
-          userLevel: 'intermediate',
-          isCorrect: q1UserAnswerIndex === q1CorrectIndex,
-        }).then((r) => [r]);
+        apiPromise = aiService
+          .getQuizExplanation({
+            questionText: q1.question_text,
+            correctAnswer: q1.answers[q1CorrectIndex]?.text || 'Unknown',
+            userAnswer: q1.answers[q1UserAnswerIndex]?.text || 'No answer',
+            questionType: q1.question_type,
+            eraName,
+            adventureName,
+            userLevel: 'intermediate',
+            isCorrect: q1UserAnswerIndex === q1CorrectIndex,
+          })
+          .then((r) => [r]);
       }
-
-      // Prevent unhandled rejection if the losing promise rejects after timeout wins
       apiPromise.catch(() => {});
 
       const aiExplanations = await Promise.race([apiPromise, timeoutPromise]);
 
       if (!isMountedRef.current) return;
-
       const generationTimeMs = Date.now() - startTime;
 
-      // Update explanations with AI responses
       setExplanations((prev) =>
         prev.map((item, index) => ({
           ...item,
           aiExplanation: aiExplanations[index]?.explanation,
           loading: false,
-        }))
+        })),
       );
 
-      // Track successful generation with timing
       analyticsService.trackCustomEvent('ai_quiz_explanation_generated', {
         adventure_id: adventureId,
         module_id: moduleId,
@@ -358,497 +395,539 @@ export default function AIQuizExplanation({
         fetch_mode: fetchMode,
         is_subscriber: subscribed,
       });
-
       AppLogger.info('ai', 'AI explanations generated', {
         count: aiExplanations.length,
         timeMs: generationTimeMs,
-        fetchMode,
       });
     } catch (error) {
       if (!isMountedRef.current) return;
-
       const isTimeout = error instanceof Error && error.message === 'TIMEOUT';
-
       if (isTimeout) {
-        AppLogger.warn('ai', 'AI explanation request timed out', { retryCount });
+        AppLogger.warn('ai', 'AI explanation request timed out');
         setTimedOut(true);
-
-        analyticsService.trackCustomEvent('ai_quiz_explanation_error', {
-          adventure_id: adventureId,
-          module_id: moduleId,
-          era_name: eraName,
-          error: 'timeout',
-          retry_count: retryCount,
-        });
       } else {
         AppLogger.error('ai', 'Failed to generate AI explanations', {}, error);
-
-        analyticsService.trackCustomEvent('ai_quiz_explanation_error', {
-          adventure_id: adventureId,
-          module_id: moduleId,
-          era_name: eraName,
-          error: String(error),
-        });
-
         setExplanations((prev) =>
           prev.map((item) => ({
             ...item,
             loading: false,
             error: 'Could not generate explanation. Please try again.',
-          }))
+          })),
         );
       }
     } finally {
       if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
       if (isMountedRef.current) setLoadingAll(false);
     }
-  };
+  }, [adventureId, moduleId, eraName, adventureName, questions, userAnswers]);
 
-  // Retry handler for timeout
-  const handleRetryExplanations = () => {
+  // Auto-fetch on first open. `hasFetchedRef` guards against React StrictMode
+  // double-invocation in dev and ensures we don't re-fetch on prop changes
+  // unrelated to opening (subscription mid-session is handled separately
+  // below).
+  useEffect(() => {
+    if (!visible) return;
+    if (hasFetchedRef.current) return;
+    if (questions.length === 0) return;
+    hasFetchedRef.current = true;
+    handleGetExplanations();
+  }, [visible, questions.length, handleGetExplanations]);
+
+  // Re-fetch when user subscribes mid-session — switches from Q1-only to
+  // full batch without requiring the user to close + reopen the sheet.
+  useEffect(() => {
+    if (
+      isSubscribed &&
+      !prevSubscribedRef.current &&
+      visible &&
+      explanations.length > 0 &&
+      !loadingAll
+    ) {
+      AppLogger.info('ai', 'User subscribed mid-session, refetching');
+      setRetryCount(0);
+      handleGetExplanations();
+    }
+    prevSubscribedRef.current = isSubscribed;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubscribed]);
+
+  const handleRetry = useCallback(() => {
     if (retryCount < MAX_RETRIES) {
       setRetryCount((prev) => prev + 1);
       handleGetExplanations();
     } else {
-      // Max retries reached — show fallback
       setExplanations((prev) =>
         prev.map((item) => ({
           ...item,
           loading: false,
           error: 'Could not generate explanation. Please try again later.',
-        }))
+        })),
       );
       setTimedOut(false);
     }
+  }, [retryCount, handleGetExplanations]);
+
+  // ─── Paywall ────────────────────────────────────────────────────────
+  const handleShowPaywall = useCallback(async () => {
+    if (isPaywallPresentedRef.current) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    analyticsService.trackSubscribeScreenViewed({
+      trigger: 'ai_quiz_explanation',
+    });
+
+    try {
+      isPaywallPresentedRef.current = true;
+      const result = await RevenueCatUI.presentPaywall();
+      switch (result) {
+        case PAYWALL_RESULT.PURCHASED:
+          AppLogger.info(
+            'subscription',
+            'Premium purchase completed via quiz explanation',
+          );
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          ).catch(() => {});
+          analyticsService.trackSubscribePurchaseCompleted({
+            trigger: 'ai_quiz_explanation',
+            plan: 'yearly',
+          });
+          break;
+        case PAYWALL_RESULT.RESTORED:
+          AppLogger.info(
+            'subscription',
+            'Subscription restore completed via quiz explanation',
+          );
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          ).catch(() => {});
+          analyticsService.trackSubscribeRestoreSuccess({
+            trigger: 'ai_quiz_explanation',
+          });
+          break;
+        case PAYWALL_RESULT.CANCELLED:
+          analyticsService.trackSubscribePurchaseCancelled({
+            trigger: 'ai_quiz_explanation',
+          });
+          break;
+        case PAYWALL_RESULT.NOT_PRESENTED:
+        case PAYWALL_RESULT.ERROR:
+          AppLogger.warn('subscription', 'Paywall presentation issue', {
+            result,
+          });
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Error,
+          ).catch(() => {});
+          break;
+      }
+    } catch (error) {
+      AppLogger.error('subscription', 'Paywall exception', {}, error);
+    } finally {
+      isPaywallPresentedRef.current = false;
+    }
+  }, []);
+
+  // ─── Render ─────────────────────────────────────────────────────────
+  const renderContent = () => {
+    if (loadingAll || timedOut) {
+      return (
+        <View style={styles.loadingBlock}>
+          {timedOut ? (
+            <>
+              <Ionicons
+                name="time-outline"
+                size={40}
+                color={colors.acaiSecondary}
+              />
+              <Typography
+                family="onest"
+                size="md"
+                weight="600"
+                color="onyx"
+                style={styles.timeoutTitle}
+              >
+                Taking longer than expected
+              </Typography>
+              <Typography
+                family="onest"
+                size="sm"
+                weight="500"
+                color="onyx"
+                style={styles.timeoutSubtitle}
+              >
+                The AI is still working. You can try again
+                {retryCount < MAX_RETRIES ? '' : ' later'}.
+              </Typography>
+              {retryCount < MAX_RETRIES && (
+                <View style={styles.retryWrap}>
+                  <DepthButton
+                    variant="secondary"
+                    size="medium"
+                    onPress={handleRetry}
+                    haptic="light"
+                    isFullWidth={false}
+                  >
+                    <Ionicons name="refresh" size={18} color={colors.white} />
+                    <Typography
+                      family="onest"
+                      size="md"
+                      weight="700"
+                      color="white"
+                      style={styles.retryText}
+                    >
+                      Try Again
+                    </Typography>
+                  </DepthButton>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              <ActivityIndicator size="large" color={colors.acaiSecondary} />
+              <Typography
+                family="onest"
+                size="sm"
+                weight="500"
+                color="onyx"
+                style={styles.loadingText}
+              >
+                Generating explanations...
+              </Typography>
+            </>
+          )}
+        </View>
+      );
+    }
+
+    // Subscribed: scrollable list of all questions with dividers between.
+    if (isSubscribed) {
+      return (
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {explanations.map((item, index) => (
+            <ExplanationCard
+              key={item.questionNumber}
+              item={item}
+              showDivider={index < explanations.length - 1}
+            />
+          ))}
+        </ScrollView>
+      );
+    }
+
+    // Free: Q1 only + paywall overlay. NOT scrollable — the paywall must
+    // block access to Q2/Q3 entirely.
+    return (
+      <View style={styles.freeWrap}>
+        <View style={styles.freeQ1}>
+          {explanations[0] && (
+            <ExplanationCard item={explanations[0]} showDivider={false} />
+          )}
+        </View>
+        <View style={styles.paywallOverlay}>
+          <PaywallCard
+            questionsCount={questions.length}
+            onUpgrade={handleShowPaywall}
+          />
+        </View>
+      </View>
+    );
   };
 
+  // Custom bottom sheet — `transparent` + `slide` animation lets us own
+  // the height (80% on both platforms) and the rounded top corners. Native
+  // `pageSheet` would lock height to ~90% on iOS and full-screen on Android,
+  // and never gives custom corner radii. The backdrop is a Pressable so a
+  // tap-outside dismisses without needing a swipe gesture handler.
   return (
-    <View style={styles.container}>
-      {!showExplanations ? (
-        // Initial prompt button
-        <TouchableOpacity
-          style={styles.promptCard}
-          onPress={handleGetExplanations}
-          activeOpacity={0.8}
-        >
-          <View style={styles.promptContent}>
-            <View style={styles.aiIconContainer}>
-              <Ionicons name="bulb" size={28} color={ArchivesTheme.colors.persianOrange} />
-            </View>
-            <View style={styles.promptTextContainer}>
-              <Text style={styles.promptTitle}>Get AI-powered explanations</Text>
-              <Text style={styles.promptSubtitle}>
-                Understand all {questions.length} questions with personalized insights
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={ArchivesTheme.colors.shoeBrown} />
-          </View>
-        </TouchableOpacity>
-      ) : (
-        // Explanations list
-        <Animated.View style={[styles.explanationsContainer, { opacity: fadeAnim }]}>
-          <View style={styles.explanationsHeader}>
-            <Text style={styles.explanationsTitle}>AI Learning Assistant</Text>
-            <Text style={styles.explanationsSubtitle}>
-              Personalized explanations to help you learn
-            </Text>
-          </View>
-
-          {loadingAll || timedOut ? (
-            <View style={styles.loadingContainer}>
-              {timedOut ? (
-                <>
-                  <Ionicons name="time-outline" size={40} color={ArchivesTheme.colors.shoeBrown} />
-                  <Text style={styles.timeoutTitle}>Taking longer than expected</Text>
-                  <Text style={styles.timeoutSubtitle}>
-                    The AI is still working. You can try again{retryCount < MAX_RETRIES ? '' : ' later'}.
-                  </Text>
-                  {retryCount < MAX_RETRIES && (
-                    <TouchableOpacity style={styles.retryButton} onPress={handleRetryExplanations}>
-                      <Ionicons name="refresh" size={18} color="white" />
-                      <Text style={styles.retryButtonText}>Try Again</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              ) : (
-                <>
-                  <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
-                  <Text style={styles.loadingText}>Generating explanations...</Text>
-                </>
-              )}
-            </View>
-          ) : isSubscribed ? (
-            // ── 🔓 PREMIUM: show all explanations normally ────────────────
-            <ScrollView style={styles.explanationsList} showsVerticalScrollIndicator={false} nestedScrollEnabled>
-              {explanations.map((item) => (
-                <ExplanationCard key={item.questionNumber} item={item} />
-              ))}
-            </ScrollView>
-          ) : (
-            // ── 🔒 FREE: full Q1 + ghosted Q2 peek + paywall ────────────
-            <View style={styles.paywallWrapper}>
-
-              {/* Q1 card — fully visible */}
-              {explanations[0] && <ExplanationCard item={explanations[0]} />}
-
-              {/* Ghosted Q2 peek to hint more content behind paywall */}
-              {explanations[1] && (
-                <View style={styles.ghostPreviewWrapper} pointerEvents="none">
-                  <ExplanationCard item={{ ...explanations[1], aiExplanation: undefined, loading: false, error: undefined }} />
-                </View>
-              )}
-
-              {/* Paywall card */}
-              <Animated.View
-                style={[
-                  styles.paywallCard,
-                  {
-                    opacity: paywallAnim,
-                    transform: [
-                      {
-                        translateY: paywallAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [20, 0],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalRoot}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        <SafeAreaView style={styles.sheet} edges={['bottom']}>
+          <View style={styles.grabHandle} />
+          <View style={styles.headerRow}>
+            <View style={styles.headerText}>
+              <Typography
+                family="onest"
+                size="md"
+                weight="600"
+                color="onyx"
               >
-                <Text style={styles.paywallTitle}>Unlock All Explanations</Text>
-                <Text style={styles.paywallSubtitle}>
-                  You are seeing a preview of Q1. Upgrade to get explanations for all {questions.length} questions.
-                </Text>
-
-                {/* Feature rows */}
-                <View style={styles.featureBox}>
-                  {[
-                    '✦  AI explanations for every question',
-                    '✦  Understand your mistakes deeply',
-                    '✦  Personalized study tips',
-                    '✦  Unlimited quiz attempts',
-                  ].map((f) => (
-                    <Text key={f} style={styles.featureRow}>{f}</Text>
-                  ))}
-                </View>
-
-                {/* CTA */}
-                <TouchableOpacity
-                  style={styles.ctaButton}
-                  onPress={handleShowPaywall}
-                  activeOpacity={0.85}
-                >
-                  <LinearGradient
-                    colors={['#D1A659', '#B88C47']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.ctaGradient}
-                  >
-                    <Text style={styles.ctaText}>Upgrade to Premium</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleShowPaywall}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.restoreText}>Already subscribed? Restore purchase</Text>
-                </TouchableOpacity>
-              </Animated.View>
+                AI Learning Assistant
+              </Typography>
+              <Typography
+                family="onest"
+                size="sm"
+                weight="500"
+                color="onyx"
+                style={styles.headerSubtitle}
+              >
+                Personalized explanations to help you learn
+              </Typography>
             </View>
-          )}
-        </Animated.View>
-      )}
-    </View>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              style={styles.closeButton}
+              accessibilityRole="button"
+              accessibilityLabel="Close explanations"
+            >
+              <Ionicons name="close" size={24} color={colors.onyx} />
+            </Pressable>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.body}>{renderContent()}</View>
+        </SafeAreaView>
+      </View>
+    </Modal>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-  },
+// ─── Styles ────────────────────────────────────────────────────────────
 
-  // Prompt Card
-  promptCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 2,
-    borderColor: ArchivesTheme.colors.persianOrange,
-    shadowColor: 'black',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+const SHEET_HEIGHT = Dimensions.get('window').height * 0.8;
+
+const styles = StyleSheet.create({
+  // Modal root — full-screen container. `flex: 1` + `justifyContent:
+  // 'flex-end'` parks the sheet at the bottom of the viewport regardless
+  // of phone size. The backdrop fills above the sheet.
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
-  promptContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  // Translucent veil above the sheet — taps close the modal.
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
-  aiIconContainer: {
+  // The actual bottom sheet. Fixed height = 80% of window so the
+  // experience is identical on iOS and Android (pageSheet would have
+  // varied across platforms). Rounded corners ONLY on top so the sheet
+  // looks anchored to the bottom edge.
+  sheet: {
+    height: SHEET_HEIGHT,
+    backgroundColor: colors.snow,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  // iOS-style grab handle, drawn manually because we're not using
+  // `pageSheet` (which would render one for free). Centered, narrow,
+  // visually telegraphs "this can be dismissed by swiping" — even though
+  // dismissal here goes through onRequestClose / backdrop tap rather
+  // than a real PanResponder.
+  grabHandle: {
+    alignSelf: 'center',
     width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(201, 145, 81, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(26,26,26,0.2)',
+    marginTop: 8,
+    marginBottom: 4,
   },
-  promptTextContainer: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 14,
+  },
+  headerText: {
     flex: 1,
   },
-  promptTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 4,
+  headerSubtitle: {
+    marginTop: 4,
   },
-  promptSubtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
-  },
-
-  // Explanations Wrapper
-  explanationsContainer: {
-    backgroundColor: 'white',
+  // Close button styled to match the Settings modal close (see
+  // `ArchivesTheme.common.closeButton` and `app/(tabs)/profile.tsx:1159`):
+  // 32×32 white circle with a subtle drop shadow + 16px radius. Shared
+  // visual language across all bottom modals in the app.
+  closeButton: {
+    width: 32,
+    height: 32,
     borderRadius: 16,
-    padding: 20,
-    shadowColor: 'black',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    shadowColor: 'rgba(0,0,0,0.1)',
     shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  explanationsHeader: {
-    marginBottom: 16,
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(26,26,26,0.15)',
+    marginHorizontal: 24,
   },
-  explanationsTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 4,
-  },
-  explanationsSubtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
+  body: {
+    flex: 1,
   },
 
-  // Loading
-  loadingContainer: {
-    paddingVertical: 40,
+  // Subscribed: scroll list
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
+  },
+
+  // Free tier
+  freeWrap: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+  },
+  freeQ1: {
+    // Q1 visible at top — flexShrink so it doesn't push the paywall off
+    // the bottom of the sheet. Effectively gets the upper portion of the
+    // available height; the paywall overlay below claims the rest.
+    flexShrink: 0,
+  },
+  paywallOverlay: {
+    // The Figma overlays the paywall card on top of where Q2/Q3 would
+    // sit. With Q1 above and `marginTop: auto`, the card hugs the bottom
+    // of the sheet, leaving Q1 fully visible and creating a hard visual
+    // gate below.
+    marginTop: 'auto',
+    paddingBottom: 8,
+  },
+
+  // Loading / timeout
+  loadingBlock: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
   },
   loadingText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
     marginTop: 12,
   },
-
-  // Premium: full list
-  explanationsList: {
-    maxHeight: 400,
-  },
-
-  // ── Paywall layout ──────────────────────────────────────────────────────
-
-  paywallWrapper: {
-    position: 'relative',
-  },
-
-  // Ghosted Q2 preview — clipped and dimmed to hint at more content
-  ghostPreviewWrapper: {
-    maxHeight: 70,
-    overflow: 'hidden',
-    opacity: 0.3,
-  },
-
-  // Paywall card sits below the ghosted Q2 preview
-  paywallCard: {
-    backgroundColor: ArchivesTheme.colors.creamWhite ?? '#FDFCF9',
-    borderRadius: 20,
-    padding: 28,
-    marginTop: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(201,145,81,0.2)',
-    shadowColor: 'black',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-    gap: 16,
-  },
-  paywallTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '700',
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: 'center',
-  },
-  paywallSubtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: '#666666',
-    textAlign: 'center',
-    lineHeight: 21,
-  },
-  featureBox: {
-    alignSelf: 'stretch',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#E0D9C7',
-    gap: 12,
-  },
-  featureRow: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#404040',
-    lineHeight: 20,
-  },
-  ctaButton: {
-    width: '100%',
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  ctaGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  ctaText: {
-    fontFamily: 'DM Sans',
-    color: 'white',
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  restoreText: {
-    fontFamily: 'DM Sans',
-    fontSize: 12,
-    color: ArchivesTheme.colors.shoeBrown,
-  },
-
-  // Explanation Card (shared between premium + preview)
-  explanationCard: {
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  questionBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  questionBadgeText: {
-    fontFamily: 'DM Sans',
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'white',
-  },
-  questionText: {
-    fontFamily: 'DM Sans',
-    fontSize: 15,
-    fontWeight: '500',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 12,
-  },
-  answersContainer: {
-    marginBottom: 12,
-  },
-  answerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  answerLabel: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: ArchivesTheme.colors.shoeBrown,
-    marginLeft: 6,
-    marginRight: 4,
-  },
-  userAnswerText: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: '#E74C3C',
-    flex: 1,
-  },
-  correctAnswerText: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: '#27AE60',
-    flex: 1,
-    fontWeight: '500',
-  },
-  aiExplanationContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  aiExplanationText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.mutedNavy,
-    lineHeight: 20,
-    marginLeft: 8,
-    flex: 1,
-  },
-  explanationLoading: {
-    padding: 12,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: '#E74C3C',
-    textAlign: 'center',
-  },
-  // Timeout state
   timeoutTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy,
     marginTop: 12,
     textAlign: 'center',
   },
   timeoutSubtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
     marginTop: 4,
     textAlign: 'center',
-    lineHeight: 20,
   },
-  retryButton: {
+  retryWrap: {
+    marginTop: 16,
+  },
+  retryText: {
+    marginLeft: 6,
+  },
+});
+
+const cardStyles = StyleSheet.create({
+  wrap: {
+    paddingBottom: 16,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.snow,
+    borderRadius: 12.5,
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    marginBottom: 12,
+  },
+  question: {
+    marginBottom: 10,
+  },
+  answerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  explanationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingLeft: 4,
+  },
+  bulbIcon: {
+    marginTop: 2,
+  },
+  explanationText: {
+    flex: 1,
+    marginLeft: 12,
+    lineHeight: 22,
+  },
+  errorText: {
+    color: colors.incorrectSecondary,
+  },
+  loadingBlock: {
+    paddingVertical: 12,
+    alignItems: 'flex-start',
+    paddingLeft: 4,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(26,26,26,0.18)',
+    marginTop: 16,
+  },
+});
+
+const paywallStyles = StyleSheet.create({
+  // Light-blue surface, NO border. Figma's 0.1px border is effectively
+  // invisible at native render so we drop it — fewer paint ops on Android,
+  // and the card reads cleaner without the dark hairline.
+  card: {
+    backgroundColor: colors.blueSecondary,
+    borderRadius: 17,
+    padding: 16,
+    marginBottom: 16,
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    marginTop: 16,
-    gap: 6,
+    gap: 8,
+    marginBottom: 10,
   },
-  retryButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'white',
+  title: {
+    flex: 1,
+  },
+  subtitle: {
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  // Inner white card holds the feature list (Figma 3527:6477 — width 271
+  // on a 313 outer card, ~21px side padding).
+  featureBox: {
+    backgroundColor: colors.snow,
+    borderRadius: 17,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 6,
+    marginBottom: 16,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  featureIcon: {
+    marginRight: 12,
+  },
+  featureText: {
+    flex: 1,
+    lineHeight: 18,
+  },
+  // CTA hugs the feature box width edge-to-edge — no outer wrap padding.
+  cta: {
+    marginBottom: 12,
+  },
+  restore: {
+    textAlign: 'center',
   },
 });

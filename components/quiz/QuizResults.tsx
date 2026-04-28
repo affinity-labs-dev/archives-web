@@ -761,23 +761,6 @@ export default function QuizResults({
           />
         </AnimatedEntrance>
 
-        {/* AI explanations expand inline once user taps "Understand your
-            answers". Hidden by default to match Figma's clean results view.
-            Sits above the bottom group so it pushes the pills + CTA further
-            down rather than overflowing the screen. */}
-        {showExplanations && questions.length > 0 && userAnswers.length > 0 && (
-          <View style={styles.explanationsWrap}>
-            <AIQuizExplanation
-              questions={questions}
-              userAnswers={userAnswers}
-              eraName={eraName}
-              adventureName={`Adventure ${adventureNumber}`}
-              adventureId={adventureId}
-              moduleId={moduleId}
-            />
-          </View>
-        )}
-
         {/* Bottom-anchored group — pills + CTA. `marginTop: 'auto'` consumes
             the leftover ScrollView height so this stack hugs the bottom of
             the viewport on tall phones (matching Figma's CTA at y≈752 on
@@ -836,6 +819,23 @@ export default function QuizResults({
         startVelocity={70}
         duration={2200}
         gravity={1.0}
+      />
+
+      {/* AI explanations bottom-sheet — always mounted (the component
+          handles its own Modal visibility), driven by `showExplanations`
+          which the "Understand your answers" pill toggles. Living at the
+          SafeAreaView root keeps it above the ScrollView + ConfettiBurst
+          z-stack so the pageSheet renders cleanly even if confetti is
+          mid-flight when the user taps the pill. */}
+      <AIQuizExplanation
+        visible={showExplanations}
+        onClose={() => setShowExplanations(false)}
+        questions={questions}
+        userAnswers={userAnswers}
+        eraName={eraName}
+        adventureName={`Adventure ${adventureNumber}`}
+        adventureId={adventureId}
+        moduleId={moduleId}
       />
     </SafeAreaView>
   );

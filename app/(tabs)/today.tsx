@@ -4,7 +4,6 @@
 import TodayScrollableLesson from "@/components/lessons/today/TodayScrollableLesson";
 import TodayVideoLesson from "@/components/lessons/today/TodayVideoLesson";
 import Quiz from "@/components/quiz/Quiz";
-import QuizResults from "@/components/quiz/QuizResults";
 import TodayLessonChrome from "@/components/today/TodayLessonChrome";
 import TodayCalendar from "@/components/today/TodayCalendar";
 import TodayCardDeck from "@/components/today/TodayCardDeck";
@@ -111,22 +110,6 @@ export default function TodayScreen() {
   // hide the chrome's progress bar (back button stays). The "Progress
   // today" indicator doesn't read on top of a results summary.
   const [isQuizResultsVisible, setIsQuizResultsVisible] = useState(false);
-
-  // ─── AFF-818 dev mock: trigger QuizResults from "Start my day" ────────
-  // When ENABLED, tapping "Start my day" cycles through the 3 score tiers
-  // (1/3, 2/3, 3/3) and renders QuizResults in a fullscreen modal so the
-  // redesigned UI can be inspected without going through the video →
-  // reading → quiz flow each time. Toggle off (or strip this block) before
-  // shipping.
-  const MOCK_QUIZ_RESULTS = __DEV__;
-  const [mockResultsVisible, setMockResultsVisible] = useState(false);
-  const [mockTierIndex, setMockTierIndex] = useState(0);
-  const mockTiers = [
-    { correct: 1, total: 3, label: "1/3 (low — NICE EFFORT!)" },
-    { correct: 2, total: 3, label: "2/3 (medium — YOU'VE GOT THIS!)" },
-    { correct: 3, total: 3, label: "3/3 (high — AMAZING JOB!)" },
-  ];
-  const activeMockTier = mockTiers[mockTierIndex];
 
   // Track page view for Today tab
   useFocusEffect(
@@ -799,13 +782,6 @@ export default function TodayScreen() {
             isFullWidth
             variant="secondary"
             onPress={() => {
-              // AFF-818 dev mock: jump straight to QuizResults, cycling
-              // through 1/3 → 2/3 → 3/3 on each tap so we can eyeball
-              // every tier visually without re-running the quest flow.
-              if (MOCK_QUIZ_RESULTS) {
-                setMockResultsVisible(true);
-                return;
-              }
               if (progress === 100) {
                 openModal("video");
               } else if (!watchCompleted) {
@@ -818,11 +794,7 @@ export default function TodayScreen() {
             }}
           >
             <Typography variant="label.m" color="white">
-              {MOCK_QUIZ_RESULTS
-                ? `MOCK RESULTS · ${activeMockTier.label}`
-                : progress === 100
-                  ? "RESTART MY DAY"
-                  : "START MY DAY"}
+              {progress === 100 ? "RESTART MY DAY" : "START MY DAY"}
             </Typography>
           </DepthButton>
         </AnimatedEntrance>
@@ -866,47 +838,6 @@ export default function TodayScreen() {
             </SafeAreaProvider>
           </Modal>
         )}
-
-      {/* AFF-818 dev mock — fullscreen QuizResults preview triggered from
-          "Start my day". Each Continue tap advances tier; each Back closes
-          the modal. Lives outside the main quest modal block so it never
-          competes with slotA/slotB rendering. */}
-      {MOCK_QUIZ_RESULTS && mockResultsVisible && (
-        <Modal
-          visible
-          animationType="slide"
-          presentationStyle="fullScreen"
-          statusBarTranslucent
-          onRequestClose={() => setMockResultsVisible(false)}
-        >
-          <SafeAreaProvider>
-            <QuizResults
-              correctAnswers={activeMockTier.correct}
-              totalQuestions={activeMockTier.total}
-              totalPoints={activeMockTier.correct * 10}
-              adventureId="mock_adventure"
-              moduleId="mock_module"
-              eraId="mock_era"
-              eraName="Daily Quest"
-              adventureNumber={1}
-              moduleNumber={1}
-              questions={[]}
-              userAnswers={[]}
-              isToday
-              moduleTitle="Mock Module"
-              onBack={() => setMockResultsVisible(false)}
-              onContinue={() => {
-                // Cycle tier 0 → 1 → 2 → 0 ... and re-open so each tap of
-                // Continue replays the entrance with the next tier.
-                setMockResultsVisible(false);
-                setMockTierIndex((i) => (i + 1) % mockTiers.length);
-                // Re-open on next tick so AnimatedEntrance unmounts/remounts.
-                setTimeout(() => setMockResultsVisible(true), 50);
-              }}
-            />
-          </SafeAreaProvider>
-        </Modal>
-      )}
 
     </View>
   );

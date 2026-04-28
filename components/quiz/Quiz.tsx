@@ -528,7 +528,6 @@ export default function Quiz({
         totalQuestions={totalQuestions}
         totalPoints={score}
         onContinue={handleQuizCompletion}
-        onBack={onBack}
         adventureId={adventureId}
         moduleId={moduleId}
         eraId={eraId}
@@ -537,7 +536,6 @@ export default function Quiz({
         moduleNumber={moduleNumber}
         questions={questions}
         userAnswers={userAnswers}
-        isToday={isToday}
         moduleTitle={contentItem.thumbnail_title || undefined}
       />
     );
