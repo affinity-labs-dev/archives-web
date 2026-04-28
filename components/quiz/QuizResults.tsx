@@ -1,132 +1,66 @@
-// QuizResults.tsx - Percentage-based quiz results screen for all eras
-// Shows 3 different screens based on score percentage: <34%, 34-70%, >=70%
-
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Animated,
-  Platform,
-  StatusBar,
   Dimensions,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { VideoView } from 'expo-video';
-import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+
+import { AnimatedEntrance } from '@/components/ui/animations';
+import {
+  ConfettiBurst,
+  DepthButton,
+  Typography,
+  colors,
+  safeDuration,
+  type ConfettiBurstHandle,
+} from '@/components/ui';
 import { analyticsService } from '@/services/AnalyticsService';
-import { useGamifiedProgress, useAI } from '@/gamification';
+import { useAI } from '@/gamification';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
-import ArchivesTheme from '@/constants/ArchivesTheme';
 import AppLogger from '@/services/AppLogger';
 import AIQuizExplanation from './AIQuizExplanation';
-import type { Question } from '@/components/shared/types';
 import AIChatModal from '@/gamification/ui/ai/AIChatModal';
+import type { Question } from '@/components/shared/types';
+import {
+  ActionPill,
+  HIGH_TIER_CONFETTI_PALETTE,
+  Mascot,
+  ScoreCard,
+  TIER_SPECS,
+  tierFor,
+} from './results';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Handles results for era quizzes and Today screen (isToday=true hides XP display)
+// ─── Public types ──────────────────────────────────────────────────────────
+
 interface QuizResultsProps {
   correctAnswers: number;
   totalQuestions: number;
   totalPoints: number;
   onContinue: () => void;
   onBack?: () => void;
-  // Context for analytics
   adventureId: string;
   moduleId: string;
   eraId: string;
   eraName: string;
   adventureNumber: number;
   moduleNumber: number;
-  // AI Explanation data
   questions?: Question[];
   userAnswers?: number[];
-  // Today mode - hide XP display
-  isToday?: boolean;  // true when called from Today screen
-  // Module title for Chat to Learn
+  isToday?: boolean;
   moduleTitle?: string;
 }
 
-// Video Reward Player - Score-based celebration videos (3-tier system)
-function getRewardVideo(percentage: number) {
-  // 70% or above = quiz-reward3
-  if (percentage >= 70) {
-    return require('@/assets/videos/quiz_reward/quiz-reward3.mp4');
-  }
-  // 34-69% = quiz-reward2
-  if (percentage >= 34) {
-    return require('@/assets/videos/quiz_reward/quiz-reward2.mp4');
-  }
-  // Below 34% = quiz-reward1
-  return require('@/assets/videos/quiz_reward/quiz-reward1.mp4');
-}
-
-interface VideoRewardPlayerProps {
-  percentage: number;
-}
-
-function VideoRewardPlayer({ percentage }: VideoRewardPlayerProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const videoSource = getRewardVideo(percentage);
-
-  const player = useCelebrationVideoPlayer(videoSource, (player) => {
-    player.loop = false;
-  });
-
-  // Track when video is ready
-  useEffect(() => {
-    if (player.status === 'readyToPlay' || player.status === 'idle') {
-      setIsLoaded(true);
-    }
-  }, [player.status]);
-
-  // Debug logging
-  useEffect(() => {
-    if (__DEV__) console.log('🎬 Quiz reward video status:', player.status);
-  }, [player.status]);
-
-  return (
-    <View style={styles.videoRewardContainer}>
-      <VideoView
-        player={player}
-        style={styles.videoRewardPlayer}
-        nativeControls={false}
-        contentFit="contain"
-        fullscreenOptions={{ enable: false }}
-        allowsPictureInPicture={false}
-        surfaceType="textureView"
-      />
-    </View>
-  );
-}
-
-// Get dynamic messages based on percentage (matching Umayyad Dynasty)
-function getResultMessages(percentage: number): {
-  title: string;
-  subtitle: string;
-  themeColor: string;
-} {
-  // Above 70% = Brilliant Effort!
-  if (percentage >= 70) {
-    return {
-      title: 'Brilliant Effort!',
-      subtitle: "You're getting better every time",
-      themeColor: ArchivesTheme.colors.mutedNavy,
-    };
-  }
-  // Below 70% = You've Got This!
-  return {
-    title: "You've Got This!",
-    subtitle: 'Revisit the lessons & try again',
-    themeColor: ArchivesTheme.colors.mutedNavy,
-  };
-}
+// ─── Main component ────────────────────────────────────────────────────────
 
 export default function QuizResults({
   correctAnswers,
@@ -145,83 +79,92 @@ export default function QuizResults({
   isToday = false,
   moduleTitle,
 }: QuizResultsProps) {
-  // Calculate percentage
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
-  const messages = getResultMessages(percentage);
+  const tier = tierFor(percentage);
+  const spec = TIER_SPECS[tier];
 
-  // Access progress context for XP calculations
-  const { calculateTotalXP, moduleProgress } = useGamifiedProgress();
   const {
     openChatToLearn,
     messages: aiMessages,
     currentContext,
   } = useAI();
   const { isSubscribed } = useRevenueCat();
-  const isPaywallPresentedRef = React.useRef(false);
+
+  const isPaywallPresentedRef = useRef(false);
   const [openChat, setOpenChat] = useState(false);
-  const [newUserProgress, setNewUserProgress] = useState<any[]>([]);
+  const [showExplanations, setShowExplanations] = useState(false);
 
-  // Load new user progress data for XP calculations
+  // Tier-3 confetti — timing + origin matched to the HTML mock:
+  //   • Fires AFTER the count-up finishes (mock fires at `celebAt =
+  //     countDone + 0.05s`, ≈2100ms after entrance start). This lets the
+  //     user's eye lock onto "100%" before the celebration explodes —
+  //     firing during the count-up steals attention from the number.
+  //   • Origin = score-card center, not the mascot zone above. Mock fires
+  //     from `(0.5, 0.574)` of the canvas — that's the center of the gold
+  //     card. Particles burst UP from there, arc, then fall back across
+  //     the card. Firing from above (mascot zone) would have particles
+  //     flying off the top of the screen, missing the card entirely.
+  const confettiRef = useRef<ConfettiBurstHandle>(null);
+  const hasFiredConfettiRef = useRef(false);
   useEffect(() => {
-    const loadNewProgress = async () => {
-      try {
-        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-        const data = await AsyncStorage.getItem('new_user_progress');
-        if (data) {
-          setNewUserProgress(JSON.parse(data));
-        }
-      } catch (error) {
-        AppLogger.error('quiz', 'Failed to load new user progress', {}, error);
-      }
-    };
-    loadNewProgress();
-  }, []);
-
-  // Calculate total XP after quiz - hook function uses internal state
-  const totalXP = calculateTotalXP();
-
-  // Determine performance tier based on percentage
-  const getPerformanceTier = (pct: number): 'high' | 'medium' | 'low' => {
-    if (pct >= 70) return 'high';
-    if (pct >= 34) return 'medium';
-    return 'low';
-  };
-
-  const handleOpenChatToLearn = (hiddenMessage: string) => {
-    openChatToLearn(hiddenMessage);
-    setOpenChat(true);
-  }
-
-  const handleCloseChatToLearn = () => {
-    setOpenChat(false);
-  }
-
-  // Track quiz results viewed ONCE when component mounts (useRef guard prevents re-render duplication)
-  const hasTrackedResultsRef = React.useRef(false);
-  React.useEffect(() => {
-    if (hasTrackedResultsRef.current) return;
-    // Only track once totalXP is calculated
-    if (totalXP > 0 || newUserProgress.length > 0 || moduleProgress.length > 0) {
-      hasTrackedResultsRef.current = true;
-      analyticsService.trackQuizResultsViewed({
-        adventure_id: adventureId,
-        module_id: moduleId,
-        quiz_id: moduleId, // Using moduleId as quiz_id since they're the same in ROI
-        correct_answers: correctAnswers,
-        total_questions: totalQuestions,
-        percentage,
-        total_points: totalPoints,
-        performance_tier: getPerformanceTier(percentage),
-        era_id: eraId,
-        era_name: eraName,
-        adventure_number: adventureNumber,
-        module_number: moduleNumber,
+    if (tier !== 'high') return;
+    if (hasFiredConfettiRef.current) return;
+    const timer = setTimeout(() => {
+      if (hasFiredConfettiRef.current) return;
+      hasFiredConfettiRef.current = true;
+      confettiRef.current?.fire({
+        x: SCREEN_WIDTH / 2,
+        // y = 0.7 puts the origin near the action pills / lower third of
+        // the screen. Combined with a wide 120° spread + high velocity,
+        // particles burst UP from there and have ~70% of the screen
+        // height to travel before gravity pulls them back — they end up
+        // covering the headline + score card on the way up AND on the
+        // way down. Firing higher (e.g. 0.55 = card center) clipped the
+        // top half of the trajectory off the screen too quickly.
+        y: SCREEN_HEIGHT * 0.7,
       });
-      AppLogger.info('quiz', 'Quiz results viewed', { percentage });
-    }
-  }, [totalXP, newUserProgress, moduleProgress]);
+    }, safeDuration(2100));
+    return () => clearTimeout(timer);
+  }, [tier]);
 
-  const buildChatMessage = () => {
+  // ─── Analytics: results viewed (fire once) ────────────────────────────
+  const hasTrackedResultsRef = useRef(false);
+  useEffect(() => {
+    if (hasTrackedResultsRef.current) return;
+    hasTrackedResultsRef.current = true;
+    const performanceTier =
+      tier === 'high' ? 'high' : tier === 'medium' ? 'medium' : 'low';
+    analyticsService.trackQuizResultsViewed({
+      adventure_id: adventureId,
+      module_id: moduleId,
+      quiz_id: moduleId,
+      correct_answers: correctAnswers,
+      total_questions: totalQuestions,
+      percentage,
+      total_points: totalPoints,
+      performance_tier: performanceTier,
+      era_id: eraId,
+      era_name: eraName,
+      adventure_number: adventureNumber,
+      module_number: moduleNumber,
+    });
+    AppLogger.info('quiz', 'Quiz results viewed', { percentage, tier });
+  }, [
+    tier,
+    adventureId,
+    moduleId,
+    correctAnswers,
+    totalQuestions,
+    percentage,
+    totalPoints,
+    eraId,
+    eraName,
+    adventureNumber,
+    moduleNumber,
+  ]);
+
+  // ─── Chat-to-Learn handler (kept identical to legacy behavior) ────────
+  const buildChatMessage = useCallback(() => {
     const incorrectList = questions
       .map((q, i) => {
         const userAnswerIdx = userAnswers[i];
@@ -237,17 +180,25 @@ export default function QuizResults({
     return incorrectList
       ? `I just finished the quiz on "${title}" in ${eraName}. I got ${correctAnswers}/${totalQuestions} correct (${percentage}%). Here are the questions I got wrong:\n${incorrectList}\n\nHelp me understand these topics better with real historical context.`
       : `I just finished the quiz on "${title}" in ${eraName} and got all ${totalQuestions} questions correct (${percentage}%)! Can you share some deeper historical details about this topic that I might not have learned in the lessons?`;
-  };
+  }, [
+    questions,
+    userAnswers,
+    moduleTitle,
+    moduleNumber,
+    eraName,
+    correctAnswers,
+    totalQuestions,
+    percentage,
+  ]);
 
-  const openChatWithContext = () => {
-    const hiddenMessage = buildChatMessage();
-    handleOpenChatToLearn(hiddenMessage);
-  };
+  const openChatWithContext = useCallback(() => {
+    openChatToLearn(buildChatMessage());
+    setOpenChat(true);
+  }, [buildChatMessage, openChatToLearn]);
 
-  const handleChatToLearn = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const handleChatToLearn = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
-    // Track chat to learn click
     analyticsService.trackCustomEvent('quiz_results_chat_to_learn_clicked', {
       adventure_id: adventureId,
       module_id: moduleId,
@@ -259,20 +210,18 @@ export default function QuizResults({
       total_questions: totalQuestions,
       is_subscriber: isSubscribed,
     });
-    AppLogger.info('quiz', 'Chat to Learn clicked', { is_subscriber: isSubscribed });
+    AppLogger.info('quiz', 'Chat to Learn clicked', {
+      is_subscriber: isSubscribed,
+    });
 
-    // Premium users go straight to chat
     if (isSubscribed) {
       openChatWithContext();
       return;
     }
-
-    // Free users see the paywall first
     if (isPaywallPresentedRef.current) return;
 
     try {
       isPaywallPresentedRef.current = true;
-
       analyticsService.trackCustomEvent('chat_to_learn_paywall_shown', {
         adventure_id: adventureId,
         module_id: moduleId,
@@ -280,53 +229,65 @@ export default function QuizResults({
         era_name: eraName,
         trigger: 'chat_to_learn',
       });
-
       const result = await RevenueCatUI.presentPaywall();
 
       switch (result) {
         case PAYWALL_RESULT.PURCHASED:
         case PAYWALL_RESULT.RESTORED: {
-          AppLogger.info('subscription', `Chat to Learn paywall ${result === PAYWALL_RESULT.PURCHASED ? 'purchase' : 'restore'} completed`);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
+          AppLogger.info(
+            'subscription',
+            `Chat to Learn paywall ${result === PAYWALL_RESULT.PURCHASED ? 'purchase' : 'restore'} completed`,
+          );
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          ).catch(() => {});
           if (result === PAYWALL_RESULT.PURCHASED) {
             analyticsService.trackSubscribePurchaseCompleted({
               trigger: 'chat_to_learn',
             });
           }
-
-          // User subscribed — proceed to chat
           openChatWithContext();
           break;
         }
-
         case PAYWALL_RESULT.CANCELLED:
-          AppLogger.info('subscription', 'Chat to Learn paywall cancelled');
           analyticsService.trackSubscribePurchaseCancelled({
             trigger: 'chat_to_learn',
           });
           break;
-
         case PAYWALL_RESULT.NOT_PRESENTED:
           AppLogger.warn('subscription', 'Chat to Learn paywall not presented');
           break;
-
         case PAYWALL_RESULT.ERROR:
           AppLogger.error('subscription', 'Chat to Learn paywall error');
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Error,
+          ).catch(() => {});
           break;
       }
     } catch (error) {
-      AppLogger.error('subscription', 'Chat to Learn paywall exception', {}, error);
+      AppLogger.error(
+        'subscription',
+        'Chat to Learn paywall exception',
+        {},
+        error,
+      );
     } finally {
       isPaywallPresentedRef.current = false;
     }
-  };
+  }, [
+    adventureId,
+    moduleId,
+    correctAnswers,
+    totalQuestions,
+    eraId,
+    eraName,
+    percentage,
+    isSubscribed,
+    openChatWithContext,
+  ]);
 
-  const handleContinue = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // Track continue button click with full context
+  const handleContinue = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     analyticsService.trackCustomEvent('quiz_results_continue_clicked', {
       adventure_id: adventureId,
       module_id: moduleId,
@@ -338,323 +299,261 @@ export default function QuizResults({
       correct_answers: correctAnswers,
       total_questions: totalQuestions,
       total_points: totalPoints,
-      total_xp_after: totalXP,
     });
     AppLogger.info('quiz', 'Quiz results continue clicked');
-
     onContinue();
-  };
+  }, [
+    adventureId,
+    moduleId,
+    eraId,
+    eraName,
+    adventureNumber,
+    moduleNumber,
+    percentage,
+    correctAnswers,
+    totalQuestions,
+    totalPoints,
+    onContinue,
+  ]);
+
+  const handleToggleExplanations = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setShowExplanations((prev) => !prev);
+  }, []);
+
+  // ─── StatusBar imperative one-shot ────────────────────────────────────
+  // The previous JSX `<StatusBar>` at the top of the render tree re-applied
+  // its props on every commit. On Android, each commit re-fires window
+  // flags through the bridge → WindowManager re-layout → the entire
+  // SafeAreaView + child stack shifts by a frame on every state change
+  // (showExplanations toggle, openChat toggle, AnimatedEntrance progress,
+  // etc.) — visible to the user as the screen "jumping up and down."
+  // Same root cause + fix that Quiz.tsx applied (see Quiz.tsx:128). Fires
+  // once on mount; deps include `isToday` so a remount with different
+  // mode picks up the right config.
+  useEffect(() => {
+    if (isToday) return; // Today chrome owns the status bar
+    StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setBackgroundColor(colors.snow);
+    }
+  }, [isToday]);
+
+  // Mascot entrance preset varies by tier — high tier uses elastic overshoot
+  // for a more celebratory feel, low/medium use a gentler back.out(2) drop.
+  const mascotPreset = useMemo(
+    () => (tier === 'high' ? 'elasticHeroDrop' : 'dropFromAbove'),
+    [tier],
+  );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {Platform.OS === 'android' && (
-        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
-      )}
+    <SafeAreaView style={styles.container} edges={isToday ? [] : ['top']}>
+      {/* StatusBar config moved to the mount-time useEffect above. JSX
+          <StatusBar> here re-applied on every render — same Android
+          window-flag re-fire bug Quiz.tsx already worked around. */}
 
       <AIChatModal
         visible={openChat}
-        onClose={handleCloseChatToLearn}
+        onClose={() => setOpenChat(false)}
         initialMessages={aiMessages}
         context={currentContext}
       />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          {/* Video Reward Player with overlaid back button */}
-          <View style={styles.videoWrapper}>
-            <VideoRewardPlayer percentage={percentage} />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Optional back button — only when caller passes onBack and not in
+            Today mode (Today's chrome already provides one). */}
+        {onBack && !isToday && (
+          <Pressable style={styles.backButton} onPress={onBack} hitSlop={12}>
+            <Ionicons name="chevron-back" size={24} color={colors.onyx} />
+          </Pressable>
+        )}
 
-            {/* Back button overlaid on video */}
-            {onBack && (
-              <TouchableOpacity style={styles.backButtonOverlay} onPress={onBack}>
-                <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-              </TouchableOpacity>
-            )}
-          </View>
+        {/* 1. Mascot — 100ms delay */}
+        <AnimatedEntrance preset={mascotPreset} delay={100}>
+          <Mascot tier={tier} />
+        </AnimatedEntrance>
 
-          {/* Title */}
-          <Text style={[styles.title, { color: messages.themeColor }]}>
-            {messages.title}
-          </Text>
+        {/* 2. Headline — 450ms delay */}
+        <AnimatedEntrance preset="riseSoft" delay={450}>
+          <Typography
+            variant="display.large"
+            family="bounded"
+            color="onyx"
+            align="center"
+            style={styles.headline}
+          >
+            {spec.title}
+          </Typography>
+        </AnimatedEntrance>
 
-          {/* Subtitle */}
-          <Text style={styles.subtitle}>
-            {messages.subtitle}
-          </Text>
+        {/* 3. Subhead — 700ms delay */}
+        <AnimatedEntrance preset="riseSubtle" delay={700}>
+          <Typography
+            family="onest"
+            size="lg"
+            weight="600"
+            color="black"
+            align="center"
+            style={styles.subhead}
+          >
+            {spec.subtitle}
+          </Typography>
+        </AnimatedEntrance>
 
-          {/* Statistics card */}
-          <View style={styles.statsCard}>
-            <View style={styles.statsRow}>
-              <View style={styles.statsLeft}>
-                <Text style={[
-                  styles.percentageText,
-                  { color: messages.themeColor }
-                ]}>
-                  {percentage}%
-                </Text>
-                <Text style={styles.finalScoreText}>Final Score</Text>
-              </View>
+        {/* 4. Score card — 850ms delay (count-up starts at 1150ms) */}
+        <AnimatedEntrance preset="riseCard" delay={850}>
+          <ScoreCard
+            percentage={percentage}
+            totalPoints={totalPoints}
+            correctAnswers={correctAnswers}
+            totalQuestions={totalQuestions}
+            spec={spec}
+          />
+        </AnimatedEntrance>
 
-              <View style={styles.statsRight}>
-                {!isToday && (
-                  <View style={styles.xpRow}>
-                    <Ionicons name="star" size={18} color={ArchivesTheme.colors.shoeBrown} />
-                    <Text style={styles.xpText}>{totalPoints} XP</Text>
-                  </View>
-                )}
-                <Text style={styles.correctText}>Correct: {correctAnswers}/{totalQuestions}</Text>
-              </View>
-            </View>
-
-            {/* Progress bar */}
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBarBackground} />
-              <Animated.View
-                style={[
-                  styles.progressBarFill,
-                  {
-                    width: `${percentage}%`,
-                    backgroundColor: messages.themeColor
-                  }
-                ]}
+        {/* Bottom-anchored group — pills + CTA. `marginTop: 'auto'` consumes
+            the leftover ScrollView height so this stack hugs the bottom of
+            the viewport on tall phones (matching Figma's CTA at y≈752 on
+            an 874px canvas). On short phones the content scrolls naturally. */}
+        <View style={styles.bottomGroup}>
+          {/* 5/6. Action pills — 1900ms + 80ms stagger */}
+          <View style={styles.pillStack}>
+            <AnimatedEntrance preset="riseListItem" delay={1900}>
+              <ActionPill
+                icon="bulb"
+                label="Understand your answers"
+                onPress={handleToggleExplanations}
               />
-            </View>
-          </View>
+            </AnimatedEntrance>
 
-          {/* AI Quiz Explanation (only if questions data available) */}
-          {questions.length > 0 && userAnswers.length > 0 && (
-            <AIQuizExplanation
-              questions={questions}
-              userAnswers={userAnswers}
-              eraName={eraName}
-              adventureName={`Adventure ${adventureNumber}`}
-              adventureId={adventureId}
-              moduleId={moduleId}
-            />
-          )}
-
-          {/* Action buttons */}
-          <View style={styles.actionButtons}>
-            {/* Continue button */}
-            <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-              <View style={styles.continueButtonContent}>
-                <Text style={styles.continueButtonText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={20} color="white" />
-              </View>
-            </TouchableOpacity>
-
-            {/* Chat to Learn button */}
-            <TouchableOpacity style={styles.retakeButton} onPress={handleChatToLearn}>
-              <View style={styles.retakeButtonContent}>
-                <Ionicons
-                  name="chatbubble-ellipses"
-                  size={24}
-                  color={ArchivesTheme.colors.mossGreen}
+            <AnimatedEntrance preset="riseListItem" delay={1980}>
+              <View style={styles.pillSpacer}>
+                <ActionPill
+                  icon="chat"
+                  label="Chat to learn more"
+                  onPress={handleChatToLearn}
                 />
-                <Text style={styles.retakeButtonText}>Chat to Learn</Text>
               </View>
-            </TouchableOpacity>
+            </AnimatedEntrance>
           </View>
+
+          {/* 7. Continue CTA — 2150ms delay */}
+          <AnimatedEntrance preset="riseCta" delay={2150}>
+            <View style={styles.ctaWrap}>
+              <DepthButton
+                variant="secondary"
+                size="large"
+                onPress={handleContinue}
+                haptic="medium"
+              >
+                <Typography
+                  family="onest"
+                  size="lg"
+                  weight="700"
+                  color="white"
+                  style={styles.ctaText}
+                >
+                  CONTINUE
+                </Typography>
+              </DepthButton>
+            </View>
+          </AnimatedEntrance>
         </View>
       </ScrollView>
+
+      <ConfettiBurst
+        ref={confettiRef}
+        colors={HIGH_TIER_CONFETTI_PALETTE}
+        count={120}
+        spread={120}
+        startVelocity={70}
+        duration={2200}
+        gravity={1.0}
+      />
+
+      {/* AI explanations bottom-sheet — always mounted (the component
+          handles its own Modal visibility), driven by `showExplanations`
+          which the "Understand your answers" pill toggles. Living at the
+          SafeAreaView root keeps it above the ScrollView + ConfettiBurst
+          z-stack so the pageSheet renders cleanly even if confetti is
+          mid-flight when the user taps the pill. */}
+      <AIQuizExplanation
+        visible={showExplanations}
+        onClose={() => setShowExplanations(false)}
+        questions={questions}
+        userAnswers={userAnswers}
+        eraName={eraName}
+        adventureName={`Adventure ${adventureNumber}`}
+        adventureId={adventureId}
+        moduleId={moduleId}
+      />
     </SafeAreaView>
   );
 }
 
+// ─── Styles ────────────────────────────────────────────────────────────────
+// Only layout/orchestration styles live here now — sub-component styles
+// (mascot box, score card, pills) moved into the `./results/` modules.
+
+const SCORE_CARD_WIDTH = SCREEN_WIDTH - 40;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
+    backgroundColor: colors.snow,
   },
-  scrollView: {
+  scroll: {
     flex: 1,
   },
-  content: {
-    paddingTop: 10,
+  scrollContent: {
+    // `flexGrow: 1` makes inner content fill the ScrollView viewport when
+    // shorter than the screen, and `justifyContent: 'center'` centers the
+    // entire stack as a single block. When content overflows (e.g.
+    // AIQuizExplanation expanded), scroll behavior resumes because
+    // `flexGrow` only sets a minimum, not a cap.
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
+    alignItems: 'center',
   },
-
-  // Video wrapper with overlaid back button
-  videoWrapper: {
-    position: 'relative',
-    marginBottom: 32,
-  },
-  backButtonOverlay: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
+  backButton: {
+    alignSelf: 'flex-start',
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
+    marginBottom: 4,
   },
-
-  // Video Reward Player
-  videoRewardContainer: {
-    alignSelf: 'center',
-    width: width * 0.9,
-    aspectRatio: 16 / 9,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: 'transparent',
-  },
-  videoRewardPlayer: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'transparent',
-  },
-
-  // Title and Subtitle
-  title: {
-    fontFamily: 'DM Sans',
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: 'center',
+  headline: {
     marginBottom: 8,
   },
-  subtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    color: ArchivesTheme.colors.shoeBrown,
+  subhead: {
     textAlign: 'center',
-    lineHeight: 24,
-    paddingHorizontal: 20,
-    marginBottom: 32,
+    marginBottom: 24,
+    paddingHorizontal: 12,
   },
-
-  // Statistics Card
-  statsCard: {
-    padding: 16,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    marginBottom: 30,
-    shadowColor: 'black',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+  bottomGroup: {
+    width: SCORE_CARD_WIDTH,
+    paddingTop: 8,
   },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+  pillStack: {
+    width: SCORE_CARD_WIDTH,
   },
-  statsLeft: {
-    alignItems: 'flex-start',
-    marginLeft: 4,
-    marginRight: 40,
+  pillSpacer: {
+    marginTop: 12,
   },
-  percentageText: {
-    fontFamily: 'DM Sans',
-    fontSize: 42,
-    fontWeight: 'bold',
-    marginBottom: 8,
+  ctaWrap: {
+    width: SCORE_CARD_WIDTH,
+    marginTop: 18,
   },
-  finalScoreText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
-  },
-  statsRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  xpRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  xpText: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.shoeBrown,
-    marginLeft: 8,
-  },
-  correctText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
-  },
-
-  // Progress Bar
-  progressBarContainer: {
-    height: 16,
-    position: 'relative',
-  },
-  progressBarBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 16,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    borderRadius: 8,
-  },
-  progressBarFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    height: 16,
-    borderRadius: 8,
-  },
-
-  // Action Buttons
-  actionButtons: {
-    marginBottom: 30,
-  },
-  retakeButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: ArchivesTheme.colors.mossGreen,
-    shadowColor: 'black',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  retakeButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  retakeButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mossGreen,
-    marginLeft: 12,
-    flex: 1,
-  },
-
-  continueButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: 'black',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  continueButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  continueButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'white',
-    marginLeft: 12,
-    flex: 1,
+  ctaText: {
+    letterSpacing: 0.5,
   },
 });

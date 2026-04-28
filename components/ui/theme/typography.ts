@@ -131,6 +131,12 @@ export const typographyVariants = {
     weight: '900',
     letterSpacing: 0,
   },
+  'heading.l': {
+    family: 'onest',
+    size: 24,
+    weight: '700',
+    letterSpacing: 0,
+  },
   'heading.m': {
     family: 'onest',
     size: 22,

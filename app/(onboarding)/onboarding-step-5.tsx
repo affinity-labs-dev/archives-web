@@ -6,6 +6,7 @@ import { router, useFocusEffect } from 'expo-router';
 import {
   Typography,
   DepthButton,
+  ScrollFade,
   SpeechBubble,
   Typewriter,
   OptionList,
@@ -90,7 +91,7 @@ export default function OnboardingStep5Screen() {
           {/* Phase A — Mascot + bubble slide in from left as one unit */}
           <AnimatedEntrance preset="slideFromLeft" delay={100}>
             <View style={styles.mascotRow}>
-              <Mascot size={110} autoPlayEntrance={false} />
+              <Mascot width={110} height={96} autoPlayEntrance={false} />
 
               <View style={styles.bubbleWrapper}>
                 <SpeechBubble
@@ -144,6 +145,11 @@ export default function OnboardingStep5Screen() {
           {typewriterDone && (
             <AnimatedEntrance preset="slideFromBottom" delay={CONTINUE_DELAY_AFTER_TYPEWRITER}>
               <View style={styles.bottom}>
+                {/* Soft fade-out — masks the hard horizontal edge where
+                    the OptionList's last visible row meets the CONTINUE
+                    slot. Same pattern used by the personalize phases
+                    and the quiz screen. */}
+                <ScrollFade color={colors.snow} />
                 <DepthButton
                   surfaceColor="onyx"
                   shadowColor="white"

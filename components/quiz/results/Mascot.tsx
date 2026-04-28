@@ -1,0 +1,124 @@
+// Mascot — tier-keyed character render for QuizResults.
+//   • Low (open-mouth Ibu, crying): standard 280×280 portrait box
+//   • Medium (skating Ibu): full screen width, wide pose
+//   • High (celebrating Ibu + sparkles): full width, SVG aspect-matched
+//
+// Tier 1/2 → Rive runtime (GPU-accelerated, built-in idle anims).
+// Tier 3   → SvgXml (single-shot rasterization, no idle cost).
+// Both wrapped with `renderToHardwareTextureAndroid` so the entrance
+// translateY tween doesn't re-rasterize per frame on Android.
+
+import React, { useEffect, useState } from 'react';
+import {
+  AppState,
+  Dimensions,
+  Platform,
+  StyleSheet,
+  View,
+  type AppStateStatus,
+} from 'react-native';
+import Rive, { Alignment, Fit } from 'rive-react-native';
+import { SvgXml } from 'react-native-svg';
+
+import { ibuScreen3Svg } from '../icons/ibuScreen3Svg';
+import type { Tier } from './tiers';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const openMouthRive = require('@/assets/rive/open-mouth.riv');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ibuSkatingRive = require('@/assets/rive/ibu-skating.riv');
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const MASCOT_SIZE = Math.min(SCREEN_WIDTH * 0.9, 500);
+
+export function Mascot({ tier }: { tier: Tier }) {
+  const wrapStyle =
+    tier === 'high'
+      ? styles.mascotWrapHigh
+      : tier === 'medium'
+        ? styles.mascotWrapWide
+        : styles.mascotWrap;
+
+  // Android-only Rive surface recovery: when a native modal (e.g.
+  // RevenueCat paywall, share sheet) covers QuizResults and is then
+  // dismissed, `rive-react-native`'s underlying SurfaceView can lose its
+  // GL context and the mascot renders as a blank canvas — looks to the
+  // user like the mascot disappeared. Tracking AppState transitions and
+  // bumping a remount key when the app returns to `active` forces Rive
+  // to recreate the surface from scratch. iOS doesn't have this issue
+  // (CoreAnimation layer is preserved), so the listener is no-op there.
+  const [riveKey, setRiveKey] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (tier === 'high') return; // tier 3 uses SVG, no Rive surface
+    let prev: AppStateStatus = AppState.currentState;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (prev !== 'active' && next === 'active') {
+        setRiveKey((k) => k + 1);
+      }
+      prev = next;
+    });
+    return () => sub.remove();
+  }, [tier]);
+
+  if (tier === 'high') {
+    return (
+      <View
+        renderToHardwareTextureAndroid
+        collapsable={false}
+        style={wrapStyle}
+      >
+        <SvgXml xml={ibuScreen3Svg} width="100%" height="100%" />
+      </View>
+    );
+  }
+  const source = tier === 'low' ? openMouthRive : ibuSkatingRive;
+  return (
+    <View
+      renderToHardwareTextureAndroid
+      collapsable={false}
+      style={wrapStyle}
+    >
+      <Rive
+        key={riveKey}
+        source={source}
+        autoplay
+        fit={Fit.Contain}
+        alignment={Alignment.Center}
+        style={styles.rive}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  mascotWrap: {
+    width: 280,
+    height: 280,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Tier 2: full-width skater. `marginHorizontal: -20` negates the
+  // ScrollView padding so the canvas reaches edge-to-edge.
+  mascotWrapWide: {
+    width: SCREEN_WIDTH,
+    height: MASCOT_SIZE - 55,
+    marginHorizontal: -20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Tier 3: SVG viewBox 358×243 — width-capped so corner stars stay in
+  // their designed positions without horizontal stretching.
+  mascotWrapHigh: {
+    width: MASCOT_SIZE,
+    height: MASCOT_SIZE - 60,
+    marginHorizontal: -20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rive: {
+    width: '100%',
+    height: '100%',
+  },
+});
