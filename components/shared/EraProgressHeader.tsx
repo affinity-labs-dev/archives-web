@@ -11,6 +11,7 @@ import Animated, {
   withSequence,
   withTiming,
   runOnJS,
+  cancelAnimation,
   Easing,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -54,6 +55,14 @@ function useCountUp(target: number, duration: number = 800, delay: number = 0): 
       }),
     );
   }, [target, duration, delay]);
+
+  // Cancel the running timing on unmount so the worklet stops calling
+  // runOnJS(setDisplay) on a torn-down component during navigation.
+  useEffect(() => {
+    return () => {
+      cancelAnimation(animatedValue);
+    };
+  }, []);
 
   useAnimatedReaction(
     () => Math.round(animatedValue.value),

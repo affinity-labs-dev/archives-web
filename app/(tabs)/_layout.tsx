@@ -33,7 +33,7 @@ if (useNativeTabs) {
 // Common screen options for both native and standard tabs
 // Now accepts insets parameter for dynamic safe area handling
 const getScreenOptions = (bottomInset: number): BottomTabNavigationOptions => ({
-  tabBarActiveTintColor: colors.bluePrimary,
+  tabBarActiveTintColor: colors.acaiSecondary,
   tabBarInactiveTintColor: colors.textMuted,
   tabBarStyle: {
     backgroundColor: colors.snow,
@@ -148,7 +148,7 @@ export default function TabLayout() {
           }) => <TodayIcon size={24} color={color} />,
           tabBarBadge: "NEW",
           tabBarBadgeStyle: {
-            backgroundColor: colors.bluePrimary,
+            backgroundColor: colors.blueMutedNavy,
             color: "white",
             fontSize: 9,
             fontWeight: "700",

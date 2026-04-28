@@ -55,43 +55,23 @@ function EraCardComponent({
   const showLock = !isAccessible;
   const isPremium = era.status === 'premium';
 
-  // Purple glow pulse on selection
+  // Scale bounce on selection (no shadow glow)
   const scale = useSharedValue(1);
-  const glowRadius = useSharedValue(isSelected && !showLock ? 24 : 0);
-  const glowOpacity = useSharedValue(isSelected && !showLock ? 0.55 : 0);
   const wasSelected = useRef(isSelected);
 
   useEffect(() => {
     if (isSelected && !wasSelected.current && !showLock) {
-      // Scale bounce
       scale.value = withSequence(
         withTiming(1.03, { duration: safeDuration(200), easing: Easing.out(Easing.ease) }),
         withTiming(0.98, { duration: safeDuration(150), easing: Easing.inOut(Easing.ease) }),
         withTiming(1, { duration: safeDuration(250), easing: Easing.out(Easing.elastic(1)) }),
       );
-      // Purple glow pulse: expand → contract → settle at prominent glow
-      glowRadius.value = withSequence(
-        withTiming(36, { duration: safeDuration(300), easing: Easing.out(Easing.ease) }),
-        withTiming(24, { duration: safeDuration(600), easing: Easing.inOut(Easing.ease) }),
-      );
-      glowOpacity.value = withSequence(
-        withTiming(0.75, { duration: safeDuration(300), easing: Easing.out(Easing.ease) }),
-        withTiming(0.55, { duration: safeDuration(600), easing: Easing.inOut(Easing.ease) }),
-      );
-    } else if (!isSelected) {
-      glowRadius.value = withTiming(0, { duration: safeDuration(200) });
-      glowOpacity.value = withTiming(0, { duration: safeDuration(200) });
     }
     wasSelected.current = isSelected;
-  }, [isSelected, showLock, scale, glowRadius, glowOpacity]);
+  }, [isSelected, showLock, scale]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    shadowColor: '#8C60CD',
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: glowRadius.value,
-    shadowOpacity: glowOpacity.value,
-    elevation: glowRadius.value > 0 ? 12 : 0,
   }));
 
   const imageSource = React.useMemo(() => {
@@ -181,59 +161,59 @@ function EraCardComponent({
       styles.gridWrapper,
       isSelected && !showLock && styles.wrapperSelected,
     ]}>
-    <Pressable
-      style={styles.gridCard}
-      onPress={handlePress}
-      shouldRasterizeIOS
-      renderToHardwareTextureAndroid
-    >
-      <Image
-        source={imageSource}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        cachePolicy="memory-disk"
-        recyclingKey={era.era_id}
-        transition={0}
-      />
+      <Pressable
+        style={styles.gridCard}
+        onPress={handlePress}
+        shouldRasterizeIOS
+        renderToHardwareTextureAndroid
+      >
+        <Image
+          source={imageSource}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={era.era_id}
+          transition={0}
+        />
 
-      {/* Gradient — always shown */}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.85)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+        {/* Gradient — always shown */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.85)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
 
-      {/* Lock overlay — darkens the full card for locked eras */}
-      {showLock && (
-        <View style={styles.gridLockOverlay}>
-          <View style={styles.lockBadge}>
-            <MaterialIcons name="lock" size={13} color={colors.white} />
-            {isPremium && (
-              <Typography family="onest" size={14} weight="600" color="white" letterSpacing={-0.14}>
-                Premium
-              </Typography>
-            )}
+        {/* Lock overlay — darkens the full card for locked eras */}
+        {showLock && (
+          <View style={styles.gridLockOverlay}>
+            <View style={styles.lockBadge}>
+              <MaterialIcons name="lock" size={13} color={colors.white} />
+              {isPremium && (
+                <Typography family="onest" size={14} weight="600" color="white" letterSpacing={-0.14}>
+                  Premium
+                </Typography>
+              )}
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      <View style={styles.gridContent}>
-        <Typography
-          family="onest" size={14} weight="700" color="white"
-          numberOfLines={2}
-        >
-          {name}
-          {dateRange ? ` ${dateRange}` : ''}
-        </Typography>
-      </View>
-
-      {isSelected && !showLock && (
-        <View style={styles.gridSelectedIndicator}>
-          <MaterialIcons name="check-circle" size={20} color={colors.acaiSecondary} />
+        <View style={styles.gridContent}>
+          <Typography
+            family="onest" size={14} weight="700" color="white"
+            numberOfLines={2}
+          >
+            {name}
+            {dateRange ? ` ${dateRange}` : ''}
+          </Typography>
         </View>
-      )}
-    </Pressable>
+
+        {isSelected && !showLock && (
+          <View style={styles.gridSelectedIndicator}>
+            <MaterialIcons name="check-circle" size={20} color={colors.acaiSecondary} />
+          </View>
+        )}
+      </Pressable>
     </Animated.View>
   );
 }
@@ -247,7 +227,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl + 3,
   },
   horizontalCard: {
-    height: 250,
+    height: 223,
     borderRadius: radius.xl,
     overflow: 'hidden',
   },
@@ -274,7 +254,8 @@ const styles = StyleSheet.create({
   },
   gridCard: {
     width: '100%',
-    height: 200,
+    height: 220,
+    marginBottom: spacing.sm,
     borderRadius: 22,
     overflow: 'hidden',
   },

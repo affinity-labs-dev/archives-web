@@ -233,8 +233,6 @@ export default function EraSelection() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    await setSelectedEra(selectedEra.era_id);
-
     analyticsService.trackEraSelected({
       era_name: selectedEra.title,
       era_id: selectedEra.era_id,
@@ -246,10 +244,19 @@ export default function EraSelection() {
     if (isOnboarding) {
       await AsyncStorage.setItem('onboarding_completed', 'true');
       await AsyncStorage.setItem('selected_era', selectedEra.era_id);
+      await setSelectedEra(selectedEra.era_id);
       console.log('✅ Onboarding completed - selected era:', selectedEra.era_id);
       router.replace('/(tabs)');
     } else {
+      // Defer the global era update until after navigation transition begins.
+      // Updating the store before push triggers re-renders across all tabs
+      // (video views remount, count-up animations start) while this screen's
+      // exit animations are still flushing — this race causes a native crash
+      // in expo-video VideoTrack teardown + Reanimated worklet flush.
       router.push('/(tabs)');
+      requestAnimationFrame(() => {
+        setSelectedEra(selectedEra.era_id);
+      });
     }
   };
 
@@ -306,19 +313,17 @@ export default function EraSelection() {
     }
 
     return (
-      <View style={styles.gridContainer}>
-        <View style={styles.gridRow}>
-          {row.eras.map((era) => (
-            <EraCard
-              key={era.era_id}
-              era={era}
-              isSelected={selectedEraId === era.era_id}
-              onSelect={handleEraSelect}
-              hasSubscription={isSubscribed}
-              isFoundingMember={isFoundingMember}
-            />
-          ))}
-        </View>
+      <View style={styles.gridRow}>
+        {row.eras.map((era) => (
+          <EraCard
+            key={era.era_id}
+            era={era}
+            isSelected={selectedEraId === era.era_id}
+            onSelect={handleEraSelect}
+            hasSubscription={isSubscribed}
+            isFoundingMember={isFoundingMember}
+          />
+        ))}
       </View>
     );
   }, [selectedEraId, handleEraSelect, isSubscribed, isFoundingMember]);
@@ -329,7 +334,7 @@ export default function EraSelection() {
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
       <StatusBar
         barStyle="dark-content"
         translucent={false}
@@ -402,42 +407,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Header
   headerSection: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     gap: spacing.xs,
   },
-
-  // Section header
   sectionHeaderContainer: {
-    paddingTop: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
-
-  // Scroll content
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg - 4,
     paddingTop: spacing.md,
-    paddingBottom: 120,
-    gap: 15,
-  },
-
-  // Grid layout
-  gridContainer: {
-    marginVertical: spacing.xs,
+    paddingBottom: 70,
+    gap: 10,
   },
   gridRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
   },
-
-  // Error state
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -445,11 +437,9 @@ const styles = StyleSheet.create({
     padding: spacing.xxl,
     gap: spacing.sm,
   },
-
-  // Floating button
   floatingButtonContainer: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 16,
     left: spacing.xl,
     right: spacing.xl,
   },
