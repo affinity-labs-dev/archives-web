@@ -8,8 +8,15 @@
 // Both wrapped with `renderToHardwareTextureAndroid` so the entrance
 // translateY tween doesn't re-rasterize per frame on Android.
 
-import React from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  AppState,
+  Dimensions,
+  Platform,
+  StyleSheet,
+  View,
+  type AppStateStatus,
+} from 'react-native';
 import Rive, { Alignment, Fit } from 'rive-react-native';
 import { SvgXml } from 'react-native-svg';
 
@@ -32,6 +39,28 @@ export function Mascot({ tier }: { tier: Tier }) {
         ? styles.mascotWrapWide
         : styles.mascotWrap;
 
+  // Android-only Rive surface recovery: when a native modal (e.g.
+  // RevenueCat paywall, share sheet) covers QuizResults and is then
+  // dismissed, `rive-react-native`'s underlying SurfaceView can lose its
+  // GL context and the mascot renders as a blank canvas — looks to the
+  // user like the mascot disappeared. Tracking AppState transitions and
+  // bumping a remount key when the app returns to `active` forces Rive
+  // to recreate the surface from scratch. iOS doesn't have this issue
+  // (CoreAnimation layer is preserved), so the listener is no-op there.
+  const [riveKey, setRiveKey] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (tier === 'high') return; // tier 3 uses SVG, no Rive surface
+    let prev: AppStateStatus = AppState.currentState;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (prev !== 'active' && next === 'active') {
+        setRiveKey((k) => k + 1);
+      }
+      prev = next;
+    });
+    return () => sub.remove();
+  }, [tier]);
+
   if (tier === 'high') {
     return (
       <View
@@ -51,6 +80,7 @@ export function Mascot({ tier }: { tier: Tier }) {
       style={wrapStyle}
     >
       <Rive
+        key={riveKey}
         source={source}
         autoplay
         fit={Fit.Contain}
