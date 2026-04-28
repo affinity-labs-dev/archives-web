@@ -49,11 +49,13 @@ export function useEntrance(
       ? ENTRANCE_PRESETS[presetOrConfig]
       : presetOrConfig;
 
-  const translateX = useSharedValue(config.translateX?.from ?? 0);
-  const translateY = useSharedValue(config.translateY?.from ?? 0);
-  const rotate = useSharedValue(config.rotate?.from ?? 0);
-  const scale = useSharedValue(config.scale?.from ?? 1);
-  const opacity = useSharedValue(config.opacity?.from ?? 1);
+  // When autoPlay is false, start at final (to) values so content is visible
+  const skipAnim = !autoPlay;
+  const translateX = useSharedValue(skipAnim ? (config.translateX?.to ?? 0) : (config.translateX?.from ?? 0));
+  const translateY = useSharedValue(skipAnim ? (config.translateY?.to ?? 0) : (config.translateY?.from ?? 0));
+  const rotate = useSharedValue(skipAnim ? (config.rotate?.to ?? 0) : (config.rotate?.from ?? 0));
+  const scale = useSharedValue(skipAnim ? (config.scale?.to ?? 1) : (config.scale?.from ?? 1));
+  const opacity = useSharedValue(skipAnim ? (config.opacity?.to ?? 1) : (config.opacity?.from ?? 1));
 
   useEffect(() => {
     if (!autoPlay) return;
