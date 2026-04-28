@@ -1,10 +1,3 @@
-// QuizResults.tsx — AFF-818 redesign
-// 3 score-tier visual identities (33% / 67% / 100%) matching Figma 3527:6171,
-// 3527:6250, 3527:6329. Mascot swap (Rive vs SVG), score-card palette, and
-// headline copy all change in lockstep. Entrance timeline mirrors the mock
-// in Downloads/03 questions/DEVELOPER_INSTRUCTIONS.md, but every animation
-// runs on the Reanimated UI thread for Android performance parity.
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -13,36 +6,20 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Rive, { Alignment, Fit } from 'rive-react-native';
-import { SvgXml } from 'react-native-svg';
-import Animated, {
-  Easing,
-  useAnimatedProps,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withTiming,
-} from 'react-native-reanimated';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
-import {
-  AnimatedEntrance,
-  type EntranceConfig,
-} from '@/components/ui/animations';
+import { AnimatedEntrance } from '@/components/ui/animations';
 import {
   ConfettiBurst,
   DepthButton,
   Typography,
   colors,
-  easings,
   safeDuration,
-  type ColorKey,
   type ConfettiBurstHandle,
 } from '@/components/ui';
 import { analyticsService } from '@/services/AnalyticsService';
@@ -52,355 +29,23 @@ import AppLogger from '@/services/AppLogger';
 import AIQuizExplanation from './AIQuizExplanation';
 import AIChatModal from '@/gamification/ui/ai/AIChatModal';
 import type { Question } from '@/components/shared/types';
-import { ibuScreen3Svg } from './icons/ibuScreen3Svg';
+import {
+  ActionPill,
+  CTA_PRESET,
+  HEADLINE_PRESET,
+  HIGH_TIER_CONFETTI_PALETTE,
+  MASCOT_HIGH,
+  MASCOT_LOW_MED,
+  Mascot,
+  PILL_PRESET,
+  SCORE_CARD_PRESET,
+  SUBHEAD_PRESET,
+  ScoreCard,
+  TIER_SPECS,
+  tierFor,
+} from './results';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
-
-// Tier-3 (high) celebration confetti — palette ported verbatim from the
-// HTML mock (Downloads/03 questions/index.html ≈line 2308). Brand-spanning
-// 6-color set (gold / acai / pink / blue / deep-blue / white), NOT a
-// monochrome gold pile — so the burst reads as a celebration over the
-// whole results screen instead of just dressing up the gold card.
-const HIGH_TIER_CONFETTI_PALETTE = [
-  '#FFDD63', // Aspen Gold
-  '#8C60CD', // Acai Secondary (purple)
-  '#E84E80', // pink
-  '#A2C5FF', // Blue Secondary
-  '#1E3C88', // Blue Primary
-  '#FFFFFF', // white
-];
-
-// ─── Rive sources ───────────────────────────────────────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const openMouthRive = require('@/assets/rive/open-mouth.riv');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ibuSkatingRive = require('@/assets/rive/ibu-skating.riv');
-
-// ─── Tier mapping ───────────────────────────────────────────────────────────
-
-type Tier = 'low' | 'medium' | 'high';
-
-interface TierSpec {
-  title: string;
-  subtitle: string;
-  scoreCardBg: ColorKey;
-  scoreCardText: ColorKey;
-  scoreCardSubText: ColorKey;
-  progressTrack: string;
-  progressFill: ColorKey;
-}
-
-const TIER_SPECS: Record<Tier, TierSpec> = {
-  // <34% — Blue Primary card, sad mascot
-  low: {
-    title: 'NICE EFFORT!',
-    subtitle: 'Revisit the lessons & try again',
-    scoreCardBg: 'bluePrimary',
-    scoreCardText: 'white',
-    scoreCardSubText: 'blueSecondary',
-    progressTrack: 'rgba(255,255,255,0.3)',
-    progressFill: 'white',
-  },
-  // 34–69% — Acai Primary card, standing/skating mascot
-  medium: {
-    title: "YOU'VE GOT THIS!",
-    subtitle: 'Revisit the lessons & try again',
-    scoreCardBg: 'acaiPrimary',
-    scoreCardText: 'white',
-    scoreCardSubText: 'acaiTertiary',
-    progressTrack: 'rgba(229,212,255,0.3)',
-    progressFill: 'acaiTertiary',
-  },
-  // ≥70% — Aspen Gold card, celebrating mascot
-  high: {
-    title: 'AMAZING JOB!',
-    subtitle: "You're getting better every time",
-    scoreCardBg: 'aspenGold',
-    scoreCardText: 'onyx',
-    scoreCardSubText: 'onyx',
-    progressTrack: 'rgba(26,26,26,0.18)',
-    progressFill: 'onyx',
-  },
-};
-
-const tierFor = (pct: number): Tier =>
-  pct >= 70 ? 'high' : pct >= 34 ? 'medium' : 'low';
-
-// ─── Entrance presets ───────────────────────────────────────────────────────
-// Timing values mirror Downloads/03 questions/DEVELOPER_INSTRUCTIONS.md.
-
-const MASCOT_LOW_MED: EntranceConfig = {
-  translateY: { from: -20, to: 0 },
-  opacity: { from: 0, to: 1 },
-  duration: 600,
-  easing: easings.backOut2,
-};
-
-const MASCOT_HIGH: EntranceConfig = {
-  translateY: { from: -20, to: 0 },
-  opacity: { from: 0, to: 1 },
-  duration: 700,
-  easing: Easing.out(Easing.elastic(1)),
-};
-
-const HEADLINE_PRESET: EntranceConfig = {
-  translateY: { from: 20, to: 0 },
-  opacity: { from: 0, to: 1 },
-  duration: 550,
-  easing: easings.backOut14,
-};
-
-const SUBHEAD_PRESET: EntranceConfig = {
-  translateY: { from: 12, to: 0 },
-  opacity: { from: 0, to: 1 },
-  duration: 400,
-  easing: easings.power2Out,
-};
-
-const SCORE_CARD_PRESET: EntranceConfig = {
-  translateY: { from: 30, to: 0 },
-  opacity: { from: 0, to: 1 },
-  duration: 500,
-  easing: easings.backOut14,
-};
-
-const PILL_PRESET: EntranceConfig = {
-  translateY: { from: 30, to: 0 },
-  opacity: { from: 0, to: 1 },
-  duration: 450,
-  easing: easings.backOut14,
-};
-
-const CTA_PRESET: EntranceConfig = {
-  translateY: { from: 30, to: 0 },
-  opacity: { from: 0, to: 1 },
-  duration: 450,
-  easing: easings.backOut2,
-};
-
-// ─── Mascot subcomponent ───────────────────────────────────────────────────
-// Tier 1/2 → Rive (GPU-accelerated runtime, built-in idle anims). Tier 3 →
-// SvgXml (single-shot rasterization, no idle cost). Both wrapped in a fixed-
-// height view with `renderToHardwareTextureAndroid` so the entrance translate
-// doesn't re-rasterize the mascot on every Reanimated commit on Android.
-
-function Mascot({ tier }: { tier: Tier }) {
-  // Per-tier mascot sizing — each Figma tier has a distinct mascot shape
-  // and intended footprint:
-  //   • Tier 1 (open-mouth Ibu, crying): centered square figure. Standard
-  //     70%-width box keeps it sized like a portrait — extra width here
-  //     would just be empty side-padding.
-  //   • Tier 2 (skating Ibu): wide pose with outstretched arms + skates.
-  //     Full screen width so the wide silhouette reads as intentional.
-  //   • Tier 3 (celebrating Ibu + sparkles): rectangular composition with
-  //     stars in the upper-right corner. Native SVG viewBox is 358×243
-  //     (aspect ≈ 1.47:1), so we render at full width with a proportional
-  //     height — the stars stay in their designed positions instead of
-  //     getting cropped or squashed.
-  const wrapStyle =
-    tier === 'high'
-      ? styles.mascotWrapHigh
-      : tier === 'medium'
-        ? styles.mascotWrapWide
-        : styles.mascotWrap;
-
-  if (tier === 'high') {
-    return (
-      <View
-        renderToHardwareTextureAndroid
-        collapsable={false}
-        style={wrapStyle}
-      >
-        <SvgXml xml={ibuScreen3Svg} width="100%" height="100%" />
-      </View>
-    );
-  }
-  const source = tier === 'low' ? openMouthRive : ibuSkatingRive;
-  return (
-    <View
-      renderToHardwareTextureAndroid
-      collapsable={false}
-      style={wrapStyle}
-    >
-      <Rive
-        source={source}
-        autoplay
-        fit={Fit.Contain}
-        alignment={Alignment.Center}
-        style={styles.rive}
-      />
-    </View>
-  );
-}
-
-// ─── Animated percentage + progress bar ────────────────────────────────────
-// Driven by a single shared value so the digit and the bar fill animate
-// together. The text is wrapped in `AnimatedTextInput` + `useAnimatedProps`
-// (the canonical Reanimated trick for animating text content without ever
-// crossing the JS/UI boundary). Same pattern the streak count-up commit
-// (4afaf49) introduced for AFF-818.
-
-function ScoreCard({
-  percentage,
-  totalPoints,
-  correctAnswers,
-  totalQuestions,
-  spec,
-}: {
-  percentage: number;
-  totalPoints: number;
-  correctAnswers: number;
-  totalQuestions: number;
-  spec: TierSpec;
-}) {
-  const progress = useSharedValue(0);
-
-  useEffect(() => {
-    // Count-up + bar fill — start delay matches the score-card entrance
-    // landing (850ms entrance delay + ~300ms slack for the card to settle).
-    progress.value = withDelay(
-      safeDuration(1150),
-      withTiming(percentage, {
-        duration: safeDuration(900),
-        easing: easings.power2Out,
-      }),
-    );
-  }, [percentage, progress]);
-
-  const pctTextProps = useAnimatedProps(() => ({
-    text: `${Math.round(progress.value)}%`,
-    // RN typing on AnimatedTextInput's animated text prop is loose; cast.
-    defaultValue: `${Math.round(progress.value)}%`,
-  }));
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: `${progress.value}%`,
-  }));
-
-  const cardBg = colors[spec.scoreCardBg];
-  const textColor = colors[spec.scoreCardText];
-  const subTextColor = colors[spec.scoreCardSubText];
-  const fillColor = colors[spec.progressFill];
-
-  // Score card layout — 2-row × 2-column grid, matching Figma:
-  //   Row 1 (top):    [33%]            [★ 10 XP]
-  //   Row 2 (bottom): [Final Score]    [Correct: 1/3]
-  //   Row 3:          [── progress bar ──────────]
-  //
-  // The two columns are flex children with their own `justifyContent:
-  // 'space-between'`, so the second-row labels ("Final Score" / "Correct")
-  // align on the SAME baseline regardless of how tall the top-row content
-  // is. This avoids the alignment drift you'd get from stacking with
-  // fixed margins, and keeps the card visually balanced when the XP row
-  // wraps to multi-digit values.
-  return (
-    <View style={[styles.scoreCard, { backgroundColor: cardBg }]}>
-      <View style={styles.scoreRow}>
-        <View style={styles.scoreColLeft}>
-          <AnimatedTextInput
-            editable={false}
-            pointerEvents="none"
-            animatedProps={pctTextProps as any}
-            style={[styles.percentageText, { color: textColor }]}
-          />
-          <Typography
-            family="onest"
-            size="sm"
-            weight="600"
-            style={{ color: subTextColor }}
-          >
-            Final Score
-          </Typography>
-        </View>
-
-        <View style={styles.scoreColRight}>
-          <View style={styles.xpRow}>
-            <Ionicons name="star" size={18} color={textColor} />
-            <Typography
-              family="onest"
-              size="lg"
-              weight="600"
-              style={{ color: textColor, marginLeft: 6 }}
-            >
-              {totalPoints} XP
-            </Typography>
-          </View>
-          <Typography
-            family="onest"
-            size="sm"
-            weight="600"
-            style={{ color: subTextColor }}
-          >
-            Correct: {correctAnswers}/{totalQuestions}
-          </Typography>
-        </View>
-      </View>
-
-      <View
-        style={[styles.progressTrack, { backgroundColor: spec.progressTrack }]}
-      >
-        <Animated.View
-          style={[
-            styles.progressFill,
-            { backgroundColor: fillColor },
-            fillStyle,
-          ]}
-        />
-      </View>
-    </View>
-  );
-}
-
-// ─── Action pill (Understand your answers / Chat to learn more) ────────────
-// Matches the Figma blue-on-blue stacked card: white surface, blueSecondary
-// shadow + 1.5px bluePrimary border, lit-bulb / chat-bubble icon on the
-// left, chevron on the right. Press feedback is the standard DepthButton
-// dip — the pill itself is a self-contained DepthButton with the medium
-// size (49px tall, 17px radius) which already matches Figma's `h-[59.25px]`
-// shadow card visually.
-
-function ActionPill({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: 'bulb' | 'chat';
-  label: string;
-  onPress: () => void;
-}) {
-  const iconName = icon === 'bulb' ? 'bulb' : 'chatbubble-ellipses';
-  return (
-    <DepthButton
-      variant="tertiary-alt"
-      size="medium"
-      surfaceColor="white"
-      shadowColor="blueSecondary"
-      borderColor="bluePrimary"
-      onPress={onPress}
-      surfaceStyle={styles.pillSurface}
-      haptic="light"
-    >
-      <View style={styles.pillRow}>
-        <Ionicons name={iconName} size={22} color={colors.bluePrimary} />
-        <Typography
-          family="onest"
-          size="md"
-          weight="600"
-          style={styles.pillLabel}
-        >
-          {label}
-        </Typography>
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={colors.bluePrimary}
-        />
-      </View>
-    </DepthButton>
-  );
-}
 
 // ─── Public types ──────────────────────────────────────────────────────────
 
@@ -842,8 +487,9 @@ export default function QuizResults({
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────
+// Only layout/orchestration styles live here now — sub-component styles
+// (mascot box, score card, pills) moved into the `./results/` modules.
 
-const MASCOT_SIZE = Math.min(SCREEN_WIDTH * 0.9, 500);
 const SCORE_CARD_WIDTH = SCREEN_WIDTH - 40;
 
 const styles = StyleSheet.create({
@@ -856,11 +502,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     // `flexGrow: 1` makes inner content fill the ScrollView viewport when
-    // shorter than the screen, and `justifyContent: 'center'` then centers
-    // the entire stack (mascot → headline → score card → pills → CTA) as
-    // a single block in the available height. When content overflows
-    // (e.g. AIQuizExplanation expanded), the scroll behavior resumes
-    // because `flexGrow` only sets a minimum, not a cap.
+    // shorter than the screen, and `justifyContent: 'center'` centers the
+    // entire stack as a single block. When content overflows (e.g.
+    // AIQuizExplanation expanded), scroll behavior resumes because
+    // `flexGrow` only sets a minimum, not a cap.
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -877,45 +522,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
-
-  mascotWrap: {
-    width: 280,
-    height: 280,
-    marginBottom: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Tier 2 (skating Ibu) fills the full screen width. We negate the
-  // ScrollView's `paddingHorizontal: 20` via `marginHorizontal: -20` so
-  // the canvas reaches edge-to-edge despite living inside the padded
-  // content container. Height stays equal to MASCOT_SIZE so vertical
-  // rhythm with headline / score-card doesn't shift between tiers; the
-  // Rive runtime's `Fit.Contain` lets the skater scale to fill the new
-  // wider canvas while respecting its native aspect ratio.
-  mascotWrapWide: {
-    width: SCREEN_WIDTH,
-    height: MASCOT_SIZE - 55,
-    marginHorizontal: -20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Tier 3 (celebrating Ibu + sparkles SVG). SVG viewBox is 358×243, so
-  // we use a full-width canvas with a proportional height so the stars
-  // and speed-lines baked into the corners of the artwork keep their
-  // intended positions. Without aspect-matching, SvgXml's `width="100%"
-  // height="100%"` would distort the celebration composition vertically.
-  mascotWrapHigh: {
-    width: MASCOT_SIZE,
-    height: MASCOT_SIZE - 60,
-    marginHorizontal: -20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rive: {
-    width: '100%',
-    height: '100%',
-  },
-
   headline: {
     marginBottom: 8,
   },
@@ -924,68 +530,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingHorizontal: 12,
   },
-
-  scoreCard: {
-    width: SCORE_CARD_WIDTH,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 22,
-    borderRadius: 20,
-    marginBottom: 22,
-  },
-  // 2x2 grid: top row = % + XP, bottom row = Final Score + Correct.
-  // `alignItems: 'stretch'` makes both columns share the row's height,
-  // and each column uses `justifyContent: 'space-between'` so the bottom
-  // labels share a baseline.
-  scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  scoreColLeft: {
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  scoreColRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  // Bounded display, 32px black to match Figma's score numeral. We render
-  // through TextInput (Reanimated text-prop trick) so the count-up commits
-  // on the UI thread — multiline / paddingTop / borders all reset to keep
-  // it visually identical to a plain Text node.
-  percentageText: {
-    fontFamily: 'Bounded-Black',
-    fontSize: 32,
-    lineHeight: 36,
-    padding: 0,
-    margin: 0,
-    minWidth: 100,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-    marginBottom: 4,
-  },
-  xpRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-
-  progressTrack: {
-    height: 7,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-
-  // Pills + CTA grouped together so they stay contiguous within the
-  // centered content stack. No auto-margin trick here: `scrollContent`
-  // uses `justifyContent: 'center'` so the entire content block is
-  // centered as a unit in the available viewport height.
   bottomGroup: {
     width: SCORE_CARD_WIDTH,
     paddingTop: 8,
@@ -996,25 +540,6 @@ const styles = StyleSheet.create({
   pillSpacer: {
     marginTop: 12,
   },
-  pillSurface: {
-    paddingHorizontal: 18,
-  },
-  pillRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pillLabel: {
-    flex: 1,
-    color: colors.onyx,
-    marginLeft: 12,
-  },
-
-  explanationsWrap: {
-    width: SCORE_CARD_WIDTH,
-    marginTop: 16,
-  },
-
   ctaWrap: {
     width: SCORE_CARD_WIDTH,
     marginTop: 18,

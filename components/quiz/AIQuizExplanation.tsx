@@ -1,14 +1,3 @@
-// AIQuizExplanation.tsx — AFF-818 redesign
-// Bottom-sheet modal that exposes AI-generated quiz explanations.
-// Figma:
-//   • Subscribed:    3527:6490  (scrollable list, all 3 questions)
-//   • Non-subscribed: 3527:6460 (Q1 only + paywall overlay, no scroll)
-//
-// Modal presentation matches the Settings / Avatar modals (`pageSheet` +
-// slide-from-bottom) so it lands as a familiar iOS-native bottom sheet.
-// Auto-fetches on `visible=true`, applying a 15s timeout + 2-retry budget
-// in both modes (batch for subscribed, Q1-only for free).
-
 import { Question } from '@/components/shared/types';
 import { aiService } from '@/gamification';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
@@ -23,17 +12,18 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
-import { SvgXml } from 'react-native-svg';
-
 import { DepthButton, Typography, colors } from '@/components/ui';
 import AppLogger from '@/services/AppLogger';
-import { starBulletSvg } from './icons/starBulletSvg';
+import {
+  ExplanationCard,
+  PaywallCard,
+  type ExplanationItem,
+} from './explanation';
 
 interface AIQuizExplanationProps {
   /** Drives the bottom-sheet visibility. Passing true also kicks off the fetch. */
@@ -48,197 +38,8 @@ interface AIQuizExplanationProps {
   moduleId: string;
 }
 
-interface ExplanationItem {
-  questionNumber: number;
-  questionText: string;
-  userAnswer: string;
-  correctAnswer: string;
-  isCorrect: boolean;
-  aiExplanation?: string;
-  loading: boolean;
-  error?: string;
-}
-
 const MAX_RETRIES = 2;
 const TIMEOUT_MS = 15_000;
-
-// ─── Question card ──────────────────────────────────────────────────────────
-// Single Q block: badge + question + "Your answer:" line + bulb + AI text.
-// Used for both subscribed (3 stacked) and the Q1 preview for free users.
-function ExplanationCard({
-  item,
-  showDivider,
-}: {
-  item: ExplanationItem;
-  showDivider: boolean;
-}) {
-  const answerColor = item.isCorrect
-    ? colors.correctSecondary
-    : colors.incorrectSecondary;
-
-  return (
-    <View style={cardStyles.wrap}>
-      <View style={cardStyles.badge}>
-        <Typography family="onest" size="xs" weight="600" color="onyx">
-          Q{item.questionNumber}
-        </Typography>
-      </View>
-
-      <Typography
-        family="onest"
-        size="md"
-        weight="600"
-        color="onyx"
-        style={cardStyles.question}
-      >
-        {item.questionText}
-      </Typography>
-
-      <View style={cardStyles.answerRow}>
-        <Typography family="onest" size="sm" weight="500" color="onyx">
-          Your answer:{' '}
-        </Typography>
-        <Typography
-          family="onest"
-          size="sm"
-          weight="500"
-          style={{ color: answerColor }}
-        >
-          {item.userAnswer}
-        </Typography>
-      </View>
-
-      {item.loading ? (
-        <View style={cardStyles.loadingBlock}>
-          <ActivityIndicator size="small" color={colors.acaiSecondary} />
-        </View>
-      ) : item.error ? (
-        <Typography
-          family="onest"
-          size="sm"
-          weight="500"
-          style={cardStyles.errorText}
-        >
-          {item.error}
-        </Typography>
-      ) : item.aiExplanation ? (
-        <View style={cardStyles.explanationRow}>
-          <Ionicons
-            name="bulb"
-            size={18}
-            color={colors.acaiSecondary}
-            style={cardStyles.bulbIcon}
-          />
-          <Typography
-            family="onest"
-            size="md"
-            weight="400"
-            color="onyx"
-            style={cardStyles.explanationText}
-          >
-            {item.aiExplanation}
-          </Typography>
-        </View>
-      ) : null}
-
-      {showDivider && <View style={cardStyles.divider} />}
-    </View>
-  );
-}
-
-// ─── Paywall overlay ────────────────────────────────────────────────────────
-// Free-tier card matching Figma 3527:6460 — light-blue surface with white
-// inner feature panel + UPGRADE CTA + restore link.
-function PaywallCard({
-  questionsCount,
-  onUpgrade,
-}: {
-  questionsCount: number;
-  onUpgrade: () => void;
-}) {
-  return (
-    <View style={paywallStyles.card}>
-      <View style={paywallStyles.titleRow}>
-        <Ionicons name="lock-closed" size={20} color={colors.onyx} />
-        <Typography
-          family="onest"
-          size="lg"
-          weight="600"
-          color="onyx"
-          style={paywallStyles.title}
-        >
-          Unlock All Explanations
-        </Typography>
-      </View>
-
-      <Typography
-        family="onest"
-        size="sm"
-        weight="500"
-        color="onyx"
-        style={paywallStyles.subtitle}
-      >
-        You are seeing a preview of Q1. Upgrade to get explanations for all{' '}
-        {questionsCount} questions.
-      </Typography>
-
-      <View style={paywallStyles.featureBox}>
-        {[
-          'AI explanations for every question',
-          'Understand your mistakes deeply',
-          'Personalized study tips',
-          'Unlimited quiz attempts',
-        ].map((label) => (
-          <View key={label} style={paywallStyles.featureRow}>
-            <SvgXml
-              xml={starBulletSvg}
-              width={14}
-              height={14}
-              style={paywallStyles.featureIcon}
-            />
-            <Typography
-              family="onest"
-              size="xs"
-              weight="500"
-              color="onyx"
-              style={paywallStyles.featureText}
-            >
-              {label}
-            </Typography>
-          </View>
-        ))}
-      </View>
-
-      {/* Full-width UPGRADE button — DepthButton's `isFullWidth` default
-          stretches to the parent's content box. No outer paddingHorizontal
-          wrapper here so it matches the feature box's width edge-to-edge,
-          matching Figma 3527:6487. */}
-      <DepthButton
-        variant="secondary"
-        size="large"
-        onPress={onUpgrade}
-        haptic="medium"
-        style={paywallStyles.cta}
-      >
-        <Typography family="onest" size="lg" weight="700" color="white">
-          UPGRADE
-        </Typography>
-      </DepthButton>
-
-      <TouchableOpacity onPress={onUpgrade} activeOpacity={0.7}>
-        <Typography
-          family="onest"
-          size="xs"
-          weight="500"
-          color="onyx"
-          style={paywallStyles.restore}
-        >
-          Already subscribed? Restore purchase
-        </Typography>
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 // ─── Main component ────────────────────────────────────────────────────────
 
@@ -421,10 +222,6 @@ export default function AIQuizExplanation({
     }
   }, [adventureId, moduleId, eraName, adventureName, questions, userAnswers]);
 
-  // Auto-fetch on first open. `hasFetchedRef` guards against React StrictMode
-  // double-invocation in dev and ensures we don't re-fetch on prop changes
-  // unrelated to opening (subscription mid-session is handled separately
-  // below).
   useEffect(() => {
     if (!visible) return;
     if (hasFetchedRef.current) return;
@@ -433,8 +230,6 @@ export default function AIQuizExplanation({
     handleGetExplanations();
   }, [visible, questions.length, handleGetExplanations]);
 
-  // Re-fetch when user subscribes mid-session — switches from Q1-only to
-  // full batch without requiring the user to close + reopen the sheet.
   useEffect(() => {
     if (
       isSubscribed &&
@@ -636,11 +431,6 @@ export default function AIQuizExplanation({
     );
   };
 
-  // Custom bottom sheet — `transparent` + `slide` animation lets us own
-  // the height (80% on both platforms) and the rounded top corners. Native
-  // `pageSheet` would lock height to ~90% on iOS and full-screen on Android,
-  // and never gives custom corner radii. The backdrop is a Pressable so a
-  // tap-outside dismisses without needing a swipe gesture handler.
   return (
     <Modal
       visible={visible}
@@ -696,9 +486,6 @@ export default function AIQuizExplanation({
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.8;
 
 const styles = StyleSheet.create({
-  // Modal root — full-screen container. `flex: 1` + `justifyContent:
-  // 'flex-end'` parks the sheet at the bottom of the viewport regardless
-  // of phone size. The backdrop fills above the sheet.
   modalRoot: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -708,10 +495,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
-  // The actual bottom sheet. Fixed height = 80% of window so the
-  // experience is identical on iOS and Android (pageSheet would have
-  // varied across platforms). Rounded corners ONLY on top so the sheet
-  // looks anchored to the bottom edge.
   sheet: {
     height: SHEET_HEIGHT,
     backgroundColor: colors.snow,
@@ -719,11 +502,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: 'hidden',
   },
-  // iOS-style grab handle, drawn manually because we're not using
-  // `pageSheet` (which would render one for free). Centered, narrow,
-  // visually telegraphs "this can be dismissed by swiping" — even though
-  // dismissal here goes through onRequestClose / backdrop tap rather
-  // than a real PanResponder.
   grabHandle: {
     alignSelf: 'center',
     width: 40,
@@ -747,10 +525,6 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     marginTop: 4,
   },
-  // Close button styled to match the Settings modal close (see
-  // `ArchivesTheme.common.closeButton` and `app/(tabs)/profile.tsx:1159`):
-  // 32×32 white circle with a subtle drop shadow + 16px radius. Shared
-  // visual language across all bottom modals in the app.
   closeButton: {
     width: 32,
     height: 32,
@@ -791,16 +565,9 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   freeQ1: {
-    // Q1 visible at top — flexShrink so it doesn't push the paywall off
-    // the bottom of the sheet. Effectively gets the upper portion of the
-    // available height; the paywall overlay below claims the rest.
     flexShrink: 0,
   },
   paywallOverlay: {
-    // The Figma overlays the paywall card on top of where Q2/Q3 would
-    // sit. With Q1 above and `marginTop: auto`, the card hugs the bottom
-    // of the sheet, leaving Q1 fully visible and creating a hard visual
-    // gate below.
     marginTop: 'auto',
     paddingBottom: 8,
   },
@@ -831,103 +598,3 @@ const styles = StyleSheet.create({
   },
 });
 
-const cardStyles = StyleSheet.create({
-  wrap: {
-    paddingBottom: 16,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.snow,
-    borderRadius: 12.5,
-    paddingHorizontal: 11,
-    paddingVertical: 4,
-    marginBottom: 12,
-  },
-  question: {
-    marginBottom: 10,
-  },
-  answerRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 10,
-  },
-  explanationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingLeft: 4,
-  },
-  bulbIcon: {
-    marginTop: 2,
-  },
-  explanationText: {
-    flex: 1,
-    marginLeft: 12,
-    lineHeight: 22,
-  },
-  errorText: {
-    color: colors.incorrectSecondary,
-  },
-  loadingBlock: {
-    paddingVertical: 12,
-    alignItems: 'flex-start',
-    paddingLeft: 4,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(26,26,26,0.18)',
-    marginTop: 16,
-  },
-});
-
-const paywallStyles = StyleSheet.create({
-  // Light-blue surface, NO border. Figma's 0.1px border is effectively
-  // invisible at native render so we drop it — fewer paint ops on Android,
-  // and the card reads cleaner without the dark hairline.
-  card: {
-    backgroundColor: colors.blueSecondary,
-    borderRadius: 17,
-    padding: 16,
-    marginBottom: 16,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  title: {
-    flex: 1,
-  },
-  subtitle: {
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  // Inner white card holds the feature list (Figma 3527:6477 — width 271
-  // on a 313 outer card, ~21px side padding).
-  featureBox: {
-    backgroundColor: colors.snow,
-    borderRadius: 17,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 6,
-    marginBottom: 16,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  featureIcon: {
-    marginRight: 12,
-  },
-  featureText: {
-    flex: 1,
-    lineHeight: 18,
-  },
-  // CTA hugs the feature box width edge-to-edge — no outer wrap padding.
-  cta: {
-    marginBottom: 12,
-  },
-  restore: {
-    textAlign: 'center',
-  },
-});
