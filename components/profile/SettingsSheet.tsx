@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Typography } from '@/components/ui';
 import { AnimatedEntrance, StaggerGroup } from '@/components/ui/animations';
@@ -58,8 +59,6 @@ const CARD_HEIGHT = 68;
 const CARD_BORDER_RADIUS = 17;
 const CARD_BORDER_WIDTH = 1.5;
 const CARD_SHADOW_OFFSET = 8;
-const ICON_SIZE = 24;
-
 const TOGGLE_WIDTH = 38;
 const TOGGLE_HEIGHT = 23;
 const TOGGLE_BORDER_RADIUS = 11.5;
@@ -212,13 +211,13 @@ function SettingsCard({
 // ─────────────────────────────────────────────
 
 function ToggleRow({
-  iconColor,
+  iconName,
   title,
   subtitle,
   value,
   onValueChange,
 }: {
-  iconColor: string;
+  iconName: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle: string;
   value: boolean;
@@ -228,13 +227,7 @@ function ToggleRow({
     <SettingsCard style={styles.rowWrapper}>
       <View style={styles.rowContent}>
         <View style={styles.rowLeft}>
-          {/* TODO: Replace with actual SVG icon */}
-          <View
-            style={[
-              styles.iconPlaceholder,
-              { backgroundColor: iconColor },
-            ]}
-          />
+          <Ionicons name={iconName} size={24} color="#1E3C88" />
           <View style={styles.textStack}>
             <Typography
               family="onest"
@@ -266,11 +259,11 @@ function ToggleRow({
 // ─────────────────────────────────────────────
 
 function NavRow({
-  iconColor,
+  iconName,
   title,
   onPress,
 }: {
-  iconColor: string;
+  iconName: keyof typeof Ionicons.glyphMap;
   title: string;
   onPress: () => void;
 }) {
@@ -278,13 +271,7 @@ function NavRow({
     <SettingsCard onPress={onPress} style={styles.rowWrapper}>
       <View style={styles.rowContent}>
         <View style={styles.rowLeft}>
-          {/* TODO: Replace with actual SVG icon */}
-          <View
-            style={[
-              styles.iconPlaceholder,
-              { backgroundColor: iconColor },
-            ]}
-          />
+          <Ionicons name={iconName} size={22} color="#1E3C88" />
           <Typography
             family="onest"
             weight="600"
@@ -294,17 +281,7 @@ function NavRow({
             {title}
           </Typography>
         </View>
-        {/* TODO: Replace with actual chevron SVG icon */}
-        <View style={styles.chevronPlaceholder}>
-          <Typography
-            family="onest"
-            weight="700"
-            size={16}
-            color="bluePrimary"
-          >
-            {'\u203A'}
-          </Typography>
-        </View>
+        <Ionicons name="chevron-forward" size={20} color="#C3C3C3" />
       </View>
     </SettingsCard>
   );
@@ -371,13 +348,7 @@ function DeleteAccountRow({ onDelete }: { onDelete: () => void }) {
       >
         <View style={styles.rowContent}>
           <View style={styles.rowLeft}>
-            {/* TODO: Replace with actual trash SVG icon */}
-            <View
-              style={[
-                styles.iconPlaceholder,
-                { backgroundColor: colors.incorrectSecondary },
-              ]}
-            />
+            <Ionicons name="trash-outline" size={22} color="#C82A4B" />
             <Typography
               family="onest"
               weight="600"
@@ -387,17 +358,7 @@ function DeleteAccountRow({ onDelete }: { onDelete: () => void }) {
               Delete Account
             </Typography>
           </View>
-          {/* TODO: Replace with actual chevron SVG icon */}
-          <View style={styles.chevronPlaceholder}>
-            <Typography
-              family="onest"
-              weight="700"
-              size={16}
-              extraColor={colors.incorrectPrimary}
-            >
-              {'\u203A'}
-            </Typography>
-          </View>
+          <Ionicons name="chevron-forward" size={20} color="#C82A4B" />
         </View>
       </SettingsCard>
     </Animated.View>
@@ -493,16 +454,7 @@ export function SettingsSheet({
             accessibilityRole="button"
             accessibilityLabel="Close settings"
           >
-            {/* TODO: Replace with actual X/close SVG icon */}
-            <Typography
-              family="onest"
-              weight="700"
-              size={18}
-              color="bluePrimary"
-              align="center"
-            >
-              {'\u2715'}
-            </Typography>
+            <Ionicons name="close-circle-outline" size={36} color="#1A1A1A" />
           </Pressable>
         </AnimatedEntrance>
 
@@ -518,21 +470,21 @@ export function SettingsSheet({
             staggerInterval={90}
           >
             <ToggleRow
-              iconColor={colors.acaiSecondary}
+              iconName="musical-notes-outline"
               title="Background Music"
               subtitle="Plays ambient music during lessons"
               value={backgroundMusicEnabled}
               onValueChange={onToggleBackgroundMusic}
             />
             <ToggleRow
-              iconColor={colors.bluePrimary}
+              iconName="volume-high-outline"
               title="Sound Effects"
               subtitle="Quiz sounds and UI feedback"
               value={soundEffectsEnabled}
               onValueChange={onToggleSoundEffects}
             />
             <ToggleRow
-              iconColor={colors.aspenGold}
+              iconName="phone-portrait-outline"
               title="Vibration"
               subtitle="Haptic feedback on interactions"
               value={hapticsEnabled}
@@ -550,22 +502,22 @@ export function SettingsSheet({
             staggerInterval={80}
           >
             <NavRow
-              iconColor={colors.acaiTertiary}
+              iconName="shield-checkmark-outline"
               title="Privacy Policy"
               onPress={onPrivacyPolicy}
             />
             <NavRow
-              iconColor={colors.blueSecondary}
+              iconName="help-circle-outline"
               title="Support"
               onPress={onSupport}
             />
             <NavRow
-              iconColor={colors.correctTertiary}
+              iconName="chatbox-ellipses-outline"
               title="FAQ"
               onPress={onFAQ}
             />
             <NavRow
-              iconColor={colors.aspenGold}
+              iconName="card-outline"
               title="Manage Subscription"
               onPress={onManageSubscription}
             />
@@ -645,17 +597,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 2,
     flex: 1,
-  },
-  iconPlaceholder: {
-    width: ICON_SIZE,
-    height: ICON_SIZE,
-    borderRadius: ICON_SIZE / 2,
-  },
-  chevronPlaceholder: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   togglePill: {
     width: TOGGLE_WIDTH,
