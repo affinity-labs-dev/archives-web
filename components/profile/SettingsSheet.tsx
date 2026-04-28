@@ -474,7 +474,7 @@ export function SettingsSheet({
             accessibilityRole="button"
             accessibilityLabel="Close settings"
           >
-            {svgIcon(iconCloseX(colors.bluePrimary), 36, 36)}
+            {svgIcon(iconCloseX(colors.blueSecondary), 36, 36)}
           </Pressable>
         </AnimatedEntrance>
 
@@ -490,21 +490,21 @@ export function SettingsSheet({
             staggerInterval={90}
           >
             <ToggleRow
-              icon={svgIcon(iconBgMusic(colors.bluePrimary), 20, 20)}
+              icon={svgIcon(iconBgMusic(colors.blueSecondary), 20, 20)}
               title="Background Music"
               subtitle="Ambient music during lessons"
               value={backgroundMusicEnabled}
               onValueChange={onToggleBackgroundMusic}
             />
             <ToggleRow
-              icon={svgIcon(iconSfx(colors.bluePrimary), 24, 22)}
+              icon={svgIcon(iconSfx(colors.blueSecondary), 24, 22)}
               title="Sound Effects"
               subtitle="Quiz feedback and celebrations"
               value={soundEffectsEnabled}
               onValueChange={onToggleSoundEffects}
             />
             <ToggleRow
-              icon={svgIcon(iconVibrate(colors.bluePrimary), 20, 30)}
+              icon={svgIcon(iconVibrate(colors.blueSecondary), 20, 30)}
               title="Vibration"
               subtitle="Haptic feedback"
               value={hapticsEnabled}
@@ -522,22 +522,22 @@ export function SettingsSheet({
             staggerInterval={80}
           >
             <NavRow
-              icon={svgIcon(iconShield(colors.bluePrimary), 22, 26)}
+              icon={svgIcon(iconShield(colors.blueSecondary), 22, 26)}
               title="Privacy Policy"
               onPress={onPrivacyPolicy}
             />
             <NavRow
-              icon={svgIcon(iconQuestion(colors.bluePrimary), 22, 22)}
+              icon={svgIcon(iconQuestion(colors.blueSecondary), 22, 22)}
               title="Support"
               onPress={onSupport}
             />
             <NavRow
-              icon={svgIcon(iconChatFaq(colors.bluePrimary), 24, 23)}
+              icon={svgIcon(iconChatFaq(colors.blueSecondary), 24, 23)}
               title="FAQ"
               onPress={onFAQ}
             />
             <NavRow
-              icon={svgIcon(iconCard(colors.bluePrimary), 25, 20)}
+              icon={svgIcon(iconCard(colors.blueSecondary), 25, 20)}
               title="Manage Subscription"
               onPress={onManageSubscription}
             />
