@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { createAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +45,12 @@ import {
   type StreakCelebrationScreenProps,
 } from './StreakCelebration';
 
+// AnimatedTextInput: canonical RN pattern for driving text from
+// Reanimated worklets. <Text> has no `text` prop (body is children),
+// but TextInput does — so animatedProps can update text directly on
+// the UI thread without going through React.
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+
 export default function StreakCelebrationScreen({
   visible,
   streakCount,
@@ -69,7 +75,6 @@ export default function StreakCelebrationScreen({
   // passed to children (Sunburst) or driven imperatively
   // (exitOpacity from the close handler).
   const anim = useStreakEntranceAnimation({ visible, weekData });
-  const { displayedNumber } = useCountUp({ visible, streakCount });
 
   // Audio: fire-and-forget per-day chime aligned with the done-day
   // pop-in stagger. Single player per call so Android's ENDED-state
@@ -89,21 +94,27 @@ export default function StreakCelebrationScreen({
     }
   }, []);
 
-  // Confetti burst + celebration chime — single coupled fire after
-  // the countUp lands, mirroring the mock's `tl.call(burstConfetti,
-  // ...)` in `enterScreen6`. The chime is intentionally collapsed to
-  // ONE play here (was previously a per-day stagger that audibly
-  // stacked up to 7 chimes on a full-week streak — confusing instead
-  // of celebratory). Pairing the audio with the confetti gives a
-  // single coherent "celebration moment".
-  useEffect(() => {
-    if (!visible) return;
-    const t = setTimeout(() => {
+  // Fire confetti + chime when the count-up lands. The 100ms breath
+  // matches the prior `confetti.delay = countUp.delay + countUp.dur +
+  // 100` constant — gives the user a beat to register the final digit
+  // before the burst overlays it. Routed through the count-up's own
+  // onComplete so the timing is exact (not best-effort via setTimeout).
+  const handleCountComplete = useCallback(() => {
+    setTimeout(() => {
       confettiRef.current?.fire({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT * 0.4 });
       playCelebration();
-    }, ANIM.confetti.delay);
-    return () => clearTimeout(t);
-  }, [visible, playCelebration]);
+    }, 100);
+  }, [playCelebration]);
+
+  // Count-up driven by Reanimated shared value + AnimatedTextInput.
+  // `animatedProps` writes the digit directly into the TextInput's
+  // text prop on the UI thread — no React re-render per frame, which
+  // was the source of the "1, 2, 3 lag" on Android.
+  const { animatedProps: countAnimatedProps } = useCountUp({
+    visible,
+    streakCount,
+    onComplete: handleCountComplete,
+  });
 
   // Single haptic feedback when the CONTINUE button lands.
   useEffect(() => {
@@ -213,18 +224,29 @@ export default function StreakCelebrationScreen({
 
               {/* Streak number — flex child. paddingTop on the card
                   clears the flame area so the number lands below the
-                  visible flame footprint. */}
+                  visible flame footprint.
+
+                  AnimatedTextInput drives the digit ticker on the UI
+                  thread via animatedProps (zero React re-render per
+                  frame). The wrapper Animated.View handles the
+                  separate entrance scale/opacity (numberAnimatedStyle).
+                  TextInput is styled to look exactly like the previous
+                  Typography output: same font, size, weight color,
+                  letterSpacing, lineHeight. The flag set below
+                  (`editable={false}`, `caretHidden`, etc.) makes it
+                  behave as a static label visually. */}
               <Animated.View style={anim.numberAnimatedStyle}>
-                <Typography
-                  family="bounded"
-                  weight="900"
-                  size={90}
-                  align="center"
-                  extraColor={colors.black}
-                  style={styles.numberText}
-                >
-                  {String(displayedNumber)}
-                </Typography>
+                <AnimatedTextInput
+                  editable={false}
+                  caretHidden
+                  selectTextOnFocus={false}
+                  showSoftInputOnFocus={false}
+                  underlineColorAndroid="transparent"
+                  allowFontScaling={false}
+                  defaultValue="0"
+                  animatedProps={countAnimatedProps}
+                  style={styles.numberTextInput}
+                />
               </Animated.View>
 
               {/* DAY STREAK label */}
@@ -427,6 +449,30 @@ const styles = StyleSheet.create({
   numberText: {
     letterSpacing: -1,
     lineHeight: 99,
+  },
+  // AnimatedTextInput styled to look identical to the previous
+  // Typography output (family="bounded" weight="900" size=90 black).
+  // Extra resets are needed because TextInput has different defaults
+  // than Text on Android: `padding: 0` kills the implicit input chrome
+  // padding, `includeFontPadding: false` removes Android's baseline
+  // metric pad that would otherwise mis-center the digits, and
+  // `textAlignVertical: 'center'` matches `<Text>`'s vertical baseline.
+  numberTextInput: {
+    fontFamily: 'Bounded-Black',
+    fontSize: 90,
+    color: '#000000',
+    textAlign: 'center',
+    letterSpacing: -1,
+    lineHeight: 99,
+    padding: 0,
+    margin: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    // Min width keeps single-digit values from collapsing to zero
+    // intrinsic width during the count-up's first few frames (TextInput
+    // sizes to content; with no min width "0" → "1" → "2" subtly
+    // breathes the surrounding layout). Tuned for 3 digits at 90pt.
+    minWidth: 180,
   },
   // Gap from number to label per Figma (216.5 - 192.5 = ~24px after
   // accounting for line-height boxes).
