@@ -1,16 +1,24 @@
-// EraCard.tsx - Reusable era card component for both layouts and all states
-import React, { memo } from 'react';
+// EraCard.tsx - v5.0 redesigned era card component
+// Uses new design system: Onest font, acai/blue palette, updated badges
+import React, { memo, useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   Pressable,
   StyleSheet,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import ArchivesTheme from '@/constants/ArchivesTheme';
-import { Era, isEraAccessible, getEraLockMessage } from '@/hooks/useEras';
+import { Typography } from '@/components/ui';
+import { colors, spacing, radius, safeDuration } from '@/components/ui/theme';
+import { Era, isEraAccessible } from '@/hooks/useEras';
 
 // Local image mapping (until remote URLs are set up)
 const ERA_IMAGE_MAP: Record<string, any> = {
@@ -24,7 +32,6 @@ const ERA_IMAGE_MAP: Record<string, any> = {
   'mongol': require('@/assets/images/eras/era8-bg.jpg'),
 };
 
-// Fallback image
 const DEFAULT_IMAGE = require('@/assets/images/eras/era1-bg.jpg');
 
 interface EraCardProps {
@@ -46,9 +53,47 @@ function EraCardComponent({
   const isFullWidth = era.card_layout === 'full_width';
   const isAccessible = isEraAccessible(era.status, hasSubscription, isFoundingMember);
   const showLock = !isAccessible;
-  const lockMessage = getEraLockMessage(era.status);
+  const isPremium = era.status === 'premium';
 
-  // Memoize image source to prevent new object reference on every render
+  // Purple glow pulse on selection
+  const scale = useSharedValue(1);
+  const glowRadius = useSharedValue(isSelected && !showLock ? 24 : 0);
+  const glowOpacity = useSharedValue(isSelected && !showLock ? 0.55 : 0);
+  const wasSelected = useRef(isSelected);
+
+  useEffect(() => {
+    if (isSelected && !wasSelected.current && !showLock) {
+      // Scale bounce
+      scale.value = withSequence(
+        withTiming(1.03, { duration: safeDuration(200), easing: Easing.out(Easing.ease) }),
+        withTiming(0.98, { duration: safeDuration(150), easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: safeDuration(250), easing: Easing.out(Easing.elastic(1)) }),
+      );
+      // Purple glow pulse: expand → contract → settle at prominent glow
+      glowRadius.value = withSequence(
+        withTiming(36, { duration: safeDuration(300), easing: Easing.out(Easing.ease) }),
+        withTiming(24, { duration: safeDuration(600), easing: Easing.inOut(Easing.ease) }),
+      );
+      glowOpacity.value = withSequence(
+        withTiming(0.75, { duration: safeDuration(300), easing: Easing.out(Easing.ease) }),
+        withTiming(0.55, { duration: safeDuration(600), easing: Easing.inOut(Easing.ease) }),
+      );
+    } else if (!isSelected) {
+      glowRadius.value = withTiming(0, { duration: safeDuration(200) });
+      glowOpacity.value = withTiming(0, { duration: safeDuration(200) });
+    }
+    wasSelected.current = isSelected;
+  }, [isSelected, showLock, scale, glowRadius, glowOpacity]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    shadowColor: '#8C60CD',
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: glowRadius.value,
+    shadowOpacity: glowOpacity.value,
+    elevation: glowRadius.value > 0 ? 12 : 0,
+  }));
+
   const imageSource = React.useMemo(() => {
     if (era.bg_url && era.bg_url.startsWith('http')) {
       return { uri: era.bg_url };
@@ -56,324 +101,230 @@ function EraCardComponent({
     return ERA_IMAGE_MAP[era.era_id] || DEFAULT_IMAGE;
   }, [era.bg_url, era.era_id]);
 
-  // Use title and timeline from Supabase directly
   const name = era.title;
   const dateRange = era.timeline ? `(${era.timeline})` : '';
 
+  // ─── Full-width card ───
   if (isFullWidth) {
     return (
+      <Animated.View style={[
+        pulseStyle,
+        styles.horizontalWrapper,
+        isSelected && !showLock && styles.wrapperSelected,
+      ]}>
       <Pressable
-        style={[
-          styles.horizontalCard,
-          isSelected && !showLock && styles.horizontalCardSelected,
-        ]}
+        style={styles.horizontalCard}
         onPress={handlePress}
         shouldRasterizeIOS
         renderToHardwareTextureAndroid
       >
         <Image
           source={imageSource}
-          style={styles.horizontalCardImage}
+          style={StyleSheet.absoluteFill}
           contentFit="cover"
           cachePolicy="memory-disk"
           recyclingKey={era.era_id}
           transition={0}
         />
 
-        {!showLock && (
-          <LinearGradient
-            colors={[
-              'rgba(0,0,0,0)',
-              'rgba(0,0,0,0.3)',
-              'rgba(0,0,0,0.6)',
-              'rgba(0,0,0,0.8)',
-            ]}
-            locations={[0, 0.24, 0.64, 1.0]}
-            style={styles.horizontalGradient}
-          />
-        )}
+        {/* Gradient — always shown, bottom-to-top dark */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.85)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
 
+        {/* Lock overlay — darkens the full card for locked eras */}
         {showLock && (
           <View style={styles.lockOverlay}>
-            <MaterialIcons name="lock" size={28} color={ArchivesTheme.colors.creamWhite} />
-            <Text style={styles.lockText}>{lockMessage}</Text>
+            <View style={styles.lockBadge}>
+              <MaterialIcons name="lock" size={15} color={colors.white} />
+              {isPremium && (
+                <Typography family="onest" size={14} weight="600" color="white" letterSpacing={-0.14}>
+                  Premium
+                </Typography>
+              )}
+            </View>
           </View>
         )}
 
+        {/* Bottom content row: title + selected indicator */}
         <View style={styles.horizontalContent}>
-          <Text
-            style={[styles.horizontalTitle, showLock && styles.titleNoEffects]}
-            numberOfLines={2}
-          >
-            {name} <Text style={styles.dateRange}>{dateRange}</Text>
-          </Text>
-        </View>
+          <View style={styles.horizontalBottomRow}>
+            <View style={styles.horizontalTitleWrap}>
+              <Typography family="onest" size={14} weight="700" color="white" numberOfLines={2}>
+                {name} <Typography family="onest" size={14} weight="500" color="white">{dateRange}</Typography>
+              </Typography>
+            </View>
 
-        <View
-          style={[
-            styles.selectedIndicator,
-            { opacity: isSelected && !showLock ? 1 : 0 },
-          ]}
-        >
-          <MaterialIcons name="check-circle" size={14} color="white" />
-          <Text style={styles.selectedText}>Selected</Text>
+            {isSelected && !showLock && (
+              <View style={styles.selectedIndicator}>
+                <MaterialIcons name="check-circle" size={20} color={colors.acaiSecondary} />
+                <Typography family="onest" size={13} weight="500" color="acaiTertiary">
+                  Selected
+                </Typography>
+              </View>
+            )}
+          </View>
         </View>
       </Pressable>
+      </Animated.View>
     );
   }
 
-  // Grid layout (smaller card)
+  // ─── Grid card ───
   return (
+    <Animated.View style={[
+      { width: '48%' },
+      pulseStyle,
+      styles.gridWrapper,
+      isSelected && !showLock && styles.wrapperSelected,
+    ]}>
     <Pressable
-      style={[
-        styles.gridCard,
-        isSelected && !showLock && styles.gridCardSelected,
-      ]}
+      style={styles.gridCard}
       onPress={handlePress}
       shouldRasterizeIOS
       renderToHardwareTextureAndroid
     >
       <Image
         source={imageSource}
-        style={styles.gridCardImage}
+        style={StyleSheet.absoluteFill}
         contentFit="cover"
         cachePolicy="memory-disk"
         recyclingKey={era.era_id}
         transition={0}
       />
 
-      {!showLock && (
-        <LinearGradient
-          colors={[
-            'rgba(0,0,0,0)',
-            'rgba(0,0,0,0.4)',
-            'rgba(0,0,0,0.8)',
-            'rgba(0,0,0,0.95)',
-          ]}
-          locations={[0, 0.24, 0.64, 1.0]}
-          style={styles.gridGradient}
-        />
-      )}
+      {/* Gradient — always shown */}
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.85)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
 
+      {/* Lock overlay — darkens the full card for locked eras */}
       {showLock && (
         <View style={styles.gridLockOverlay}>
-          <MaterialIcons name="lock" size={24} color={ArchivesTheme.colors.creamWhite} />
-          <Text style={styles.lockText}>{lockMessage}</Text>
+          <View style={styles.lockBadge}>
+            <MaterialIcons name="lock" size={13} color={colors.white} />
+            {isPremium && (
+              <Typography family="onest" size={14} weight="600" color="white" letterSpacing={-0.14}>
+                Premium
+              </Typography>
+            )}
+          </View>
         </View>
       )}
 
       <View style={styles.gridContent}>
-        <Text
-          style={[styles.gridTitle, showLock && styles.titleNoEffects]}
+        <Typography
+          family="onest" size={14} weight="700" color="white"
           numberOfLines={2}
         >
           {name}
-          {dateRange && <Text style={styles.gridDateRange}> {dateRange}</Text>}
-        </Text>
+          {dateRange ? ` ${dateRange}` : ''}
+        </Typography>
       </View>
 
-      {/* Selected indicator for grid cards */}
-      <View
-        style={[
-          styles.gridSelectedIndicator,
-          { opacity: isSelected && !showLock ? 1 : 0 },
-        ]}
-      >
-        <MaterialIcons name="check-circle" size={12} color="white" />
-      </View>
+      {isSelected && !showLock && (
+        <View style={styles.gridSelectedIndicator}>
+          <MaterialIcons name="check-circle" size={20} color={colors.acaiSecondary} />
+        </View>
+      )}
     </Pressable>
+    </Animated.View>
   );
 }
 
 export const EraCard = memo(EraCardComponent);
 
 const styles = StyleSheet.create({
-  // Horizontal (full width) card styles
-  // No shadows on base state — overflow:hidden + shadow on same view forces
-  // iOS to create two offscreen rendering buffers per card per frame
+  // ─── Full-width card ───
+  horizontalWrapper: {
+    marginBottom: spacing.sm,
+    borderRadius: radius.xl + 3,
+  },
   horizontalCard: {
     height: 250,
-    borderRadius: 24,
+    borderRadius: radius.xl,
     overflow: 'hidden',
-    marginBottom: 8,
-    borderWidth: 3,
-    borderColor: 'transparent',
-  },
-  // Selected state gets shadow (only 1 card at a time — perf is fine)
-  horizontalCardSelected: {
-    borderColor: ArchivesTheme.colors.mossGreen,
-    shadowColor: ArchivesTheme.colors.mossGreen,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  horizontalCardImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: 250,
-  },
-  horizontalGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 150,
   },
   horizontalContent: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 20,
-    paddingBottom: 24,
+    paddingHorizontal: 15,
+    paddingBottom: 14,
   },
-  horizontalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    fontFamily: 'DM Sans',
-    color: 'white',
-    lineHeight: 24,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+  horizontalBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 14,
   },
-  dateRange: {
-    fontWeight: 'normal',
+  horizontalTitleWrap: {
+    flex: 1,
   },
 
-  // Grid card styles — same approach: no shadow on base, only on selected
+  // ─── Grid card ───
+  gridWrapper: {
+    borderRadius: 25,
+  },
   gridCard: {
-    width: '48%',
-    height: 200,
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  gridCardSelected: {
-    borderColor: ArchivesTheme.colors.mossGreen,
-    shadowColor: ArchivesTheme.colors.mossGreen,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  gridCardImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     width: '100%',
     height: 200,
+    borderRadius: 22,
+    overflow: 'hidden',
   },
-  gridGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
+  // Shared selected wrapper — purple frame around card
+  wrapperSelected: {
+    padding: 3,
+    backgroundColor: colors.acaiSecondary,
   },
   gridContent: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 14,
-    paddingBottom: 16,
-  },
-  gridTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    fontFamily: 'DM Sans',
-    color: 'white',
-    lineHeight: 18,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  gridDateRange: {
-    fontWeight: 'normal',
+    paddingLeft: 13,
+    paddingBottom: 13,
+    paddingRight: 10,
   },
 
-  // Shared styles
-  titleNoEffects: {
-    textShadowColor: 'transparent',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 0,
-  },
-
-  // Lock overlay styles
-  // No borderRadius here — parent already clips with overflow:hidden + borderRadius
-  // Adding borderRadius on the overlay creates an extra compositing layer on iOS
+  // ─── Lock overlay — semi-transparent dark fill on ALL locked cards ───
   lockOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    flexDirection: 'row',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     paddingTop: 16,
     paddingLeft: 16,
-    gap: 8,
   },
   gridLockOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    flexDirection: 'row',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
-    paddingTop: 12,
-    paddingLeft: 12,
-    gap: 6,
+    paddingTop: 17,
+    paddingLeft: 13,
   },
-  lockText: {
-    fontFamily: 'DM-Sans-SemiBold',
-    fontSize: 14,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.creamWhite,
-    marginTop: 6,
-  },
-
-  // Selected indicator
-  selectedIndicator: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
+  lockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: ArchivesTheme.colors.mossGreen,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  selectedText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'DM Sans',
-    marginLeft: 3,
+    gap: 6,
   },
 
-  // Grid selected indicator (smaller, just checkmark)
+  // ─── Selected indicator ───
+  selectedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 5,
+  },
   gridSelectedIndicator: {
     position: 'absolute',
     top: 10,
     right: 10,
-    backgroundColor: ArchivesTheme.colors.mossGreen,
-    padding: 4,
-    borderRadius: 10,
   },
 });

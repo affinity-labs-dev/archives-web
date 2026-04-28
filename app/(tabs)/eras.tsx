@@ -1,12 +1,9 @@
-// Unified Era Selection Screen
+// Unified Era Selection Screen (v5.0 Design System)
 // Handles both onboarding (first-time) and switching (returning user) modes
-// Data fetched from Supabase via useEras hook
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
-  Pressable,
   StyleSheet,
   StatusBar,
   Platform,
@@ -23,10 +20,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGamifiedProgress, useEraProgressStore } from '@/gamification';
 import { useEras, Era, isEraAccessible } from '@/hooks/useEras';
 import { EraCard, EraSelectionSkeleton } from '@/components/EraSelection';
-import ArchivesTheme from '@/constants/ArchivesTheme';
+import { Typography, DepthButton } from '@/components/ui';
+import { colors, spacing } from '@/components/ui/theme';
 import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
+
+type EraRow = { type: 'full' | 'grid' | 'sectionHeader'; eras: Era[]; label?: string };
+
+/** Convert a flat era list into full-width / grid row pairs */
+function buildEraRows(eraList: Era[]): EraRow[] {
+  const result: EraRow[] = [];
+  let i = 0;
+  while (i < eraList.length) {
+    const era = eraList[i];
+    if (era.card_layout === 'full_width') {
+      result.push({ type: 'full', eras: [era] });
+      i++;
+    } else {
+      const pair: Era[] = [era];
+      if (i + 1 < eraList.length && eraList[i + 1].card_layout === 'grid') {
+        pair.push(eraList[i + 1]);
+        i += 2;
+      } else {
+        i++;
+      }
+      result.push({ type: 'grid', eras: pair });
+    }
+  }
+  return result;
+}
 
 export default function EraSelection() {
   const router = useRouter();
@@ -36,6 +59,7 @@ export default function EraSelection() {
   const { isSignedIn } = useAuth();
   const { user } = useUser();
   const { setSelectedEra } = useGamifiedProgress();
+
   const { eras, loading, error } = useEras();
 
   // Initialize from zustand store so the eras tab shows the currently selected era
@@ -87,11 +111,9 @@ export default function EraSelection() {
   );
 
   // Deep link support: Auto-select era when era param is provided
-  // Works with any era_id from Supabase (e.g., ?era=women_of_islam)
   React.useEffect(() => {
     if (!era || loading || error || eras.length === 0) return;
 
-    // Find era matching the deep link param (by era_id)
     const matchedEra = eras.find((e) => e.era_id === era);
 
     if (matchedEra) {
@@ -108,7 +130,7 @@ export default function EraSelection() {
     }
   }, [era, eras, loading, error, isSubscribed, isFoundingMember]);
 
-  // Present paywall for locked premium eras (stable ref to avoid stale closure in handleEraSelect)
+  // Present paywall for locked premium eras
   const handleShowPaywall = useCallback(async (era: Era) => {
     if (isPaywallPresentedRef.current) {
       AppLogger.warn('subscription', 'Era paywall already presented, skipping');
@@ -148,8 +170,6 @@ export default function EraSelection() {
             });
           }
 
-          // Auto-select the era after successful purchase
-          // RevenueCat hook will update isSubscribed, making era accessible
           setSelectedEraId(era.era_id);
           break;
         }
@@ -195,7 +215,6 @@ export default function EraSelection() {
   const handleEraSelect = useCallback((era: Era) => {
     const canSelect = isEraAccessible(era.status, isSubscribed, isFoundingMember);
     if (!canSelect) {
-      // Premium eras → show paywall; founding/coming_soon → ignore
       if (era.status === 'premium') {
         handleShowPaywall(era);
       }
@@ -214,10 +233,8 @@ export default function EraSelection() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Store selected era in context (using Supabase era_id directly)
     await setSelectedEra(selectedEra.era_id);
 
-    // Track era selection
     analyticsService.trackEraSelected({
       era_name: selectedEra.title,
       era_id: selectedEra.era_id,
@@ -227,7 +244,6 @@ export default function EraSelection() {
     });
 
     if (isOnboarding) {
-      // Mark onboarding as completed and save selected era
       await AsyncStorage.setItem('onboarding_completed', 'true');
       await AsyncStorage.setItem('selected_era', selectedEra.era_id);
       console.log('✅ Onboarding completed - selected era:', selectedEra.era_id);
@@ -247,34 +263,35 @@ export default function EraSelection() {
     selectedEra &&
     isEraAccessible(selectedEra.status, isSubscribed, isFoundingMember);
 
-  // Sort all eras and pre-compute grid layout (eliminates O(n²) in render)
-  type EraRow = { type: 'full' | 'grid'; eras: Era[] };
+  // Split eras into available (active/premium) and coming soon sections
   const eraRows = useMemo(() => {
     const sorted = [...eras].sort((a, b) => a.order_by - b.order_by);
-    const rows: EraRow[] = [];
-    let i = 0;
-    while (i < sorted.length) {
-      const era = sorted[i];
-      if (era.card_layout === 'full_width') {
-        rows.push({ type: 'full', eras: [era] });
-        i++;
-      } else {
-        // Grid: pair current with next grid card if available
-        const pair: Era[] = [era];
-        if (i + 1 < sorted.length && sorted[i + 1].card_layout === 'grid') {
-          pair.push(sorted[i + 1]);
-          i += 2;
-        } else {
-          i++;
-        }
-        rows.push({ type: 'grid', eras: pair });
-      }
+
+    const available = sorted.filter(e => e.status === 'active' || e.status === 'premium');
+    const comingSoon = sorted.filter(e => e.status !== 'active' && e.status !== 'premium');
+
+    const rows: EraRow[] = buildEraRows(available);
+
+    if (comingSoon.length > 0) {
+      rows.push({ type: 'sectionHeader', eras: [], label: 'Eras Coming Soon...' });
+      rows.push(...buildEraRows(comingSoon));
     }
+
     return rows;
   }, [eras]);
 
-  // LegendList render callbacks (stable refs for virtualization)
+  // LegendList render callbacks
   const renderEraRow = useCallback(({ item: row }: { item: EraRow }) => {
+    if (row.type === 'sectionHeader') {
+      return (
+        <View style={styles.sectionHeaderContainer}>
+          <Typography family="onest" size={18} weight="700" extraColor="#41425E">
+            {row.label}
+          </Typography>
+        </View>
+      );
+    }
+
     if (row.type === 'full') {
       const era = row.eras[0];
       return (
@@ -307,7 +324,7 @@ export default function EraSelection() {
   }, [selectedEraId, handleEraSelect, isSubscribed, isFoundingMember]);
 
   const eraRowKeyExtractor = useCallback(
-    (item: EraRow) => item.eras[0].era_id,
+    (item: EraRow) => item.type === 'sectionHeader' ? 'section-coming-soon' : item.eras[0].era_id,
     []
   );
 
@@ -316,27 +333,31 @@ export default function EraSelection() {
       <StatusBar
         barStyle="dark-content"
         translucent={false}
-        backgroundColor={ArchivesTheme.colors.creamWhite}
+        backgroundColor={colors.snow}
       />
       <View style={styles.container}>
 
         {/* Header */}
         <View style={styles.headerSection}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Choose Your Era</Text>
-            <Text style={styles.headerSubtitle}>
-              Begin your journey through Islamic history
-            </Text>
-          </View>
+          <Typography family="onest" size={28} weight="700" color="onyx">
+            Choose Your Era
+          </Typography>
+          <Typography variant="body.m" color="acaiPrimary" weight="600">
+            Begin your journey through Islamic history
+          </Typography>
         </View>
 
-        {/* Content */}
+        {/* Content — key forces remount on focus so entering animations replay */}
         {loading ? (
           <EraSelectionSkeleton />
         ) : error ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Failed to load eras</Text>
-            <Text style={styles.errorSubtext}>{error}</Text>
+            <Typography variant="heading.m" color="onyx">
+              Failed to load eras
+            </Typography>
+            <Typography variant="body.s" color="textMuted" align="center">
+              {error}
+            </Typography>
           </View>
         ) : (
           <LegendList
@@ -352,15 +373,21 @@ export default function EraSelection() {
           />
         )}
 
-        {/* Floating button */}
+        {/* Floating ENTER ERA button */}
         <View style={styles.floatingButtonContainer}>
-          <Pressable
-            style={[styles.enterEraButton, canContinue && styles.enterEraButtonActive]}
+          <DepthButton
+            variant="tertiary"
+            size="medium"
+            radius={26.5}
+            pressEffect="dip"
             onPress={handleContinue}
-            disabled={!canContinue}
+            isDisabled={!canContinue}
+            isFullWidth
           >
-            <Text style={styles.enterEraButtonText}>ENTER ERA</Text>
-          </Pressable>
+            <Typography family="onest" size={18} weight="700" color="white" letterSpacing={-0.18}>
+              ENTER ERA
+            </Typography>
+          </DepthButton>
         </View>
       </View>
     </SafeAreaView>
@@ -370,41 +397,23 @@ export default function EraSelection() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
+    backgroundColor: colors.snow,
   },
   container: {
     flex: 1,
   },
   // Header
   headerSection: {
-    height: 80,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.xs,
   },
-  headerContent: {
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    gap: 4,
-    width: '100%',
-  },
-  headerTitle: {
-    ...ArchivesTheme.typography.h2,
-    fontSize: 24,
-    fontWeight: '600',
-    fontFamily: 'DM Sans',
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: 'left',
-    paddingLeft: 25,
-    paddingRight: 20,
-    paddingTop: 10,
-  },
-  headerSubtitle: {
-    ...ArchivesTheme.typography.body,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.persianOrange,
-    textAlign: 'left',
-    paddingLeft: 25,
-    paddingRight: 20,
+
+  // Section header
+  sectionHeaderContainer: {
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
   },
 
   // Scroll content
@@ -412,20 +421,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 100,
+    paddingHorizontal: spacing.lg - 4,
+    paddingTop: spacing.md,
+    paddingBottom: 120,
     gap: 15,
   },
 
   // Grid layout
   gridContainer: {
-    marginVertical: 5,
+    marginVertical: spacing.xs,
   },
   gridRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
 
   // Error state
@@ -433,51 +442,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
-  },
-  errorText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 8,
-  },
-  errorSubtext: {
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
-    textAlign: 'center',
+    padding: spacing.xxl,
+    gap: spacing.sm,
   },
 
   // Floating button
   floatingButtonContainer: {
     position: 'absolute',
     bottom: 40,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  enterEraButton: {
-    width: 280,
-    height: 45,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 26.5,
-    borderWidth: 2,
-    borderColor: ArchivesTheme.colors.persianOrange,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  enterEraButtonActive: {
-    backgroundColor: ArchivesTheme.colors.mossGreen,
-    borderColor: ArchivesTheme.colors.mossGreen,
-    shadowColor: ArchivesTheme.colors.mossGreen,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  enterEraButtonText: {
-    ...ArchivesTheme.typography.buttonLarge,
-    fontSize: 20,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.creamWhite,
+    left: spacing.xl,
+    right: spacing.xl,
   },
 });

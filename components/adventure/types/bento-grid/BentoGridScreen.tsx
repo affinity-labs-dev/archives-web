@@ -2,7 +2,7 @@ import AdventureComponent from '@/components/adventure/shared/AdventureComponent
 import LessonPlayer from '@/components/lessons/LessonPlayer';
 import Quiz from '@/components/quiz/Quiz';
 import type { Adventure, ContentItem } from '@/components/shared/types';
-import ArchivesTheme from '@/constants/ArchivesTheme';
+import { colors } from '@/components/ui/theme';
 import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
 import { useVideoPreloader, extractVideoUrls } from '@/hooks/useVideoPreloader';
@@ -306,8 +306,8 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
             <RefreshControl
               refreshing={refreshing || false}
               onRefresh={onRefresh}
-              tintColor={ArchivesTheme.colors.persianOrange}
-              colors={[ArchivesTheme.colors.persianOrange]}
+              tintColor={colors.bluePrimary}
+              colors={[colors.bluePrimary]}
             />
           }
           // Performance optimizations
@@ -390,7 +390,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4EBDB',
+    backgroundColor: colors.snow,
     overflow: 'visible', // Prevent clipping of lock overlay
   },
   contentWrapper: {
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: ArchivesTheme.colors.mossGreen,
+    backgroundColor: colors.bluePrimary,
     borderRadius: 15,
     paddingHorizontal: 16,
     height: 30,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pullToRefreshText: {
-    fontFamily: 'DM Sans',
+    fontFamily: 'Onest-SemiBold',
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ArchivesTheme.colors.mutedNavy,
+    backgroundColor: colors.bluePrimary,
     height: 57,
     paddingLeft: 50,
     paddingRight: 28,
@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'DM Sans',
+    fontFamily: 'Onest-SemiBold',
     flexShrink: 0,
   },
 });

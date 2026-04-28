@@ -1,60 +1,66 @@
-// AdventureCard.tsx - Adventure detail modal for all eras
-// Displays adventure info from card_content JSONB field (static) + calculated values (dynamic)
+// AdventureCard.tsx - Adventure detail modal (v5.0 Design System)
+// Displays adventure info from card_content JSONB field with v5.0 styling
 
-import React from 'react'
+import React from 'react';
 import {
   View,
-  Text,
   Modal,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   Platform,
-} from 'react-native'
-import { Image } from 'expo-image'
-import { LinearGradient } from 'expo-linear-gradient'
-import { Ionicons } from '@expo/vector-icons'
-import * as Haptics from 'expo-haptics'
-import ArchivesTheme from '@/constants/ArchivesTheme'
-import type { Adventure } from '@/components/shared/types'
+} from 'react-native';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { Typography, DepthButton } from '@/components/ui';
+import { colors, spacing, radius } from '@/components/ui/theme';
+import { AnimatedEntrance } from '@/components/ui/animations';
+import type { Adventure } from '@/components/shared/types';
+
+// Mapping to existing design playground presets:
+// heroImage → fadeScale, overlay → fadeIn, ribbon → bubblePop
+// title → slideFromBottom, headings/body → fadeIn
+// detailsCard → accordionLayer, icons → bubblePop, labels → fadeIn
+// startButton → slideFromBottom
 
 interface AdventureCardProps {
-  isVisible: boolean
-  adventure: Adventure | null
-  onDismiss: () => void
+  isVisible: boolean;
+  adventure: Adventure | null;
+  onDismiss: () => void;
 }
 
 export default function AdventureCard({
   isVisible,
   adventure,
-  onDismiss
+  onDismiss,
 }: AdventureCardProps) {
   if (!adventure || !adventure.card_content) {
-    return null
+    return null;
   }
 
-  const cardContent = adventure.card_content
+  const cardContent = adventure.card_content;
 
   // Calculate modules count from content_list
-  const modulesCount = adventure.content_list?.length || 0
+  const modulesCount = adventure.content_list?.length || 0;
 
-  // Calculate XP reward: total questions × 10 XP per correct answer
-  // Each module has multiple quiz questions, each worth 10 XP
+  // Calculate XP reward: total questions x 10 XP per correct answer
   const totalQuestions = adventure.content_list?.reduce((sum, item) =>
     sum + (item.questions?.length || 0), 0) || 0;
-  const xpReward = totalQuestions * 10
+  const xpReward = totalQuestions * 10;
 
   const handleClose = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    onDismiss()
-  }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onDismiss();
+  };
 
   return (
     <Modal
       visible={isVisible}
       animationType="slide"
-      presentationStyle={Platform.OS === 'ios' ? "pageSheet" : "fullScreen"}
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
       onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.container}>
@@ -67,14 +73,16 @@ export default function AdventureCard({
           {/* Hero Header Section */}
           <View style={styles.heroSection}>
             <View style={styles.heroImageContainer}>
-              {/* Background Image */}
-              <Image
-                source={{ uri: cardContent.background_image }}
-                style={styles.heroImage}
-                contentFit="cover"
-                placeholder={{ blurhash: 'LKO2?U%2Tw=w]~RBVZRi};RPxuwH' }}
-                transition={300}
-              />
+              {/* Hero image: scale 1.08->1, 900ms, 0ms delay */}
+              <AnimatedEntrance preset="fadeScale" delay={0} style={styles.heroImageAnimWrapper}>
+                <Image
+                  source={{ uri: cardContent.background_image }}
+                  style={styles.heroImage}
+                  contentFit="cover"
+                  placeholder={{ blurhash: 'LKO2?U%2Tw=w]~RBVZRi};RPxuwH' }}
+                  transition={300}
+                />
+              </AnimatedEntrance>
 
               {/* Swipe indicator bar */}
               <View style={styles.swipeIndicator} />
@@ -86,31 +94,41 @@ export default function AdventureCard({
                 </TouchableOpacity>
               )}
 
-              {/* Dark overlay for text readability */}
-              <LinearGradient
-                colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)']}
-                start={{x: 0, y: 0}}
-                end={{x: 0, y: 1}}
-                style={styles.heroOverlay}
-              />
+              {/* Dark overlay: opacity, 500ms, 200ms delay */}
+              <AnimatedEntrance preset="fadeIn" delay={200} style={styles.heroOverlayAnimWrapper}>
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.2)', 'rgba(0,0,0,0.7)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={styles.heroOverlay}
+                />
+              </AnimatedEntrance>
 
               {/* Header Content */}
               <View style={styles.heroContent}>
                 <View style={styles.spacer} />
 
-                {/* Adventure Title and Era Info */}
                 <View style={styles.titleSection}>
-                  {/* Era Badge */}
-                  <View style={styles.eraBadge}>
-                    <Text style={styles.eraBadgeText}>
-                      {cardContent.era_name.toUpperCase()}, ADVENTURE {adventure.order_by}
-                    </Text>
-                  </View>
+                  {/* Era Badge: y 20->0, scale 0.8->1, 500ms, 400ms delay */}
+                  <AnimatedEntrance preset="bubblePop" delay={400}>
+                    <View style={styles.eraBadge}>
+                      <Typography variant="label.xs" color="white" weight="700" uppercase letterSpacing={0.5}>
+                        {cardContent.era_name}, Adventure {adventure.order_by}
+                      </Typography>
+                    </View>
+                  </AnimatedEntrance>
 
-                  {/* Adventure Title */}
-                  <Text style={styles.adventureTitle}>
-                    {adventure.adventure_title}
-                  </Text>
+                  {/* Adventure Title: y -18->0, 550ms, 550ms delay (stagger 40ms per word) */}
+                  <AnimatedEntrance preset="slideFromBottom" delay={550}>
+                    <Typography
+                      variant="display.large"
+                      color="white"
+                      align="center"
+                      style={styles.adventureTitleStyle}
+                    >
+                      {adventure.adventure_title}
+                    </Typography>
+                  </AnimatedEntrance>
                 </View>
               </View>
             </View>
@@ -120,78 +138,132 @@ export default function AdventureCard({
           <View style={styles.contentSection}>
             {/* Overview */}
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Overview</Text>
-              <Text style={styles.descriptionText}>{cardContent.overview_text}</Text>
+              {/* Overview heading: y 12->0, 300ms, 800ms delay */}
+              <AnimatedEntrance preset="fadeIn" delay={800}>
+                <Typography variant="heading.m" color="onyx">
+                  Overview
+                </Typography>
+              </AnimatedEntrance>
+              {/* Overview body: y 8->0, 400ms, 900ms delay */}
+              <AnimatedEntrance preset="fadeIn" delay={900}>
+                <Typography variant="body.m" color="textMuted" style={styles.descriptionText}>
+                  {cardContent.overview_text}
+                </Typography>
+              </AnimatedEntrance>
             </View>
 
             {/* Adventure Story */}
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Adventure Story</Text>
-              <Text style={styles.storyText}>
-                {cardContent.adventure_story}
-              </Text>
+              {/* Story heading: y 12->0, 300ms, 1100ms delay */}
+              <AnimatedEntrance preset="fadeIn" delay={1100}>
+                <Typography variant="heading.m" color="onyx">
+                  Adventure Story
+                </Typography>
+              </AnimatedEntrance>
+              {/* Story body: y 8->0, 400ms, 1200ms delay */}
+              <AnimatedEntrance preset="fadeIn" delay={1200}>
+                <Typography variant="body.m" color="textMuted" style={styles.storyText}>
+                  {cardContent.adventure_story}
+                </Typography>
+              </AnimatedEntrance>
             </View>
 
-            {/* Adventure Details Card */}
-            <View style={styles.detailsCard}>
-              <Text style={styles.detailsCardTitle}>Adventure Details</Text>
+            {/* Details Card: y 40->0, 500ms, 1400ms delay */}
+            <AnimatedEntrance preset="accordionLayer" delay={1400}>
+              <View style={styles.detailsCard}>
+                <Typography variant="heading.m" color="bluePrimary" style={styles.detailsCardTitle}>
+                  Details
+                </Typography>
 
-              <View style={styles.detailsRow}>
-                {/* Time */}
-                <View style={styles.detailItem}>
-                  <Ionicons
-                    name="time"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.detailValue}>{cardContent.estimated_time}</Text>
-                  <Text style={styles.detailLabel}>Duration</Text>
-                </View>
+                <View style={styles.detailsRow}>
+                  {/* Time - icon: 1650ms, label: 1850ms */}
+                  <View style={styles.detailItem}>
+                    <AnimatedEntrance preset="bubblePop" delay={1650}>
+                      <Ionicons name="time" size={24} color={colors.bluePrimary} />
+                    </AnimatedEntrance>
+                    <AnimatedEntrance preset="fadeIn" delay={1850}>
+                      <Typography variant="body.l" color="onyx" weight="700">
+                        {cardContent.estimated_time}
+                      </Typography>
+                    </AnimatedEntrance>
+                    <AnimatedEntrance preset="fadeIn" delay={1850}>
+                      <Typography variant="label.xs" color="textMuted">
+                        Duration
+                      </Typography>
+                    </AnimatedEntrance>
+                  </View>
 
-                {/* XP Reward (calculated) */}
-                <View style={styles.detailItem}>
-                  <Ionicons
-                    name="star"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.detailValue}>+{xpReward}</Text>
-                  <Text style={styles.detailLabel}>XP Reward</Text>
-                </View>
+                  {/* XP Reward - icon: 1730ms (80ms stagger), label: 1850ms */}
+                  <View style={styles.detailItem}>
+                    <AnimatedEntrance preset="bubblePop" delay={1730}>
+                      <Ionicons name="star" size={24} color={colors.bluePrimary} />
+                    </AnimatedEntrance>
+                    <AnimatedEntrance preset="fadeIn" delay={1850}>
+                      <Typography variant="body.l" color="onyx" weight="700">
+                        +{xpReward}
+                      </Typography>
+                    </AnimatedEntrance>
+                    <AnimatedEntrance preset="fadeIn" delay={1850}>
+                      <Typography variant="label.xs" color="textMuted">
+                        XP Reward
+                      </Typography>
+                    </AnimatedEntrance>
+                  </View>
 
-                {/* Modules Count (calculated) */}
-                <View style={styles.detailItem}>
-                  <Ionicons
-                    name="book"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.detailValue}>{modulesCount}</Text>
-                  <Text style={styles.detailLabel}>Modules</Text>
+                  {/* Modules Count - icon: 1810ms (160ms stagger), label: 1850ms */}
+                  <View style={styles.detailItem}>
+                    <AnimatedEntrance preset="bubblePop" delay={1810}>
+                      <Ionicons name="book" size={24} color={colors.bluePrimary} />
+                    </AnimatedEntrance>
+                    <AnimatedEntrance preset="fadeIn" delay={1850}>
+                      <Typography variant="body.l" color="onyx" weight="700">
+                        {modulesCount}
+                      </Typography>
+                    </AnimatedEntrance>
+                    <AnimatedEntrance preset="fadeIn" delay={1850}>
+                      <Typography variant="label.xs" color="textMuted">
+                        Modules
+                      </Typography>
+                    </AnimatedEntrance>
+                  </View>
                 </View>
               </View>
-            </View>
+            </AnimatedEntrance>
           </View>
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
+
+        {/* Floating START ADVENTURE button: y 30->0, 450ms, 2150ms delay */}
+        <AnimatedEntrance preset="slideFromBottom" delay={2150} style={styles.floatingButton}>
+          <DepthButton
+            variant="tertiary"
+            size="medium"
+            pressEffect="dip"
+            onPress={handleClose}
+            isFullWidth
+          >
+            <Typography variant="label.l" color="white" weight="700" uppercase letterSpacing={1}>
+              START ADVENTURE
+            </Typography>
+          </DepthButton>
+        </AnimatedEntrance>
       </SafeAreaView>
     </Modal>
-  )
+  );
 }
 
-// Styles matching AdventureDetailModal
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
+    backgroundColor: colors.snow,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'android' ? 50 : 15,
+    paddingBottom: 100,
   },
 
   // Hero Section
@@ -199,6 +271,10 @@ const styles = StyleSheet.create({
   heroImageContainer: {
     height: 280,
     position: 'relative',
+  },
+  heroImageAnimWrapper: {
+    width: '100%',
+    height: '100%',
   },
   heroImage: {
     width: '100%',
@@ -227,12 +303,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 3,
   },
-  heroOverlay: {
+  heroOverlayAnimWrapper: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  heroOverlay: {
+    width: '100%',
+    height: '100%',
   },
   heroContent: {
     position: 'absolute',
@@ -247,126 +327,69 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     alignItems: 'center',
-    paddingBottom: 30,
-    paddingHorizontal: 20,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   eraBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    marginBottom: 12,
+    backgroundColor: colors.pinkSecondary,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    marginBottom: spacing.md,
   },
-  eraBadgeText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: 'rgba(255,255,255,0.9)',
-  },
-  adventureTitle: {
-    fontFamily: 'Cormorant-Bold',
-    fontSize: 26,
-    color: 'white',
-    textAlign: 'center',
+  adventureTitleStyle: {
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
 
   // Content Section
   contentSection: {
-    paddingTop: 30,
+    paddingTop: spacing.xl,
   },
   sectionContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 16,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.sm + 4,
   },
   descriptionText: {
-    fontFamily: 'DM Sans',
-    fontSize: 15,
-    fontWeight: '400',
-    color: ArchivesTheme.colors.shoeBrown,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   storyText: {
-    fontFamily: 'DM Sans',
-    fontSize: 15,
-    fontWeight: '400',
-    color: ArchivesTheme.colors.shoeBrown,
-    lineHeight: 21,
+    lineHeight: 22,
   },
 
-  // Adventure Details Card
+  // Details Card - light blue background
   detailsCard: {
-    marginHorizontal: 20,
-    padding: 24,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: `${ArchivesTheme.colors.persianOrange}33`,
-    shadowColor: 'black',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-    marginBottom: 24,
+    marginHorizontal: spacing.lg,
+    padding: spacing.lg,
+    backgroundColor: colors.blueSecondary + '30', // 19% opacity
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
   },
   detailsCardTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 20,
+    marginBottom: spacing.md,
   },
   detailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
   },
   detailItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 8,
-  },
-  detailValue: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.mutedNavy,
-  },
-  detailLabel: {
-    fontFamily: 'DM Sans',
-    fontSize: 12,
-    fontWeight: '500',
-    color: ArchivesTheme.colors.shoeBrown,
+    gap: spacing.sm,
   },
 
-  // Note Container
-  noteContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: `${ArchivesTheme.colors.persianOrange}10`,
-    padding: 16,
-    borderRadius: 12,
-    marginHorizontal: 20,
-    marginBottom: 24,
-  },
-  noteText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '500',
-    color: ArchivesTheme.colors.shoeBrown,
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 18,
+  // Floating button
+  floatingButton: {
+    position: 'absolute',
+    bottom: Platform.OS === 'android' ? 24 : 40,
+    left: spacing.xl,
+    right: spacing.xl,
   },
 
   // Bottom Spacer
   bottomSpacer: {
     height: Platform.OS === 'android' ? 30 : 15,
   },
-})
+});
