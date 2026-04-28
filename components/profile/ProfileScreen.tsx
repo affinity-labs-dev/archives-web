@@ -372,7 +372,7 @@ function MonthPill({
 // DEBUG: Set to true to show fake large numbers for animation testing.
 //        Set back to false before committing.
 // ══════════════════════════════════════════════
-const USE_FAKE_STATS = true;
+const USE_FAKE_STATS = false;
 const FAKE = {
   longestStreak: 85,
   streak: 67,
@@ -425,8 +425,7 @@ export function ProfileScreen() {
   useEffect(() => {
     hasAnimated.current = true;
   }, []);
-  // DEBUG: Force true to test animations. Set back to !hasAnimated.current for production.
-  const shouldAnimate = true;
+  const shouldAnimate = !hasAnimated.current;
 
   const { signOut } = useAuth();
   const { user, isSignedIn } = useUser();
