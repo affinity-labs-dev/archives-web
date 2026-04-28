@@ -321,6 +321,24 @@ export default function QuizResults({
     setShowExplanations((prev) => !prev);
   }, []);
 
+  // ─── StatusBar imperative one-shot ────────────────────────────────────
+  // The previous JSX `<StatusBar>` at the top of the render tree re-applied
+  // its props on every commit. On Android, each commit re-fires window
+  // flags through the bridge → WindowManager re-layout → the entire
+  // SafeAreaView + child stack shifts by a frame on every state change
+  // (showExplanations toggle, openChat toggle, AnimatedEntrance progress,
+  // etc.) — visible to the user as the screen "jumping up and down."
+  // Same root cause + fix that Quiz.tsx applied (see Quiz.tsx:128). Fires
+  // once on mount; deps include `isToday` so a remount with different
+  // mode picks up the right config.
+  useEffect(() => {
+    if (isToday) return; // Today chrome owns the status bar
+    StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setBackgroundColor(colors.snow);
+    }
+  }, [isToday]);
+
   // Mascot entrance preset varies by tier — high tier uses elastic overshoot
   // for a more celebratory feel, low/medium use a gentler back.out(2) drop.
   const mascotPreset = useMemo(
@@ -330,12 +348,9 @@ export default function QuizResults({
 
   return (
     <SafeAreaView style={styles.container} edges={isToday ? [] : ['top']}>
-      {Platform.OS === 'android' && !isToday && (
-        <StatusBar
-          barStyle="dark-content"
-          backgroundColor={colors.snow}
-        />
-      )}
+      {/* StatusBar config moved to the mount-time useEffect above. JSX
+          <StatusBar> here re-applied on every render — same Android
+          window-flag re-fire bug Quiz.tsx already worked around. */}
 
       <AIChatModal
         visible={openChat}
