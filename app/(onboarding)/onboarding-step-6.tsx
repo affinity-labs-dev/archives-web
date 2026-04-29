@@ -9,6 +9,7 @@ import {
   Typography,
   DepthButton,
   ReviewCard,
+  ScrollFade,
   colors,
   spacing,
   easings,
@@ -178,6 +179,11 @@ export default function OnboardingStep6Screen() {
           delay={400}
           style={styles.bottom}
         >
+          {/* Soft fade-out — masks the hard horizontal edge where the
+              scrolling reviews list meets the CONTINUE slot. Same
+              pattern used by the personalize phases and the quiz
+              screen. */}
+          <ScrollFade color={colors.snow} />
           <DepthButton
             surfaceColor="onyx"
             shadowColor="white"

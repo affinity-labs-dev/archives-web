@@ -123,7 +123,7 @@ export default function OnboardingStep12Screen() {
             delay={150}
           >
             <View style={styles.mascotRow}>
-              <Mascot size={96} autoPlayEntrance={false} />
+              <Mascot width={110} height={96} autoPlayEntrance={false} />
               <View style={styles.bubbleWrapper}>
                 <SpeechBubble
                   borderWidth={1.5}

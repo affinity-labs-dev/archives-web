@@ -11,7 +11,7 @@
  * - Automatic cleanup on unmount
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { Adventure } from '@/components/shared/types';
 import AdaptivePreloadService, {
   getPreloadConfig,
@@ -80,6 +80,26 @@ export function useAdventurePreloader(
   // Track mounted state to prevent state updates after unmount
   const isMountedRef = useRef(true);
 
+  // Stable signature for the parts of `userProgress` that actually drive
+  // preloading decisions (which modules are completed). Without this, the
+  // outer `userProgress` array reference changes on every quiz tick or
+  // store update, which would re-fire the heavy `runPreloading` effect
+  // even when the completion set hasn't changed. Sorting + joining the
+  // completed module ids gives a string that's `===`-equal across
+  // reference-only changes, so the effect re-runs only on real progress.
+  const completionFingerprint = useMemo(() => {
+    const ids: string[] = [];
+    for (const p of userProgress) {
+      if (p.isCompleted && p.quizCompleted) ids.push(`${p.adventureId}|${p.moduleId}`);
+    }
+    return ids.sort().join(',');
+  }, [userProgress]);
+
+  // Latest userProgress in a ref so `runPreloading` can read it without
+  // listing the array as a dep (which would defeat the fingerprint).
+  const userProgressRef = useRef(userProgress);
+  userProgressRef.current = userProgress;
+
   /**
    * Main preloading logic
    */
@@ -96,8 +116,10 @@ export function useAdventurePreloader(
 
       if (!isMountedRef.current) return;
 
-      // Calculate preload status for all adventures
-      const preloadStatus = getAllAdventurePreloadStatus(adventures, userProgress, config);
+      // Calculate preload status for all adventures. Read userProgress from
+      // the ref so we always see the latest snapshot without listing the
+      // raw array as a dep (which would defeat `completionFingerprint`).
+      const preloadStatus = getAllAdventurePreloadStatus(adventures, userProgressRef.current, config);
 
       setState(prev => ({ ...prev, config, preloadStatus }));
 
@@ -164,7 +186,11 @@ export function useAdventurePreloader(
         setState(prev => ({ ...prev, isLoading: false }));
       }
     }
-  }, [adventures, userProgress, enabled]);
+    // `completionFingerprint` replaces `userProgress` here so the callback
+    // identity only changes when the set of completed modules changes —
+    // not on every Zustand snapshot tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adventures, completionFingerprint, enabled]);
 
   /**
    * Force refresh preloading (e.g., after progress update)

@@ -1,30 +1,103 @@
 // TodayScrollableLesson.tsx - Today tab Explore lesson with progress bar and voiceover
 // Extends ScrollableMediaViewLesson with Today-specific features
 
-import ArchivesTheme from "@/constants/ArchivesTheme";
+import TodayLessonChrome from "@/components/today/TodayLessonChrome";
+import { DepthButton, Typography, colors, easings, safeDuration } from "@/components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
-  Dimensions,
   Platform,
   ScrollView,
   StatusBar,
-  Text,
-  TouchableOpacity,
+  StyleSheet,
   View,
   useWindowDimensions,
 } from "react-native";
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import RenderHtml from 'react-native-render-html';
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ContentBlock } from "@/components/shared/types";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+// Voiceover pulse ring — sonar-style outline that expands + fades while
+// the audio is playing. Ports `index.html:2483-2507` from the mock:
+//   gsap.set(ring, { scale: 1, opacity: 0.6 });
+//   gsap.to(ring, { scale: 1.35, opacity: 0, duration: 1.3,
+//                   ease: 'power2.out', repeat: -1 });
+// Single shared value 0→1 drives both transforms via interpolation, then
+// `withRepeat(..., -1, false)` restarts each cycle at the starting state
+// (no yoyo — matches the mock's discrete restart, not a smooth reverse).
+const PULSE_RING_DURATION_MS = 1300;
+const PULSE_RING_COLOR = "#E84E80";
 
-// Theme styles
-const themeStyles = ArchivesTheme.common.today;
+interface VoicePulseRingProps {
+  active: boolean;
+  borderRadius?: number;
+}
+
+function VoicePulseRing({
+  active,
+  borderRadius = 26.5,
+}: VoicePulseRingProps) {
+  // 0 = resting (scale 1, opacity 0.6), 1 = end of pulse (scale 1.35, opacity 0)
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    if (active) {
+      progress.value = 0;
+      progress.value = withRepeat(
+        withTiming(1, {
+          duration: safeDuration(PULSE_RING_DURATION_MS),
+          easing: easings.power2Out,
+        }),
+        -1,
+        false,
+      );
+    } else {
+      cancelAnimation(progress);
+      progress.value = withTiming(0, { duration: safeDuration(180) });
+    }
+  }, [active, progress]);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + progress.value * 0.35 }],
+    // Resting opacity is 0.6; while active, fades to 0 each cycle.
+    // While inactive, snap-tweens to 0 so the ring is invisible.
+    opacity: active ? 0.6 * (1 - progress.value) : 0,
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      // Force the ring onto a stable Android hardware-texture layer so
+      // the per-frame scale + opacity tweens don't flip the View
+      // between hardware and software-layer compositing strategies on
+      // each frame. The flip-flopping was the source of the layout
+      // invalidation cascade up through the chrome → ScrollView body
+      // jitter (visible scroll position bobbing while the audio plays).
+      // iOS ignores this prop — its compositor handles layer caching
+      // automatically and was never affected.
+      renderToHardwareTextureAndroid={active}
+      style={[
+        StyleSheet.absoluteFill,
+        {
+          borderRadius,
+          borderWidth: 2,
+          borderColor: PULSE_RING_COLOR,
+        },
+        ringStyle,
+      ]}
+    />
+  );
+}
 
 // VideoBlock component using expo-video hooks
 interface VideoBlockProps {
@@ -76,26 +149,17 @@ function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockPro
   );
 }
 
+// Layout constants — figma 3365:9116 reference values:
+//   text padding horizontal = 23 (figma image left:23, body left:23-28)
+//   text font = Onest 16, lineHeight 24, letterSpacing -0.16
+//   image: 240px tall, ~12px radius
 const LAYOUT_CONSTANTS = {
-  contentPaddingTop: 130,
-  contentPaddingBottom: 130,
-  videoSectionSpacing: 20,
-  videoContainerSpacing: 16,
-  videoHorizontalPadding: 20,
-  videoHeight: 250,
-  videoBorderRadius: 12,
-  textFontSize: 18,
+  textFontSize: 16,
   textLineHeight: 24,
-  textHorizontalPadding: 20,
-  continueButtonBottom: 50,
-  continueButtonHorizontal: 24,
-  continueButtonPadding: { horizontal: 20, vertical: 16 },
-  continueButtonRadius: 20,
-  backButtonSize: 40,
-  backButtonRadius: 20,
-  backButtonPadding: { top: 8, left: 16 },
-  bottomMarkerHeight: 1,
-  bottomMarkerBottomPadding: 40,
+  textLetterSpacing: -0.16,
+  textHorizontalPadding: 23,
+  imageHeight: 240,
+  imageBorderRadius: 12,
   videoInitializationDelay: 500,
 };
 
@@ -124,8 +188,27 @@ export default function TodayScrollableLesson({
   const status = useAudioPlayerStatus(player);
   const hasTrackedMediaRef = useRef(false);
 
-  // Sort content blocks by order
-  const sortedBlocks = (contentBlocks || []).sort((a, b) => a.order - b.order);
+  // Derive a stable boolean from `status`. `useAudioPlayerStatus`
+  // returns a fresh status object reference on every audio tick (~60+
+  // updates/sec while the audio is playing). Reading `.playing` off
+  // `status` directly forces the entire component to re-render on
+  // every tick — and because the leftCta JSX (DepthButton + pulse ring)
+  // and the body ScrollView are both inline in this component, EACH
+  // tick re-evaluated the lesson body. On Android that meant the
+  // ScrollView's child measurements were re-run mid-scroll, producing
+  // the visible "jitter" the user reported while VoiceOver played.
+  // Pulling the boolean out as a primitive lets `useMemo` below cache
+  // the heavy bits across ticks (boolean equality is reference-stable).
+  const isPlaying = !!status?.playing;
+
+  // Sort content blocks by order. Memoized: the previous version called
+  // `.sort()` inline which (a) mutated the prop array and (b) returned
+  // a fresh sorted-array reference per render → ScrollView's child
+  // identity churn → measurement re-runs on every audio status tick.
+  const sortedBlocks = useMemo(
+    () => [...(contentBlocks || [])].sort((a, b) => a.order - b.order),
+    [contentBlocks],
+  );
 
   // Audio setup
   useEffect(() => {
@@ -134,6 +217,19 @@ export default function TodayScrollableLesson({
       interruptionMode: 'mixWithOthers',
       interruptionModeAndroid: 'duckOthers',
     });
+  }, []);
+
+  // StatusBar config — imperative one-shot on mount (was previously a
+  // JSX <StatusBar> rendered on every commit, which on Android fires the
+  // window flags through the bridge again on each parent re-render →
+  // window manager re-layout → visible jitter on the chrome + parent
+  // tab bar). Imperative call fires once and stays put.
+  useEffect(() => {
+    StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setBackgroundColor('transparent');
+      StatusBar.setTranslucent(true);
+    }
   }, []);
 
   // Cleanup audio on unmount
@@ -153,7 +249,7 @@ export default function TodayScrollableLesson({
   const toggleAudio = () => {
     if (!innerVoiceUrl || !player) return;
 
-    if (status.playing) {
+    if (isPlaying) {
       player.pause();
     } else {
       player.play();
@@ -165,186 +261,233 @@ export default function TodayScrollableLesson({
     }
   };
 
-  // Render individual block based on type
-  const renderBlock = (block: ContentBlock, blockIndex: number) => {
-    const key = `${block.type}-${block.order}-${blockIndex}`;
+  // Memoized lesson body — re-renders ONLY when the blocks or layout
+  // dimensions actually change. Critically, this skips re-render on
+  // every audio-status tick (which happens 60+ times/sec while the
+  // VoiceOver plays), eliminating the cascade of measurement re-runs
+  // that was bobbing the ScrollView's scroll position on Android.
+  const lessonBody = useMemo(() => {
+    const renderBlock = (block: ContentBlock, blockIndex: number) => {
+      const key = `${block.type}-${block.order}-${blockIndex}`;
 
-    switch (block.type) {
-      case 'video':
-        return (
-          <View key={key} style={themeStyles.scrollableMediaSection}>
-            <View style={themeStyles.scrollableMediaContainer}>
+      switch (block.type) {
+        case 'video':
+          return (
+            <View key={key} style={blockStyles.mediaSection}>
               <VideoBlock
                 url={block.url || ''}
                 autoplay={block.autoplay}
                 loop={block.loop !== false}
-                style={themeStyles.scrollableMedia}
+                style={blockStyles.media}
               />
             </View>
-          </View>
-        );
+          );
 
-      case 'image':
-        return (
-          <View key={key} style={themeStyles.scrollableMediaSection}>
-            <View style={themeStyles.scrollableMediaContainer}>
+        case 'image':
+          return (
+            <View key={key} style={blockStyles.mediaSection}>
               <Image
                 source={{ uri: block.url || '' }}
-                style={themeStyles.scrollableMedia}
+                style={blockStyles.media}
                 contentFit="cover"
               />
             </View>
-          </View>
-        );
+          );
 
-      case 'text':
-        return (
-          <View key={key} style={themeStyles.scrollableTextSection}>
-            <View style={themeStyles.scrollableTextContainer}>
+        case 'text':
+          return (
+            <View key={key} style={blockStyles.textSection}>
               <RenderHtml
-                contentWidth={contentWidth - (LAYOUT_CONSTANTS.textHorizontalPadding * 2)}
+                contentWidth={
+                  contentWidth - LAYOUT_CONSTANTS.textHorizontalPadding * 2
+                }
                 source={{ html: block.content || '' }}
-                tagsStyles={{
-                  body: {
-                    color: ArchivesTheme.colors.shoeBrown,
-                    fontFamily: 'DM Sans',
-                    fontSize: LAYOUT_CONSTANTS.textFontSize,
-                    lineHeight: LAYOUT_CONSTANTS.textLineHeight
-                  },
-                  h1: {
-                    color: ArchivesTheme.colors.shoeBrown,
-                    fontFamily: 'DM Sans',
-                    fontSize: 24,
-                    fontWeight: '700',
-                    marginBottom: 12
-                  },
-                  h2: {
-                    color: ArchivesTheme.colors.mutedNavy,
-                    fontFamily: 'DM Sans',
-                    fontSize: 18,
-                    fontWeight: '600',
-                    marginBottom: 10
-                  },
-                  h3: {
-                    color: ArchivesTheme.colors.shoeBrown,
-                    fontFamily: 'DM Sans',
-                    fontSize: 18,
-                    fontWeight: '600',
-                    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
-                    marginBottom: 8
-                  },
-                  p: {
-                    color: ArchivesTheme.colors.shoeBrown,
-                    fontFamily: 'DM Sans',
-                    fontSize: LAYOUT_CONSTANTS.textFontSize,
-                    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
-                    marginBottom: 12
-                  },
-                  strong: { fontWeight: '600', color: ArchivesTheme.colors.shoeBrown },
-                  em: { fontStyle: 'italic', color: ArchivesTheme.colors.shoeBrown },
-                  ul: { marginBottom: 12 },
-                  li: {
-                    color: ArchivesTheme.colors.shoeBrown,
-                    fontFamily: 'DM Sans',
-                    fontSize: LAYOUT_CONSTANTS.textFontSize,
-                    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
-                    marginBottom: 6
-                  },
-                  blockquote: {
-                    borderLeftWidth: 3,
-                    borderLeftColor: ArchivesTheme.colors.persianOrange,
-                    paddingLeft: 12,
-                    marginBottom: 12,
-                    fontStyle: 'italic'
-                  },
-                  hr: {
-                    borderBottomWidth: 1,
-                    borderBottomColor: ArchivesTheme.colors.shoeBrown + '33',
-                    marginVertical: 16
-                  },
-                }}
+                tagsStyles={readingHtmlStyles}
               />
             </View>
-          </View>
-        );
+          );
 
-      default:
-        return null;
-    }
-  };
+        default:
+          return null;
+      }
+    };
+
+    return (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 80,
+          paddingBottom: insets.bottom + 90,
+          paddingHorizontal: LAYOUT_CONSTANTS.textHorizontalPadding,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        {sortedBlocks.map((block, index) => renderBlock(block, index))}
+      </ScrollView>
+    );
+  }, [sortedBlocks, contentWidth, insets.top, insets.bottom]);
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={[]}>
-      <View style={{ flex: 1, backgroundColor: ArchivesTheme.colors.creamWhite }}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} />
+      <View style={{ flex: 1, backgroundColor: colors.snow }}>
+        {/* StatusBar config moved to the useEffect on mount above. JSX
+            <StatusBar> here re-applies on every render, causing Android
+            window flag re-commits + visible chrome jitter. */}
 
-        {/* Fixed Header - Progress Bar */}
-        <View
-          style={{
-            backgroundColor: ArchivesTheme.colors.creamWhite,
-            paddingTop: insets.top + 8,
-            paddingBottom: 12,
-            paddingHorizontal: 16,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-          }}
+        <TodayLessonChrome
+          progress={progress}
+          onBack={onBack}
+          // Snow header on a snow body — back icon + progress tones use the
+          // same blue palette as the home-screen progress bar (figma 3365:9257-9260).
+          headerBackground={colors.snow}
+          backIconColor={colors.bluePrimary}
+          progressLabelColor={colors.bluePrimary}
+          progressFillColor={colors.bluePrimary}
+          progressTrackColor={colors.blueSecondary}
+          leftCta={
+            innerVoiceUrl ? (
+              // `position: 'relative'` anchors the absolute pulse ring
+              // overlay to the same bounds as the DepthButton.
+              <View style={{ position: "relative" }}>
+                <DepthButton
+                  variant="secondary"
+                  surfaceColor="pinkSecondary"
+                  shadowColor="pinkPrimary"
+                  onPress={toggleAudio}
+                  leftIcon={
+                    <Ionicons
+                      name={isPlaying ? "pause" : "play"}
+                      size={18}
+                      color={colors.white}
+                    />
+                  }
+                >
+                  <Typography
+                    family="onest"
+                    size={18}
+                    weight="700"
+                    extraColor={colors.white}
+                    style={{ letterSpacing: -0.18 }}
+                  >
+                    {isPlaying ? "PAUSE" : "VOICEOVER"}
+                  </Typography>
+                </DepthButton>
+                <VoicePulseRing active={isPlaying} />
+              </View>
+            ) : null
+          }
+          rightCta={
+            <DepthButton variant="secondary" onPress={onContinue}>
+              <Typography
+                family="onest"
+                size={18}
+                weight="700"
+                extraColor={colors.white}
+                style={{ letterSpacing: -0.18 }}
+              >
+                CONTINUE
+              </Typography>
+            </DepthButton>
+          }
         >
-          {/* Back Button */}
-          <TouchableOpacity style={themeStyles.watchBackButton} onPress={onBack}>
-            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-          </TouchableOpacity>
-
-          {/* Progress Bar */}
-          <View style={{ flex: 1 }}>
-            <View style={themeStyles.watchProgressContainer}>
-              <Text style={[themeStyles.watchProgressLabel, { color: ArchivesTheme.colors.shoeBrown }]}>
-                Progress today
-              </Text>
-              <Text style={[themeStyles.watchProgressPercentage, { color: ArchivesTheme.colors.shoeBrown }]}>
-                {progress}%
-              </Text>
-            </View>
-            <View style={[themeStyles.watchProgressBar, { backgroundColor: ArchivesTheme.colors.shoeBrown + "30" }]}>
-              <View
-                style={[
-                  themeStyles.watchProgressFill,
-                  { width: `${progress}%`, backgroundColor: ArchivesTheme.colors.persianOrange },
-                ]}
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Main scrollable content */}
-        <ScrollView style={{ flex: 1 }}>
-          <View style={[themeStyles.scrollableContent, { paddingTop: 20 }]}>
-            {/* Render all content blocks dynamically */}
-            {sortedBlocks.map((block, index) => renderBlock(block, index))}
-          </View>
-        </ScrollView>
-
-        {/* Floating button container - Voiceover + Continue */}
-        <View style={[themeStyles.watchFloatingButtonContainer, { bottom: 0 }]}>
-          <View style={themeStyles.watchButtonRow}>
-            {/* Voiceover button (replaces Read button) */}
-            {innerVoiceUrl && (
-              <TouchableOpacity style={themeStyles.watchReadButton} onPress={toggleAudio}>
-                <Ionicons name={status.playing ? "pause" : "play"} size={20} color="white" />
-                <Text style={themeStyles.watchReadButtonText}>
-                  {status.playing ? "Pause" : "Voiceover"}
-                </Text>
-              </TouchableOpacity>
-            )}
-            {/* Continue button */}
-            <TouchableOpacity style={themeStyles.watchContinueButton} onPress={onContinue}>
-              <Text style={themeStyles.watchContinueButtonText}>Continue</Text>
-              <Ionicons name="arrow-forward" size={20} color="white" />
-            </TouchableOpacity>
-          </View>
-        </View>
+          {/* Body — memoized ScrollView that doesn't re-render on
+              audio-status ticks. See `lessonBody` useMemo above. */}
+          {lessonBody}
+        </TodayLessonChrome>
       </View>
     </SafeAreaView>
   );
 }
+
+// ──────────────────────────────────────────────────────────
+// Block-level styles + RenderHtml tag styles (figma 3365:9116)
+// ──────────────────────────────────────────────────────────
+
+const blockStyles = StyleSheet.create({
+  mediaSection: {
+    marginVertical: 12,
+  },
+  // 240px tall media frame, ~12px corners — figma 3365:9119.
+  media: {
+    width: "100%",
+    height: LAYOUT_CONSTANTS.imageHeight,
+    borderRadius: LAYOUT_CONSTANTS.imageBorderRadius,
+  },
+  textSection: {
+    marginBottom: 4,
+  },
+});
+
+// Reading HTML — Onest body / Bounded h1 per figma 3365:9118 + 3365:9271.
+// Bounded only ships in Black weight; the SemiBold-tagged style still
+// renders crisp at the 16px size and matches the headline visual hierarchy.
+const readingHtmlStyles = {
+  body: {
+    color: colors.black,
+    fontFamily: "Onest",
+    fontSize: LAYOUT_CONSTANTS.textFontSize,
+    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
+    letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
+    fontWeight: "600" as const,
+  },
+  h1: {
+    color: colors.black,
+    fontFamily: "Bounded-Black",
+    fontSize: LAYOUT_CONSTANTS.textFontSize,
+    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
+    fontWeight: "600" as const,
+    marginBottom: 16,
+  },
+  h2: {
+    color: colors.black,
+    fontFamily: "Onest",
+    fontSize: LAYOUT_CONSTANTS.textFontSize,
+    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
+    letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
+    fontWeight: "700" as const,
+    marginBottom: 12,
+  },
+  h3: {
+    color: colors.black,
+    fontFamily: "Onest",
+    fontSize: LAYOUT_CONSTANTS.textFontSize,
+    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
+    letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
+    fontWeight: "600" as const,
+    marginBottom: 10,
+  },
+  p: {
+    color: colors.black,
+    fontFamily: "Onest",
+    fontSize: LAYOUT_CONSTANTS.textFontSize,
+    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
+    letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
+    fontWeight: "600" as const,
+    marginBottom: 16,
+  },
+  strong: { fontWeight: "700" as const, color: colors.black },
+  em: { fontStyle: "italic" as const, color: colors.black },
+  ul: { marginBottom: 12 },
+  li: {
+    color: colors.black,
+    fontFamily: "Onest",
+    fontSize: LAYOUT_CONSTANTS.textFontSize,
+    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
+    letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
+    fontWeight: "600" as const,
+    marginBottom: 6,
+  },
+  blockquote: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.bluePrimary,
+    paddingLeft: 12,
+    marginBottom: 12,
+    fontStyle: "italic" as const,
+  },
+  hr: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.15)",
+    marginVertical: 16,
+  },
+};
 

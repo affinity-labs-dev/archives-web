@@ -49,13 +49,27 @@ export function useEntrance(
       ? ENTRANCE_PRESETS[presetOrConfig]
       : presetOrConfig;
 
-  // When autoPlay is false, start at final (to) values so content is visible
-  const skipAnim = !autoPlay;
-  const translateX = useSharedValue(skipAnim ? (config.translateX?.to ?? 0) : (config.translateX?.from ?? 0));
-  const translateY = useSharedValue(skipAnim ? (config.translateY?.to ?? 0) : (config.translateY?.from ?? 0));
-  const rotate = useSharedValue(skipAnim ? (config.rotate?.to ?? 0) : (config.rotate?.from ?? 0));
-  const scale = useSharedValue(skipAnim ? (config.scale?.to ?? 1) : (config.scale?.from ?? 1));
-  const opacity = useSharedValue(skipAnim ? (config.opacity?.to ?? 1) : (config.opacity?.from ?? 1));
+  // When autoPlay is false at mount time, initialize at the final ("to")
+  // state so the view renders fully visible immediately and skips the
+  // entrance entirely. This is the right semantic for items mounting AFTER
+  // an initial entrance window (e.g. virtualized list items scrolling
+  // into view) — without this they'd sit at the `from` state (invisible)
+  // forever because the useEffect below early-returns when !autoPlay.
+  const translateX = useSharedValue(
+    autoPlay ? (config.translateX?.from ?? 0) : (config.translateX?.to ?? 0),
+  );
+  const translateY = useSharedValue(
+    autoPlay ? (config.translateY?.from ?? 0) : (config.translateY?.to ?? 0),
+  );
+  const rotate = useSharedValue(
+    autoPlay ? (config.rotate?.from ?? 0) : (config.rotate?.to ?? 0),
+  );
+  const scale = useSharedValue(
+    autoPlay ? (config.scale?.from ?? 1) : (config.scale?.to ?? 1),
+  );
+  const opacity = useSharedValue(
+    autoPlay ? (config.opacity?.from ?? 1) : (config.opacity?.to ?? 1),
+  );
 
   useEffect(() => {
     if (!autoPlay) return;

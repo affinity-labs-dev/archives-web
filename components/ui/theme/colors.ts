@@ -15,6 +15,7 @@ export const colors = {
   // Brand · Blue
   bluePrimary: '#1E3C88',
   blueSecondary: '#A2C5FF',
+  blueMutedNavy: '#41425E',
 
   // Accent
   aspenGold: '#FFDD63',

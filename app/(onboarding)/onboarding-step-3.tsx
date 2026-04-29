@@ -72,7 +72,7 @@ export default function OnboardingStep3Screen() {
           {/* Phase A — Mascot + bubble slide in from left as one unit */}
           <AnimatedEntrance preset="slideFromLeft" delay={100}>
             <View style={styles.mascotRow}>
-              <Mascot size={110} autoPlayEntrance={false} />
+              <Mascot width={110} height={96} autoPlayEntrance={false} />
 
               <View style={styles.bubbleWrapper}>
                 <SpeechBubble
