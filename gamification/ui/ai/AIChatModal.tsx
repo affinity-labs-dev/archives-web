@@ -743,6 +743,7 @@ export default function AIChatModal({
   };
 
   const handleClose = () => {
+    setTypewriterMsgId(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     analyticsService.trackCustomEvent('ai_chat_closed', {
       era_id: context?.eraId || 'unknown_era',
@@ -839,10 +840,10 @@ export default function AIChatModal({
                   />
                   {/* Tail — two CSS triangles (stroke + fill) */}
                   <View style={styles.speechPointer}>
-                    <Svg width={24} height={14} viewBox="0 0 24 14" style={styles.speechPointerStroke}>
+                    <Svg width={24} height={14} viewBox="0 0 24 14" style={styles.speechPointerSvg}>
                       <Polygon points="0,0 24,0 12,14" fill={colors.acaiSecondary} />
                     </Svg>
-                    <Svg width={24} height={12} viewBox="0 0 24 12" style={styles.speechPointerFill}>
+                    <Svg width={24} height={12} viewBox="0 0 24 12" style={styles.speechPointerSvg}>
                       <Polygon points="0,0 24,0 12,12" fill={colors.acaiTertiary} />
                     </Svg>
                   </View>
@@ -918,7 +919,7 @@ export default function AIChatModal({
                       <View style={styles.assistantContent}>
                         {typewriterMsgId === message.id ? (
                           <Typewriter
-                            text={message.content}
+                            text={message.content.replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1').replace(/^#+\s/gm, '')}
                             variant="body.m"
                             weight="500"
                             color="onyx"
@@ -1252,7 +1253,7 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     overflow: 'hidden',
-    backgroundColor: '#FAF3DA',
+    backgroundColor: colors.cream,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1306,12 +1307,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 14,
   },
-  speechPointerStroke: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  speechPointerFill: {
+  speechPointerSvg: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -1332,44 +1328,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 18,
   },
-  suggestionButton: {
-    position: 'relative',
-    height: 51,
-  },
-  suggestionShadow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 7,
-    height: 44,
-    backgroundColor: colors.acaiTertiary,
-    borderRadius: 27,
-    borderWidth: 1,
-    borderColor: colors.acaiPrimary,
-  },
-  suggestionInner: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 5,
-    height: 40,
-    backgroundColor: colors.snow,
-    borderRadius: 26.5,
-    borderWidth: 1,
-    borderColor: colors.acaiPrimary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-  },
-  suggestionText: {
-    fontFamily: 'Onest',
-    fontWeight: '600',
-    fontSize: 14,
-    color: colors.onyx,
-    textAlign: 'center',
-    letterSpacing: -0.14,
-  },
-
   // Message Bubbles
   messageBubble: {
     marginBottom: 16,
@@ -1543,7 +1501,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontFamily: 'DM Sans',
+    fontFamily: 'Onest',
     fontSize: 14,
     color: colors.onyx,
     maxHeight: 100,
