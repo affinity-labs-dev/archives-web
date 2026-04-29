@@ -15,7 +15,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Typography, DepthButton } from '@/components/ui';
+import { AnimatedCountUp, Typography, DepthButton } from '@/components/ui';
 import { colors, spacing, radius } from '@/components/ui/theme';
 import { AnimatedEntrance } from '@/components/ui/animations';
 import type { Adventure } from '@/components/shared/types';
@@ -30,12 +30,14 @@ interface AdventureCardProps {
   isVisible: boolean;
   adventure: Adventure | null;
   onDismiss: () => void;
+  onStartAdventure?: (adventure: Adventure) => void;
 }
 
 export default function AdventureCard({
   isVisible,
   adventure,
   onDismiss,
+  onStartAdventure,
 }: AdventureCardProps) {
   if (!adventure || !adventure.card_content) {
     return null;
@@ -199,9 +201,13 @@ export default function AdventureCard({
                       <Ionicons name="star" size={24} color={colors.bluePrimary} />
                     </AnimatedEntrance>
                     <AnimatedEntrance preset="fadeIn" delay={1850}>
-                      <Typography variant="body.l" color="onyx" weight="700">
-                        +{xpReward}
-                      </Typography>
+                      <AnimatedCountUp
+                        target={xpReward}
+                        duration={800}
+                        delay={1700}
+                        prefix="+"
+                        style={styles.detailValue}
+                      />
                     </AnimatedEntrance>
                     <AnimatedEntrance preset="fadeIn" delay={1850}>
                       <Typography variant="label.xs" color="textMuted">
@@ -216,9 +222,12 @@ export default function AdventureCard({
                       <Ionicons name="book" size={24} color={colors.bluePrimary} />
                     </AnimatedEntrance>
                     <AnimatedEntrance preset="fadeIn" delay={1850}>
-                      <Typography variant="body.l" color="onyx" weight="700">
-                        {modulesCount}
-                      </Typography>
+                      <AnimatedCountUp
+                        target={modulesCount}
+                        duration={800}
+                        delay={1700}
+                        style={styles.detailValue}
+                      />
                     </AnimatedEntrance>
                     <AnimatedEntrance preset="fadeIn" delay={1850}>
                       <Typography variant="label.xs" color="textMuted">
@@ -240,7 +249,14 @@ export default function AdventureCard({
             variant="tertiary"
             size="medium"
             pressEffect="dip"
-            onPress={handleClose}
+            onPress={() => {
+              if (onStartAdventure && adventure) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onStartAdventure(adventure);
+              } else {
+                handleClose();
+              }
+            }}
             isFullWidth
           >
             <Typography variant="label.l" color="white" weight="700" uppercase letterSpacing={1}>
@@ -378,6 +394,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  // Match Typography variant="body.l" color="onyx" weight="700"
+  detailValue: {
+    color: colors.onyx,
+    fontFamily: 'Onest-Bold',
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 25,
   },
 
   // Floating button

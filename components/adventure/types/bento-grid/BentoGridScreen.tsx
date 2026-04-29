@@ -30,6 +30,34 @@ interface UserProgress {
   era_id: string;
 }
 
+// Find the next module to open in an adventure:
+// 1. First incomplete module (resume progress)
+// 2. First module with < 3 stars (improve score)
+// 3. First module (all perfect — replay)
+export function findNextModule(adventure: Adventure, userProgress: UserProgress[]): ContentItem | null {
+  const sorted = [...(adventure.content_list || [])].sort((a, b) => a.order_by - b.order_by);
+
+  // First incomplete
+  for (const item of sorted) {
+    const p = userProgress.find(pr => pr.moduleId === item.id && pr.adventureId === adventure.readable_id);
+    if (!(p?.isCompleted && p?.quizCompleted)) return item;
+  }
+
+  // All complete — first without 3 stars
+  for (const item of sorted) {
+    const p = userProgress.find(pr => pr.moduleId === item.id && pr.adventureId === adventure.readable_id);
+    if ((p?.quizScore || 0) < 3) return item;
+  }
+
+  // All 3 stars — replay first
+  return sorted[0] || null;
+}
+
+interface PendingLesson {
+  contentItem: ContentItem;
+  adventureId: string;
+}
+
 interface BentoGridScreenProps {
   adventures: Adventure[];
   userProgress: UserProgress[];
@@ -38,21 +66,16 @@ interface BentoGridScreenProps {
   onRefresh?: () => void;
   onScrollActivity?: () => void; // Track browsing behavior
   showPullToRefreshHint?: boolean; // Show hint above adventure list (hide after first use)
+  pendingLesson?: PendingLesson | null; // External request to open a lesson (from feed)
+  onPendingLessonHandled?: () => void; // Clear the pending lesson after opening
 }
 
-// Initial-entrance window. Sized to comfortably exceed the longest single
-// section entrance (header riseSoft 550ms + grid riseCard 500ms with 200ms
-// inter-stagger ≈ 1250ms) plus a small buffer so a short list of 3 visible
-// sections can each animate in without overlap with scroll-triggered
-// mounts that should NOT animate.
+// Initial-entrance window — sections that mount during this window get
+// animations; sections that mount after (scrolled into view) skip them.
+// Scroll-triggered animations were too expensive on Android.
 const ENTRANCE_WINDOW_MS = 1500;
 
-const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh, onScrollActivity, showPullToRefreshHint = false }) => {
-  // Initial-entrance window — adventure sections that mount during this
-  // window play their entrance animation; sections that mount after
-  // (scrolled into view) skip it. Pattern matches the eras-tab list:
-  // scroll-triggered animations were too expensive on Android, so we
-  // only pay the animation cost for the few rows visible on first paint.
+const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh, onScrollActivity, showPullToRefreshHint = false, pendingLesson, onPendingLessonHandled }) => {
   const [hasEntered, setHasEntered] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setHasEntered(true), ENTRANCE_WINDOW_MS);
@@ -113,6 +136,14 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
     });
     setShowQuiz(false);
   }, [adventures]);
+
+  // Handle external lesson open request (from feed → AdventureCard → START ADVENTURE)
+  useEffect(() => {
+    if (pendingLesson) {
+      handleCardPress(pendingLesson.contentItem, pendingLesson.adventureId);
+      onPendingLessonHandled?.();
+    }
+  }, [pendingLesson, handleCardPress, onPendingLessonHandled]);
 
   // Handle lesson continue - check if this lesson has questions to show
   const handleLessonContinue = () => {
@@ -404,6 +435,14 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
         isVisible={selectedAdventureCard !== null}
         adventure={selectedAdventureCard}
         onDismiss={() => setSelectedAdventureCard(null)}
+        onStartAdventure={(adv) => {
+          const nextModule = findNextModule(adv, userProgress);
+          setSelectedAdventureCard(null);
+          // Delay so detail modal fully dismisses before lesson opens
+          if (nextModule) {
+            setTimeout(() => handleCardPress(nextModule, adv.readable_id), 350);
+          }
+        }}
       />
 
       {/* Development Only: Walkthrough Reset Button */}
