@@ -11,7 +11,7 @@ import { analyticsService } from '@/services/AnalyticsService';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -40,7 +40,25 @@ interface BentoGridScreenProps {
   showPullToRefreshHint?: boolean; // Show hint above adventure list (hide after first use)
 }
 
+// Initial-entrance window. Sized to comfortably exceed the longest single
+// section entrance (header riseSoft 550ms + grid riseCard 500ms with 200ms
+// inter-stagger ≈ 1250ms) plus a small buffer so a short list of 3 visible
+// sections can each animate in without overlap with scroll-triggered
+// mounts that should NOT animate.
+const ENTRANCE_WINDOW_MS = 1500;
+
 const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh, onScrollActivity, showPullToRefreshHint = false }) => {
+  // Initial-entrance window — adventure sections that mount during this
+  // window play their entrance animation; sections that mount after
+  // (scrolled into view) skip it. Pattern matches the eras-tab list:
+  // scroll-triggered animations were too expensive on Android, so we
+  // only pay the animation cost for the few rows visible on first paint.
+  const [hasEntered, setHasEntered] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setHasEntered(true), ENTRANCE_WINDOW_MS);
+    return () => clearTimeout(t);
+  }, []);
+
   const [selectedLesson, setSelectedLesson] = useState<{
     contentItem: ContentItem;
     adventureId: string;
@@ -245,6 +263,11 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
           onCardPress={handleCardPress}
           onTitlePress={handleAdventureStarted}
           isLocked={isLocked}
+          // Only animate entrance for sections that mount during the
+          // initial render window. Sections that hydrate later (user
+          // scrolled them into view) render at final state — no scroll-
+          // triggered animations.
+          enableEntrance={!hasEntered}
         />
 
         {/* Single continuous overlay — solid dark fill instead of BlurView +
@@ -279,7 +302,7 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
         )}
       </View>
     );
-  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, lockOverlayHeight, handleCardPress, handleAdventureStarted]);
+  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, lockOverlayHeight, handleCardPress, handleAdventureStarted, hasEntered]);
 
   // Key extractor for FlatList (memoized)
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);

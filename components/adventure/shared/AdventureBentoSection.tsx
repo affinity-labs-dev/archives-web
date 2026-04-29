@@ -21,6 +21,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { AnimatedEntrance } from '@/components/ui/animations';
 import type { Adventure, ContentItem } from '@/components/shared/types';
 
 import { AdventureHeader } from './AdventureHeader';
@@ -42,6 +43,17 @@ interface AdventureBentoSectionProps {
   onCardPress?: (contentItem: ContentItem, adventureId: string) => void;
   onTitlePress?: (adventure: Adventure) => void;
   isLocked?: boolean;
+  /**
+   * Plays the mount entrance (header slide + bento grid lift). Caller
+   * sets this `true` only for the initial render window — sections that
+   * mount later (scrolled into view by FlatList) receive `false` so the
+   * animation doesn't fire mid-scroll. Skipping scroll-triggered
+   * entrances is intentional: per-card scroll animations were too
+   * expensive on Android and gave poor results.
+   *
+   * Defaults to `false` (no animation) so omitting the prop is safe.
+   */
+  enableEntrance?: boolean;
 }
 
 /**
@@ -110,6 +122,7 @@ const AdventureBentoSectionComponent: React.FC<AdventureBentoSectionProps> = ({
   onCardPress,
   onTitlePress,
   isLocked = false,
+  enableEntrance = false,
 }) => {
   // Pre-sort + slice once. Stable across re-renders unless content list changes.
   const sortedContent = useMemo(
@@ -152,32 +165,50 @@ const AdventureBentoSectionComponent: React.FC<AdventureBentoSectionProps> = ({
 
   return (
     <View style={styles.container}>
-      <AdventureHeader adventure={adventure} isLocked={isLocked} onPress={onTitlePress} />
+      {/* Header slides in first — short, snappy `riseSoft` (translate
+          y:20 → 0 + fade) so the ERA badge / title / timeline appear
+          to drop into place from above their final position. */}
+      <AnimatedEntrance preset="riseSoft" delay={ENTRANCE_HEADER_DELAY} autoPlay={enableEntrance}>
+        <AdventureHeader adventure={adventure} isLocked={isLocked} onPress={onTitlePress} />
+      </AnimatedEntrance>
 
-      <View style={[styles.bentoGrid, { height: containerHeight }]}>
-        {sortedContent.map((item, index) => {
-          const layout = positions[index];
-          const progress = progressByModuleId.get(item.id);
-          const isCompleted = !!progress?.isCompleted && !!progress?.quizCompleted;
-          const starCount = progress?.quizScore || 0;
+      {/* Bento grid lifts in as a single block 200ms after the header.
+          We animate the GRID CONTAINER (not each card) so the absolute
+          positioning of the cards inside isn't fighting an Animated.View
+          wrapper layout — gives the same staggered-feeling without
+          per-card worklets. */}
+      <AnimatedEntrance preset="riseCard" delay={ENTRANCE_GRID_DELAY} autoPlay={enableEntrance}>
+        <View style={[styles.bentoGrid, { height: containerHeight }]}>
+          {sortedContent.map((item, index) => {
+            const layout = positions[index];
+            const progress = progressByModuleId.get(item.id);
+            const isCompleted = !!progress?.isCompleted && !!progress?.quizCompleted;
+            const starCount = progress?.quizScore || 0;
 
-          return (
-            <AdventureBentoCard
-              key={item.id}
-              item={item}
-              adventureId={adventure.readable_id}
-              layout={layout}
-              isCompleted={isCompleted}
-              starCount={starCount}
-              isLocked={isLocked}
-              onPress={onCardPress ?? noop}
-            />
-          );
-        })}
-      </View>
+            return (
+              <AdventureBentoCard
+                key={item.id}
+                item={item}
+                adventureId={adventure.readable_id}
+                layout={layout}
+                isCompleted={isCompleted}
+                starCount={starCount}
+                isLocked={isLocked}
+                onPress={onCardPress ?? noop}
+              />
+            );
+          })}
+        </View>
+      </AnimatedEntrance>
     </View>
   );
 };
+
+// Entrance timing — picked to feel like the `enterScoreScreen` pattern
+// from Downloads/03 questions/index.html: header lands first, the body
+// content arrives ~200ms behind it.
+const ENTRANCE_HEADER_DELAY = 0;
+const ENTRANCE_GRID_DELAY = 200;
 
 function noop() {}
 
