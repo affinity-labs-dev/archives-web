@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Typography } from '@/components/ui/Typography';
 import { colors } from '@/components/ui/theme';
@@ -26,6 +26,7 @@ interface StatTileProps {
   animate?: boolean;
   /** Delay before count-up starts (ms). Use to sync with entrance animation. */
   countUpDelay?: number;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function StatTile({
@@ -36,6 +37,7 @@ export function StatTile({
   suffix,
   animate = true,
   countUpDelay = 0,
+  style: styleProp,
 }: StatTileProps) {
   const scheme = TILE_COLORS[colorScheme];
 
@@ -72,6 +74,7 @@ export function StatTile({
         statTileStyles.tile,
         { backgroundColor: scheme.bg },
         borderRadiusStyle,
+        styleProp,
       ]}
     >
       <View style={statTileStyles.content}>
@@ -103,14 +106,16 @@ export function StatTile({
 const statTileStyles = StyleSheet.create({
   tile: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    justifyContent: 'space-between',
-    minHeight: 90,
+    height: 80,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 4,
+    marginBottom: 8,
   },
 });

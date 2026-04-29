@@ -61,3 +61,4 @@ build-*.ipa
 data/
 scripts/
 android/app/google-services.json
+supabase/.temp/

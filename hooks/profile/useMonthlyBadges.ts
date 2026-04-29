@@ -7,21 +7,18 @@ interface Args {
   moduleProgress: any[];
 }
 
-// Builds a 12-element badge array starting from October of last year
-// (10, 11, 12, 1...9) so the rolling window keeps a mix of recent + old
-// months on screen. The earned check looks for ANY completed module
-// in that calendar month — one quiz per month is enough.
+// Builds a 12-element badge array Jan–Dec. Earned months sit on the
+// left naturally (past → present → future reading order).
 export function useMonthlyBadges({ moduleProgress }: Args) {
   const currentYear = new Date().getFullYear();
 
   const monthlyBadges = useMemo<MonthlyBadge[]>(() => {
-    return [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((month) => {
-      const badgeYear = month >= 10 ? currentYear - 1 : currentYear;
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => {
       const earned = moduleProgress.some((m) => {
         if (!m.quizScore || !m.unlockedAt) return false;
         const completionYear = parseInt(m.unlockedAt.substring(0, 4), 10);
         const completionMonth = parseInt(m.unlockedAt.substring(5, 7), 10);
-        return completionYear === badgeYear && completionMonth === month;
+        return completionYear === currentYear && completionMonth === month;
       });
       return {
         id: `monthly_${month}`,

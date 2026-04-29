@@ -15,6 +15,7 @@ interface ProfileStatGridProps {
   lessonsCompleted: number;
   totalXP: number;
   minutesLearned: number;
+  xpPercentile?: number | null;
   isExpanded: boolean;
   onToggleExpanded: () => void;
 }
@@ -26,6 +27,7 @@ function ProfileStatGridImpl({
   lessonsCompleted,
   totalXP,
   minutesLearned,
+  xpPercentile,
   isExpanded,
   onToggleExpanded,
 }: ProfileStatGridProps) {
@@ -70,24 +72,25 @@ function ProfileStatGridImpl({
             position="left"
             animate={shouldAnimate}
             countUpDelay={shouldAnimate ? 1130 : 0}
+            style={{ flex: 3 }}
           />
-          {/* TOP 2% — static label, doesn't go through StatTile because
+          {/* TOP X% — static label, doesn't go through StatTile because
               the value is text rather than a count-up integer. */}
           <View
             style={[
               profileStyles.staticRightTile,
-              { backgroundColor: colors.acaiSecondary },
+              { backgroundColor: colors.acaiSecondary, flex: 5 },
             ]}
           >
             <View style={profileStyles.staticTileContent}>
               <Typography
                 family="bounded"
-                size={18}
+                size={32}
                 weight="900"
                 color="snow"
-                style={{ lineHeight: 22 }}
+                style={{ lineHeight: 38 }}
               >
-                TOP 2%
+                {xpPercentile !== null && xpPercentile !== undefined ? `TOP ${Math.max(1, Math.min(100, 100 - xpPercentile))}%` : '\u2014'}
               </Typography>
             </View>
             <Typography

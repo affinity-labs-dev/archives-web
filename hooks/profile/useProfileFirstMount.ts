@@ -1,13 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
-// Returns `true` only on the very first render of the screen — flips to
-// `false` once mounted. Drives the entrance-animation gate so the cascade
-// only plays when the tab is opened for the first time, not on every
-// tab-bar switch back to Profile.
+// Returns `true` for the first 3 seconds after mount — enough time for
+// all entrance animations + count-ups to complete. After that, flips to
+// `false` so tab revisits skip animations. Uses useState (not useRef)
+// because useRef flips on the next re-render which can happen before
+// the animations even start, causing count-ups to show 0 → final
+// instantly.
 export function useProfileFirstMount() {
-  const hasAnimated = useRef(false);
+  const [shouldAnimate, setShouldAnimate] = useState(true);
   useEffect(() => {
-    hasAnimated.current = true;
+    const timer = setTimeout(() => setShouldAnimate(false), 3000);
+    return () => clearTimeout(timer);
   }, []);
-  return !hasAnimated.current;
+  return shouldAnimate;
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -45,7 +45,7 @@ function ProfileMonthlyBadgesImpl({
           <Ionicons name="chevron-forward" size={22} color={colors.concreteGrey} />
         </TouchableOpacity>
 
-        <View style={profileStyles.badgeRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={[profileStyles.badgeRow, { paddingHorizontal: 24 }]}>
           {badges.map((badge) => (
             <View key={badge.id} style={profileStyles.badgeItem}>
               <LiftPressable
@@ -70,12 +70,12 @@ function ProfileMonthlyBadgesImpl({
               </LiftPressable>
               <MonthPill
                 label={badge.display_text}
-                isSelected={selectedMonth === badge.month}
+                earned={badge.earned}
                 onPress={() => onSelectMonth(badge.month)}
               />
             </View>
           ))}
-        </View>
+        </ScrollView>
       </View>
     </AnimatedEntrance>
   );

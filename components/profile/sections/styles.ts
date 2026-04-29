@@ -79,8 +79,8 @@ export const profileStyles = StyleSheet.create({
   },
   statRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: 6,
+    gap: 7,
+    marginBottom: 7,
   },
   statRowFull: {
     marginBottom: 6,
@@ -88,19 +88,18 @@ export const profileStyles = StyleSheet.create({
   // Used by the special "TOP 2%" tile that doesn't go through StatTile
   staticRightTile: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    justifyContent: 'space-between',
-    minHeight: 90,
+    height: 80,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderTopLeftRadius: 5,
     borderBottomLeftRadius: 5,
     borderTopRightRadius: 15,
     borderBottomRightRadius: 15,
   },
   staticTileContent: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
+    marginBottom: 8,
   },
   seeMoreToggle: {
     flexDirection: 'row',
@@ -124,13 +123,13 @@ export const profileStyles = StyleSheet.create({
   // Monthly badges
   badgeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'flex-end',
+    gap: 12,
     marginTop: 10,
   },
   badgeItem: {
     alignItems: 'center',
-    flex: 1,
+    width: 105,
     gap: 8,
   },
   badgeImage: {
@@ -141,14 +140,13 @@ export const profileStyles = StyleSheet.create({
   // Achievements
   achievementRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: 12,
     marginTop: 12,
-    gap: 16,
   },
   achievementItem: {
     alignItems: 'center',
-    flex: 1,
+    width: 105,
   },
   achievementIconWrap: {
     width: 92,

@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
@@ -68,16 +69,15 @@ export function AchievementDetailCard({
   lockedImageOpacity = 1,
   useGrayscaleWhenLocked = false,
 }: AchievementDetailCardProps) {
+  const insets = useSafeAreaInsets();
+
   if (!visible) return null;
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose}>
-      <AnimatedEntrance preset="fadeIn" delay={0}>
-        <Pressable style={styles.backdrop} onPress={onClose}>
-          <View />
-        </Pressable>
-      </AnimatedEntrance>
-      <View style={styles.center} pointerEvents="box-none">
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <View style={styles.center}>
+          <Pressable onPress={(e) => e.stopPropagation()}>
         <AnimatedEntrance
           preset={{
             translateY: { from: 40, to: 0 },
@@ -89,19 +89,11 @@ export function AchievementDetailCard({
           delay={50}
         >
           <View style={styles.cardOuter}>
-            <TouchableOpacity
-              style={styles.close}
-              onPress={onClose}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.6}
-            >
-              <Ionicons name="close" size={22} color="#000" />
-            </TouchableOpacity>
-
             <LinearGradient
               colors={unlocked ? ['#FFDD63', '#FFFFFF'] : ['#C3C3C3', '#FFFFFF']}
-              start={{ x: 0.3, y: 0 }}
-              end={{ x: 0.7, y: 0.6 }}
+              locations={[0.15, 0.46]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.35, y: 1 }}
               style={styles.card}
               pointerEvents="box-none"
             >
@@ -253,18 +245,23 @@ export function AchievementDetailCard({
             </AnimatedEntrance>
           </View>
         </AnimatedEntrance>
-      </View>
+          </Pressable>
+        </View>
+      </Pressable>
+      <TouchableOpacity style={[styles.close, { top: insets.top + 10 }]} onPress={onClose}>
+        <Ionicons name="close-circle" size={36} color="#fff" />
+      </TouchableOpacity>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    flex: 1,
+    backgroundColor: 'rgba(26, 26, 26, 0.62)',
   },
   center: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -276,23 +273,20 @@ const styles = StyleSheet.create({
   },
   close: {
     position: 'absolute',
-    top: -44,
-    right: 0,
+    right: 20,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    zIndex: 22,
   },
   imageWrapper: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    paddingRight: 31,
-    alignItems: 'flex-end',
+    alignItems: 'center',
   },
   image: {
     width: IMAGE_W,
