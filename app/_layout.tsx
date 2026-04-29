@@ -747,7 +747,7 @@ export default Sentry.wrap(function RootLayout() {
   // Set Android navigation bar color to match app background
   React.useEffect(() => {
     if (Platform.OS === 'android') {
-      SystemUI.setBackgroundColorAsync('#F4EBDB');
+      SystemUI.setBackgroundColorAsync('#FAFAFA');
     }
   }, []);
 
@@ -805,7 +805,7 @@ export default Sentry.wrap(function RootLayout() {
     ...DefaultTheme,
     colors: {
       ...DefaultTheme.colors,
-      background: Platform.OS === 'android' ? '#F4EBDB' : DefaultTheme.colors.background,
+      background: Platform.OS === 'android' ? '#FAFAFA' : DefaultTheme.colors.background,
     }
   };
 
@@ -813,7 +813,7 @@ export default Sentry.wrap(function RootLayout() {
     ...DarkTheme,
     colors: {
       ...DarkTheme.colors,
-      background: Platform.OS === 'android' ? '#F4EBDB' : DarkTheme.colors.background,
+      background: Platform.OS === 'android' ? '#FAFAFA' : DarkTheme.colors.background,
     }
   };
 
@@ -860,7 +860,7 @@ export default Sentry.wrap(function RootLayout() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{
         flex: 1,
-        backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined
+        backgroundColor: Platform.OS === 'android' ? '#FAFAFA' : undefined
       }}>
         <KeyboardProvider>
           <PostHogProvider apiKey={posthogApiKey} options={posthogOptions} autocapture={posthogAutocaptureOptions}>

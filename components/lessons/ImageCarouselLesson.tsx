@@ -339,7 +339,7 @@ export default function ImageCarouselLesson({
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {Platform.OS === "android" && (
-        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+        <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
       )}
       <PanGestureHandler
         ref={horizontalSwipeRef}

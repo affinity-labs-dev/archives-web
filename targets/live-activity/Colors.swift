@@ -110,8 +110,8 @@ extension Color {
   static let archivesShoeBrown = Color(red: 77/255, green: 57/255, blue: 46/255)
   /// Accent orange — #C99151
   static let archivesPersianOrange = Color(red: 201/255, green: 145/255, blue: 81/255)
-  /// Light cream background — #F4EBDB
-  static let archivesCreamWhite = Color(red: 244/255, green: 235/255, blue: 219/255)
+  /// Light cream background — #FAFAFA
+  static let archivesCreamWhite = Color(red: 250/255, green: 250/255, blue: 250/255)
 }
 
 #endif
