@@ -279,14 +279,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   // Match Typography family="onest" weight="700" size={16} color="onyx".
-  // AnimatedCountUp renders TextInput, which doesn't inherit Typography
-  // tokens, so the text style is duplicated here.
+  // AnimatedCountUp renders bare <Text>, which uses the font's natural
+  // line-height. Typography defaults to `fontSize × 1.4` internally —
+  // matching it explicitly keeps the rendered box height equal to a
+  // sibling Typography element so flex `alignItems: 'center'` lines
+  // them up correctly. Without this the AnimatedCountUp text appears
+  // shifted upward relative to the icon + adjacent label in the row.
   percentageText: {
     color: colors.onyx,
     fontFamily: 'Onest-Bold',
     fontSize: 16,
     fontWeight: '700',
-    lineHeight: 16,
+    lineHeight: 22, // ≈ 16 × 1.4
   },
   // Match Typography family="onest" weight="600" size={14} color="bluePrimary".
   statValueText: {
@@ -294,7 +298,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Onest-SemiBold',
     fontSize: 14,
     fontWeight: '600',
-    lineHeight: 14,
+    lineHeight: 20, // ≈ 14 × 1.4
   },
 });
 
