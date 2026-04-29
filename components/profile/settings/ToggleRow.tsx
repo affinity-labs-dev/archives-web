@@ -22,7 +22,7 @@ export function ToggleRow({
   onValueChange,
 }: ToggleRowProps) {
   return (
-    <SettingsCard style={settingsStyles.rowWrapper}>
+    <SettingsCard>
       <View style={settingsStyles.rowContent}>
         <View style={settingsStyles.rowLeft}>
           {icon}

@@ -15,7 +15,7 @@ interface NavRowProps {
 
 export function NavRow({ icon, title, onPress }: NavRowProps) {
   return (
-    <SettingsCard onPress={onPress} style={settingsStyles.rowWrapper}>
+    <SettingsCard onPress={onPress}>
       <View style={settingsStyles.rowContent}>
         <View style={settingsStyles.rowLeft}>
           {icon}

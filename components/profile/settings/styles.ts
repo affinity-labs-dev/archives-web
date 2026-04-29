@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native';
-import { colors, spacing } from '@/components/ui/theme';
+import { colors, radius, spacing } from '@/components/ui/theme';
 import {
-  CARD_BORDER_WIDTH,
   SETTINGS_CARD_HORIZONTAL_MARGIN,
   TOGGLE_BORDER_RADIUS,
   TOGGLE_HEIGHT,
@@ -14,27 +13,56 @@ export const settingsStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.snow,
   },
+  androidBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  androidBackdropDismiss: {
+    flex: 1,
+  },
+  androidSheet: {
+    height: '90%',
+    backgroundColor: colors.snow,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+  },
+  swipeIndicator: {
+    alignSelf: 'center',
+    width: 70,
+    height: 5,
+    backgroundColor: colors.concreteGrey,
+    borderRadius: 2.5,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
   closeButtonWrapper: {
-    marginLeft: SETTINGS_CARD_HORIZONTAL_MARGIN,
-    marginBottom: spacing.lg,
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    zIndex: 10,
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.white,
-    borderWidth: CARD_BORDER_WIDTH,
-    borderColor: colors.bluePrimary,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   scrollContent: {
+    // Top padding leaves room for the absolutely-positioned close
+    // button (~32px tall + spacing.md offset) so the first row doesn't
+    // sit underneath it.
+    gap: 20,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
-  },
-  rowWrapper: {
-    marginHorizontal: SETTINGS_CARD_HORIZONTAL_MARGIN,
-    marginBottom: spacing.sm,
+    paddingHorizontal: SETTINGS_CARD_HORIZONTAL_MARGIN,
   },
   cardContainer: {
     position: 'relative',
@@ -88,7 +116,5 @@ export const settingsStyles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.bluePrimary,
-    marginHorizontal: SETTINGS_CARD_HORIZONTAL_MARGIN,
-    marginVertical: spacing.md,
   },
 });
