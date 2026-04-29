@@ -39,9 +39,7 @@ const PILL_HEIGHT = 63;
 // Count-up animations: rendered via the `<AnimatedCountUp>` primitive,
 // which writes the running integer directly into a non-editable
 // TextInput via `useAnimatedProps`. Replaces the previous `useCountUp`
-// hook that called `runOnJS(setDisplay)` every integer step — that
-// pattern produced ~90 React state updates per 800ms count-up window
-// per number, multiplied by 3 numbers on this header.
+// hook that called `runOnJS(setDisplay)` every integer step.
 const COUNT_UP_DELAY = 400;
 
 interface EraProgressHeaderProps {
@@ -278,27 +276,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Match Typography family="onest" weight="700" size={16} color="onyx".
-  // AnimatedCountUp renders bare <Text>, which uses the font's natural
-  // line-height. Typography defaults to `fontSize × 1.4` internally —
-  // matching it explicitly keeps the rendered box height equal to a
-  // sibling Typography element so flex `alignItems: 'center'` lines
-  // them up correctly. Without this the AnimatedCountUp text appears
-  // shifted upward relative to the icon + adjacent label in the row.
   percentageText: {
     color: colors.onyx,
     fontFamily: 'Onest-Bold',
     fontSize: 16,
     fontWeight: '700',
-    lineHeight: 22, // ≈ 16 × 1.4
+    lineHeight: 22,
   },
-  // Match Typography family="onest" weight="600" size={14} color="bluePrimary".
   statValueText: {
     color: colors.bluePrimary,
     fontFamily: 'Onest-SemiBold',
     fontSize: 14,
     fontWeight: '600',
-    lineHeight: 20, // ≈ 14 × 1.4
+    lineHeight: 20,
   },
 });
 

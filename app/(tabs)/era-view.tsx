@@ -11,7 +11,7 @@ import { useAdventures } from '@/hooks/useAdventures';
 import { useEras } from '@/hooks/useEras';
 import { useGamifiedProgress, useAI, useEraProgressStore } from '@/gamification';
 import type { EraProgressStats } from '@/gamification';
-import BentoGridScreen from '@/components/adventure/types/bento-grid/BentoGridScreen';
+import BentoGridScreen, { findNextModule } from '@/components/adventure/types/bento-grid/BentoGridScreen';
 import EraProgressHeader from '@/components/shared/EraProgressHeader';
 import ComingSoonView from '@/components/eras/ComingSoonView';
 import { Typography, DepthButton } from '@/components/ui';
@@ -22,7 +22,7 @@ import { useUser } from '@clerk/clerk-expo';
 import { analyticsService } from '@/services/AnalyticsService';
 import AdventuresFeed from '@/components/adventure/shared/AdventuresFeed';
 import AdventureCard from '@/components/adventure/types/bento-grid/AdventureCard';
-import type { Adventure } from '@/components/shared/types';
+import type { Adventure, ContentItem } from '@/components/shared/types';
 
 export default function AdventuresScreen() {
   const { selectedEra, isLoading: gamificationLoading, setSelectedEra } = useGamifiedProgress();
@@ -64,6 +64,8 @@ export default function AdventuresScreen() {
   const [showAdventuresFeed, setShowAdventuresFeed] = useState(false);
   // Adventure Detail modal (opened from feed)
   const [feedSelectedAdventure, setFeedSelectedAdventure] = useState<Adventure | null>(null);
+  // Pending lesson to open in BentoGridScreen (from feed → detail → START ADVENTURE)
+  const [pendingLesson, setPendingLesson] = useState<{ contentItem: ContentItem; adventureId: string } | null>(null);
 
   // Era progress - computed locally from Zustand userProgress + adventures
   const quizProgress = useMemo<EraProgressStats>(() => {
@@ -353,6 +355,8 @@ export default function AdventuresScreen() {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         showPullToRefreshHint={showPullToRefreshHint}
+        pendingLesson={pendingLesson}
+        onPendingLessonHandled={() => setPendingLesson(null)}
       />
 
       {/* Adventures Feed Sheet */}
@@ -362,7 +366,8 @@ export default function AdventuresScreen() {
         onDismiss={() => setShowAdventuresFeed(false)}
         onAdventurePress={(adventure) => {
           setShowAdventuresFeed(false);
-          setFeedSelectedAdventure(adventure);
+          // Delay so feed modal fully dismisses before detail opens
+          setTimeout(() => setFeedSelectedAdventure(adventure), 350);
         }}
       />
 
@@ -371,6 +376,14 @@ export default function AdventuresScreen() {
         isVisible={feedSelectedAdventure !== null}
         adventure={feedSelectedAdventure}
         onDismiss={() => setFeedSelectedAdventure(null)}
+        onStartAdventure={(adv) => {
+          const nextModule = findNextModule(adv, userProgress);
+          setFeedSelectedAdventure(null);
+          // Delay so detail modal fully dismisses before lesson opens
+          if (nextModule) {
+            setTimeout(() => setPendingLesson({ contentItem: nextModule, adventureId: adv.readable_id }), 350);
+          }
+        }}
       />
     </View>
   );
