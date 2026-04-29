@@ -184,17 +184,20 @@ function AchievementTileImpl({
   image: any;
   onSelect: (item: GridItem) => void;
 }) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+  const imgScale = useSharedValue(1);
+  const imgY = useSharedValue(0);
+  const imgStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: imgY.value }, { scale: imgScale.value }],
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.93, { duration: safeDuration(100) });
-  }, [scale]);
+    imgY.value = withTiming(-3, { duration: safeDuration(160) });
+    imgScale.value = withTiming(1.04, { duration: safeDuration(160) });
+  }, [imgY, imgScale]);
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-  }, [scale]);
+    imgY.value = withSpring(0, { damping: 12, stiffness: 200 });
+    imgScale.value = withSpring(1, { damping: 12, stiffness: 200 });
+  }, [imgY, imgScale]);
   const handlePress = useCallback(() => onSelect(item), [item, onSelect]);
 
   return (
@@ -203,12 +206,10 @@ function AchievementTileImpl({
       onPressOut={handlePressOut}
       onPress={handlePress}
     >
-      <Animated.View style={[styles.cell, animStyle]}>
-        {/* Locked vs unlocked variants come from two pre-rendered
-            asset folders (adventure-locked / adventure-unlocked) — no
-            runtime dim/grayscale needed since the artwork is already
-            tuned per state. */}
-        <Image source={image} style={styles.image} resizeMode="contain" />
+      <View style={styles.cell}>
+        <Animated.View style={imgStyle}>
+          <Image source={image} style={styles.image} resizeMode="contain" />
+        </Animated.View>
         <Typography
           family="onest"
           size={14}
@@ -219,7 +220,7 @@ function AchievementTileImpl({
         >
           {item.label}
         </Typography>
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }

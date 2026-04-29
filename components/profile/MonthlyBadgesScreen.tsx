@@ -81,15 +81,20 @@ function BadgeTileImpl({
   isEarned: boolean;
   onSelect: (item: BadgeItem) => void;
 }) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const imgScale = useSharedValue(1);
+  const imgY = useSharedValue(0);
+  const imgStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: imgY.value }, { scale: imgScale.value }],
+  }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.93, { duration: safeDuration(100) });
-  }, [scale]);
+    imgY.value = withTiming(-3, { duration: safeDuration(160) });
+    imgScale.value = withTiming(1.04, { duration: safeDuration(160) });
+  }, [imgY, imgScale]);
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-  }, [scale]);
+    imgY.value = withSpring(0, { damping: 12, stiffness: 200 });
+    imgScale.value = withSpring(1, { damping: 12, stiffness: 200 });
+  }, [imgY, imgScale]);
   const handlePress = useCallback(() => onSelect(item), [item, onSelect]);
 
   return (
@@ -98,12 +103,14 @@ function BadgeTileImpl({
       onPressOut={handlePressOut}
       onPress={handlePress}
     >
-      <Animated.View style={[styles.cell, animStyle]}>
-        <Image source={isEarned ? item.earned : item.grey} style={styles.badgeImage} resizeMode="cover" />
+      <View style={styles.cell}>
+        <Animated.View style={imgStyle}>
+          <Image source={isEarned ? item.earned : item.grey} style={styles.badgeImage} resizeMode="cover" />
+        </Animated.View>
         <Typography family="onest" size={14} weight="600" align="center" extraColor={isEarned ? '#1a1a1a' : '#9e9ea3'} style={styles.label}>
           {item.label}
         </Typography>
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
