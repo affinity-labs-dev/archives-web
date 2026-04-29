@@ -59,3 +59,6 @@ export type { ScrollFadeProps } from './ScrollFade';
 
 export { ConfettiBurst } from './ConfettiBurst';
 export type { ConfettiBurstHandle, ConfettiBurstProps } from './ConfettiBurst';
+
+export { AnimatedCountUp } from './AnimatedCountUp';
+export type { AnimatedCountUpProps } from './AnimatedCountUp';

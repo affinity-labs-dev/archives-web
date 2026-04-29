@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Easing,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+// `runOnJS` is deprecated in both `react-native-reanimated` and
+// `react-native-worklets` — `scheduleOnRN` is the canonical replacement.
+// Calling convention differs: `runOnJS(fn)(arg)` becomes
+// `scheduleOnRN(fn, arg)` (single call, all args after the function).
+import { scheduleOnRN } from "react-native-worklets";
 
 import AppLogger from "@/services/AppLogger";
 
@@ -202,7 +206,7 @@ export function useTodayModalSlots({
       // when the fade lands, hides the outgoing slot, and unlocks
       // the transition state.
       inOpacity.value = withTiming(1, timingConfig, () => {
-        runOnJS(finishTransition)(incomingSlot, nextModal);
+        scheduleOnRN(finishTransition, incomingSlot, nextModal);
       });
     });
   };

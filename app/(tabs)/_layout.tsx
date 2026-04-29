@@ -6,8 +6,7 @@ import ErasIcon from "@/components/icons/ErasIcon";
 import ProfileIcon from "@/components/icons/ProfileIcon";
 import SubscribeIcon from "@/components/icons/SubscribeIcon";
 import TodayIcon from "@/components/icons/TodayIcon";
-import { colors } from "@/components/ui";
-import ArchivesTheme from "@/constants/ArchivesTheme";
+import { colors } from "@/components/ui/theme";
 import { BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
 import { Tabs } from "expo-router";
 import React, { useEffect } from "react";
@@ -34,8 +33,8 @@ if (useNativeTabs) {
 // Common screen options for both native and standard tabs
 // Now accepts insets parameter for dynamic safe area handling
 const getScreenOptions = (bottomInset: number): BottomTabNavigationOptions => ({
-  tabBarActiveTintColor: ArchivesTheme.colors.persianOrange,
-  tabBarInactiveTintColor: ArchivesTheme.colors.mutedNavy + "99", // 60% opacity
+  tabBarActiveTintColor: colors.acaiSecondary,
+  tabBarInactiveTintColor: colors.textMuted,
   tabBarStyle: {
     backgroundColor: colors.snow,
     borderTopWidth: 0,
@@ -54,7 +53,7 @@ const getScreenOptions = (bottomInset: number): BottomTabNavigationOptions => ({
     }),
   },
   tabBarLabelStyle: {
-    fontFamily: "DM Sans",
+    fontFamily: "Onest-SemiBold",
     fontSize: Platform.OS === "web" ? 13 : 12,
     fontWeight: "700",
     // Web-specific font styling for proper text rendering
@@ -149,11 +148,11 @@ export default function TabLayout() {
           }) => <TodayIcon size={24} color={color} />,
           tabBarBadge: "NEW",
           tabBarBadgeStyle: {
-            backgroundColor: ArchivesTheme.colors.mutedNavy,
+            backgroundColor: colors.blueMutedNavy,
             color: "white",
             fontSize: 9,
             fontWeight: "700",
-            fontFamily: "DM Sans",
+            fontFamily: "Onest-Bold",
             minWidth: 32,
             height: 16,
             borderRadius: 8,

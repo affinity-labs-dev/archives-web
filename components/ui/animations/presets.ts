@@ -165,6 +165,43 @@ export const ENTRANCE_PRESETS = {
     duration: 450,
     easing: easings.backOut2,
   },
+
+  /**
+   * Hero card lands from below with subtle scale-in.
+   * 40px rise + scale 0.96→1 + fade. 600ms `back.out(2)`.
+   * Used for the selected/featured hero card in a list (e.g. Umayyad era card).
+   */
+  cardHeroDrop: {
+    translateY: { from: 40, to: 0 },
+    scale: { from: 0.96, to: 1 },
+    opacity: { from: 0, to: 1 },
+    duration: 600,
+    easing: easings.backOut2,
+  },
+
+  /**
+   * Small badge / chip pop — scale-only with overshoot.
+   * scale 0.6→1 + fade. 320ms `back.out(2)`.
+   * Used for premium chips, status pills, number badges that ride on top of cards.
+   */
+  chipPop: {
+    scale: { from: 0.6, to: 1 },
+    opacity: { from: 0, to: 1 },
+    duration: 320,
+    easing: easings.backOut2,
+  },
+
+  /**
+   * Quiet 20px rise — no overshoot. 350ms `power2.out`.
+   * Used for unobtrusive list reveals where overshoot would feel celebratory
+   * (e.g. coming-soon / locked cards that should defer to the active content).
+   */
+  riseQuiet: {
+    translateY: { from: 20, to: 0 },
+    opacity: { from: 0, to: 1 },
+    duration: 350,
+    easing: easings.power2Out,
+  },
 } as const satisfies Record<string, EntranceConfig>;
 
 export type EntrancePresetKey = keyof typeof ENTRANCE_PRESETS;

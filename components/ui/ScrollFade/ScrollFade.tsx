@@ -30,13 +30,29 @@ export interface ScrollFadeProps {
   pointerEvents?: "auto" | "none";
 }
 
-// 6-char hex matcher — when the destination is `#RRGGBB`, we can
-// synthesize the transparent endpoint as `#RRGGBB00` (same hue, 0
-// alpha) so the gradient stays on one tone. For other formats
-// (rgba, named, 8-char hex), fall back to the `transparent` keyword
-// which interpolates through black — slight grey tint at midpoint
-// but cross-platform safe.
+// Color parsers — synthesize a zero-alpha endpoint that shares the
+// destination's RGB hue. Critical on Android: the `transparent`
+// keyword in expo-linear-gradient gets interpreted as transparent
+// WHITE by the native compositor, so the gradient passes through
+// white-tinted alphas near the transparent end → a visible white
+// hairline where the gradient meets a solid dark sibling. Deriving
+// e.g. `rgba(0, 0, 0, 0)` from `rgba(0, 0, 0, 0.6)` keeps the entire
+// interpolation in the destination hue (pure alpha fade, no white).
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+const RGBA_COLOR_RE = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/;
+
+function toZeroAlpha(color: string): string {
+  if (HEX_COLOR_RE.test(color)) return `${color}00`;
+  const match = color.match(RGBA_COLOR_RE);
+  if (match) {
+    const [, r, g, b] = match;
+    return `rgba(${r}, ${g}, ${b}, 0)`;
+  }
+  // Last-resort fallback. Avoid `transparent` here — explicit black at
+  // zero alpha is the safer cross-platform default since most fade-out
+  // overlays target dark surfaces.
+  return "rgba(0, 0, 0, 0)";
+}
 
 export function ScrollFade({
   color,
@@ -44,7 +60,7 @@ export function ScrollFade({
   style,
   pointerEvents = "none",
 }: ScrollFadeProps) {
-  const fromColor = HEX_COLOR_RE.test(color) ? `${color}00` : "transparent";
+  const fromColor = toZeroAlpha(color);
 
   return (
     <LinearGradient
