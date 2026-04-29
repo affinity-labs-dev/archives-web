@@ -21,6 +21,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from '@clerk/clerk-expo';
 import { analyticsService } from '@/services/AnalyticsService';
 import AdventuresFeed from '@/components/adventure/shared/AdventuresFeed';
+import AdventureCard from '@/components/adventure/types/bento-grid/AdventureCard';
+import type { Adventure } from '@/components/shared/types';
 
 export default function AdventuresScreen() {
   const { selectedEra, isLoading: gamificationLoading, setSelectedEra } = useGamifiedProgress();
@@ -60,6 +62,8 @@ export default function AdventuresScreen() {
 
   // Adventures Feed sheet
   const [showAdventuresFeed, setShowAdventuresFeed] = useState(false);
+  // Adventure Detail modal (opened from feed)
+  const [feedSelectedAdventure, setFeedSelectedAdventure] = useState<Adventure | null>(null);
 
   // Era progress - computed locally from Zustand userProgress + adventures
   const quizProgress = useMemo<EraProgressStats>(() => {
@@ -356,9 +360,17 @@ export default function AdventuresScreen() {
         visible={showAdventuresFeed}
         adventures={adventures}
         onDismiss={() => setShowAdventuresFeed(false)}
-        onAdventurePress={() => {
+        onAdventurePress={(adventure) => {
           setShowAdventuresFeed(false);
+          setFeedSelectedAdventure(adventure);
         }}
+      />
+
+      {/* Adventure Detail modal (opened from feed) */}
+      <AdventureCard
+        isVisible={feedSelectedAdventure !== null}
+        adventure={feedSelectedAdventure}
+        onDismiss={() => setFeedSelectedAdventure(null)}
       />
     </View>
   );
