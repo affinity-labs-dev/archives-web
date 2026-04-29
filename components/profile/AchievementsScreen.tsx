@@ -190,11 +190,11 @@ function AchievementTileImpl({
     transform: [{ translateY: imgY.value }, { scale: imgScale.value }],
   }));
 
-  const handlePressIn = useCallback(() => {
-    imgY.value = withTiming(-3, { duration: safeDuration(160) });
-    imgScale.value = withTiming(1.04, { duration: safeDuration(160) });
+  const handleHoverIn = useCallback(() => {
+    imgY.value = withTiming(-6, { duration: safeDuration(160) });
+    imgScale.value = withTiming(1.1, { duration: safeDuration(160) });
   }, [imgY, imgScale]);
-  const handlePressOut = useCallback(() => {
+  const handleHoverOut = useCallback(() => {
     imgY.value = withSpring(0, { damping: 12, stiffness: 200 });
     imgScale.value = withSpring(1, { damping: 12, stiffness: 200 });
   }, [imgY, imgScale]);
@@ -202,8 +202,8 @@ function AchievementTileImpl({
 
   return (
     <Pressable
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onHoverIn={handleHoverIn}
+      onHoverOut={handleHoverOut}
       onPress={handlePress}
     >
       <View style={styles.cell}>
