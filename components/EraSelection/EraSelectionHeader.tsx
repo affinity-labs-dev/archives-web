@@ -8,7 +8,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Typography } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
-import { spacing } from '@/components/ui/theme';
+import { colors, spacing } from '@/components/ui/theme';
 
 export const ERAS_HEADER_DELAY = {
   TITLE: 100,
@@ -19,7 +19,12 @@ const EraSelectionHeader: React.FC = () => {
   return (
     <View style={styles.container}>
       <AnimatedEntrance preset="riseSoft" delay={ERAS_HEADER_DELAY.TITLE}>
-        <Typography family="onest" size={28} weight="700" color="onyx">
+        <Typography
+          family="bounded"
+          size={22}
+          extraColor={colors.onyx}
+          uppercase
+        >
           Choose Your Era
         </Typography>
       </AnimatedEntrance>

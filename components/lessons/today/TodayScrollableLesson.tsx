@@ -154,6 +154,7 @@ function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockPro
 //   text font = Onest 16, lineHeight 24, letterSpacing -0.16
 //   image: 240px tall, ~12px radius
 const LAYOUT_CONSTANTS = {
+  textTitleSize: 20,
   textFontSize: 16,
   textLineHeight: 24,
   textLetterSpacing: -0.16,
@@ -433,15 +434,15 @@ const readingHtmlStyles = {
   h1: {
     color: colors.black,
     fontFamily: "Bounded-Black",
-    fontSize: LAYOUT_CONSTANTS.textFontSize,
+    fontSize: LAYOUT_CONSTANTS.textTitleSize,
     lineHeight: LAYOUT_CONSTANTS.textLineHeight,
     fontWeight: "600" as const,
     marginBottom: 16,
   },
   h2: {
     color: colors.black,
-    fontFamily: "Onest",
-    fontSize: LAYOUT_CONSTANTS.textFontSize,
+    fontFamily: "Bounded-Black",
+    fontSize: LAYOUT_CONSTANTS.textTitleSize,
     lineHeight: LAYOUT_CONSTANTS.textLineHeight,
     letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
     fontWeight: "700" as const,
@@ -449,11 +450,11 @@ const readingHtmlStyles = {
   },
   h3: {
     color: colors.black,
-    fontFamily: "Onest",
-    fontSize: LAYOUT_CONSTANTS.textFontSize,
+    fontFamily: "Bounded-Black",
+    fontSize: LAYOUT_CONSTANTS.textTitleSize,
     lineHeight: LAYOUT_CONSTANTS.textLineHeight,
     letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
-    fontWeight: "600" as const,
+    fontWeight: "700" as const,
     marginBottom: 10,
   },
   p: {

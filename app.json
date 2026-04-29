@@ -39,9 +39,12 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android_icon.png",
-        "backgroundColor": "#F4EBDB"
+        "backgroundColor": "#FAFAFA"
       },
       "edgeToEdgeEnabled": false,
+      "androidNavigationBar": {
+        "backgroundColor": "#FAFAFA"
+      },
       "package": "ai.affinitylabs.archivesexpo",
       "permissions": [
         "android.permission.RECORD_AUDIO",
@@ -75,8 +78,8 @@
       "shortName": "Archives",
       "display": "standalone",
       "startUrl": "/",
-      "themeColor": "#F4EBDB",
-      "backgroundColor": "#F4EBDB",
+      "themeColor": "#FAFAFA",
+      "backgroundColor": "#FAFAFA",
       "build": {
         "babel": {
           "include": [
@@ -97,11 +100,11 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F4EBDB",
+          "backgroundColor": "#FAFAFA",
           "image": "./assets/images/splashscreen.png",
           "dark": {
             "image": "./assets/images/splashscreen.png",
-            "backgroundColor": "#F4EBDB"
+            "backgroundColor": "#FAFAFA"
           },
           "imageWidth": 200,
           "resizeMode": "contain"
