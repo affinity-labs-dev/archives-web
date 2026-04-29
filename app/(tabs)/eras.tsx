@@ -24,7 +24,6 @@ import {
   ErasContentArea,
   EraSelectionHeader,
 } from '@/components/EraSelection';
-import FpsMonitor from '@/components/dev/FpsMonitor';
 import { Typography } from '@/components/ui';
 import { colors } from '@/components/ui/theme';
 import {

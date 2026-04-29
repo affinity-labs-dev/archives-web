@@ -341,6 +341,7 @@ export default function AdventuresScreen() {
         totalXP={quizProgress.totalXP}
         onPress={() => setShowAdventuresFeed(true)}
       />
+
       <BentoGridScreen
         key={`bento-${focusKey}`}
         adventures={adventures}

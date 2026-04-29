@@ -1,23 +1,19 @@
 // Reusable Era Progress Header (v5.0 Design System)
 // Uses interlocking pill design from StatsBadge + v5.0 ProgressBar
 
-import React, { useEffect, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedReaction,
-  withDelay,
   withSequence,
   withTiming,
-  runOnJS,
-  cancelAnimation,
   Easing,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { Typography, ProgressBar } from '@/components/ui';
+import { AnimatedCountUp, ProgressBar, Typography } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
 import { colors, spacing, safeDuration } from '@/components/ui/theme';
 import { useGamificationOrchestrator, useGamifiedProgress } from '@/gamification';
@@ -40,41 +36,13 @@ const XPIcon = ({ size = 14, color = '#FFFFFF' }: { size?: number; color?: strin
 
 const PILL_HEIGHT = 63;
 
-// Count-up hook — animates a number from 0 to target on the UI thread
-function useCountUp(target: number, duration: number = 800, delay: number = 0): number {
-  const [display, setDisplay] = useState(0);
-  const animatedValue = useSharedValue(0);
-
-  useEffect(() => {
-    animatedValue.value = 0;
-    animatedValue.value = withDelay(
-      safeDuration(delay),
-      withTiming(target, {
-        duration: safeDuration(duration),
-        easing: Easing.out(Easing.cubic),
-      }),
-    );
-  }, [target, duration, delay]);
-
-  // Cancel the running timing on unmount so the worklet stops calling
-  // runOnJS(setDisplay) on a torn-down component during navigation.
-  useEffect(() => {
-    return () => {
-      cancelAnimation(animatedValue);
-    };
-  }, []);
-
-  useAnimatedReaction(
-    () => Math.round(animatedValue.value),
-    (current, previous) => {
-      if (current !== previous) {
-        runOnJS(setDisplay)(current);
-      }
-    },
-  );
-
-  return display;
-}
+// Count-up animations: rendered via the `<AnimatedCountUp>` primitive,
+// which writes the running integer directly into a non-editable
+// TextInput via `useAnimatedProps`. Replaces the previous `useCountUp`
+// hook that called `runOnJS(setDisplay)` every integer step — that
+// pattern produced ~90 React state updates per 800ms count-up window
+// per number, multiplied by 3 numbers on this header.
+const COUNT_UP_DELAY = 400;
 
 interface EraProgressHeaderProps {
   title: string;
@@ -99,7 +67,7 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
   const cloudStreak = getStreak();
 
   const topPadding = insets.top + spacing.md;
-  const { width: screenWidth } = Dimensions.get('window');
+  const { width: screenWidth } = useWindowDimensions();
   const containerPadding = screenWidth * 0.034;
 
   const progressPercentage = totalQuestions > 0
@@ -107,12 +75,6 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
     : 0;
 
   const xpValue = totalXP || correctAnswers * 10;
-
-  // Count-up animations — start after slideFromTop entrance is mostly visible (~400ms)
-  const COUNT_UP_DELAY = 400;
-  const displayPercentage = useCountUp(progressPercentage, 800, COUNT_UP_DELAY);
-  const displayStreak = useCountUp(streak, 600, COUNT_UP_DELAY);
-  const displayXP = useCountUp(xpValue, 800, COUNT_UP_DELAY);
 
   // Independent press animations — translateY dip (like DepthButton)
   const leftDip = useSharedValue(0);
@@ -158,26 +120,33 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
             onPress={onPress}
             style={styles.leftPillPressable}
           >
-          <Animated.View style={[styles.leftPill, leftPressStyle]}>
-            <View style={styles.leftContent}>
-              <View style={styles.titleRow}>
-                <Typography family="bounded" size={16} weight="600" color="onyx" uppercase>
-                  {title}
-                </Typography>
-                <Typography family="onest" size={16} weight="700" color="onyx">
-                  {displayPercentage}%
-                </Typography>
-              </View>
+            <Animated.View style={[styles.leftPill, leftPressStyle]}>
+              <View style={styles.leftContent}>
+                <View style={styles.titleRow}>
+                  <Typography family="bounded" size={16} weight="600" color="onyx" uppercase>
+                    {title}
+                  </Typography>
+                  <AnimatedCountUp
+                    target={progressPercentage}
+                    duration={800}
+                    delay={COUNT_UP_DELAY}
+                    suffix="%"
+                    style={styles.percentageText}
+                  />
+                </View>
 
-              <ProgressBar
-                percent={displayPercentage}
-                height={4}
-                fillColor="bluePrimary"
-                trackColor="snow"
-                borderRadius={2}
-              />
-            </View>
-          </Animated.View>
+                {/* ProgressBar internally animates fill width via a shared
+                    value, so we pass the raw target instead of an animated
+                    state — saves the per-frame setState chain we used to do. */}
+                <ProgressBar
+                  percent={progressPercentage}
+                  height={4}
+                  fillColor="bluePrimary"
+                  trackColor="snow"
+                  borderRadius={2}
+                />
+              </View>
+            </Animated.View>
           </Pressable>
 
           {/* Right pill (small) — opens Streak Celebration */}
@@ -186,30 +155,38 @@ const EraProgressHeader: React.FC<EraProgressHeaderProps> = ({
             onPressOut={rightPress.onPressOut}
             onPress={() => setShowTestCelebration(true)}
           >
-          <Animated.View style={[styles.rightPill, rightPressStyle]}>
-            <View style={styles.statRow}>
-              <View style={styles.iconWrapper}>
-                <StreakIcon size={16} color={colors.bluePrimary} />
+            <Animated.View style={[styles.rightPill, rightPressStyle]}>
+              <View style={styles.statRow}>
+                <View style={styles.iconWrapper}>
+                  <StreakIcon size={16} color={colors.bluePrimary} />
+                </View>
+                <AnimatedCountUp
+                  target={streak}
+                  duration={600}
+                  delay={COUNT_UP_DELAY}
+                  suffix=" "
+                  style={styles.statValueText}
+                />
+                <Typography family="onest" size={12} weight="600" color="bluePrimary">
+                  {streak === 1 ? 'day' : 'days'}
+                </Typography>
               </View>
-              <Typography family="onest" size={12} weight="600" color="bluePrimary">
-                {displayStreak}{' '}
-              </Typography>
-              <Typography family="onest" size={11} weight="400" color="bluePrimary">
-                {streak === 1 ? 'day' : 'days'}
-              </Typography>
-            </View>
-            <View style={styles.statRow}>
-              <View style={styles.iconWrapper}>
-                <XPIcon size={16} color={colors.bluePrimary} />
+              <View style={styles.statRow}>
+                <View style={styles.iconWrapper}>
+                  <XPIcon size={16} color={colors.bluePrimary} />
+                </View>
+                <AnimatedCountUp
+                  target={xpValue}
+                  duration={800}
+                  delay={COUNT_UP_DELAY}
+                  suffix=" "
+                  style={styles.statValueText}
+                />
+                <Typography family="onest" size={12} weight="600" color="bluePrimary">
+                  XP
+                </Typography>
               </View>
-              <Typography family="onest" size={12} weight="600" color="bluePrimary">
-                {displayXP}{' '}
-              </Typography>
-              <Typography family="onest" size={11} weight="400" color="bluePrimary">
-                XP
-              </Typography>
-            </View>
-          </Animated.View>
+            </Animated.View>
           </Pressable>
         </View>
       </AnimatedEntrance>
@@ -300,6 +277,24 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Match Typography family="onest" weight="700" size={16} color="onyx".
+  // AnimatedCountUp renders TextInput, which doesn't inherit Typography
+  // tokens, so the text style is duplicated here.
+  percentageText: {
+    color: colors.onyx,
+    fontFamily: 'Onest-Bold',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  // Match Typography family="onest" weight="600" size={14} color="bluePrimary".
+  statValueText: {
+    color: colors.bluePrimary,
+    fontFamily: 'Onest-SemiBold',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 14,
   },
 });
 

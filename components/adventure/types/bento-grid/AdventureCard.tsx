@@ -5,12 +5,12 @@ import React from 'react';
 import {
   View,
   Modal,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   Platform,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -64,7 +64,7 @@ export default function AdventureCard({
       onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.container}>
-        <ScrollView
+        <Animated.ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={Platform.OS === 'ios'}
@@ -232,7 +232,7 @@ export default function AdventureCard({
           </View>
 
           <View style={styles.bottomSpacer} />
-        </ScrollView>
+        </Animated.ScrollView>
 
         {/* Floating START ADVENTURE button: y 30->0, 450ms, 2150ms delay */}
         <AnimatedEntrance preset="slideFromBottom" delay={2150} style={styles.floatingButton}>

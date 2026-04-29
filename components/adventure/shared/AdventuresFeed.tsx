@@ -5,13 +5,13 @@ import React from 'react';
 import {
   View,
   Modal,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   Platform,
   Dimensions,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -146,7 +146,7 @@ export default function AdventuresFeed({
           </TouchableOpacity>
         )}
 
-        <ScrollView
+        <Animated.ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={Platform.OS === 'ios'}
@@ -274,7 +274,7 @@ export default function AdventuresFeed({
               </View>
             );
           })}
-        </ScrollView>
+        </Animated.ScrollView>
       </SafeAreaView>
     </Modal>
   );

@@ -1,7 +1,8 @@
-import AdventureComponent from '@/components/adventure/shared/AdventureComponent';
+import AdventureBentoSection from '@/components/adventure/shared/AdventureBentoSection';
 import LessonPlayer from '@/components/lessons/LessonPlayer';
 import Quiz from '@/components/quiz/Quiz';
 import type { Adventure, ContentItem } from '@/components/shared/types';
+import { ScrollFade } from '@/components/ui';
 import { colors } from '@/components/ui/theme';
 import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useAdventurePreloader } from '@/hooks/useAdventurePreloader';
@@ -9,11 +10,10 @@ import { useVideoPreloader, extractVideoUrls } from '@/hooks/useVideoPreloader';
 import { analyticsService } from '@/services/AnalyticsService';
 import { getAdventureUnlockStatus } from '@/utils/adventureUnlock';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Dimensions, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View, ViewToken } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Dimensions, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import AdventureCard from './AdventureCard';
@@ -41,21 +41,6 @@ interface BentoGridScreenProps {
 }
 
 const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgress, onProgressUpdate, refreshing, onRefresh, onScrollActivity, showPullToRefreshHint = false }) => {
-  // Track which adventures have scrolled into view (fires animation once)
-  const [visibleAdventures, setVisibleAdventures] = useState<Set<string>>(new Set());
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    setVisibleAdventures(prev => {
-      const next = new Set(prev);
-      viewableItems.forEach(item => {
-        if (item.isViewable && item.item?.readable_id) {
-          next.add(item.item.readable_id);
-        }
-      });
-      return next.size !== prev.size ? next : prev;
-    });
-  }).current;
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 18 }).current;
-
   const [selectedLesson, setSelectedLesson] = useState<{
     contentItem: ContentItem;
     adventureId: string;
@@ -254,57 +239,69 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
 
     return (
       <View style={isFirstLocked ? styles.firstLockedContainer : undefined}>
-        <AdventureComponent
+        <AdventureBentoSection
           adventure={adventure}
           userProgress={userProgress}
           onCardPress={handleCardPress}
           onTitlePress={handleAdventureStarted}
           isLocked={isLocked}
-          isVisible={visibleAdventures.has(adventure.readable_id)}
         />
 
-        {/* Single continuous overlay - only on first locked adventure, extends to cover all */}
+        {/* Single continuous overlay — solid dark fill instead of BlurView +
+            LinearGradient. Both were measurable GPU costs on a tall overlay
+            (BlurView samples the underlying view tree per frame; LinearGradient
+            renders via Skia). A plain View with rgba(0,0,0,0.6) is a single
+            GPU draw call and renders identically for our purpose. */}
         {isFirstLocked && (
-          <BlurView
-            intensity={2.3}
-            tint="dark"
+          <View
             style={[styles.continuousLockOverlay, { height: lockOverlayHeight }]}
             pointerEvents="box-none"
           >
-            <LinearGradient
-              colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.6)', 'rgba(0, 0, 0, 0.6)']}
-              locations={[0, 0.02, 1]}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="box-none"
-            >
-              <View style={styles.lockBannerContainer} pointerEvents="box-none">
-                <View style={styles.lockBanner} pointerEvents="auto">
-                  <Svg width={35} height={35} viewBox="0 -960 960 960" fill="#FFFFFF" style={styles.lockIcon}>
-                    <Path d="M226.67-80q-27.5 0-47.09-19.58Q160-119.17 160-146.67v-422.66q0-27.5 19.58-47.09Q199.17-636 226.67-636h60v-90.67q0-80.23 56.57-136.78T480.07-920q80.26 0 136.76 56.55 56.5 56.55 56.5 136.78V-636h60q27.5 0 47.09 19.58Q800-596.83 800-569.33v422.66q0 27.5-19.58 47.09Q760.83-80 733.33-80H226.67Zm253.44-200q32.22 0 55.06-22.52Q558-325.04 558-356.67q0-31-22.95-55.16Q512.11-436 479.89-436t-55.06 24.17Q402-387.67 402-356.33q0 31.33 22.95 53.83 22.94 22.5 55.16 22.5ZM353.33-636h253.34v-90.67q0-52.77-36.92-89.72-36.93-36.94-89.67-36.94-52.75 0-89.75 36.94-37 36.95-37 89.72V-636Z" />
-                  </Svg>
-                  <Text style={styles.lockText}>Complete above modules to unlock this!</Text>
-                </View>
+            {/* Soft fade-in at the top edge — ScrollFade defaults to
+                `top: -height`, so it overflows ABOVE this overlay
+                (firstLockedContainer has overflow:visible). The gradient
+                runs transparent → solid 0.6, covering the snow gap
+                between the unlocked adventure above and this lock overlay.
+                Height is generous (80px) so the fade absorbs the full
+                inter-adventure spacing — a smaller height would leave a
+                bright snow strip visible above where the gradient starts. */}
+            <ScrollFade color="rgba(0, 0, 0, 0.6)" height={80} />
+
+            <View style={styles.lockBannerContainer} pointerEvents="box-none">
+              <View style={styles.lockBanner} pointerEvents="auto">
+                <Svg width={35} height={35} viewBox="0 -960 960 960" fill="#FFFFFF" style={styles.lockIcon}>
+                  <Path d="M226.67-80q-27.5 0-47.09-19.58Q160-119.17 160-146.67v-422.66q0-27.5 19.58-47.09Q199.17-636 226.67-636h60v-90.67q0-80.23 56.57-136.78T480.07-920q80.26 0 136.76 56.55 56.5 56.55 56.5 136.78V-636h60q27.5 0 47.09 19.58Q800-596.83 800-569.33v422.66q0 27.5-19.58 47.09Q760.83-80 733.33-80H226.67Zm253.44-200q32.22 0 55.06-22.52Q558-325.04 558-356.67q0-31-22.95-55.16Q512.11-436 479.89-436t-55.06 24.17Q402-387.67 402-356.33q0 31.33 22.95 53.83 22.94 22.5 55.16 22.5ZM353.33-636h253.34v-90.67q0-52.77-36.92-89.72-36.93-36.94-89.67-36.94-52.75 0-89.75 36.94-37 36.95-37 89.72V-636Z" />
+                </Svg>
+                <Text style={styles.lockText}>Complete above modules to unlock this!</Text>
               </View>
-            </LinearGradient>
-          </BlurView>
+            </View>
+          </View>
         )}
       </View>
     );
-  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, lockOverlayHeight, handleCardPress, handleAdventureStarted, visibleAdventures]);
+  }, [userProgress, adventureUnlockStatus, firstLockedAdventureId, lockOverlayHeight, handleCardPress, handleAdventureStarted]);
 
   // Key extractor for FlatList (memoized)
   const keyExtractor = useCallback((item: Adventure) => item.readable_id, []);
 
+  // Stable scroll handler — the previous inline `() => onScrollActivity?.()`
+  // recreated a fresh function on every parent render, which forces FlatList
+  // to re-attach its scroll event listener and is one of the JS-thread costs
+  // visible while scrolling.
+  const handleScroll = useCallback(() => {
+    onScrollActivity?.();
+  }, [onScrollActivity]);
+
   return (
     <View style={styles.container}>
       <View style={styles.contentWrapper}>
-        <FlatList
+        <Animated.FlatList
           data={adventures}
           renderItem={renderAdventureItem}
           keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
-          onScroll={() => onScrollActivity?.()} // Track browsing behavior
+          onScroll={handleScroll} // Track browsing behavior — stable ref via useCallback
           scrollEventThrottle={400} // Throttle to avoid excessive tracking
           ListHeaderComponent={
             showPullToRefreshHint ? (
@@ -327,15 +324,19 @@ const BentoGridScreen: React.FC<BentoGridScreenProps> = ({ adventures, userProgr
               colors={[colors.bluePrimary]}
             />
           }
-          // Visibility-triggered animations
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          // Performance optimizations
-          removeClippedSubviews={Platform.OS === 'android'}
-          maxToRenderPerBatch={5}
-          updateCellsBatchingPeriod={100}
-          initialNumToRender={3}
-          windowSize={5}
+          // ── Android perf knobs ──
+          // `removeClippedSubviews=true` on Android was the single largest
+          // cause of FPS drops during scroll: each item entering/leaving
+          // the viewport got detached/re-attached via the view-manager
+          // bridge, hammering the JS thread. Adventure list is short
+          // (~5 items), no memory benefit to clipping — disable.
+          removeClippedSubviews={false}
+          // Render the whole list on first paint — no incremental batches
+          // that would conflict with scroll gestures or animations.
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          windowSize={11}
         />
       </View>
 
@@ -419,7 +420,8 @@ const styles = StyleSheet.create({
     overflow: 'visible', // Allow overlay to extend beyond container
   },
   scrollContent: {
-    paddingBottom: 120, // Account for tab bar height
+    gap: 34,
+    paddingBottom: 40,
     overflow: 'visible', // Allow lock overlay to extend beyond scroll container
   },
   pullToRefreshHint: {
@@ -474,17 +476,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Continuous Lock Overlay - single overlay extending down to cover all locked adventures
-  // Height is now calculated dynamically based on locked adventure count (set via inline style)
+  // Continuous Lock Overlay — single solid dark fill extending down over
+  // every locked adventure below the first one. Height set dynamically via
+  // inline style based on locked adventure count.
   continuousLockOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 50,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   lockBannerContainer: {
-    paddingTop: 200, // Position banner in middle of locked area
+    paddingTop: 100, // Position banner in middle of locked area
     paddingHorizontal: 20,
     alignItems: 'center',
   },
