@@ -218,10 +218,6 @@ function EraCardComponent({
                 <AnimatedEntrance
                   preset="chipPop"
                   delay={(entranceDelay ?? 0) + CHIP_DELAY_OFFSET}
-                  // entranceDelay === undefined means EraList told us we're
-                  // past the initial entrance window (e.g. card recycled by
-                  // LegendList during scroll) → skip the chip pop entirely
-                  // so the recycled card renders fully visible immediately.
                   autoPlay={entranceDelay !== undefined}
                 >
                   <Typography family="onest" size={14} weight="600" color="white" letterSpacing={-0.14}>

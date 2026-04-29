@@ -1,29 +1,19 @@
-// Renders the LegendList of era rows (full-width / grid pairs / section header).
-// Owns the renderItem + keyExtractor wiring AND computes the entrance-timeline
-// metadata (preset + delay) for each row so animations stay in sync with the
-// rest of the screen entrance (Downloads/04 eras/index.html → enterEras()).
+// Renders the list of era rows (full-width / grid pairs / section header).
+// Uses plain ScrollView (not FlatList/LegendList) — the eras list is short
+// (~5–10 rows). Virtualization overhead from FlatList (per-frame visibility
+// checks, view-manager bridge calls on edge mount/unmount) was dominating
+// the scroll work and dropping Android frames from 120 → ~20 fps. ScrollView
+// mounts every child once and delegates scroll to the native ScrollView, so
+// scroll cost is pure GPU translate of the cached child tree — no JS work.
 //
-// Per-row entrance mapping:
-//   - First full_width row in the available group → cardHeroDrop @ 400ms (Umayyad hero)
-//   - Subsequent rows in available group        → riseListItem @ 700 + (i-1)*80ms
-//   - "Coming Soon..." section header           → riseSubtle    @ 1250ms
-//   - Rows in coming-soon group                 → riseQuiet     @ 1350 + i*60ms
-//
-// Recycling guard: AnimatedEntrance applies its `delay` from each mount,
-// not from screen mount. So a locked row with delay=1500ms that mounts
-// fresh because the user scrolled into it 800ms after screen open would
-// stay invisible until t=2300ms — visible blank space. To prevent that,
-// we flip `hasEntered=true` after the initial entrance window finishes
-// (~1700ms). After the flip, AnimatedEntrance receives `autoPlay=false`
-// → useEntrance initializes shared values at the final state directly
-// → newly mounted rows render fully visible without animation.
-//
-// In-flight entrances at the moment of the flip are NOT interrupted —
-// the useEffect cleanup just no-ops, and existing animations keep running.
+// Per-row entrance metadata (preset + delay) is still computed below for
+// reference, but the AnimatedEntrance wrappers are currently disabled
+// (commented out) per AFF-833 perf pass. To re-enable, uncomment the
+// wrappers in renderRow.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { LegendList } from '@legendapp/list';
+import Animated from 'react-native-reanimated';
 
 import { EraCard } from '@/components/EraSelection/EraCard';
 import { Typography } from '@/components/ui';
@@ -119,7 +109,7 @@ const EraList: React.FC<EraListProps> = ({
   }, []);
 
   const renderRow = useCallback(
-    ({ item: row, index }: { item: EraRow; index: number }) => {
+    (row: EraRow, index: number) => {
       const entrance = rowEntrances[index];
       const autoPlay = !hasEntered;
       // Pass undefined entranceDelay after the entrance window so EraCard's
@@ -128,9 +118,9 @@ const EraList: React.FC<EraListProps> = ({
 
       if (row.type === 'sectionHeader') {
         return (
-          <AnimatedEntrance preset={entrance.preset} delay={entrance.delay} autoPlay={autoPlay}>
+          <AnimatedEntrance key="section-coming-soon" preset={entrance.preset} delay={entrance.delay} autoPlay={autoPlay}>
             <View style={styles.sectionHeader}>
-              <Typography family="onest" size={18} weight="700" extraColor="#41425E">
+              <Typography family="onest" size={18} weight="700" color="blueMutedNavy">
                 {row.label}
               </Typography>
             </View>
@@ -141,7 +131,7 @@ const EraList: React.FC<EraListProps> = ({
       if (row.type === 'full') {
         const era = row.eras[0];
         return (
-          <AnimatedEntrance preset={entrance.preset} delay={entrance.delay} autoPlay={autoPlay}>
+          <AnimatedEntrance key={era.era_id} preset={entrance.preset} delay={entrance.delay} autoPlay={autoPlay}>
             <EraCard
               era={era}
               isSelected={selectedEraId === era.era_id}
@@ -155,8 +145,8 @@ const EraList: React.FC<EraListProps> = ({
       }
 
       return (
-        <AnimatedEntrance preset={entrance.preset} delay={entrance.delay} autoPlay={autoPlay}>
-          <View style={styles.gridRow}>
+        <AnimatedEntrance key={row.eras[0].era_id} preset={entrance.preset} delay={entrance.delay} autoPlay={autoPlay}>
+          <View style={[styles.gridRow]}>
             {row.eras.map((era) => (
               <EraCard
                 key={era.era_id}
@@ -175,24 +165,20 @@ const EraList: React.FC<EraListProps> = ({
     [hasEntered, rowEntrances, selectedEraId, onEraSelect, isSubscribed, isFoundingMember],
   );
 
-  const keyExtractor = useCallback(
-    (item: EraRow) =>
-      item.type === 'sectionHeader' ? 'section-coming-soon' : item.eras[0].era_id,
-    [],
-  );
-
   return (
-    <LegendList
-      recycleItems
-      data={rows}
-      extraData={selectedEraId}
-      renderItem={renderRow}
-      keyExtractor={keyExtractor}
+    <Animated.ScrollView
       style={styles.list}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
-      estimatedItemSize={250}
-    />
+      // Disable Android overscroll glow — the rubber-band recompute on
+      // each release was contributing to perceived jank near list edges.
+      overScrollMode="never"
+      // Drop scroll events that arrive faster than the renderer can
+      // handle, instead of queueing them — defaults are fine but explicit.
+      scrollEventThrottle={16}
+    >
+      {rows.map(renderRow)}
+    </Animated.ScrollView>
   );
 };
 
@@ -213,6 +199,9 @@ const styles = StyleSheet.create({
   gridRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  rowSpacer: {
+    marginBottom: 10,
   },
 });
 

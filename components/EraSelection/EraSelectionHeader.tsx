@@ -35,7 +35,6 @@ const EraSelectionHeader: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     gap: spacing.xs,
   },

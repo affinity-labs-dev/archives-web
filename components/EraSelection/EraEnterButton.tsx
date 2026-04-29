@@ -2,7 +2,7 @@
 // Entrance timeline: riseCta @ 1050ms (matches enterEras() pill-btn step).
 
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { DepthButton, Typography } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
@@ -20,9 +20,6 @@ const EraEnterButton: React.FC<EraEnterButtonProps> = ({ onPress, disabled }) =>
     <AnimatedEntrance preset="riseCta" delay={ERAS_CTA_DELAY} style={styles.container}>
       <DepthButton
         variant="tertiary"
-        size="medium"
-        radius={26.5}
-        pressEffect="dip"
         onPress={onPress}
         isDisabled={disabled}
         isFullWidth
@@ -32,7 +29,6 @@ const EraEnterButton: React.FC<EraEnterButtonProps> = ({ onPress, disabled }) =>
           size={18}
           weight="700"
           color="white"
-          letterSpacing={-0.18}
         >
           ENTER ERA
         </Typography>

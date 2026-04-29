@@ -12,7 +12,7 @@
 //   - EraList            — LegendList row renderer
 //   - EraEnterButton     — floating bottom CTA
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -24,6 +24,7 @@ import {
   ErasContentArea,
   EraSelectionHeader,
 } from '@/components/EraSelection';
+import FpsMonitor from '@/components/dev/FpsMonitor';
 import { Typography } from '@/components/ui';
 import { colors } from '@/components/ui/theme';
 import {
@@ -107,12 +108,15 @@ export default function EraSelection() {
     !!selectedEra &&
     isEraAccessible(selectedEra.status, isSubscribed, isFoundingMember);
 
+  useEffect(() => {
+    StatusBar.setBarStyle("dark-content");
+  }, []);
+
   return (
     <SafeAreaView
       edges={['top', 'left', 'right']}
-      style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}
+      style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 11 }]}
     >
-      <StatusBar barStyle="dark-content" translucent={false} backgroundColor={colors.snow} />
 
       <View style={styles.container}>
         <EraSelectionHeader />
