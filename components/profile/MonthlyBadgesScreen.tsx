@@ -16,13 +16,12 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { Typography } from '@/components/ui';
-import { AnimatedEntrance } from '@/components/ui/animations';
-import { colors, safeDuration, easings } from '@/components/ui/theme';
+import { safeDuration } from '@/components/ui/theme';
+import { AchievementDetailCard } from './shared/AchievementDetailCard';
 
 // ─── Badge data ────────────────────────────────────────────
 
@@ -86,77 +85,6 @@ function BadgeTile({ item, isEarned, onPress }: { item: BadgeItem; isEarned: boo
   );
 }
 
-// ─── Badge Detail Card ───────────────────────────────────
-
-function BadgeDetailCard({ badge, onClose }: { badge: SelectedBadge; onClose: () => void }) {
-  const { item, isEarned } = badge;
-  const endOfMonth = new Date(new Date().getFullYear(), item.month, 0);
-  const dateStr = endOfMonth.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-
-  return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose}>
-      <AnimatedEntrance preset="fadeIn" delay={0}>
-        <Pressable style={styles.detailBackdrop} onPress={onClose}><View /></Pressable>
-      </AnimatedEntrance>
-      <View style={styles.detailCenter} pointerEvents="box-none">
-        <AnimatedEntrance
-          preset={{ translateY: { from: 40, to: 0 }, scale: { from: 0.94, to: 1 }, opacity: { from: 0, to: 1 }, duration: 500, easing: easings.backOut14 }}
-          delay={50}
-        >
-          <View style={styles.detailCardOuter}>
-            <TouchableOpacity style={styles.detailClose} onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-              <Ionicons name="close" size={22} color="#888" />
-            </TouchableOpacity>
-            <AnimatedEntrance
-              preset={{ scale: { from: 0.75, to: 1 }, opacity: { from: 0, to: 1 }, translateY: { from: 20, to: 0 }, duration: 650, easing: easings.backOut2 }}
-              delay={150}
-            >
-              <Image source={isEarned ? item.earned : item.grey} style={styles.detailImage} resizeMode="contain" />
-            </AnimatedEntrance>
-            <LinearGradient
-              colors={isEarned ? ['#FFDD63', '#FFFFFF'] : ['#C3C3C3', '#FFFFFF']}
-              start={{ x: 0.3, y: 0 }}
-              end={{ x: 0.7, y: 0.6 }}
-              style={styles.detailCard}
-            >
-              <AnimatedEntrance preset="fadeIn" delay={350}>
-                <Typography family="onest" size={28} weight="700" extraColor={isEarned ? '#1a1a1a' : '#9e9ea3'} style={{ marginBottom: 10, lineHeight: 30 }}>
-                  {item.label}
-                </Typography>
-              </AnimatedEntrance>
-              <AnimatedEntrance preset="fadeIn" delay={450}>
-                <Typography family="onest" size={16} weight="600" extraColor={isEarned ? '#1D1D1D' : '#9e9ea3'} style={{ marginBottom: 18, lineHeight: 20 }}>
-                  {item.subtitle}
-                </Typography>
-              </AnimatedEntrance>
-              <AnimatedEntrance preset="fadeIn" delay={550}>
-                <View style={styles.detailPills}>
-                  {isEarned ? (
-                    <>
-                      <View style={[styles.detailPill, { backgroundColor: colors.pinkSecondary }]}>
-                        <Ionicons name="lock-open" size={14} color="#fff" />
-                        <Typography family="onest" size={12} weight="600" color="snow">Unlocked</Typography>
-                      </View>
-                      <View style={[styles.detailPill, { backgroundColor: colors.acaiSecondary }]}>
-                        <Typography family="onest" size={12} weight="600" color="snow">{dateStr}</Typography>
-                      </View>
-                    </>
-                  ) : (
-                    <View style={[styles.detailPill, { backgroundColor: colors.bluePrimary }]}>
-                      <Ionicons name="lock-closed" size={14} color="#fff" />
-                      <Typography family="onest" size={12} weight="600" color="snow">Locked</Typography>
-                    </View>
-                  )}
-                </View>
-              </AnimatedEntrance>
-            </LinearGradient>
-          </View>
-        </AnimatedEntrance>
-      </View>
-    </Modal>
-  );
-}
-
 // ─── Main Component ──────────────────────────────────────
 
 export function MonthlyBadgesScreen({ onClose, earnedMonths }: MonthlyBadgesScreenProps) {
@@ -203,7 +131,35 @@ export function MonthlyBadgesScreen({ onClose, earnedMonths }: MonthlyBadgesScre
           showsVerticalScrollIndicator={false}
         />
 
-        {selected && <BadgeDetailCard badge={selected} onClose={() => setSelected(null)} />}
+        <AchievementDetailCard
+          visible={!!selected}
+          onClose={() => setSelected(null)}
+          // Badge data ships pre-rendered earned/grey assets so the
+          // shared card renders the right variant directly — no
+          // GrayscaleImage filter needed.
+          image={
+            selected
+              ? selected.isEarned
+                ? selected.item.earned
+                : selected.item.grey
+              : undefined!
+          }
+          title={selected?.item.label || ''}
+          description={selected?.item.subtitle}
+          unlocked={!!selected?.isEarned}
+          // Treat the last day of the badge's month (current year) as
+          // the unlocked-on date — same visual the inline component
+          // showed before.
+          unlockedAt={
+            selected
+              ? new Date(
+                  new Date().getFullYear(),
+                  selected.item.month,
+                  0,
+                ).toISOString()
+              : null
+          }
+        />
       </View>
     </Modal>
   );
@@ -274,56 +230,4 @@ const styles = StyleSheet.create({
     width: CELL_WIDTH,
   },
 
-  // Detail card
-  detailBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-  },
-  detailCenter: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailCardOuter: {
-    width: 328,
-    alignItems: 'center',
-  },
-  detailClose: {
-    position: 'absolute',
-    top: -44,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  detailImage: {
-    width: 180,
-    height: 170,
-    marginBottom: -60,
-    zIndex: 5,
-  },
-  detailCard: {
-    width: 328,
-    borderRadius: 25,
-    paddingTop: 80,
-    paddingHorizontal: 28,
-    paddingBottom: 24,
-  },
-  detailPills: {
-    flexDirection: 'row',
-    gap: 11,
-    alignItems: 'center',
-  },
-  detailPill: {
-    height: 30,
-    borderRadius: 17,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
 });

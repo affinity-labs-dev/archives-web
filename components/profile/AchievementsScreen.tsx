@@ -7,6 +7,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import {
+  Dimensions,
   Image,
   Modal,
   Pressable,
@@ -22,15 +23,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Typography } from '@/components/ui/Typography';
-import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { StaggerGroup } from '@/components/ui/animations/StaggerGroup';
-import { colors, safeDuration, easings } from '@/components/ui/theme';
+import { safeDuration } from '@/components/ui/theme';
 import { useGamificationOrchestrator } from '@/gamification';
+import { AchievementDetailCard } from './shared/AchievementDetailCard';
 
 // ──────────────────────────────────────────────
 // Types
@@ -77,6 +77,36 @@ const ACHIEVEMENT_IMAGES: Record<string, any> = {
   xp_3500: require('@/assets/images/adventure-unlocked/shaykhalilm.png'),
 };
 
+// Pre-rendered grayscale silhouettes — file names mirror the unlocked
+// folder. Using purpose-built locked artwork (rather than runtime
+// `opacity: 0.55` on the colored image) gives a cleaner gray-on-white
+// look + lets the designer hand-tune contrast per piece.
+const ACHIEVEMENT_IMAGES_LOCKED: Record<string, any> = {
+  perfect_scholar: require('@/assets/images/adventure-locked/perfectscholar.png'),
+  quiz_legend: require('@/assets/images/adventure-locked/quizlegend.png'),
+  quiz_master: require('@/assets/images/adventure-locked/quizmaster.png'),
+  first_perfect: require('@/assets/images/adventure-locked/firststeps.png'),
+  century_scholar: require('@/assets/images/adventure-locked/100dayscholar.png'),
+  quick_learner: require('@/assets/images/adventure-locked/quicklearner.png'),
+  speed_demon: require('@/assets/images/adventure-locked/speeddemon.png'),
+  week_warrior: require('@/assets/images/adventure-locked/weekwarrior.png'),
+  month_master: require('@/assets/images/adventure-locked/monthmaster.png'),
+  early_bird: require('@/assets/images/adventure-locked/earlybird.png'),
+  night_owl: require('@/assets/images/adventure-locked/nightowl.png'),
+  era_complete_umayyad: require('@/assets/images/adventure-locked/umayyadexpert.png'),
+  era_complete_women_of_islam: require('@/assets/images/adventure-locked/womenofislam.png'),
+  era_complete_roi: require('@/assets/images/adventure-locked/riseofislam.png'),
+  xp_100: require('@/assets/images/adventure-locked/talib(seeker).png'),
+  xp_250: require('@/assets/images/adventure-locked/daris(student).png'),
+  xp_500: require('@/assets/images/adventure-locked/alim(scholar).png'),
+  xp_1000: require('@/assets/images/adventure-locked/hakim(sage).png'),
+  xp_2000: require('@/assets/images/adventure-locked/ustadh(master).png'),
+  xp_3500: require('@/assets/images/adventure-locked/shaykhalilm.png'),
+};
+
+const getAchievementImage = (id: string, isUnlocked: boolean) =>
+  isUnlocked ? ACHIEVEMENT_IMAGES[id] : ACHIEVEMENT_IMAGES_LOCKED[id];
+
 // ──────────────────────────────────────────────
 // Grid order (matches Figma layout)
 // ──────────────────────────────────────────────
@@ -113,14 +143,22 @@ const GRID_ORDER: GridItem[] = [
 // Constants
 // ──────────────────────────────────────────────
 
+// Grid sizing — Figma artboard is 393px (iPhone 16 Pro). Cell width is
+// derived from the actual screen so 3 columns + the explicit 16px
+// column gap always fit. On the design width (393pt) this resolves to
+// the spec's 107pt cells; on iPhone SE/13 mini (375pt) it shrinks to
+// ~101pt, preserving the 3-column layout instead of overflow-wrapping.
 const GRID_H_PADDING = 20;
 const ROW_GAP = 28;
-const CELL_WIDTH = 107;
+const COL_GAP = 16;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CELL_WIDTH = Math.floor(
+  (SCREEN_WIDTH - GRID_H_PADDING * 2 - COL_GAP * 2) / 3,
+);
 const IMAGE_SIZE = 96;
 const IMAGE_BORDER_RADIUS = 8;
 
 const HEADER_HEIGHT = 56;
-const LOCKED_OPACITY = 0.55;
 
 const HEADER_TEXT_COLOR = '#8c8c94';
 const DIVIDER_COLOR = '#ebebf0';
@@ -158,11 +196,11 @@ function AchievementTile({
       onPress={onPress}
     >
       <Animated.View style={[styles.cell, animStyle]}>
-        <Image
-          source={image}
-          style={[styles.image, !isUnlocked && styles.imageLocked]}
-          resizeMode="cover"
-        />
+        {/* Locked vs unlocked variants come from two pre-rendered
+            asset folders (adventure-locked / adventure-unlocked) — no
+            runtime dim/grayscale needed since the artwork is already
+            tuned per state. */}
+        <Image source={image} style={styles.image} resizeMode="contain" />
         <Typography
           family="onest"
           size={14}
@@ -175,147 +213,6 @@ function AchievementTile({
         </Typography>
       </Animated.View>
     </Pressable>
-  );
-}
-
-// ──────────────────────────────────────────────
-// AchievementDetailCard — modal overlay
-// ──────────────────────────────────────────────
-
-function AchievementDetailCard({
-  achievement,
-  onClose,
-}: {
-  achievement: SelectedAchievement;
-  onClose: () => void;
-}) {
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
-
-  return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose}>
-      {/* Backdrop */}
-      <AnimatedEntrance preset="fadeIn" delay={0}>
-        <Pressable style={styles.detailBackdrop} onPress={onClose}>
-          <View />
-        </Pressable>
-      </AnimatedEntrance>
-
-      {/* Card */}
-      <View style={styles.detailCenter} pointerEvents="box-none">
-        <AnimatedEntrance
-          preset={{
-            translateY: { from: 40, to: 0 },
-            scale: { from: 0.94, to: 1 },
-            opacity: { from: 0, to: 1 },
-            duration: 500,
-            easing: easings.backOut14,
-          }}
-          delay={50}
-        >
-          <View style={styles.detailCardOuter}>
-            {/* Close button */}
-            <TouchableOpacity
-              style={styles.detailClose}
-              onPress={onClose}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.6}
-            >
-              <Ionicons name="close" size={22} color="#888" />
-            </TouchableOpacity>
-
-            {/* Floating image */}
-            <AnimatedEntrance
-              preset={{
-                scale: { from: 0.75, to: 1 },
-                opacity: { from: 0, to: 1 },
-                translateY: { from: 20, to: 0 },
-                duration: 650,
-                easing: easings.backOut2,
-              }}
-              delay={150}
-            >
-              <Image
-                source={achievement.image}
-                style={[
-                  styles.detailImage,
-                  !achievement.isUnlocked && { opacity: LOCKED_OPACITY },
-                ]}
-                resizeMode="contain"
-              />
-            </AnimatedEntrance>
-
-            {/* Card body with gradient */}
-            <LinearGradient
-              colors={
-                achievement.isUnlocked
-                  ? ['#FFDD63', '#FFFFFF']
-                  : ['#C3C3C3', '#FFFFFF']
-              }
-              start={{ x: 0.3, y: 0 }}
-              end={{ x: 0.7, y: 0.6 }}
-              style={styles.detailCard}
-            >
-              <AnimatedEntrance preset="fadeIn" delay={350}>
-                <Typography
-                  family="onest"
-                  size={28}
-                  weight="700"
-                  extraColor={achievement.isUnlocked ? UNLOCKED_TEXT_COLOR : LOCKED_TEXT_COLOR}
-                  style={{ marginBottom: 10, lineHeight: 30 }}
-                >
-                  {achievement.label}
-                </Typography>
-              </AnimatedEntrance>
-
-              <AnimatedEntrance preset="fadeIn" delay={450}>
-                <Typography
-                  family="onest"
-                  size={16}
-                  weight="600"
-                  extraColor={achievement.isUnlocked ? '#1D1D1D' : LOCKED_TEXT_COLOR}
-                  style={{ marginBottom: 18, lineHeight: 20 }}
-                >
-                  {achievement.description}
-                </Typography>
-              </AnimatedEntrance>
-
-              <AnimatedEntrance preset="fadeIn" delay={550}>
-                <View style={styles.detailPills}>
-                  {achievement.isUnlocked ? (
-                    <>
-                      <View style={[styles.detailPill, { backgroundColor: colors.pinkSecondary }]}>
-                        <Ionicons name="checkmark" size={14} color="#fff" />
-                        <Typography family="onest" size={12} weight="600" color="snow">
-                          Unlocked
-                        </Typography>
-                      </View>
-                      {achievement.unlockedAt && (
-                        <View style={[styles.detailPill, { backgroundColor: colors.acaiSecondary }]}>
-                          <Typography family="onest" size={12} weight="600" color="snow">
-                            {formatDate(achievement.unlockedAt)}
-                          </Typography>
-                        </View>
-                      )}
-                    </>
-                  ) : (
-                    <View style={[styles.detailPill, { backgroundColor: colors.bluePrimary }]}>
-                      <Ionicons name="lock-closed" size={14} color="#fff" />
-                      <Typography family="onest" size={12} weight="600" color="snow">
-                        Locked
-                      </Typography>
-                    </View>
-                  )}
-                </View>
-              </AnimatedEntrance>
-            </LinearGradient>
-          </View>
-        </AnimatedEntrance>
-      </View>
-    </Modal>
   );
 }
 
@@ -344,13 +241,14 @@ export function AchievementsScreen({ visible, onClose }: AchievementsScreenProps
     (item: GridItem) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const data = unlockedMap.get(item.id);
+      const isUnlocked = data?.unlocked ?? false;
       setSelected({
         id: item.id,
         label: item.label,
         description: data?.description || '',
-        isUnlocked: data?.unlocked ?? false,
+        isUnlocked,
         unlockedAt: data?.unlockedAt,
-        image: ACHIEVEMENT_IMAGES[item.id],
+        image: getAchievementImage(item.id, isUnlocked),
       });
     },
     [unlockedMap],
@@ -400,7 +298,7 @@ export function AchievementsScreen({ visible, onClose }: AchievementsScreenProps
             {GRID_ORDER.map((item) => {
               const data = unlockedMap.get(item.id);
               const isUnlocked = data?.unlocked ?? false;
-              const image = ACHIEVEMENT_IMAGES[item.id];
+              const image = getAchievementImage(item.id, isUnlocked);
 
               return (
                 <AchievementTile
@@ -416,12 +314,15 @@ export function AchievementsScreen({ visible, onClose }: AchievementsScreenProps
         </ScrollView>
 
         {/* ── Detail Card ── */}
-        {selected && (
-          <AchievementDetailCard
-            achievement={selected}
-            onClose={() => setSelected(null)}
-          />
-        )}
+        <AchievementDetailCard
+          visible={!!selected}
+          onClose={() => setSelected(null)}
+          image={selected?.image}
+          title={selected?.label || ''}
+          description={selected?.description}
+          unlocked={!!selected?.isUnlocked}
+          unlockedAt={selected?.unlockedAt}
+        />
       </View>
     </Modal>
   );
@@ -467,8 +368,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: GRID_H_PADDING,
     paddingTop: 24,
     paddingBottom: 40,
-    gap: ROW_GAP,
-    justifyContent: 'space-between',
+    // Split gap into row + column so vertical (28) ≠ horizontal (16) —
+    // single `gap` would force both axes to the same value.
+    rowGap: ROW_GAP,
+    columnGap: COL_GAP,
   },
   cell: {
     width: CELL_WIDTH,
@@ -479,64 +382,8 @@ const styles = StyleSheet.create({
     height: IMAGE_SIZE,
     borderRadius: IMAGE_BORDER_RADIUS,
   },
-  imageLocked: {
-    opacity: LOCKED_OPACITY,
-  },
   label: {
     marginTop: 8,
     width: CELL_WIDTH,
-  },
-
-  // Detail card modal
-  detailBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-  },
-  detailCenter: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailCardOuter: {
-    width: 328,
-    alignItems: 'center',
-  },
-  detailClose: {
-    position: 'absolute',
-    top: -44,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  detailImage: {
-    width: 180,
-    height: 170,
-    marginBottom: -60,
-    zIndex: 5,
-  },
-  detailCard: {
-    width: 328,
-    borderRadius: 25,
-    paddingTop: 80,
-    paddingHorizontal: 28,
-    paddingBottom: 24,
-  },
-  detailPills: {
-    flexDirection: 'row',
-    gap: 11,
-    alignItems: 'center',
-  },
-  detailPill: {
-    height: 30,
-    borderRadius: 17,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
   },
 });
