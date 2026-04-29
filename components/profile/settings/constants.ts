@@ -1,0 +1,11 @@
+export const SETTINGS_CARD_HORIZONTAL_MARGIN = 30;
+export const CARD_HEIGHT = 68;
+export const CARD_BORDER_RADIUS = 17;
+export const CARD_BORDER_WIDTH = 1.5;
+export const CARD_SHADOW_OFFSET = 8;
+export const TOGGLE_WIDTH = 38;
+export const TOGGLE_HEIGHT = 23;
+export const TOGGLE_BORDER_RADIUS = 11.5;
+export const TOGGLE_KNOB_SIZE = 18;
+export const TOGGLE_KNOB_TRAVEL = 15;
+export const DELETE_CONFIRM_WINDOW_MS = 3000;
