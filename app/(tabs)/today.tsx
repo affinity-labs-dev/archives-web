@@ -65,16 +65,6 @@ const themeStyles = ArchivesTheme.common.today;
 // MAIN COMPONENT
 // ============================================================================
 
-// (Quest fetching, types, and per-section progress have moved to:
-//  - hooks/useTodayQuest.ts
-//  - hooks/useTodayProgress.ts
-//  - hooks/useTodayPaywall.ts )
-
-
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
 export default function TodayScreen() {
   const { user } = useUser();
   const { isSubscribed, isLoading: isSubscriptionLoading } = useRevenueCat();
@@ -168,7 +158,6 @@ export default function TodayScreen() {
   // bridges the inline `tracking.trackCardViewed(...)` calls without
   // entangling the hook with PostHog.
   const {
-    activeModal,
     previousModal,
     slotAModal,
     slotBModal,
@@ -245,33 +234,9 @@ export default function TodayScreen() {
     },
   });
 
-  // Handle StatusBar for fullscreen Explore modal (checks slots too for mid-transition)
-  const isReadingVisible = activeModal === "reading" || slotAModal === "reading" || slotBModal === "reading";
-  // Skip the initial false → false call: when this screen first mounts
-  // and no reading modal is open, the prior code unconditionally fired
-  // `StatusBar.setTranslucent(false)`. On some Android devices that
-  // triggers a one-shot window relayout (status bar mode commit) which
-  // shifts the whole tab content + native tab bar by ~status bar height.
-  // The ref tracks whether we have ever transitioned, so the toggle
-  // only runs on actual reading-modal open/close — never just on first
-  // paint after login.
-  const prevReadingVisibleRef = useRef(isReadingVisible);
   useEffect(() => {
-    if (prevReadingVisibleRef.current === isReadingVisible) return;
-    prevReadingVisibleRef.current = isReadingVisible;
-
-    if (isReadingVisible) {
-      StatusBar.setBarStyle("dark-content");
-      if (Platform.OS === "android") {
-        StatusBar.setBackgroundColor("transparent");
-        StatusBar.setTranslucent(true);
-      }
-    } else {
-      if (Platform.OS === "android") {
-        StatusBar.setTranslucent(false);
-      }
-    }
-  }, [isReadingVisible]);
+    StatusBar.setBarStyle("dark-content");
+  }, []);
 
   // Handle calendar date click
   const handleDateClick = async (date: Date) => {
@@ -674,29 +639,12 @@ export default function TodayScreen() {
   };
 
   return (
-    // Plain View + paddingTop from `useSafeAreaInsets()` — synchronous
-    // from the first render, which fixes the Android post-login layout
-    // jitter that SafeAreaView's internal async inset-settling pass was
-    // causing (whole tab content + parent bottom-tab-bar shaking up and
-    // down for 1-2 frames after entrance animations finished).
-    <View style={[themeStyles.container, { paddingTop: insets.top }]}>
+    <View style={[themeStyles.container, { paddingTop: Platform.OS === "ios" ? insets.top : (insets.top + 11) }]}>
       <ScrollView
         style={themeStyles.scrollView}
         contentContainerStyle={themeStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/*
-          Today entrance timeline — ported 1:1 from
-          `Downloads/02 daily story/index.html:1843-1888` (`enterScreen1`).
-
-            Element              | from→to                    | dur  | easing       | delay
-            ──────────────────────┼────────────────────────────┼──────┼──────────────┼──────
-            Title (header)        | y -16 → 0, opacity 0 → 1   | 450  | power2.out   | 0
-            Calendar (week row)   | y -10 → 0, opacity 0 → 1   | 400  | back.out(2)  | 180
-            Progress              | opacity 0 → 1              | 300  | power2.out   | 500
-            Card deck             | y 60 → 0, opacity 0 → 1    | 550  | back.out(1.4)| 650
-            Start button          | y 40 → 0, opacity 0 → 1    | 500  | back.out(2)  | 1050
-        */}
         <AnimatedEntrance
           delay={0}
           preset={{
