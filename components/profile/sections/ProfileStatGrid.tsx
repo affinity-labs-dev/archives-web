@@ -19,7 +19,7 @@ interface ProfileStatGridProps {
   onToggleExpanded: () => void;
 }
 
-export function ProfileStatGrid({
+function ProfileStatGridImpl({
   shouldAnimate,
   longestStreak,
   streak,
@@ -166,3 +166,5 @@ export function ProfileStatGrid({
     </View>
   );
 }
+
+export const ProfileStatGrid = React.memo(ProfileStatGridImpl);

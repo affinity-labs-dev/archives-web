@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Modal,
   View,
   FlatList,
   Image,
+  Platform,
   Pressable,
   TouchableOpacity,
   StyleSheet,
@@ -65,15 +66,37 @@ interface SelectedBadge {
 
 // ─── Badge Tile with press feedback ──────────────────────
 
-function BadgeTile({ item, isEarned, onPress }: { item: BadgeItem; isEarned: boolean; onPress: () => void }) {
+// BadgeTile takes a stable `onSelect(item)` callback instead of a per-
+// row `onPress: () => handleTileTap(item)` lambda. With the latter,
+// parent re-renders create new lambdas → memo never hits → all 12
+// tiles re-render on every parent state change. Binding `item`
+// internally via useCallback gives the Pressable a stable handler
+// while keeping memo fingerprint clean.
+function BadgeTileImpl({
+  item,
+  isEarned,
+  onSelect,
+}: {
+  item: BadgeItem;
+  isEarned: boolean;
+  onSelect: (item: BadgeItem) => void;
+}) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
+  const handlePressIn = useCallback(() => {
+    scale.value = withTiming(0.93, { duration: safeDuration(100) });
+  }, [scale]);
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+  }, [scale]);
+  const handlePress = useCallback(() => onSelect(item), [item, onSelect]);
+
   return (
     <Pressable
-      onPressIn={() => { scale.value = withTiming(0.93, { duration: safeDuration(100) }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 200 }); }}
-      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
     >
       <Animated.View style={[styles.cell, animStyle]}>
         <Image source={isEarned ? item.earned : item.grey} style={styles.badgeImage} resizeMode="cover" />
@@ -85,12 +108,23 @@ function BadgeTile({ item, isEarned, onPress }: { item: BadgeItem; isEarned: boo
   );
 }
 
+const BadgeTile = React.memo(BadgeTileImpl);
+
 // ─── Main Component ──────────────────────────────────────
 
 export function MonthlyBadgesScreen({ onClose, earnedMonths }: MonthlyBadgesScreenProps) {
   const insets = useSafeAreaInsets();
-  const earnedSet = React.useMemo(() => new Set(earnedMonths), [earnedMonths]);
+  const earnedSet = useMemo(() => new Set(earnedMonths), [earnedMonths]);
   const [selected, setSelected] = useState<SelectedBadge | null>(null);
+
+  // Inline `[styles.safeArea, { paddingTop: insets.top }]` would
+  // allocate a new array each render → propagate down through View
+  // diffing. Memoizing on insets.top keeps the same array ref unless
+  // the inset actually changes (rotation, fold device).
+  const safeAreaStyle = useMemo(
+    () => [styles.safeArea, { paddingTop: insets.top }],
+    [insets.top],
+  );
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -102,11 +136,28 @@ export function MonthlyBadgesScreen({ onClose, earnedMonths }: MonthlyBadgesScre
     setSelected({ item, isEarned: earnedSet.has(item.month) });
   }, [earnedSet]);
 
+  const handleClosePreview = useCallback(() => setSelected(null), []);
+
   const keyExtractor = useCallback((item: BadgeItem) => String(item.month), []);
+
+  // Stable renderItem — depends only on `earnedSet` + `handleTileTap`,
+  // both stable per render. FlatList passes the same fn ref between
+  // renders so memo'd BadgeTile only re-renders when its own props
+  // change (item is keyed; isEarned per-month is stable per session).
+  const renderItem = useCallback(
+    ({ item }: { item: BadgeItem }) => (
+      <BadgeTile
+        item={item}
+        isEarned={earnedSet.has(item.month)}
+        onSelect={handleTileTap}
+      />
+    ),
+    [earnedSet, handleTileTap],
+  );
 
   return (
     <Modal animationType="slide" presentationStyle="fullScreen" visible>
-      <View style={[styles.safeArea, { paddingTop: insets.top }]}>
+      <View style={safeAreaStyle}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.6}>
             <Ionicons name="arrow-back" size={22} color="#8c8c94" />
@@ -121,19 +172,28 @@ export function MonthlyBadgesScreen({ onClose, earnedMonths }: MonthlyBadgesScre
 
         <FlatList
           data={BADGES}
-          renderItem={({ item }) => (
-            <BadgeTile item={item} isEarned={earnedSet.has(item.month)} onPress={() => handleTileTap(item)} />
-          )}
+          renderItem={renderItem}
           keyExtractor={keyExtractor}
           numColumns={3}
           contentContainerStyle={styles.gridContent}
           columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}
+          // FlatList Android perf knobs:
+          // - removeClippedSubviews: tear off-screen tiles down (12
+          //   total tiles × Reanimated press feedback = real cost).
+          // - windowSize: # screens worth of cells kept rendered
+          //   (default 21 — overkill for 4 rows of 3).
+          // - maxToRenderPerBatch: cap async batch render size on
+          //   first-paint scroll.
+          removeClippedSubviews={Platform.OS === 'android'}
+          windowSize={5}
+          maxToRenderPerBatch={6}
+          initialNumToRender={9}
         />
 
         <AchievementDetailCard
           visible={!!selected}
-          onClose={() => setSelected(null)}
+          onClose={handleClosePreview}
           // Badge data ships pre-rendered earned/grey assets so the
           // shared card renders the right variant directly — no
           // GrayscaleImage filter needed.

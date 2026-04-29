@@ -117,4 +117,7 @@ export const settingsStyles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.bluePrimary,
   },
+  rowGroup: {
+    gap: 20,
+  },
 });

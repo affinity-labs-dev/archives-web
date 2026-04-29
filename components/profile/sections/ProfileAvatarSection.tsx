@@ -20,7 +20,7 @@ interface ProfileAvatarSectionProps {
   onOpenAvatarPicker: () => void;
 }
 
-export function ProfileAvatarSection({
+function ProfileAvatarSectionImpl({
   shouldAnimate,
   currentAvatar,
   displayName,
@@ -103,3 +103,5 @@ export function ProfileAvatarSection({
     </View>
   );
 }
+
+export const ProfileAvatarSection = React.memo(ProfileAvatarSectionImpl);

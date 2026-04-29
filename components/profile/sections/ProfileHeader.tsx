@@ -13,7 +13,7 @@ interface ProfileHeaderProps {
   onOpenSettings: () => void;
 }
 
-export function ProfileHeader({ shouldAnimate, onOpenSettings }: ProfileHeaderProps) {
+function ProfileHeaderImpl({ shouldAnimate, onOpenSettings }: ProfileHeaderProps) {
   return (
     <AnimatedEntrance autoPlay={shouldAnimate} preset="fadeScale" delay={60}>
       <View style={profileStyles.header}>
@@ -39,3 +39,8 @@ export function ProfileHeader({ shouldAnimate, onOpenSettings }: ProfileHeaderPr
     </AnimatedEntrance>
   );
 }
+
+// Memoize: ProfileTab re-renders on every state toggle (stats expand,
+// modal open, etc.). With stable callback props (handleOpenSettings),
+// nothing here changes between renders — skip the work.
+export const ProfileHeader = React.memo(ProfileHeaderImpl);

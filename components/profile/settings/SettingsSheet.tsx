@@ -123,12 +123,19 @@ export function SettingsSheet({
         contentContainerStyle={settingsStyles.scrollContent}
         showsVerticalScrollIndicator={false}
         bounces={Platform.OS === 'ios'}
+        // Android scroll perf: drop off-screen subviews + skip
+        // overscroll glow. ScrollEventThrottle 16 = 60fps; default 0
+        // posts every native frame which is wasteful for a static
+        // sheet with no scroll-driven animation.
+        removeClippedSubviews={Platform.OS === 'android'}
+        scrollEventThrottle={16}
+        overScrollMode={Platform.OS === 'android' ? 'never' : 'auto'}
       >
         {/* Toggle rows. Wrap StaggerGroup in a View so its Fragment
             siblings inherit the 20px gap from this View; if we put the
             View *inside* StaggerGroup, StaggerGroup would only see one
             child and lose the per-row stagger. */}
-        <View style={{ gap: 20 }}>
+        <View style={settingsStyles.rowGroup}>
           <StaggerGroup
             preset={ROW_PRESET}
             baseDelay={TOGGLE_BASE_DELAY}
@@ -160,7 +167,7 @@ export function SettingsSheet({
 
         <AnimatedDivider />
 
-        <View style={{ gap: 20 }}>
+        <View style={settingsStyles.rowGroup}>
           <StaggerGroup
             preset={ROW_PRESET}
             baseDelay={NAV_BASE_DELAY}

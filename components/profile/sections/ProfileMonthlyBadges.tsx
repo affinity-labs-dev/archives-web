@@ -23,7 +23,7 @@ interface ProfileMonthlyBadgesProps {
   onPreviewBadge: (preview: BadgePreview) => void;
 }
 
-export function ProfileMonthlyBadges({
+function ProfileMonthlyBadgesImpl({
   shouldAnimate,
   badges,
   selectedMonth,
@@ -80,3 +80,5 @@ export function ProfileMonthlyBadges({
     </AnimatedEntrance>
   );
 }
+
+export const ProfileMonthlyBadges = React.memo(ProfileMonthlyBadgesImpl);

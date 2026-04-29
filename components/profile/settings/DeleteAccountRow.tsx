@@ -59,7 +59,6 @@ export function DeleteAccountRow({ onDelete }: DeleteAccountRowProps) {
         shadowColor={colors.incorrectSecondary}
         borderColor={colors.incorrectSecondary}
         onPress={handlePress}
-        style={settingsStyles.rowWrapper}
       >
         <View style={settingsStyles.rowContent}>
           <View style={settingsStyles.rowLeft}>

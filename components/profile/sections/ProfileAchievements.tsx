@@ -20,7 +20,7 @@ interface ProfileAchievementsProps {
   onPreviewAchievement: (achievement: DisplayAchievement) => void;
 }
 
-export function ProfileAchievements({
+function ProfileAchievementsImpl({
   shouldAnimate,
   achievements,
   onOpenAll,
@@ -77,3 +77,5 @@ export function ProfileAchievements({
     </AnimatedEntrance>
   );
 }
+
+export const ProfileAchievements = React.memo(ProfileAchievementsImpl);

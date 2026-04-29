@@ -10,8 +10,8 @@ import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -169,31 +169,39 @@ const LOCKED_TEXT_COLOR = '#9e9ea3';
 // AchievementTile — pressable with scale feedback
 // ──────────────────────────────────────────────
 
-function AchievementTile({
+// AchievementTile takes `onSelect(item)` instead of `onPress: () => ...`
+// so the parent can pass a stable handler — same memo-friendly pattern
+// as MonthlyBadgesScreen's BadgeTile. With 20 tiles, the per-row
+// lambda allocation otherwise dominates re-render cost.
+function AchievementTileImpl({
   item,
   isUnlocked,
   image,
-  onPress,
+  onSelect,
 }: {
   item: GridItem;
   isUnlocked: boolean;
   image: any;
-  onPress: () => void;
+  onSelect: (item: GridItem) => void;
 }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  const handlePressIn = useCallback(() => {
+    scale.value = withTiming(0.93, { duration: safeDuration(100) });
+  }, [scale]);
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+  }, [scale]);
+  const handlePress = useCallback(() => onSelect(item), [item, onSelect]);
+
   return (
     <Pressable
-      onPressIn={() => {
-        scale.value = withTiming(0.93, { duration: safeDuration(100) });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-      }}
-      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
     >
       <Animated.View style={[styles.cell, animStyle]}>
         {/* Locked vs unlocked variants come from two pre-rendered
@@ -215,6 +223,8 @@ function AchievementTile({
     </Pressable>
   );
 }
+
+const AchievementTile = React.memo(AchievementTileImpl);
 
 // ──────────────────────────────────────────────
 // Main Component
@@ -254,14 +264,24 @@ export function AchievementsScreen({ visible, onClose }: AchievementsScreenProps
     [unlockedMap],
   );
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
-  };
+  }, [onClose]);
+
+  const handleClosePreview = useCallback(() => setSelected(null), []);
+
+  // Memoize the array literal — inline `[styles.safeArea, { paddingTop:
+  // insets.top }]` would allocate a new array each render and force
+  // View to diff style props.
+  const safeAreaStyle = useMemo(
+    () => [styles.safeArea, { paddingTop: insets.top }],
+    [insets.top],
+  );
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
-      <View style={[styles.safeArea, { paddingTop: insets.top }]}>
+      <View style={safeAreaStyle}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -290,9 +310,16 @@ export function AchievementsScreen({ visible, onClose }: AchievementsScreenProps
         <View style={styles.divider} />
 
         {/* ── Grid ── */}
-        <ScrollView
+        <Animated.ScrollView
           contentContainerStyle={styles.gridContainer}
           showsVerticalScrollIndicator={false}
+          // Android scroll perf: with 20 tiles each running a
+          // Reanimated press-feedback worklet, off-screen tile cleanup
+          // is a real win during fast scroll. ScrollEventThrottle 16
+          // = 60fps; default 0 fires every native frame.
+          removeClippedSubviews={Platform.OS === 'android'}
+          scrollEventThrottle={16}
+          overScrollMode={Platform.OS === 'android' ? 'never' : 'auto'}
         >
           <StaggerGroup preset="fadeScale" baseDelay={200} staggerInterval={60}>
             {GRID_ORDER.map((item) => {
@@ -306,17 +333,17 @@ export function AchievementsScreen({ visible, onClose }: AchievementsScreenProps
                   item={item}
                   isUnlocked={isUnlocked}
                   image={image}
-                  onPress={() => handleTileTap(item)}
+                  onSelect={handleTileTap}
                 />
               );
             })}
           </StaggerGroup>
-        </ScrollView>
+        </Animated.ScrollView>
 
         {/* ── Detail Card ── */}
         <AchievementDetailCard
           visible={!!selected}
-          onClose={() => setSelected(null)}
+          onClose={handleClosePreview}
           image={selected?.image}
           title={selected?.label || ''}
           description={selected?.description}

@@ -5,13 +5,9 @@
  * Mirrors the today.tsx pattern (hooks/today/* + components/today/*).
  */
 
-import React, { useMemo, useState } from 'react';
-import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -155,19 +151,55 @@ export default function ProfileTab() {
     [user],
   );
 
+  // ── Stable callbacks ─────────────────────────
+  // Stable refs prevent memoized section components from re-rendering
+  // every time ProfileTab re-renders (e.g. when isStatsExpanded toggles).
+  const handleOpenSettings = useCallback(() => setShowSettingsSheet(true), []);
+  const handleCloseSettings = useCallback(() => setShowSettingsSheet(false), []);
+  const handleToggleStats = useCallback(() => setIsStatsExpanded((v) => !v), []);
+  const handleOpenMonthlyBadges = useCallback(
+    () => setShowMonthlyBadges(true),
+    [],
+  );
+  const handleCloseMonthlyBadges = useCallback(
+    () => setShowMonthlyBadges(false),
+    [],
+  );
+  const handleOpenAchievements = useCallback(() => setShowAchievements(true), []);
+  const handleCloseAchievements = useCallback(() => setShowAchievements(false), []);
+  const handleOpenAvatarPicker = useCallback(() => {}, []);
+  const handleClosePreviewAchievement = useCallback(
+    () => setPreviewAchievement(null),
+    [],
+  );
+  const handleClosePreviewBadge = useCallback(() => setPreviewBadge(null), []);
+
   return (
     <SafeAreaView
       edges={['top', 'left', 'right']}
-      style={[profileStylesLocal.safeArea, Platform.OS === 'android' && { paddingTop: 11 }]}
+      style={[
+        profileStylesLocal.safeArea,
+        Platform.OS === 'android' && profileStylesLocal.androidTopPad,
+      ]}
     >
-      <ScrollView
+      <Animated.ScrollView
         style={profileStylesLocal.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={profileStylesLocal.scrollContent}
+        // Android scroll perf: unmount off-screen subviews while
+        // scrolling. Big win on a screen with multiple Reanimated
+        // entrances + GrayscaleImage SVG filters in the badge/
+        // achievement rows that stay mounted otherwise.
+        removeClippedSubviews={Platform.OS === 'android'}
+        // 16ms = 60fps; default is 0 (every frame, expensive on JS).
+        // Profile has no scroll-driven animation — 16 is plenty.
+        scrollEventThrottle={16}
+        // Android: native overscroll glow flicker disabled (cosmetic + tiny perf win).
+        overScrollMode={Platform.OS === 'android' ? 'never' : 'auto'}
       >
         <ProfileHeader
           shouldAnimate={shouldAnimate}
-          onOpenSettings={() => setShowSettingsSheet(true)}
+          onOpenSettings={handleOpenSettings}
         />
 
         <ProfileAvatarSection
@@ -176,8 +208,7 @@ export default function ProfileTab() {
           displayName={displayName}
           joinedYear={joinedYear}
           avatarAnimatedStyle={avatarAnimatedStyle}
-          // Avatar picker modal not yet wired in — opens via state when ready
-          onOpenAvatarPicker={() => {}}
+          onOpenAvatarPicker={handleOpenAvatarPicker}
         />
 
         <ProfileStatGrid
@@ -188,10 +219,10 @@ export default function ProfileTab() {
           totalXP={totalXP}
           minutesLearned={0}
           isExpanded={isStatsExpanded}
-          onToggleExpanded={() => setIsStatsExpanded(!isStatsExpanded)}
+          onToggleExpanded={handleToggleStats}
         />
 
-        <View style={{ gap: 32 }}>
+        <View style={profileStylesLocal.bottomStack}>
           <AnimatedEntrance autoPlay={shouldAnimate} preset="fadeScale" delay={1100}>
             <View style={profileStyles.sectionContainer}>
               <Typography
@@ -199,7 +230,7 @@ export default function ProfileTab() {
                 size={20}
                 weight="600"
                 color="onyx"
-                style={{ marginBottom: 10 }}
+                style={profileStylesLocal.sectionLabel}
               >
                 XP this week
               </Typography>
@@ -212,14 +243,14 @@ export default function ProfileTab() {
             badges={displayedMonthlyBadges}
             selectedMonth={selectedBadgeMonth}
             onSelectMonth={setSelectedBadgeMonth}
-            onOpenAll={() => setShowMonthlyBadges(true)}
+            onOpenAll={handleOpenMonthlyBadges}
             onPreviewBadge={setPreviewBadge}
           />
 
           <ProfileAchievements
             shouldAnimate={shouldAnimate}
             achievements={displayedAchievements}
-            onOpenAll={() => setShowAchievements(true)}
+            onOpenAll={handleOpenAchievements}
             onPreviewAchievement={setPreviewAchievement}
           />
 
@@ -244,11 +275,11 @@ export default function ProfileTab() {
             </View>
           </AnimatedEntrance>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       <AchievementDetailCard
         visible={!!previewAchievement}
-        onClose={() => setPreviewAchievement(null)}
+        onClose={handleClosePreviewAchievement}
         image={previewAchievement?.image || CamelImage}
         title={previewAchievement?.name || ''}
         description={previewAchievement?.description}
@@ -258,7 +289,7 @@ export default function ProfileTab() {
 
       <AchievementDetailCard
         visible={!!previewBadge}
-        onClose={() => setPreviewBadge(null)}
+        onClose={handleClosePreviewBadge}
         image={previewBadge?.image}
         title={previewBadge?.label || ''}
         unlocked={!!previewBadge?.earned}
@@ -270,12 +301,12 @@ export default function ProfileTab() {
 
       <AchievementsScreen
         visible={showAchievements}
-        onClose={() => setShowAchievements(false)}
+        onClose={handleCloseAchievements}
       />
 
       {showMonthlyBadges && (
         <MonthlyBadgesScreen
-          onClose={() => setShowMonthlyBadges(false)}
+          onClose={handleCloseMonthlyBadges}
           earnedMonths={earnedMonths}
         />
       )}
@@ -283,7 +314,7 @@ export default function ProfileTab() {
       {showSettingsSheet && (
         <SettingsSheet
           visible={showSettingsSheet}
-          onClose={() => setShowSettingsSheet(false)}
+          onClose={handleCloseSettings}
           backgroundMusicEnabled={backgroundMusicEnabled}
           soundEffectsEnabled={soundEffectsEnabled}
           hapticsEnabled={hapticsEnabled}
@@ -309,10 +340,23 @@ const profileStylesLocal = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.snow,
   },
+  // Android pads ~status bar height; iOS already handled by SafeAreaView edges.
+  androidTopPad: {
+    paddingTop: 11,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 0,
+  },
+  // Vertical gap between bottom-half sections (XP chart → monthly badges
+  // → achievements → learning prefs → sign-out CTA). Hoisted so React
+  // doesn't allocate a new style object every render.
+  bottomStack: {
+    gap: 32,
+  },
+  sectionLabel: {
+    marginBottom: 10,
   },
 });

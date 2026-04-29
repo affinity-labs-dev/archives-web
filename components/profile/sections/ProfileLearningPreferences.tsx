@@ -12,7 +12,7 @@ interface ProfileLearningPreferencesProps {
   dailyGoalMinutes: number | null | undefined;
 }
 
-export function ProfileLearningPreferences({
+function ProfileLearningPreferencesImpl({
   shouldAnimate,
   dailyGoalMinutes,
 }: ProfileLearningPreferencesProps) {
@@ -50,3 +50,5 @@ export function ProfileLearningPreferences({
     </AnimatedEntrance>
   );
 }
+
+export const ProfileLearningPreferences = React.memo(ProfileLearningPreferencesImpl);
