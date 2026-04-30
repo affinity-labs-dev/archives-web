@@ -194,6 +194,18 @@ export default function TodayScreen() {
   // the start of every close.
   const [lessonInteractive, setLessonInteractive] = useState(false);
 
+  // Drives `renderToHardwareTextureAndroid` on the home wrapper for the
+  // duration of the dive (open Phase 1 → modal lifetime → close Phase 2).
+  // Android compositor caches the entire ScrollView subtree (header,
+  // calendar, progress bar, deck, CTA) as a single GPU texture, so the
+  // homeOpacity fade applies to the cached texture instead of recompositing
+  // every child every frame. Without this the Phase 1 fade visibly stutters
+  // on mid-tier Android. Set true BEFORE Phase 1 so Android has a frame to
+  // create the texture, kept true through the modal lifetime so the close
+  // Phase 2 home-return fade rides the same cache, dropped after the dive
+  // completes (frees ~5–10MB GPU memory). iOS ignores the prop.
+  const [diveActive, setDiveActive] = useState(false);
+
   // Re-entrancy lock — blocks rapid taps and overlapping open↔close calls.
   // Without this, double-tapping START MY DAY queues two playDive calls (the
   // second overrides the first mid-flight, leaving lessonOpacity at an
@@ -203,6 +215,9 @@ export default function TodayScreen() {
   // without re-render churn.
   const isHeroDiveBusy = useRef(false);
 
+  // Hero-dive open: dispatch the modal-slot state change FIRST (so the lesson
+  // mounts behind a transparent Modal at lessonOpacity=0), then run the dive
+  // timeline. The lesson crossfades in once the card has dived out.
   // Hero-dive open — TWO-PHASE on purpose. See `useHeroDive.ts` for the full
   // explanation of why a single-phase timeline ran on iOS but not Android.
   // Short version: Android Modal extends Dialog and reduces parent Activity
@@ -218,6 +233,17 @@ export default function TodayScreen() {
     isHeroDiveBusy.current = true;
     setLessonInteractive(false);
     try {
+      // Enable Android hardware texture on the home wrapper BEFORE Phase 1.
+      // setDiveActive(true) → React re-render → Android allocates GPU
+      // texture for the ScrollView subtree. The double-RAF gives the
+      // compositor 2 frames (~32ms) to commit the texture before opacity
+      // tweens start; without the wait, Phase 1's first frames composite
+      // without the cache and the visible stutter remains.
+      setDiveActive(true);
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+
       // Phase 1 — Today active surface.
       await heroDive.playDivePhase1();
 
@@ -269,6 +295,12 @@ export default function TodayScreen() {
       await heroDive.playReversePhase2();
     } finally {
       isHeroDiveBusy.current = false;
+      // Drop the Android hardware texture now that the dive is fully done.
+      // Keeping it allocated longer would tie up GPU memory while the user
+      // is back on Today scrolling — and ScrollView + always-on hardware
+      // texture is a known anti-pattern (texture invalidates on every
+      // scroll frame, costs more than it saves).
+      setDiveActive(false);
     }
   };
 
@@ -766,6 +798,15 @@ export default function TodayScreen() {
         pointerEvents={
           slotAModal !== "none" || slotBModal !== "none" ? "none" : "auto"
         }
+        // Android-only: cache the entire home subtree (header + calendar +
+        // progress bar + deck + CTA) as one GPU texture during the dive.
+        // homeOpacity tweens then apply to the cached texture instead of
+        // recompositing every child every frame — fixes the visible Phase 1
+        // stutter on mid-tier Android devices. Toggled false when the dive
+        // ends (in `closeWithDive`'s finally) to free GPU memory and avoid
+        // the ScrollView+texture-invalidate anti-pattern when the user
+        // resumes scrolling Today.
+        renderToHardwareTextureAndroid={diveActive}
       >
       <ScrollView
         style={themeStyles.scrollView}
