@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Dimensions,
   Modal,
   View,
-  FlatList,
   Image,
   Platform,
   Pressable,
@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { Typography } from '@/components/ui';
+import { StaggerGroup } from '@/components/ui/animations/StaggerGroup';
 import { safeDuration } from '@/components/ui/theme';
 import { AchievementDetailCard } from './shared/AchievementDetailCard';
 
@@ -81,36 +82,29 @@ function BadgeTileImpl({
   isEarned: boolean;
   onSelect: (item: BadgeItem) => void;
 }) {
-  const imgScale = useSharedValue(1);
-  const imgY = useSharedValue(0);
-  const imgStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: imgY.value }, { scale: imgScale.value }],
-  }));
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  const handleHoverIn = useCallback(() => {
-    imgY.value = withTiming(-6, { duration: safeDuration(160) });
-    imgScale.value = withTiming(1.1, { duration: safeDuration(160) });
-  }, [imgY, imgScale]);
-  const handleHoverOut = useCallback(() => {
-    imgY.value = withSpring(0, { damping: 12, stiffness: 200 });
-    imgScale.value = withSpring(1, { damping: 12, stiffness: 200 });
-  }, [imgY, imgScale]);
+  const handlePressIn = useCallback(() => {
+    scale.value = withTiming(0.93, { duration: safeDuration(100) });
+  }, [scale]);
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+  }, [scale]);
   const handlePress = useCallback(() => onSelect(item), [item, onSelect]);
 
   return (
     <Pressable
-      onHoverIn={handleHoverIn}
-      onHoverOut={handleHoverOut}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       onPress={handlePress}
     >
-      <View style={styles.cell}>
-        <Animated.View style={imgStyle}>
-          <Image source={isEarned ? item.earned : item.grey} style={styles.badgeImage} resizeMode="cover" />
-        </Animated.View>
+      <Animated.View style={[styles.cell, animStyle]}>
+        <Image source={isEarned ? item.earned : item.grey} style={styles.badgeImage} resizeMode="cover" />
         <Typography family="onest" size={14} weight="600" align="center" extraColor={isEarned ? '#1a1a1a' : '#9e9ea3'} style={styles.label}>
           {item.label}
         </Typography>
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -145,23 +139,6 @@ export function MonthlyBadgesScreen({ onClose, earnedMonths }: MonthlyBadgesScre
 
   const handleClosePreview = useCallback(() => setSelected(null), []);
 
-  const keyExtractor = useCallback((item: BadgeItem) => String(item.month), []);
-
-  // Stable renderItem — depends only on `earnedSet` + `handleTileTap`,
-  // both stable per render. FlatList passes the same fn ref between
-  // renders so memo'd BadgeTile only re-renders when its own props
-  // change (item is keyed; isEarned per-month is stable per session).
-  const renderItem = useCallback(
-    ({ item }: { item: BadgeItem }) => (
-      <BadgeTile
-        item={item}
-        isEarned={earnedSet.has(item.month)}
-        onSelect={handleTileTap}
-      />
-    ),
-    [earnedSet, handleTileTap],
-  );
-
   return (
     <Modal animationType="slide" presentationStyle="fullScreen" visible>
       <View style={safeAreaStyle}>
@@ -177,26 +154,26 @@ export function MonthlyBadgesScreen({ onClose, earnedMonths }: MonthlyBadgesScre
 
         <View style={styles.divider} />
 
-        <FlatList
-          data={BADGES}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          numColumns={3}
+        <Animated.ScrollView
           contentContainerStyle={styles.gridContent}
-          columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}
-          // FlatList Android perf knobs:
-          // - removeClippedSubviews: tear off-screen tiles down (12
-          //   total tiles × Reanimated press feedback = real cost).
-          // - windowSize: # screens worth of cells kept rendered
-          //   (default 21 — overkill for 4 rows of 3).
-          // - maxToRenderPerBatch: cap async batch render size on
-          //   first-paint scroll.
+          // 12 badges × Reanimated press worklet — same cost profile as
+          // AchievementsScreen, same perf knobs apply.
           removeClippedSubviews={Platform.OS === 'android'}
-          windowSize={5}
-          maxToRenderPerBatch={6}
-          initialNumToRender={9}
-        />
+          scrollEventThrottle={16}
+          overScrollMode={Platform.OS === 'android' ? 'never' : 'auto'}
+        >
+          <StaggerGroup preset="fadeScale" baseDelay={200} staggerInterval={60}>
+            {BADGES.map((item) => (
+              <BadgeTile
+                key={item.month}
+                item={item}
+                isEarned={earnedSet.has(item.month)}
+                onSelect={handleTileTap}
+              />
+            ))}
+          </StaggerGroup>
+        </Animated.ScrollView>
 
         <AchievementDetailCard
           visible={!!selected}
@@ -234,8 +211,17 @@ export function MonthlyBadgesScreen({ onClose, earnedMonths }: MonthlyBadgesScre
 
 // ─── Styles ────────────────────────────────────────────────
 
+// Match AchievementsScreen sizing: derive cell width from screen so 3
+// columns + explicit 16px column gap fit on any phone (393pt iPhone 16
+// Pro → 107pt cells; 375pt mini → ~101pt; preserves layout instead of
+// overflow-wrapping).
+const GRID_H_PADDING = 20;
 const ROW_GAP = 28;
-const CELL_WIDTH = 107;
+const COL_GAP = 16;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CELL_WIDTH = Math.floor(
+  (SCREEN_WIDTH - GRID_H_PADDING * 2 - COL_GAP * 2) / 3,
+);
 const IMAGE_SIZE = 96;
 const IMAGE_BORDER_RADIUS = 8;
 
@@ -271,15 +257,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#ebebf0',
   },
 
-  // Grid
+  // Grid — flex-wrap row instead of FlatList numColumns so StaggerGroup
+  // can sequence the entrance animation across all 12 tiles. Split row
+  // (28) and column (16) gaps explicitly; a single `gap` would force
+  // both axes equal.
   gridContent: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: GRID_H_PADDING,
     paddingTop: 24,
     paddingBottom: 40,
-  },
-  columnWrapper: {
-    justifyContent: 'space-between',
-    marginBottom: ROW_GAP,
+    rowGap: ROW_GAP,
+    columnGap: COL_GAP,
   },
 
   // Cell

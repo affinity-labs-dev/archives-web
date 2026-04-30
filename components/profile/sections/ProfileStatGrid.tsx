@@ -2,6 +2,7 @@ import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { StaggerGroup } from '@/components/ui/animations/StaggerGroup';
 import { Typography } from '@/components/ui/Typography';
 import { colors, easings } from '@/components/ui/theme';
@@ -82,23 +83,20 @@ function ProfileStatGridImpl({
               { backgroundColor: colors.acaiSecondary, flex: 5 },
             ]}
           >
-            <View style={profileStyles.staticTileContent}>
-              <Typography
-                family="bounded"
-                size={32}
-                weight="900"
-                color="snow"
-                style={{ lineHeight: 38 }}
-              >
-                {xpPercentile !== null && xpPercentile !== undefined ? `TOP ${Math.max(1, Math.min(100, 100 - xpPercentile))}%` : '\u2014'}
-              </Typography>
-            </View>
+            <Typography
+              family="bounded"
+              size={28}
+              weight="900"
+              color="snow"
+              style={{ marginTop: 2 }}
+            >
+              {xpPercentile !== null && xpPercentile !== undefined ? `TOP ${Math.max(1, Math.min(100, 100 - xpPercentile))}%` : '\u2014'}
+            </Typography>
             <Typography
               family="onest"
               size={12}
               weight="bold"
               color="snow"
-              style={{ opacity: 0.85 }}
             >
               {'World’s learners'}
             </Typography>
@@ -151,21 +149,27 @@ function ProfileStatGridImpl({
         </StaggerGroup>
       )}
 
-      <TouchableOpacity
-        style={profileStyles.seeMoreToggle}
-        onPress={onToggleExpanded}
-        activeOpacity={0.6}
+      <AnimatedEntrance
+        autoPlay={shouldAnimate}
+        preset="fadeScale"
+        delay={1200}
       >
-        <Typography family="onest" size={14} weight="600" color="acaiSecondary">
-          {isExpanded ? 'Show less' : 'See more'}
-        </Typography>
-        <Ionicons
-          name={isExpanded ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={colors.acaiSecondary}
-          style={{ marginLeft: 4 }}
-        />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={profileStyles.seeMoreToggle}
+          onPress={onToggleExpanded}
+          activeOpacity={0.6}
+        >
+          <Typography family="onest" size={14} weight="600" color="acaiSecondary">
+            {isExpanded ? 'Show less' : 'See more'}
+          </Typography>
+          <Ionicons
+            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.acaiSecondary}
+            style={{ marginLeft: 4 }}
+          />
+        </TouchableOpacity>
+      </AnimatedEntrance>
     </View>
   );
 }
