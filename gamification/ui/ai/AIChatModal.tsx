@@ -35,8 +35,12 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Polygon } from 'react-native-svg';
 import { renderMarkdownText } from '@/utils/markdownText';
+import { Typewriter } from '@/components/ui/Typewriter';
+import { Typography } from '@/components/ui/Typography';
+import { DepthButton } from '@/components/ui/DepthButton';
+import { colors } from '@/components/ui/theme';
 
 // Character image for welcome screen
 const HelloCharacter = require('@/assets/images/ai-images/hellocharacter.png');
@@ -96,6 +100,9 @@ export default function AIChatModal({
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ID of the AI message currently being typewritten (only the latest AI reply animates)
+  const [typewriterMsgId, setTypewriterMsgId] = useState<string | null>(null);
 
   // Image viewer state
   const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string } | null>(null);
@@ -603,6 +610,7 @@ export default function AIChatModal({
           };
 
           // Show response immediately
+          setTypewriterMsgId(aiMsg.id);
           setMessages((prev) => [...prev, aiMsg]);
           analyticsService.trackCustomEvent('ai_image_analyzed', {
             era_id: context?.eraId || 'unknown_era',
@@ -711,6 +719,7 @@ export default function AIChatModal({
           sources: response.sources, // Include web search sources
         };
 
+        setTypewriterMsgId(aiMsg.id);
         setMessages((prev) => [...prev, aiMsg]);
         analyticsService.trackCustomEvent('ai_chat_response_received', {
           era_id: context?.eraId || 'unknown_era',
@@ -734,6 +743,7 @@ export default function AIChatModal({
   };
 
   const handleClose = () => {
+    setTypewriterMsgId(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     analyticsService.trackCustomEvent('ai_chat_closed', {
       era_id: context?.eraId || 'unknown_era',
@@ -765,19 +775,21 @@ export default function AIChatModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={handleClose}>
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        {/* Header with back button */}
+        {/* Header with back chevron + centered Ibu pill */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleClose} activeOpacity={0.6}>
-            <Ionicons name="chevron-back" size={28} color={ArchivesTheme.colors.shoeBrown} />
+            <Ionicons name="chevron-back" size={28} color={colors.onyx} />
           </TouchableOpacity>
 
-          {/* Title with avatar and pill */}
+          {/* Centered pill with avatar */}
           <View style={styles.titleContainer}>
-            <Image source={AIChatIcon} style={styles.titleAvatar} contentFit="cover" />
             <View style={styles.titlePill}>
+              <View style={styles.titleAvatarWrap}>
+                <Image source={AIChatIcon} style={styles.titleAvatar} contentFit="cover" />
+              </View>
               <Text style={styles.titleText}>
-                <Text style={styles.titleTextBold}>Ibu, </Text>
-                your AI learning buddy
+                <Text style={styles.titleTextBold}>Ibu</Text>
+                {' \u2014 your AI learning buddy'}
               </Text>
             </View>
           </View>
@@ -792,7 +804,7 @@ export default function AIChatModal({
               }}
               activeOpacity={0.6}
             >
-              <Ionicons name="ellipsis-horizontal" size={24} color={ArchivesTheme.colors.shoeBrown} />
+              <Ionicons name="ellipsis-horizontal" size={24} color={colors.onyx} />
             </TouchableOpacity>
           )}
         </View>
@@ -816,48 +828,23 @@ export default function AIChatModal({
               </View>
             ) : messages.length === 0 ? (
               <View style={styles.welcomeContainer}>
-                {/* Speech Bubble */}
+                {/* Lavender speech bubble with typewriter */}
                 <View style={styles.speechBubble}>
-                  <Text style={styles.speechText}>
-                    Hi {userName}, I&apos;m Ibu, your{' '}
-                    <Text style={styles.speechTextBold}>AI learning buddy</Text>
-                    . I know Islamic history &amp; your progress. Ask me anything!
-                  </Text>
-                  {/* Speech bubble pointer with border - SVG arrow */}
+                  <Typewriter
+                    text={`Hi ${userName}, I\u2019m Ibu, your AI learning buddy. I know Islamic history & your progress. Ask me anything!`}
+                    variant="body.m"
+                    weight="500"
+                    color="onyx"
+                    align="center"
+                    startDelay={300}
+                  />
+                  {/* Tail — two CSS triangles (stroke + fill) */}
                   <View style={styles.speechPointer}>
-                    <Svg width="36" height="18" viewBox="0 0 36 18" style={{ position: 'absolute' }}>
-                      {/* White filled triangle (no stroke) */}
-                      <Path
-                        d="M18 18 L0 0 L36 0 Z"
-                        fill="white"
-                      />
-                      {/* Green line on left diagonal edge */}
-                      <Path
-                        d="M18 18 L0 0"
-                        stroke={ArchivesTheme.colors.mossGreen}
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                      />
-                      {/* Green line on right diagonal edge */}
-                      <Path
-                        d="M18 18 L36 0"
-                        stroke={ArchivesTheme.colors.mossGreen}
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                      />
-                      {/* White line on horizontal base (top) - blends with background */}
-                      <Path
-                        d="M0 0 L36 0"
-                        stroke="white"
-                        strokeWidth="1"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                      />
+                    <Svg width={24} height={14} viewBox="0 0 24 14" style={styles.speechPointerSvg}>
+                      <Polygon points="0,0 24,0 12,14" fill={colors.acaiSecondary} />
+                    </Svg>
+                    <Svg width={24} height={12} viewBox="0 0 24 12" style={styles.speechPointerSvg}>
+                      <Polygon points="0,0 24,0 12,12" fill={colors.acaiTertiary} />
                     </Svg>
                   </View>
                 </View>
@@ -870,17 +857,22 @@ export default function AIChatModal({
                 {/* Suggestion Buttons */}
                 <View style={styles.suggestionsContainer}>
                   {suggestions.map((suggestion) => (
-                    <TouchableOpacity
+                    <DepthButton
                       key={suggestion}
-                      style={styles.suggestionButton}
+                      variant="secondary"
+                      size="large"
+                      surfaceColor="snow"
+                      shadowColor="acaiTertiary"
+                      borderColor="acaiPrimary"
+                      radius={26.5}
+                      shadowOffset={6}
+                      pressEffect="dip"
                       onPress={() => handleSuggestionPress(suggestion)}
-                      activeOpacity={0.8}
                     >
-                      <View style={styles.suggestionShadow} />
-                      <View style={styles.suggestionInner}>
-                        <Text style={styles.suggestionText}>{suggestion}</Text>
-                      </View>
-                    </TouchableOpacity>
+                      <Typography variant="label.xs" weight="600" color="onyx">
+                        {suggestion}
+                      </Typography>
+                    </DepthButton>
                   ))}
                 </View>
               </View>
@@ -925,7 +917,18 @@ export default function AIChatModal({
                   ) : (
                     <>
                       <View style={styles.assistantContent}>
-                        {renderMarkdownText(message.content, styles.assistantText)}
+                        {typewriterMsgId === message.id ? (
+                          <Typewriter
+                            text={message.content.replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1').replace(/^#+\s/gm, '')}
+                            variant="body.m"
+                            weight="500"
+                            color="onyx"
+                            speed={22}
+                            onComplete={() => setTypewriterMsgId(null)}
+                          />
+                        ) : (
+                          renderMarkdownText(message.content, styles.assistantText)
+                        )}
                       </View>
                       {/* Render generated image if present - full width, tappable for full view */}
                       {(message.image || message.imageUrl) && (
@@ -1024,7 +1027,7 @@ export default function AIChatModal({
                 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="add" size={24} color="#9A8B7A" />
+                <Ionicons name="add" size={24} color={colors.onyx} />
               </TouchableOpacity>
 
               {/* Text Input with Send Button inside */}
@@ -1216,45 +1219,56 @@ export default function AIChatModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
+    backgroundColor: colors.snow,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    height: 56,
   },
   backButton: {
-    width: 44,
-    height: 44,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    marginRight: 32, // Balance the back button width
+  },
+  titlePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bluePrimary,
+    borderRadius: 55,
+    height: 33,
+    paddingLeft: 6,
+    paddingRight: 18,
+    gap: 9,
+  },
+  titleAvatarWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    overflow: 'hidden',
+    backgroundColor: colors.cream,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 4,
-  },
   titleAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  titlePill: {
-    backgroundColor: ArchivesTheme.colors.mossGreen,
-    borderRadius: 55,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    width: 26,
+    height: 26,
   },
   titleText: {
-    fontFamily: 'DM Sans SemiBold',
+    fontFamily: 'Onest',
     fontSize: 14,
     color: 'white',
-    letterSpacing: -0.16,
+    letterSpacing: -0.14,
   },
   titleTextBold: {
-    fontFamily: 'DM Sans Bold',
+    fontFamily: 'Onest',
     fontWeight: '700',
   },
   keyboardView: {
@@ -1271,98 +1285,49 @@ const styles = StyleSheet.create({
   // Welcome Screen Styles
   welcomeContainer: {
     flex: 1,
-    paddingTop: 0,
+    paddingTop: 8,
     alignItems: 'center',
   },
   speechBubble: {
-    backgroundColor: 'white',
-    borderRadius: 24,
-    borderWidth: 3,
-    borderColor: ArchivesTheme.colors.mossGreen,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    backgroundColor: colors.acaiTertiary,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.acaiSecondary,
+    paddingHorizontal: 22,
+    paddingVertical: 16,
     marginBottom: 8,
-    width: SCREEN_WIDTH - 80,
-    maxWidth: 300,
+    width: 311,
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
     zIndex: 1,
   },
   speechPointer: {
     position: 'absolute',
-    bottom: -17.5,
-    left: 40,
-    width: 36,
-    height: 18,
+    bottom: -14,
+    left: 45,
+    width: 24,
+    height: 14,
   },
-  speechText: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '400',
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  speechTextBold: {
-    fontWeight: '700',
+  speechPointerSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   characterContainer: {
     alignItems: 'center',
     marginTop: 5,
   },
   characterImage: {
-    width: 140,
-    height: 200,
+    width: 210,
+    height: 286,
   },
 
   // Suggestion Buttons
   suggestionsContainer: {
     width: '100%',
-    gap: 12,
-    paddingHorizontal: 16,
-    marginTop: 30,
+    gap: 8,
+    paddingHorizontal: 20,
+    marginTop: 18,
   },
-  suggestionButton: {
-    position: 'relative',
-    height: 48,
-  },
-  suggestionShadow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 7,
-    height: 41,
-    backgroundColor: ArchivesTheme.colors.shoeBrown,
-    borderRadius: 27,
-  },
-  suggestionInner: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 45,
-    backgroundColor: 'white',
-    borderRadius: 26.5,
-    borderWidth: 1,
-    borderColor: ArchivesTheme.colors.shoeBrown,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  suggestionText: {
-    fontFamily: 'DM Sans SemiBold',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
-    textAlign: 'center',
-    letterSpacing: -0.14,
-  },
-
   // Message Bubbles
   messageBubble: {
     marginBottom: 16,
@@ -1374,29 +1339,33 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   userContent: {
-    maxWidth: '75%',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    borderBottomRightRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E0D5C5',
+    maxWidth: '82%',
+    backgroundColor: colors.acaiTertiary,
+    borderRadius: 19.5,
+    borderBottomRightRadius: 2,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   assistantContent: {
-    maxWidth: '85%',
+    maxWidth: '100%',
+    paddingVertical: 2,
+    paddingLeft: 2,
   },
   userText: {
-    fontFamily: 'DM Sans',
+    fontFamily: 'Onest',
+    fontWeight: '500',
     fontSize: 15,
-    lineHeight: 22,
-    color: ArchivesTheme.colors.mutedNavy,
+    lineHeight: 21,
+    color: colors.onyx,
+    letterSpacing: -0.14,
   },
   assistantText: {
-    fontFamily: 'DM Sans',
+    fontFamily: 'Onest',
+    fontWeight: '500',
     fontSize: 15,
-    lineHeight: 22,
-    color: ArchivesTheme.colors.mutedNavy,
+    lineHeight: 21,
+    color: colors.onyx,
+    letterSpacing: -0.14,
   },
 
   // Web Search Sources
@@ -1468,9 +1437,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontFamily: 'DM Sans',
+    fontFamily: 'Onest',
     fontSize: 15,
-    color: ArchivesTheme.colors.mutedNavy,
+    color: colors.onyx,
     marginLeft: 8,
   },
   errorContainer: {
@@ -1511,7 +1480,9 @@ const styles = StyleSheet.create({
     width: 47,
     height: 47,
     borderRadius: 23.5,
-    backgroundColor: 'white',
+    backgroundColor: colors.snow,
+    borderWidth: 1,
+    borderColor: colors.onyx,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1519,28 +1490,31 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 25,
-    paddingLeft: 16,
+    backgroundColor: colors.snow,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: colors.onyx,
+    paddingLeft: 18,
     paddingRight: 6,
     paddingVertical: 6,
     minHeight: 47,
   },
   input: {
     flex: 1,
-    fontFamily: 'DM Sans Medium',
+    fontFamily: 'Onest',
     fontSize: 14,
-    color: ArchivesTheme.colors.mutedNavy,
+    color: colors.onyx,
     maxHeight: 100,
     paddingTop: 0,
     paddingBottom: 0,
     marginRight: 8,
+    letterSpacing: -0.14,
   },
   sendButton: {
     width: 35,
     height: 35,
     borderRadius: 17.5,
-    backgroundColor: ArchivesTheme.colors.mossGreen,
+    backgroundColor: colors.acaiSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },

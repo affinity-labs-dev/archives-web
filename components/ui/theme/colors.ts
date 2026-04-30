@@ -25,6 +25,7 @@ export const colors = {
   // Neutral
   onyx: '#1A1A1A',
   snow: '#FAFAFA',
+  cream: '#FAF3DA',
   concreteGrey: '#C3C3C3',
 
   // Success · Correct
