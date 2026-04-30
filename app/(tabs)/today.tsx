@@ -244,22 +244,51 @@ export default function TodayScreen() {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       });
 
-      // Phase 1 — Today active surface.
-      await heroDive.playDivePhase1();
+      // Kick off Phase 1 FIRST so the dive animation is already in flight
+      // on the UI thread (Reanimated worklets run independently of the JS
+      // thread). The returned promise settles in ~550ms.
+      const phase1Promise = heroDive.playDivePhase1();
 
-      // Mount the Modal. animationType="none" + transparent={true} on the
-      // Modal config keeps this instant; the Modal's lessonOpacity-wrapped
-      // child starts at 0 and is invisible until Phase 2 ramps it up.
+      // Mount the Modal IN PARALLEL with the dive. Modal mount on Android
+      // synchronously blocks the JS thread for ~1–2s while expo-video
+      // initialises (HLS source fetch + MediaCodec decoder warmup). Before
+      // this overlap, that block landed AFTER Phase 1, leaving the user
+      // staring at a faded-out home with no modal for 1–2s — perceived as
+      // a freeze. Running it during the dive hides the JS-thread block
+      // behind the animation that's already running on the UI thread.
+      //
+      // Note: the slot state change here triggers a React re-render that
+      // mounts the Modal subtree. The Modal's `transparent={true}` +
+      // lessonOpacity=0 means the user doesn't see lesson contents during
+      // Phase 1 — only after Phase 2 ramps lessonOpacity 0→1.
       openModal(target);
 
-      // Wait for Modal mount + initial layout. Double RAF (≈32ms) — single
-      // RAF is too tight on low-end Android where the lesson's first layout
-      // can take a full frame.
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      });
+      // Wait for Phase 1 to finish. By now Modal mount + video init are
+      // typically done too (1–2s mount overlapped with 550ms+ wait).
+      await phase1Promise;
 
-      // Phase 2 — Modal active surface.
+      // Settling buffer between phases — Android only.
+      //
+      // iOS — no buffer. The dive ends and Phase 2 must start the very
+      // next frame; any wait here reads as "modal is late vs. the dive"
+      // (user-reported on iOS, "modal hiển thị chậm hơn so với animation
+      // dive khi zoom lên"). expo-video init is fast on iOS, the JS
+      // thread is free by Phase 1 end, and Phase 2's `withTiming` is
+      // scheduled on the UI thread regardless — no settling needed.
+      //
+      // Android — setTimeout 120ms. JS thread may still be finalising
+      // expo-video MediaCodec init / Modal layout when Phase 1 ends.
+      // A `requestAnimationFrame` here would queue behind that block
+      // and fire all at once when JS frees, visually compressing
+      // Phase 2 (fade-in starts late, runs short). A real wall-clock
+      // timer fires regardless of JS state, so Phase 2 schedules with
+      // consistent timing and any final video-poster commit lands
+      // before lessonOpacity ramps.
+      if (Platform.OS === "android") {
+        await new Promise<void>((resolve) => setTimeout(resolve, 120));
+      }
+
+      // Phase 2 — Modal active surface, lesson crossfades in.
       await heroDive.playDivePhase2();
     } finally {
       isHeroDiveBusy.current = false;
@@ -975,7 +1004,6 @@ export default function TodayScreen() {
             </SafeAreaProvider>
           </Modal>
         )}
-
     </View>
   );
 }

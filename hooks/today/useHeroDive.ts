@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import {
   cancelAnimation,
   Easing,
@@ -8,6 +9,29 @@ import {
 import { scheduleOnRN } from "react-native-worklets";
 
 import { easings, safeDuration } from "@/components/ui";
+
+// ──────── Platform-branched Phase 2 timing ────────
+//
+// Both platforms use `power2.out` (high initial velocity, smooth decel).
+// CONTENT REVEAL animations need momentum at t=0 — the lesson should
+// "assert itself" the instant Phase 1's card dive ends, matching the
+// outgoing cardScale's final velocity for a continuous handoff. The
+// mock's `power2.inOut` worked when the screen swap was a DOM crossfade
+// (target was already laid out, just toggled visibility); in RN the Modal
+// is mounting in parallel and any inOut slow-start reads as "modal is
+// late" relative to the dive — the user explicitly reported this on iOS.
+//
+// Duration is the only platform-branched value:
+//   iOS — 400ms: expo-video init is fast (~200ms native decoder warmup),
+//     lesson is ready by Phase 2 start, a tight ramp matches the dive's
+//     momentum without dragging.
+//   Android — 600ms: MediaCodec setup + HLS playlist fetch is slow
+//     (~1–2s even with openModal parallel-mounted in Phase 1). The longer
+//     fade gives the lesson contents (poster → first video frame) more
+//     time to settle visually as opacity ramps. 400ms here exposed
+//     mid-fade content jitter that read as not-smooth.
+const PHASE2_DURATION_MS = Platform.OS === "android" ? 600 : 400;
+const PHASE2_EASING = easings.power2Out;
 
 /**
  * Hero dive animation — Start My Day → video lesson opening.
@@ -63,7 +87,7 @@ export function useHeroDive() {
    */
   const playDivePhase1 = (): Promise<void> =>
     new Promise<void>((resolve) => {
-      const homeMs = safeDuration(250);
+      const homeMs = safeDuration(350);
       const diveMs = safeDuration(550);
       homeOpacity.value = withTiming(0, {
         duration: homeMs,
@@ -86,13 +110,15 @@ export function useHeroDive() {
    * Forward Phase 2 — lesson crossfades in.
    * MUST run after the Modal has mounted and laid out, otherwise the
    * crossfade reveals an unstyled blank during initial render.
+   * Duration + easing branched per platform — see `PHASE2_DURATION_MS` /
+   * `PHASE2_EASING` constants at the top of the file.
    */
   const playDivePhase2 = (): Promise<void> =>
     new Promise<void>((resolve) => {
-      const lessonMs = safeDuration(400);
+      const lessonMs = safeDuration(PHASE2_DURATION_MS);
       lessonOpacity.value = withTiming(
         1,
-        { duration: lessonMs, easing: easings.power2InOut },
+        { duration: lessonMs, easing: PHASE2_EASING },
         (finished) => {
           if (finished) scheduleOnRN(resolve);
         },
