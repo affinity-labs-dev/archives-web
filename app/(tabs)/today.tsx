@@ -203,39 +203,70 @@ export default function TodayScreen() {
   // without re-render churn.
   const isHeroDiveBusy = useRef(false);
 
-  // Hero-dive open: dispatch the modal-slot state change FIRST (so the lesson
-  // mounts behind a transparent Modal at lessonOpacity=0), then run the dive
-  // timeline. The lesson crossfades in once the card has dived out.
-  const openWithDive = (target: ModalState) => {
+  // Hero-dive open — TWO-PHASE on purpose. See `useHeroDive.ts` for the full
+  // explanation of why a single-phase timeline ran on iOS but not Android.
+  // Short version: Android Modal extends Dialog and reduces parent Activity
+  // paint while it's mounted, so the home fade + card dive (Today surface)
+  // weren't composited if we ran them with the Modal already up.
+  //
+  // Phase 1: dive on Today (no Modal yet) — both platforms paint Today.
+  // <openModal — Modal mounts; double-RAF lets React commit + the lesson's
+  //  heavy children (TodayVideoLesson / expo-video) lay out before Phase 2>
+  // Phase 2: lesson crossfade (Modal is now the active surface).
+  const openWithDive = async (target: ModalState) => {
     if (isHeroDiveBusy.current) return;
     isHeroDiveBusy.current = true;
     setLessonInteractive(false);
-    openModal(target);
-    // Two RAFs (≈32ms): first lets React commit the slot state, second lets
-    // the lesson's expensive children (TodayVideoLesson with expo-video,
-    // useVideoPlayer) finish mounting before the dive timeline locks the JS
-    // thread. On Android this prevents the dive from stuttering during the
-    // lesson's initial layout pass; one RAF is too tight on low-end devices.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        heroDive.playDive().finally(() => {
-          isHeroDiveBusy.current = false;
-          setLessonInteractive(true);
-        });
+    try {
+      // Phase 1 — Today active surface.
+      await heroDive.playDivePhase1();
+
+      // Mount the Modal. animationType="none" + transparent={true} on the
+      // Modal config keeps this instant; the Modal's lessonOpacity-wrapped
+      // child starts at 0 and is invisible until Phase 2 ramps it up.
+      openModal(target);
+
+      // Wait for Modal mount + initial layout. Double RAF (≈32ms) — single
+      // RAF is too tight on low-end Android where the lesson's first layout
+      // can take a full frame.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       });
-    });
+
+      // Phase 2 — Modal active surface.
+      await heroDive.playDivePhase2();
+    } finally {
+      isHeroDiveBusy.current = false;
+      setLessonInteractive(true);
+    }
   };
 
-  // Hero-dive close: reverse the open timeline (lesson fades out → card
-  // returns → home fades back in), then unmount the Modal. Wrapping every
-  // closeModal site so all back/dismiss/complete paths get the same exit.
+  // Hero-dive close — mirrors the open: lesson fade-out (Modal phase) →
+  // closeModal → home + card return (Today phase). Without splitting, the
+  // Phase 2 "card returns to scale 1" runs while the Modal is still mounted
+  // on Android, so the user sees a hard pop from scale 2.1 → 1 the instant
+  // the Modal unmounts.
   const closeWithDive = async () => {
     if (isHeroDiveBusy.current) return;
     isHeroDiveBusy.current = true;
     setLessonInteractive(false);
     try {
-      await heroDive.playReverse();
+      // Phase 1 — lesson fades out (Modal active surface).
+      await heroDive.playReversePhase1();
+
+      // Unmount the Modal. closeModal sets slot state → next render Modal
+      // disappears. Today is now the active surface for Phase 2.
       closeModal();
+
+      // Wait for the Modal to unmount before animating Today layers. Without
+      // this, the home/card tweens start while Android is still tearing the
+      // Dialog down → animations invisible.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+
+      // Phase 2 — home + card return (Today active surface).
+      await heroDive.playReversePhase2();
     } finally {
       isHeroDiveBusy.current = false;
     }
