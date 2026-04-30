@@ -12,18 +12,69 @@ const AvatarPhysician = require('@/assets/images/profile/avatars/av-06-physician
 const AvatarElder = require('@/assets/images/profile/avatars/av-07-elder.png');
 const AvatarApothecary = require('@/assets/images/profile/avatars/av-08-apothecary.png');
 const AvatarMerchant = require('@/assets/images/profile/avatars/av-09-merchant.png');
+const AvatarLibrarian = require('@/assets/images/profile/avatars/av-10-librarian.png');
+const AvatarTeacher = require('@/assets/images/profile/avatars/av-11-teacher.png');
+const AvatarAstronomer = require('@/assets/images/profile/avatars/av-12-astronomer.png');
+const AvatarCartographer = require('@/assets/images/profile/avatars/av-13-cartographer.png');
+const AvatarScribe = require('@/assets/images/profile/avatars/av-14-scribe.png');
+const AvatarInventor = require('@/assets/images/profile/avatars/av-15-inventor.png');
+const AvatarPoet = require('@/assets/images/profile/avatars/av-16-poet.png');
+const AvatarStoryteller = require('@/assets/images/profile/avatars/av-17-storyteller.png');
+const AvatarNavigator = require('@/assets/images/profile/avatars/av-18-navigator.png');
+const AvatarScholar = require('@/assets/images/profile/avatars/av-19-scholar.png');
 
-// Map old Supabase image_url keys to new v5 avatars
+// Map by local avatar ID (from AvatarSelectorSheet) AND old Supabase image_url keys
 const AVATAR_IMAGE_MAP: Record<string, any> = {
-  'avatars/Al-Khwarizmi.png': AvatarArchitect,
-  'avatars/Fatima-al-Fihri.png': AvatarReader,
+  // Local IDs (from avatar selector)
+  architect: AvatarArchitect,
+  musician: AvatarMusician,
+  lamplighter: AvatarLamplighter,
+  reader: AvatarReader,
+  explorer: AvatarExplorer,
+  physician: AvatarPhysician,
+  elder: AvatarElder,
+  apothecary: AvatarApothecary,
+  merchant: AvatarMerchant,
+  librarian: AvatarLibrarian,
+  teacher: AvatarTeacher,
+  astronomer: AvatarAstronomer,
+  cartographer: AvatarCartographer,
+  scribe: AvatarScribe,
+  inventor: AvatarInventor,
+  poet: AvatarPoet,
+  storyteller: AvatarStoryteller,
+  navigator: AvatarNavigator,
+  scholar: AvatarScholar,
+  // New Supabase image_url keys (from unlockable_items table)
+  'avatars/av-01-architect.png': AvatarArchitect,
+  'avatars/av-02-musician.png': AvatarMusician,
+  'avatars/av-03-lamplighter.png': AvatarLamplighter,
+  'avatars/av-04-reader.png': AvatarReader,
+  'avatars/av-05-explorer.png': AvatarExplorer,
+  'avatars/av-06-physician.png': AvatarPhysician,
+  'avatars/av-07-elder.png': AvatarElder,
+  'avatars/av-08-apothecary.png': AvatarApothecary,
+  'avatars/av-09-merchant.png': AvatarMerchant,
+  'avatars/av-10-librarian.png': AvatarLibrarian,
+  'avatars/av-11-teacher.png': AvatarTeacher,
+  'avatars/av-12-astronomer.png': AvatarAstronomer,
+  'avatars/av-13-cartographer.png': AvatarCartographer,
+  'avatars/av-14-scribe.png': AvatarScribe,
+  'avatars/av-15-inventor.png': AvatarInventor,
+  'avatars/av-16-poet.png': AvatarPoet,
+  'avatars/av-17-storyteller.png': AvatarStoryteller,
+  'avatars/av-18-navigator.png': AvatarNavigator,
+  'avatars/av-19-scholar.png': AvatarScholar,
+  // Old Supabase image_url keys (backward compat)
+  'avatars/Al-Khwarizmi.png': AvatarReader,
+  'avatars/Fatima-al-Fihri.png': AvatarArchitect,
   'avatars/ibn-sina-avicenna.png': AvatarPhysician,
   'avatars/Ziryab.png': AvatarMusician,
-  'avatars/Al-Razi.png': AvatarApothecary,
+  'avatars/Al-Razi.png': AvatarElder,
   'avatars/Ibn-Battuta.png': AvatarExplorer,
   'avatars/Lubna-of-Cordoba.png': AvatarLamplighter,
-  'avatars/Mariam-al-Asturlabi.png': AvatarElder,
-  'avatars/Zaynab-al-Shahda.png': AvatarMerchant,
+  'avatars/Mariam-al-Asturlabi.png': AvatarAstronomer,
+  'avatars/Zaynab-al-Shahda.png': AvatarScholar,
 };
 
 export const getAvatarImage = (imageUrl: string) =>
