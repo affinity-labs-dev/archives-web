@@ -4,7 +4,8 @@ import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -57,6 +58,10 @@ export default function AIQuizExplanation({
   const [loadingAll, setLoadingAll] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  // Measured at runtime — drives the locked block's minHeight so the
+  // absolutely-positioned paywall always fits inside the block (with a
+  // small peek of Q2 left visible above it).
+  const [paywallHeight, setPaywallHeight] = useState(0);
   const isPaywallPresentedRef = useRef(false);
   const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -321,6 +326,13 @@ export default function AIQuizExplanation({
     }
   }, []);
 
+  // ─── Summary tally for subscribers ──────────────────────────────────
+  const summary = useMemo(() => {
+    const correct = explanations.filter((e) => e.isCorrect).length;
+    const review = explanations.length - correct;
+    return { correct, review };
+  }, [explanations]);
+
   // ─── Render ─────────────────────────────────────────────────────────
   const renderContent = () => {
     if (loadingAll || timedOut) {
@@ -393,41 +405,135 @@ export default function AIQuizExplanation({
       );
     }
 
-    // Subscribed: scrollable list of all questions with dividers between.
+    // Subscribed: summary tally + scrollable list of all questions.
     if (isSubscribed) {
       return (
-        <ScrollView
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {explanations.map((item, index) => (
-            <ExplanationCard
-              key={item.questionNumber}
-              item={item}
-              showDivider={index < explanations.length - 1}
-            />
-          ))}
-        </ScrollView>
+        <>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryTextRow}>
+              <Typography
+                family="onest"
+                size="sm"
+                weight="700"
+                style={{ color: colors.correctSecondary }}
+              >
+                {summary.correct} correct
+              </Typography>
+              <Typography
+                family="onest"
+                size="sm"
+                weight="600"
+                color="onyx"
+                style={styles.summaryDot}
+              >
+                {' · '}
+              </Typography>
+              <Typography
+                family="onest"
+                size="sm"
+                weight="700"
+                style={{ color: colors.incorrectSecondary }}
+              >
+                {summary.review} to review
+              </Typography>
+            </View>
+            <View style={styles.summaryPips}>
+              {explanations.map((item) => (
+                <View
+                  key={item.questionNumber}
+                  style={[
+                    styles.summaryPip,
+                    {
+                      backgroundColor: item.isCorrect
+                        ? colors.correctSecondary
+                        : colors.incorrectSecondary,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.isCorrect ? 'checkmark' : 'close'}
+                    size={9}
+                    color={colors.white}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {explanations.map((item) => (
+              <ExplanationCard key={item.questionNumber} item={item} />
+            ))}
+          </ScrollView>
+        </>
       );
     }
 
-    // Free: Q1 only + paywall overlay. NOT scrollable — the paywall must
-    // block access to Q2/Q3 entirely.
+    // Free tier: ONE ScrollView containing Q1 + a relative block that
+    // holds Q2, Q3 and the upgrade card together.
+    //
+    //   ScrollView
+    //     ├── Q1 (full)
+    //     └── lockedBlock (position: relative)
+    //          ├── Q2 (locked teaser, in flow)
+    //          ├── Q3 (locked teaser, in flow)
+    //          ├── gradient fade (absolute, transparent → lavender)
+    //          └── PaywallCard (absolute, bottom: 0 — overlays Q2/Q3)
+    //
+    // The block's minHeight is set to (paywallHeight + 40) so the
+    // absolute paywall always fits inside the block with ~40px of Q2
+    // peeking out above it. paywallHeight is measured via onLayout so
+    // the layout adapts to copy/Dynamic Type changes.
     return (
-      <View style={styles.freeWrap}>
-        <View style={styles.freeQ1}>
-          {explanations[0] && (
-            <ExplanationCard item={explanations[0]} showDivider={false} />
-          )}
-        </View>
-        <View style={styles.paywallOverlay}>
-          <PaywallCard
-            questionsCount={questions.length}
-            onUpgrade={handleShowPaywall}
-          />
-        </View>
-      </View>
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={styles.freeScrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {explanations[0] && <ExplanationCard item={explanations[0]} />}
+
+        {explanations.length > 1 && (
+          <View
+            style={[styles.lockedBlock, { minHeight: paywallHeight + 40 }]}
+          >
+            {explanations.slice(1).map((item) => (
+              <ExplanationCard
+                key={item.questionNumber}
+                item={item}
+                isLockedPeek
+              />
+            ))}
+
+            {/* Soft fade above the paywall — Q2 (and any of Q3 that's
+                visible) melts into the lavender as it approaches the
+                paywall's top edge. */}
+            <LinearGradient
+              colors={[
+                'rgba(229,212,255,0)',
+                'rgba(229,212,255,0.85)',
+                colors.acaiTertiary,
+              ]}
+              locations={[0, 0.55, 1]}
+              pointerEvents="none"
+              style={[styles.lockedFade, { bottom: paywallHeight - 1 }]}
+            />
+
+            <View
+              style={styles.upgradeAbsolute}
+              onLayout={(e) => setPaywallHeight(e.nativeEvent.layout.height)}
+            >
+              <PaywallCard
+                questionsCount={questions.length}
+                onUpgrade={handleShowPaywall}
+              />
+            </View>
+          </View>
+        )}
+      </ScrollView>
     );
   };
 
@@ -441,39 +547,40 @@ export default function AIQuizExplanation({
     >
       <View style={styles.modalRoot}>
         <Pressable style={styles.backdrop} onPress={onClose} />
+
         <SafeAreaView style={styles.sheet} edges={['bottom']}>
-          <View style={styles.grabHandle} />
-          <View style={styles.headerRow}>
-            <View style={styles.headerText}>
-              <Typography
-                family="onest"
-                size="md"
-                weight="600"
-                color="onyx"
-              >
-                AI Learning Assistant
-              </Typography>
-              <Typography
-                family="onest"
-                size="sm"
-                weight="500"
-                color="onyx"
-                style={styles.headerSubtitle}
-              >
-                Personalized explanations to help you learn
-              </Typography>
-            </View>
-            <Pressable
-              onPress={onClose}
-              hitSlop={12}
-              style={styles.closeButton}
-              accessibilityRole="button"
-              accessibilityLabel="Close explanations"
+          {/* Floating circular close X — sits inside the top of the sheet
+              (above the sticky header). Mirrors the mock's `.ai-close-x`
+              (top:152px on a sheet starting at 140px = 12px inset). */}
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            style={styles.closeFloat}
+            accessibilityRole="button"
+            accessibilityLabel="Close explanations"
+          >
+            <Ionicons name="close" size={18} color={colors.onyx} />
+          </Pressable>
+
+          {/* Sticky header — title + sub + hairline. Stays pinned at the
+              top of the sheet because everything below is either the
+              free-tier flex column or the subscriber ScrollView. */}
+          <View style={styles.header}>
+            <Typography family="onest" size="md" weight="700" color="onyx">
+              AI Learning Assistant
+            </Typography>
+            <Typography
+              family="onest"
+              size="sm"
+              weight="500"
+              color="onyx"
+              style={styles.headerSub}
             >
-              <Ionicons name="close" size={24} color={colors.onyx} />
-            </Pressable>
+              Here&apos;s the &ldquo;why&rdquo; behind your answers
+            </Typography>
+            <View style={styles.headerHairline} />
           </View>
-          <View style={styles.divider} />
+
           <View style={styles.body}>{renderContent()}</View>
         </SafeAreaView>
       </View>
@@ -493,83 +600,128 @@ const styles = StyleSheet.create({
   // Translucent veil above the sheet — taps close the modal.
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.28)',
   },
+  // Lavender bottom-sheet — was snow before. Matches the mock's
+  // --acai-tertiary (#E5D4FF) so cards read as floating tiles on it.
   sheet: {
     height: SHEET_HEIGHT,
-    backgroundColor: colors.snow,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: colors.acaiTertiary,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
     overflow: 'hidden',
   },
-  grabHandle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(26,26,26,0.2)',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 14,
-  },
-  headerText: {
-    flex: 1,
-  },
-  headerSubtitle: {
-    marginTop: 4,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.white,
+  // Floating close-X — child of the sheet, positioned absolutely so it
+  // floats above the sticky header while staying pinned to the sheet's
+  // top-right corner. Inset 12px from the top so it doesn't get clipped
+  // by the sheet's rounded corners (`overflow: hidden`).
+  closeFloat: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
-    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.18,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 6,
+    zIndex: 10,
   },
-  divider: {
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 12,
+    backgroundColor: colors.acaiTertiary,
+  },
+  headerSub: {
+    opacity: 0.75,
+    marginTop: 2,
+    letterSpacing: -0.13,
+  },
+  headerHairline: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(26,26,26,0.15)',
-    marginHorizontal: 24,
+    backgroundColor: 'rgba(26,26,26,0.14)',
+    marginTop: 12,
   },
   body: {
     flex: 1,
   },
 
-  // Subscribed: scroll list
+  // Subscribed: summary strip + scroll list
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  summaryTextRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  summaryDot: {
+    opacity: 0.45,
+    marginHorizontal: 2,
+  },
+  summaryPips: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  summaryPip: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
 
-  // Free tier
-  freeWrap: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+  // Free tier — single ScrollView. Q1 + lockedBlock both live in this
+  // padding box; nothing is fixed to the sheet bottom anymore.
+  freeScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
-  freeQ1: {
-    flexShrink: 0,
+  // The Q2 + Q3 + Paywall block. position:relative so the paywall (an
+  // absolute child below) anchors against this block's edges instead of
+  // the screen. minHeight is patched at runtime to (paywallHeight + 40)
+  // so the paywall fits with ~40px of Q2 peek visible above it.
+  lockedBlock: {
+    position: 'relative',
+    marginTop: 8,
   },
-  paywallOverlay: {
-    marginTop: 'auto',
-    paddingBottom: 8,
+  // Lavender fade covers the area just above the paywall — softens the
+  // visual seam between the locked Q2/Q3 (visible at top) and the
+  // paywall card edge.
+  lockedFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 60,
+    zIndex: 1,
+  },
+  // Paywall pinned to the bottom of the lockedBlock. zIndex above the
+  // gradient so the card edges stay crisp.
+  upgradeAbsolute: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
   },
 
   // Loading / timeout
@@ -597,4 +749,3 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
 });
-

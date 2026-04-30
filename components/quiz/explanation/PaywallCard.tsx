@@ -1,6 +1,7 @@
-// PaywallCard — free-tier overlay matching Figma 3527:6460. Light-blue
-// surface (no border), white inner feature box with star-bullet sparkles,
-// full-width UPGRADE DepthButton, restore-purchase link.
+// PaywallCard — free-tier paywall on the lavender AI sheet. Blue surface
+// (blueSecondary) with an Ibu mascot avatar, locked-count title, white
+// inner benefits panel with check pips, full-width UPGRADE CTA, and a
+// "Already a member? Restore" link below.
 
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -8,63 +9,68 @@ import { Ionicons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
 
 import { DepthButton, Typography, colors } from '@/components/ui';
-
-import { starBulletSvg } from '../icons/starBulletSvg';
+import { ibuFaceSvg } from '@/components/onboarding/Mascot/ibuFaceSvg';
 
 interface PaywallCardProps {
+  /** Total number of questions in the quiz (used in the title copy). */
   questionsCount: number;
   onUpgrade: () => void;
+  onRestore?: () => void;
 }
 
-const FEATURES = [
-  'AI explanations for every question',
-  'Understand your mistakes deeply',
-  'Personalized study tips',
-  'Unlimited quiz attempts',
+const BENEFITS = [
+  'See why each answer was right (or wrong)',
+  'Ask Ibu follow-ups on anything you missed',
+  'Personalized takeaways for every quiz',
 ];
 
-export function PaywallCard({ questionsCount, onUpgrade }: PaywallCardProps) {
+export function PaywallCard({
+  questionsCount,
+  onUpgrade,
+  onRestore,
+}: PaywallCardProps) {
+  // The user has already seen Q1; remaining is everything still gated.
+  const remaining = Math.max(0, questionsCount - 1);
+
   return (
     <View style={styles.card}>
-      <View style={styles.titleRow}>
-        <Ionicons name="lock-closed" size={20} color={colors.onyx} />
-        <Typography
-          family="onest"
-          size="lg"
-          weight="600"
-          color="onyx"
-          style={styles.title}
-        >
-          Unlock All Explanations
-        </Typography>
+      <View style={styles.head}>
+        <View style={styles.avatar}>
+          <SvgXml xml={ibuFaceSvg} width={28} height={28} />
+        </View>
+        <View style={styles.headText}>
+          <Typography
+            family="onest"
+            size="md"
+            weight="700"
+            style={styles.title}
+          >
+            Unlock all {questionsCount} explanations
+          </Typography>
+          <Typography
+            family="onest"
+            size="xs"
+            weight="600"
+            style={styles.subtitle}
+          >
+            {remaining} more {remaining === 1 ? 'answer' : 'answers'} waiting
+            below
+          </Typography>
+        </View>
       </View>
 
-      <Typography
-        family="onest"
-        size="sm"
-        weight="500"
-        color="onyx"
-        style={styles.subtitle}
-      >
-        You are seeing a preview of Q1. Upgrade to get explanations for all{' '}
-        {questionsCount} questions.
-      </Typography>
-
-      <View style={styles.featureBox}>
-        {FEATURES.map((label) => (
-          <View key={label} style={styles.featureRow}>
-            <SvgXml
-              xml={starBulletSvg}
-              width={14}
-              height={14}
-              style={styles.featureIcon}
-            />
+      <View style={styles.benefits}>
+        {BENEFITS.map((label) => (
+          <View key={label} style={styles.benefitRow}>
+            <View style={styles.plus}>
+              <Ionicons name="checkmark" size={9} color={colors.white} />
+            </View>
             <Typography
               family="onest"
               size="xs"
-              weight="500"
+              weight="600"
               color="onyx"
-              style={styles.featureText}
+              style={styles.benefitText}
             >
               {label}
             </Typography>
@@ -72,13 +78,9 @@ export function PaywallCard({ questionsCount, onUpgrade }: PaywallCardProps) {
         ))}
       </View>
 
-      {/* Full-width UPGRADE button — DepthButton's `isFullWidth` default
-          stretches to the parent's content box. No outer padding wrapper
-          so it matches the feature box's width edge-to-edge (Figma
-          3527:6487). */}
       <DepthButton
         variant="secondary"
-        size="large"
+        size="medium"
         onPress={onUpgrade}
         haptic="medium"
         style={styles.cta}
@@ -88,15 +90,14 @@ export function PaywallCard({ questionsCount, onUpgrade }: PaywallCardProps) {
         </Typography>
       </DepthButton>
 
-      <TouchableOpacity onPress={onUpgrade} activeOpacity={0.7}>
+      <TouchableOpacity onPress={onRestore || onUpgrade} activeOpacity={0.7}>
         <Typography
           family="onest"
           size="xs"
           weight="500"
-          color="onyx"
           style={styles.restore}
         >
-          Already subscribed? Restore purchase
+          Already a member? Restore
         </Typography>
       </TouchableOpacity>
     </View>
@@ -104,52 +105,80 @@ export function PaywallCard({ questionsCount, onUpgrade }: PaywallCardProps) {
 }
 
 const styles = StyleSheet.create({
-  // Light-blue surface, NO border. Figma's 0.1px border is effectively
-  // invisible at native render so we drop it — fewer paint ops on
-  // Android, cleaner look without the dark hairline.
+  // Blue (#A2C5FF) surface — reads as "Affinity blue" against the
+  // lavender sheet without competing with the purple UPGRADE CTA.
   card: {
     backgroundColor: colors.blueSecondary,
-    borderRadius: 17,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 20,
+    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
-  titleRow: {
+  head: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
+    gap: 12,
+  },
+  // Cream circle holds the Ibu face SVG — same mascot used across
+  // onboarding screens 3, 5, 8, 9, 10 for visual consistency.
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FAF3DA',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headText: {
+    flex: 1,
   },
   title: {
-    flex: 1,
-  },
-  subtitle: {
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  // Inner white card holds the feature list (Figma 3527:6477).
-  featureBox: {
-    backgroundColor: colors.snow,
-    borderRadius: 17,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 6,
-    marginBottom: 16,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  featureIcon: {
-    marginRight: 12,
-  },
-  featureText: {
-    flex: 1,
+    color: colors.bluePrimary,
+    letterSpacing: -0.15,
     lineHeight: 18,
   },
+  subtitle: {
+    color: colors.bluePrimary,
+    opacity: 0.75,
+    letterSpacing: -0.12,
+    marginTop: 2,
+  },
+  // Inner white panel — visually separates the value props from the
+  // header so the whole card reads "title + 3 reasons + CTA".
+  benefits: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    gap: 0,
+  },
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    gap: 10,
+  },
+  plus: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.acaiSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  benefitText: {
+    flex: 1,
+    letterSpacing: -0.13,
+    fontSize: 12.5,
+  },
   cta: {
-    marginBottom: 12,
+    marginTop: 12,
   },
   restore: {
+    color: colors.bluePrimary,
     textAlign: 'center',
+    marginTop: 8,
   },
 });
