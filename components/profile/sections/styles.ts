@@ -175,7 +175,6 @@ export const profileStyles = StyleSheet.create({
   // Sign out
   signOutContainer: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    marginTop: 28,
     marginBottom: spacing.lg,
   },
 });

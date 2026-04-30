@@ -19,6 +19,7 @@ import {
 import Purchases from 'react-native-purchases';
 import RevenueCatUI from 'react-native-purchases-ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from "./ui";
 
 const YEARLY_BENEFITS: readonly ArchivesPlusBenefit[] = [
   {
@@ -232,7 +233,7 @@ export default function SubscribeContent() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
+    backgroundColor: colors.snow,
   },
   loadingContainer: {
     flex: 1,

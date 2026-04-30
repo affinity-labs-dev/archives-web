@@ -168,10 +168,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: 'transparent',
-    // Scale the Rive artwork up so the built-in padding around the book
-    // gets cropped by the box's overflow:hidden. Book visibly ~35% larger
-    // than its natural Contain fit.
-    transform: [{ scale: 1.15 }],
   },
   textGap: {
     marginTop: spacing.xs,
