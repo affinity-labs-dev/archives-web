@@ -483,7 +483,13 @@ export default function TodayScreen() {
     quizCorrectAnswers,
     isExploreUnlocked,
     isQuizUnlocked,
-    openModal,
+    // Route card-deck taps through `openWithDive` so they share the same
+    // hero-dive timeline as the START MY DAY button. Calling `openModal`
+    // directly here bypassed the dive entirely, and because the lesson
+    // wrapper's `lessonOpacity` shared value sits at 0 until `playDivePhase2`
+    // ramps it, the Modal mounted but rendered fully transparent — "tap
+    // card, nothing happens" from the user's view.
+    openModal: openWithDive,
   });
 
   // Live Activity — cache quiz results for XP plumbing to Live Activity completion

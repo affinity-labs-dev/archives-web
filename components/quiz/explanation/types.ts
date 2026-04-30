@@ -9,4 +9,5 @@ export interface ExplanationItem {
   aiExplanation?: string;
   loading: boolean;
   error?: string;
+  concept?: string;
 }
