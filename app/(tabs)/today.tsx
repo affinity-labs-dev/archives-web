@@ -693,20 +693,16 @@ export default function TodayScreen() {
           <TodayEmptyState isHistoricalView={isHistoricalView} />
         ) : (
           <>
-            <AnimatedEntrance
-              delay={650}
-              preset={{
-                translateY: { from: 60, to: 0 },
-                opacity: { from: 0, to: 1 },
-                duration: 550,
-                easing: easings.backOut14,
-              }}
-            >
-              <TodayCardDeck
-                cards={cardsData}
-                isLoading={isLoadingProgress}
-              />
-            </AnimatedEntrance>
+            {/* Wave entrance is handled per-Card inside TodayCardDeck — each
+                card translates 60→0 with `back.out(1.4)`, 90ms staggered from
+                a 650ms base (mock `index.html:1883-1885`). Wrapping the whole
+                deck in a single AnimatedEntrance would flatten the wave into
+                one slide-up; per-card stagger lives next to the carousel's
+                other shared values for direct transform-array composition. */}
+            <TodayCardDeck
+              cards={cardsData}
+              isLoading={isLoadingProgress}
+            />
 
             {/* Bottom Spacing for fixed button */}
             <View style={{ height: 100 }} />

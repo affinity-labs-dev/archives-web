@@ -300,6 +300,11 @@ interface CardProps {
   // or refetched (day switch, app cold-start). Cards still render the
   // correct pill state — they just snap instead of tween.
   isLoading: boolean;
+  // Card index in the deck (0..2). Drives the wave-staggered entrance —
+  // mock `index.html:1883-1885` plays `tl.from(cards, { y: 60, duration: 0.55,
+  // ease: 'back.out(1.4)', stagger: 0.09 }, 0.65)` so each card rises 90ms
+  // after the previous, with a back-out overshoot.
+  entranceIndex: number;
   onTap: () => void;
 }
 
@@ -311,10 +316,29 @@ function Card({
   scale,
   opacity,
   isLoading,
+  entranceIndex,
   onTap,
 }: CardProps) {
   const contentOpacity = useSharedValue(isCenter ? 1 : 0);
   const imageScale = useSharedValue(1);
+
+  // Wave entrance — translateY only (mock uses `tl.from` with `y: 60`,
+  // additive on top of the carousel's existing x/scale). Opacity is NOT
+  // animated here; the carousel's `opacity` shared value already handles
+  // slot visibility, and the mock tween targets only `y`.
+  const entranceTranslateY = useSharedValue(60);
+  useEffect(() => {
+    entranceTranslateY.value = withDelay(
+      safeDuration(650 + entranceIndex * 90),
+      withTiming(0, {
+        duration: safeDuration(550),
+        easing: easings.backOut14,
+      }),
+    );
+    // Mount-only — shared value is created with the entrance offset baked in,
+    // so re-running on re-render would replay the entrance every commit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Per-card completion state — drives the pill swap (green Rewatch /
   // Restart-my-day) and exposes the quiz correct-answer count to the star
@@ -605,7 +629,11 @@ function Card({
   }, [isCenter, imageScale]);
 
   const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }, { scale: scale.value }],
+    transform: [
+      { translateX: translateX.value },
+      { translateY: entranceTranslateY.value },
+      { scale: scale.value },
+    ],
     opacity: opacity.value,
   }));
 
@@ -961,6 +989,7 @@ export default function TodayCardDeck({
                 scale={scs[i]}
                 opacity={ops[i]}
                 isLoading={isLoading}
+                entranceIndex={i}
                 onTap={() => {
                   if (isCenter) {
                     card.onPress();
