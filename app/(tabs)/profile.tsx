@@ -237,8 +237,8 @@ export default function ProfileTab() {
                 XP this week
               </Typography>
               <WeeklyXPChart
-                data={weeklyXPTotal > 0 ? weeklyXPData : [100, 100, 200, 50, 100, 100, 300]}
-                totalXP={weeklyXPTotal > 0 ? weeklyXPTotal : 900}
+                data={weeklyXPData}
+                totalXP={weeklyXPTotal}
               />
             </View>
           </AnimatedEntrance>
