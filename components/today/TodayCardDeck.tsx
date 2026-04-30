@@ -896,6 +896,34 @@ export default function TodayCardDeck({
   const [centerIdx, setCenterIdx] = useState(initialCenterIdx);
   const centerIdxRef = useRef(centerIdx);
 
+  // Deck-level entrance — slide + fade for the container BEFORE the per-card
+  // wave kicks in. Without this, the deck appears at its final position and
+  // only the cards bounce, which reads as abrupt because RN tabs switch
+  // instantly (no parent screen crossfade like the mock's `goTo` 400ms fade).
+  // 500ms `power2.out` settle ends ~150ms before the wave starts at t=650ms,
+  // giving a deliberate "calm before the bounce" beat. No back-out overshoot
+  // here — the container should feel calm; overshoot is reserved for the
+  // per-card wave so it doesn't fight the bounce.
+  const deckOpacity = useSharedValue(0);
+  const deckTranslateY = useSharedValue(30);
+  useEffect(() => {
+    deckOpacity.value = withTiming(1, {
+      duration: safeDuration(500),
+      easing: easings.power2Out,
+    });
+    deckTranslateY.value = withTiming(0, {
+      duration: safeDuration(500),
+      easing: easings.power2Out,
+    });
+    // Mount-only — initial values bake in the entrance offset, replaying on
+    // re-render would restart the animation every commit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: deckOpacity.value,
+    transform: [{ translateY: deckTranslateY.value }],
+  }));
+
   // Shared values — one per card index, initialized to slots for initialCenterIdx.
   // Declared in triplicate (hooks can't be called in loops) then grouped as arrays.
   const x0 = useSharedValue(
@@ -999,7 +1027,15 @@ export default function TodayCardDeck({
     });
 
   return (
-    <View style={[styles.container, style]}>
+    // Outer container hosts the deck-level entrance (`containerAnimatedStyle`
+    // — opacity + translateY 30→0). `collapsable={false}` is Android-only
+    // insurance: without it, RN's view-flattening optimizer can fold this
+    // wrapper into its child when it detects "no native props besides
+    // animated style", which would silently disable the opacity layer.
+    <Animated.View
+      style={[styles.container, containerAnimatedStyle, style]}
+      collapsable={false}
+    >
       <GestureDetector gesture={panGesture}>
         <View style={styles.deck}>
           {cards.map((card, i) => {
@@ -1037,7 +1073,7 @@ export default function TodayCardDeck({
         onSelect={goToIdx}
         style={styles.dotsRow}
       />
-    </View>
+    </Animated.View>
   );
 }
 
