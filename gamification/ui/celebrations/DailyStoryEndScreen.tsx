@@ -38,8 +38,9 @@ import { AnimatedEntrance } from "@/components/ui/animations";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-// Background Rive — atmospheric loop that fills the frame.
-const dailyStoryCelebrationAnimation = require("../../../assets/rive/daily_story_celebration.riv");
+// Background Rive — Ibu flying-and-landing loop with a transparent
+// canvas, so the gradient behind shows through naturally.
+const ibuFlyingLandingAnimation = require("../../../assets/rive/ibu_flying_landing_without_bg.riv");
 // Hero Rive — Ibu character that sits centered on top of the
 // background, scales in then idles with a subtle 1↔1.02 scale yoyo.
 // Both Rive files are state-machine-driven; the rive-react-native v9
@@ -163,35 +164,26 @@ export default function DailyStoryEndScreen({
         style={styles.gradient}
       >
         <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-          {/* Full-frame Rive — fades in at mount.
-              Mock spec: opacity 0 → 1, 500ms power2.out, delay 0. */}
-          <AnimatedEntrance
-            preset={{
-              opacity: { from: 0, to: 1 },
-              duration: 500,
-              easing: easings.power2Out,
-            }}
-            style={StyleSheet.absoluteFill}
-          >
-            {/* `daily_story_celebration.riv` is state-machine-driven
-                (default state machine name "State Machine 1"; the file
-                also exposes a "Timeline 19" animation but the SM is the
-                canonical entry point). rive-react-native v9 only
-                auto-runs state machines when one is named explicitly —
-                without `stateMachineName` the canvas stays on frame 0.
-                The HTML mock side-steps this by iterating
-                `r.stateMachineNames` and calling `r.play(name)` in
-                `onLoad`; in RN the prop is the contract. */}
+          {/* Full-frame Rive — Ibu flying-then-landing loop.
+              Mounts immediately (no entrance fade) so the .riv's own
+              authored motion is the entrance.
+
+              State-machine-driven; rive-react-native v9 only auto-runs
+              state machines when one is named explicitly — without
+              `stateMachineName` the canvas stays on frame 0. "State
+              Machine 1" is the editor default; if a future export
+              uses a different name, update this string in lockstep. */}
+          <View style={StyleSheet.absoluteFill}>
             <Rive
               ref={riveRef}
-              source={dailyStoryCelebrationAnimation}
+              source={ibuFlyingLandingAnimation}
               autoplay
               stateMachineName="State Machine 1"
               fit={Fit.Cover}
               alignment={Alignment.Center}
               style={styles.rive}
             />
-          </AnimatedEntrance>
+          </View>
 
           {/* Hero Rive — Ibu character centered on top of the
               background. Mock spec entrance: scale 0.6 → 1, y 20 → 0,

@@ -15,7 +15,7 @@ import {
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import { useGamifiedProgress } from '@/gamification';
 import { analyticsService } from '@/services/AnalyticsService';
-import { Image } from 'expo-image';
+import Rive, { Alignment, Fit } from 'rive-react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef } from 'react';
@@ -39,6 +39,9 @@ import { BlobsBackground } from './XPMilestone';
 // React re-renders. <Text> has no `text` prop (its body is children)
 // so we use TextInput, styled to look exactly like a Text node.
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ibuCelebratingRive = require('@/assets/rive/ibu-celebrating.riv');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -361,10 +364,12 @@ export default function XPMilestoneScreen({
           (entrance Y, sway rotation, breathe scale) all composed in
           ibuStyle. */}
       <Animated.View style={[styles.ibuWrap, ibuStyle]} pointerEvents="none">
-        <Image
-          source={require('@/assets/images/ibu-celebration.png')}
+        <Rive
+          source={ibuCelebratingRive}
+          autoplay
+          fit={Fit.Contain}
+          alignment={Alignment.Center}
           style={styles.ibu}
-          contentFit="contain"
         />
       </Animated.View>
 

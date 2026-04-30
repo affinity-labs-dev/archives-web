@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, StatusBar, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
+import Rive, { Alignment, Fit } from 'rive-react-native';
 import { router } from 'expo-router';
 
 import {
@@ -16,7 +16,8 @@ import {
 import { AnimatedEntrance } from '@/components/ui/animations';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 
-const ibuCelebrationImg = require('@/assets/images/ibu-celebration.png');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ibuCelebratingRive = require('@/assets/rive/ibu-celebrating.riv');
 
 /**
  * Screen 8 — Post-signup celebration.
@@ -102,10 +103,12 @@ export default function OnboardingStep8Screen() {
             delay={350}
             style={styles.mascotWrapper}
           >
-            <Image
-              source={ibuCelebrationImg}
+            <Rive
+              source={ibuCelebratingRive}
+              autoplay
+              fit={Fit.Contain}
+              alignment={Alignment.Center}
               style={styles.mascot}
-              contentFit="contain"
             />
           </AnimatedEntrance>
         </View>
