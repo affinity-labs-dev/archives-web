@@ -6,16 +6,16 @@
  * Dismissing via backdrop, X, or Android back discards the preview.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
-  FlatList,
-  Image,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   Easing,
   runOnJS,
@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
+import { StaggerGroup } from '@/components/ui/animations/StaggerGroup';
 import { DepthButton } from '@/components/ui/DepthButton';
 import { Typography } from '@/components/ui/Typography';
 import { colors, easings, safeDuration } from '@/components/ui/theme';
@@ -40,7 +41,11 @@ interface AvatarDatum {
   id: string;
   name: string;
   title: string;
-  image: ReturnType<typeof require>;
+  // Metro returns a numeric module ID for require'd assets. Typing it
+  // as `number` (instead of the broader `ReturnType<typeof require>`,
+  // which TS infers as `unknown`) keeps expo-image's strict `source`
+  // prop type happy without runtime casts.
+  image: number;
 }
 
 const AVATARS: AvatarDatum[] = [
@@ -66,6 +71,57 @@ const AVATARS: AvatarDatum[] = [
 ];
 
 const AVATAR_BY_ID = new Map(AVATARS.map((a) => [a.id, a]));
+
+// Lower-case kebab-slug for fuzzy name matching (e.g. "Fatima al-Fihri"
+// → "fatima-al-fihri"). Used by resolveAvatarId to recover from legacy
+// Supabase image_url values whose slug encodes the historical figure's
+// name rather than our current local ID.
+const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+// Pre-computed name slugs so resolveAvatarId doesn't recompute on every
+// open of the sheet.
+const AVATAR_NAME_SLUGS = AVATARS.map((a) => ({
+  id: a.id,
+  nameSlug: slugify(a.name),
+}));
+
+/**
+ * Resolve any of the avatar-identifier formats we've seen in the wild
+ * (current local IDs, new Supabase paths, legacy slugified names) to a
+ * known entry in AVATARS. Falls back to AVATARS[0] if no match — that
+ * keeps the sheet usable even for old/unmappable user data, and the
+ * user can simply re-pick.
+ *
+ * Cases this handles:
+ *   • 'physician'                          (current local ID)
+ *   • 'av-06-physician'                    (parent's stripped derivation)
+ *   • 'avatars/av-06-physician.png'        (raw Supabase image_url, new)
+ *   • 'avatars/ibn-sina-avicenna.png'      (raw Supabase image_url, legacy)
+ *   • 'fatima-al-fihri'                    (slugified historical figure name)
+ */
+function resolveAvatarId(input: string | null | undefined): string {
+  if (!input) return AVATARS[0].id;
+  const lower = input.toLowerCase();
+
+  // 1. Direct match against current local IDs.
+  if (AVATAR_BY_ID.has(lower)) return lower;
+
+  // 2. Substring match — covers 'av-06-physician' and the full
+  //    'avatars/av-06-physician.png' since both contain 'physician'.
+  const byId = AVATARS.find((a) => lower.includes(a.id));
+  if (byId) return byId.id;
+
+  // 3. Slugified-name match (bidirectional) — handles legacy keys
+  //    where the URL encodes the historical figure's name instead of
+  //    the local ID, e.g. 'fatima-al-fihri' → architect.
+  const inputSlug = slugify(lower);
+  const byName = AVATAR_NAME_SLUGS.find(
+    (a) => inputSlug.includes(a.nameSlug) || a.nameSlug.includes(inputSlug),
+  );
+  if (byName) return byName.id;
+
+  return AVATARS[0].id;
+}
 
 // ── Props ──────────────────────────────────────────────────────────────
 
@@ -93,6 +149,82 @@ const SHEET_EASING = easings.backOut14;
 // Easing: back.out(1.6) for save button
 const SAVE_EASING = Easing.bezier(0.175, 0.885, 0.32, 1.2);
 
+// ── TileItem (memoized) ────────────────────────────────────────────────
+// Each tile owns its own press-scale shared value, so onPressIn/onPressOut
+// drive a UI-thread tween without ever calling setState. Coupled with
+// React.memo, only the previously-selected and newly-selected tiles
+// re-render on a tap — the other 17 are skipped entirely.
+
+interface TileItemProps {
+  item: AvatarDatum;
+  isSelected: boolean;
+  onPress: (id: string) => void;
+}
+
+const TileItem = memo(function TileItem({
+  item,
+  isSelected,
+  onPress,
+}: TileItemProps) {
+  const pressScale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
+
+  const handlePressIn = useCallback(() => {
+    pressScale.value = withTiming(0.92, {
+      duration: safeDuration(80),
+      easing: easings.power2Out,
+    });
+  }, [pressScale]);
+
+  const handlePressOut = useCallback(() => {
+    pressScale.value = withTiming(1, {
+      duration: safeDuration(140),
+      easing: easings.power2Out,
+    });
+  }, [pressScale]);
+
+  const handlePress = useCallback(() => {
+    onPress(item.id);
+  }, [onPress, item.id]);
+
+  return (
+    <Animated.View style={[styles.tileSlot, animStyle]}>
+      <Pressable
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={styles.tile}
+      >
+        <View style={styles.tileImageWrapper}>
+          <Image source={item.image} style={styles.tileImage} contentFit="cover" />
+          {isSelected && <View style={styles.selectedRing} />}
+        </View>
+        {isSelected && (
+          <View style={styles.checkBadge}>
+            <Typography family="onest" size={12} weight="bold" color="white">
+              {'✓'}
+            </Typography>
+          </View>
+        )}
+        <Typography
+          family="onest"
+          size={12}
+          weight="600"
+          color="onyx"
+          align="center"
+          numberOfLines={1}
+          style={styles.tileName}
+        >
+          {item.name}
+        </Typography>
+      </Pressable>
+    </Animated.View>
+  );
+});
+
 // ── Component ──────────────────────────────────────────────────────────
 
 export function AvatarSelectorSheet({
@@ -103,16 +235,20 @@ export function AvatarSelectorSheet({
 }: AvatarSelectorSheetProps) {
   const insets = useSafeAreaInsets();
 
-  // Pending preview — does NOT commit until Save
-  const [previewId, setPreviewId] = useState<string>(currentAvatarId ?? AVATARS[0].id);
-
-  // Track pressed tile for scale feedback
-  const [pressedTileId, setPressedTileId] = useState<string | null>(null);
+  // Pending preview — does NOT commit until Save. The incoming
+  // `currentAvatarId` may arrive in any of several formats (bare local
+  // ID, Supabase image_url path, legacy slugified name). resolveAvatarId
+  // normalizes it to a guaranteed-valid entry in AVATARS so the
+  // previously-saved selection is highlighted on open instead of
+  // silently falling back to AVATARS[0].
+  const [previewId, setPreviewId] = useState<string>(() =>
+    resolveAvatarId(currentAvatarId),
+  );
 
   // Reset preview when sheet opens with a new avatar
   useEffect(() => {
     if (visible) {
-      setPreviewId(currentAvatarId ?? AVATARS[0].id);
+      setPreviewId(resolveAvatarId(currentAvatarId));
     }
   }, [visible, currentAvatarId]);
 
@@ -181,6 +317,9 @@ export function AvatarSelectorSheet({
 
   // ── Handlers ─────────────────────────────────────────────────────────
 
+  // Stable identity — TileItem's React.memo relies on this NOT changing
+  // between renders. Wrapping in useCallback with `[]` keeps the
+  // function pointer constant for the lifetime of the component.
   const handleTilePress = useCallback((id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPreviewId(id);
@@ -195,62 +334,6 @@ export function AvatarSelectorSheet({
   const handleDismiss = useCallback(() => {
     onClose();
   }, [onClose]);
-
-  // ── Grid tile renderer ───────────────────────────────────────────────
-
-  const flatListRef = useRef<FlatList>(null);
-
-  const renderTile = useCallback(
-    ({ item }: { item: AvatarDatum }) => {
-      const isSelected = item.id === previewId;
-      const isPressed = item.id === pressedTileId;
-      return (
-        <Pressable
-          onPress={() => handleTilePress(item.id)}
-          onPressIn={() => setPressedTileId(item.id)}
-          onPressOut={() => setPressedTileId(null)}
-          style={[
-            styles.tile,
-            { width: TILE_SIZE },
-            isPressed && styles.tilePressed,
-          ]}
-        >
-          <View style={{ position: 'relative', width: TILE_SIZE, height: TILE_SIZE }}>
-            <View style={[styles.tileImageWrapper, { width: TILE_SIZE, height: TILE_SIZE }]}>
-              <Image source={item.image} style={styles.tileImage} />
-              {isSelected && <View style={styles.selectedRing} />}
-            </View>
-            {isSelected && (
-              <View style={styles.checkBadge}>
-                <Typography family="onest" size={12} weight="bold" color="white">
-                  {'\u2713'}
-                </Typography>
-              </View>
-            )}
-          </View>
-          <Typography
-            family="onest"
-            size={12}
-            weight="600"
-            color="onyx"
-            align="center"
-            numberOfLines={1}
-            style={styles.tileName}
-          >
-            {item.name}
-          </Typography>
-        </Pressable>
-      );
-    },
-    [previewId, pressedTileId, handleTilePress],
-  );
-
-  const keyExtractor = useCallback((item: AvatarDatum) => item.id, []);
-
-  const columnWrapperStyle = useMemo(
-    () => ({ gap: GRID_GAP }),
-    [],
-  );
 
   // ── Render ───────────────────────────────────────────────────────────
 
@@ -306,7 +389,11 @@ export function AvatarSelectorSheet({
         {/* Hero preview */}
         <View style={styles.heroSection}>
           <View style={styles.heroRing}>
-            <Image source={previewAvatar.image} style={styles.heroImage} />
+            <Image
+              source={previewAvatar.image}
+              style={styles.heroImage}
+              contentFit="cover"
+            />
           </View>
           <Typography
             family="onest"
@@ -326,21 +413,43 @@ export function AvatarSelectorSheet({
           </Typography>
         </View>
 
-        {/* Grid */}
-        <FlatList
-          ref={flatListRef}
-          data={AVATARS}
-          renderItem={renderTile}
-          keyExtractor={keyExtractor}
-          numColumns={GRID_COLUMNS}
-          columnWrapperStyle={columnWrapperStyle}
+        {/* Grid — flexWrap row inside Animated.ScrollView, with each
+            tile staggered in via StaggerGroup. Initial opacity:0 means
+            the synchronous mount of 19 image-bearing tiles paints into
+            an invisible layer, so the bitmap-decode work can't compete
+            with the sheet's slide-up tween for JS-thread time. By the
+            time the first tile fades in (baseDelay 200ms), the sheet
+            is ~36% of the way up and the JS thread is free.
+
+            Same baseDelay + staggerInterval as MonthlyBadgesScreen for
+            consistency across profile sheets. */}
+        <Animated.ScrollView
           contentContainerStyle={[
             styles.gridContent,
             { paddingBottom: 80 + insets.bottom },
           ]}
           showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={GridRowSeparator}
-        />
+          // Android: lazy-mount off-screen rows. iOS: leave default
+          // (it uses CALayer-level offscreen culling under the hood).
+          removeClippedSubviews={Platform.OS === 'android'}
+          scrollEventThrottle={16}
+          overScrollMode={Platform.OS === 'android' ? 'never' : 'auto'}
+        >
+          <StaggerGroup
+            preset="fadeScale"
+            baseDelay={200}
+            staggerInterval={60}
+          >
+            {AVATARS.map((item) => (
+              <TileItem
+                key={item.id}
+                item={item}
+                isSelected={item.id === previewId}
+                onPress={handleTilePress}
+              />
+            ))}
+          </StaggerGroup>
+        </Animated.ScrollView>
 
         {/* Save button — pinned to bottom */}
         <Animated.View style={[styles.saveWrapper, { bottom: insets.bottom + 16 }, saveAnimatedStyle]}>
@@ -363,12 +472,6 @@ export function AvatarSelectorSheet({
       </Animated.View>
     </Modal>
   );
-}
-
-// ── Grid row separator ─────────────────────────────────────────────────
-
-function GridRowSeparator() {
-  return <View style={styles.gridRowGap} />;
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────
@@ -444,20 +547,30 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: 'rgba(26, 26, 26, 0.6)',
   },
+  // flexWrap row — children flow naturally to the next line. Split row
+  // (GRID_GAP) and column (GRID_GAP) gaps via the dedicated rowGap /
+  // columnGap props so a future asymmetric design (e.g. tighter rows
+  // than columns) only needs the two constants tweaked, not a layout
+  // refactor.
   gridContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: GRID_HORIZONTAL_PAD,
     paddingTop: 8,
+    rowGap: GRID_GAP,
+    columnGap: GRID_GAP,
   },
-  gridRowGap: {
-    height: GRID_GAP,
+  // Outer scaling wrapper — Animated.View carries the press-scale
+  // transform so the inner Pressable can stay free of inline styles.
+  tileSlot: {
+    width: TILE_SIZE,
   },
   tile: {
     alignItems: 'center',
   },
-  tilePressed: {
-    transform: [{ scale: 0.92 }],
-  },
   tileImageWrapper: {
+    width: TILE_SIZE,
+    height: TILE_SIZE,
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
@@ -466,7 +579,6 @@ const styles = StyleSheet.create({
   tileImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   selectedRing: {
     ...StyleSheet.absoluteFillObject,
