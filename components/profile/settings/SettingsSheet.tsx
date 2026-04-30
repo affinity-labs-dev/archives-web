@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal, Platform, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+
 
 import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { StaggerGroup } from '@/components/ui/animations/StaggerGroup';
@@ -21,6 +21,7 @@ import {
   iconSfx,
   iconShield,
   iconVibrate,
+  iconCloseX,
   svgIcon,
 } from './icons';
 import { settingsStyles } from './styles';
@@ -115,7 +116,7 @@ export function SettingsSheet({
           accessibilityRole="button"
           accessibilityLabel="Close settings"
         >
-          <Ionicons name="close" size={24} color={colors.onyx} />
+          {svgIcon(iconCloseX(colors.bluePrimary), 36, 36)}
         </Pressable>
       </AnimatedEntrance>
 

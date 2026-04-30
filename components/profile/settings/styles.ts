@@ -39,7 +39,7 @@ export const settingsStyles = StyleSheet.create({
   closeButtonWrapper: {
     position: 'absolute',
     top: spacing.md,
-    right: spacing.md,
+    left: 18,
     zIndex: 10,
   },
   closeButton: {

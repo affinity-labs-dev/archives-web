@@ -100,14 +100,15 @@ export default function ProfileTab() {
     newUserProgress,
     calculateTotalXP,
   });
-  const { lessonsCompleted, weeklyXPData, weeklyXPTotal } = useProfileStats({
+  const { lessonsCompleted, minutesLearned, xpPercentile, weeklyXPData, weeklyXPTotal } = useProfileStats({
     moduleProgress,
     progressEntries: gamificationState?.progress || [],
     newUserProgress,
     calculateModulesCompleted,
+    totalXP,
   });
   const {
-    displayedMonthlyBadges,
+    monthlyBadges,
     earnedMonths,
     selectedBadgeMonth,
     setSelectedBadgeMonth,
@@ -217,7 +218,8 @@ export default function ProfileTab() {
           streak={streak}
           lessonsCompleted={lessonsCompleted}
           totalXP={totalXP}
-          minutesLearned={0}
+          minutesLearned={minutesLearned}
+          xpPercentile={xpPercentile}
           isExpanded={isStatsExpanded}
           onToggleExpanded={handleToggleStats}
         />
@@ -234,13 +236,16 @@ export default function ProfileTab() {
               >
                 XP this week
               </Typography>
-              <WeeklyXPChart data={weeklyXPData} totalXP={weeklyXPTotal} />
+              <WeeklyXPChart
+                data={weeklyXPData}
+                totalXP={weeklyXPTotal}
+              />
             </View>
           </AnimatedEntrance>
 
           <ProfileMonthlyBadges
             shouldAnimate={shouldAnimate}
-            badges={displayedMonthlyBadges}
+            badges={monthlyBadges}
             selectedMonth={selectedBadgeMonth}
             onSelectMonth={setSelectedBadgeMonth}
             onOpenAll={handleOpenMonthlyBadges}
@@ -249,7 +254,7 @@ export default function ProfileTab() {
 
           <ProfileAchievements
             shouldAnimate={shouldAnimate}
-            achievements={displayedAchievements}
+            achievements={achievements}
             onOpenAll={handleOpenAchievements}
             onPreviewAchievement={setPreviewAchievement}
           />

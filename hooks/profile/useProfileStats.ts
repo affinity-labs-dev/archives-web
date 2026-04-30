@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { calculateLessonsCompleted } from '@/gamification';
+import { supabase } from '@/hooks/lib/supabase';
 import type { NewUserProgress } from '@/components/profile/types';
 
 interface Args {
@@ -8,6 +9,7 @@ interface Args {
   progressEntries: any[];
   newUserProgress: NewUserProgress[];
   calculateModulesCompleted: () => number;
+  totalXP: number;
 }
 
 export function useProfileStats({
@@ -15,6 +17,7 @@ export function useProfileStats({
   progressEntries,
   newUserProgress,
   calculateModulesCompleted,
+  totalXP,
 }: Args) {
   const modulesFinished = useMemo(
     () => calculateModulesCompleted(),
@@ -63,5 +66,23 @@ export function useProfileStats({
     [weeklyXPData],
   );
 
-  return { modulesFinished, lessonsCompleted, weeklyXPData, weeklyXPTotal };
+  // Minutes learned — estimate 5 mins per lesson
+  const minutesLearned = (Number(lessonsCompleted) || 0) * 5;
+
+  // XP percentile ranking — Supabase RPC (server-side calculation)
+  const [xpPercentile, setXpPercentile] = useState<number | null>(null);
+  useEffect(() => {
+    if (totalXP <= 0) return;
+    (async () => {
+      try {
+        const { data: pct, error } = await supabase.rpc('get_xp_percentile', { user_xp: totalXP });
+        if (error || pct === null || pct === undefined) return;
+        setXpPercentile(Number(pct));
+      } catch {
+        // Silently fail — percentile is non-critical
+      }
+    })();
+  }, [totalXP]);
+
+  return { modulesFinished, lessonsCompleted, minutesLearned, xpPercentile, weeklyXPData, weeklyXPTotal };
 }

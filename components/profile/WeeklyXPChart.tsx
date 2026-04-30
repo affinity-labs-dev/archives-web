@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, safeDuration } from '@/components/ui/theme';
 import { AnimatedEntrance } from '@/components/ui/animations';
+import { Typography } from '@/components/ui';
 
 // ─────────────────────────────────────────────
 // Types
@@ -23,31 +24,26 @@ interface WeeklyXPChartProps {
 }
 
 // ─────────────────────────────────────────────
-// Figma-exact constants (from node 3596:6886, 348×245)
-// All positions are absolute from the card's top-left.
+// Layout constants (relative to card width)
+// Only vertical sizes remain as fixed pixels.
 // ─────────────────────────────────────────────
 
 const CARD_H = 245;
 
-// Header labels
-const HDR_Y = 17;
-const HDR_LEFT = 21;
-const HDR_RIGHT = 21; // padding from right
-
-// Y-axis
-const YAXIS_LEFT = 20;
-const YAXIS_TOP = 52;
-const YAXIS_W = 25;
-const YAXIS_LINE_H = 30; // spacing between each label
-
-// Plot area
-const PLOT_LEFT = 58;
+// Vertical positions (fixed — height is constant)
+const HDR_H = 48;           // header row height
 const PLOT_TOP = 66;
-const PLOT_W = 260;
 const PLOT_H = 120;
-
-// X-axis
 const XAXIS_TOP = 211;
+const YAXIS_TOP = 52;
+const YAXIS_LINE_H = 30;   // vertical spacing between Y labels
+
+// Horizontal ratios (fraction of card width)
+const PAD_H_RATIO = 0.06;       // header horizontal padding (~21px on 348)
+const YAXIS_LEFT_RATIO = 0.057; // Y-axis label left edge (~20px on 348)
+const YAXIS_W_RATIO = 0.072;    // Y-axis label width (~25px on 348)
+const PLOT_LEFT_RATIO = 0.167;  // plot area left edge (~58px on 348)
+const PLOT_RIGHT_PAD = 16;      // right padding inside card (px)
 
 // Grid line Y offsets inside plot (0, 30, 60, 90, 119)
 const GRID_LINES = [0, 30, 60, 90, 119];
@@ -57,7 +53,6 @@ const Y_LABELS = [400, 300, 200, 100, 0];
 const DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
 const GRID_COLOR = '#E0E5F0';
-const LABEL_COLOR = '#1A1A1A';
 const LINE_COLOR = colors.bluePrimary;
 const DOT_SIZE = 9;
 const DOT_R = DOT_SIZE / 2;
@@ -79,10 +74,13 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 // Helpers
 // ─────────────────────────────────────────────
 
-function valuesToPoints(data: number[]) {
-  const step = PLOT_W / 6;
+const DOT_INSET = 8; // px clearance so edge dots aren't clipped
+
+function valuesToPoints(data: number[], plotW: number) {
+  const usableW = plotW - DOT_INSET * 2;
+  const step = usableW / 6;
   return data.map((val, i) => {
-    const x = i * step;
+    const x = DOT_INSET + i * step;
     const clamped = Math.min(Math.max(val, 0), Y_MAX);
     const y = PLOT_H - (clamped / Y_MAX) * PLOT_H;
     return { x, y };
@@ -106,41 +104,68 @@ function buildPath(pts: { x: number; y: number }[]) {
 // Dot with optional pulse
 // ─────────────────────────────────────────────
 
-function Dot({ cx, cy, isPeak, index }: { cx: number; cy: number; isPeak: boolean; index: number }) {
+function Dot({ cx, cy, isToday, index }: { cx: number; cy: number; isToday: boolean; index: number }) {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0);
-  const pulse = useSharedValue(1);
+  const ringOpacity = useSharedValue(0);
+  const ringScale = useSharedValue(1);
 
   useEffect(() => {
     const delay = LINE_DRAW_MS * 0.3 + index * DOT_STAGGER_MS;
     opacity.value = withDelay(safeDuration(delay), withTiming(1, { duration: safeDuration(DOT_FADE_MS) }));
     scale.value = withDelay(safeDuration(delay), withTiming(1, { duration: safeDuration(DOT_FADE_MS), easing: Easing.out(Easing.back(1.5)) }));
-    if (isPeak) {
-      pulse.value = withDelay(
-        safeDuration(delay + DOT_FADE_MS),
+    if (isToday) {
+      // Pulsing ring — grows outward and fades, then resets
+      const ringDelay = delay + DOT_FADE_MS;
+      ringOpacity.value = withDelay(
+        safeDuration(ringDelay),
         withRepeat(withSequence(
-          withTiming(1.3, { duration: safeDuration(PULSE_MS / 2), easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: safeDuration(PULSE_MS / 2), easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.6, { duration: 0 }),
+          withTiming(0, { duration: safeDuration(PULSE_MS), easing: Easing.out(Easing.ease) }),
+        ), -1, false),
+      );
+      ringScale.value = withDelay(
+        safeDuration(ringDelay),
+        withRepeat(withSequence(
+          withTiming(1, { duration: 0 }),
+          withTiming(2.5, { duration: safeDuration(PULSE_MS), easing: Easing.out(Easing.ease) }),
         ), -1, false),
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const props = useAnimatedProps(() => ({
+  const dotProps = useAnimatedProps(() => ({
     opacity: opacity.value,
-    r: DOT_R * scale.value * pulse.value,
+    r: DOT_R * scale.value,
+  }));
+
+  const ringProps = useAnimatedProps(() => ({
+    opacity: ringOpacity.value,
+    r: DOT_R * ringScale.value,
   }));
 
   return (
-    <AnimatedCircle
-      cx={cx}
-      cy={cy}
-      fill={isPeak ? LINE_COLOR : '#FFFFFF'}
-      stroke={LINE_COLOR}
-      strokeWidth={DOT_STROKE}
-      animatedProps={props}
-    />
+    <>
+      {isToday && (
+        <AnimatedCircle
+          cx={cx}
+          cy={cy}
+          fill="none"
+          stroke={LINE_COLOR}
+          strokeWidth={1.5}
+          animatedProps={ringProps}
+        />
+      )}
+      <AnimatedCircle
+        cx={cx}
+        cy={cy}
+        fill={isToday ? LINE_COLOR : '#FFFFFF'}
+        stroke={LINE_COLOR}
+        strokeWidth={DOT_STROKE}
+        animatedProps={dotProps}
+      />
+    </>
   );
 }
 
@@ -149,104 +174,159 @@ function Dot({ cx, cy, isPeak, index }: { cx: number; cy: number; isPeak: boolea
 // ─────────────────────────────────────────────
 
 export function WeeklyXPChart({ data, totalXP }: WeeklyXPChartProps) {
+  const [cardWidth, setCardWidth] = useState(0);
+
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0 && w !== cardWidth) setCardWidth(w);
+  }, [cardWidth]);
+
+  // Derived responsive dimensions
+  const plotLeft = cardWidth * PLOT_LEFT_RATIO;
+  const plotW = Math.max(0, cardWidth - plotLeft - PLOT_RIGHT_PAD);
+  const padH = cardWidth * PAD_H_RATIO;
+  const yAxisLeft = cardWidth * YAXIS_LEFT_RATIO;
+  const yAxisW = cardWidth * YAXIS_W_RATIO;
+  const usableW = plotW - DOT_INSET * 2;
+  const xStep = usableW / 6;
+
   const chartData = useMemo(() => {
     const p = [...data];
     while (p.length < 7) p.push(0);
     return p.slice(0, 7);
   }, [data]);
 
-  const pts = useMemo(() => valuesToPoints(chartData), [chartData]);
-  const { d, len } = useMemo(() => buildPath(pts), [pts]);
-  const allZeros = useMemo(() => chartData.every((v) => v === 0), [chartData]);
-  const peakIdx = useMemo(() => {
-    let mx = -1, mi = 0;
-    chartData.forEach((v, i) => { if (v > mx) { mx = v; mi = i; } });
-    return mi;
-  }, [chartData]);
+  const pts = useMemo(() => valuesToPoints(chartData, plotW), [chartData, plotW]);
+  // Full path no longer needed — we only draw up to today
+  // Today's day index (0=Mo, 1=Tu, ..., 6=Su)
+  const todayIdx = useMemo(() => {
+    const day = new Date().getDay(); // 0=Sun, 1=Mon...
+    return day === 0 ? 6 : day - 1;
+  }, []);
 
-  // Line-draw animation
+  // Only show points up to today (inclusive)
+  const visiblePts = useMemo(() => pts.slice(0, todayIdx + 1), [pts, todayIdx]);
+  const { d: visibleD, len: visibleLen } = useMemo(() => buildPath(visiblePts), [visiblePts]);
+
+  // Line-draw animation — uses visible path only
   const progress = useSharedValue(0);
   useEffect(() => {
-    if (len > 0) {
+    if (visibleLen > 0) {
       progress.value = withTiming(1, { duration: safeDuration(LINE_DRAW_MS), easing: Easing.inOut(Easing.quad) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [len]);
+  }, [visibleLen]);
   const pathProps = useAnimatedProps(() => ({
-    strokeDashoffset: len === 0 ? 0 : len * (1 - progress.value),
+    strokeDashoffset: visibleLen === 0 ? 0 : visibleLen * (1 - progress.value),
   }));
-
-  const xStep = PLOT_W / 6;
 
   return (
     <AnimatedEntrance preset="fadeScale">
-      <View style={styles.card}>
-        {/* ── Header ── */}
-        <Text style={styles.hdrLeft}>Weekly progress</Text>
-        <Text style={styles.hdrRight}>XP {totalXP}</Text>
+      <View style={styles.card} onLayout={onLayout}>
+        {cardWidth > 0 && (
+          <>
+            {/* ── Header ── */}
+            <View style={[styles.header, { paddingHorizontal: padH }]}>
+              <Typography
+                family="onest"
+                size={16}
+                weight="700"
+                extraColor={LINE_COLOR}
+                letterSpacing={0.16}
+              >
+                Weekly progress
+              </Typography>
+              <Typography
+                family="onest"
+                size={16}
+                weight="700"
+                extraColor={LINE_COLOR}
+                letterSpacing={0.16}
+              >
+                XP {totalXP}
+              </Typography>
+            </View>
 
-        {/* ── Y-axis labels ── */}
-        {Y_LABELS.map((val, i) => (
-          <Text key={val} style={[styles.yLabel, { top: YAXIS_TOP + i * YAXIS_LINE_H }]}>
-            {val}
-          </Text>
-        ))}
-
-        {/* ── Plot (SVG) ── */}
-        <View style={styles.plot}>
-          <Svg width={PLOT_W} height={PLOT_H} style={{ overflow: 'visible' }}>
-            {GRID_LINES.map((y) => (
-              <Line key={y} x1={0} y1={y} x2={PLOT_W} y2={y} stroke={GRID_COLOR} strokeWidth={1} />
+            {/* ── Y-axis labels ── */}
+            {Y_LABELS.map((val, i) => (
+              <Typography
+                key={val}
+                family="onest"
+                size={12}
+                lineHeight={14}
+                weight="600"
+                color="onyx"
+                align="right"
+                style={[
+                  styles.yLabel,
+                  {
+                    left: yAxisLeft,
+                    width: yAxisW,
+                    top: YAXIS_TOP + i * YAXIS_LINE_H,
+                  },
+                ]}
+              >
+                {val}
+              </Typography>
             ))}
-            {d.length > 0 && (
-              <AnimatedPath
-                d={d}
-                stroke={LINE_COLOR}
-                strokeWidth={2.2}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray={len}
-                animatedProps={pathProps}
-              />
-            )}
-            {pts.map((p, i) => (
-              <Dot key={i} cx={p.x} cy={p.y} isPeak={!allZeros && i === peakIdx} index={i} />
-            ))}
-          </Svg>
-        </View>
 
-        {/* ── X-axis labels ── */}
-        {DAY_LABELS.map((label, i) => (
-          <Text
-            key={label}
-            style={[styles.xLabel, { left: PLOT_LEFT + i * xStep - 11, top: XAXIS_TOP }]}
-          >
-            {label}
-          </Text>
-        ))}
+            {/* ── Plot (SVG) ── */}
+            <View
+              style={[
+                styles.plot,
+                { left: plotLeft, width: plotW },
+              ]}
+            >
+              <Svg width={plotW} height={PLOT_H} style={{ overflow: 'visible' }}>
+                {GRID_LINES.map((y) => (
+                  <Line key={y} x1={0} y1={y} x2={plotW} y2={y} stroke={GRID_COLOR} strokeWidth={1} />
+                ))}
+                {visibleD.length > 0 && (
+                  <AnimatedPath
+                    d={visibleD}
+                    stroke={LINE_COLOR}
+                    strokeWidth={2.2}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray={visibleLen}
+                    animatedProps={pathProps}
+                  />
+                )}
+                {visiblePts.map((p, i) => (
+                  <Dot key={i} cx={p.x} cy={p.y} isToday={i === todayIdx} index={i} />
+                ))}
+              </Svg>
+            </View>
+
+            {/* ── X-axis labels ── */}
+            {DAY_LABELS.map((label, i) => (
+              <Typography
+                key={label}
+                family="onest"
+                size={14}
+                lineHeight={18}
+                weight="600"
+                color="onyx"
+                align="center"
+                style={[
+                  styles.xLabel,
+                  { left: plotLeft + DOT_INSET + i * xStep - 11, top: XAXIS_TOP },
+                ]}
+              >
+                {label}
+              </Typography>
+            ))}
+          </>
+        )}
       </View>
     </AnimatedEntrance>
   );
 }
 
 // ─────────────────────────────────────────────
-// Styles — absolute positioning matching Figma
+// Styles — responsive layout (positions derived from cardWidth)
 // ─────────────────────────────────────────────
-
-const hdrBase: any = {
-  position: 'absolute',
-  top: HDR_Y,
-  fontFamily: 'Onest-Bold',
-  fontSize: 16,
-  letterSpacing: 0.16,
-  color: LINE_COLOR,
-};
-
-const labelBase: any = {
-  position: 'absolute',
-  fontFamily: 'Onest-SemiBold',
-};
 
 const styles = StyleSheet.create({
   card: {
@@ -256,30 +336,22 @@ const styles = StyleSheet.create({
     borderColor: LINE_COLOR,
     backgroundColor: colors.snow,
   },
-  hdrLeft: { ...hdrBase, left: HDR_LEFT },
-  hdrRight: { ...hdrBase, right: HDR_RIGHT },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    height: HDR_H,
+  },
   yLabel: {
-    ...labelBase,
-    left: YAXIS_LEFT,
-    width: YAXIS_W,
-    textAlign: 'right',
-    fontSize: 12,
-    lineHeight: 14,
-    color: LABEL_COLOR,
+    position: 'absolute',
   },
   plot: {
     position: 'absolute',
-    left: PLOT_LEFT,
     top: PLOT_TOP,
-    width: PLOT_W,
     height: PLOT_H,
   },
   xLabel: {
-    ...labelBase,
+    position: 'absolute',
     width: 22,
-    textAlign: 'center',
-    fontSize: 14,
-    lineHeight: 18,
-    color: LABEL_COLOR,
   },
 });

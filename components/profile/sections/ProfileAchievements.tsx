@@ -2,6 +2,7 @@ import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import Animated from 'react-native-reanimated';
 
 import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { Typography } from '@/components/ui/Typography';
@@ -40,7 +41,7 @@ function ProfileAchievementsImpl({
           <Ionicons name="chevron-forward" size={22} color={colors.concreteGrey} />
         </TouchableOpacity>
 
-        <View style={profileStyles.achievementRow}>
+        <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={[profileStyles.achievementRow, { paddingHorizontal: 24 }]}>
           {achievements.map((achievement) => (
             <View key={achievement.id} style={profileStyles.achievementItem}>
               <LiftPressable
@@ -72,7 +73,7 @@ function ProfileAchievementsImpl({
               </Typography>
             </View>
           ))}
-        </View>
+        </Animated.ScrollView>
       </View>
     </AnimatedEntrance>
   );

@@ -27,17 +27,15 @@ export function LiftPressable({ children, onPress }: LiftPressableProps) {
 
   return (
     <Pressable
-      onHoverIn={() => {
-        translateY.value = withTiming(-3, { duration: safeDuration(160) });
-        scale.value = withTiming(1.04, { duration: safeDuration(160) });
-      }}
-      onHoverOut={() => {
-        translateY.value = withSpring(0, { damping: 12, stiffness: 200 });
-        scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-      }}
       onPress={() => {
+        // Lift up then settle back — works reliably inside ScrollView
+        // (onPressIn gets eaten by scroll gesture handler)
+        translateY.value = withSequence(
+          withTiming(-3, { duration: safeDuration(120) }),
+          withSpring(0, { damping: 12, stiffness: 200 }),
+        );
         scale.value = withSequence(
-          withTiming(0.97, { duration: safeDuration(100) }),
+          withTiming(1.04, { duration: safeDuration(120) }),
           withSpring(1, { damping: 12, stiffness: 200 }),
         );
         onPress?.();
