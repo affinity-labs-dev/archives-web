@@ -76,6 +76,15 @@ interface TodayCardDeckProps {
    * for already-completed days.
    */
   isLoading?: boolean;
+  /**
+   * Hero-dive open animation — additive scale/opacity layered on top of the
+   * carousel's slot transforms for the centered card only. Mock `index.html:1713-1717`:
+   *   gsap.to(centerCard, { scale: 2.1, opacity: 0, duration: 0.55 })
+   * Provided by `useHeroDive` in TodayScreen so the same shared values drive
+   * both the card dive and the lesson crossfade timeline.
+   */
+  heroDiveScale?: SharedValue<number>;
+  heroDiveOpacity?: SharedValue<number>;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -305,6 +314,11 @@ interface CardProps {
   // ease: 'back.out(1.4)', stagger: 0.09 }, 0.65)` so each card rises 90ms
   // after the previous, with a back-out overshoot.
   entranceIndex: number;
+  // Hero-dive open animation, applied only to the centered card. Multiplied
+  // into the existing carousel scale/opacity so the dive composes on top of
+  // whatever slot transform is current. `undefined` on side cards.
+  heroDiveScale?: SharedValue<number>;
+  heroDiveOpacity?: SharedValue<number>;
   onTap: () => void;
 }
 
@@ -317,6 +331,8 @@ function Card({
   opacity,
   isLoading,
   entranceIndex,
+  heroDiveScale,
+  heroDiveOpacity,
   onTap,
 }: CardProps) {
   const contentOpacity = useSharedValue(isCenter ? 1 : 0);
@@ -628,14 +644,22 @@ function Card({
     }
   }, [isCenter, imageScale]);
 
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: entranceTranslateY.value },
-      { scale: scale.value },
-    ],
-    opacity: opacity.value,
-  }));
+  const cardStyle = useAnimatedStyle(() => {
+    // Hero-dive contributions — multiplied INTO the existing carousel scale +
+    // opacity so the dive composes additively on top of whatever slot the
+    // card is currently in. Side cards don't receive these refs (undefined →
+    // identity 1) so only the centered card scales out during the dive.
+    const diveScale = heroDiveScale ? heroDiveScale.value : 1;
+    const diveOpacity = heroDiveOpacity ? heroDiveOpacity.value : 1;
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: entranceTranslateY.value },
+        { scale: scale.value * diveScale },
+      ],
+      opacity: opacity.value * diveOpacity,
+    };
+  });
 
   const contentStyle = useAnimatedStyle(() => ({
     opacity: contentOpacity.value,
@@ -865,6 +889,8 @@ export default function TodayCardDeck({
   initialCenterIdx = 1,
   onCenterChange,
   isLoading = false,
+  heroDiveScale,
+  heroDiveOpacity,
   style,
 }: TodayCardDeckProps) {
   const [centerIdx, setCenterIdx] = useState(initialCenterIdx);
@@ -990,6 +1016,8 @@ export default function TodayCardDeck({
                 opacity={ops[i]}
                 isLoading={isLoading}
                 entranceIndex={i}
+                heroDiveScale={isCenter ? heroDiveScale : undefined}
+                heroDiveOpacity={isCenter ? heroDiveOpacity : undefined}
                 onTap={() => {
                   if (isCenter) {
                     card.onPress();

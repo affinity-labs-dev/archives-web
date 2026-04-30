@@ -15,6 +15,7 @@ import { AnimatedEntrance } from "@/components/ui/animations";
 import {
   useDailyStoryLiveActivity,
   useDailyStoryTracking,
+  useHeroDive,
   useTodayCardsData,
   useTodayHistory,
   useTodayModalSlots,
@@ -50,7 +51,7 @@ import {
   Text,
   View,
 } from "react-native";
-import Animated from "react-native-reanimated";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import {
   SafeAreaProvider,
   SafeAreaView,
@@ -171,6 +172,74 @@ export default function TodayScreen() {
   } = useTodayModalSlots({
     onCardViewed: (cardIndex) => tracking.trackCardViewed(cardIndex),
   });
+
+  // Hero-dive open animation — drives the home fade-out, center-card scale +
+  // fade, and lesson crossfade-in when the user taps START MY DAY. Mock spec
+  // in `Downloads/02 daily story/index.html:1672-1768`. The same shared
+  // values are forwarded to TodayCardDeck (centerCard transform), the home
+  // ScrollView wrapper (homeOpacity), and the Modal contents (lessonOpacity)
+  // so all three layers ride a single coordinated timeline.
+  const heroDive = useHeroDive();
+  const homeAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: heroDive.homeOpacity.value,
+  }));
+  const lessonAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: heroDive.lessonOpacity.value,
+  }));
+
+  // Drives pointerEvents on the lesson wrapper. Stays `false` while the dive
+  // is mid-fade-in (lesson is partially transparent) and during the close
+  // playReverse, so a stray tap can't trigger a button that's only 30%
+  // visible. Flips to `true` after `playDive` settles, back to `false` at
+  // the start of every close.
+  const [lessonInteractive, setLessonInteractive] = useState(false);
+
+  // Re-entrancy lock — blocks rapid taps and overlapping open↔close calls.
+  // Without this, double-tapping START MY DAY queues two playDive calls (the
+  // second overrides the first mid-flight, leaving lessonOpacity at an
+  // unpredictable mid-tween value), and tapping while a close is in flight
+  // can leave the prior promise dangling → modal never unmounts. Ref instead
+  // of state because we read/write it synchronously in event handlers
+  // without re-render churn.
+  const isHeroDiveBusy = useRef(false);
+
+  // Hero-dive open: dispatch the modal-slot state change FIRST (so the lesson
+  // mounts behind a transparent Modal at lessonOpacity=0), then run the dive
+  // timeline. The lesson crossfades in once the card has dived out.
+  const openWithDive = (target: ModalState) => {
+    if (isHeroDiveBusy.current) return;
+    isHeroDiveBusy.current = true;
+    setLessonInteractive(false);
+    openModal(target);
+    // Two RAFs (≈32ms): first lets React commit the slot state, second lets
+    // the lesson's expensive children (TodayVideoLesson with expo-video,
+    // useVideoPlayer) finish mounting before the dive timeline locks the JS
+    // thread. On Android this prevents the dive from stuttering during the
+    // lesson's initial layout pass; one RAF is too tight on low-end devices.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        heroDive.playDive().finally(() => {
+          isHeroDiveBusy.current = false;
+          setLessonInteractive(true);
+        });
+      });
+    });
+  };
+
+  // Hero-dive close: reverse the open timeline (lesson fades out → card
+  // returns → home fades back in), then unmount the Modal. Wrapping every
+  // closeModal site so all back/dismiss/complete paths get the same exit.
+  const closeWithDive = async () => {
+    if (isHeroDiveBusy.current) return;
+    isHeroDiveBusy.current = true;
+    setLessonInteractive(false);
+    try {
+      await heroDive.playReverse();
+      closeModal();
+    } finally {
+      isHeroDiveBusy.current = false;
+    }
+  };
 
   // Quiz unmounts when the modal closes (and never fires
   // onResultsChange(false) on its way out), so reset chrome-related
@@ -474,7 +543,7 @@ export default function TodayScreen() {
           }}
           onDismiss={() => {
             if (isModalTransitioning.current) return;
-            closeModal();
+            closeWithDive();
           }}
         />
       );
@@ -505,7 +574,7 @@ export default function TodayScreen() {
               animateModalTransition("video", "none", "backward");
               tracking.trackCardViewed(1);
             } else {
-              closeModal();
+              closeWithDive();
             }
           }}
         />
@@ -515,6 +584,7 @@ export default function TodayScreen() {
     if (modal === "quiz") {
       if (!user) {
         AppLogger.error("quiz", "[Today] Quiz modal opened without authenticated user");
+        // Error path — snap close, no need to play reverse dive
         closeModal();
         return null;
       }
@@ -530,7 +600,7 @@ export default function TodayScreen() {
           animateModalTransition("reading", "video", "backward");
           tracking.trackCardViewed(2);
         } else {
-          closeModal();
+          closeWithDive();
         }
       };
       return (
@@ -609,7 +679,7 @@ export default function TodayScreen() {
             onContinue={async () => {
               if (isModalTransitioning.current) return;
               await handleQuizComplete();
-              closeModal();
+              closeWithDive();
             }}
             onDismiss={() => {
               if (isModalTransitioning.current) return;
@@ -617,7 +687,7 @@ export default function TodayScreen() {
                 animateModalTransition("reading", "video", "backward");
                 tracking.trackCardViewed(2);
               } else {
-                closeModal();
+                closeWithDive();
               }
             }}
             onBack={() => {
@@ -626,7 +696,7 @@ export default function TodayScreen() {
                 animateModalTransition("reading", "video", "backward");
                 tracking.trackCardViewed(2);
               } else {
-                closeModal();
+                closeWithDive();
               }
             }}
           />
@@ -640,6 +710,32 @@ export default function TodayScreen() {
 
   return (
     <View style={[themeStyles.container, { paddingTop: Platform.OS === "ios" ? insets.top : (insets.top + 11) }]}>
+      {/* Home layer — fades to opacity 0 during the hero dive (mock
+          `index.html:1696-1707`). Wraps both the scrollable content AND
+          the fixed-bottom CTA so the whole home recedes in lockstep, while
+          the modal lives outside this wrapper at full opacity. `flex: 1`
+          on the Animated.View keeps the existing layout (the unwrapped
+          structure had ScrollView + bottom CTA as siblings of the outer
+          View; we preserve that flex behavior here).
+
+          `collapsable={false}` (Android-only) — without this, RN's view
+          flattening can fold the Animated.View into its child during a
+          translate/opacity cycle, breaking the opacity layer at runtime.
+          Cheap insurance: the wrapper exists purely to host the opacity
+          shared value, so flattening would defeat its purpose.
+
+          `pointerEvents="none"` while a lesson modal is mounted — once the
+          dive starts, the home is invisible (or about to be); blocking
+          touches here means a stray tap during the 250ms fade can't fire
+          a card pill or scroll. The Modal still catches its own touches
+          via `lessonInteractive` below. */}
+      <Animated.View
+        style={[{ flex: 1 }, homeAnimatedStyle]}
+        collapsable={false}
+        pointerEvents={
+          slotAModal !== "none" || slotBModal !== "none" ? "none" : "auto"
+        }
+      >
       <ScrollView
         style={themeStyles.scrollView}
         contentContainerStyle={themeStyles.scrollContent}
@@ -693,15 +789,18 @@ export default function TodayScreen() {
           <TodayEmptyState isHistoricalView={isHistoricalView} />
         ) : (
           <>
-            {/* Wave entrance is handled per-Card inside TodayCardDeck — each
-                card translates 60→0 with `back.out(1.4)`, 90ms staggered from
-                a 650ms base (mock `index.html:1883-1885`). Wrapping the whole
-                deck in a single AnimatedEntrance would flatten the wave into
-                one slide-up; per-card stagger lives next to the carousel's
-                other shared values for direct transform-array composition. */}
+            {/* Wave entrance is now handled per-Card inside TodayCardDeck —
+                each card translates 60→0 with `back.out(1.4)`, 90ms staggered
+                from a 650ms base (mock `index.html:1883-1885`). Wrapping the
+                whole deck in a single AnimatedEntrance flattened the wave
+                into one slide-up; the per-card stagger lives next to the
+                carousel's other shared values for direct transform-array
+                composition. */}
             <TodayCardDeck
               cards={cardsData}
               isLoading={isLoadingProgress}
+              heroDiveScale={heroDive.cardScale}
+              heroDiveOpacity={heroDive.cardOpacity}
             />
 
             {/* Bottom Spacing for fixed button */}
@@ -726,14 +825,18 @@ export default function TodayScreen() {
             isFullWidth
             variant="secondary"
             onPress={() => {
+              // Hero dive — pick the next-incomplete section, then run the
+              // mock-spec timeline (home fade + center card scale 1→2.1 +
+              // lesson crossfade in). `openWithDive` mounts the lesson at
+              // lessonOpacity=0 and triggers the timeline on the next frame.
               if (progress === 100) {
-                openModal("video");
+                openWithDive("video");
               } else if (!watchCompleted) {
-                openModal("video");
+                openWithDive("video");
               } else if (!exploreCompleted) {
-                openModal("reading");
+                openWithDive("reading");
               } else if (isQuizUnlocked) {
-                openModal("quiz");
+                openWithDive("quiz");
               }
             }}
           >
@@ -743,29 +846,47 @@ export default function TodayScreen() {
           </DepthButton>
         </AnimatedEntrance>
       )}
+      </Animated.View>
 
       {/* Dual-slot modal for Apple-style push/pop transitions.
+          `transparent={true}` + `animationType="none"` lets the hero-dive
+          timeline (mock `index.html:1672-1768`) run instead of the OS slide:
+          - Today screen stays visible behind the Modal during the dive so
+            the user can SEE the home fade out + center card "lao vào".
+          - Modal contents start at `lessonOpacity=0` and crossfade in (400ms
+            `power2.inOut`) once the dive completes — matches goTo() crossfade
+            in the mock.
+          - Modal still presents at window level above the native tab bar
+            (`@bottom-tabs/react-navigation`) since `transparent` uses
+            `UIModalPresentationOverFullScreen` on iOS.
           SafeAreaProvider wrapper is critical on Android: the Modal opens
           its own window when `statusBarTranslucent={true}`, and the
           app-root SafeAreaProvider does NOT automatically propagate into
-          that new window. Inner consumers of `useSafeAreaInsets()`
-          (TodayLessonChrome, TodayVideoLesson, etc.) would otherwise
-          read stale or zero insets on the first frame, then receive
-          real values async — driving the chrome's `paddingTop:
-          insets.top + 8` to jitter and shaking the entire modal layout
-          (and the parent tab bar) for a beat after open. iOS reuses
-          the keyWindow so it didn't surface, but the wrapper is safe
-          on both platforms. */}
+          that new window. */}
       {(slotAModal !== "none" || slotBModal !== "none") &&
         (displayedQuest || todayQuest) && (
           <Modal
             visible={true}
-            animationType="slide"
-            presentationStyle="fullScreen"
+            animationType="none"
+            transparent={true}
             statusBarTranslucent={true}
+            // Android-only: explicit hardware acceleration for the modal
+            // window. Default is true on most devices, but on some OEM
+            // skins the transparent-modal compositor falls back to
+            // software rendering, dropping the dive timeline to ~30fps.
+            hardwareAccelerated={true}
           >
             <SafeAreaProvider>
-              <View style={{ flex: 1 }}>
+              <Animated.View
+                style={[{ flex: 1 }, lessonAnimatedStyle]}
+                collapsable={false}
+                // Block taps while the lesson is mid-fade. `lessonInteractive`
+                // flips to true only after `playDive` resolves and back to
+                // false at the start of every close. During those windows the
+                // lesson wrapper is partially transparent — letting taps
+                // through could trigger a button the user can barely see.
+                pointerEvents={lessonInteractive ? "auto" : "none"}
+              >
                 <Animated.View
                   style={slotAAnimatedStyle}
                   pointerEvents={slotAModal !== "none" && outgoingSlot !== "A" ? "auto" : "none"}
@@ -778,7 +899,7 @@ export default function TodayScreen() {
                 >
                   {renderModalContent(slotBModal)}
                 </Animated.View>
-              </View>
+              </Animated.View>
             </SafeAreaProvider>
           </Modal>
         )}

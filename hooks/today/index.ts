@@ -1,5 +1,6 @@
 export { useDailyStoryLiveActivity } from "./useDailyStoryLiveActivity";
 export { useDailyStoryTracking } from "./useDailyStoryTracking";
+export { useHeroDive, type UseHeroDiveReturn } from "./useHeroDive";
 export { useTodayCardsData } from "./useTodayCardsData";
 export { useTodayHistory } from "./useTodayHistory";
 export { useTodayModalSlots, type ModalState } from "./useTodayModalSlots";
