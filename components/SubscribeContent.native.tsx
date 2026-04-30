@@ -1,21 +1,70 @@
 // Native subscription implementation for iOS/Android - Using RevenueCat Paywall UI
 import ArchivesTheme from "@/constants/ArchivesTheme";
+import {
+  ArchivesPlusMemberScreen,
+  type ArchivesPlusBenefit,
+} from "@/components/subscription/ArchivesPlusMemberScreen";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { analyticsService } from "@/services/AnalyticsService";
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
-  SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import Purchases from 'react-native-purchases';
 import RevenueCatUI from 'react-native-purchases-ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const YEARLY_BENEFITS: readonly ArchivesPlusBenefit[] = [
+  {
+    icon: 'refresh',
+    title: 'Unlimited Story Rewinds',
+    subtitle: 'Replay missed days and stay up to date',
+  },
+  {
+    icon: 'help',
+    title: 'Unlimited Explanations',
+    subtitle: 'Get answers to every question you ask',
+  },
+  {
+    icon: 'sparkles',
+    title: 'Unlimited AI Learning',
+    subtitle: 'Chat without limits to go deeper',
+  },
+  {
+    icon: 'lock-open',
+    title: 'All Eras Unlocked',
+    subtitle: 'Every chapter, now and future',
+  },
+];
+
+const FOUNDING_BENEFITS: readonly ArchivesPlusBenefit[] = [
+  {
+    icon: 'lock-open',
+    title: 'Lifetime Access to All Eras',
+    subtitle: 'Every chapter unlocked, today and forever',
+  },
+  {
+    icon: 'rocket',
+    title: 'Early Access to New Content',
+    subtitle: 'See new eras and features before anyone else',
+  },
+  {
+    icon: 'ribbon',
+    title: 'Founding Member Recognition',
+    subtitle: 'One of the first to believe in Archives',
+  },
+  {
+    icon: 'star',
+    title: 'All Future Features Included',
+    subtitle: 'Every upcoming addition, at no extra cost',
+  },
+];
 
 export default function SubscribeContent() {
   // Connect to real RevenueCat subscription system
@@ -57,7 +106,7 @@ export default function SubscribeContent() {
   // Show loading state while RevenueCat initializes
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 11 }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
           <Text style={styles.loadingText}>Loading subscription options...</Text>
@@ -66,152 +115,37 @@ export default function SubscribeContent() {
     );
   }
 
-  // Founding members get a special thank you screen
+  // Founding members — lifetime variant of the Archives Plus member screen.
+  // No manage link since lifetime purchases can't be managed in-app.
   if (isFoundingMember) {
     return (
-      <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-          <View style={styles.subscribedContainer}>
-            <Ionicons
-              name="sparkles"
-              size={70}
-              color={ArchivesTheme.colors.persianOrange}
-              style={styles.subscribedIcon}
-            />
-            <Text style={styles.subscribedTitle}>Founding Member</Text>
-            <Text style={styles.subscribedMessage}>
-              Thank you for believing in Archives before anyone else. Your early support helped turn a vision into reality, and we{'\u2019'}re grateful you{'\u2019'}re part of this journey from the very beginning.
-            </Text>
-
-            <View style={styles.explorerPassSection}>
-              <Text style={styles.featuresHeader}>
-                Lifetime Access
-              </Text>
-              <Text style={styles.foundingMemberDescription}>
-                Your support helped build Archives from the ground up. As a founding member, you have permanent access to every era, adventure, and feature {'\u2014'} forever.
-              </Text>
-            </View>
-
-            <View style={styles.explorerPassSection}>
-              <Text style={styles.featuresHeader}>
-                Your Founding Member Perks:
-              </Text>
-
-              <View style={styles.featuresList}>
-                <View style={styles.featureItem}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.featureText}>
-                    Lifetime Access to All Eras
-                  </Text>
-                </View>
-
-                <View style={styles.featureItem}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.featureText}>Early Access to New Content</Text>
-                </View>
-
-                <View style={styles.featureItem}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.featureText}>Founding Member Recognition</Text>
-                </View>
-
-                <View style={styles.featureItem}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.featureText}>All Future Features Included</Text>
-                </View>
-              </View>
-            </View>
-
-            <Text style={styles.foundingMemberFooter}>
-              One of the first to believe in Archives
-            </Text>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+      <ArchivesPlusMemberScreen
+        planName="Archives Plus"
+        statusLabel="Founding member"
+        planDetail="Lifetime · permanent access"
+        chipLabel="Founding"
+        benefits={FOUNDING_BENEFITS}
+        footerNote="Thank you for believing in Archives before anyone else. Your support helps build more lessons for learners worldwide."
+        manageLink={null}
+      />
     );
   }
 
-  // If user is already subscribed, show success state
+  // Yearly subscriber — default Archives Plus member screen.
   if (isSubscribed) {
     return (
-      <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { paddingTop: 20 }]}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-          <View style={styles.subscribedContainer}>
-            <Ionicons
-              name="checkmark-circle"
-              size={80}
-              color={ArchivesTheme.colors.mossGreen}
-              style={styles.subscribedIcon}
-            />
-            <Text style={styles.subscribedTitle}>Archives Explorer Pass Active!</Text>
-            <Text style={styles.subscribedMessage}>
-              You have unlimited access to all historical eras and adventures!
-            </Text>
-
-            <View style={styles.explorerPassSection}>
-              <Text style={styles.featuresHeader}>
-                Your Explorer Pass includes:
-              </Text>
-
-              <View style={styles.featuresList}>
-                <View style={styles.featureItem}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.featureText}>
-                    All Historical Eras & Adventures
-                  </Text>
-                </View>
-
-                <View style={styles.featureItem}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.featureText}>New Learning Modules</Text>
-                </View>
-
-                <View style={styles.featureItem}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.featureText}>Exclusive Badges</Text>
-                </View>
-
-                <View style={styles.featureItem}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={ArchivesTheme.colors.persianOrange}
-                  />
-                  <Text style={styles.featureText}>Early Access to New Eras</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+      <ArchivesPlusMemberScreen
+        planName="Archives Plus"
+        statusLabel="Active member"
+        planDetail="Yearly plan · renews automatically"
+        chipLabel="Member"
+        benefits={YEARLY_BENEFITS}
+        footerNote="Your subscription helps us build more lessons for learners worldwide."
+        manageLink={{
+          label: 'Manage subscription in your App Store',
+          onPress: () => Purchases.showManageSubscriptions(),
+        }}
+      />
     );
   }
 
@@ -221,7 +155,7 @@ export default function SubscribeContent() {
   // iOS uses native UITabBarController which handles view lifecycle correctly.
   if (!isFocused && Platform.OS === 'android' && !isTransacting) {
     return (
-      <SafeAreaView style={[styles.safeArea, { paddingTop: 20 }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { paddingTop: 11 }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
         </View>
@@ -294,22 +228,12 @@ export default function SubscribeContent() {
   );
 }
 
-// Simplified styles - only for loading and subscribed states
+// Loading-only styles. Member-screen styles live in ArchivesPlusMemberScreen.
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: ArchivesTheme.colors.creamWhite,
   },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
-  },
-
-  // Loading state styles
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -324,88 +248,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 16,
     opacity: 0.7,
-  },
-
-  // Subscribed state styles
-  subscribedContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  subscribedIcon: {
-    marginBottom: 24,
-  },
-  subscribedTitle: {
-    fontFamily: "DM Sans",
-    fontSize: 28,
-    fontWeight: "600",
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  subscribedMessage: {
-    fontFamily: "DM Sans",
-    fontSize: 16,
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: "center",
-    marginBottom: 40,
-    lineHeight: 24,
-    opacity: 0.8,
-  },
-
-  // Explorer Pass Section (for subscribed state)
-  explorerPassSection: {
-    backgroundColor: ArchivesTheme.colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 16,
-    marginBottom: 30,
-    shadowColor: ArchivesTheme.colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  featuresHeader: {
-    fontFamily: "DM Sans",
-    fontSize: 16,
-    fontWeight: "600",
-    color: ArchivesTheme.colors.mutedNavy,
-    textAlign: "left",
-    marginBottom: 16,
-    marginTop: 0,
-  },
-  featuresList: {},
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 14,
-    paddingVertical: 2,
-  },
-  featureText: {
-    fontFamily: "DM Sans",
-    fontSize: 15,
-    fontWeight: "500",
-    color: ArchivesTheme.colors.mutedNavy,
-    marginLeft: 12,
-  },
-
-  // Founding Member styles
-  foundingMemberDescription: {
-    fontFamily: "DM Sans",
-    fontSize: 15,
-    color: ArchivesTheme.colors.mutedNavy,
-    lineHeight: 22,
-    opacity: 0.8,
-  },
-  foundingMemberFooter: {
-    fontFamily: "DM Sans",
-    fontSize: 14,
-    fontWeight: "500",
-    fontStyle: "italic",
-    color: ArchivesTheme.colors.persianOrange,
-    textAlign: "center",
-    marginTop: 24,
   },
 });
