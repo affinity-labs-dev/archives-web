@@ -286,7 +286,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    paddingRight: 31,
+    alignItems: 'flex-end',
   },
   image: {
     width: IMAGE_W,

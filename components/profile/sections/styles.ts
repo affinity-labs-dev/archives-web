@@ -89,7 +89,7 @@ export const profileStyles = StyleSheet.create({
   staticRightTile: {
     flex: 1,
     height: 80,
-    paddingVertical: 10,
+    // paddingVertical: 10,
     paddingHorizontal: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -97,9 +97,6 @@ export const profileStyles = StyleSheet.create({
     borderBottomLeftRadius: 5,
     borderTopRightRadius: 15,
     borderBottomRightRadius: 15,
-  },
-  staticTileContent: {
-    marginBottom: 8,
   },
   seeMoreToggle: {
     flexDirection: 'row',

@@ -115,7 +115,5 @@ const statTileStyles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 4,
-    marginBottom: 8,
   },
 });

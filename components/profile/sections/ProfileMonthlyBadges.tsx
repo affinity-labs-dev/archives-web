@@ -1,7 +1,8 @@
 import React from 'react';
-import { ScrollView, TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import Animated from 'react-native-reanimated';
 
 import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { Typography } from '@/components/ui/Typography';
@@ -45,7 +46,7 @@ function ProfileMonthlyBadgesImpl({
           <Ionicons name="chevron-forward" size={22} color={colors.concreteGrey} />
         </TouchableOpacity>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={[profileStyles.badgeRow, { paddingHorizontal: 24 }]}>
+        <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={[profileStyles.badgeRow, { paddingHorizontal: 24 }]}>
           {badges.map((badge) => (
             <View key={badge.id} style={profileStyles.badgeItem}>
               <LiftPressable
@@ -75,7 +76,7 @@ function ProfileMonthlyBadgesImpl({
               />
             </View>
           ))}
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
     </AnimatedEntrance>
   );
