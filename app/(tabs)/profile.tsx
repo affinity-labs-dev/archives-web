@@ -43,6 +43,7 @@ import {
 
 // Profile UI
 import { AchievementsScreen } from '@/components/profile/AchievementsScreen';
+import { AvatarSelectorSheet } from '@/components/profile/AvatarSelectorSheet';
 import { MonthlyBadgesScreen } from '@/components/profile/MonthlyBadgesScreen';
 import { WeeklyXPChart } from '@/components/profile/WeeklyXPChart';
 import { SettingsSheet } from '@/components/profile/settings/SettingsSheet';
@@ -79,7 +80,7 @@ export default function ProfileTab() {
     setSoundEffectsEnabled,
     setHapticsEnabled,
   } = usePreferences();
-  const { avatars, selectedAvatar } = useRewards();
+  const { avatars, selectedAvatar, setSelectedAvatar } = useRewards();
   const { achievements, streak, longestStreak } = useGamificationOrchestrator();
   const dailyGoalMinutes = useOnboardingStore((s) => s.dailyGoalMinutes);
 
@@ -88,6 +89,7 @@ export default function ProfileTab() {
   // ── UI state ──────────────────────────────────
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showMonthlyBadges, setShowMonthlyBadges] = useState(false);
   const [previewAchievement, setPreviewAchievement] = useState<DisplayAchievement | null>(null);
@@ -135,7 +137,12 @@ export default function ProfileTab() {
   });
 
   // ── Derived display values ────────────────────
-  const currentAvatar = selectedAvatar || avatars[0];
+  const baseAvatar = selectedAvatar || avatars[0];
+  // When user picks from the avatar selector, localAvatarId overrides
+  // the image_url so getAvatarImage resolves the new v5 asset immediately
+  const currentAvatar = localAvatarId
+    ? { ...baseAvatar, image_url: localAvatarId }
+    : baseAvatar;
 
   const displayName = useMemo(() => {
     if (user?.firstName && user?.lastName) {
@@ -168,7 +175,29 @@ export default function ProfileTab() {
   );
   const handleOpenAchievements = useCallback(() => setShowAchievements(true), []);
   const handleCloseAchievements = useCallback(() => setShowAchievements(false), []);
-  const handleOpenAvatarPicker = useCallback(() => {}, []);
+  const handleOpenAvatarPicker = useCallback(() => setShowAvatarSelector(true), []);
+  const handleCloseAvatarSelector = useCallback(() => setShowAvatarSelector(false), []);
+  const [localAvatarId, setLocalAvatarId] = useState<string | null>(null);
+
+  const handleSaveAvatar = useCallback(
+    (avatarId: string) => {
+      // Store the local ID so getAvatarImage can resolve it immediately
+      setLocalAvatarId(avatarId);
+
+      // Sync with Supabase rewards system
+      const match = avatars.find(
+        (a) =>
+          a.id === avatarId ||
+          a.name === avatarId ||
+          a.name?.toLowerCase() === avatarId ||
+          a.image_url?.toLowerCase().includes(avatarId),
+      );
+      if (match) {
+        setSelectedAvatar(match);
+      }
+    },
+    [avatars, setSelectedAvatar],
+  );
   const handleClosePreviewAchievement = useCallback(
     () => setPreviewAchievement(null),
     [],
@@ -315,6 +344,13 @@ export default function ProfileTab() {
           earnedMonths={earnedMonths}
         />
       )}
+
+      <AvatarSelectorSheet
+        visible={showAvatarSelector}
+        onClose={handleCloseAvatarSelector}
+        currentAvatarId={currentAvatar?.image_url?.toLowerCase().replace('avatars/', '').replace('.png', '') ?? null}
+        onSave={handleSaveAvatar}
+      />
 
       {showSettingsSheet && (
         <SettingsSheet
