@@ -734,9 +734,10 @@ export default function TodayVideoLesson({
               ]}
             >
               <Typography
-                variant="display.large"
+                variant="display.medium"
                 color="white"
                 style={styles.captionText}
+                align="center"
               >
                 {captions[currentMediaIndex]}
               </Typography>
@@ -922,12 +923,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 80,
   },
-  // The Typography variant `display.large` provides Bounded Black 28
-  // uppercase + line-height. We layer the figma's `text-shadow-[1px_1px_4px_black]`
-  // here so it carries through across any video-frame background.
   captionText: {
-    textAlign: "center",
-    lineHeight: 35,
     textShadowColor: "rgba(0, 0, 0, 1)",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 4,

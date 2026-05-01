@@ -123,6 +123,22 @@ export const typographyVariants = {
     letterSpacing: 0,
     uppercase: true,
   },
+  'display.medium': {
+    family: 'bounded',
+    size: 20,
+    lineHeight: 30,
+    weight: '900',
+    letterSpacing: 0,
+    uppercase: true,
+  },
+  'display.small': {
+    family: 'bounded',
+    size: 18,
+    lineHeight: 35,
+    weight: '900',
+    letterSpacing: 0,
+    uppercase: true,
+  },
 
   // Heading — Onest Black & Bold, for section titles inside screens
   'heading.xl': {
@@ -141,6 +157,12 @@ export const typographyVariants = {
     family: 'onest',
     size: 22,
     weight: '700',
+    letterSpacing: 0,
+  },
+  'heading.s': {
+    family: 'onest',
+    size: 20,
+    weight: '600',
     letterSpacing: 0,
   },
 

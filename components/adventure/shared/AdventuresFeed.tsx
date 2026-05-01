@@ -7,10 +7,10 @@ import {
   Modal,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Platform,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ribbonBadge: {
-    backgroundColor: '#C63D78',
+    backgroundColor: colors.bluePrimary,
     borderRadius: 16.5,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   // Divider
   divider: {
     height: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: '#6F6F6F',
     marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
   },
