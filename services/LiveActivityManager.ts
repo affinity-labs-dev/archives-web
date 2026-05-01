@@ -4,8 +4,9 @@
  * Manages two activity types:
  *
  * StreakGuard — "Your streak is expiring!" (9 PM → midnight)
- *   Trigger: time >= 21:00, 0 cards completed today, streak >= 3
- *   Terminal: .saved (card completed) or .failed (midnight)
+ *   Trigger: time >= 21:00, nothing completed today (daily story OR era module),
+ *            streak >= 1
+ *   Terminal: .saved (story/module completed) or .failed (midnight)
  *
  * DailyStory — "You're working on your quest" (Today tab open)
  *   Trigger: user opens Today tab for the first time that day
@@ -59,7 +60,7 @@ const DEV_OVERRIDES = __DEV__ ? {
   bypassTimeCheck: false,
   /** Skip the "zero cards completed today" check */
   bypassCardCheck: false,
-  /** Skip the "streak >= 3" check — works even with streak 0 */
+  /** Skip the "streak >= 1" check — works even with streak 0 */
   bypassStreakCheck: false,
   /** Override streak count displayed on the banner (null = use real value) */
   fakeStreakCount: null as number | null,
@@ -82,7 +83,7 @@ const STORAGE_KEY_ACTIVE_DAILY_STORY = '@live_activity_daily_story_id';
 const STORAGE_KEY_DAILY_STORY_DATE = '@live_activity_daily_story_date';
 const STORAGE_KEY_DAILY_STORY_META = '@live_activity_daily_story_meta';
 const STREAK_GUARD_START_HOUR = 21; // 9 PM per spec
-const MIN_STREAK_FOR_URGENCY = 3; // No urgency fatigue for new users
+const MIN_STREAK_FOR_URGENCY = 1; // Any active streak triggers (per spec — even day-1 users)
 const LINGER_SECONDS = 15 * 60; // 15 minutes for terminal states (saved/failed/completed/incomplete)
 
 // MARK: - Manager class
@@ -279,13 +280,23 @@ class LiveActivityManager {
    * Check conditions and start StreakGuard if appropriate.
    * Call this on every app foreground event.
    *
+   * Spec gates (all must hold):
+   *   - Time >= 21:00 (9 PM local)
+   *   - Nothing completed today — daily story not finished AND no era module
+   *     finished. Whether the user "started but didn't finish" the daily story
+   *     or never opened it doesn't matter; both qualify.
+   *   - Streak >= 1 (any active streak — even day-1 users)
+   *   - Live Activities permission granted
+   *
    * @param currentStreak - User's current streak count
-   * @param hasCompletedAnyCardToday - Whether any daily story card was completed today
+   * @param hasCompletedAnythingToday - True if ANY completion landed today —
+   *   daily story finished, era module quiz passed, etc. Anything that would
+   *   already have saved the streak. Caller derives this from streak data.
    * @param streakStartDate - YYYY-MM-DD when streak started (for display)
    */
   async checkAndStartStreakGuard(
     currentStreak: number,
-    hasCompletedAnyCardToday: boolean,
+    hasCompletedAnythingToday: boolean,
     streakStartDate: string
   ): Promise<void> {
     if (Platform.OS !== 'ios') return;
@@ -330,8 +341,8 @@ class LiveActivityManager {
       return;
     }
 
-    if (!DEV_OVERRIDES.bypassCardCheck && hasCompletedAnyCardToday) {
-      AppLogger.info('gamification', 'Card already completed today, skipping StreakGuard');
+    if (!DEV_OVERRIDES.bypassCardCheck && hasCompletedAnythingToday) {
+      AppLogger.info('gamification', 'Already completed something today (story or module), skipping StreakGuard');
       return;
     }
 
