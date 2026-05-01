@@ -4,8 +4,9 @@
  * Manages two activity types:
  *
  * StreakGuard — "Your streak is expiring!" (9 PM → midnight)
- *   Trigger: time >= 21:00, 0 cards completed today, streak >= 3
- *   Terminal: .saved (card completed) or .failed (midnight)
+ *   Trigger: time >= 21:00, nothing completed today (daily story OR era module),
+ *            streak >= 1
+ *   Terminal: .saved (story/module completed) or .failed (midnight)
  *
  * DailyStory — "You're working on your quest" (Today tab open)
  *   Trigger: user opens Today tab for the first time that day
@@ -59,7 +60,7 @@ const DEV_OVERRIDES = __DEV__ ? {
   bypassTimeCheck: false,
   /** Skip the "zero cards completed today" check */
   bypassCardCheck: false,
-  /** Skip the "streak >= 3" check — works even with streak 0 */
+  /** Skip the "streak >= 1" check — works even with streak 0 */
   bypassStreakCheck: false,
   /** Override streak count displayed on the banner (null = use real value) */
   fakeStreakCount: null as number | null,
@@ -77,10 +78,12 @@ const DEV_OVERRIDES = __DEV__ ? {
 
 const STORAGE_KEY_ACTIVE_STREAK_GUARD = '@live_activity_streak_guard_id';
 const STORAGE_KEY_STREAK_GUARD_DATE = '@live_activity_streak_guard_date';
+const STORAGE_KEY_STREAK_GUARD_LAST_STREAK = '@live_activity_streak_guard_last_streak';
 const STORAGE_KEY_ACTIVE_DAILY_STORY = '@live_activity_daily_story_id';
 const STORAGE_KEY_DAILY_STORY_DATE = '@live_activity_daily_story_date';
+const STORAGE_KEY_DAILY_STORY_META = '@live_activity_daily_story_meta';
 const STREAK_GUARD_START_HOUR = 21; // 9 PM per spec
-const MIN_STREAK_FOR_URGENCY = 3; // No urgency fatigue for new users
+const MIN_STREAK_FOR_URGENCY = 1; // Any active streak triggers (per spec — even day-1 users)
 const LINGER_SECONDS = 15 * 60; // 15 minutes for terminal states (saved/failed/completed/incomplete)
 
 // MARK: - Manager class
@@ -118,11 +121,20 @@ class LiveActivityManager {
     if (Platform.OS !== 'ios' || this.initialized) return;
 
     try {
-      const [storedStreakId, storedStreakDate, storedStoryId, storedStoryDate] = await Promise.all([
+      const [
+        storedStreakId,
+        storedStreakDate,
+        storedStreakLastStreak,
+        storedStoryId,
+        storedStoryDate,
+        storedStoryMeta,
+      ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEY_ACTIVE_STREAK_GUARD),
         AsyncStorage.getItem(STORAGE_KEY_STREAK_GUARD_DATE),
+        AsyncStorage.getItem(STORAGE_KEY_STREAK_GUARD_LAST_STREAK),
         AsyncStorage.getItem(STORAGE_KEY_ACTIVE_DAILY_STORY),
         AsyncStorage.getItem(STORAGE_KEY_DAILY_STORY_DATE),
+        AsyncStorage.getItem(STORAGE_KEY_DAILY_STORY_META),
       ]);
 
       const today = toLocalDateString(new Date());
@@ -150,8 +162,12 @@ class LiveActivityManager {
         const exists = active.some(a => a.id === storedStreakId && a.type === 'StreakGuard');
         if (exists) {
           this.activeStreakGuardId = storedStreakId;
+          // Restore lastStartedStreak so onStreakFailed renders the correct value
+          // after kill+restart. Falls back to 0 if missing/corrupt.
+          const parsedStreak = storedStreakLastStreak ? parseInt(storedStreakLastStreak, 10) : 0;
+          this.lastStartedStreak = Number.isFinite(parsedStreak) ? parsedStreak : 0;
           this.scheduleMidnightTimeout();
-          AppLogger.info('gamification', 'Restored active StreakGuard', { id: storedStreakId });
+          AppLogger.info('gamification', 'Restored active StreakGuard', { id: storedStreakId, lastStreak: this.lastStartedStreak });
         } else {
           AppLogger.warn('gamification', 'Stored StreakGuard no longer exists, clearing');
           await this.clearStreakGuardPersistedState();
@@ -163,13 +179,17 @@ class LiveActivityManager {
         const exists = active.some(a => a.id === storedStoryId && a.type === 'DailyStory');
         if (exists) {
           this.activeDailyStoryId = storedStoryId;
+          // Restore meta — required so updateDailyStoryProgress can issue the
+          // native update call after a kill+restart. Without this, the in-memory
+          // `dailyStoryMeta` stays null and updates silently early-return.
+          this.dailyStoryMeta = this.parseDailyStoryMeta(storedStoryMeta);
           this.scheduleDailyStoryMidnightTimeout();
-          AppLogger.info('gamification', 'Restored active DailyStory', { id: storedStoryId });
+          AppLogger.info('gamification', 'Restored active DailyStory', { id: storedStoryId, hasMeta: this.dailyStoryMeta !== null });
         } else {
-          // iOS ended activity (8h timeout). Clear ID only — keep date flag
-          // so we don't re-start DailyStory on the same day.
+          // iOS ended activity (8h timeout). Clear ID + meta only — keep date
+          // flag so we don't re-start DailyStory on the same day.
           AppLogger.warn('gamification', 'Stored DailyStory no longer exists, clearing ID');
-          await AsyncStorage.removeItem(STORAGE_KEY_ACTIVE_DAILY_STORY);
+          await AsyncStorage.multiRemove([STORAGE_KEY_ACTIVE_DAILY_STORY, STORAGE_KEY_DAILY_STORY_META]);
         }
       }
 
@@ -184,19 +204,74 @@ class LiveActivityManager {
   /** Clear StreakGuard persisted keys (called on stale cleanup or terminal). */
   private async clearStreakGuardPersistedState(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([STORAGE_KEY_ACTIVE_STREAK_GUARD, STORAGE_KEY_STREAK_GUARD_DATE]);
+      await AsyncStorage.multiRemove([
+        STORAGE_KEY_ACTIVE_STREAK_GUARD,
+        STORAGE_KEY_STREAK_GUARD_DATE,
+        STORAGE_KEY_STREAK_GUARD_LAST_STREAK,
+      ]);
     } catch (err) {
       AppLogger.warn('gamification', 'Failed to clear StreakGuard persisted state', { error: String(err) });
     }
   }
 
-  /** Clear BOTH DailyStory keys (ID + date flag). Use only for stale-day cleanup. */
+  /** Clear BOTH DailyStory keys (ID + date flag + meta). Use only for stale-day cleanup. */
   private async clearDailyStoryFullState(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([STORAGE_KEY_ACTIVE_DAILY_STORY, STORAGE_KEY_DAILY_STORY_DATE]);
+      await AsyncStorage.multiRemove([
+        STORAGE_KEY_ACTIVE_DAILY_STORY,
+        STORAGE_KEY_DAILY_STORY_DATE,
+        STORAGE_KEY_DAILY_STORY_META,
+      ]);
     } catch (err) {
       AppLogger.warn('gamification', 'Failed to clear DailyStory full state', { error: String(err) });
     }
+  }
+
+  /**
+   * Persist `dailyStoryMeta` so it survives app kill+restart.
+   * Without this, `updateDailyStoryProgress` would silently no-op after restart
+   * because the in-memory meta is null even though the activity ID was restored.
+   */
+  private async persistDailyStoryMeta(meta: NonNullable<typeof this.dailyStoryMeta>): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY_DAILY_STORY_META, JSON.stringify(meta));
+    } catch (err) {
+      AppLogger.warn('gamification', 'Failed to persist DailyStory meta', { error: String(err) });
+    }
+  }
+
+  /** Safely parse a persisted meta blob; returns null on missing/corrupt JSON. */
+  private parseDailyStoryMeta(raw: string | null): typeof this.dailyStoryMeta {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (
+        parsed &&
+        typeof parsed.endDate === 'number' &&
+        typeof parsed.currentStreak === 'number' &&
+        typeof parsed.watchCompleted === 'boolean' &&
+        typeof parsed.exploreCompleted === 'boolean' &&
+        typeof parsed.questionsCompleted === 'boolean'
+      ) {
+        // Old meta blobs may carry an extra `startDate` field from the
+        // count-up experiment — JSON.parse keeps it, but we ignore it. The
+        // returned object's TS type doesn't declare `startDate` so callers
+        // can't accidentally rely on it.
+        return parsed;
+      }
+      AppLogger.warn('gamification', 'Persisted DailyStory meta has unexpected shape, ignoring');
+      return null;
+    } catch (err) {
+      AppLogger.warn('gamification', 'Failed to parse DailyStory meta', { error: String(err) });
+      return null;
+    }
+  }
+
+  /** Compute today's local midnight as Unix epoch seconds (fallback endDate). */
+  private todayMidnightEpochSeconds(): number {
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    return Math.floor(midnight.getTime() / 1000);
   }
 
   // MARK: StreakGuard trigger
@@ -205,13 +280,23 @@ class LiveActivityManager {
    * Check conditions and start StreakGuard if appropriate.
    * Call this on every app foreground event.
    *
+   * Spec gates (all must hold):
+   *   - Time >= 21:00 (9 PM local)
+   *   - Nothing completed today — daily story not finished AND no era module
+   *     finished. Whether the user "started but didn't finish" the daily story
+   *     or never opened it doesn't matter; both qualify.
+   *   - Streak >= 1 (any active streak — even day-1 users)
+   *   - Live Activities permission granted
+   *
    * @param currentStreak - User's current streak count
-   * @param hasCompletedAnyCardToday - Whether any daily story card was completed today
+   * @param hasCompletedAnythingToday - True if ANY completion landed today —
+   *   daily story finished, era module quiz passed, etc. Anything that would
+   *   already have saved the streak. Caller derives this from streak data.
    * @param streakStartDate - YYYY-MM-DD when streak started (for display)
    */
   async checkAndStartStreakGuard(
     currentStreak: number,
-    hasCompletedAnyCardToday: boolean,
+    hasCompletedAnythingToday: boolean,
     streakStartDate: string
   ): Promise<void> {
     if (Platform.OS !== 'ios') return;
@@ -256,8 +341,8 @@ class LiveActivityManager {
       return;
     }
 
-    if (!DEV_OVERRIDES.bypassCardCheck && hasCompletedAnyCardToday) {
-      AppLogger.info('gamification', 'Card already completed today, skipping StreakGuard');
+    if (!DEV_OVERRIDES.bypassCardCheck && hasCompletedAnythingToday) {
+      AppLogger.info('gamification', 'Already completed something today (story or module), skipping StreakGuard');
       return;
     }
 
@@ -311,9 +396,12 @@ class LiveActivityManager {
       this.activeStreakGuardId = id;
       this.lastStartedStreak = displayStreak;
 
+      // Persist all three so onStreakFailed renders the correct streak after
+      // kill+restart (without the third key, .failed banner shows streak 0).
       const today = toLocalDateString(new Date());
       await AsyncStorage.setItem(STORAGE_KEY_ACTIVE_STREAK_GUARD, id);
       await AsyncStorage.setItem(STORAGE_KEY_STREAK_GUARD_DATE, today);
+      await AsyncStorage.setItem(STORAGE_KEY_STREAK_GUARD_LAST_STREAK, String(displayStreak));
 
       this.scheduleMidnightTimeout();
 
@@ -499,10 +587,13 @@ class LiveActivityManager {
         questionsCompleted: params.questionsCompleted,
       };
 
-      // Persist for app restart recovery
+      // Persist for app restart recovery (ID + date flag + meta).
+      // Meta is required so updateDailyStoryProgress can issue the native call
+      // after kill+restart — without it, updates silently no-op.
       const persistDate = toLocalDateString(new Date());
       await AsyncStorage.setItem(STORAGE_KEY_ACTIVE_DAILY_STORY, id);
       await AsyncStorage.setItem(STORAGE_KEY_DAILY_STORY_DATE, persistDate);
+      await this.persistDailyStoryMeta(this.dailyStoryMeta);
 
       this.scheduleDailyStoryMidnightTimeout();
 
@@ -524,7 +615,21 @@ class LiveActivityManager {
     questionsCompleted: boolean;
     currentStreak: number;
   }): Promise<void> {
-    if (!this.activeDailyStoryId || !this.dailyStoryMeta) return;
+    if (!this.activeDailyStoryId) return;
+
+    // Fallback: if meta is missing (e.g. corrupt persisted state), rebuild from
+    // the current call + today's midnight. Without this, updates would no-op
+    // on the rare path where the ID was restored but meta wasn't.
+    if (!this.dailyStoryMeta) {
+      AppLogger.warn('gamification', 'DailyStory meta missing on update — rebuilding from caller state');
+      this.dailyStoryMeta = {
+        currentStreak: params.currentStreak,
+        endDate: this.todayMidnightEpochSeconds(),
+        watchCompleted: params.watchCompleted,
+        exploreCompleted: params.exploreCompleted,
+        questionsCompleted: params.questionsCompleted,
+      };
+    }
 
     try {
       const completedCount = [params.watchCompleted, params.exploreCompleted, params.questionsCompleted].filter(Boolean).length;
@@ -553,9 +658,33 @@ class LiveActivityManager {
         questionsCompleted: params.questionsCompleted,
         currentStreak: params.currentStreak,
       };
+      // Persist updated meta so subsequent kill+restart sees the latest state.
+      await this.persistDailyStoryMeta(this.dailyStoryMeta);
 
       AppLogger.info('gamification', 'DailyStory progress updated', { completedCount, progressPercent });
     } catch (error) {
+      // Native may throw `activityNotFound` if iOS already ended the activity
+      // (8h timeout, user dismissed, or background reaper). Clean up local
+      // state so the next foreground doesn't keep retrying a dead ID.
+      //
+      // Match all known variants — Swift throws `LiveActivityError.activityNotFound`
+      // which surfaces in JS as message "No active Live Activity found with ID: <uuid>".
+      // Earlier matcher checked `'not found'` literally — that substring doesn't
+      // appear in the actual message ("Activity found" yes, "not found" no), so
+      // the catch fell through and the error spammed on every card completion.
+      const message = ((error as Error)?.message ?? String(error)).toLowerCase();
+      if (
+        message.includes('activitynotfound') ||
+        message.includes('not found') ||
+        message.includes('no active live activity')
+      ) {
+        AppLogger.warn('gamification', 'DailyStory activity gone on iOS — clearing local state', { error: message });
+        this.activeDailyStoryId = null;
+        this.dailyStoryMeta = null;
+        this.cancelDailyStoryMidnightTimeout();
+        await this.clearDailyStoryPersistedState();
+        return;
+      }
       AppLogger.error('gamification', 'Failed to update DailyStory', {}, error as Error);
     }
   }
@@ -679,7 +808,9 @@ class LiveActivityManager {
    */
   private async clearDailyStoryPersistedState(): Promise<void> {
     try {
-      await AsyncStorage.removeItem(STORAGE_KEY_ACTIVE_DAILY_STORY);
+      // Remove ID + meta together. The date flag stays as a "started today"
+      // guard until stale-day cleanup in initialize() / checkMidnightCrossover().
+      await AsyncStorage.multiRemove([STORAGE_KEY_ACTIVE_DAILY_STORY, STORAGE_KEY_DAILY_STORY_META]);
     } catch (err) {
       AppLogger.warn('gamification', 'Failed to clear DailyStory persisted state', { error: String(err) });
     }
@@ -769,6 +900,67 @@ class LiveActivityManager {
     }
   }
 
+  // MARK: Reconcile with native
+
+  /**
+   * Reconcile JS state with native ActivityKit on app foreground.
+   *
+   * ActivityKit does NOT notify JS when the user dismisses an activity
+   * (swipe-away on lock screen, long-press → Stop, OS reaper, 8h timeout).
+   * Without reconciliation, JS keeps `activeDailyStoryId`/`activeStreakGuardId`
+   * pointing at a dead native activity — causing:
+   *  - `isDailyStoryActive` getter to lie (true when no activity exists)
+   *  - `useFocusEffect` early-return that prevents re-creating the activity
+   *  - update calls that throw `activityNotFound`
+   *
+   * This is a lazy fix: we only detect the dismissal *next time JS gets CPU*
+   * (foreground). That's the best we can do — there is no eager callback.
+   *
+   * Behavior:
+   *  - If JS thinks DailyStory is active but native disagrees → clear ID + meta
+   *    (keep date flag, since the activity DID start today; we don't want to
+   *    re-create it for the same quest the user dismissed).
+   *  - If JS thinks StreakGuard is active but native disagrees → clear all
+   *    StreakGuard state. The 9 PM trigger check will re-evaluate on next
+   *    `checkAndStartStreakGuard` and start a fresh one if conditions still hold.
+   *
+   * Call after `checkMidnightCrossover()` and before `checkAndStartStreakGuard()`
+   * on every foreground.
+   */
+  async reconcileWithNative(): Promise<void> {
+    if (Platform.OS !== 'ios') return;
+    if (!this.activeDailyStoryId && !this.activeStreakGuardId) return;
+
+    let active: { id: string; type: string }[] = [];
+    try {
+      active = await listActiveActivities();
+    } catch (err) {
+      AppLogger.warn('gamification', 'reconcileWithNative — listActiveActivities failed', { error: String(err) });
+      return;
+    }
+
+    if (this.activeDailyStoryId) {
+      const stillExists = active.some(a => a.id === this.activeDailyStoryId && a.type === 'DailyStory');
+      if (!stillExists) {
+        AppLogger.info('gamification', 'reconcileWithNative — DailyStory gone on iOS, clearing JS state', { id: this.activeDailyStoryId });
+        this.activeDailyStoryId = null;
+        this.dailyStoryMeta = null;
+        this.cancelDailyStoryMidnightTimeout();
+        await this.clearDailyStoryPersistedState();
+      }
+    }
+
+    if (this.activeStreakGuardId) {
+      const stillExists = active.some(a => a.id === this.activeStreakGuardId && a.type === 'StreakGuard');
+      if (!stillExists) {
+        AppLogger.info('gamification', 'reconcileWithNative — StreakGuard gone on iOS, clearing JS state', { id: this.activeStreakGuardId });
+        this.activeStreakGuardId = null;
+        this.cancelMidnightTimeout();
+        await this.clearStreakGuardPersistedState();
+      }
+    }
+  }
+
   // MARK: Cleanup
 
   /**
@@ -800,8 +992,10 @@ class LiveActivityManager {
     await AsyncStorage.multiRemove([
       STORAGE_KEY_ACTIVE_STREAK_GUARD,
       STORAGE_KEY_STREAK_GUARD_DATE,
+      STORAGE_KEY_STREAK_GUARD_LAST_STREAK,
       STORAGE_KEY_ACTIVE_DAILY_STORY,
       STORAGE_KEY_DAILY_STORY_DATE,
+      STORAGE_KEY_DAILY_STORY_META,
     ]);
   }
 

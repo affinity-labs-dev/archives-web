@@ -41,6 +41,8 @@ struct DailyStoryAttributes: ActivityAttributes {
     /// Current streak count — shown in lock screen banner Row 1.
     var currentStreak: Int
     /// End timestamp (seconds since 1970) — usually midnight local time.
+    /// Drives the countdown timer in banner + expanded views via
+    /// `Text(_, style: .timer)`. 0 in terminal states (saved/failed/incomplete).
     var endDate: Double
     /// XP earned — displayed as "+N XP" in completed state banner. 0 for non-completed states.
     var xpEarned: Int

@@ -78,6 +78,47 @@ public class LiveActivityModule: Module {
   /// component remount), we cancel the previous Task before starting a new one.
   private var pushToStartListenerTask: Task<Void, Never>?
 
+  // MARK: Activity lookup helpers
+  //
+  // The `streakGuardActivities` / `dailyStoryActivities` dictionaries are
+  // IN-MEMORY only — they're wiped when iOS kills the app process. But
+  // ActivityKit persists active Live Activities at OS level: when the user
+  // re-opens the app, `Activity<T>.activities` still returns the running
+  // activity even though our dictionary is empty.
+  //
+  // Without this fallback, `updateDailyStory(id)` after a kill+restart
+  // throws `activityNotFound` even when the activity is alive on the lock
+  // screen — JS's restored ID matches iOS's view but not our cache.
+  //
+  // These helpers check the cache first (fast path) then fall back to
+  // `Activity<T>.activities` (post-kill recovery), re-caching on hit so
+  // subsequent calls hit the fast path again.
+
+  @available(iOS 16.2, *)
+  private func findStreakGuardActivity(id: String) -> Activity<StreakGuardAttributes>? {
+    if let cached = self.streakGuardActivities[id] as? Activity<StreakGuardAttributes> {
+      return cached
+    }
+    if let live = Activity<StreakGuardAttributes>.activities.first(where: { $0.id == id }) {
+      self.streakGuardActivities[id] = live
+      NSLog("[LiveActivity] Recovered StreakGuard from ActivityKit after process restart id=\(id)")
+      return live
+    }
+    return nil
+  }
+
+  @available(iOS 16.2, *)
+  private func findDailyStoryActivity(id: String) -> Activity<DailyStoryAttributes>? {
+    if let cached = self.dailyStoryActivities[id] as? Activity<DailyStoryAttributes> {
+      return cached
+    }
+    if let live = Activity<DailyStoryAttributes>.activities.first(where: { $0.id == id }) {
+      self.dailyStoryActivities[id] = live
+      NSLog("[LiveActivity] Recovered DailyStory from ActivityKit after process restart id=\(id)")
+      return live
+    }
+    return nil
+  }
 
   // MARK: Module definition
 
@@ -172,7 +213,7 @@ public class LiveActivityModule: Module {
         throw LiveActivityError.unsupported
       }
 
-      guard let activity = self.streakGuardActivities[id] as? Activity<StreakGuardAttributes> else {
+      guard let activity = self.findStreakGuardActivity(id: id) else {
         throw LiveActivityError.activityNotFound(id)
       }
 
@@ -199,7 +240,7 @@ public class LiveActivityModule: Module {
         throw LiveActivityError.unsupported
       }
 
-      guard let activity = self.streakGuardActivities[id] as? Activity<StreakGuardAttributes> else {
+      guard let activity = self.findStreakGuardActivity(id: id) else {
         throw LiveActivityError.activityNotFound(id)
       }
 
@@ -294,7 +335,7 @@ public class LiveActivityModule: Module {
         throw LiveActivityError.unsupported
       }
 
-      guard let activity = self.dailyStoryActivities[params.id] as? Activity<DailyStoryAttributes> else {
+      guard let activity = self.findDailyStoryActivity(id: params.id) else {
         throw LiveActivityError.activityNotFound(params.id)
       }
 
@@ -328,7 +369,7 @@ public class LiveActivityModule: Module {
         throw LiveActivityError.unsupported
       }
 
-      guard let activity = self.dailyStoryActivities[id] as? Activity<DailyStoryAttributes> else {
+      guard let activity = self.findDailyStoryActivity(id: id) else {
         throw LiveActivityError.activityNotFound(id)
       }
 

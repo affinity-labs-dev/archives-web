@@ -1837,8 +1837,10 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
   }, [simulateNextDay]);
 
   // MARK: Live Activity — StreakGuard trigger on app foreground
-  // Checks conditions (time >= 21:00, 0 cards today, streak >= 3) and starts
-  // StreakGuard activity if appropriate. Runs on every foreground event.
+  // Checks conditions (time >= 21:00, nothing completed today, streak >= 1)
+  // and starts StreakGuard activity if appropriate. Runs on every foreground event.
+  // "Nothing completed today" covers both daily story finish AND era module
+  // completion — anything that would have already saved the streak.
   useEffect(() => {
     if (Platform.OS !== 'ios' || !isProgressInitialized) return;
 
@@ -1848,7 +1850,11 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
       try {
         const cloudStreak = getCloudStreak();
         const today = toLocalDateString(new Date());
-        const hasCompletedToday = cloudStreak.lastActiveDate === today && cloudStreak.currentStreak > 0;
+        // Streak proxy for "completed something today": the streak system
+        // bumps `lastActiveDate` to today when the user finishes a daily
+        // story OR an era module, so a single check covers both gates.
+        const hasCompletedAnythingToday =
+          cloudStreak.lastActiveDate === today && cloudStreak.currentStreak > 0;
 
         // Run midnight-crossover check first (JS was suspended while iOS
         // backgrounded, setTimeout may have missed midnight)
@@ -1856,9 +1862,18 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         if (isCancelled) return;
 
+        // Reconcile with native — user may have dismissed activity on the
+        // lock screen while app was backgrounded. ActivityKit does not notify
+        // JS, so we lazily detect by diffing JS state vs listActiveActivities().
+        // Must run BEFORE checkAndStartStreakGuard so its `isStreakGuardActive`
+        // pre-check sees the post-reconcile truth.
+        await liveActivityManager.reconcileWithNative();
+
+        if (isCancelled) return;
+
         await liveActivityManager.checkAndStartStreakGuard(
           cloudStreak.currentStreak,
-          hasCompletedToday,
+          hasCompletedAnythingToday,
           cloudStreak.lastActiveDate || today
         );
       } catch (err) {
