@@ -137,13 +137,6 @@ export default function ProfileTab() {
   });
 
   // ── Derived display values ────────────────────
-  const baseAvatar = selectedAvatar || avatars[0];
-  // When user picks from the avatar selector, localAvatarId overrides
-  // the image_url so getAvatarImage resolves the new v5 asset immediately
-  const currentAvatar = localAvatarId
-    ? { ...baseAvatar, image_url: localAvatarId }
-    : baseAvatar;
-
   const displayName = useMemo(() => {
     if (user?.firstName && user?.lastName) {
       return `${user.firstName} ${user.lastName.charAt(0)}.`;
@@ -178,6 +171,13 @@ export default function ProfileTab() {
   const handleOpenAvatarPicker = useCallback(() => setShowAvatarSelector(true), []);
   const handleCloseAvatarSelector = useCallback(() => setShowAvatarSelector(false), []);
   const [localAvatarId, setLocalAvatarId] = useState<string | null>(null);
+
+  const baseAvatar = selectedAvatar || avatars[0];
+  // When user picks from the avatar selector, localAvatarId overrides
+  // the image_url so getAvatarImage resolves the new v5 asset immediately
+  const currentAvatar = localAvatarId
+    ? { ...baseAvatar, image_url: localAvatarId }
+    : baseAvatar;
 
   const handleSaveAvatar = useCallback(
     (avatarId: string) => {
