@@ -9,6 +9,7 @@ import SwiftUI
 @available(iOS 16.2, *)
 struct DailyStoryExpandedContent: View {
   let currentStreak: Int
+  /// Countdown target — matches lock-screen banner. Counts DOWN to midnight.
   let endDate: Double
   let watchCompleted: Bool
   let exploreCompleted: Bool
@@ -18,6 +19,13 @@ struct DailyStoryExpandedContent: View {
   let eraTitle: String
 
   private var displayStreak: Int { max(1, currentStreak) }
+  /// Mirror of `DailyStoryBanner.countdownEnd` — clamp past/missing endDate so
+  /// timer doesn't flip to count-up after midnight.
+  private var countdownEnd: Date {
+    let now = Date()
+    let raw = Date(timeIntervalSince1970: endDate)
+    return max(now.addingTimeInterval(1), raw)
+  }
 
   var body: some View {
     ZStack(alignment: .topLeading) {
@@ -36,6 +44,13 @@ struct DailyStoryExpandedContent: View {
       // Content — 4 rows
       VStack(alignment: .leading, spacing: 10) {
         // Row 1: Streak label + gold timer
+        // Layout mirrors `DailyStoryBanner` Row 1 — same `.fixedSize` + nested
+        // HStack pattern. Reason: `Text(Date, style: .timer)` over-reports its
+        // intrinsic width (SwiftUI reserves space for the widest possible time
+        // string), which eats into the Spacer and breaks the justify-between.
+        // Wrapping in HStack(spacing: 0) + .fixedSize pins layout width to the
+        // natural content size; .frame(maxWidth: 70, alignment: .trailing)
+        // keeps digits anchored right as the string shrinks tick-by-tick.
         HStack {
           HStack(spacing: 4) {
             Image("Flame")
@@ -48,13 +63,17 @@ struct DailyStoryExpandedContent: View {
               .lineLimit(1)
           }
           Spacer()
-          Text(
-            Date(timeIntervalSinceNow: endDate - Date().timeIntervalSince1970),
-            style: .timer
-          )
-          .font(.system(size: 14, weight: .medium))
-          .foregroundColor(.dailyStoryTimerGold)
-          .monospacedDigit()
+          HStack(spacing: 0) {
+            // Countdown: counts DOWN to a future date with `style: .timer`.
+            // No JS-driven updates needed — iOS ticks the digits natively.
+            Text(countdownEnd, style: .timer)
+              .font(.system(size: 14, weight: .medium))
+              .foregroundColor(.dailyStoryTimerGold)
+              .monospacedDigit()
+              .multilineTextAlignment(.trailing)
+              .frame(maxWidth: 70, alignment: .trailing)
+          }
+          .fixedSize(horizontal: true, vertical: false)
         }
 
         // Separator

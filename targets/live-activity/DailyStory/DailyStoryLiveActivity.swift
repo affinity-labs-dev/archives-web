@@ -69,22 +69,25 @@ struct DailyStoryLiveActivity: Widget {
           )
         }
       } compactLeading: {
-        // Per spec: flame + streak count (same as StreakGuard pattern)
+        // Ibu mascot face — brand identity in the Dynamic Island leading slot.
+        // Replaces the previous flame+streak pattern (moved to compactTrailing).
+        Image("IbuFace")
+          .resizable()
+          .aspectRatio(contentMode: .fit)
+          .frame(width: 22, height: 19)
+      } compactTrailing: {
+        // Streak count + flame icon. Streak first so the digit reads outward
+        // from the TrueDepth notch (matching how iOS pins compactTrailing to
+        // the right edge — Image at the rightmost position).
         HStack(spacing: 3) {
-          Text("🔥")
-            .font(.system(size: 14))
           Text("\(max(1, context.state.currentStreak))")
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(.white)
+          Image("Flame")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 14, height: 14)
         }
-      } compactTrailing: {
-        Text(
-          Date(timeIntervalSinceNow: context.state.endDate - Date().timeIntervalSince1970),
-          style: .timer
-        )
-        .foregroundColor(.dailyStoryTimerGold)
-        .monospacedDigit()
-        .frame(maxWidth: 60, alignment: .trailing)
       } minimal: {
         // Per spec: flame + streak count in small oval pill
         HStack(spacing: 2) {

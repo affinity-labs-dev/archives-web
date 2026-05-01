@@ -9,6 +9,8 @@ import SwiftUI
 @available(iOS 16.2, *)
 struct DailyStoryBanner: View {
   let currentStreak: Int
+  /// Countdown target — usually midnight local time.
+  /// SwiftUI's `Text(_, style: .timer)` auto-counts DOWN to a future date.
   let endDate: Double
   let progressPercent: Double
   let watchCompleted: Bool
@@ -21,9 +23,13 @@ struct DailyStoryBanner: View {
   // MARK: Defensive guards
   private var displayStreak: Int { max(1, currentStreak) }
   private var safeProgress: Double { min(max(0, progressPercent), 1) }
-  private var safeEndDate: Date {
+  /// Countdown target. Clamps to `now+1` if `endDate` is past or missing —
+  /// without this, `Text(_, style: .timer)` would silently flip to count-UP
+  /// for any past Date, producing a wrong elapsed-time display after midnight.
+  private var countdownEnd: Date {
+    let now = Date()
     let raw = Date(timeIntervalSince1970: endDate)
-    return max(Date().addingTimeInterval(1), raw)
+    return max(now.addingTimeInterval(1), raw)
   }
 
   var body: some View {
@@ -91,15 +97,14 @@ struct DailyStoryBanner: View {
           }
           Spacer()
           HStack(spacing: 0) {
-            Text(
-              Date(timeIntervalSinceNow: endDate - Date().timeIntervalSince1970),
-              style: .timer
-            )
-            .font(.system(size: 13, weight: .medium))
-            .foregroundColor(.dailyStoryTimerGold)
-            .monospacedDigit()
-            .multilineTextAlignment(.trailing)
-            .frame(maxWidth: 70, alignment: .trailing)
+            // Countdown: SwiftUI counts DOWN to a future date with `style: .timer`.
+            // No JS-driven updates needed — iOS ticks the digits natively.
+            Text(countdownEnd, style: .timer)
+              .font(.system(size: 13, weight: .medium))
+              .foregroundColor(.dailyStoryTimerGold)
+              .monospacedDigit()
+              .multilineTextAlignment(.trailing)
+              .frame(maxWidth: 70, alignment: .trailing)
           }
           .fixedSize(horizontal: true, vertical: false)
         }

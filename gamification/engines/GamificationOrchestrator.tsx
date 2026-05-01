@@ -1856,6 +1856,15 @@ export function GamificationOrchestratorProvider({ children }: GamificationOrche
 
         if (isCancelled) return;
 
+        // Reconcile with native — user may have dismissed activity on the
+        // lock screen while app was backgrounded. ActivityKit does not notify
+        // JS, so we lazily detect by diffing JS state vs listActiveActivities().
+        // Must run BEFORE checkAndStartStreakGuard so its `isStreakGuardActive`
+        // pre-check sees the post-reconcile truth.
+        await liveActivityManager.reconcileWithNative();
+
+        if (isCancelled) return;
+
         await liveActivityManager.checkAndStartStreakGuard(
           cloudStreak.currentStreak,
           hasCompletedToday,
