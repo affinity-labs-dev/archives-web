@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 
 import { AnimatedEntrance } from '@/components/ui/animations';
 import {
@@ -39,6 +40,23 @@ import {
 } from './results';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Reward audio — one-shot celebration sound keyed to the score band.
+// Thresholds (≥70 / 34-69 / <34) are deliberately INDEPENDENT of the
+// existing visual `tierFor()` thresholds so design can re-balance the
+// audio bands without touching the mascot/headline tier mapping.
+//
+// `require` of static assets is resolved at bundle time; the returned
+// numeric module id is what `useAudioPlayer` accepts as a `source`.
+function getRewardAudio(percentage: number) {
+  if (percentage >= 70) {
+    return require('@/assets/audio/quiz_reward/quiz-reward3.mp3');
+  }
+  if (percentage >= 34) {
+    return require('@/assets/audio/quiz_reward/quiz-reward2.mp3');
+  }
+  return require('@/assets/audio/quiz_reward/quiz-reward1.mp3');
+}
 
 // ─── Public types ──────────────────────────────────────────────────────────
 
@@ -86,6 +104,46 @@ export default function QuizResults({
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
   const tier = tierFor(percentage);
   const spec = TIER_SPECS[tier];
+
+  // Reward audio — picked by score band, played once on mount. Memoized
+  // so the score-band asset id is captured at first render; even if
+  // `percentage` were to change (it doesn't — props are stable for the
+  // lifetime of QuizResults), the player wouldn't re-instantiate
+  // mid-celebration. `useAudioPlayer` auto-disposes on unmount.
+  const rewardAudioSource = useMemo(() => getRewardAudio(percentage), [percentage]);
+  const rewardPlayer = useAudioPlayer(rewardAudioSource);
+  const hasPlayedRewardRef = useRef(false);
+
+  useEffect(() => {
+    if (hasPlayedRewardRef.current) return;
+    hasPlayedRewardRef.current = true;
+    // Match the audio mode used by TodayScrollableLesson's voiceover —
+    // mix with other audio (don't duck the user's music) and play even
+    // when the iOS silent switch is on so a muted phone still hears the
+    // celebration. `setAudioModeAsync` is global, so this also smooths
+    // the handoff if QuizResults is mounted right after a lesson screen
+    // that set a different mode.
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      interruptionMode: 'mixWithOthers',
+      interruptionModeAndroid: 'duckOthers',
+    });
+    // Delay reward sound by 300ms — the mascot's `dropFromAbove` /
+    // `elasticHeroDrop` entrance starts at 100ms and lands ~250-300ms
+    // later. Firing the cheer audio synchronously with mount felt
+    // pre-emptive (sound played before the mascot was even visible);
+    // 300ms aligns the audible peak with the mascot fully on-screen.
+    const timer = setTimeout(() => {
+      try {
+        rewardPlayer.play();
+      } catch (error) {
+        AppLogger.warn('quiz', 'Reward audio play failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [rewardPlayer]);
 
   const {
     openChatToLearn,

@@ -5,7 +5,7 @@
 // thread, no JS round-trip.
 
 import React, { useEffect } from 'react';
-import { Dimensions, StyleSheet, TextInput, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useAnimatedProps,
@@ -53,10 +53,47 @@ export function ScoreCard({
     );
   }, [percentage, progress]);
 
-  const pctTextProps = useAnimatedProps(() => ({
-    text: `${Math.round(progress.value)}%`,
-    defaultValue: `${Math.round(progress.value)}%`,
+  // Animated text holds JUST the digits — the trailing "%" is rendered
+  // as a separate static `<Text>` sibling.
+  //
+  // Why: iOS `RCTSinglelineTextInputView` doesn't always re-layout the
+  // text frame between Reanimated UI-thread `text` prop updates. When
+  // the count-up lands on a frame where the digit count grows (e.g.
+  // 99 → 100 on the LAST animation frame), the input's width is still
+  // sized for "99%" — the trailing "%" gets clipped off the right edge.
+  // A subsequent React commit (e.g. Continue button press flipping
+  // `isProcessingContinue`) re-applies `defaultValue` and forces a
+  // re-layout → the "%" reappears, producing the user-observed "%
+  // disappears after animation, comes back on Continue" bug.
+  //
+  // Lower tiers happened to mask this because their final-frame digit
+  // counts (1 or 2 digits) fit within the layout established mid-
+  // animation; only 100% triggered the LAST-frame width growth.
+  // Splitting "%" out makes the rendered character count of the input
+  // bounded (≤ 3) AND independent of the `%` glyph entirely, so the
+  // bug can't recur for any tier.
+  const pctDigitsProps = useAnimatedProps(() => ({
+    text: `${Math.round(progress.value)}`,
+    defaultValue: `${Math.round(progress.value)}`,
   }));
+
+  // Wrapper width tracks digit count so the input stays just-wide-enough
+  // for the current value. Without this, either:
+  //   - Fixed minWidth (e.g. 95 to fit "100"): 1- and 2-digit cases left
+  //     a large dead zone on one side (right-align stranded the "%" too
+  //     far from small numbers; left-align stranded "%" far right).
+  //   - No minWidth: iOS TextInput doesn't re-layout reliably on the
+  //     UI-thread text update of the last frame, clipping "100" to "10".
+  // Stepping the width with the digit count grows the wrapper exactly
+  // when the text grows — visually they change in lockstep, "%" sits
+  // immediately after the last digit at every value.
+  const digitsWidthStyle = useAnimatedStyle(() => {
+    const v = Math.round(progress.value);
+    // Bounded-Black 32pt glyph widths: digit ≈ 28-30px. Round numbers
+    // chosen empirically to fit each digit-count bucket without clip.
+    const w = v < 10 ? 30 : v < 100 ? 60 : 90;
+    return { width: w };
+  });
 
   const fillStyle = useAnimatedStyle(() => ({
     width: `${progress.value}%`,
@@ -75,12 +112,24 @@ export function ScoreCard({
     <View style={[styles.scoreCard, { backgroundColor: cardBg }]}>
       <View style={styles.scoreRow}>
         <View style={styles.scoreColLeft}>
-          <AnimatedTextInput
-            editable={false}
-            pointerEvents="none"
-            animatedProps={pctTextProps as any}
-            style={[styles.percentageText, { color: textColor }]}
-          />
+          {/* Digits row — AnimatedTextInput drives the count-up via
+              Reanimated's UI-thread `text` prop trick; static `<Text>`
+              renders the "%" so it's always present regardless of the
+              input's layout state. The `Animated.View` wrapper grows
+              with the digit count (30 / 60 / 90 px) so "%" tracks the
+              right edge of the digits at every value — no fixed
+              minWidth dead zone, no clip on "100". */}
+          <View style={styles.percentageRow}>
+            <Animated.View style={digitsWidthStyle}>
+              <AnimatedTextInput
+                editable={false}
+                pointerEvents="none"
+                animatedProps={pctDigitsProps as any}
+                style={[styles.percentageText, styles.percentageDigitsInput, { color: textColor }]}
+              />
+            </Animated.View>
+            <Text style={[styles.percentageText, { color: textColor }]}>%</Text>
+          </View>
           <Typography
             family="onest"
             size="sm"
@@ -155,16 +204,27 @@ const styles = StyleSheet.create({
   // Bounded display, 32px black. We render through TextInput (Reanimated
   // text-prop trick) so the count-up commits on the UI thread — multiline
   // / paddingTop / borders all reset to keep it visually identical to a
-  // plain Text node.
+  // plain Text node. Shared by both the AnimatedTextInput (digits) and
+  // the static <Text> ("%") so the two children sit on the same baseline
+  // with identical font metrics.
   percentageText: {
     fontFamily: 'Bounded-Black',
     fontSize: 32,
     lineHeight: 36,
     padding: 0,
     margin: 0,
-    minWidth: 100,
     includeFontPadding: false,
     textAlignVertical: 'center',
+  },
+  // Digits-only input — fills its `Animated.View` parent (whose width
+  // is animated by `digitsWidthStyle` based on the live digit count).
+  // No fixed minWidth here: parent owns sizing, input just stretches.
+  percentageDigitsInput: {
+    width: '100%',
+  },
+  percentageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
   xpRow: {
