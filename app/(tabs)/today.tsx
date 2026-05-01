@@ -776,8 +776,16 @@ export default function TodayScreen() {
             }}
             onContinue={async () => {
               if (isModalTransitioning.current) return;
+              // Sequential transition: fully reverse the hero dive FIRST,
+              // THEN trigger celebration. The reverse plays cleanly on a
+              // free JS thread, the Today modal unmounts, then
+              // DailyStoryEndScreen fades in on top with no overlap. Skipping
+              // the await (running them in parallel) made the celebration's
+              // entrance choreography (1.5s hero + 2s headline + 2.4s CTA)
+              // contend with closeWithDive's 750ms reverse animation —
+              // visible as a blank modal freeze with no tappable buttons.
+              await closeWithDive();
               await handleQuizComplete();
-              closeWithDive();
             }}
             onDismiss={() => {
               if (isModalTransitioning.current) return;
