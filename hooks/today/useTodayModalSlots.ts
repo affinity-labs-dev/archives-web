@@ -97,7 +97,19 @@ export function useTodayModalSlots({
     zIndex: slotBZIndex.value,
   }));
 
-  // Clean up after transition completes — always releases the lock
+  // Clean up after transition completes — always releases the lock.
+  //
+  // Idempotent: calling finishTransition twice is safe because every
+  // mutation below (setSlotXModal("none") on an already-"none" slot,
+  // setting opacity 0 on a value already 0, lock=false) is a no-op the
+  // second time. The previous early-return on `!isModalTransitioning`
+  // was a footgun: if the lock got released by an external code path
+  // (e.g. `openModal`'s reset) between transition start and the
+  // withTiming callback firing, the cleanup would silently skip —
+  // leaving the outgoing slot mounted (visible audio leak from a stale
+  // VideoLesson) and `activeSlotRef` pointing at the wrong slot. Now
+  // we always run the cleanup; the mountedRef check still gates against
+  // post-unmount setState warnings.
   const finishTransition = (
     newActiveSlot: "A" | "B",
     nextModal: ModalState,
@@ -108,7 +120,6 @@ export function useTodayModalSlots({
       safetyTimeoutRef.current = null;
     }
     if (!isMountedRef.current) return; // Component unmounted
-    if (!isModalTransitioning.current) return; // Already finished (safety timeout race)
     try {
       activeSlotRef.current = newActiveSlot;
       // Clear the outgoing slot

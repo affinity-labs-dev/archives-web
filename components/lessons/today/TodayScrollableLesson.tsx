@@ -296,6 +296,13 @@ export default function TodayScrollableLesson({
           );
 
         case 'text':
+          if (__DEV__) {
+            // One-shot log so we can confirm what HTML tags Supabase
+            // actually emits. If headings come through as `<p class="…">`
+            // instead of `<h1>`, the tagsStyles never match and font
+            // never applies — this surfaces that immediately.
+            console.log('📝 reading HTML →', block.content?.slice(0, 200));
+          }
           return (
             <View key={key} style={blockStyles.textSection}>
               <RenderHtml
@@ -304,6 +311,7 @@ export default function TodayScrollableLesson({
                 }
                 source={{ html: block.content || '' }}
                 tagsStyles={readingHtmlStyles}
+                renderers={headingRenderers}
               />
             </View>
           );
@@ -429,33 +437,7 @@ const readingHtmlStyles = {
     fontSize: LAYOUT_CONSTANTS.textFontSize,
     lineHeight: LAYOUT_CONSTANTS.textLineHeight,
     letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
-    fontWeight: "600" as const,
-  },
-  h1: {
-    color: colors.black,
-    fontFamily: "Bounded-Black",
-    fontSize: LAYOUT_CONSTANTS.textTitleSize,
-    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
-    fontWeight: "600" as const,
-    marginBottom: 16,
-  },
-  h2: {
-    color: colors.black,
-    fontFamily: "Bounded-Black",
-    fontSize: LAYOUT_CONSTANTS.textTitleSize,
-    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
-    letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
-    fontWeight: "700" as const,
-    marginBottom: 12,
-  },
-  h3: {
-    color: colors.black,
-    fontFamily: "Bounded-Black",
-    fontSize: LAYOUT_CONSTANTS.textTitleSize,
-    lineHeight: LAYOUT_CONSTANTS.textLineHeight,
-    letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
-    fontWeight: "700" as const,
-    marginBottom: 10,
+    fontWeight: "300" as const,
   },
   p: {
     color: colors.black,
@@ -463,7 +445,7 @@ const readingHtmlStyles = {
     fontSize: LAYOUT_CONSTANTS.textFontSize,
     lineHeight: LAYOUT_CONSTANTS.textLineHeight,
     letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
-    fontWeight: "600" as const,
+    fontWeight: "300" as const,
     marginBottom: 16,
   },
   strong: { fontWeight: "700" as const, color: colors.black },
@@ -475,7 +457,7 @@ const readingHtmlStyles = {
     fontSize: LAYOUT_CONSTANTS.textFontSize,
     lineHeight: LAYOUT_CONSTANTS.textLineHeight,
     letterSpacing: LAYOUT_CONSTANTS.textLetterSpacing,
-    fontWeight: "600" as const,
+    fontWeight: "300" as const,
     marginBottom: 6,
   },
   blockquote: {
@@ -490,5 +472,53 @@ const readingHtmlStyles = {
     borderBottomColor: "rgba(0, 0, 0, 0.15)",
     marginVertical: 16,
   },
+};
+
+// Custom heading renderers — bypass RenderHtml's CSS resolver entirely so
+// the font cannot be lost to weight-matching fallback. Each renderer pulls
+// the raw text out of the TNode children and emits a plain RN <Text> with
+// only `fontFamily` set (no fontWeight). The Black face already IS bold.
+//
+// Why this is necessary: RenderHtml normalizes `tagsStyles` through a CSS
+// engine that resolves fontFamily + fontWeight together at the native
+// layer. With a single-weight custom font like Bounded-Black, any explicit
+// non-normal weight breaks the PS-name lookup and silently falls back.
+// `renderers` skips that entire pipeline.
+const extractText = (tnode: any): string => {
+  if (!tnode) return '';
+  if (tnode.type === 'text') return tnode.data || '';
+  if (Array.isArray(tnode.children)) {
+    return tnode.children.map(extractText).join('');
+  }
+  return '';
+};
+
+// Headings render through the design-system Typography component.
+// Typography resolves `family + weight` via `fontFamilyMap` to a single
+// registered PS name (Bounded-Black), which keeps native font lookup
+// intact — the path that `tagsStyles` was bypassing.
+const Heading = ({
+  tnode,
+  marginBottom,
+}: {
+  tnode: any;
+  marginBottom: number;
+}) => (
+  <Typography
+    family="bounded"
+    size={LAYOUT_CONSTANTS.textTitleSize}
+    lineHeight={LAYOUT_CONSTANTS.textLineHeight}
+    extraColor={colors.black}
+    letterSpacing={LAYOUT_CONSTANTS.textLetterSpacing}
+    style={{ marginBottom }}
+  >
+    {extractText(tnode)}
+  </Typography>
+);
+
+const headingRenderers = {
+  h1: ({ tnode }: any) => <Heading tnode={tnode} marginBottom={16} />,
+  h2: ({ tnode }: any) => <Heading tnode={tnode} marginBottom={12} />,
+  h3: ({ tnode }: any) => <Heading tnode={tnode} marginBottom={10} />,
 };
 

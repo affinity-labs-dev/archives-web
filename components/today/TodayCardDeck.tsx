@@ -114,6 +114,14 @@ const IMAGE_CROSSFADE_MS = 500;
 const TITLE_FADE_OUT_MS = 200;
 const TITLE_FADE_IN_MS = 300;
 
+// Pagination dots — reveal AFTER the per-card wave settles. Last card
+// (entranceIndex 2) lands at 650 + 2*90 + 550 = 1390ms; rounding to
+// 1400ms gives a few ms of breathing room past the back.out overshoot.
+// 350ms fade-in keeps the dots calm — no overshoot, since the bounce
+// belongs to the cards themselves.
+const DOTS_REVEAL_DELAY_MS = 1400;
+const DOTS_REVEAL_DURATION_MS = 350;
+
 // Slide uses a spring instead of a fixed-duration ease — feels snappier than
 // the mock's `power3.out` 600ms timing, no perceptible "decay tail" at the end.
 const SLIDE_SPRING = {
@@ -924,6 +932,24 @@ export default function TodayCardDeck({
     transform: [{ translateY: deckTranslateY.value }],
   }));
 
+  // Pagination dots — start hidden, fade in only after the per-card wave
+  // has fully settled (last card at ~1390ms post-mount). Mount-only effect
+  // so the reveal plays once per deck mount, not on every re-render.
+  const dotsOpacity = useSharedValue(0);
+  useEffect(() => {
+    dotsOpacity.value = withDelay(
+      safeDuration(DOTS_REVEAL_DELAY_MS),
+      withTiming(1, {
+        duration: safeDuration(DOTS_REVEAL_DURATION_MS),
+        easing: easings.power2Out,
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const dotsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: dotsOpacity.value,
+  }));
+
   // Shared values — one per card index, initialized to slots for initialCenterIdx.
   // Declared in triplicate (hooks can't be called in loops) then grouped as arrays.
   const x0 = useSharedValue(
@@ -1067,12 +1093,20 @@ export default function TodayCardDeck({
         </View>
       </GestureDetector>
 
-      <PaginationDots
-        count={cards.length}
-        activeIndex={centerIdx}
-        onSelect={goToIdx}
-        style={styles.dotsRow}
-      />
+      {/* Dots delay-reveal after the wave entrance settles. Wrapped in
+          Animated.View so the opacity tween is local — `containerAnimatedStyle`
+          already finished its own fade by t=500ms, well before the dots
+          should appear. `pointerEvents` gates taps until the dots are
+          visible so users can't accidentally trigger `goToIdx` during
+          the cards' bounce. */}
+      <Animated.View style={dotsAnimatedStyle} pointerEvents="box-none">
+        <PaginationDots
+          count={cards.length}
+          activeIndex={centerIdx}
+          onSelect={goToIdx}
+          style={styles.dotsRow}
+        />
+      </Animated.View>
     </Animated.View>
   );
 }

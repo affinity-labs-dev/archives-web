@@ -7,15 +7,15 @@ import {
   Modal,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Platform,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { AnimatedCountUp, Typography, DepthButton } from '@/components/ui';
+import { AnimatedCountUp, Typography, DepthButton, ScrollFade, easings } from '@/components/ui';
 import { colors, spacing, radius } from '@/components/ui/theme';
 import { AnimatedEntrance } from '@/components/ui/animations';
 import type { Adventure } from '@/components/shared/types';
@@ -39,6 +39,8 @@ export default function AdventureCard({
   onDismiss,
   onStartAdventure,
 }: AdventureCardProps) {
+  const insets = useSafeAreaInsets();
+
   if (!adventure || !adventure.card_content) {
     return null;
   }
@@ -123,7 +125,7 @@ export default function AdventureCard({
                   {/* Adventure Title: y -18->0, 550ms, 550ms delay (stagger 40ms per word) */}
                   <AnimatedEntrance preset="slideFromBottom" delay={550}>
                     <Typography
-                      variant="display.large"
+                      variant="display.small"
                       color="white"
                       align="center"
                       style={styles.adventureTitleStyle}
@@ -142,13 +144,13 @@ export default function AdventureCard({
             <View style={styles.sectionContainer}>
               {/* Overview heading: y 12->0, 300ms, 800ms delay */}
               <AnimatedEntrance preset="fadeIn" delay={800}>
-                <Typography variant="heading.m" color="onyx">
+                <Typography variant="heading.s" color="onyx">
                   Overview
                 </Typography>
               </AnimatedEntrance>
               {/* Overview body: y 8->0, 400ms, 900ms delay */}
               <AnimatedEntrance preset="fadeIn" delay={900}>
-                <Typography variant="body.m" color="textMuted" style={styles.descriptionText}>
+                <Typography variant="body.m" color="textPrimary" weight="500">
                   {cardContent.overview_text}
                 </Typography>
               </AnimatedEntrance>
@@ -158,13 +160,13 @@ export default function AdventureCard({
             <View style={styles.sectionContainer}>
               {/* Story heading: y 12->0, 300ms, 1100ms delay */}
               <AnimatedEntrance preset="fadeIn" delay={1100}>
-                <Typography variant="heading.m" color="onyx">
+                <Typography variant="heading.s" color="onyx">
                   Adventure Story
                 </Typography>
               </AnimatedEntrance>
               {/* Story body: y 8->0, 400ms, 1200ms delay */}
               <AnimatedEntrance preset="fadeIn" delay={1200}>
-                <Typography variant="body.m" color="textMuted" style={styles.storyText}>
+                <Typography variant="body.m" color="textPrimary" weight="500">
                   {cardContent.adventure_story}
                 </Typography>
               </AnimatedEntrance>
@@ -173,23 +175,25 @@ export default function AdventureCard({
             {/* Details Card: y 40->0, 500ms, 1400ms delay */}
             <AnimatedEntrance preset="accordionLayer" delay={1400}>
               <View style={styles.detailsCard}>
-                <Typography variant="heading.m" color="bluePrimary" style={styles.detailsCardTitle}>
+                <Typography variant="heading.m" color="white">
                   Details
                 </Typography>
 
                 <View style={styles.detailsRow}>
                   {/* Time - icon: 1650ms, label: 1850ms */}
                   <View style={styles.detailItem}>
-                    <AnimatedEntrance preset="bubblePop" delay={1650}>
-                      <Ionicons name="time" size={24} color={colors.bluePrimary} />
-                    </AnimatedEntrance>
+                    <View style={{ alignItems: 'center' }}>
+                      <AnimatedEntrance preset="bubblePop" delay={1650}>
+                        <Ionicons name="time" size={28} color={colors.snow} />
+                      </AnimatedEntrance>
+                      <AnimatedEntrance preset="fadeIn" delay={1850}>
+                        <Typography variant="body.l" color="snow" weight="700">
+                          {cardContent.estimated_time}
+                        </Typography>
+                      </AnimatedEntrance>
+                    </View>
                     <AnimatedEntrance preset="fadeIn" delay={1850}>
-                      <Typography variant="body.l" color="onyx" weight="700">
-                        {cardContent.estimated_time}
-                      </Typography>
-                    </AnimatedEntrance>
-                    <AnimatedEntrance preset="fadeIn" delay={1850}>
-                      <Typography variant="label.xs" color="textMuted">
+                      <Typography variant="label.xs" color="blueSecondary" weight="500">
                         Duration
                       </Typography>
                     </AnimatedEntrance>
@@ -197,20 +201,22 @@ export default function AdventureCard({
 
                   {/* XP Reward - icon: 1730ms (80ms stagger), label: 1850ms */}
                   <View style={styles.detailItem}>
-                    <AnimatedEntrance preset="bubblePop" delay={1730}>
-                      <Ionicons name="star" size={24} color={colors.bluePrimary} />
-                    </AnimatedEntrance>
+                    <View style={{ alignItems: 'center', gap: 4 }}>
+                      <AnimatedEntrance preset="bubblePop" delay={1730}>
+                        <Ionicons name="star" size={28} color={colors.snow} />
+                      </AnimatedEntrance>
+                      <AnimatedEntrance preset="fadeIn" delay={1850}>
+                        <AnimatedCountUp
+                          target={xpReward}
+                          duration={800}
+                          delay={1700}
+                          prefix="+"
+                          style={styles.detailValue}
+                        />
+                      </AnimatedEntrance>
+                    </View>
                     <AnimatedEntrance preset="fadeIn" delay={1850}>
-                      <AnimatedCountUp
-                        target={xpReward}
-                        duration={800}
-                        delay={1700}
-                        prefix="+"
-                        style={styles.detailValue}
-                      />
-                    </AnimatedEntrance>
-                    <AnimatedEntrance preset="fadeIn" delay={1850}>
-                      <Typography variant="label.xs" color="textMuted">
+                      <Typography variant="label.xs" color="blueSecondary" weight="500">
                         XP Reward
                       </Typography>
                     </AnimatedEntrance>
@@ -218,19 +224,21 @@ export default function AdventureCard({
 
                   {/* Modules Count - icon: 1810ms (160ms stagger), label: 1850ms */}
                   <View style={styles.detailItem}>
-                    <AnimatedEntrance preset="bubblePop" delay={1810}>
-                      <Ionicons name="book" size={24} color={colors.bluePrimary} />
-                    </AnimatedEntrance>
+                    <View style={{ alignItems: 'center', gap: 4 }}>
+                      <AnimatedEntrance preset="bubblePop" delay={1810}>
+                        <Ionicons name="book" size={28} color={colors.snow} />
+                      </AnimatedEntrance>
+                      <AnimatedEntrance preset="fadeIn" delay={1850}>
+                        <AnimatedCountUp
+                          target={modulesCount}
+                          duration={800}
+                          delay={1700}
+                          style={styles.detailValue}
+                        />
+                      </AnimatedEntrance>
+                    </View>
                     <AnimatedEntrance preset="fadeIn" delay={1850}>
-                      <AnimatedCountUp
-                        target={modulesCount}
-                        duration={800}
-                        delay={1700}
-                        style={styles.detailValue}
-                      />
-                    </AnimatedEntrance>
-                    <AnimatedEntrance preset="fadeIn" delay={1850}>
-                      <Typography variant="label.xs" color="textMuted">
+                      <Typography variant="label.xs" color="blueSecondary" weight="500">
                         Modules
                       </Typography>
                     </AnimatedEntrance>
@@ -239,15 +247,33 @@ export default function AdventureCard({
               </View>
             </AnimatedEntrance>
           </View>
-
-          <View style={styles.bottomSpacer} />
         </Animated.ScrollView>
 
-        {/* Floating START ADVENTURE button: y 30->0, 450ms, 2150ms delay */}
-        <AnimatedEntrance preset="slideFromBottom" delay={2150} style={styles.floatingButton}>
+        {/* START ADVENTURE — full-bleed bottom bar, matches the
+            today.tsx Start-My-Day pattern: snow background bar pinned to
+            bottom, secondary DepthButton, label.m typography. Inline
+            entrance preset (translateY 40→0 + opacity 0→1, 500ms with a
+            light back.out(2) overshoot at the end) ports the same
+            wave-finish reveal used on the home screen. */}
+        <AnimatedEntrance
+          delay={2150}
+          preset={{
+            translateY: { from: 40, to: 0 },
+            opacity: { from: 0, to: 1 },
+            duration: 500,
+            easing: easings.backOut2,
+          }}
+          style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + (Platform.OS === 'android' ? 16 : 0) }]}
+        >
+          {/* Soft fade-out — masks the hard horizontal edge where the
+              ScrollView's last visible content meets the snow bar. The
+              `left/right: -20` overrides bleed past the container's
+              `paddingHorizontal: 20` so the gradient extends edge-to-edge
+              (RN absolute positioning honors the padding edge by default). */}
+          <ScrollFade color={colors.snow} style={{ left: -20, right: -20 }} />
           <DepthButton
+            isFullWidth
             variant="tertiary"
-            size="medium"
             pressEffect="dip"
             onPress={() => {
               if (onStartAdventure && adventure) {
@@ -257,9 +283,8 @@ export default function AdventureCard({
                 handleClose();
               }
             }}
-            isFullWidth
           >
-            <Typography variant="label.l" color="white" weight="700" uppercase letterSpacing={1}>
+            <Typography variant="label.m" color="white">
               START ADVENTURE
             </Typography>
           </DepthButton>
@@ -344,10 +369,10 @@ const styles = StyleSheet.create({
   titleSection: {
     alignItems: 'center',
     paddingBottom: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   eraBadge: {
-    backgroundColor: colors.pinkSecondary,
+    backgroundColor: colors.bluePrimary,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
@@ -368,23 +393,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     gap: spacing.sm + 4,
   },
-  descriptionText: {
-    lineHeight: 22,
-  },
-  storyText: {
-    lineHeight: 22,
-  },
 
   // Details Card - light blue background
   detailsCard: {
+    gap: spacing.md,
     marginHorizontal: spacing.lg,
-    padding: spacing.lg,
-    backgroundColor: colors.blueSecondary + '30', // 19% opacity
-    borderRadius: radius.lg,
-    marginBottom: spacing.lg,
-  },
-  detailsCardTitle: {
-    marginBottom: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.bluePrimary,
+    borderRadius: radius.xl,
   },
   detailsRow: {
     flexDirection: 'row',
@@ -397,23 +414,25 @@ const styles = StyleSheet.create({
   },
   // Match Typography variant="body.l" color="onyx" weight="700"
   detailValue: {
-    color: colors.onyx,
+    color: colors.snow,
     fontFamily: 'Onest-Bold',
     fontSize: 18,
     fontWeight: '700',
     lineHeight: 25,
   },
 
-  // Floating button
-  floatingButton: {
+  // Bottom button — full-bleed bar pinned to the bottom edge of the
+  // SafeAreaView. Matches `ArchivesTheme.common.today.bottomButtonContainer`
+  // used by today.tsx so both Start-My-Day and Start-Adventure CTAs share
+  // the same visual footprint (snow bar, paddingHorizontal 20 / Vertical 16,
+  // button stretches via `isFullWidth`).
+  bottomButtonContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 24 : 40,
-    left: spacing.xl,
-    right: spacing.xl,
-  },
-
-  // Bottom Spacer
-  bottomSpacer: {
-    height: Platform.OS === 'android' ? 30 : 15,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    backgroundColor: colors.snow,
   },
 });

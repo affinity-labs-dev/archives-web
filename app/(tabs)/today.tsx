@@ -173,6 +173,21 @@ export default function TodayScreen() {
     onCardViewed: (cardIndex) => tracking.trackCardViewed(cardIndex),
   });
 
+  // Caller-level re-entry guard for ANY async lesson-callback path that
+  // contains an `await` before `animateModalTransition`. The shared
+  // `isModalTransitioning.current` only flips true AFTER the await
+  // resolves and `animateModalTransition` actually runs — leaving a
+  // window during the await where a second tap passes the existing
+  // `if (isModalTransitioning.current) return` guard, runs `saveProgress`
+  // a second time, and races with the first tap's transition. Symptoms:
+  // outgoing slot fails to unmount (audio keeps playing from VideoLesson
+  // even after Reading is on screen) AND `isModalTransitioning` ends up
+  // stuck true → all subsequent buttons frozen.
+  //
+  // Single ref shared across callbacks: at most one of these flows is
+  // ever in-flight at a time, so coalescing is safe.
+  const isLessonCallbackInFlightRef = useRef(false);
+
   // Hero-dive open animation — drives the home fade-out, center-card scale +
   // fade, and lesson crossfade-in when the user taps START MY DAY. Mock spec
   // in `Downloads/02 daily story/index.html:1672-1768`. The same shared
@@ -632,12 +647,23 @@ export default function TodayScreen() {
           progress={progress}
           onMediaPlayed={() => tracking.trackMediaPlayed("video", quest.id)}
           onNext={async () => {
+            // Caller-level lock: covers the entire await window so a
+            // double-tap during `saveProgress` can't slip past the
+            // `isModalTransitioning` guard (which is only set later
+            // by `animateModalTransition`). See ref declaration for
+            // the full audio-leak / frozen-buttons race.
+            if (isLessonCallbackInFlightRef.current) return;
             if (isModalTransitioning.current) return;
-            setWatchCompleted(true);
-            await saveProgress("watch");
-            updateDailyStoryIfActive({ watchCompleted: true, exploreCompleted: false, questionsCompleted: false });
-            animateModalTransition("reading", "video", "forward");
-            tracking.trackCardViewed(2);
+            isLessonCallbackInFlightRef.current = true;
+            try {
+              setWatchCompleted(true);
+              await saveProgress("watch");
+              updateDailyStoryIfActive({ watchCompleted: true, exploreCompleted: false, questionsCompleted: false });
+              animateModalTransition("reading", "video", "forward");
+              tracking.trackCardViewed(2);
+            } finally {
+              isLessonCallbackInFlightRef.current = false;
+            }
           }}
           onDismiss={() => {
             if (isModalTransitioning.current) return;
@@ -659,12 +685,19 @@ export default function TodayScreen() {
           }
           onMediaPlayed={() => tracking.trackMediaPlayed("audio", quest.id)}
           onContinue={async () => {
+            // See onNext (Watch card) for race details — same fix.
+            if (isLessonCallbackInFlightRef.current) return;
             if (isModalTransitioning.current) return;
-            setExploreCompleted(true);
-            await saveProgress("explore");
-            updateDailyStoryIfActive({ watchCompleted: true, exploreCompleted: true, questionsCompleted: false });
-            animateModalTransition("quiz", "reading", "forward");
-            tracking.trackCardViewed(3);
+            isLessonCallbackInFlightRef.current = true;
+            try {
+              setExploreCompleted(true);
+              await saveProgress("explore");
+              updateDailyStoryIfActive({ watchCompleted: true, exploreCompleted: true, questionsCompleted: false });
+              animateModalTransition("quiz", "reading", "forward");
+              tracking.trackCardViewed(3);
+            } finally {
+              isLessonCallbackInFlightRef.current = false;
+            }
           }}
           onBack={() => {
             if (isModalTransitioning.current) return;
@@ -775,17 +808,28 @@ export default function TodayScreen() {
               }
             }}
             onContinue={async () => {
+              // Caller-level lock — `closeWithDive` is async (runs the
+              // reverse dive timeline) and `handleQuizComplete` does
+              // its own awaits. Without this guard a fast double-tap
+              // would queue two reverse-dive animations and two quiz
+              // completion saves.
+              if (isLessonCallbackInFlightRef.current) return;
               if (isModalTransitioning.current) return;
-              // Sequential transition: fully reverse the hero dive FIRST,
-              // THEN trigger celebration. The reverse plays cleanly on a
-              // free JS thread, the Today modal unmounts, then
-              // DailyStoryEndScreen fades in on top with no overlap. Skipping
-              // the await (running them in parallel) made the celebration's
-              // entrance choreography (1.5s hero + 2s headline + 2.4s CTA)
-              // contend with closeWithDive's 750ms reverse animation —
-              // visible as a blank modal freeze with no tappable buttons.
-              await closeWithDive();
-              await handleQuizComplete();
+              isLessonCallbackInFlightRef.current = true;
+              try {
+                // Sequential transition: fully reverse the hero dive FIRST,
+                // THEN trigger celebration. The reverse plays cleanly on a
+                // free JS thread, the Today modal unmounts, then
+                // DailyStoryEndScreen fades in on top with no overlap. Skipping
+                // the await (running them in parallel) made the celebration's
+                // entrance choreography (1.5s hero + 2s headline + 2.4s CTA)
+                // contend with closeWithDive's 750ms reverse animation —
+                // visible as a blank modal freeze with no tappable buttons.
+                await closeWithDive();
+                await handleQuizComplete();
+              } finally {
+                isLessonCallbackInFlightRef.current = false;
+              }
             }}
             onDismiss={() => {
               if (isModalTransitioning.current) return;

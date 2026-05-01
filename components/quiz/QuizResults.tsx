@@ -46,7 +46,11 @@ interface QuizResultsProps {
   correctAnswers: number;
   totalQuestions: number;
   totalPoints: number;
-  onContinue: () => void;
+  // Allow Promise return — Quiz.tsx's `handleQuizCompletion` is async
+  // (saveNewProgressData + orchestrator celebrations in adventure mode,
+  // saveQuestCompletion → Supabase in today mode). Previous `() => void`
+  // signature was misleading and let `handleContinue` skip the await.
+  onContinue: () => void | Promise<void>;
   onBack?: () => void;
   adventureId: string;
   moduleId: string;
@@ -93,6 +97,17 @@ export default function QuizResults({
   const isPaywallPresentedRef = useRef(false);
   const [openChat, setOpenChat] = useState(false);
   const [showExplanations, setShowExplanations] = useState(false);
+
+  // Continue-button processing state. The `Ref` is the source of truth for
+  // re-entry blocking (synchronous, beats React's render delay on rapid
+  // taps), the `state` is the visual mirror that drives DepthButton's
+  // `isDisabled` veil. We need BOTH:
+  //   - State-only: a fast double-tap can fire `handleContinue` twice in
+  //     the same JS tick before React commits the disabled state.
+  //   - Ref-only: the button stays visually tappable (no veil) while
+  //     `await onContinue()` runs — looks broken to the user.
+  const isProcessingContinueRef = useRef(false);
+  const [isProcessingContinue, setIsProcessingContinue] = useState(false);
 
   // Tier-3 confetti — timing + origin matched to the HTML mock:
   //   • Fires AFTER the count-up finishes (mock fires at `celebAt =
@@ -286,7 +301,18 @@ export default function QuizResults({
     openChatWithContext,
   ]);
 
-  const handleContinue = useCallback(() => {
+  const handleContinue = useCallback(async () => {
+    // Synchronous re-entry guard. A burst of taps can land in the same
+    // JS tick — `setIsProcessingContinue(true)` won't have flushed to
+    // DepthButton's `isDisabled` yet, so the second tap would still fire
+    // `onPress` (and Quiz.tsx's `handleQuizCompletion` would run twice:
+    // duplicate `saveNewProgressData`, duplicate `module_completed`
+    // analytics, duplicate orchestrator celebrations). The ref blocks
+    // that tick-window before React commits.
+    if (isProcessingContinueRef.current) return;
+    isProcessingContinueRef.current = true;
+    setIsProcessingContinue(true);
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     analyticsService.trackCustomEvent('quiz_results_continue_clicked', {
       adventure_id: adventureId,
@@ -301,7 +327,26 @@ export default function QuizResults({
       total_points: totalPoints,
     });
     AppLogger.info('quiz', 'Quiz results continue clicked');
-    onContinue();
+
+    try {
+      // Await even if the parent is sync — `onContinue` is typed
+      // `() => void | Promise<void>`, so `await` on a void return
+      // resolves on the next microtask without changing semantics.
+      // For the async case (today/adventure mode), this keeps the
+      // button disabled until save + orchestrator celebrations finish.
+      await onContinue();
+      // Intentionally NOT resetting `isProcessingContinue` on success.
+      // The parent has already navigated away (modal dismissed, lesson
+      // unmounted) — toggling the veil off here causes a brief flicker
+      // during the unmount frame. Component lifecycle handles cleanup.
+    } catch (error) {
+      // Parent threw → re-enable the button so user can retry. Today
+      // mode catches its own Supabase error internally, so this branch
+      // mostly fires for adventure-mode `saveNewProgressData` failures.
+      AppLogger.error('quiz', 'Quiz results continue failed', {}, error);
+      isProcessingContinueRef.current = false;
+      setIsProcessingContinue(false);
+    }
   }, [
     adventureId,
     moduleId,
@@ -449,6 +494,7 @@ export default function QuizResults({
                 size="large"
                 onPress={handleContinue}
                 haptic="medium"
+                isDisabled={isProcessingContinue}
               >
                 <Typography
                   family="onest"
