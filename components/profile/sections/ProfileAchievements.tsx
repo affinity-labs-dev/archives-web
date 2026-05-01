@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, View } from 'react-native';
+import { Image, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated from 'react-native-reanimated';
@@ -7,9 +7,8 @@ import Animated from 'react-native-reanimated';
 import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { Typography } from '@/components/ui/Typography';
 import { colors } from '@/components/ui/theme';
-import { GrayscaleImage } from '@/gamification/ui/achievement/GrayscaleImage';
-import CamelImage from '@/assets/images/quiz-images/Camel.png';
 
+import { getAchievementImage } from '../assetMaps';
 import { LiftPressable } from '../shared/LiftPressable';
 import type { DisplayAchievement } from '../types';
 import { profileStyles } from './styles';
@@ -42,37 +41,50 @@ function ProfileAchievementsImpl({
         </TouchableOpacity>
 
         <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={[profileStyles.achievementRow, { paddingHorizontal: 24 }]}>
-          {achievements.map((achievement) => (
-            <View key={achievement.id} style={profileStyles.achievementItem}>
-              <LiftPressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onPreviewAchievement(achievement);
-                }}
-              >
-                <View style={profileStyles.achievementIconWrap}>
-                  <GrayscaleImage
-                    source={achievement.image || CamelImage}
-                    style={profileStyles.achievementImage}
-                    width={92}
-                    height={92}
-                    resizeMode="contain"
-                    grayscale={!achievement.unlocked}
-                  />
-                </View>
-              </LiftPressable>
-              <Typography
-                family="onest"
-                size={12}
-                weight="600"
-                color={achievement.unlocked ? 'onyx' : 'concreteGrey'}
-                align="center"
-                style={{ marginTop: 6 }}
-              >
-                {achievement.name}
-              </Typography>
-            </View>
-          ))}
+          {achievements.map((achievement) => {
+            // Pre-rendered locked + unlocked artwork from the shared
+            // assetMaps — same source AchievementsScreen uses for its
+            // full grid + preview card. Drops the runtime SVG
+            // grayscale filter (GrayscaleImage) and guarantees the
+            // preview modal shows the same pixel-perfect artwork as
+            // the small tile here.
+            const localImage = getAchievementImage(
+              achievement.id,
+              achievement.unlocked,
+            );
+            return (
+              <View key={achievement.id} style={profileStyles.achievementItem}>
+                <LiftPressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    // Spread + override `image` so the preview card
+                    // upstream renders the local locked/unlocked PNG
+                    // instead of the Supabase URL the orchestrator
+                    // attached to `achievement.image`.
+                    onPreviewAchievement({ ...achievement, image: localImage });
+                  }}
+                >
+                  <View style={profileStyles.achievementIconWrap}>
+                    <Image
+                      source={localImage}
+                      style={profileStyles.achievementImage}
+                      resizeMode="contain"
+                    />
+                  </View>
+                </LiftPressable>
+                <Typography
+                  family="onest"
+                  size={12}
+                  weight="600"
+                  color={achievement.unlocked ? 'onyx' : 'concreteGrey'}
+                  align="center"
+                  style={{ marginTop: 6 }}
+                >
+                  {achievement.name}
+                </Typography>
+              </View>
+            );
+          })}
         </Animated.ScrollView>
       </View>
     </AnimatedEntrance>

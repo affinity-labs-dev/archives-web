@@ -97,6 +97,66 @@ const BADGE_IMAGE_MAP: Record<string, any> = {
 
 export const getBadgeImage = (imagePath: string) => BADGE_IMAGE_MAP[imagePath];
 
+// ── Achievement images ──────────────────────────────────────────────
+// Locked + unlocked variants are pre-rendered (handled by the designer
+// per piece) rather than runtime grayscale-filtered. Both maps are
+// keyed by the orchestrator's achievement.id so a single id passed
+// through getAchievementImage(id, unlocked) resolves to the right
+// pixel-perfect asset for either state. Used by AchievementsScreen
+// (full grid) AND the ProfileAchievements preview row, so any new
+// achievement only needs adding here in one place.
+
+const ACHIEVEMENT_IMAGES_UNLOCKED: Record<string, any> = {
+  perfect_scholar: require('@/assets/images/adventure-unlocked/perfectscholar.png'),
+  quiz_legend: require('@/assets/images/adventure-unlocked/quizlegend.png'),
+  quiz_master: require('@/assets/images/adventure-unlocked/quizmaster.png'),
+  first_perfect: require('@/assets/images/adventure-unlocked/firststeps.png'),
+  century_scholar: require('@/assets/images/adventure-unlocked/100dayscholar.png'),
+  quick_learner: require('@/assets/images/adventure-unlocked/quicklearner.png'),
+  speed_demon: require('@/assets/images/adventure-unlocked/speeddemon.png'),
+  week_warrior: require('@/assets/images/adventure-unlocked/weekwarrior.png'),
+  month_master: require('@/assets/images/adventure-unlocked/monthmaster.png'),
+  early_bird: require('@/assets/images/adventure-unlocked/earlybird.png'),
+  night_owl: require('@/assets/images/adventure-unlocked/nightowl.png'),
+  era_complete_umayyad: require('@/assets/images/adventure-unlocked/umayyadexpert.png'),
+  era_complete_women_of_islam: require('@/assets/images/adventure-unlocked/womenofislam.png'),
+  era_complete_roi: require('@/assets/images/adventure-unlocked/riseofislam.png'),
+  xp_100: require('@/assets/images/adventure-unlocked/talib(seeker).png'),
+  xp_250: require('@/assets/images/adventure-unlocked/daris(student).png'),
+  xp_500: require('@/assets/images/adventure-unlocked/alim(scholar).png'),
+  xp_1000: require('@/assets/images/adventure-unlocked/hakim(sage).png'),
+  xp_2000: require('@/assets/images/adventure-unlocked/ustadh(master).png'),
+  xp_3500: require('@/assets/images/adventure-unlocked/shaykhalilm.png'),
+};
+
+const ACHIEVEMENT_IMAGES_LOCKED: Record<string, any> = {
+  perfect_scholar: require('@/assets/images/adventure-locked/perfectscholar.png'),
+  quiz_legend: require('@/assets/images/adventure-locked/quizlegend.png'),
+  quiz_master: require('@/assets/images/adventure-locked/quizmaster.png'),
+  first_perfect: require('@/assets/images/adventure-locked/firststeps.png'),
+  century_scholar: require('@/assets/images/adventure-locked/100dayscholar.png'),
+  quick_learner: require('@/assets/images/adventure-locked/quicklearner.png'),
+  speed_demon: require('@/assets/images/adventure-locked/speeddemon.png'),
+  week_warrior: require('@/assets/images/adventure-locked/weekwarrior.png'),
+  month_master: require('@/assets/images/adventure-locked/monthmaster.png'),
+  early_bird: require('@/assets/images/adventure-locked/earlybird.png'),
+  night_owl: require('@/assets/images/adventure-locked/nightowl.png'),
+  era_complete_umayyad: require('@/assets/images/adventure-locked/umayyadexpert.png'),
+  era_complete_women_of_islam: require('@/assets/images/adventure-locked/womenofislam.png'),
+  era_complete_roi: require('@/assets/images/adventure-locked/riseofislam.png'),
+  xp_100: require('@/assets/images/adventure-locked/talib(seeker).png'),
+  xp_250: require('@/assets/images/adventure-locked/daris(student).png'),
+  xp_500: require('@/assets/images/adventure-locked/alim(scholar).png'),
+  xp_1000: require('@/assets/images/adventure-locked/hakim(sage).png'),
+  xp_2000: require('@/assets/images/adventure-locked/ustadh(master).png'),
+  xp_3500: require('@/assets/images/adventure-locked/shaykhalilm.png'),
+};
+
+export const getAchievementImage = (id: string, unlocked: boolean) =>
+  unlocked
+    ? ACHIEVEMENT_IMAGES_UNLOCKED[id]
+    : ACHIEVEMENT_IMAGES_LOCKED[id];
+
 export const MONTH_NAMES = [
   'January',
   'February',
