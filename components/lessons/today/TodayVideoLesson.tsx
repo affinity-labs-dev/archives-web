@@ -84,6 +84,10 @@ interface TodayVideoItemProps {
   isActive: boolean;
   shouldLoop: boolean;
   onStatusUpdate?: (status: any) => void;
+  // Fires once when the underlying player transitions to `readyToPlay`.
+  // Parent uses it to gate the caption fade-in so we never paint caption
+  // text over the still-black placeholder while the player primes.
+  onReady?: () => void;
 }
 
 const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
@@ -91,6 +95,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
   isActive,
   shouldLoop,
   onStatusUpdate,
+  onReady,
 }) => {
   // Auto-detect HLS for cross-platform compatibility (Android ExoPlayer needs explicit hint)
   const isHLS = videoUrl?.includes('.m3u8') || videoUrl?.includes('/hls/') || videoUrl?.includes('format=m3u8');
@@ -257,6 +262,9 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
         initial_speed_mbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps,
       });
       hasTrackedLoadTimeRef.current = true;
+      // Notify parent that the player is ready — used to gate caption
+      // fade-in so we don't paint over the black placeholder window.
+      onReady?.();
     }
 
     // Track error — recoverable (carousel skips this item, others still play),
@@ -448,6 +456,66 @@ export default function TodayVideoLesson({
   // Carousel state
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
+  // Per-slide thumbnail array. Falls back to the contentItem's main
+  // thumbnail_url so single-video lessons still get a poster behind the
+  // black placeholder. Length is normalized to mediaUrls so each slot
+  // can index into it directly.
+  const thumbnailUrls = useMemo<(string | undefined)[]>(() => {
+    const fallback = contentItem.thumbnail_url;
+    const raw = (contentItem.bottom_content as any)?.thumbnails;
+    if (Array.isArray(raw)) {
+      return mediaUrls.map(
+        (_, i) => (typeof raw[i] === 'string' && raw[i]) || fallback || undefined,
+      );
+    }
+    return mediaUrls.map(() => fallback || undefined);
+  }, [contentItem.thumbnail_url, contentItem.bottom_content, mediaUrls]);
+
+  // Tracks whether the player at `currentMediaIndex` has reached
+  // `readyToPlay`. Resets to false on every slide change so the caption
+  // animation never lands on top of the black-placeholder window of the
+  // newly-active slide.
+  const [activeSlideReady, setActiveSlideReady] = useState(false);
+
+  // Tracks whether the user is mid-gesture (finger down OR coasting on
+  // momentum). Caption hides as soon as the drag begins so it never
+  // sits over a partially-scrolled, half-covered video — even if the
+  // user releases short of a full slide change.
+  const [isCarouselScrolling, setIsCarouselScrolling] = useState(false);
+
+  // Derived visibility — caption is visible only when BOTH:
+  //   1. the active slide's player is ready, AND
+  //   2. no scroll/drag is in flight.
+  // This single flag drives the opacity tween; useEffect picks up any
+  // change to either input. Keeps the visibility logic in one place.
+  const shouldShowCaption = activeSlideReady && !isCarouselScrolling;
+
+  // Caption opacity — driven on the UI thread. Hides the moment the
+  // user starts swiping (or any time scroll is in flight), and fades
+  // back in once the active player is ready AND the user has settled.
+  // Single shared value avoids unmount/remount churn on the caption
+  // Text and keeps the animation entirely off the JS thread.
+  const captionOpacity = useSharedValue(0);
+  const captionAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: captionOpacity.value,
+  }));
+
+  useEffect(() => {
+    if (shouldShowCaption) {
+      // Fade in — 280ms `power2.out` matches the mock's default "fade
+      // body in" beat (`Downloads/02 daily story/index.html:2403-2435`).
+      captionOpacity.value = withTiming(1, {
+        duration: safeDuration(280),
+        easing: easings.power2Out,
+      });
+    } else {
+      // Snap to 0 — caption text MUST be gone before the next slide's
+      // video paints, otherwise a half-faded caption from the outgoing
+      // slide briefly overlays the new slide's still-priming player.
+      captionOpacity.value = 0;
+    }
+  }, [shouldShowCaption, captionOpacity]);
+
   // Card state - Initially hidden (sheet sits SHEET_HEIGHT below screen
   // baseline so a `translateY(0)` brings it fully into view).
   const [isCardExpanded, setIsCardExpanded] = useState(false);
@@ -486,15 +554,69 @@ export default function TodayVideoLesson({
   const panGestureRef = useRef(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Carousel scroll handler (like adventure carousels)
+  // ─── Carousel scroll lifecycle ─────────────────────────────────────
+  // Three handlers cooperate to drive caption visibility:
+  //
+  //   onScrollBeginDrag → flip `isCarouselScrolling=true` so the caption
+  //     snaps to 0 the instant the finger moves. Covers the "user pulls
+  //     halfway and either commits or releases back" case — without
+  //     this hook the caption sat over a partially-revealed adjacent
+  //     slide while the user dragged.
+  //
+  //   onMomentumScrollEnd → fired after the deceleration animation
+  //     settles. We update the index here (still the source of truth
+  //     for which video is active) and clear `isCarouselScrolling`. If
+  //     the user landed on the SAME slide, `activeSlideReady` is still
+  //     true and the derived `shouldShowCaption` flips back to true →
+  //     caption fades back in. If they landed on a NEW slide, the
+  //     index-change effect resets `activeSlideReady` to false → the
+  //     caption stays hidden until the new player fires `onReady`.
+  //
+  //   onScrollEndDrag → backstop for the gesture path that releases
+  //     too softly to trigger momentum (e.g. a tiny pull-and-release
+  //     under the iOS minimum-velocity threshold). RN does NOT fire
+  //     `onMomentumScrollEnd` in that case, so without this handler
+  //     `isCarouselScrolling` would stick at true and the caption
+  //     would never come back.
+  const handleScrollBeginDrag = () => {
+    setIsCarouselScrolling(true);
+  };
+
+  const handleScrollEndDrag = (event: any) => {
+    // If momentum kicks in, `momentumScroll` events follow and
+    // `onMomentumScrollEnd` will clear the flag. Detect that by
+    // checking the velocity — RN provides it on the end-drag event.
+    // No momentum on this gesture → clear the flag here too.
+    const vx = event?.nativeEvent?.velocity?.x ?? 0;
+    if (Math.abs(vx) < 0.05) {
+      setIsCarouselScrolling(false);
+    }
+  };
+
   const handleCarouselScroll = (event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / SCREEN_WIDTH);
+    setIsCarouselScrolling(false);
     if (index !== currentMediaIndex && index >= 0 && index < mediaUrls.length) {
+      // Reset readiness BEFORE swapping the index — the useEffect that
+      // drives caption opacity sees `activeSlideReady=false` first and
+      // keeps the caption at 0. Without this two-step the caption from
+      // the outgoing slide could linger over the new slide's still-
+      // priming player for a frame.
+      setActiveSlideReady(false);
       setCurrentMediaIndex(index);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
+
+  // Reset readiness whenever currentMediaIndex changes via any route
+  // (e.g. programmatic scroll, future deep-link to a specific slide).
+  // The `handleCarouselScroll` path above already does this, but keying
+  // off the index too keeps the invariant safe regardless of how the
+  // change was triggered.
+  useEffect(() => {
+    setActiveSlideReady(false);
+  }, [currentMediaIndex]);
 
   // Make status bar transparent for fullscreen experience
   useEffect(() => {
@@ -676,6 +798,11 @@ export default function TodayVideoLesson({
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
+              // See handler comments above. The pair (begin/end-drag +
+              // momentum-end) covers all three release paths so the
+              // caption visibility flag never gets stuck.
+              onScrollBeginDrag={handleScrollBeginDrag}
+              onScrollEndDrag={handleScrollEndDrag}
               onMomentumScrollEnd={handleCarouselScroll}
               scrollEnabled={!isCardExpanded}
               style={{ flex: 1 }}
@@ -700,15 +827,46 @@ export default function TodayVideoLesson({
                         contentFit="cover"
                       />
                     ) : shouldRenderMedia ? (
-                      <TodayVideoItem
-                        videoUrl={mediaUrl || ""}
-                        isActive={index === currentMediaIndex}
-                        shouldLoop={true}
-                        onStatusUpdate={index === currentMediaIndex ? handleVideoStatus : undefined}
-                      />
+                      // Active slide: render the video on top of the
+                      // thumbnail. The thumbnail stays painted underneath
+                      // until the player commits its first frame, so the
+                      // ~1-2s priming window shows the poster instead of
+                      // SurfaceView's default black.
+                      <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, backgroundColor: 'black' }}>
+                        {!!thumbnailUrls[index] && (
+                          <Image
+                            source={{ uri: thumbnailUrls[index] }}
+                            style={StyleSheet.absoluteFill}
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                          />
+                        )}
+                        <TodayVideoItem
+                          videoUrl={mediaUrl || ""}
+                          isActive={index === currentMediaIndex}
+                          shouldLoop={true}
+                          onStatusUpdate={index === currentMediaIndex ? handleVideoStatus : undefined}
+                          onReady={
+                            index === currentMediaIndex
+                              ? () => setActiveSlideReady(true)
+                              : undefined
+                          }
+                        />
+                      </View>
                     ) : (
-                      // Placeholder for videos not near current
-                      <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, backgroundColor: "black" }} />
+                      // Inactive slot: thumbnail-only placeholder. Same
+                      // poster the home deck card cached, so this paint
+                      // is essentially free on disk-cache hit.
+                      <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, backgroundColor: 'black' }}>
+                        {!!thumbnailUrls[index] && (
+                          <Image
+                            source={{ uri: thumbnailUrls[index] }}
+                            style={StyleSheet.absoluteFill}
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                          />
+                        )}
+                      </View>
                     )}
 
                   </View>
@@ -723,7 +881,13 @@ export default function TodayVideoLesson({
               `textShadow` mimics the figma's `text-shadow-[1px_1px_4px_black]`
               and gives legibility on top of arbitrary video frames. */}
           {captions[currentMediaIndex] && (
-            <View
+            // Animated wrapper — opacity driven by `captionOpacity`
+            // (UI-thread shared value, see captionAnimatedStyle above).
+            // Snaps to 0 the instant the user starts changing slides
+            // and fades back to 1 once the new slide's video fires
+            // `onReady`, so caption text never overlays the still-
+            // priming player or the thumbnail placeholder.
+            <Animated.View
               pointerEvents="none"
               style={[
                 styles.captionContainer,
@@ -731,6 +895,7 @@ export default function TodayVideoLesson({
                 // ~72px clears the back button + progress bar; figma 3507:7980
                 // anchors the headline at ~14% from the top of the screen.
                 { top: insets.top + 72 },
+                captionAnimatedStyle,
               ]}
             >
               <Typography
@@ -741,7 +906,7 @@ export default function TodayVideoLesson({
               >
                 {captions[currentMediaIndex]}
               </Typography>
-            </View>
+            </Animated.View>
           )}
 
           {/* Progress Dots — bottom-anchored, just above the floating CTAs
