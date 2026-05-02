@@ -167,38 +167,99 @@ export default function QuizResults({
   const isProcessingContinueRef = useRef(false);
   const [isProcessingContinue, setIsProcessingContinue] = useState(false);
 
-  // Tier-3 confetti — timing + origin matched to the HTML mock:
-  //   • Fires AFTER the count-up finishes (mock fires at `celebAt =
-  //     countDone + 0.05s`, ≈2100ms after entrance start). This lets the
-  //     user's eye lock onto "100%" before the celebration explodes —
-  //     firing during the count-up steals attention from the number.
-  //   • Origin = score-card center, not the mascot zone above. Mock fires
-  //     from `(0.5, 0.574)` of the canvas — that's the center of the gold
-  //     card. Particles burst UP from there, arc, then fall back across
-  //     the card. Firing from above (mascot zone) would have particles
-  //     flying off the top of the screen, missing the card entirely.
-  const confettiRef = useRef<ConfettiBurstHandle>(null);
+  // Confetti — three-burst staggered sequence ported from the HTML mock
+  // (`Downloads/03 questions/index.html:2326-2395`, function
+  // `fireCardConfetti`). Mock spec:
+  //
+  //     0ms    main burst    — wide spread, high velocity, dense (90)
+  //     120ms  fountain L+R  — angled outward from screen edges
+  //     350ms  aftershock    — slow drift particles
+  //
+  // Why three bursts instead of one big one: a single burst flashes on
+  // screen for ~1s and then it's done. The staggered triple-fire keeps
+  // visual energy alive for ~2.5s — main burst grabs attention, fountains
+  // refresh the burst with secondary motion right as the main burst
+  // peaks, and the slow-drift aftershock sustains the "celebration is
+  // still happening" feel through the headline reveal. Brain reads it
+  // as one continuous celebration moment instead of one quick pop.
+  //
+  // Gating: full 3-burst sequence ONLY for percentage === 100 (matches
+  // mock's `if (is100)` gate). Tier-high non-perfect scores (70-99%)
+  // still fire the single main burst — keeps the existing reward for
+  // strong-but-imperfect scores, just without the perfect-score crescendo.
+  const mainBurstRef = useRef<ConfettiBurstHandle>(null);
+  const leftFountainRef = useRef<ConfettiBurstHandle>(null);
+  const rightFountainRef = useRef<ConfettiBurstHandle>(null);
+  const aftershockRef = useRef<ConfettiBurstHandle>(null);
   const hasFiredConfettiRef = useRef(false);
+  // Holds a cleanup closure for the chained fountain/aftershock timers
+  // so we can clear them if the component unmounts mid-celebration
+  // (e.g. user taps Continue before the aftershock fires).
+  const cleanupTimersRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (tier !== 'high') return;
     if (hasFiredConfettiRef.current) return;
-    const timer = setTimeout(() => {
+
+    // Origin Y = 70% of screen height — keeps origin near the score
+    // card / action pill zone so the upward burst covers the headline
+    // + card on the rise and falls back over the same area. Firing from
+    // higher (e.g. 0.55 = card center) clipped the top half of the
+    // trajectory off the screen too quickly.
+    const cardCenterY = SCREEN_HEIGHT * 0.7;
+    const isPerfect = percentage === 100;
+
+    const mainTimer = setTimeout(() => {
       if (hasFiredConfettiRef.current) return;
       hasFiredConfettiRef.current = true;
-      confettiRef.current?.fire({
+
+      // Burst 1 — main center burst (always fires for tier high).
+      mainBurstRef.current?.fire({
         x: SCREEN_WIDTH / 2,
-        // y = 0.7 puts the origin near the action pills / lower third of
-        // the screen. Combined with a wide 120° spread + high velocity,
-        // particles burst UP from there and have ~70% of the screen
-        // height to travel before gravity pulls them back — they end up
-        // covering the headline + score card on the way up AND on the
-        // way down. Firing higher (e.g. 0.55 = card center) clipped the
-        // top half of the trajectory off the screen too quickly.
-        y: SCREEN_HEIGHT * 0.7,
+        y: cardCenterY,
       });
+
+      // 70-99% scores stop here — single main burst is the reward.
+      if (!isPerfect) return;
+
+      // Burst 2 — left + right fountains, 120ms after main. The two
+      // fountains fire SIMULTANEOUSLY (single setTimeout with both
+      // .fire() calls); their staggered ARRIVAL timing is the offset
+      // from burst 1, not relative to each other.
+      const fountainTimer = setTimeout(() => {
+        leftFountainRef.current?.fire({
+          x: SCREEN_WIDTH * 0.18,
+          y: cardCenterY + SCREEN_HEIGHT * 0.02,
+        });
+        rightFountainRef.current?.fire({
+          x: SCREEN_WIDTH * 0.82,
+          y: cardCenterY + SCREEN_HEIGHT * 0.02,
+        });
+      }, 120);
+
+      // Burst 3 — aftershock 350ms after main. Smaller, slower, drifts
+      // down rather than shooting up — gives the celebration a soft
+      // "settle" beat instead of a hard cut.
+      const aftershockTimer = setTimeout(() => {
+        aftershockRef.current?.fire({
+          x: SCREEN_WIDTH / 2,
+          y: cardCenterY - SCREEN_HEIGHT * 0.02,
+        });
+      }, 350);
+
+      // Cleanup chained timers on unmount mid-celebration (e.g. user
+      // taps Continue before the aftershock fires).
+      cleanupTimersRef.current = () => {
+        clearTimeout(fountainTimer);
+        clearTimeout(aftershockTimer);
+      };
     }, safeDuration(2100));
-    return () => clearTimeout(timer);
-  }, [tier]);
+
+    return () => {
+      clearTimeout(mainTimer);
+      cleanupTimersRef.current?.();
+    };
+  }, [tier, percentage]);
 
   // ─── Analytics: results viewed (fire once) ────────────────────────────
   const hasTrackedResultsRef = useRef(false);
@@ -569,14 +630,88 @@ export default function QuizResults({
         </View>
       </ScrollView>
 
+      {/* Four ConfettiBurst instances — each is a separate component
+          because ConfettiBurst's params (count/spread/velocity/etc.)
+          are PROPS, not arguments to fire(). To get four bursts with
+          different physics (matching the mock's main / fountain / fountain
+          / aftershock spec), we instantiate four pre-mounted instances
+          and trigger them via separate refs. Each instance's particle
+          worklets short-circuit when isFiring=0 so idle cost is ~0.
+
+          ─── Physics tuning — "boom boom boom" ──────────────────────
+          User feedback: "nhanh và mạnh hơn, dứt khoát hơn" — fast,
+          hard, decisive. Each burst is now a sharp impulse with a
+          short visible window (~1100-1200ms) instead of the previous
+          longer-tailed ~2000ms shape. Brain reads the staggered fire
+          (0 / 120 / 350ms) as three distinct CRACKS rather than a
+          single sustained haze.
+
+          Velocity bumped 70 → 90 (RN port ×8 = 720 px/s upward, peak
+          height analytic 720²/600 ≈ 864 px — particles travel nearly
+          a full screen height before fading). At gravity 0.3, t_peak
+          = 720/300 = 2.4 × lifespan, so particles never visibly fall.
+
+          Durations CUT roughly in half: main 2000→1100, fountains
+          1800→1000, aftershock 2200→1200. Per-fade math:
+          fadeStart=0.7-0.85 of duration (hardcoded in ConfettiBurst),
+          so 1100ms means particles stay fully opaque ~770ms then
+          fade in 330ms — punchy spike, no lingering "haze" tail. */}
+
+      {/* Burst 1 — main center burst. Densest (75 particles, Android-safe
+          ceiling) + tight 40° cone + high velocity = a vertical CRACK
+          straight up the screen. */}
       <ConfettiBurst
-        ref={confettiRef}
+        ref={mainBurstRef}
         colors={HIGH_TIER_CONFETTI_PALETTE}
-        count={120}
-        spread={120}
-        startVelocity={70}
-        duration={2200}
-        gravity={1.0}
+        count={75}
+        spread={40}
+        startVelocity={90}
+        gravity={0.3}
+        duration={1100}
+      />
+
+      {/* Burst 2a — left fountain. Off-center origin (x=0.18) gives the
+          directional "fountain" feel without needing angle support.
+          Slightly higher velocity (95) so they shoot HIGHER than the
+          main burst — delayed entry needs to claim attention against
+          the still-visible main spike. Shorter duration (1000ms) so
+          they fade just before the aftershock arrives — gives each
+          burst its own clean visual slot. */}
+      <ConfettiBurst
+        ref={leftFountainRef}
+        colors={HIGH_TIER_CONFETTI_PALETTE}
+        count={60}
+        spread={40}
+        startVelocity={95}
+        gravity={0.3}
+        duration={1000}
+      />
+
+      {/* Burst 2b — right fountain. Mirror of 2a (origin x=0.82). */}
+      <ConfettiBurst
+        ref={rightFountainRef}
+        colors={HIGH_TIER_CONFETTI_PALETTE}
+        count={60}
+        spread={40}
+        startVelocity={95}
+        gravity={0.3}
+        duration={1000}
+      />
+
+      {/* Burst 3 — aftershock. Slightly wider spread (60°) + lower
+          velocity (75) = a softer "second wind" beat that diffuses
+          where the first two bursts left vertical trails. Duration
+          1200ms keeps the celebration's exit punchy — total visible
+          window from main fire to aftershock fade ≈ 1.55s, ~40%
+          tighter than before. */}
+      <ConfettiBurst
+        ref={aftershockRef}
+        colors={HIGH_TIER_CONFETTI_PALETTE}
+        count={40}
+        spread={60}
+        startVelocity={75}
+        gravity={0.3}
+        duration={1200}
       />
 
       {/* AI explanations bottom-sheet — always mounted (the component

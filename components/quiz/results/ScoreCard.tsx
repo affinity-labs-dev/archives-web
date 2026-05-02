@@ -8,10 +8,12 @@ import React, { useEffect } from 'react';
 import { Dimensions, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
+  Easing,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -41,6 +43,16 @@ export function ScoreCard({
 }: ScoreCardProps) {
   const progress = useSharedValue(0);
 
+  // Pop animation on the percentage text — only fires for a perfect
+  // score (matches `is100 = screenEl.id === 'screen-100'` gate in the
+  // mock at `Downloads/03 questions/index.html:2433`). The percentage
+  // text bumps from 1 → 1.32 → 1 the moment count-up lands, giving the
+  // "100%" a celebratory beat instead of just sitting still after the
+  // tally finishes. transformOrigin='0% 100%' (bottom-left) matches the
+  // mock — number expands toward upper-right so the leading "1" stays
+  // anchored visually.
+  const popScale = useSharedValue(1);
+
   useEffect(() => {
     // Count-up + bar fill — start delay matches the score-card entrance
     // landing (850ms entrance delay + ~300ms slack for the card to settle).
@@ -51,7 +63,35 @@ export function ScoreCard({
         easing: easings.power2Out,
       }),
     );
-  }, [percentage, progress]);
+
+    // Pop animation — mock spec at lines 2284-2290:
+    //   scale 1 → 1.32 in 200ms with `back.out(2.4)`
+    //   scale 1.32 → 1 in 260ms with `back.inOut(1.8)`
+    // Fires at countDone = 1150ms entrance + 900ms count = 2050ms from
+    // mount. We approximate `back.out(2.4)` with `easings.backOut2`
+    // (closest preset, slightly less overshoot — visually within tuning
+    // tolerance) and `back.inOut(1.8)` with `Easing.inOut(Easing.back)`
+    // which is the canonical Reanimated equivalent.
+    if (percentage === 100) {
+      popScale.value = withDelay(
+        safeDuration(1150 + 900),
+        withSequence(
+          withTiming(1.32, {
+            duration: safeDuration(200),
+            easing: easings.backOut2,
+          }),
+          withTiming(1, {
+            duration: safeDuration(260),
+            easing: Easing.inOut(Easing.back(1.8)),
+          }),
+        ),
+      );
+    }
+  }, [percentage, progress, popScale]);
+
+  const popStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: popScale.value }],
+  }));
 
   // Animated text holds JUST the digits — the trailing "%" is rendered
   // as a separate static `<Text>` sibling.
@@ -119,7 +159,14 @@ export function ScoreCard({
               with the digit count (30 / 60 / 90 px) so "%" tracks the
               right edge of the digits at every value — no fixed
               minWidth dead zone, no clip on "100". */}
-          <View style={styles.percentageRow}>
+          {/* Animated wrapper drives the pop — transformOrigin lives
+              on a static style key (RN 0.74+ supports it natively).
+              popStyle only mutates `scale`, so the digit-count math
+              underneath (digitsWidthStyle on the inner Animated.View)
+              stays untouched. */}
+          <Animated.View
+            style={[styles.percentageRow, styles.percentagePopAnchor, popStyle]}
+          >
             <Animated.View style={digitsWidthStyle}>
               <AnimatedTextInput
                 editable={false}
@@ -129,7 +176,7 @@ export function ScoreCard({
               />
             </Animated.View>
             <Text style={[styles.percentageText, { color: textColor }]}>%</Text>
-          </View>
+          </Animated.View>
           <Typography
             family="onest"
             size="sm"
@@ -226,6 +273,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+  },
+  // transformOrigin '0% 100%' = bottom-left of the row. Matches the
+  // mock's `transformOrigin: '0% 100%'` on `popNumber` so the digits
+  // bump UP and to the RIGHT during the pop, keeping the leading "1"
+  // visually anchored to its original screen position. RN 0.74+ supports
+  // this style key natively; older RN ignored it (treated as identity
+  // origin = center).
+  percentagePopAnchor: {
+    transformOrigin: '0% 100%',
   },
   xpRow: {
     flexDirection: 'row',
