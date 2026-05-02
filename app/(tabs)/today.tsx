@@ -927,7 +927,7 @@ export default function TodayScreen() {
           onSelectDate={handleDateClick}
           completedDates={completedDatesCache ?? new Set<string>()}
           isSubscribed={isSubscribed}
-          style={{ marginBottom: 16 }}
+          style={{ marginBottom: 8 }}
           entranceDelay={180}
         />
 
@@ -939,7 +939,7 @@ export default function TodayScreen() {
             easing: easings.power2Out,
           }}
         >
-          <TodayProgressBar label={progressLabel} progress={progress} style={{ marginBottom: 30 }} />
+          <TodayProgressBar label={progressLabel} progress={progress} style={{ marginBottom: 18 }} />
         </AnimatedEntrance>
 
         {/* No Quest Available - Shows inline when no content exists (historical or today) */}

@@ -1128,7 +1128,7 @@ const styles = StyleSheet.create({
   // adds the deck-specific top margin (the row's flex layout is owned
   // by the shared component).
   dotsRow: {
-    marginTop: 16,
+    marginTop: 8,
   },
   cardWrap: {
     position: "absolute",
