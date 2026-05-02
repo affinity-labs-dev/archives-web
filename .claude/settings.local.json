@@ -101,7 +101,10 @@
       "Bash(sed -n '/struct DailyStoryUpdateRecord/,/^}/p' modules/live-activity/ios/LiveActivityModule.swift)",
       "Bash(grep -rn \"%\\\\`\\\\|toFixed.*[0-9].*%\\\\|Math.round.*100\\\\|Math.floor.*100\" /Users/huypham/Desktop/affinity/Archives_Expo/components /Users/huypham/Desktop/affinity/Archives_Expo/hooks /Users/huypham/Desktop/affinity/Archives_Expo/app)",
       "Bash(grep -A2 \"openModal: openWithDive\\\\|openModal,$\")",
-      "Bash(git -c commit.gpgsign=false commit -m 'fix\\(AFF-848\\): await dive reverse before triggering celebration *)"
+      "Bash(git -c commit.gpgsign=false commit -m 'fix\\(AFF-848\\): await dive reverse before triggering celebration *)",
+      "Bash(grep -vE \"no-explicit-any|exhaustive-deps|^$\")",
+      "WebFetch(domain:preline.co)",
+      "WebFetch(domain:magicui.design)"
     ],
     "additionalDirectories": [
       "/private/tmp/figma-assets/celebration",
