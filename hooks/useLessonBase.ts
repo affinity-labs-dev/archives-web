@@ -1,12 +1,13 @@
 // useLessonBase.ts - Shared logic for all lesson types
 // Extracts common setup code to reduce duplication across lesson components
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 import { useLessonTracking } from '@/hooks/useLessonTracking';
 import { useGamifiedProgress, type ProgressEntry } from '@/gamification';
+import { analyticsService } from '@/services/AnalyticsService';
 import type { ContentItem } from '@/components/shared/types';
 
 // Lesson type for analytics and walkthrough
@@ -46,6 +47,7 @@ interface UseLessonBaseReturn {
     trackVideoComplete: (videoDuration?: number) => void;
     trackCardExpanded: () => void;
     trackLessonComplete: () => void;
+    trackDismiss: () => void;
   };
 
   // Completion handler (saves walkthrough flag + tracks + calls onContinue)
@@ -121,8 +123,11 @@ export function useLessonBase({
     checkWalkthrough();
   }, [walkthroughKey, lessonType]);
 
+  // Time tracking for dismiss events
+  const mountTimeRef = useRef(Date.now());
+
   // Analytics tracking (era-agnostic)
-  const tracking = useLessonTracking({
+  const lessonTracking = useLessonTracking({
     adventureId,
     moduleId,
     lessonId,
@@ -135,6 +140,21 @@ export function useLessonBase({
     moduleNumber,
     screen: `Lesson - ${adventureId} ${lessonId}`,
   });
+
+  const trackDismiss = useCallback(() => {
+    const timeSpent = Math.round((Date.now() - mountTimeRef.current) / 1000);
+    analyticsService.trackLessonDismissed({
+      adventure_id: adventureId,
+      module_id: moduleId,
+      lesson_id: lessonId,
+      lesson_type: lessonType,
+      time_spent_seconds: timeSpent,
+      era_id: eraId,
+      era_name: eraName,
+    });
+  }, [adventureId, moduleId, lessonId, lessonType, eraId, eraName]);
+
+  const tracking = { ...lessonTracking, trackDismiss };
 
   // Handle lesson completion
   const handleLessonComplete = useCallback(async () => {

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, StatusBar, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -17,6 +17,7 @@ import { AnimatedEntrance } from '@/components/ui/animations';
 import { Mascot } from '@/components/onboarding/Mascot/Mascot';
 import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
 import { useOnboardingStore, type InterestKey } from '@/stores/onboardingStore';
+import { analyticsService } from '@/services/AnalyticsService';
 
 const INTEREST_OPTIONS: { id: InterestKey; label: string }[] = [
   { id: 'fun', label: 'Just for fun' },
@@ -53,6 +54,10 @@ export default function OnboardingStep5Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const [typewriterDone, setTypewriterDone] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('interests');
+  }, []);
   // Remount key for OptionList — bumped on every focus so that returning from
   // a pushed screen (e.g., step-6) replays the entrance stagger. Needed because
   // `exitSignal` moves cards to translateX: -500 one-way; flipping it back to
@@ -70,6 +75,7 @@ export default function OnboardingStep5Screen() {
 
   const goNext = () => {
     if (!canContinue || isExiting) return;
+    analyticsService.trackOnboardingInterestsSelected(interests, interests.length);
     setIsExiting(true);
     setTimeout(() => {
       setStep(6);
@@ -78,6 +84,7 @@ export default function OnboardingStep5Screen() {
   };
 
   const handleSkip = () => {
+    analyticsService.trackOnboardingSkipped('interests', 'create_account');
     router.push('/onboarding-step-7' as never);
   };
 
@@ -85,7 +92,7 @@ export default function OnboardingStep5Screen() {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <OnboardingHeader currentStep={5} totalSteps={12} onSkip={handleSkip} />
+        <OnboardingHeader currentStep={5} totalSteps={12} screenName="interests" onSkip={handleSkip} />
 
         <View style={styles.body}>
           {/* Phase A — Mascot + bubble slide in from left as one unit */}

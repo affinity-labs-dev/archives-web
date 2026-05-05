@@ -75,7 +75,7 @@ export default function ImageCarouselLesson({
   // Shared lesson setup (analytics, walkthrough check, completion handler)
   const {
     walkthroughEnabled,
-    tracking: { trackCardExpanded },
+    tracking: { trackCardExpanded, trackDismiss },
     handleLessonComplete,
   } = useLessonBase({
     contentItem,
@@ -331,6 +331,7 @@ export default function ImageCarouselLesson({
           console.log('👈 Swipe left detected - going back');
         }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        trackDismiss();
         onDismiss();
       }
     }

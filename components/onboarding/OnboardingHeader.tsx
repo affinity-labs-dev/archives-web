@@ -7,6 +7,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import { ProgressBar, Typography, spacing } from '@/components/ui';
 import { colors, type ColorKey } from '@/components/ui/theme';
 import { backArrowSvg } from './icons/backArrowSvg';
+import { analyticsService } from '@/services/AnalyticsService';
 
 export interface OnboardingHeaderProps {
   /** 1-indexed current step. */
@@ -14,6 +15,9 @@ export interface OnboardingHeaderProps {
 
   /** Total steps in the flow (for percent calc). */
   totalSteps: number;
+
+  /** Screen name for analytics tracking. */
+  screenName?: string;
 
   /** Skip press handler. Hidden if undefined AND `showSkip` false. */
   onSkip?: () => void;
@@ -49,6 +53,7 @@ export interface OnboardingHeaderProps {
 export function OnboardingHeader({
   currentStep,
   totalSteps,
+  screenName,
   onSkip,
   onBack,
   showSkip = true,
@@ -62,11 +67,16 @@ export function OnboardingHeader({
   const handleBack = onBack ?? (() => router.back());
   const fg = colors[foregroundColor];
 
+  const wrappedBack = () => {
+    if (screenName) analyticsService.trackOnboardingBackTapped(screenName);
+    handleBack();
+  };
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.sideSlot}>
         {showBack && (
-          <Pressable onPress={handleBack} hitSlop={16}>
+          <Pressable onPress={wrappedBack} hitSlop={16}>
             <SvgXml xml={backArrowSvg} width={18} height={22} />
           </Pressable>
         )}

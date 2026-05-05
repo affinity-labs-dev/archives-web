@@ -22,6 +22,7 @@ import {
   spacing,
 } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
+import { analyticsService } from '@/services/AnalyticsService';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ibuJumpingRive = require('@/assets/rive/ibu-jumping.riv');
@@ -29,6 +30,10 @@ const TYPEWRITER_TEXT = "Hi! I'm Ibu — your guide through Islamic History";
 
 export default function SayHiToIbuScreen() {
   const [typewriterDone, setTypewriterDone] = useState(false);
+
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('meet_ibu');
+  }, []);
 
   // IBU bounce animation — phase 1: drop down, phase 2: scale-up pop, phase 3: settle back to 1
   const ibuTranslateY = useSharedValue(-120);
@@ -62,6 +67,7 @@ export default function SayHiToIbuScreen() {
   };
 
   const goToLogin = () => {
+    analyticsService.trackOnboardingLoginShortcutTapped('meet_ibu', 'create_account');
     router.push('/onboarding-step-7' as never);
   };
 

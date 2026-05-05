@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Pressable,
   StatusBar,
@@ -70,6 +70,14 @@ export default function OnboardingAuthScreen() {
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp();
 
   const [isSignInMode, setIsSignInMode] = useState(params.mode === 'signin');
+
+  useEffect(() => {
+    analyticsService.trackAuthScreenViewed({
+      screen: 'onboarding_auth',
+      mode: params.mode === 'signin' ? 'signin' : 'signup',
+    });
+  }, []);
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   // Pre-fill email when provided via query param (welcome-back screen routes
@@ -239,7 +247,7 @@ export default function OnboardingAuthScreen() {
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} hitSlop={16}>
+          <Pressable onPress={() => { analyticsService.trackOnboardingBackTapped('email_auth'); router.back(); }} hitSlop={16}>
             <SvgXml xml={backArrowSvg} width={12} height={22} />
           </Pressable>
         </View>

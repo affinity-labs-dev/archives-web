@@ -1,7 +1,7 @@
 // AdventureCard.tsx - Adventure detail modal (v5.0 Design System)
 // Displays adventure info from card_content JSONB field with v5.0 styling
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Modal,
@@ -15,6 +15,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { analyticsService } from '@/services/AnalyticsService';
 import { AnimatedCountUp, Typography, DepthButton } from '@/components/ui';
 import { colors, spacing, radius } from '@/components/ui/theme';
 import { AnimatedEntrance } from '@/components/ui/animations';
@@ -39,6 +40,8 @@ export default function AdventureCard({
   onDismiss,
   onStartAdventure,
 }: AdventureCardProps) {
+  const cardOpenTimeRef = useRef(Date.now());
+
   if (!adventure || !adventure.card_content) {
     return null;
   }
@@ -55,6 +58,10 @@ export default function AdventureCard({
 
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    analyticsService.trackAdventureCardDismissed({
+      adventure_id: adventure.id || '',
+      time_on_card_seconds: Math.round((Date.now() - cardOpenTimeRef.current) / 1000),
+    });
     onDismiss();
   };
 
