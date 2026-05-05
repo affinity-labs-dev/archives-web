@@ -90,7 +90,7 @@ export default function ReelLesson({
   // Shared lesson setup (analytics, walkthrough check, completion handler)
   const {
     walkthroughEnabled,
-    tracking: { trackVideoPlay, trackVideoPause, trackVideoComplete, trackCardExpanded },
+    tracking: { trackVideoPlay, trackVideoPause, trackVideoComplete, trackCardExpanded, trackDismiss },
     handleLessonComplete,
   } = useLessonBase({
     contentItem,
@@ -335,6 +335,7 @@ export default function ReelLesson({
           console.log('👈 Swipe left detected - going back');
         }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        trackDismiss();
         onDismiss();
       }
     }
@@ -532,7 +533,7 @@ export default function ReelLesson({
 
         {/* Back Button */}
         <View style={[styles.backButtonContainer, { top: insets.top + 8 }]}>
-          <TouchableOpacity style={styles.backButton} onPress={onDismiss}>
+          <TouchableOpacity style={styles.backButton} onPress={() => { trackDismiss(); onDismiss(); }}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </View>

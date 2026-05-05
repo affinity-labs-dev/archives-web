@@ -373,7 +373,7 @@ export default function VideoCarouselLesson({
   // Shared lesson setup (analytics, walkthrough check, completion handler)
   const {
     walkthroughEnabled,
-    tracking: { trackCardExpanded },
+    tracking: { trackCardExpanded, trackDismiss },
     handleLessonComplete,
   } = useLessonBase({
     contentItem,
@@ -631,6 +631,7 @@ export default function VideoCarouselLesson({
           console.log('👈 Swipe left detected - going back');
         }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        trackDismiss();
         onDismiss();
       }
     }

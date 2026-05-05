@@ -634,6 +634,50 @@ class AnalyticsService {
   }
 
 
+  // ==================== LEARN FLOW EVENTS (AFF-857) ====================
+
+  trackLessonDismissed(data: {
+    adventure_id: string;
+    module_id: string;
+    lesson_id: string;
+    lesson_type: string;
+    time_spent_seconds: number;
+    progress_at_exit?: number;
+    era_id?: string;
+    era_name?: string;
+  }) {
+    this.trackCustomEvent('lesson_dismissed', data);
+  }
+
+  trackQuizAbandoned(data: {
+    adventure_id: string;
+    module_id: string;
+    questions_answered: number;
+    total_questions: number;
+    time_spent_seconds: number;
+    era_id?: string;
+    era_name?: string;
+  }) {
+    this.trackCustomEvent('quiz_abandoned', data);
+  }
+
+  trackAdventureCardDismissed(data: {
+    adventure_id: string;
+    time_on_card_seconds: number;
+  }) {
+    this.trackCustomEvent('adventure_card_dismissed', data);
+  }
+
+  trackLearnFlowCompleted(data: {
+    adventure_id: string;
+    module_id: string;
+    had_quiz: boolean;
+    total_time_seconds: number;
+    era_id?: string;
+  }) {
+    this.trackCustomEvent('learn_flow_completed', data);
+  }
+
   // ==================== ONBOARDING FUNNEL EVENTS (AFF-857) ====================
 
   trackOnboardingStepViewed(screen: string) {
