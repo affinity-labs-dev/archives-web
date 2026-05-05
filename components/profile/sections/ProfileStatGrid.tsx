@@ -6,6 +6,7 @@ import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { StaggerGroup } from '@/components/ui/animations/StaggerGroup';
 import { Typography } from '@/components/ui/Typography';
 import { colors, easings } from '@/components/ui/theme';
+import { analyticsService } from '@/services/AnalyticsService';
 import { StatTile } from '../shared/StatTile';
 import { profileStyles } from './styles';
 
@@ -156,7 +157,12 @@ function ProfileStatGridImpl({
       >
         <TouchableOpacity
           style={profileStyles.seeMoreToggle}
-          onPress={onToggleExpanded}
+          onPress={() => {
+            if (!isExpanded) {
+              analyticsService.trackProfileStatsExpanded();
+            }
+            onToggleExpanded();
+          }}
           activeOpacity={0.6}
         >
           <Typography family="onest" size={14} weight="600" color="acaiSecondary">

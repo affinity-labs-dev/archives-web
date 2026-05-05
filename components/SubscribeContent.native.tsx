@@ -169,13 +169,18 @@ export default function SubscribeContent() {
   // Note: Close button is controlled in RevenueCat dashboard paywall template, not via code
   return (
     <RevenueCatUI.Paywall
-      onPurchaseStarted={() => {
-        console.log('💳 Purchase started');
+      onPurchaseStarted={({ packageBeingPurchased }) => {
+        console.log('💳 Purchase started', packageBeingPurchased?.identifier);
         setIsTransacting(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        analyticsService.trackSubscribePurchaseStarted({
+          trigger: 'subscribe_tab',
+          plan_id: packageBeingPurchased?.product?.identifier,
+          billing_cycle: packageBeingPurchased?.packageType,
+        });
       }}
-      onPurchaseCompleted={() => {
-        console.log('✅ Purchase completed!');
+      onPurchaseCompleted={({ storeTransaction }) => {
+        console.log('✅ Purchase completed!', storeTransaction?.productIdentifier);
         setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         analyticsService.trackSubscribePurchaseCompleted({
@@ -183,12 +188,13 @@ export default function SubscribeContent() {
           plan: 'yearly',
         });
       }}
-      onPurchaseError={() => {
-        console.log('❌ Purchase error');
+      onPurchaseError={({ error }) => {
+        console.log('❌ Purchase error', error?.message);
         setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         analyticsService.trackSubscribePurchaseFailed({
           trigger: 'subscribe_tab',
+          error_code: error?.code != null ? String(error.code) : undefined,
         });
       }}
       onPurchaseCancelled={() => {
@@ -214,12 +220,13 @@ export default function SubscribeContent() {
           trigger: 'subscribe_tab',
         });
       }}
-      onRestoreError={() => {
-        console.log('❌ Restore error');
+      onRestoreError={({ error }) => {
+        console.log('❌ Restore error', error?.message);
         setIsTransacting(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         analyticsService.trackSubscribeRestoreFailed({
           trigger: 'subscribe_tab',
+          error_code: error?.code != null ? String(error.code) : undefined,
         });
       }}
       onDismiss={() => {

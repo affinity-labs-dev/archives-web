@@ -97,6 +97,7 @@ export type { NotificationPromptVariant } from './engines/NotificationPromptProv
 // ========== PROVIDERS (Contexts) ==========
 export { RewardsProvider, useRewards } from './engines/RewardsContext';
 export { AIProvider, useAI } from './engines/AIContext';
+export type { AIChatTrigger } from './engines/AIContext';
 
 // ========== STORES (Zustand) ==========
 export { useEraProgressStore } from './stores/useEraProgressStore';

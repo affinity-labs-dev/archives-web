@@ -32,6 +32,7 @@ import { StaggerGroup } from '@/components/ui/animations/StaggerGroup';
 import { DepthButton } from '@/components/ui/DepthButton';
 import { Typography } from '@/components/ui/Typography';
 import { colors, easings, safeDuration } from '@/components/ui/theme';
+import { analyticsService } from '@/services/AnalyticsService';
 
 import { iconCloseX, svgIcon } from './settings/icons';
 
@@ -327,6 +328,11 @@ export function AvatarSelectorSheet({
 
   const handleSave = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const avatar = AVATAR_BY_ID.get(previewId);
+    analyticsService.trackProfileAvatarChanged({
+      avatar_id: previewId,
+      avatar_name: avatar?.name ?? previewId,
+    });
     onSave(previewId);
     onClose();
   }, [previewId, onSave, onClose]);
