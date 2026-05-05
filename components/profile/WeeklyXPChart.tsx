@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import Animated, {
+  cancelAnimation,
   useSharedValue,
   useAnimatedProps,
   withTiming,
@@ -132,6 +133,17 @@ function Dot({ cx, cy, isToday, index }: { cx: number; cy: number; isToday: bool
         ), -1, false),
       );
     }
+    // Cancel on unmount. The today-marker pulse uses two infinite
+    // withRepeat loops driving SVG-Circle animated props (`opacity`, `r`).
+    // When sign-out tears down the (tabs) tree (Profile + Today + ...),
+    // ungated commits chase a freed ShadowNodeFamily and segfault in
+    // Reanimated's commitUpdates path on New Architecture.
+    return () => {
+      cancelAnimation(opacity);
+      cancelAnimation(scale);
+      cancelAnimation(ringOpacity);
+      cancelAnimation(ringScale);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

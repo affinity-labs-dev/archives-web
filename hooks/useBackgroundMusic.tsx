@@ -144,7 +144,7 @@ export const useBackgroundMusic = (
       }
 
       if (error) {
-        AppLogger.error('audio', 'Failed to load sound', {}, error);
+        AppLogger.error('audio', 'Failed to load sound', { uri: audioSource.uri }, error);
         setIsLoading(false);
         return;
       }

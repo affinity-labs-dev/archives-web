@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -47,6 +48,11 @@ export function useAvatarBreathe() {
       -1,
       true,
     );
+
+    return () => {
+      cancelAnimation(breatheScale);
+      cancelAnimation(breatheY);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

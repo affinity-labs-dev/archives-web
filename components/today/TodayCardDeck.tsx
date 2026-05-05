@@ -2,6 +2,7 @@ import { Image, type ImageSource } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Dimensions,
   StyleProp,
   StyleSheet,
   TouchableOpacity,
@@ -10,6 +11,7 @@ import {
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  cancelAnimation,
   Easing,
   type SharedValue,
   useAnimatedStyle,
@@ -35,6 +37,8 @@ import {
   incompleteStarSvg,
   rewatchIconSvg,
 } from "./icons/todayIcons";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -93,8 +97,29 @@ interface TodayCardDeckProps {
 // `Downloads/02 daily story/index.html:2102-2200` and Figma 3365:9298)
 // ──────────────────────────────────────────────────────────
 
-const CARD_WIDTH = 252;
-const CARD_HEIGHT = 402;
+// const CARD_WIDTH = 252;
+// const CARD_HEIGHT = 402;
+const CARD_WIDTH = (SCREEN_WIDTH - 28) * 0.7;
+// Card height — "fill available content area" instead of flat 50%.
+// The mock's `0.5 * SCREEN_HEIGHT` works on median 6.1" phones but
+// fails at both extremes because the surrounding chrome (header +
+// week strip + progress bar + pagination dots + RESTART CTA + tab
+// bar + safe-area insets ≈ 460pt) is fixed in pixels — its share of
+// the viewport changes with screen height. On iPhone Pro Max / Z
+// Fold 6 (≥880pt) chrome occupies a smaller fraction → card looks
+// undersized with a visible gap below. On iPhone SE (667pt) chrome
+// occupies a larger fraction → card overflows into the pagination
+// dots and pushes them under the CTA.
+//
+// Strategy: target SCREEN_HEIGHT minus the chrome budget so the card
+// always fills the leftover space, but clamp between 42–55% of the
+// viewport so the proportions stay close to the mock and don't go
+// off the rails on unusual aspect ratios.
+const CHROME_BUDGET = 445;
+const CARD_HEIGHT = Math.max(
+  Math.min(SCREEN_HEIGHT - CHROME_BUDGET, SCREEN_HEIGHT * 0.55),
+  SCREEN_HEIGHT * 0.51,
+);
 const CARD_RADIUS = 32;
 
 const SLOT_OFFSET_X = 60;
@@ -389,7 +414,6 @@ function Card({
   const stableCompletedBool = stableCompleted === true;
   const quizCorrectAnswers = data.quizCorrectAnswers;
   const renderStars =
-    data.kind === "watch" &&
     stableCompletedBool &&
     quizCorrectAnswers != null;
   const completedLabel =
@@ -636,7 +660,18 @@ function Card({
   }, [data.minutes, currentMinutes, minutesOpacity]);
 
   // Center card's image "hum" — scale 1 ↔ 1.02 over 2.6s sine.inOut yoyo
-  // (mock `startCenterCardHum()` at `index.html:1934-1938`, scales `.card-bg` not the card)
+  // (mock `startCenterCardHum()` at `index.html:1934-1938`, scales `.card-bg` not the card).
+  //
+  // Cleanup is critical: the `withRepeat(..., -1, true)` is an infinite
+  // animation. On New Architecture, when the component unmounts (e.g.
+  // sign-out cascade tears down the Clerk → providers → tabs tree),
+  // Reanimated's pending shadow-tree commits race against the
+  // ShadowNodeFamily destructor. Without `cancelAnimation`, the
+  // queued tick keeps targeting a freed node → `convertRawProp<Transform>`
+  // dereferences a stale `unordered_map<RawValue>` → segfault with
+  // pointer-auth failure (KERN_INVALID_ADDRESS at 0x8000000000000008).
+  // Cancelling on unmount drains the worklet queue before the family
+  // is destructed.
   useEffect(() => {
     if (isCenter) {
       imageScale.value = withRepeat(
@@ -650,6 +685,9 @@ function Card({
     } else {
       imageScale.value = withTiming(1, { duration: safeDuration(200) });
     }
+    return () => {
+      cancelAnimation(imageScale);
+    };
   }, [isCenter, imageScale]);
 
   const cardStyle = useAnimatedStyle(() => {

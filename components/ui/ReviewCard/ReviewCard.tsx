@@ -75,7 +75,6 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     paddingRight: 21,
     gap: 10,
-    maxWidth: 358,
     width: '100%',
   },
   header: {

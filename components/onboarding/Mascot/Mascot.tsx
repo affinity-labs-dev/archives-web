@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  cancelAnimation,
   withRepeat,
   withSequence,
   withTiming,
@@ -113,6 +114,13 @@ export function Mascot({
       -1,
       false,
     );
+    // Cancel on unmount so the infinite breathe + sway loops don't
+    // chase a freed ShadowNodeFamily during navigation tear-downs
+    // (e.g. onboarding screen pop, sign-out cascade) on New Arch.
+    return () => {
+      cancelAnimation(breatheScale);
+      cancelAnimation(swayRotate);
+    };
   }, [enableIdleLoops, breatheScale, swayRotate]);
 
   const entranceStyle = useAnimatedStyle(() => ({

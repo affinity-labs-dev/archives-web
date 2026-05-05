@@ -53,9 +53,19 @@ export default function OnboardingStep7Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const setIsSignUpMode = useOnboardingStore((s) => s.setIsSignUpMode);
   const markCompleted = useOnboardingStore((s) => s.markCompleted);
+  const confirmAuth = useOnboardingStore((s) => s.confirmAuth);
 
   const onAuthSuccess = async (isNewUser: boolean) => {
     AppLogger.info('auth', 'Onboarding step-7 auth success', { isNewUser });
+    // Unlock AsyncStorage persistence — same gate as
+    // onboarding-auth.tsx's email path. OAuth (Apple/Google) reaches
+    // this callback after `setActive()` inside the OutlineButton
+    // helpers, so the Clerk session is live by now. Without this
+    // call, the user would still be in Phase 1 of the onboarding
+    // store's auth-gated persistence and their answers would
+    // disappear on cold start.
+    confirmAuth();
+
     // New users go through the post-signup celebration + personalize flow.
     // Returning users (signed in on an existing account) skip straight to
     // the main app — they've already done onboarding on a prior install.

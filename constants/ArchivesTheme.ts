@@ -680,8 +680,9 @@ export const ArchivesTheme = {
         bottom: 0,
         left: 0,
         right: 0,
+        paddingTop: 8,
         paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddinBottom: 16,
         backgroundColor: "#FAFAFA", // colors.background / colors.snow
       },
       startButtonShadow: {

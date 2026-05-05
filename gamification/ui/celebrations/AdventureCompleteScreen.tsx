@@ -71,12 +71,6 @@ const PILL_ENTRANCE = {
   easing: easings.backOut2,
 } as const;
 
-// Description bbox width — must match `descriptionWrap.maxWidth` below.
-// react-native-render-html measures inline content against `contentWidth`
-// to break lines correctly; passing the rendered text width (not the
-// screen width) keeps wrapping aligned with our Figma 346px max.
-const DESCRIPTION_MAX_WIDTH = Math.min(SCREEN_WIDTH - 48, 346);
-
 // Module-scoped style objects — RenderHtml warns when these change
 // reference between renders (it re-builds its TRT — Token-Render-Tree —
 // on every prop change). Hoisting them out of the component keeps the
@@ -490,7 +484,7 @@ export default function AdventureCompleteScreen({
                 system tokens so the inline markup keeps the same
                 Onest-on-snow look as the rest of the screen. */}
             <RenderHtml
-              contentWidth={DESCRIPTION_MAX_WIDTH}
+              contentWidth={SCREEN_WIDTH - 48}
               source={{ html: description }}
               defaultTextProps={{ allowFontScaling: false }}
               baseStyle={htmlBaseStyle}
@@ -617,7 +611,7 @@ const styles = StyleSheet.create({
   },
   descriptionWrap: {
     marginTop: 18,
-    maxWidth: Math.min(SCREEN_WIDTH - 48, 346),
+    maxWidth: SCREEN_WIDTH - 48,
   },
   // Mascot wrapper: explicit pixel height (not minHeight + flex:1).
   // Rive's native view on Android needs concrete pixel dimensions on

@@ -122,7 +122,7 @@ export default function TodayCalendar({
 
   // Responsive dimensions — 7 cells + 6 gaps fit inside containerWidth
   const dimensions = useMemo(() => {
-    const containerWidth = Math.min(Math.max(SCREEN_WIDTH * 0.95, 280), 370);
+    const containerWidth = SCREEN_WIDTH * 0.95;
     const containerPadding = spacing.md;
     const innerWidth = containerWidth;
     const dayWidth = Math.floor(innerWidth / 8.8);
