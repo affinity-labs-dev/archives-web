@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -20,6 +20,7 @@ import { line1Svg, line2Svg } from '@/components/onboarding/icons/lineSvgs';
 import { bookSvg, clockSvg } from '@/components/onboarding/icons/pillIcons';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { toDisplayStep } from '@/constants/OnboardingRoutes';
+import { analyticsService } from '@/services/AnalyticsService';
 
 const riseOfIslamImg = require('@/assets/images/rise-of-islam-era.png');
 const womenOfIslamImg = require('@/assets/images/women-of-islam-era.png');
@@ -81,6 +82,15 @@ const WEEKS: WeekEntry[] = [
 export default function OnboardingStep12Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const markCompleted = useOnboardingStore((s) => s.markCompleted);
+  const startedAt = useOnboardingStore((s) => s.startedAt);
+  const dailyGoalMinutes = useOnboardingStore((s) => s.dailyGoalMinutes);
+  const ageGroup = useOnboardingStore((s) => s.ageGroup);
+  const interests = useOnboardingStore((s) => s.interests);
+  const name = useOnboardingStore((s) => s.name);
+
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('learning_path');
+  }, []);
 
   const handleGetStarted = () => {
     setStep(12);
@@ -88,6 +98,18 @@ export default function OnboardingStep12Screen() {
     // the terminal transition and fires `flushOnboardingAnswers` (immediate
     // cloud upsert), so we don't block navigation on the network round trip.
     markCompleted();
+
+    const timeToComplete = startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0;
+    analyticsService.trackOnboardingCompleted({
+      screen: 'learning_path',
+      context: 'onboarding',
+      time_to_complete_seconds: timeToComplete,
+      onboarding_q1: name || 'skipped',
+      onboarding_q2: interests,
+      onboarding_q3: String(dailyGoalMinutes ?? 'skipped'),
+      onboarding_q4: ageGroup ?? 'skipped',
+    });
+
     router.push('/onboarding-step-13' as never);
   };
 
@@ -103,7 +125,7 @@ export default function OnboardingStep12Screen() {
             easing: easings.power2Out,
           }}
         >
-          <OnboardingHeader currentStep={toDisplayStep(12)} totalSteps={12} showSkip={false} />
+          <OnboardingHeader currentStep={toDisplayStep(12)} totalSteps={12} screenName="learning_path" showSkip={false} />
         </AnimatedEntrance>
 
         <ScrollView

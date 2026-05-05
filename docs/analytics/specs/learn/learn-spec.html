@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archives — Learn Flow Spec</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+    background: #fafafa;
+    color: #333;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 40px;
+    margin-bottom: 16px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 24px;
+  }
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+    padding: 14px 20px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .legend-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .swatch-normal { background: #fff; border: 1px solid #ccc; }
+  .swatch-untracked { background: #fee2e2; border: 1px solid #dc2626; }
+  .swatch-checkpoint { background: #809DE4; border: 1px solid #6580C0; }
+  .swatch-grey { background: #9ca3af; border: 1px solid #6b7280; }
+
+  .svg-chart {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 8px;
+    padding: 16px 0;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+  }
+  .svg-chart svg {
+    min-width: 900px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  thead th {
+    background: #f5f5f5;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid #ddd;
+    font-weight: 600;
+  }
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+  tbody tr:hover { background: #fafafa; }
+  .mono {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  .untracked {
+    color: #dc2626;
+    font-weight: 600;
+  }
+  .unwired {
+    color: #9ca3af;
+    font-weight: 600;
+  }
+  .vol {
+    font-size: 12px;
+    color: #888;
+    display: block;
+    margin-top: 2px;
+  }
+  .event-row { margin-bottom: 6px; }
+  .event-row:last-child { margin-bottom: 0; }
+
+  hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 40px 0;
+  }
+  ol {
+    padding-left: 24px;
+  }
+  ol li {
+    margin-bottom: 8px;
+  }
+  .footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+    font-size: 13px;
+    color: #aaa;
+  }
+  .node-name {
+    font-weight: 600;
+  }
+  @page { size: landscape; margin: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Archives &mdash; Learn Flow Spec</h1>
+<p class="subtitle">AFF-844 &middot; PostHog Project 93650 &middot; Generated 2026-04-30</p>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch swatch-normal"></div>
+    <span><strong>Normal</strong> &mdash; event exists in codebase</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-untracked"></div>
+    <span class="untracked"><strong>Red</strong> &mdash; not in codebase, needs implementation</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background: #e5e7eb; border: 1px solid #9ca3af;"></div>
+    <span style="color: #9ca3af; font-weight: 600;"><strong>Grey</strong> &mdash; in codebase, not wired in new flow</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-checkpoint"></div>
+    <span><strong>Blue</strong> &mdash; checkpoint</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-grey"></div>
+    <span><strong>Dark Grey</strong> &mdash; alternate path (diagram)</span>
+  </div>
+</div>
+
+<!-- Diagram -->
+<h2>User Journey</h2>
+<div class="svg-chart">
+<svg id="learn-svg" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" style="max-width: 3348.23px; background-color: transparent;" viewBox="0 0 3348.234375 478" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#learn-svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#learn-svg .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#learn-svg .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#learn-svg .error-icon{fill:#552222;}#learn-svg .error-text{fill:#552222;stroke:#552222;}#learn-svg .edge-thickness-normal{stroke-width:1px;}#learn-svg .edge-thickness-thick{stroke-width:3.5px;}#learn-svg .edge-pattern-solid{stroke-dasharray:0;}#learn-svg .edge-thickness-invisible{stroke-width:0;fill:none;}#learn-svg .edge-pattern-dashed{stroke-dasharray:3;}#learn-svg .edge-pattern-dotted{stroke-dasharray:2;}#learn-svg .marker{fill:#333333;stroke:#333333;}#learn-svg .marker.cross{stroke:#333333;}#learn-svg svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#learn-svg p{margin:0;}#learn-svg .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#learn-svg .cluster-label text{fill:#333;}#learn-svg .cluster-label span{color:#333;}#learn-svg .cluster-label span p{background-color:transparent;}#learn-svg .label text,#learn-svg span{fill:#333;color:#333;}#learn-svg .node rect,#learn-svg .node circle,#learn-svg .node ellipse,#learn-svg .node polygon,#learn-svg .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#learn-svg .rough-node .label text,#learn-svg .node .label text,#learn-svg .image-shape .label,#learn-svg .icon-shape .label{text-anchor:middle;}#learn-svg .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#learn-svg .rough-node .label,#learn-svg .node .label,#learn-svg .image-shape .label,#learn-svg .icon-shape .label{text-align:center;}#learn-svg .node.clickable{cursor:pointer;}#learn-svg .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#learn-svg .arrowheadPath{fill:#333333;}#learn-svg .edgePath .path{stroke:#333333;stroke-width:1px;}#learn-svg .flowchart-link{stroke:#333333;fill:none;}#learn-svg .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#learn-svg .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#learn-svg .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#learn-svg .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#learn-svg .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#learn-svg .cluster text{fill:#333;}#learn-svg .cluster span{color:#333;}#learn-svg div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#learn-svg .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#learn-svg rect.text{fill:none;stroke-width:0;}#learn-svg .icon-shape,#learn-svg .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#learn-svg .icon-shape p,#learn-svg .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#learn-svg .icon-shape .label rect,#learn-svg .image-shape .label rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#learn-svg .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#learn-svg .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#learn-svg .node .neo-node{stroke:#9370DB;}#learn-svg [data-look="neo"].node rect,#learn-svg [data-look="neo"].cluster rect,#learn-svg [data-look="neo"].node polygon{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#learn-svg [data-look="neo"].node path{stroke:#9370DB;stroke-width:1px;}#learn-svg [data-look="neo"].node .outer-path{filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#learn-svg [data-look="neo"].node .neo-line path{stroke:#9370DB;filter:none;}#learn-svg [data-look="neo"].node circle{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#learn-svg [data-look="neo"].node circle .state-start{fill:#000000;}#learn-svg [data-look="neo"].icon-shape .icon{fill:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#learn-svg [data-look="neo"].icon-shape .icon-neo path{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#learn-svg :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}#learn-svg .checkpoint&gt;*{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#learn-svg .checkpoint span{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#learn-svg .checkpoint tspan{fill:#fff!important;}#learn-svg .grey&gt;*{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#learn-svg .grey span{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#learn-svg .grey tspan{fill:#fff!important;}  @page { size: landscape; margin: 20px; }
+</style><g><marker id="my-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="my-svg_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"/><g class="edgePaths"><path d="M126.828,239L130.995,239C135.161,239,143.495,239,151.161,239C158.828,239,165.828,239,169.328,239L172.828,239" id="my-svg-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTI2LjgyODEyNSwieSI6MjM5fSx7IngiOjE1MS44MjgxMjUsInkiOjIzOX0seyJ4IjoxNzYuODI4MTI1LCJ5IjoyMzl9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M326.625,239L330.792,239C334.958,239,343.292,239,350.958,239C358.625,239,365.625,239,369.125,239L372.625,239" id="my-svg-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzI2LjYyNSwieSI6MjM5fSx7IngiOjM1MS42MjUsInkiOjIzOX0seyJ4IjozNzYuNjI1LCJ5IjoyMzl9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M596.266,239L600.432,239C604.599,239,612.932,239,620.599,239C628.266,239,635.266,239,638.766,239L642.266,239" id="my-svg-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTk2LjI2NTYyNSwieSI6MjM5fSx7IngiOjYyMS4yNjU2MjUsInkiOjIzOX0seyJ4Ijo2NDYuMjY1NjI1LCJ5IjoyMzl9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M877.516,239L881.682,239C885.849,239,894.182,239,901.849,239C909.516,239,916.516,239,920.016,239L923.516,239" id="my-svg-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6ODc3LjUxNTYyNSwieSI6MjM5fSx7IngiOjkwMi41MTU2MjUsInkiOjIzOX0seyJ4Ijo5MjcuNTE1NjI1LCJ5IjoyMzl9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1094.266,239L1098.432,239C1102.599,239,1110.932,239,1118.599,239C1126.266,239,1133.266,239,1136.766,239L1140.266,239" id="my-svg-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MTA5NC4yNjU2MjUsInkiOjIzOX0seyJ4IjoxMTE5LjI2NTYyNSwieSI6MjM5fSx7IngiOjExNDQuMjY1NjI1LCJ5IjoyMzl9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1244.556,200.666L1265.253,175.055C1285.949,149.444,1327.342,98.222,1361.679,72.611C1396.016,47,1423.297,47,1436.938,47L1450.578,47" id="my-svg-L_F_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_G_0" data-points="W3sieCI6MTI0NC41NTYzMDE0Nzg1MzEsInkiOjIwMC42NjU2NzY0Nzg1MzA5fSx7IngiOjEzNjguNzM0Mzc1LCJ5Ijo0N30seyJ4IjoxNDU0LjU3ODEyNSwieSI6NDd9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1262.649,218.759L1280.33,211.466C1298.011,204.172,1333.373,189.586,1366.499,182.293C1399.625,175,1430.516,175,1445.961,175L1461.406,175" id="my-svg-L_F_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_H_0" data-points="W3sieCI6MTI2Mi42NDkzNTg3ODAxMjI2LCJ5IjoyMTguNzU4NzMzNzgwMTIyNjR9LHsieCI6MTM2OC43MzQzNzUsInkiOjE3NX0seyJ4IjoxNDY1LjQwNjI1LCJ5IjoxNzV9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1262.649,259.241L1280.33,266.534C1298.011,273.828,1333.373,288.414,1366.227,295.707C1399.081,303,1429.427,303,1444.6,303L1459.773,303" id="my-svg-L_F_I_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_I_0" data-points="W3sieCI6MTI2Mi42NDkzNTg3ODAxMjI2LCJ5IjoyNTkuMjQxMjY2MjE5ODc3NH0seyJ4IjoxMzY4LjczNDM3NSwieSI6MzAzfSx7IngiOjE0NjMuNzczNDM3NSwieSI6MzAzfV0=" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1244.556,277.334L1265.253,302.945C1285.949,328.556,1327.342,379.778,1364.107,405.389C1400.872,431,1433.01,431,1449.079,431L1465.148,431" id="my-svg-L_F_J_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_J_0" data-points="W3sieCI6MTI0NC41NTYzMDE0Nzg1MzEsInkiOjI3Ny4zMzQzMjM1MjE0NjkwNn0seyJ4IjoxMzY4LjczNDM3NSwieSI6NDMxfSx7IngiOjE0NjkuMTQ4NDM3NSwieSI6NDMxfV0=" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1661.125,47L1665.292,47C1669.458,47,1677.792,47,1698.773,73.934C1719.754,100.869,1753.382,154.738,1770.197,181.672L1787.011,208.607" id="my-svg-L_G_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_G_K_0" data-points="W3sieCI6MTY2MS4xMjUsInkiOjQ3fSx7IngiOjE2ODYuMTI1LCJ5Ijo0N30seyJ4IjoxNzg5LjEyOTE1MDM5MDYyNSwieSI6MjEyfV0=" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1650.297,175L1656.268,175C1662.24,175,1674.182,175,1691.115,180.853C1708.047,186.705,1729.968,198.411,1740.929,204.263L1751.89,210.116" id="my-svg-L_H_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_H_K_0" data-points="W3sieCI6MTY1MC4yOTY4NzUsInkiOjE3NX0seyJ4IjoxNjg2LjEyNSwieSI6MTc1fSx7IngiOjE3NTUuNDE4NzAxMTcxODc1LCJ5IjoyMTJ9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1651.93,303L1657.629,303C1663.328,303,1674.727,303,1691.387,297.147C1708.047,291.295,1729.968,279.589,1740.929,273.737L1751.89,267.884" id="my-svg-L_I_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_I_K_0" data-points="W3sieCI6MTY1MS45Mjk2ODc1LCJ5IjozMDN9LHsieCI6MTY4Ni4xMjUsInkiOjMwM30seyJ4IjoxNzU1LjQxODcwMTE3MTg3NSwieSI6MjY2fV0=" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1646.555,431L1653.15,431C1659.745,431,1672.935,431,1696.344,404.066C1719.754,377.131,1753.382,323.262,1770.197,296.328L1787.011,269.393" id="my-svg-L_J_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_J_K_0" data-points="W3sieCI6MTY0Ni41NTQ2ODc1LCJ5Ijo0MzF9LHsieCI6MTY4Ni4xMjUsInkiOjQzMX0seyJ4IjoxNzg5LjEyOTE1MDM5MDYyNSwieSI6MjY2fV0=" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1900.844,262.557L1909.866,264.797C1918.888,267.038,1936.932,271.519,1954.31,273.759C1971.688,276,1988.398,276,1996.754,276L2005.109,276" id="my-svg-L_K_L_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_K_L_0" data-points="W3sieCI6MTkwMC44NDM3NSwieSI6MjYyLjU1NjkxODg4MjA3MjI0fSx7IngiOjE5NTQuOTc2NTYyNSwieSI6Mjc2fSx7IngiOjIwMDkuMTA5Mzc1LCJ5IjoyNzZ9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M1854.452,212L1871.206,202.667C1887.96,193.333,1921.468,174.667,1954.888,165.333C1988.307,156,2021.638,156,2053.988,156C2086.339,156,2117.708,156,2153.659,156C2189.609,156,2230.141,156,2274.53,156C2318.919,156,2367.167,156,2413.525,156C2459.883,156,2504.352,156,2541.087,156C2577.823,156,2606.826,156,2634.678,164.962C2662.531,173.924,2689.234,191.847,2702.586,200.809L2715.938,209.771" id="my-svg-L_K_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_K_M_0" data-points="W3sieCI6MTg1NC40NTE3MTMxMDI0MDk3LCJ5IjoyMTJ9LHsieCI6MTk1NC45NzY1NjI1LCJ5IjoxNTZ9LHsieCI6MjA1NC45Njg3NSwieSI6MTU2fSx7IngiOjIxNDkuMDc4MTI1LCJ5IjoxNTZ9LHsieCI6MjI3MC42NzE4NzUsInkiOjE1Nn0seyJ4IjoyNDE1LjQxNDA2MjUsInkiOjE1Nn0seyJ4IjoyNTQ4LjgyMDMxMjUsInkiOjE1Nn0seyJ4IjoyNjM1LjgyODEyNSwieSI6MTU2fSx7IngiOjI3MTkuMjU4ODQ3ODkxNTY2MywieSI6MjEyfV0=" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M2089.776,249L2099.66,241.333C2109.544,233.667,2129.311,218.333,2151.393,217.99C2173.475,217.647,2197.872,232.294,2210.071,239.618L2222.269,246.941" id="my-svg-L_L_N_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_L_N_0" data-points="W3sieCI6MjA4OS43NzYzMjcwNTQ3OTQ0LCJ5IjoyNDl9LHsieCI6MjE0OS4wNzgxMjUsInkiOjIwM30seyJ4IjoyMjI1LjY5ODg0NDE3ODA4MjMsInkiOjI0OX1d" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M2344.016,302.349L2355.915,306.625C2367.815,310.9,2391.615,319.45,2414.747,323.725C2437.88,328,2460.346,328,2471.579,328L2482.813,328" id="my-svg-L_N_O_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_N_O_0" data-points="W3sieCI6MjM0NC4wMTU2MjUsInkiOjMwMi4zNDk0MzU5NTgzMzEwN30seyJ4IjoyNDE1LjQxNDA2MjUsInkiOjMyOH0seyJ4IjoyNDg2LjgxMjUsInkiOjMyOH1d" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M2610.828,328L2614.995,328C2619.161,328,2627.495,328,2645.477,318.056C2663.46,308.112,2691.092,288.224,2704.908,278.281L2718.724,268.337" id="my-svg-L_O_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_O_M_0" data-points="W3sieCI6MjYxMC44MjgxMjUsInkiOjMyOH0seyJ4IjoyNjM1LjgyODEyNSwieSI6MzI4fSx7IngiOjI3MjEuOTcwNjgxMTc5Nzc1LCJ5IjoyNjZ9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M2197.328,285.651L2189.286,286.709C2181.245,287.767,2165.161,289.884,2149.735,289.686C2134.309,289.489,2119.54,286.978,2112.156,285.723L2104.772,284.467" id="my-svg-L_N_L_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_N_L_0" data-points="W3sieCI6MjE5Ny4zMjgxMjUsInkiOjI4NS42NTA5ODk0NjI4NjMwNH0seyJ4IjoyMTQ5LjA3ODEyNSwieSI6MjkyfSx7IngiOjIxMDAuODI4MTI1LCJ5IjoyODMuNzk2Nzc5MDEzNzgwNX1d" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M2344.016,249.651L2355.915,245.375C2367.815,241.1,2391.615,232.55,2415.767,228.275C2439.919,224,2464.424,224,2476.677,224L2488.93,224" id="my-svg-L_N_P_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_N_P_0" data-points="W3sieCI6MjM0NC4wMTU2MjUsInkiOjI0OS42NTA1NjQwNDE2Njg5M30seyJ4IjoyNDE1LjQxNDA2MjUsInkiOjIyNH0seyJ4IjoyNDkyLjkyOTY4NzUsInkiOjIyNH1d" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M2858.141,239L2862.307,239C2866.474,239,2874.807,239,2882.474,239C2890.141,239,2897.141,239,2900.641,239L2904.141,239" id="my-svg-L_M_Q_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M_Q_0" data-points="W3sieCI6Mjg1OC4xNDA2MjUsInkiOjIzOX0seyJ4IjoyODgzLjE0MDYyNSwieSI6MjM5fSx7IngiOjI5MDguMTQwNjI1LCJ5IjoyMzl9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/><path d="M3124.438,239L3128.604,239C3132.771,239,3141.104,239,3148.771,239C3156.438,239,3163.438,239,3166.938,239L3170.438,239" id="my-svg-L_Q_R_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_Q_R_0" data-points="W3sieCI6MzEyNC40Mzc1LCJ5IjoyMzl9LHsieCI6MzE0OS40Mzc1LCJ5IjoyMzl9LHsieCI6MzE3NC40Mzc1LCJ5IjoyMzl9XQ==" data-look="classic" marker-end="url(#learn-svg_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_A_B_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_B_C_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_C_D_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_D_E_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_E_F_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1368.734375, 47)"><g class="label" data-id="L_F_G_0" transform="translate(-14.1953125, -12)"><foreignObject width="28.390625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>reel</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1368.734375, 175)"><g class="label" data-id="L_F_H_0" transform="translate(-55.6015625, -12)"><foreignObject width="111.203125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>image_carousel</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1368.734375, 303)"><g class="label" data-id="L_F_I_0" transform="translate(-53.40625, -12)"><foreignObject width="106.8125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>video_carousel</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1368.734375, 431)"><g class="label" data-id="L_F_J_0" transform="translate(-60.84375, -12)"><foreignObject width="121.6875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>scrollable_media</p></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_G_K_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_H_K_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_I_K_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_J_K_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1954.9765625, 276)"><g class="label" data-id="L_K_L_0" transform="translate(-29.1328125, -12)"><foreignObject width="58.265625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>has quiz</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2270.671875, 156)"><g class="label" data-id="L_K_M_0" transform="translate(-25.984375, -12)"><foreignObject width="51.96875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>no quiz</p></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_L_N_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_N_O_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_O_M_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2148.94186, 291.97683)"><g class="label" data-id="L_N_L_0" transform="translate(-23.25, -12)"><foreignObject width="46.5" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>retake</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2415.4140625, 224)"><g class="label" data-id="L_N_P_0" transform="translate(-46.3984375, -12)"><foreignObject width="92.796875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>chat to learn</p></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_M_Q_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_Q_R_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default checkpoint" id="my-svg-flowchart-A-0" data-look="classic" transform="translate(67.4140625, 239)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-59.4140625" y="-27" width="118.828125" height="54"/><g class="label" style="color:#fff !important" transform="translate(-29.4140625, -12)"><rect/><foreignObject width="58.828125" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Eras Tab</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-B-1" data-look="classic" transform="translate(251.7265625, 239)"><rect class="basic label-container" style="" x="-74.8984375" y="-27" width="149.796875" height="54"/><g class="label" style="" transform="translate(-44.8984375, -12)"><rect/><foreignObject width="89.796875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Era Selected</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-C-3" data-look="classic" transform="translate(486.4453125, 239)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-109.8203125" y="-27" width="219.640625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-79.8203125, -12)"><rect/><foreignObject width="159.640625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Era View / Adventures</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-D-5" data-look="classic" transform="translate(761.890625, 239)"><rect class="basic label-container" style="" x="-115.625" y="-27" width="231.25" height="54"/><g class="label" style="" transform="translate(-85.625, -12)"><rect/><foreignObject width="171.25" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Adventure Card Opened</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-E-7" data-look="classic" transform="translate(1010.890625, 239)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-83.375" y="-27" width="166.75" height="54"/><g class="label" style="color:#fff !important" transform="translate(-53.375, -12)"><rect/><foreignObject width="106.75" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Module Tapped</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-F-9" data-look="classic" transform="translate(1213.578125, 239)"><polygon points="69.3125,0 138.625,-69.3125 69.3125,-138.625 0,-69.3125" class="label-container" transform="translate(-68.8125, 69.3125)"/><g class="label" style="" transform="translate(-42.3125, -12)"><rect/><foreignObject width="84.625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Lesson Type</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-G-11" data-look="classic" transform="translate(1557.8515625, 47)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-103.2734375" y="-39" width="206.546875" height="78"/><g class="label" style="color:#fff !important" transform="translate(-73.2734375, -24)"><rect/><foreignObject width="146.546875" height="48"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Reel Lesson<br />video + reading card</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-H-13" data-look="classic" transform="translate(1557.8515625, 175)"><rect class="basic label-container" style="" x="-92.4453125" y="-39" width="184.890625" height="78"/><g class="label" style="" transform="translate(-62.4453125, -24)"><rect/><foreignObject width="124.890625" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Image Carousel<br />swipeable gallery</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-I-15" data-look="classic" transform="translate(1557.8515625, 303)"><rect class="basic label-container" style="" x="-94.078125" y="-39" width="188.15625" height="78"/><g class="label" style="" transform="translate(-64.078125, -24)"><rect/><foreignObject width="128.15625" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Video Carousel<br />multi-video series</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-J-17" data-look="classic" transform="translate(1557.8515625, 431)"><rect class="basic label-container" style="" x="-88.703125" y="-39" width="177.40625" height="78"/><g class="label" style="" transform="translate(-58.703125, -24)"><rect/><foreignObject width="117.40625" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Scrollable Media<br />mixed content</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-K-19" data-look="classic" transform="translate(1805.984375, 239)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-94.859375" y="-27" width="189.71875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-64.859375, -12)"><rect/><foreignObject width="129.71875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Lesson Completed</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-L-27" data-look="classic" transform="translate(2054.96875, 276)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-45.859375" y="-27" width="91.71875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-15.859375, -12)"><rect/><foreignObject width="31.71875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Quiz</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-M-29" data-look="classic" transform="translate(2759.484375, 239)"><rect class="basic label-container" style="" x="-98.65625" y="-27" width="197.3125" height="54"/><g class="label" style="" transform="translate(-68.65625, -12)"><rect/><foreignObject width="137.3125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Back to Adventures</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-N-31" data-look="classic" transform="translate(2270.671875, 276)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-73.34375" y="-27" width="146.6875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-43.34375, -12)"><rect/><foreignObject width="86.6875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Quiz Results</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-O-33" data-look="classic" transform="translate(2548.8203125, 328)"><rect class="basic label-container" style="" x="-62.0078125" y="-27" width="124.015625" height="54"/><g class="label" style="" transform="translate(-32.0078125, -12)"><rect/><foreignObject width="64.015625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Continue</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-P-39" data-look="classic" transform="translate(2548.8203125, 224)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-55.890625" y="-27" width="111.78125" height="54"/><g class="label" style="color:#fff !important" transform="translate(-25.890625, -12)"><rect/><foreignObject width="51.78125" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>AI Chat</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-Q-41" data-look="classic" transform="translate(3016.2890625, 239)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-108.1484375" y="-27" width="216.296875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-78.1484375, -12)"><rect/><foreignObject width="156.296875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Adventure Completed</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-R-43" data-look="classic" transform="translate(3257.3359375, 239)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-82.8984375" y="-27" width="165.796875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-52.8984375, -12)"><rect/><foreignObject width="105.796875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Era Completed</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="my-svg-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="my-svg-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs></svg></div>
+
+<!-- Events Table -->
+<h2>Events</h2>
+<table>
+<thead>
+  <tr>
+    <th>#</th>
+    <th>Node</th>
+    <th>PostHog Events</th>
+    <th>QA</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td>1</td>
+    <td class="node-name">Eras Tab</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">page_view</span>
+        <span class="vol">page_name: era_selection_onboarding | era, time_spent_seconds, clicks</span>
+      </div>
+    </td>
+    <td>Blank screen; eras fail to load from Supabase; loading spinner never resolves</td>
+  </tr>
+
+  <tr>
+    <td>2</td>
+    <td class="node-name">Era Selected</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">era_selected</span>
+        <span class="vol">era_name, era_id, screen, context: onboarding | era_switch, selection_order</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">subscribe_screen_viewed</span>
+        <span class="vol">trigger: era_locked, era_id, era_name (if premium era tapped)</span>
+      </div>
+    </td>
+    <td>Era card tap unresponsive; premium paywall fails to present; selection highlight doesn't update</td>
+  </tr>
+
+  <tr>
+    <td>3</td>
+    <td class="node-name">Era View / Adventures</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">page_view</span>
+        <span class="vol">page_name: adventures, time_spent_seconds, clicks</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">era_started</span>
+        <span class="vol">era_id, era_name, screen: era_view (fires once per era per user)</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">era_completed</span>
+        <span class="vol">era_id, era_name, total_adventures, total_xp (fires once when all adventures done)</span>
+      </div>
+    </td>
+    <td>Adventures fail to load; coming soon view shown for active era; progress header shows wrong XP; infinite loading spinner</td>
+  </tr>
+
+  <tr>
+    <td>4</td>
+    <td class="node-name">Adventure Card Opened</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">adventure_started</span>
+        <span class="vol">era_id, era_name, adventure_id, adventure_number, adventure_title, screen: home</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">adventure_card_dismissed</span>
+        <span class="vol">adventure_id, time_on_card_seconds</span>
+      </div>
+    </td>
+    <td>Adventure card modal doesn't open; close button unresponsive; card content empty</td>
+  </tr>
+
+  <tr>
+    <td>5</td>
+    <td class="node-name">Module Tapped</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">module_started</span>
+        <span class="vol">era_id, era_name, adventure_id, adventure_number, module_id, module_number, module_title</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">first_lesson</span>
+        <span class="vol">first_era_number, first_module_number (fires once per user lifetime)</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">lesson_started</span>
+        <span class="vol">adventure_id, module_id, lesson_id, lesson_type, era_id, era_name, adventure_number, module_number</span>
+      </div>
+    </td>
+    <td>Module tap doesn't open lesson modal; locked module tappable; wrong lesson type rendered</td>
+  </tr>
+
+  <tr>
+    <td>6</td>
+    <td class="node-name">Reel Lesson</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">video_played</span>
+        <span class="vol">adventure_id, module_id, lesson_id, lesson_title, video_duration_seconds, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">video_paused</span>
+        <span class="vol">video_progress (%), position_seconds, duration_seconds, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">video_completed</span>
+        <span class="vol">video_duration_seconds, completion_time_seconds, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">reading_card_expanded</span>
+        <span class="vol">adventure_id, module_id, lesson_id, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">video_buffering</span>
+        <span class="vol">buffer_time_ms, video_url, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">lesson_dismissed</span>
+        <span class="vol">adventure_id, module_id, lesson_id, video_progress, time_spent_seconds</span>
+      </div>
+    </td>
+    <td>Video won't play (HLS decode error); reading card gesture conflict; continue button hidden behind card; video buffer spinner never resolves</td>
+  </tr>
+
+  <tr>
+    <td>7</td>
+    <td class="node-name">Image Carousel</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">carousel_image_view</span>
+        <span class="vol">image_index, time_spent_seconds, total_images, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">screen_press</span>
+        <span class="vol">interaction_type: tap | swipe, target, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">lesson_dismissed</span>
+        <span class="vol">adventure_id, module_id, lesson_id, images_viewed, time_spent_seconds</span>
+      </div>
+    </td>
+    <td>Images fail to load; swipe gesture unresponsive; background music doesn't stop on dismiss</td>
+  </tr>
+
+  <tr>
+    <td>8</td>
+    <td class="node-name">Video Carousel</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">video_played</span>
+        <span class="vol">adventure_id, module_id, lesson_id, lesson_title, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">video_paused</span>
+        <span class="vol">video_progress, position_seconds, duration_seconds, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">video_completed</span>
+        <span class="vol">video_duration_seconds, completion_time_seconds, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">lesson_dismissed</span>
+        <span class="vol">adventure_id, module_id, lesson_id, videos_watched, time_spent_seconds</span>
+      </div>
+    </td>
+    <td>Multiple videos play simultaneously; swipe between videos drops frames; video index out of bounds</td>
+  </tr>
+
+  <tr>
+    <td>9</td>
+    <td class="node-name">Scrollable Media</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">screen_press</span>
+        <span class="vol">interaction_type: tap | swipe, target, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">lesson_dismissed</span>
+        <span class="vol">adventure_id, module_id, lesson_id, scroll_depth_pct, time_spent_seconds</span>
+      </div>
+    </td>
+    <td>Mixed media blocks fail to render; scroll position lost on orientation change</td>
+  </tr>
+
+  <tr>
+    <td>10</td>
+    <td class="node-name">Lesson Completed</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">lesson_completed</span>
+        <span class="vol">adventure_id, module_id, lesson_id, time_spent_seconds, era_id, era_name, adventure_number, module_number</span>
+      </div>
+    </td>
+    <td>Progress not saved to GamifiedProgress; lesson marked complete but continue doesn't navigate; duplicate completion events</td>
+  </tr>
+
+  <tr>
+    <td>11</td>
+    <td class="node-name">Quiz</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">quiz_started</span>
+        <span class="vol">adventure_id, module_id, total_questions, era_id, era_name, quiz_id, quiz_title</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">quiz_question_answered</span>
+        <span class="vol">question_number, is_correct, time_taken_seconds, xp_earned, current_total_xp, era_id</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">quiz_completed</span>
+        <span class="vol">quiz_score, correct_answers, total_questions, time_spent_seconds, is_retake, xp_earned, total_xp_before, total_xp_after</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">module_completed</span>
+        <span class="vol">adventure_id, module_id, quiz_score, era_id, era_name (via trackCustomEvent)</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">quiz_abandoned</span>
+        <span class="vol">adventure_id, module_id, questions_answered, total_questions, time_spent_seconds</span>
+      </div>
+    </td>
+    <td>Quiz modal doesn't open; answer selection unresponsive; feedback sheet covers submit button; XP milestone modal blocks quiz flow; score saved incorrectly</td>
+  </tr>
+
+  <tr>
+    <td>12</td>
+    <td class="node-name">Quiz Results</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">quiz_results_viewed</span>
+        <span class="vol">correct_answers, total_questions, percentage, total_points, performance_tier: high | medium | low, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">quiz_results_continue_clicked</span>
+        <span class="vol">adventure_id, module_id, era_id, era_name (via trackCustomEvent)</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">quiz_results_chat_to_learn_clicked</span>
+        <span class="vol">adventure_id, module_id, era_id (via trackCustomEvent)</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">quiz_retake</span>
+        <span class="vol">adventure_id, module_id, previous_score, era_id, era_name</span>
+      </div>
+    </td>
+    <td>Results screen blank; confetti crashes on Android; score counter animation stuck; continue button unresponsive; AI explanation loading fails</td>
+  </tr>
+
+  <tr>
+    <td>13</td>
+    <td class="node-name">Continue</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">quiz_results_continue_clicked</span>
+        <span class="vol">adventure_id, module_id, era_id (via trackCustomEvent)</span>
+      </div>
+    </td>
+    <td>Continue doesn't close modal; progress not reflected in bento grid; next module not unlocked</td>
+  </tr>
+
+  <tr>
+    <td>14</td>
+    <td class="node-name">Back to Adventures</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">learn_flow_completed</span>
+        <span class="vol">adventure_id, module_id, had_quiz: boolean, total_time_seconds, era_id</span>
+      </div>
+    </td>
+    <td>Bento grid doesn't refresh; completed module still shows as in-progress; stars not displayed</td>
+  </tr>
+
+  <tr>
+    <td>15</td>
+    <td class="node-name">Adventure Completed</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">adventure_complete_continue</span>
+        <span class="vol">adventure_id, adventure_title, era_id, era_name, total_xp_earned (via trackCustomEvent)</span>
+      </div>
+    </td>
+    <td>Celebration modal doesn't appear; next adventure not unlocked; celebration blocks interaction permanently</td>
+  </tr>
+
+  <tr>
+    <td>16</td>
+    <td class="node-name">Era Completed</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">era_completed</span>
+        <span class="vol">era_id, era_name, total_adventures, total_xp</span>
+      </div>
+    </td>
+    <td>Era completion not detected; duplicate era_completed events on re-entry</td>
+  </tr>
+
+  <tr>
+    <td>17</td>
+    <td class="node-name">AI Chat (from Quiz Results)</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_quiz_explanation_requested</span>
+        <span class="vol">adventure_id, module_id (via trackCustomEvent)</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">ai_quiz_explanation_generated</span>
+        <span class="vol">adventure_id, module_id (via trackCustomEvent)</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">chat_to_learn_paywall_shown</span>
+        <span class="vol">adventure_id, module_id (via trackCustomEvent, for non-subscribers)</span>
+      </div>
+    </td>
+    <td>AI explanation times out; paywall not shown for free users; chat context wrong era</td>
+  </tr>
+</tbody>
+</table>
+
+<h3 style="margin-top:12px; font-size:14px; color:#888;">Global events tracked across all Learn screens</h3>
+<table>
+<thead>
+  <tr>
+    <th>Event</th>
+    <th>Properties</th>
+    <th>Status</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="mono untracked">lesson_dismissed</td>
+    <td><span class="vol">adventure_id, module_id, lesson_id, time_spent_seconds, progress_at_exit</span></td>
+    <td class="untracked">Needs implementation &mdash; no analytics fire when user taps X to exit a lesson mid-progress</td>
+  </tr>
+  <tr>
+    <td class="mono untracked">quiz_abandoned</td>
+    <td><span class="vol">adventure_id, module_id, questions_answered, total_questions, time_spent_seconds</span></td>
+    <td class="untracked">Needs implementation &mdash; quiz unmount logs to console but no PostHog event fires</td>
+  </tr>
+  <tr>
+    <td class="mono unwired">module_tracking</td>
+    <td><span class="vol">era_number, adventure_number, module_number, lesson_type, time_spent_seconds, screen_presses, q1-q5 answers</span></td>
+    <td class="unwired">Exists in AnalyticsService (trackModuleEngagement) but not wired in current components</td>
+  </tr>
+  <tr>
+    <td class="mono unwired">drop_off</td>
+    <td><span class="vol">screen_name, era_number, adventure_number, module_number, session_duration_seconds</span></td>
+    <td class="unwired">Exists in AnalyticsService (trackDropOff) but not wired in lesson/quiz components</td>
+  </tr>
+  <tr>
+    <td class="mono unwired">video_progress</td>
+    <td><span class="vol">video_name, screen, progress_percent, duration_seconds</span></td>
+    <td class="unwired">Exists in AnalyticsService (trackVideoProgress) but not wired in lesson components &mdash; only used in onboarding</td>
+  </tr>
+</tbody>
+</table>
+
+<hr>
+
+<!-- Questions -->
+<h2>Questions This Flow Answers</h2>
+
+<h3>1. Strategic Questions</h3>
+<ol>
+  <li>Where is the major drop-off in the learn funnel?</li>
+  <li>Which lesson type has the highest completion rate?</li>
+  <li>How long does the average user spend per lesson?</li>
+  <li>How many users complete a quiz on their first attempt?</li>
+  <li>How many users need a retake to pass a quiz?</li>
+  <li>How many modules does the average user complete before leaving?</li>
+  <li>How many users complete an entire adventure?</li>
+  <li>How many users complete an entire era?</li>
+</ol>
+
+<h3>2. Behavioral Insights</h3>
+<ol>
+  <li>How many users open the Eras Tab?</li>
+  <li>How many users select an era?</li>
+  <li>How many users open an Adventure Card?</li>
+  <li>How many users tap a module to start a lesson?</li>
+  <li>How many users watch a video to completion in a Reel Lesson?</li>
+  <li>How many users expand the reading card in a Reel Lesson?</li>
+  <li>How many users complete an Image Carousel lesson?</li>
+  <li>How many users complete a lesson and proceed to the quiz?</li>
+  <li>How many users dismiss a lesson before completing it?</li>
+  <li>How many users start a quiz?</li>
+  <li>How many users answer all quiz questions?</li>
+  <li>How many users score 100% on a quiz?</li>
+  <li>How many users score between 40-80% on a quiz?</li>
+  <li>How many users score below 40% on a quiz?</li>
+  <li>How many users tap "Chat to Learn" on the Quiz Results screen?</li>
+  <li>How many users retake a quiz from the Quiz Results screen?</li>
+  <li>How many users request an AI quiz explanation?</li>
+  <li>How many non-subscribers hit the "Chat to Learn" paywall?</li>
+  <li>How many users experience video buffering longer than 3 seconds?</li>
+  <li>How many users start their very first lesson in the app?</li>
+</ol>
+
+<h3>3. Checkpoint Validation</h3>
+<ol>
+  <li><strong>Eras Tab</strong> &mdash; How many users see the era selection screen?</li>
+  <li><strong>Era View</strong> &mdash; How many users see the adventures list for a selected era?</li>
+  <li><strong>Module Tapped</strong> &mdash; How many users tap a module to begin a lesson?</li>
+  <li><strong>Lesson Completed</strong> &mdash; How many users complete a lesson?</li>
+  <li><strong>Quiz</strong> &mdash; How many users start a quiz?</li>
+  <li><strong>Quiz Results</strong> &mdash; How many users finish a quiz?</li>
+  <li><strong>Adventure Completed</strong> &mdash; How many users complete all modules in an adventure?</li>
+</ol>
+
+<h3 style="margin-top:24px;">Analysis Notes</h3>
+<ul style="padding-left:24px; margin-bottom:8px;">
+  <li><strong>Exclude dismissed lessons from completion rate:</strong> Users who tap the X button to exit a lesson mid-progress should not count as drop-offs in the lesson completion funnel. Once <span class="mono">lesson_dismissed</span> is implemented, filter by it when calculating lesson &rarr; quiz conversion.</li>
+  <li><strong>Exclude backgrounded sessions:</strong> A user backgrounding the app during a lesson or quiz is not a drop-off. Use app lifecycle events (<span class="mono">app_backgrounded</span> / <span class="mono">app_foregrounded</span>) to stitch sessions. Only count a user as dropped if they never return to finish.</li>
+  <li><strong>Quiz retakes are not separate funnels:</strong> A retake (<span class="mono">quiz_retake</span>) feeds back into the same quiz. When calculating quiz completion rates, count the final attempt only. Use <span class="mono">is_retake</span> on <span class="mono">quiz_completed</span> to distinguish first attempts from retakes.</li>
+  <li><strong>Video buffering context:</strong> <span class="mono">video_buffering</span> events contain the CDN URL &mdash; use this to correlate buffering with specific CloudFront distributions or HLS vs progressive format.</li>
+  <li><strong>module_completed vs lesson_completed:</strong> <span class="mono">lesson_completed</span> fires per-lesson (a module may have multiple lessons). <span class="mono">module_completed</span> fires once after the quiz is passed for a module. These are distinct funnel stages.</li>
+</ul>
+
+<div class="footer">
+  Archives Learn Flow Spec &middot; AFF-844 &middot; 2026-04-30
+</div>
+
+</div>
+</body>
+</html>

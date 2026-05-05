@@ -141,7 +141,7 @@ export default function ScrollableMediaViewLesson({
   );
 
   // Shared lesson setup (analytics, completion handler - no walkthrough for scrollable)
-  const { handleLessonComplete } = useLessonBase({
+  const { tracking: { trackDismiss }, handleLessonComplete } = useLessonBase({
     contentItem,
     adventureId,
     moduleId,
@@ -296,7 +296,7 @@ export default function ScrollableMediaViewLesson({
 
       {/* Floating back button */}
       <View style={[styles.backButtonContainer, { paddingTop: insets.top + LAYOUT_CONSTANTS.backButtonPadding.top }]}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack || onDismiss}>
+        <TouchableOpacity style={styles.backButton} onPress={() => { trackDismiss(); (onBack || onDismiss)(); }}>
           <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
         </TouchableOpacity>
       </View>

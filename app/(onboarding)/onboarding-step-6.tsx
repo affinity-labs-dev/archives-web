@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
@@ -18,6 +18,7 @@ import { AnimatedEntrance } from '@/components/ui/animations';
 import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
 import { starsSvg } from '@/components/onboarding/icons/starsSvg';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { analyticsService } from '@/services/AnalyticsService';
 
 /**
  * Hardcoded testimonials. Names + reviews sourced from product team.
@@ -95,6 +96,10 @@ const lessonsCompletedBadge = require('@/assets/images/lessons-completed.png');
 export default function OnboardingStep6Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
 
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('social_proof');
+  }, []);
+
   const goNext = () => {
     setStep(7);
     router.push('/onboarding-step-7' as never);
@@ -105,7 +110,7 @@ export default function OnboardingStep6Screen() {
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} hitSlop={16}>
+          <Pressable onPress={() => { analyticsService.trackOnboardingBackTapped('social_proof'); router.back(); }} hitSlop={16}>
             <SvgXml xml={backArrowSvg} width={12} height={22} />
           </Pressable>
         </View>

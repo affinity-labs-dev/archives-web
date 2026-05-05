@@ -11,6 +11,7 @@ import {
 import ArchivesTheme from '@/constants/ArchivesTheme';
 import { AnimatedEntrance } from '@/components/ui/animations';
 import { useOnboardingStore, type AgeGroup } from '@/stores/onboardingStore';
+import { analyticsService } from '@/services/AnalyticsService';
 
 const AGE_OPTIONS: Array<{ id: AgeGroup; label: string }> = [
   { id: '13-17', label: '13-17' },
@@ -42,6 +43,7 @@ export function AgeGroupPhase({
 
   const handleContinue = () => {
     if (!canContinue) return;
+    analyticsService.trackOnboardingAgeGroupSelected(ageGroup!);
     onNext();
   };
 

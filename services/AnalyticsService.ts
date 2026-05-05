@@ -634,6 +634,100 @@ class AnalyticsService {
   }
 
 
+  // ==================== LEARN FLOW EVENTS (AFF-857) ====================
+
+  trackLessonDismissed(data: {
+    adventure_id: string;
+    module_id: string;
+    lesson_id: string;
+    lesson_type: string;
+    time_spent_seconds: number;
+    progress_at_exit?: number;
+    era_id?: string;
+    era_name?: string;
+  }) {
+    this.trackCustomEvent('lesson_dismissed', data);
+  }
+
+  trackQuizAbandoned(data: {
+    adventure_id: string;
+    module_id: string;
+    questions_answered: number;
+    total_questions: number;
+    time_spent_seconds: number;
+    era_id?: string;
+    era_name?: string;
+  }) {
+    this.trackCustomEvent('quiz_abandoned', data);
+  }
+
+  trackAdventureCardDismissed(data: {
+    adventure_id: string;
+    time_on_card_seconds: number;
+  }) {
+    this.trackCustomEvent('adventure_card_dismissed', data);
+  }
+
+  trackLearnFlowCompleted(data: {
+    adventure_id: string;
+    module_id: string;
+    had_quiz: boolean;
+    total_time_seconds: number;
+    era_id?: string;
+  }) {
+    this.trackCustomEvent('learn_flow_completed', data);
+  }
+
+  // ==================== ONBOARDING FUNNEL EVENTS (AFF-857) ====================
+
+  trackOnboardingStepViewed(screen: string) {
+    this.trackCustomEvent('onboarding_step_viewed', { screen });
+  }
+
+  trackOnboardingBackTapped(screen: string) {
+    this.trackCustomEvent('onboarding_back_tapped', { screen });
+  }
+
+  trackOnboardingSkipped(screen: string, destination: string) {
+    this.trackCustomEvent('onboarding_skipped', { screen, action: 'skip', destination });
+  }
+
+  trackOnboardingNameEntered(nameLength: number) {
+    this.trackCustomEvent('onboarding_name_entered', { name_length: nameLength });
+  }
+
+  trackOnboardingInterestsSelected(interests: string[], count: number) {
+    this.trackCustomEvent('onboarding_interests_selected', { interests, count });
+  }
+
+  trackOnboardingLoginShortcutTapped(screen: string, destination: string) {
+    this.trackCustomEvent('onboarding_login_shortcut_tapped', { screen, destination });
+  }
+
+  trackOnboardingDailyGoalSelected(dailyGoalMinutes: number) {
+    this.trackCustomEvent('onboarding_daily_goal_selected', { daily_goal_minutes: dailyGoalMinutes });
+  }
+
+  trackOnboardingAgeGroupSelected(ageGroup: string) {
+    this.trackCustomEvent('onboarding_age_group_selected', { age_group: ageGroup });
+  }
+
+  trackWelcomeBackViewed(rememberedMethod: string) {
+    this.trackCustomEvent('welcome_back_viewed', { remembered_method: rememberedMethod });
+  }
+
+  trackWelcomeBackTapped(action: 'continue_as' | 'sign_out') {
+    this.trackCustomEvent('welcome_back_tapped', { action });
+  }
+
+  trackPaywallViewed(screen: string, source: string) {
+    this.trackCustomEvent('paywall_viewed', { screen, source });
+  }
+
+  trackPaywallCtaTapped(action: string) {
+    this.trackCustomEvent('paywall_cta_tapped', { action });
+  }
+
   /**
    * Track video progress milestones
    */

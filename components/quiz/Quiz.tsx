@@ -168,6 +168,8 @@ export default function Quiz({
     screen: `Quiz - ${adventureId} Module ${moduleNumber}`,
   });
 
+  const quizStartTimeRef = useRef(Date.now());
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -569,7 +571,20 @@ export default function Quiz({
           {!isToday && (
             <View style={styles.adventureHeader}>
               {onBack && (
-                <TouchableOpacity style={styles.adventureBackButton} onPress={onBack}>
+                <TouchableOpacity style={styles.adventureBackButton} onPress={() => {
+                  if (!showResults) {
+                    analyticsService.trackQuizAbandoned({
+                      adventure_id: adventureId,
+                      module_id: moduleId,
+                      questions_answered: currentQuestionIndex,
+                      total_questions: questions.length,
+                      time_spent_seconds: Math.round((Date.now() - quizStartTimeRef.current) / 1000),
+                      era_id: eraId,
+                      era_name: eraName,
+                    });
+                  }
+                  onBack();
+                }}>
                   <Ionicons name="chevron-back" size={24} color="#4D392E" />
                 </TouchableOpacity>
               )}

@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 
 import { Typography, DepthButton, colors, easings, spacing } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
+import { analyticsService } from '@/services/AnalyticsService';
 
 /**
  * Screen 1 — Hero / Splash
@@ -29,6 +30,10 @@ import { AnimatedEntrance } from '@/components/ui/animations';
 export default function HeroScreen() {
   const scale = useSharedValue(1);
   const rotate = useSharedValue(0);
+
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('hero');
+  }, []);
 
   // Ken Burns: scale 1→1.18 and rotate 0→0.5° over 10s, loops forever.
   useEffect(() => {

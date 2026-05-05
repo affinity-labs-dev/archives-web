@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, StatusBar, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -46,6 +46,10 @@ export default function OnboardingStep10Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const [typewriterDone, setTypewriterDone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('notification_permission');
+  }, []);
 
   const goNext = () => {
     setStep(10);
@@ -118,7 +122,7 @@ export default function OnboardingStep10Screen() {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <OnboardingHeader currentStep={toDisplayStep(9)} totalSteps={12} showSkip={false} />
+        <OnboardingHeader currentStep={toDisplayStep(9)} totalSteps={12} screenName="notification_permission" showSkip={false} />
 
         <View style={styles.body}>
           {/* Phase A — Mascot + bubble slide in as one unit */}

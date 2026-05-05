@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WelcomeStackedText } from '@/components/onboarding/WelcomeStackedText/WelcomeStackedText';
 import { colors, spacing } from '@/components/ui';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { analyticsService } from '@/services/AnalyticsService';
 
 const AUTO_ADVANCE_MS = 2800;
 
@@ -20,6 +21,10 @@ export default function OnboardingStep4Screen() {
   const name = useOnboardingStore((s) => s.name);
   const setStep = useOnboardingStore((s) => s.setStep);
   const displayName = name.trim() || 'friend';
+
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('welcome_celebration');
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => {
