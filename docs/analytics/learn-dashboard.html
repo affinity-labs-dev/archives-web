@@ -116,87 +116,62 @@
 
 <div class="dashboard-grid">
   <div class="dash-card full">
-    <h4>Learn Flow Events (30-day totals from PostHog)</h4>
-    <p style="font-size:12px; color:#888; margin-bottom:12px;">These events are already firing in production. Query via PostHog Trends insight.</p>
+    <h4>Learn Flow Events (30-day totals from PostHog &mdash; queried 2026-05-05)</h4>
+    <p style="font-size:12px; color:#888; margin-bottom:12px;">These events are already firing in production with real user data.</p>
     <table>
       <thead>
-        <tr><th>Event</th><th>Status</th><th>What It Tracks</th></tr>
+        <tr><th>Event</th><th style="text-align:right">Count (30d)</th><th>What It Tracks</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td><span class="mono existing">lesson_started</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">User opens a lesson (any type)</td>
-        </tr>
-        <tr>
-          <td><span class="mono existing">lesson_completed</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">User finishes a lesson (swipe right / continue)</td>
-        </tr>
-        <tr>
           <td><span class="mono existing">video_played</span></td>
-          <td>Pre-existing</td>
+          <td style="text-align:right; font-weight:700;">69,209</td>
           <td style="font-size:13px; color:#888;">Video starts playing</td>
         </tr>
         <tr>
-          <td><span class="mono existing">video_paused</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">Video paused with progress %</td>
-        </tr>
-        <tr>
-          <td><span class="mono existing">video_completed</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">Video watched to end</td>
-        </tr>
-        <tr>
-          <td><span class="mono existing">reading_card_expanded</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">Reading card pulled up on reel lesson</td>
-        </tr>
-        <tr>
           <td><span class="mono existing">quiz_started</span></td>
-          <td>Pre-existing</td>
+          <td style="text-align:right; font-weight:700;">60,130</td>
           <td style="font-size:13px; color:#888;">Quiz begins</td>
         </tr>
         <tr>
-          <td><span class="mono existing">quiz_question_answered</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">Each question answered (with is_correct, xp_earned)</td>
-        </tr>
-        <tr>
-          <td><span class="mono existing">quiz_completed</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">Quiz finished (score, time, retake status)</td>
+          <td><span class="mono existing">lesson_started</span></td>
+          <td style="text-align:right; font-weight:700;">58,465</td>
+          <td style="font-size:13px; color:#888;">User opens a lesson (any type)</td>
         </tr>
         <tr>
           <td><span class="mono existing">module_started</span></td>
-          <td>Pre-existing</td>
+          <td style="text-align:right; font-weight:700;">54,649</td>
           <td style="font-size:13px; color:#888;">Module tapped to begin</td>
         </tr>
         <tr>
+          <td><span class="mono existing">quiz_completed</span></td>
+          <td style="text-align:right; font-weight:700;">49,552</td>
+          <td style="font-size:13px; color:#888;">Quiz finished (score, time, retake status)</td>
+        </tr>
+        <tr>
+          <td><span class="mono existing">lesson_completed</span></td>
+          <td style="text-align:right; font-weight:700;">43,308</td>
+          <td style="font-size:13px; color:#888;">User finishes a lesson (swipe right / continue)</td>
+        </tr>
+        <tr>
           <td><span class="mono existing">module_completed</span></td>
-          <td>Pre-existing</td>
+          <td style="text-align:right; font-weight:700;">36,420</td>
           <td style="font-size:13px; color:#888;">All lessons + quiz done for a module</td>
         </tr>
         <tr>
-          <td><span class="mono existing">adventure_started</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">Adventure card opened</td>
-        </tr>
-        <tr>
-          <td><span class="mono existing">adventure_complete_continue</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">Adventure completion celebration dismissed</td>
+          <td><span class="mono existing">video_completed</span></td>
+          <td style="text-align:right; font-weight:700;">28,218</td>
+          <td style="font-size:13px; color:#888;">Video watched to end</td>
         </tr>
         <tr>
           <td><span class="mono existing">era_started</span></td>
-          <td>Pre-existing</td>
+          <td style="text-align:right; font-weight:700;">5,913</td>
           <td style="font-size:13px; color:#888;">First interaction with an era</td>
         </tr>
         <tr>
-          <td><span class="mono existing">era_completed</span></td>
-          <td>Pre-existing</td>
-          <td style="font-size:13px; color:#888;">All adventures in era done</td>
+          <td><span class="mono existing">adventure_started</span></td>
+          <td style="text-align:right; font-weight:700;">625</td>
+          <td style="font-size:13px; color:#888;">Adventure card opened</td>
         </tr>
         <tr>
           <td><span class="mono existing">first_lesson</span></td>
@@ -220,6 +195,45 @@
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <!-- Key insights from real data -->
+  <div class="dash-card">
+    <h4>Lesson Completion Rate (Real Data)</h4>
+    <div class="metric" style="color:#16a34a;">74%</div>
+    <div class="metric-sub">43,308 completed / 58,465 started</div>
+    <p style="font-size:12px; color:#888; margin-top:8px;">26% of started lessons are NOT completed. After deploy, <code>lesson_dismissed</code> will tell us exactly when and why.</p>
+  </div>
+
+  <div class="dash-card">
+    <h4>Quiz Completion Rate (Real Data)</h4>
+    <div class="metric" style="color:#16a34a;">82%</div>
+    <div class="metric-sub">49,552 completed / 60,130 started</div>
+    <p style="font-size:12px; color:#888; margin-top:8px;">18% of started quizzes are NOT completed. After deploy, <code>quiz_abandoned</code> will show at which question users quit.</p>
+  </div>
+
+  <div class="dash-card">
+    <h4>Video Watch-Through Rate (Real Data)</h4>
+    <div class="metric" style="color:#f59e0b;">41%</div>
+    <div class="metric-sub">28,218 completed / 69,209 played</div>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Most videos are started but not watched to end. This is expected — users may expand reading card mid-video.</p>
+  </div>
+
+  <div class="dash-card">
+    <h4>Module Completion Rate (Real Data)</h4>
+    <div class="metric" style="color:#16a34a;">67%</div>
+    <div class="metric-sub">36,420 completed / 54,649 started</div>
+    <p style="font-size:12px; color:#888; margin-top:8px;">33% of started modules don't reach completion (all lessons + quiz).</p>
+  </div>
+
+  <div class="dash-card full" style="background:#fffbeb; border-color:#fbbf24;">
+    <h4 style="color:#92400e;">Gap Filled by AFF-857</h4>
+    <p style="font-size:13px; color:#78350f;">We can see <strong>26% of lessons aren't completed</strong> and <strong>18% of quizzes aren't finished</strong> — but until now we had no idea <em>when</em> users leave. After deploying:</p>
+    <ul style="font-size:13px; color:#78350f; margin-top:8px; padding-left:20px;">
+      <li><code>lesson_dismissed</code> &rarr; tells us which lesson type loses people + how long they stayed</li>
+      <li><code>quiz_abandoned</code> &rarr; tells us at which question users quit + total time invested</li>
+      <li><code>adventure_card_dismissed</code> &rarr; tells us if the adventure detail modal converts to starting a module</li>
+    </ul>
   </div>
 </div>
 
