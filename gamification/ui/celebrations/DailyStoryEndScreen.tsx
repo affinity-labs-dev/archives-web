@@ -16,13 +16,6 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Rive, { Alignment, Fit, RiveRef } from "rive-react-native";
 
@@ -32,7 +25,6 @@ import {
   colors,
   spacing,
   easings,
-  safeDuration,
 } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
 
@@ -41,12 +33,6 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 // Background Rive — Ibu flying-and-landing loop with a transparent
 // canvas, so the gradient behind shows through naturally.
 const ibuFlyingLandingAnimation = require("../../../assets/rive/ibu_flying_landing_without_bg.riv");
-// Hero Rive — Ibu character that sits centered on top of the
-// background, scales in then idles with a subtle 1↔1.02 scale yoyo.
-// Both Rive files are state-machine-driven; the rive-react-native v9
-// runtime needs `stateMachineName` to actually start the SM (the web
-// mock plays them imperatively in `onLoad`, RN can't).
-const heroIbuAnimation = require("../../../assets/rive/hero_ibu.riv");
 
 // Hero canvas geometry — matches mock CSS (.s5c-rive-hero):
 // `width: 320; height: 320; left: 50%; top: 42%` with the box
@@ -54,20 +40,10 @@ const heroIbuAnimation = require("../../../assets/rive/hero_ibu.riv");
 const HERO_SIZE = 320;
 const HERO_TOP_RATIO = 0.42;
 
-// "Chime impact" alignment — `daily_story_celebration.riv` has a WAV
-// embedded inside its state machine that fires mid-timeline (Rive
-// Event node placed N frames into "State Machine 1", not at frame 0).
-// We sync the hero's scale-in with that audible beat so the visual
-// climax lands together with the chime. Tune this single constant if
-// the .riv's chime offset is changed in the editor and every
-// downstream animation re-balances itself off it. The mock's original
-// 200ms hero-delay is preserved as the visual offset BETWEEN bg and
-// hero entrance; the chime delay is added on top.
 const CHIME_IMPACT_DELAY_MS = 1500;
 const HERO_ENTRANCE_DELAY_MS = CHIME_IMPACT_DELAY_MS;
 const HEADLINE_ENTRANCE_DELAY_MS = HERO_ENTRANCE_DELAY_MS + 550;
 const CTA_ENTRANCE_DELAY_MS = HEADLINE_ENTRANCE_DELAY_MS + 400;
-const HUM_START_MS = CTA_ENTRANCE_DELAY_MS + 400;
 
 interface DailyStoryEndScreenProps {
   visible: boolean;
@@ -87,40 +63,6 @@ export default function DailyStoryEndScreen({
       console.log("🎬 [DailyStoryEnd] Rive animation loaded successfully");
     }
   }, [visible, riveRef.current]);
-
-  // Idle hum — runs after the entrance settles. Mock spec
-  // (`enterScreen5Celebration` chained tween, +0.6s after entrance):
-  // scale 1 ↔ 1.02 yoyo, 2400ms `sine.inOut`, infinite. Tight
-  // amplitude keeps the Rive's own internal motion as the dominant
-  // signal. Sits on an INNER Animated.View so it composes
-  // multiplicatively with the entrance's scale — the entrance writes
-  // the outer transform 0.6 → 1, the hum writes the inner transform
-  // 1 ↔ 1.02; effective scale lands at 1.0×1.0..1.02 once entrance
-  // settles, no clobbering.
-  const heroHumScale = useSharedValue(1);
-
-  useEffect(() => {
-    if (!visible) return;
-    // Hum starts after CTA settles, mirroring the mock's `+=0.6` breath
-    // chained off the entrance timeline. `HUM_START_MS` re-derives off
-    // the chime impact delay so trimming the chime offset shifts the
-    // hum start in lockstep.
-    const t = setTimeout(() => {
-      heroHumScale.value = withRepeat(
-        withTiming(1.02, {
-          duration: safeDuration(2400),
-          easing: Easing.inOut(Easing.sin),
-        }),
-        -1,
-        true,
-      );
-    }, HUM_START_MS);
-    return () => clearTimeout(t);
-  }, [visible, heroHumScale]);
-
-  const heroHumStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heroHumScale.value }],
-  }));
 
   // Dynamic two-line headline. Today path matches Figma exactly;
   // historical path preserves the legacy "2 Feb's story" affordance
@@ -183,36 +125,6 @@ export default function DailyStoryEndScreen({
               alignment={Alignment.Center}
               style={styles.rive}
             />
-          </View>
-
-          {/* Hero Rive — Ibu character centered on top of the
-              background. Mock spec entrance: scale 0.6 → 1, y 20 → 0,
-              opacity 0 → 1, 750ms back.out(1.8) (we approximate with
-              the closest token, backOut2), delay 200ms. The inner
-              Animated.View carries the post-entrance idle hum so the
-              two scales compose multiplicatively. */}
-          <View style={styles.heroSlot} pointerEvents="none">
-            <AnimatedEntrance
-              preset={{
-                scale: { from: 0.6, to: 1 },
-                translateY: { from: 20, to: 0 },
-                opacity: { from: 0, to: 1 },
-                duration: 750,
-                easing: easings.backOut2,
-              }}
-              delay={HERO_ENTRANCE_DELAY_MS}
-            >
-              <Animated.View style={heroHumStyle}>
-                <Rive
-                  source={heroIbuAnimation}
-                  autoplay
-                  stateMachineName="State Machine 1"
-                  fit={Fit.Contain}
-                  alignment={Alignment.Center}
-                  style={styles.heroRive}
-                />
-              </Animated.View>
-            </AnimatedEntrance>
           </View>
 
           {/* Close — top-right X. Honors light-impact haptic and

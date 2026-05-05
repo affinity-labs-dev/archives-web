@@ -228,7 +228,6 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   subtitleWrapper: {
-    maxWidth: 341,
     marginTop: spacing.xs,
   },
   ctaWrapper: {

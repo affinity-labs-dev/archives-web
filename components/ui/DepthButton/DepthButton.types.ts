@@ -36,7 +36,21 @@ export type DepthButtonHaptic = 'light' | 'medium' | 'heavy' | 'none';
 export interface DepthButtonVariantSpec {
   surface: ColorKey;
   shadow: ColorKey | 'transparent';
+  /**
+   * Shorthand: applies the same border color to BOTH surface and
+   * shadow layers. Use `surfaceBorder` / `shadowBorder` instead when
+   * you need to split the two layers (e.g. surface with onyx outline
+   * but shadow without one).
+   */
   border?: ColorKey;
+  /**
+   * Surface-only border. Overrides `border` for the surface layer.
+   */
+  surfaceBorder?: ColorKey;
+  /**
+   * Shadow-only border. Overrides `border` for the shadow layer.
+   */
+  shadowBorder?: ColorKey;
   hasShadow: boolean;
   defaultPressEffect: DepthButtonPressEffect;
 }
@@ -75,9 +89,23 @@ export interface DepthButtonProps extends Omit<PressableProps, 'style' | 'childr
   shadowColor?: ColorKey;
 
   /**
-   * Override border color from theme.
+   * Override border color from theme. Shorthand — applies the same
+   * color to BOTH surface and shadow layers. Use
+   * `surfaceBorderColor` / `shadowBorderColor` to split the layers.
    */
   borderColor?: ColorKey;
+
+  /**
+   * Override border color for the surface layer only. Takes
+   * precedence over `borderColor` for the surface.
+   */
+  surfaceBorderColor?: ColorKey;
+
+  /**
+   * Override border color for the shadow layer only. Takes
+   * precedence over `borderColor` for the shadow.
+   */
+  shadowBorderColor?: ColorKey;
 
   /**
    * Override border radius (pixels). Defaults derived from size.

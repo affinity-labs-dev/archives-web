@@ -82,7 +82,7 @@ function computeBentoLayout(
   const cardWidth = (screenWidth - containerPadding * 2 - gap) / 2;
   const fullWidth = screenWidth - containerPadding * 2;
   const tallHeight = cardWidth * 1.2;
-  const shortHeight = cardWidth * 0.65;
+  const shortHeight = cardWidth * 0.6;
 
   const allPositions: AdventureBentoCardLayout[] = [
     // Card 1 — tall left (or full-width when it's the only card)

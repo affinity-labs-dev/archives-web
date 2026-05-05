@@ -81,11 +81,35 @@
       "Bash(cp /Users/huypham/Downloads/ibu-pointing.png /Users/huypham/Downloads/ibu-pointing@2x.png /Users/huypham/Downloads/ibu-pointing@3x.png /Users/huypham/Desktop/affinity/Archives_Expo/targets/live-activity/Assets.xcassets/TeacherMascot.imageset/)",
       "Bash(sips -g pixelWidth -g pixelHeight /Users/huypham/Downloads/ibu-surprise.png)",
       "Bash(git rm:*)",
-      "mcp__watchr__perform"
+      "mcp__watchr__perform",
+      "Bash(grep -n -B2 -A8 \"setBarStyle.*light-content\\\\|return.*=> \\\\{$\\\\|StatusBar\" /Users/huypham/Desktop/affinity/Archives_Expo/components/lessons/today/TodayVideoLesson.tsx)",
+      "Bash(cp /Users/huypham/Desktop/affinity/Archives_Expo/components/today/TodayCardDeck.tsx /tmp/TodayCardDeck.final.tsx)",
+      "Bash(cp \"/Users/huypham/Desktop/affinity/Archives_Expo/app/\\(tabs\\)/today.tsx\" /tmp/today.final.tsx)",
+      "Bash(cp /Users/huypham/Desktop/affinity/Archives_Expo/hooks/today/index.ts /tmp/index.final.ts)",
+      "Bash(cp /Users/huypham/Desktop/affinity/Archives_Expo/hooks/today/useHeroDive.ts /tmp/useHeroDive.final.ts)",
+      "Bash(git restore *)",
+      "Bash(git -c commit.gpgsign=false commit -m 'feat\\(AFF-818\\): per-card wave entrance for TodayCardDeck *)",
+      "Bash(cp /tmp/useHeroDive.final.ts hooks/today/useHeroDive.ts)",
+      "Bash(cp /tmp/index.final.ts hooks/today/index.ts)",
+      "Bash(git -c commit.gpgsign=false commit -m 'feat\\(AFF-818\\): hero-dive open animation for daily story *)",
+      "Bash(git -c commit.gpgsign=false commit -m 'feat\\(AFF-818\\): deck-level slide+fade entrance for TodayCardDeck *)",
+      "Bash(git -c commit.gpgsign=false commit -m 'fix\\(AFF-818\\): two-phase hero dive so it actually runs on Android *)",
+      "Bash(git -c commit.gpgsign=false commit -m 'perf\\(AFF-818\\): cache home as hardware texture during Android dive *)",
+      "Bash(git -c commit.gpgsign=false commit -m 'perf\\(AFF-818\\): smooth dive→modal transition per-platform *)",
+      "Bash(npx tsc *)",
+      "Bash(sed -n '/struct DailyStoryStartRecord/,/^}/p' modules/live-activity/ios/LiveActivityModule.swift)",
+      "Bash(sed -n '/struct DailyStoryUpdateRecord/,/^}/p' modules/live-activity/ios/LiveActivityModule.swift)",
+      "Bash(grep -rn \"%\\\\`\\\\|toFixed.*[0-9].*%\\\\|Math.round.*100\\\\|Math.floor.*100\" /Users/huypham/Desktop/affinity/Archives_Expo/components /Users/huypham/Desktop/affinity/Archives_Expo/hooks /Users/huypham/Desktop/affinity/Archives_Expo/app)",
+      "Bash(grep -A2 \"openModal: openWithDive\\\\|openModal,$\")",
+      "Bash(git -c commit.gpgsign=false commit -m 'fix\\(AFF-848\\): await dive reverse before triggering celebration *)",
+      "Bash(grep -vE \"no-explicit-any|exhaustive-deps|^$\")",
+      "WebFetch(domain:preline.co)",
+      "WebFetch(domain:magicui.design)"
     ],
     "additionalDirectories": [
       "/private/tmp/figma-assets/celebration",
-      "/Users/huypham/Downloads"
+      "/Users/huypham/Downloads",
+      "/private/tmp"
     ]
   },
   "enableAllProjectMcpServers": true,

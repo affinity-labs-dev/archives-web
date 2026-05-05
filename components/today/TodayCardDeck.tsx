@@ -2,6 +2,7 @@ import { Image, type ImageSource } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Dimensions,
   StyleProp,
   StyleSheet,
   TouchableOpacity,
@@ -10,6 +11,7 @@ import {
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  cancelAnimation,
   Easing,
   type SharedValue,
   useAnimatedStyle,
@@ -35,6 +37,8 @@ import {
   incompleteStarSvg,
   rewatchIconSvg,
 } from "./icons/todayIcons";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -93,8 +97,29 @@ interface TodayCardDeckProps {
 // `Downloads/02 daily story/index.html:2102-2200` and Figma 3365:9298)
 // ──────────────────────────────────────────────────────────
 
-const CARD_WIDTH = 252;
-const CARD_HEIGHT = 402;
+// const CARD_WIDTH = 252;
+// const CARD_HEIGHT = 402;
+const CARD_WIDTH = (SCREEN_WIDTH - 28) * 0.7;
+// Card height — "fill available content area" instead of flat 50%.
+// The mock's `0.5 * SCREEN_HEIGHT` works on median 6.1" phones but
+// fails at both extremes because the surrounding chrome (header +
+// week strip + progress bar + pagination dots + RESTART CTA + tab
+// bar + safe-area insets ≈ 460pt) is fixed in pixels — its share of
+// the viewport changes with screen height. On iPhone Pro Max / Z
+// Fold 6 (≥880pt) chrome occupies a smaller fraction → card looks
+// undersized with a visible gap below. On iPhone SE (667pt) chrome
+// occupies a larger fraction → card overflows into the pagination
+// dots and pushes them under the CTA.
+//
+// Strategy: target SCREEN_HEIGHT minus the chrome budget so the card
+// always fills the leftover space, but clamp between 42–55% of the
+// viewport so the proportions stay close to the mock and don't go
+// off the rails on unusual aspect ratios.
+const CHROME_BUDGET = 445;
+const CARD_HEIGHT = Math.max(
+  Math.min(SCREEN_HEIGHT - CHROME_BUDGET, SCREEN_HEIGHT * 0.55),
+  SCREEN_HEIGHT * 0.51,
+);
 const CARD_RADIUS = 32;
 
 const SLOT_OFFSET_X = 60;
@@ -113,6 +138,14 @@ const HUM_SCALE = 1.02;
 const IMAGE_CROSSFADE_MS = 500;
 const TITLE_FADE_OUT_MS = 200;
 const TITLE_FADE_IN_MS = 300;
+
+// Pagination dots — reveal AFTER the per-card wave settles. Last card
+// (entranceIndex 2) lands at 650 + 2*90 + 550 = 1390ms; rounding to
+// 1400ms gives a few ms of breathing room past the back.out overshoot.
+// 350ms fade-in keeps the dots calm — no overshoot, since the bounce
+// belongs to the cards themselves.
+const DOTS_REVEAL_DELAY_MS = 1400;
+const DOTS_REVEAL_DURATION_MS = 350;
 
 // Slide uses a spring instead of a fixed-duration ease — feels snappier than
 // the mock's `power3.out` 600ms timing, no perceptible "decay tail" at the end.
@@ -381,7 +414,6 @@ function Card({
   const stableCompletedBool = stableCompleted === true;
   const quizCorrectAnswers = data.quizCorrectAnswers;
   const renderStars =
-    data.kind === "watch" &&
     stableCompletedBool &&
     quizCorrectAnswers != null;
   const completedLabel =
@@ -628,7 +660,18 @@ function Card({
   }, [data.minutes, currentMinutes, minutesOpacity]);
 
   // Center card's image "hum" — scale 1 ↔ 1.02 over 2.6s sine.inOut yoyo
-  // (mock `startCenterCardHum()` at `index.html:1934-1938`, scales `.card-bg` not the card)
+  // (mock `startCenterCardHum()` at `index.html:1934-1938`, scales `.card-bg` not the card).
+  //
+  // Cleanup is critical: the `withRepeat(..., -1, true)` is an infinite
+  // animation. On New Architecture, when the component unmounts (e.g.
+  // sign-out cascade tears down the Clerk → providers → tabs tree),
+  // Reanimated's pending shadow-tree commits race against the
+  // ShadowNodeFamily destructor. Without `cancelAnimation`, the
+  // queued tick keeps targeting a freed node → `convertRawProp<Transform>`
+  // dereferences a stale `unordered_map<RawValue>` → segfault with
+  // pointer-auth failure (KERN_INVALID_ADDRESS at 0x8000000000000008).
+  // Cancelling on unmount drains the worklet queue before the family
+  // is destructed.
   useEffect(() => {
     if (isCenter) {
       imageScale.value = withRepeat(
@@ -642,6 +685,9 @@ function Card({
     } else {
       imageScale.value = withTiming(1, { duration: safeDuration(200) });
     }
+    return () => {
+      cancelAnimation(imageScale);
+    };
   }, [isCenter, imageScale]);
 
   const cardStyle = useAnimatedStyle(() => {
@@ -924,6 +970,24 @@ export default function TodayCardDeck({
     transform: [{ translateY: deckTranslateY.value }],
   }));
 
+  // Pagination dots — start hidden, fade in only after the per-card wave
+  // has fully settled (last card at ~1390ms post-mount). Mount-only effect
+  // so the reveal plays once per deck mount, not on every re-render.
+  const dotsOpacity = useSharedValue(0);
+  useEffect(() => {
+    dotsOpacity.value = withDelay(
+      safeDuration(DOTS_REVEAL_DELAY_MS),
+      withTiming(1, {
+        duration: safeDuration(DOTS_REVEAL_DURATION_MS),
+        easing: easings.power2Out,
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const dotsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: dotsOpacity.value,
+  }));
+
   // Shared values — one per card index, initialized to slots for initialCenterIdx.
   // Declared in triplicate (hooks can't be called in loops) then grouped as arrays.
   const x0 = useSharedValue(
@@ -1067,12 +1131,20 @@ export default function TodayCardDeck({
         </View>
       </GestureDetector>
 
-      <PaginationDots
-        count={cards.length}
-        activeIndex={centerIdx}
-        onSelect={goToIdx}
-        style={styles.dotsRow}
-      />
+      {/* Dots delay-reveal after the wave entrance settles. Wrapped in
+          Animated.View so the opacity tween is local — `containerAnimatedStyle`
+          already finished its own fade by t=500ms, well before the dots
+          should appear. `pointerEvents` gates taps until the dots are
+          visible so users can't accidentally trigger `goToIdx` during
+          the cards' bounce. */}
+      <Animated.View style={dotsAnimatedStyle} pointerEvents="box-none">
+        <PaginationDots
+          count={cards.length}
+          activeIndex={centerIdx}
+          onSelect={goToIdx}
+          style={styles.dotsRow}
+        />
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -1094,7 +1166,7 @@ const styles = StyleSheet.create({
   // adds the deck-specific top margin (the row's flex layout is owned
   // by the shared component).
   dotsRow: {
-    marginTop: 16,
+    marginTop: 8,
   },
   cardWrap: {
     position: "absolute",

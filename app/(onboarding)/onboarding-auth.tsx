@@ -60,6 +60,7 @@ export default function OnboardingAuthScreen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const setIsSignUpMode = useOnboardingStore((s) => s.setIsSignUpMode);
   const markCompleted = useOnboardingStore((s) => s.markCompleted);
+  const confirmAuth = useOnboardingStore((s) => s.confirmAuth);
 
   // `useClerk()` exposes the Clerk instance directly — after `await
   // setActive`, `clerk.user?.id` is synchronously updated. `useUser()` is
@@ -108,6 +109,17 @@ export default function OnboardingAuthScreen() {
   };
 
   const onContinue = async () => {
+    // Unlock AsyncStorage persistence — until this fires, the
+    // onboarding store's `partialize` returns `{}` and nothing is
+    // persisted across kill/relaunch. Calling `confirmAuth()` here
+    // (after Clerk's `setActive*` resolved successfully in the
+    // signIn/signUp helpers) flips the gate so every subsequent
+    // state mutation writes the full whitelist. Sign-in / sign-up
+    // are the ONLY entry points to this function, so no further
+    // guard is needed. Mirror call lives in onboarding-step-7.tsx
+    // for the OAuth (Apple/Google) path.
+    confirmAuth();
+
     // New sign-ups flow through the post-signup celebration (step 8) and
     // the personalize phases (9-12). Sign-in of an existing account skips
     // straight to the main app — their profile is already set up.

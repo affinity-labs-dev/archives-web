@@ -336,9 +336,11 @@ export default function Quiz({
       playCorrect();
 
       // Confetti puff anchored at the selected option's center.
-      // Palette + spec ported from mock `index.html:2675-2679`:
-      //   particleCount: 45, spread: 55, startVelocity: 28,
-      //   colors: ['#5B980C', '#D6FFB8', '#234200', '#AAD86A', '#7BC23B']
+      // Spec ported from `Downloads/02 daily story/index.html:2669-2677`:
+      //   particleCount: 45, spread: 55, startVelocity: 28, ticks: 140
+      //   colors: ['#5B980C', '#D6FFB8', '#234200', '#aad86a', '#7bc23b']
+      // Render-side overrides (gravity, duration) are configured on the
+      // <ConfettiBurst> element below — see that block for why.
       // measureInWindow returns screen-space coords that match the
       // overlay's StyleSheet.absoluteFill positioning. Guard on `w > 0`
       // because measureInWindow can resolve to (0,0,0,0) on Android if
@@ -736,10 +738,65 @@ export default function Quiz({
       {/* Confetti overlay — mounts at the very top of the tree so its
           particles render above the option grid AND the feedback sheet's
           backdrop. `pointerEvents="none"` (set inside the component) means
-          taps still reach CONTINUE. Palette ported from mock 2675-2679. */}
+          taps still reach CONTINUE.
+          Palette ported from `Downloads/02 daily story/index.html:2669-2677`.
+          The tunings below depart from the mock's literal numeric spec
+          (particleCount/spread/velocity) on purpose — direct user
+          feedback was "bắn thẳng, mạnh, nhanh, cao hơn giống pháo hoa"
+          (shoot upward, fast, hard, and high — like fireworks). The
+          mock's canvas-confetti params (28 velocity, 55 spread) are
+          tuned for a small green "puff"; the user wants a fireworks
+          burst, so the physics here are tuned for that feel instead.
+
+          Tuned aggressively for the "dopamine spike" target — the
+          burst exists to reward correct answers and amplify the
+          excitement of getting one right, so it leans hard on three
+          dials known to drive that response: high impulse (initial
+          shoot velocity), tight time window (snap-fast, brain reads
+          as a single "BANG" not a "fountain"), and high density
+          (more motion cues per frame).
+
+          Reference: MagicUI fireworks demo
+          (https://magicui.design/docs/components/confetti) — uses
+          ticks=60 (~1s) for a snappy short-lived burst. Adapted to
+          the analytic physics in ConfettiBurst.tsx:
+
+          • `startVelocity={70}` — RN port multiplies ×8 → 560 px/s
+            upward initial. Peak height analytic
+            ≈ velocity² / (2·gravity·1000) ≈ 522 px above origin.
+            Particles travel high enough to nearly clear the screen
+            before fading — visual energy maximised.
+
+          • `gravity={0.3}` — light pull. Peak time
+            t_peak = velocity / (gravity·1000) = 560/300 ≈ 1.87 ×
+            lifespan, so particles are still strongly RISING when
+            they fade out. Brain registers "shooting up off-screen",
+            which reads as more energetic than seeing them peak +
+            settle.
+
+          • `spread={40}` — tight ±20° cone from vertical. Wider
+            spreads (75°+) feel like fountains; tight cone reads as
+            a directional rocket — unified motion, easier for the
+            brain to grok as "explosive launch".
+
+          • `count={75}` — denser still. Above ~80 mid-tier Android
+            drops frames on the per-particle opacity blend; 75 is
+            the safe ceiling that still feels lush.
+
+          • `duration={900}` — short and snappy. ≈ 54 ticks at 60fps,
+            slightly under MagicUI's ticks=60. Pulled in from 1300
+            because: (1) particles' visible peak hits well before
+            duration ends regardless (they fade faster than they
+            settle, no benefit to the long tail), and (2) shorter
+            burst window = sharper "BANG" reading, more dopamine. */}
       <ConfettiBurst
         ref={confettiRef}
         colors={['#5B980C', '#D6FFB8', '#234200', '#AAD86A', '#7BC23B']}
+        count={75}
+        spread={40}
+        startVelocity={70}
+        gravity={0.3}
+        duration={900}
       />
 
       {/* Mid-Quiz Milestone Modal (ERA-SPECIFIC) */}

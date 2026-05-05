@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 
 import { AnimatedEntrance } from '@/components/ui/animations';
 import {
@@ -40,13 +41,34 @@ import {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Reward audio — one-shot celebration sound keyed to the score band.
+// Thresholds (≥70 / 34-69 / <34) are deliberately INDEPENDENT of the
+// existing visual `tierFor()` thresholds so design can re-balance the
+// audio bands without touching the mascot/headline tier mapping.
+//
+// `require` of static assets is resolved at bundle time; the returned
+// numeric module id is what `useAudioPlayer` accepts as a `source`.
+function getRewardAudio(percentage: number) {
+  if (percentage >= 70) {
+    return require('@/assets/audio/quiz_reward/quiz-reward3.mp3');
+  }
+  if (percentage >= 34) {
+    return require('@/assets/audio/quiz_reward/quiz-reward2.mp3');
+  }
+  return require('@/assets/audio/quiz_reward/quiz-reward1.mp3');
+}
+
 // ─── Public types ──────────────────────────────────────────────────────────
 
 interface QuizResultsProps {
   correctAnswers: number;
   totalQuestions: number;
   totalPoints: number;
-  onContinue: () => void;
+  // Allow Promise return — Quiz.tsx's `handleQuizCompletion` is async
+  // (saveNewProgressData + orchestrator celebrations in adventure mode,
+  // saveQuestCompletion → Supabase in today mode). Previous `() => void`
+  // signature was misleading and let `handleContinue` skip the await.
+  onContinue: () => void | Promise<void>;
   onBack?: () => void;
   adventureId: string;
   moduleId: string;
@@ -83,6 +105,46 @@ export default function QuizResults({
   const tier = tierFor(percentage);
   const spec = TIER_SPECS[tier];
 
+  // Reward audio — picked by score band, played once on mount. Memoized
+  // so the score-band asset id is captured at first render; even if
+  // `percentage` were to change (it doesn't — props are stable for the
+  // lifetime of QuizResults), the player wouldn't re-instantiate
+  // mid-celebration. `useAudioPlayer` auto-disposes on unmount.
+  const rewardAudioSource = useMemo(() => getRewardAudio(percentage), [percentage]);
+  const rewardPlayer = useAudioPlayer(rewardAudioSource);
+  const hasPlayedRewardRef = useRef(false);
+
+  useEffect(() => {
+    if (hasPlayedRewardRef.current) return;
+    hasPlayedRewardRef.current = true;
+    // Match the audio mode used by TodayScrollableLesson's voiceover —
+    // mix with other audio (don't duck the user's music) and play even
+    // when the iOS silent switch is on so a muted phone still hears the
+    // celebration. `setAudioModeAsync` is global, so this also smooths
+    // the handoff if QuizResults is mounted right after a lesson screen
+    // that set a different mode.
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      interruptionMode: 'mixWithOthers',
+      interruptionModeAndroid: 'duckOthers',
+    });
+    // Delay reward sound by 300ms — the mascot's `dropFromAbove` /
+    // `elasticHeroDrop` entrance starts at 100ms and lands ~250-300ms
+    // later. Firing the cheer audio synchronously with mount felt
+    // pre-emptive (sound played before the mascot was even visible);
+    // 300ms aligns the audible peak with the mascot fully on-screen.
+    const timer = setTimeout(() => {
+      try {
+        rewardPlayer.play();
+      } catch (error) {
+        AppLogger.warn('quiz', 'Reward audio play failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [rewardPlayer]);
+
   const {
     openChatToLearn,
     messages: aiMessages,
@@ -94,38 +156,110 @@ export default function QuizResults({
   const [openChat, setOpenChat] = useState(false);
   const [showExplanations, setShowExplanations] = useState(false);
 
-  // Tier-3 confetti — timing + origin matched to the HTML mock:
-  //   • Fires AFTER the count-up finishes (mock fires at `celebAt =
-  //     countDone + 0.05s`, ≈2100ms after entrance start). This lets the
-  //     user's eye lock onto "100%" before the celebration explodes —
-  //     firing during the count-up steals attention from the number.
-  //   • Origin = score-card center, not the mascot zone above. Mock fires
-  //     from `(0.5, 0.574)` of the canvas — that's the center of the gold
-  //     card. Particles burst UP from there, arc, then fall back across
-  //     the card. Firing from above (mascot zone) would have particles
-  //     flying off the top of the screen, missing the card entirely.
-  const confettiRef = useRef<ConfettiBurstHandle>(null);
+  // Continue-button processing state. The `Ref` is the source of truth for
+  // re-entry blocking (synchronous, beats React's render delay on rapid
+  // taps), the `state` is the visual mirror that drives DepthButton's
+  // `isDisabled` veil. We need BOTH:
+  //   - State-only: a fast double-tap can fire `handleContinue` twice in
+  //     the same JS tick before React commits the disabled state.
+  //   - Ref-only: the button stays visually tappable (no veil) while
+  //     `await onContinue()` runs — looks broken to the user.
+  const isProcessingContinueRef = useRef(false);
+  const [isProcessingContinue, setIsProcessingContinue] = useState(false);
+
+  // Confetti — three-burst staggered sequence ported from the HTML mock
+  // (`Downloads/03 questions/index.html:2326-2395`, function
+  // `fireCardConfetti`). Mock spec:
+  //
+  //     0ms    main burst    — wide spread, high velocity, dense (90)
+  //     120ms  fountain L+R  — angled outward from screen edges
+  //     350ms  aftershock    — slow drift particles
+  //
+  // Why three bursts instead of one big one: a single burst flashes on
+  // screen for ~1s and then it's done. The staggered triple-fire keeps
+  // visual energy alive for ~2.5s — main burst grabs attention, fountains
+  // refresh the burst with secondary motion right as the main burst
+  // peaks, and the slow-drift aftershock sustains the "celebration is
+  // still happening" feel through the headline reveal. Brain reads it
+  // as one continuous celebration moment instead of one quick pop.
+  //
+  // Gating: full 3-burst sequence ONLY for percentage === 100 (matches
+  // mock's `if (is100)` gate). Tier-high non-perfect scores (70-99%)
+  // still fire the single main burst — keeps the existing reward for
+  // strong-but-imperfect scores, just without the perfect-score crescendo.
+  const mainBurstRef = useRef<ConfettiBurstHandle>(null);
+  const leftFountainRef = useRef<ConfettiBurstHandle>(null);
+  const rightFountainRef = useRef<ConfettiBurstHandle>(null);
+  const aftershockRef = useRef<ConfettiBurstHandle>(null);
   const hasFiredConfettiRef = useRef(false);
+  // Holds a cleanup closure for the chained fountain/aftershock timers
+  // so we can clear them if the component unmounts mid-celebration
+  // (e.g. user taps Continue before the aftershock fires).
+  const cleanupTimersRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (tier !== 'high') return;
     if (hasFiredConfettiRef.current) return;
-    const timer = setTimeout(() => {
+
+    // Origin Y = 70% of screen height — keeps origin near the score
+    // card / action pill zone so the upward burst covers the headline
+    // + card on the rise and falls back over the same area. Firing from
+    // higher (e.g. 0.55 = card center) clipped the top half of the
+    // trajectory off the screen too quickly.
+    const cardCenterY = SCREEN_HEIGHT * 0.7;
+    const isPerfect = percentage === 100;
+
+    const mainTimer = setTimeout(() => {
       if (hasFiredConfettiRef.current) return;
       hasFiredConfettiRef.current = true;
-      confettiRef.current?.fire({
+
+      // Burst 1 — main center burst (always fires for tier high).
+      mainBurstRef.current?.fire({
         x: SCREEN_WIDTH / 2,
-        // y = 0.7 puts the origin near the action pills / lower third of
-        // the screen. Combined with a wide 120° spread + high velocity,
-        // particles burst UP from there and have ~70% of the screen
-        // height to travel before gravity pulls them back — they end up
-        // covering the headline + score card on the way up AND on the
-        // way down. Firing higher (e.g. 0.55 = card center) clipped the
-        // top half of the trajectory off the screen too quickly.
-        y: SCREEN_HEIGHT * 0.7,
+        y: cardCenterY,
       });
+
+      // 70-99% scores stop here — single main burst is the reward.
+      if (!isPerfect) return;
+
+      // Burst 2 — left + right fountains, 120ms after main. The two
+      // fountains fire SIMULTANEOUSLY (single setTimeout with both
+      // .fire() calls); their staggered ARRIVAL timing is the offset
+      // from burst 1, not relative to each other.
+      const fountainTimer = setTimeout(() => {
+        leftFountainRef.current?.fire({
+          x: SCREEN_WIDTH * 0.18,
+          y: cardCenterY + SCREEN_HEIGHT * 0.02,
+        });
+        rightFountainRef.current?.fire({
+          x: SCREEN_WIDTH * 0.82,
+          y: cardCenterY + SCREEN_HEIGHT * 0.02,
+        });
+      }, 120);
+
+      // Burst 3 — aftershock 350ms after main. Smaller, slower, drifts
+      // down rather than shooting up — gives the celebration a soft
+      // "settle" beat instead of a hard cut.
+      const aftershockTimer = setTimeout(() => {
+        aftershockRef.current?.fire({
+          x: SCREEN_WIDTH / 2,
+          y: cardCenterY - SCREEN_HEIGHT * 0.02,
+        });
+      }, 350);
+
+      // Cleanup chained timers on unmount mid-celebration (e.g. user
+      // taps Continue before the aftershock fires).
+      cleanupTimersRef.current = () => {
+        clearTimeout(fountainTimer);
+        clearTimeout(aftershockTimer);
+      };
     }, safeDuration(2100));
-    return () => clearTimeout(timer);
-  }, [tier]);
+
+    return () => {
+      clearTimeout(mainTimer);
+      cleanupTimersRef.current?.();
+    };
+  }, [tier, percentage]);
 
   // ─── Analytics: results viewed (fire once) ────────────────────────────
   const hasTrackedResultsRef = useRef(false);
@@ -286,7 +420,18 @@ export default function QuizResults({
     openChatWithContext,
   ]);
 
-  const handleContinue = useCallback(() => {
+  const handleContinue = useCallback(async () => {
+    // Synchronous re-entry guard. A burst of taps can land in the same
+    // JS tick — `setIsProcessingContinue(true)` won't have flushed to
+    // DepthButton's `isDisabled` yet, so the second tap would still fire
+    // `onPress` (and Quiz.tsx's `handleQuizCompletion` would run twice:
+    // duplicate `saveNewProgressData`, duplicate `module_completed`
+    // analytics, duplicate orchestrator celebrations). The ref blocks
+    // that tick-window before React commits.
+    if (isProcessingContinueRef.current) return;
+    isProcessingContinueRef.current = true;
+    setIsProcessingContinue(true);
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     analyticsService.trackCustomEvent('quiz_results_continue_clicked', {
       adventure_id: adventureId,
@@ -301,7 +446,26 @@ export default function QuizResults({
       total_points: totalPoints,
     });
     AppLogger.info('quiz', 'Quiz results continue clicked');
-    onContinue();
+
+    try {
+      // Await even if the parent is sync — `onContinue` is typed
+      // `() => void | Promise<void>`, so `await` on a void return
+      // resolves on the next microtask without changing semantics.
+      // For the async case (today/adventure mode), this keeps the
+      // button disabled until save + orchestrator celebrations finish.
+      await onContinue();
+      // Intentionally NOT resetting `isProcessingContinue` on success.
+      // The parent has already navigated away (modal dismissed, lesson
+      // unmounted) — toggling the veil off here causes a brief flicker
+      // during the unmount frame. Component lifecycle handles cleanup.
+    } catch (error) {
+      // Parent threw → re-enable the button so user can retry. Today
+      // mode catches its own Supabase error internally, so this branch
+      // mostly fires for adventure-mode `saveNewProgressData` failures.
+      AppLogger.error('quiz', 'Quiz results continue failed', {}, error);
+      isProcessingContinueRef.current = false;
+      setIsProcessingContinue(false);
+    }
   }, [
     adventureId,
     moduleId,
@@ -449,6 +613,7 @@ export default function QuizResults({
                 size="large"
                 onPress={handleContinue}
                 haptic="medium"
+                isDisabled={isProcessingContinue}
               >
                 <Typography
                   family="onest"
@@ -465,14 +630,88 @@ export default function QuizResults({
         </View>
       </ScrollView>
 
+      {/* Four ConfettiBurst instances — each is a separate component
+          because ConfettiBurst's params (count/spread/velocity/etc.)
+          are PROPS, not arguments to fire(). To get four bursts with
+          different physics (matching the mock's main / fountain / fountain
+          / aftershock spec), we instantiate four pre-mounted instances
+          and trigger them via separate refs. Each instance's particle
+          worklets short-circuit when isFiring=0 so idle cost is ~0.
+
+          ─── Physics tuning — "boom boom boom" ──────────────────────
+          User feedback: "nhanh và mạnh hơn, dứt khoát hơn" — fast,
+          hard, decisive. Each burst is now a sharp impulse with a
+          short visible window (~1100-1200ms) instead of the previous
+          longer-tailed ~2000ms shape. Brain reads the staggered fire
+          (0 / 120 / 350ms) as three distinct CRACKS rather than a
+          single sustained haze.
+
+          Velocity bumped 70 → 90 (RN port ×8 = 720 px/s upward, peak
+          height analytic 720²/600 ≈ 864 px — particles travel nearly
+          a full screen height before fading). At gravity 0.3, t_peak
+          = 720/300 = 2.4 × lifespan, so particles never visibly fall.
+
+          Durations CUT roughly in half: main 2000→1100, fountains
+          1800→1000, aftershock 2200→1200. Per-fade math:
+          fadeStart=0.7-0.85 of duration (hardcoded in ConfettiBurst),
+          so 1100ms means particles stay fully opaque ~770ms then
+          fade in 330ms — punchy spike, no lingering "haze" tail. */}
+
+      {/* Burst 1 — main center burst. Densest (75 particles, Android-safe
+          ceiling) + tight 40° cone + high velocity = a vertical CRACK
+          straight up the screen. */}
       <ConfettiBurst
-        ref={confettiRef}
+        ref={mainBurstRef}
         colors={HIGH_TIER_CONFETTI_PALETTE}
-        count={120}
-        spread={120}
-        startVelocity={70}
-        duration={2200}
-        gravity={1.0}
+        count={75}
+        spread={40}
+        startVelocity={90}
+        gravity={0.3}
+        duration={1100}
+      />
+
+      {/* Burst 2a — left fountain. Off-center origin (x=0.18) gives the
+          directional "fountain" feel without needing angle support.
+          Slightly higher velocity (95) so they shoot HIGHER than the
+          main burst — delayed entry needs to claim attention against
+          the still-visible main spike. Shorter duration (1000ms) so
+          they fade just before the aftershock arrives — gives each
+          burst its own clean visual slot. */}
+      <ConfettiBurst
+        ref={leftFountainRef}
+        colors={HIGH_TIER_CONFETTI_PALETTE}
+        count={60}
+        spread={40}
+        startVelocity={95}
+        gravity={0.3}
+        duration={1000}
+      />
+
+      {/* Burst 2b — right fountain. Mirror of 2a (origin x=0.82). */}
+      <ConfettiBurst
+        ref={rightFountainRef}
+        colors={HIGH_TIER_CONFETTI_PALETTE}
+        count={60}
+        spread={40}
+        startVelocity={95}
+        gravity={0.3}
+        duration={1000}
+      />
+
+      {/* Burst 3 — aftershock. Slightly wider spread (60°) + lower
+          velocity (75) = a softer "second wind" beat that diffuses
+          where the first two bursts left vertical trails. Duration
+          1200ms keeps the celebration's exit punchy — total visible
+          window from main fire to aftershock fade ≈ 1.55s, ~40%
+          tighter than before. */}
+      <ConfettiBurst
+        ref={aftershockRef}
+        colors={HIGH_TIER_CONFETTI_PALETTE}
+        count={40}
+        spread={60}
+        startVelocity={75}
+        gravity={0.3}
+        duration={1200}
       />
 
       {/* AI explanations bottom-sheet — always mounted (the component

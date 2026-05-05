@@ -16,8 +16,16 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import Rive, { Alignment, Fit } from 'rive-react-native';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Animated, {
+  Easing,
+  withTiming,
+  type EntryAnimationsValues,
+  type ExitAnimationsValues,
+  type LayoutAnimation,
+} from 'react-native-reanimated';
 import {
   ActivityIndicator,
   Alert,
@@ -26,11 +34,14 @@ import {
   KeyboardAvoidingView,
   Linking,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TextStyle,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -38,16 +49,88 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Polygon } from 'react-native-svg';
 import { renderMarkdownText } from '@/utils/markdownText';
 import { Typewriter } from '@/components/ui/Typewriter';
+import { useTypewriter } from '@/components/ui/Typewriter/useTypewriter';
 import { Typography } from '@/components/ui/Typography';
 import { DepthButton } from '@/components/ui/DepthButton';
-import { colors } from '@/components/ui/theme';
+import { colors, easings } from '@/components/ui/theme';
+import { AnimatedEntrance } from '@/components/ui/animations';
 
-// Character image for welcome screen
-const HelloCharacter = require('@/assets/images/ai-images/hellocharacter.png');
+// Welcome-screen character — animated Ibu teacher (Rive replaces the
+// previous static `hellocharacter.png`). Larger asset (~5.6MB) but
+// only loads when the AI chat modal opens, so cold-start budget is
+// unaffected.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ibuTeacherRive = require('@/assets/rive/ibu_teacher.riv');
 // AI avatar for chat messages
 const AIChatIcon = require('@/assets/images/ai-images/sayhi.png');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Custom layout-animation worklets — direct port of the mock's
+// chat-intro collapse + message append from `Downloads/03 questions/
+// index.html` (`collapseChatIntro()` + `appendChatMessage()`).
+//
+// Reanimated's built-in presets get close (`FadeOut`, `FadeInUp`)
+// but each diverges from the mock in one important way:
+//   - `FadeOut` only animates opacity → the welcome's vertical slot
+//     persists for the full 320ms, blocking messages from sliding
+//     up into the freed space until the unmount snap. The mock's
+//     `height: 0` is what makes the transition feel continuous, not
+//     a fade followed by a layout jump.
+//   - `FadeInUp` defaults to a 25–50px Y offset, but the mock's
+//     `appendChatMessage` enters from y:14 specifically. Custom
+//     worklet lets us match the offset and easing exactly.
+//
+// Both are `'worklet'`-marked so Reanimated runs them on the UI
+// thread; never inline non-worklet helpers here, the layout-
+// animation runtime will reject them.
+const collapseExit = (values: ExitAnimationsValues): LayoutAnimation => {
+  'worklet';
+  return {
+    initialValues: {
+      opacity: 1,
+      height: values.currentHeight,
+    },
+    animations: {
+      opacity: withTiming(0, { duration: 320, easing: Easing.inOut(Easing.quad) }),
+      height: withTiming(0, { duration: 320, easing: Easing.inOut(Easing.quad) }),
+    },
+  };
+};
+
+const messageEnter = (_values: EntryAnimationsValues): LayoutAnimation => {
+  'worklet';
+  return {
+    initialValues: {
+      opacity: 0,
+      transform: [{ translateY: 14 }],
+    },
+    animations: {
+      opacity: withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) }),
+      transform: [
+        { translateY: withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) }) },
+      ],
+    },
+  };
+};
+
+// Subtle exit — used by the "thinking..." loading bubble when it
+// unmounts as the AI reply lands. 180ms power2.in is faster than
+// the 300ms enter on purpose: exits should feel like the bubble
+// "got out of the way", not a peer event with the entering reply.
+// Pure opacity (no Y translate) keeps the AI message's slide-up
+// from competing with the loading bubble's slide-out — they
+// occupy the same row in the scroll, and dual translates would
+// look like jitter.
+const messageExit = (_values: ExitAnimationsValues): LayoutAnimation => {
+  'worklet';
+  return {
+    initialValues: { opacity: 1 },
+    animations: {
+      opacity: withTiming(0, { duration: 180, easing: Easing.in(Easing.quad) }),
+    },
+  };
+};
 
 export interface ChatMessage {
   id: string;
@@ -87,6 +170,73 @@ interface AIChatModalProps {
   };
 }
 
+/**
+ * Progressive markdown reveal — fixes the visual jump that happened
+ * when the previous `<Typewriter>` (which renders via Typography
+ * variant=body.m) handed off to `renderMarkdownText` (raw `<Text>`
+ * with `styles.assistantText` font Onest 15/21). Two different
+ * components meant a font/size/weight switch on completion → text
+ * reflowed and bold tokens (`**...**`) snapped into bold style only
+ * after the typewriter ended.
+ *
+ * The fix: drive the same `useTypewriter` hook the Typewriter uses
+ * (so cadence + reduce-motion semantics stay identical), but pipe
+ * each progressive slice through `renderMarkdownText` — the SAME
+ * renderer used after completion. The styling is now byte-identical
+ * during streaming and after, eliminating the snap. Bold/emphasis
+ * also formats as you type — the moment the closing `**` arrives,
+ * that segment renders bold inline, no reflow.
+ *
+ * The cursor is a literal `|` glyph appended to the slice (instead
+ * of a separate Animated.Text node, which the legacy Typewriter
+ * used). That keeps the cursor in the same Text flow as the body
+ * so its appearance/disappearance doesn't trigger a rewrap of the
+ * last line. Production-grade streaming would consume Gemini's SSE
+ * stream in chunks; this is the polyfill until the backend exposes
+ * a `/ai/chat/stream` endpoint that returns chunked content.
+ */
+function StreamingAssistantMessage({
+  text,
+  textStyle,
+  onComplete,
+  onTick,
+}: {
+  text: string;
+  textStyle: TextStyle;
+  onComplete?: () => void;
+  /**
+   * Fires after every character reveal. The parent uses this to
+   * scroll the chat to bottom so the growing bubble stays visible
+   * (`appendChatMessage` in the mock does the same with
+   * `scrollChatToBottom(screenEl)` every 24 chars). Pass a stable
+   * `useCallback` reference so the effect below doesn't re-fire
+   * on every parent render.
+   */
+  onTick?: () => void;
+}) {
+  // `speed` is the ms-interval BETWEEN characters (not chars-per-
+  // second). 22ms ≈ 45 cps matched the mock's `typeInto(..., 45,
+  // ...)`, but in-app testing showed it reads "thoughtful" rather
+  // than "responsive" — closer to a human typing than to AI
+  // streaming. 10ms ≈ 100 cps is the sweet spot used by ChatGPT /
+  // Claude web for visible-char streaming: fast enough to feel
+  // generative, slow enough that users can read along without the
+  // text just appearing instantly.
+  const { displayText, showCursor } = useTypewriter({
+    text,
+    speed: 10,
+    onComplete,
+  });
+  // Notify parent every time displayText grows so the chat can
+  // auto-scroll. Effect is keyed on `displayText.length` (not
+  // `displayText` content) so re-renders that don't grow the slice
+  // (theoretical — useTypewriter only appends) don't waste a tick.
+  useEffect(() => {
+    onTick?.();
+  }, [displayText.length, onTick]);
+  return renderMarkdownText(displayText + (showCursor ? '|' : ''), textStyle);
+}
+
 export default function AIChatModal({
   visible,
   onClose,
@@ -116,6 +266,68 @@ export default function AIChatModal({
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
+  // Auto-follow flag for streaming text. `true` while the user is at
+  // (or near) the bottom of the chat — the scroll view auto-pins to
+  // the bottom on every typewriter tick. The user can break out of
+  // auto-follow by scrolling up to read older messages; once they
+  // scroll back down to the bottom, auto-follow resumes. Reset to
+  // `true` whenever a NEW AI reply starts streaming (`typewriterMsgId`
+  // flips from null → non-null) so a new message always pulls focus.
+  // Standard "follow tail" pattern from chat UIs (Slack, ChatGPT web).
+  const userIsAtBottomRef = useRef(true);
+
+  // Gesture-driven flag updates (NOT per-frame `onScroll`).
+  //
+  // Earlier this file used `onScroll` to recompute `userIsAtBottomRef`
+  // on every scroll frame — but `scrollToEnd` from typewriter ticks
+  // ALSO fires `onScroll`, so the flag stayed `true` during streaming
+  // even when the user was trying to drag away from the bottom. The
+  // result was the user fighting the typewriter: every 10ms tick
+  // pulled the scroll back to bottom, cancelling their drag → "jitter
+  // / phải scroll mạnh mới scroll lên được" feedback.
+  //
+  // The fix: only update the flag on USER GESTURE boundaries
+  // (`onScrollBeginDrag` / `onScrollEndDrag` / `onMomentumScrollEnd`).
+  // The moment the user touches the scroll view we yield control by
+  // setting `false` immediately — typewriter ticks skip the
+  // `scrollToEnd` call from then on, so the drag is unopposed.
+  // After release we re-evaluate at the settled position so users
+  // who scroll back to the bottom resume auto-follow naturally.
+  const handleScrollBeginDrag = useCallback(() => {
+    userIsAtBottomRef.current = false;
+  }, []);
+
+  const evaluateScrollPosition = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+      const distanceFromBottom =
+        contentSize.height - (contentOffset.y + layoutMeasurement.height);
+      // 60px threshold tolerates iOS scroll inertia + safe-area
+      // chrome. Strict equality flips false on every bounce at the
+      // bottom edge.
+      userIsAtBottomRef.current = distanceFromBottom < 60;
+    },
+    [],
+  );
+
+  const handleStreamTick = useCallback(() => {
+    if (!userIsAtBottomRef.current) return;
+    // `animated: false` is intentional — animated scrolls stack into
+    // a queue when called every ~10ms, lagging behind the typewriter.
+    // Instant scroll keeps the bubble pinned to the bottom edge as
+    // text fills the line.
+    scrollViewRef.current?.scrollToEnd({ animated: false });
+  }, []);
+
+  // When a NEW AI reply begins streaming, force auto-follow back on
+  // so the new message pulls into view even if the user had scrolled
+  // up while reading the previous one. Mirrors the mock's implicit
+  // behavior of always calling `scrollChatToBottom` after each
+  // `appendChatMessage`.
+  useEffect(() => {
+    if (typewriterMsgId) userIsAtBottomRef.current = true;
+  }, [typewriterMsgId]);
+
   const { getUserProgressSummary, getKnowledgeContextForPrompt, pendingHiddenMessage, clearPendingHiddenMessage, currentSessionId, chatTrigger } = useAI();
   const { user } = useUser();
   const { isSubscribed } = useRevenueCat();
@@ -842,6 +1054,18 @@ export default function AIChatModal({
             contentContainerStyle={styles.messagesContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            // Gesture-boundary handlers (NOT `onScroll`) drive the
+            // auto-follow flag. Per-frame `onScroll` was the source
+            // of the jitter: programmatic `scrollToEnd` from each
+            // typewriter tick fired onScroll → flag re-set to `true`
+            // (since position was at bottom from the scroll itself)
+            // → next tick scrolled again → user's drag was constantly
+            // overridden. Touching the scroll view now yields control
+            // immediately via `onScrollBeginDrag`; release re-checks
+            // position via `onScrollEndDrag` + `onMomentumScrollEnd`.
+            onScrollBeginDrag={handleScrollBeginDrag}
+            onScrollEndDrag={evaluateScrollPosition}
+            onMomentumScrollEnd={evaluateScrollPosition}
           >
             {isLoadingHistory ? (
               <View style={styles.loadingHistoryContainer}>
@@ -849,8 +1073,44 @@ export default function AIChatModal({
                 <Text style={styles.loadingHistoryText}>Loading your chat history...</Text>
               </View>
             ) : messages.length === 0 ? (
-              <View style={styles.welcomeContainer}>
-                {/* Lavender speech bubble with typewriter */}
+              // Welcome intro — port of `collapseChatIntro()` in the
+              // mock (`Downloads/03 questions/index.html:2998-3010`):
+              //   gsap.to(intro, {
+              //     opacity: 0, height: 0, marginBottom: 0,
+              //     duration: 0.32, ease: 'power2.inOut',
+              //   })
+              //
+              // Mock animates BOTH `opacity` and `height` to 0 in place
+              // — the intro shrinks vertically and fades simultaneously,
+              // freeing layout space so message bubbles slide up to
+              // fill via natural reflow. NOT a slide-up-off-viewport.
+              //
+              // `collapseExit` is a custom worklet because Reanimated's
+              // built-in `FadeOut` only animates opacity (no height
+              // collapse → welcome's slot persists for the full 320ms,
+              // messages render below it, then snap up on unmount —
+              // exactly the "slide-up xong fade out đi luôn" feedback
+              // the user gave). Animating `height` inside the exit
+              // makes the slot shrink in real-time, so messages slide
+              // up smoothly during the same 320ms.
+              <Animated.View
+                style={styles.welcomeContainer}
+                exiting={collapseExit}
+              >
+                {/* Lavender speech bubble with typewriter.
+                    Entrance: y 14 → 0, opacity, 400ms back.out(1.4)
+                    @ 220ms (mock `enterChatScreen` line 3076). The
+                    Typewriter inside has its own 300ms startDelay so
+                    text begins after the bubble lands. */}
+                <AnimatedEntrance
+                  preset={{
+                    translateY: { from: 14, to: 0 },
+                    opacity: { from: 0, to: 1 },
+                    duration: 400,
+                    easing: easings.backOut14,
+                  }}
+                  delay={220}
+                >
                 <View style={styles.speechBubble}>
                   <Typewriter
                     text={`Hi ${userName}, I\u2019m Ibu, your AI learning buddy. I know Islamic history & your progress. Ask me anything!`}
@@ -860,47 +1120,114 @@ export default function AIChatModal({
                     align="center"
                     startDelay={300}
                   />
-                  {/* Tail — two CSS triangles (stroke + fill) */}
+                  {/* Tail — two stacked triangles (outline + fill).
+                      Outer uses `acaiPrimary` (#3E2368) so the tail's
+                      edge matches the bubble's 1.5px outline; inner
+                      uses `acaiTertiary` so the fill blends with the
+                      bubble body. Earlier `acaiSecondary` was a
+                      lighter halo and didn't match the Figma. */}
                   <View style={styles.speechPointer}>
                     <Svg width={24} height={14} viewBox="0 0 24 14" style={styles.speechPointerSvg}>
-                      <Polygon points="0,0 24,0 12,14" fill={colors.acaiSecondary} />
+                      <Polygon points="0,0 24,0 12,14" fill={colors.acaiPrimary} />
                     </Svg>
                     <Svg width={24} height={12} viewBox="0 0 24 12" style={styles.speechPointerSvg}>
                       <Polygon points="0,0 24,0 12,12" fill={colors.acaiTertiary} />
                     </Svg>
                   </View>
                 </View>
+                </AnimatedEntrance>
 
-                {/* Character Image */}
-                <View style={styles.characterContainer}>
-                  <Image source={HelloCharacter} style={styles.characterImage} contentFit="contain" />
-                </View>
+                {/* Character — animated Ibu teacher Rive.
+                    Entrance: y 20 → 0, opacity, scale 0.94 → 1, 500ms
+                    back.out(~1.5) @ 300ms (mock line 3104:
+                    `gsap.to('.chat-ibu', { y: 0, opacity: 1, scale: 1,
+                    duration: 0.5, ease: 'back.out(1.6)' }, 0.3)`).
+                    rive-react-native v9 needs `stateMachineName` for
+                    auto-run; "State Machine 1" is the editor default
+                    — mirrors DailyStoryEndScreen + onboarding-step-7. */}
+                <AnimatedEntrance
+                  preset={{
+                    translateY: { from: 20, to: 0 },
+                    scale: { from: 0.94, to: 1 },
+                    opacity: { from: 0, to: 1 },
+                    duration: 500,
+                    easing: easings.backOut15,
+                  }}
+                  delay={300}
+                >
+                  <View style={styles.characterContainer}>
+                    <Rive
+                      source={ibuTeacherRive}
+                      autoplay
+                      stateMachineName="State Machine 1"
+                      fit={Fit.Contain}
+                      alignment={Alignment.Center}
+                      style={styles.characterImage}
+                    />
+                  </View>
+                </AnimatedEntrance>
 
-                {/* Suggestion Buttons */}
+                {/* Suggestion Buttons.
+                    Entrance: y 16 → 0, opacity, 300ms power2.out @ 420ms
+                    with 60ms stagger between siblings (mock line 3110:
+                    `stagger: { each: 0.06, from: 'start' }`). Each pill
+                    is wrapped individually so the per-sibling delay is
+                    explicit; using `delay = 420 + i*60` keeps the
+                    timing readable inline without StaggerGroup. */}
                 <View style={styles.suggestionsContainer}>
-                  {suggestions.map((suggestion) => (
-                    <DepthButton
+                  {suggestions.map((suggestion, index) => (
+                    <AnimatedEntrance
                       key={suggestion}
-                      variant="secondary"
-                      size="large"
-                      surfaceColor="snow"
-                      shadowColor="acaiTertiary"
-                      borderColor="acaiPrimary"
-                      radius={26.5}
-                      shadowOffset={6}
-                      pressEffect="dip"
-                      onPress={() => handleSuggestionPress(suggestion)}
+                      preset={{
+                        translateY: { from: 16, to: 0 },
+                        opacity: { from: 0, to: 1 },
+                        duration: 300,
+                        easing: easings.power2Out,
+                      }}
+                      delay={420 + index * 60}
                     >
-                      <Typography variant="label.xs" weight="600" color="onyx">
-                        {suggestion}
-                      </Typography>
-                    </DepthButton>
+                      <DepthButton
+                        variant="secondary"
+                        size="large"
+                        surfaceColor="snow"
+                        shadowColor="acaiTertiary"
+                        borderColor="acaiPrimary"
+                        radius={26.5}
+                        shadowOffset={6}
+                        pressEffect="dip"
+                        onPress={() => handleSuggestionPress(suggestion)}
+                      >
+                        <Typography variant="label.xs" weight="600" color="onyx">
+                          {suggestion}
+                        </Typography>
+                      </DepthButton>
+                    </AnimatedEntrance>
                   ))}
                 </View>
-              </View>
+              </Animated.View>
             ) : (
+              // Each visible message wraps in Animated.View with the
+              // `messageEnter` worklet — direct port of the mock's
+              // `appendChatMessage` (`Downloads/03 questions/index.html:
+              // 2948-2967`):
+              //   gsap.fromTo(el,
+              //     { opacity: 0, y: 14 },
+              //     { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
+              //
+              // Critically, NO `delay` here. Earlier the first message
+              // had `delay: 320ms` so it appeared AFTER welcome's
+              // exit — but the mock fires user-message entrance and
+              // intro collapse on the SAME frame. Both run in
+              // parallel: intro shrinks (height + opacity → 0,
+              // 320ms), message slides up (y:14 → 0, opacity 0 → 1,
+              // 300ms). The user sees the message rising into the
+              // space the intro is vacating, not appearing after a
+              // dead pause.
               messages.filter((m) => !m.hidden).map((message) => (
-                <View key={message.id}>
+                <Animated.View
+                  key={message.id}
+                  entering={messageEnter}
+                >
                   {/* Quiz context shown as a regular user message bubble */}
                   {message.quizContext && (
                     <View style={styles.messageBubble}>
@@ -940,13 +1267,17 @@ export default function AIChatModal({
                     <>
                       <View style={styles.assistantContent}>
                         {typewriterMsgId === message.id ? (
-                          <Typewriter
-                            text={message.content.replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1').replace(/^#+\s/gm, '')}
-                            variant="body.m"
-                            weight="500"
-                            color="onyx"
-                            speed={22}
+                          // Progressive markdown — see StreamingAssistantMessage
+                          // above for why this is NOT the legacy Typewriter
+                          // component. Same `useTypewriter` cadence underneath,
+                          // but rendered through `renderMarkdownText` so the
+                          // bubble's typography stays byte-identical between
+                          // streaming and final state (no font/size snap).
+                          <StreamingAssistantMessage
+                            text={message.content}
+                            textStyle={styles.assistantText}
                             onComplete={() => setTypewriterMsgId(null)}
+                            onTick={handleStreamTick}
                           />
                         ) : (
                           renderMarkdownText(message.content, styles.assistantText)
@@ -995,26 +1326,45 @@ export default function AIChatModal({
                     </>
                   )}
                 </View>
-                </View>
+                </Animated.View>
               ))
             )}
 
+            {/* Thinking / Analyzing / Generating loader — animated to
+                match the message bubbles around it. Without `entering`
+                the indicator snapped in when `isLoading` flipped true;
+                without `exiting` it snapped out the moment the AI
+                message landed, jarring against the AI message's
+                300ms slide-up. Reusing the same `messageEnter`
+                worklet keeps the loader visually consistent with
+                user/AI bubbles (same y:14 → 0 + opacity); the shorter
+                `messageExit` (180ms opacity-only) lets it dissolve
+                without competing against the incoming AI bubble's
+                translateY animation that would land in the same row. */}
             {isLoading && (
-              <View style={[styles.messageBubble, styles.assistantBubble]}>
+              <Animated.View
+                style={[styles.messageBubble, styles.assistantBubble]}
+                entering={messageEnter}
+                exiting={messageExit}
+              >
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={ArchivesTheme.colors.persianOrange} />
                   <Text style={styles.loadingText}>
                     {isAnalyzingImage ? 'Analyzing image...' : isGeneratingImage ? 'Generating image...' : 'Thinking...'}
                   </Text>
                 </View>
-              </View>
+              </Animated.View>
             )}
 
             {error && (
-              <View style={styles.errorContainer}>
+              <Animated.View
+                style={styles.errorContainer}
+                entering={messageEnter}
+                exiting={messageExit}
+              >
                 <Ionicons name="alert-circle" size={20} color="#E74C3C" />
                 <Text style={styles.errorText}>{error}</Text>
-              </View>
+              </Animated.View>
             )}
           </ScrollView>
 
@@ -1336,11 +1686,11 @@ const styles = StyleSheet.create({
   },
   characterContainer: {
     alignItems: 'center',
-    marginTop: 5,
+    marginTop: 15,
   },
   characterImage: {
-    width: 210,
-    height: 286,
+    width: SCREEN_WIDTH * 0.7,
+    height: 1,
   },
 
   // Suggestion Buttons
@@ -1348,7 +1698,7 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 8,
     paddingHorizontal: 20,
-    marginTop: 18,
+    
   },
   // Message Bubbles
   messageBubble: {

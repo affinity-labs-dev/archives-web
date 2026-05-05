@@ -32,7 +32,7 @@ export const variantSpecs: Record<DepthButtonVariant, DepthButtonVariantSpec> = 
   'tertiary-alt': {
     surface: 'blueSecondary',
     shadow: 'bluePrimary',
-    border: 'bluePrimary',
+    // border: 'bluePrimary',
     hasShadow: true,
     defaultPressEffect: 'dip',
   },

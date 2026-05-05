@@ -23,6 +23,8 @@ export function DepthButton({
   surfaceColor,
   shadowColor,
   borderColor,
+  surfaceBorderColor,
+  shadowBorderColor,
   radius,
   shadowOffset,
   isDisabled = false,
@@ -50,12 +52,41 @@ export function DepthButton({
     variantSpec.shadow === 'transparent'
       ? 'transparent'
       : colors[shadowColor ?? variantSpec.shadow];
-  const resolvedBorderColor =
-    borderColor !== undefined
-      ? colors[borderColor]
-      : variantSpec.border !== undefined
-        ? colors[variantSpec.border]
-        : undefined;
+  // Border resolution — specificity beats authority. Order:
+  //   layer-specific prop      (most explicit override)
+  //     → layer-specific spec  (variant declared per-layer intent)
+  //       → shorthand prop     (caller's blanket override)
+  //         → shorthand spec   (variant blanket default)
+  //
+  // Why specificity-first instead of "prop always wins": if a variant
+  // declares `surfaceBorder: 'bluePrimary'`, that's an explicit
+  // per-layer design decision and should NOT be silently flattened by
+  // a caller passing a generic `borderColor="onyx"` shorthand. The
+  // caller's shorthand still applies to the OTHER layer (which has no
+  // specific override), preserving the legacy "borderColor outlines
+  // both layers" behavior wherever the variant doesn't disagree.
+  // Concretely, this is what makes the disabled CONTINUE button show
+  // a blue surface border under the white veil instead of an onyx
+  // border that visually merges with the onyx surface.
+  const resolveBorder = (
+    specific: typeof surfaceBorderColor,
+    specSpecific: typeof variantSpec.surfaceBorder,
+  ) => {
+    const key =
+      specific ??
+      specSpecific ??
+      borderColor ??
+      variantSpec.border;
+    return key !== undefined ? colors[key] : undefined;
+  };
+  const resolvedSurfaceBorderColor = resolveBorder(
+    surfaceBorderColor,
+    variantSpec.surfaceBorder,
+  );
+  const resolvedShadowBorderColor = resolveBorder(
+    shadowBorderColor,
+    variantSpec.shadowBorder,
+  );
 
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -174,9 +205,9 @@ export function DepthButton({
         borderRadius: resolvedRadius,
         paddingHorizontal: sizeSpec.paddingHorizontal,
         backgroundColor: resolvedSurfaceColor,
-        ...(resolvedBorderColor !== undefined && {
+        ...(resolvedSurfaceBorderColor !== undefined && {
           borderWidth: variant === 'outline' ? 2 : 1.5,
-          borderColor: resolvedBorderColor,
+          borderColor: resolvedSurfaceBorderColor,
         }),
       },
       surfaceAnimatedStyle,
@@ -187,7 +218,7 @@ export function DepthButton({
       sizeSpec.paddingHorizontal,
       resolvedRadius,
       resolvedSurfaceColor,
-      resolvedBorderColor,
+      resolvedSurfaceBorderColor,
       variant,
       surfaceAnimatedStyle,
       surfaceStyle,
@@ -244,9 +275,9 @@ export function DepthButton({
                 top: resolvedShadowOffset,
                 borderRadius: resolvedRadius,
                 backgroundColor: resolvedShadowColor,
-                ...(resolvedBorderColor !== undefined && {
+                ...(resolvedShadowBorderColor !== undefined && {
                   borderWidth: 1,
-                  borderColor: resolvedBorderColor,
+                  borderColor: resolvedShadowBorderColor,
                 }),
               },
             ]}
@@ -296,7 +327,6 @@ export function DepthButton({
             style={[
               StyleSheet.absoluteFill,
               {
-                borderRadius: resolvedRadius,
                 backgroundColor: `rgba(255, 255, 255, ${1 - DISABLED_OPACITY})`,
               },
             ]}
