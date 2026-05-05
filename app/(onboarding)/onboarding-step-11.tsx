@@ -9,6 +9,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Typography, colors, spacing, easings } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { analyticsService } from '@/services/AnalyticsService';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const reruledLoadingRive = require('@/assets/rive/reruled-loading.riv');
@@ -46,6 +47,10 @@ export default function OnboardingStep13Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const [messageIndex, setMessageIndex] = useState(0);
   const [showFinal, setShowFinal] = useState(false);
+
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('loading');
+  }, []);
 
   useEffect(() => {
     const cycleTimer = setInterval(() => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, StatusBar, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Rive, { Alignment, Fit } from 'rive-react-native';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { analyticsService } from '@/services/AnalyticsService';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ibuCelebratingRive = require('@/assets/rive/ibu-celebrating.riv');
@@ -46,6 +47,10 @@ const ibuCelebratingRive = require('@/assets/rive/ibu-celebrating.riv');
 export default function OnboardingStep8Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const [typewriterDone, setTypewriterDone] = useState(false);
+
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('post_signup_celebration');
+  }, []);
 
   const goToNext = () => {
     setStep(9);

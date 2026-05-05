@@ -634,6 +634,56 @@ class AnalyticsService {
   }
 
 
+  // ==================== ONBOARDING FUNNEL EVENTS (AFF-857) ====================
+
+  trackOnboardingStepViewed(screen: string) {
+    this.trackCustomEvent('onboarding_step_viewed', { screen });
+  }
+
+  trackOnboardingBackTapped(screen: string) {
+    this.trackCustomEvent('onboarding_back_tapped', { screen });
+  }
+
+  trackOnboardingSkipped(screen: string, destination: string) {
+    this.trackCustomEvent('onboarding_skipped', { screen, action: 'skip', destination });
+  }
+
+  trackOnboardingNameEntered(nameLength: number) {
+    this.trackCustomEvent('onboarding_name_entered', { name_length: nameLength });
+  }
+
+  trackOnboardingInterestsSelected(interests: string[], count: number) {
+    this.trackCustomEvent('onboarding_interests_selected', { interests, count });
+  }
+
+  trackOnboardingLoginShortcutTapped(screen: string, destination: string) {
+    this.trackCustomEvent('onboarding_login_shortcut_tapped', { screen, destination });
+  }
+
+  trackOnboardingDailyGoalSelected(dailyGoalMinutes: number) {
+    this.trackCustomEvent('onboarding_daily_goal_selected', { daily_goal_minutes: dailyGoalMinutes });
+  }
+
+  trackOnboardingAgeGroupSelected(ageGroup: string) {
+    this.trackCustomEvent('onboarding_age_group_selected', { age_group: ageGroup });
+  }
+
+  trackWelcomeBackViewed(rememberedMethod: string) {
+    this.trackCustomEvent('welcome_back_viewed', { remembered_method: rememberedMethod });
+  }
+
+  trackWelcomeBackTapped(action: 'continue_as' | 'sign_out') {
+    this.trackCustomEvent('welcome_back_tapped', { action });
+  }
+
+  trackPaywallViewed(screen: string, source: string) {
+    this.trackCustomEvent('paywall_viewed', { screen, source });
+  }
+
+  trackPaywallCtaTapped(action: string) {
+    this.trackCustomEvent('paywall_cta_tapped', { action });
+  }
+
   /**
    * Track video progress milestones
    */

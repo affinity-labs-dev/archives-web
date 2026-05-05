@@ -16,6 +16,7 @@ import {
 import { AnimatedEntrance } from '@/components/ui/animations';
 import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
 import { markOnboardingPaywallSeen } from '@/services/PaywallGateService';
+import { analyticsService } from '@/services/AnalyticsService';
 import AppLogger from '@/services/AppLogger';
 
 const mascotImg = require('@/assets/images/ibu-teacher.png');
@@ -40,6 +41,10 @@ export default function OnboardingStep15Screen() {
   // still counts as "already shown" next sign-in. Fail-safe behavior: if
   // `user?.id` isn't ready yet the effect re-runs when it is.
   useEffect(() => {
+    analyticsService.trackPaywallViewed('onboarding_paywall', 'onboarding');
+  }, []);
+
+  useEffect(() => {
     if (!user?.id) return;
     markOnboardingPaywallSeen(user.id).catch((err) => {
       AppLogger.warn('paywall', 'Mark onboarding paywall seen failed', {
@@ -48,9 +53,13 @@ export default function OnboardingStep15Screen() {
     });
   }, [user?.id]);
 
-  const handleBack = () => router.back();
+  const handleBack = () => {
+    analyticsService.trackOnboardingBackTapped('soft_paywall');
+    router.back();
+  };
 
   const handleSeeOffer = () => {
+    analyticsService.trackPaywallCtaTapped('see_free_offer');
     router.replace('/(tabs)/today' as never);
   };
 

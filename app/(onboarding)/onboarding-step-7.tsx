@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
@@ -16,6 +16,7 @@ import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
 import { personAddSvg, personCheckSvg } from '@/components/onboarding/icons/personIcons';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import AppLogger from '@/services/AppLogger';
+import { analyticsService } from '@/services/AnalyticsService';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { resolvePostSignInRoute } from '@/services/PaywallGateService';
 
@@ -54,6 +55,10 @@ export default function OnboardingStep7Screen() {
   const setIsSignUpMode = useOnboardingStore((s) => s.setIsSignUpMode);
   const markCompleted = useOnboardingStore((s) => s.markCompleted);
 
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('create_account');
+  }, []);
+
   const onAuthSuccess = async (isNewUser: boolean) => {
     AppLogger.info('auth', 'Onboarding step-7 auth success', { isNewUser });
     // New users go through the post-signup celebration + personalize flow.
@@ -78,14 +83,17 @@ export default function OnboardingStep7Screen() {
   };
 
   const goToLogIn = () => {
+    analyticsService.trackAuthMethodSelected({ screen: 'onboarding_create_account', auth_method: 'email', mode: 'signin' });
     router.push('/onboarding-auth?mode=signin' as never);
   };
 
   const goToSignUp = () => {
+    analyticsService.trackAuthMethodSelected({ screen: 'onboarding_create_account', auth_method: 'email', mode: 'signup' });
     router.push('/onboarding-auth?mode=signup' as never);
   };
 
   const goToEmail = () => {
+    analyticsService.trackAuthMethodSelected({ screen: 'onboarding_create_account', auth_method: 'email', mode: 'signin' });
     router.push('/onboarding-auth?mode=signin' as never);
   };
 
@@ -94,7 +102,7 @@ export default function OnboardingStep7Screen() {
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} hitSlop={16}>
+          <Pressable onPress={() => { analyticsService.trackOnboardingBackTapped('create_account'); router.back(); }} hitSlop={16}>
             <SvgXml xml={backArrowSvg} width={12} height={22} />
           </Pressable>
         </View>

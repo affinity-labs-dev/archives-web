@@ -31,6 +31,7 @@ import {
 } from '@/services/RememberedAccountService';
 import { useRememberedOAuth } from '@/hooks/useRememberedOAuth';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { analyticsService } from '@/services/AnalyticsService';
 import LoadingScreen from '@/components/LoadingScreen';
 import AppLogger from '@/services/AppLogger';
 
@@ -73,6 +74,11 @@ export default function WelcomeBackScreen() {
         if (!cancelled) {
           setAccount(next);
           setIsLoadingAccount(false);
+          if (next) {
+            const method = next.lastAuthMethod === 'oauth_apple' ? 'apple'
+              : next.lastAuthMethod === 'oauth_google' ? 'google' : 'email';
+            analyticsService.trackWelcomeBackViewed(method);
+          }
         }
       } catch (err) {
         AppLogger.error('auth', 'Welcome-back: read active account failed', undefined, err);
@@ -172,6 +178,7 @@ export default function WelcomeBackScreen() {
   const handleContinue = React.useCallback(async () => {
     if (!account) return;
     setOauthError(null);
+    analyticsService.trackWelcomeBackTapped('continue_as');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     AppLogger.info('auth', 'Welcome-back continue tapped', {
       method: account.lastAuthMethod,
@@ -193,6 +200,7 @@ export default function WelcomeBackScreen() {
 
   const handleSignOut = React.useCallback(async () => {
     if (!account) return;
+    analyticsService.trackWelcomeBackTapped('sign_out');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     AppLogger.info('auth', 'Welcome-back sign out tapped', {
       method: account.lastAuthMethod,

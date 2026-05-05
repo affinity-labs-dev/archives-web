@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,6 +22,7 @@ import { AnimatedEntrance } from '@/components/ui/animations';
 import { Mascot } from '@/components/onboarding/Mascot/Mascot';
 import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { analyticsService } from '@/services/AnalyticsService';
 
 const MAX_NAME_LENGTH = 7;
 const TYPEWRITER_START_DELAY = 800;
@@ -46,15 +47,21 @@ export default function OnboardingStep3Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const [typewriterDone, setTypewriterDone] = useState(false);
 
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('name_input');
+  }, []);
+
   const canContinue = name.trim().length > 0;
 
   const goNext = () => {
     if (!canContinue) return;
+    analyticsService.trackOnboardingNameEntered(name.trim().length);
     setStep(4);
     router.push('/onboarding-step-4' as never);
   };
 
   const handleSkip = () => {
+    analyticsService.trackOnboardingSkipped('name_input', 'create_account');
     router.push('/onboarding-step-7' as never);
   };
 
@@ -62,7 +69,7 @@ export default function OnboardingStep3Screen() {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <OnboardingHeader currentStep={3} totalSteps={12} onSkip={handleSkip} />
+        <OnboardingHeader currentStep={3} totalSteps={12} screenName="name_input" onSkip={handleSkip} />
 
         <KeyboardAvoidingView
           style={styles.body}

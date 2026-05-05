@@ -14,6 +14,7 @@ import {
   useOnboardingStore,
   type DailyGoalMinutes,
 } from '@/stores/onboardingStore';
+import { analyticsService } from '@/services/AnalyticsService';
 
 const DAILY_GOAL_OPTIONS: { id: string; label: string; minutes: DailyGoalMinutes }[] = [
   { id: '5', label: '5 min / day • Casual', minutes: 5 },
@@ -50,6 +51,7 @@ export function DailyGoalPhase({
 
   const handleContinue = () => {
     if (!canContinue) return;
+    analyticsService.trackOnboardingDailyGoalSelected(dailyGoalMinutes!);
     onNext();
   };
 

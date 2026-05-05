@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -16,6 +16,7 @@ import { useOnboardingStore, TOTAL_ONBOARDING_STEPS } from '@/stores/onboardingS
 import { toDisplayStep } from '@/constants/OnboardingRoutes';
 import { DailyGoalPhase } from '@/components/onboarding/personalize/DailyGoalPhase';
 import { AgeGroupPhase } from '@/components/onboarding/personalize/AgeGroupPhase';
+import { analyticsService } from '@/services/AnalyticsService';
 
 type Phase = 10 | 11;
 
@@ -61,6 +62,10 @@ export default function OnboardingStep10Screen() {
   const [bodyKey, setBodyKey] = useState(0);
   const [typewriterDone, setTypewriterDone] = useState(false);
 
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed(phase === 10 ? 'daily_goal' : 'age_group');
+  }, [phase]);
+
   const handleTypewriterComplete = useCallback(() => setTypewriterDone(true), []);
 
   const runExitThen = (fn: () => void) => {
@@ -96,6 +101,7 @@ export default function OnboardingStep10Screen() {
 
   const handleSkip = () => {
     if (isExiting) return;
+    analyticsService.trackOnboardingSkipped(phase === 10 ? 'daily_goal' : 'age_group', 'soft_paywall');
     // Mark skipped so next app launch routes straight to tabs — user
     // explicitly bailed on personalization; don't resume mid-flow.
     markSkipped();
@@ -109,6 +115,7 @@ export default function OnboardingStep10Screen() {
         <OnboardingHeader
           currentStep={toDisplayStep(phase)}
           totalSteps={TOTAL_ONBOARDING_STEPS}
+          screenName={phase === 10 ? 'daily_goal' : 'age_group'}
           onBack={handleBack}
           onSkip={handleSkip}
         />
