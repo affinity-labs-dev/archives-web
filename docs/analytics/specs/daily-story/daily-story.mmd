@@ -1,0 +1,29 @@
+graph LR
+    A["Today Tab\nOpened"]:::checkpoint --> B["Calendar\nWeek View"]
+    B -->|"today tapped"| C["Today's Story\nHome"]
+    B -->|"past date tapped\n(subscriber)"| H["Historical Story\nLoaded"]:::grey
+    B -->|"past date tapped\n(non-subscriber)"| I["Rewind Blocked\nPaywall Shown"]:::grey
+
+    C --> D["START MY DAY\nTapped"]:::checkpoint
+    D -->|"hero dive"| E["WATCH\nVideo Lesson"]:::checkpoint
+    E -->|"read tapped"| E2["Reading Sheet\nExpanded"]
+    E2 -->|"collapse / swipe"| E
+    E -->|"continue tapped"| F["EXPLORE\nScrollable Lesson"]:::checkpoint
+    F -->|"back tapped"| E
+    F -->|"continue tapped"| G["QUESTIONS\nQuiz"]:::checkpoint
+    G -->|"back tapped"| F
+    G -->|"quiz submitted"| G2["Quiz Results"]
+    G2 -->|"continue tapped"| K["Story Completed"]:::checkpoint
+    K --> L["Celebration\nScreen"]
+    L -->|"continue / close"| A
+
+    E -->|"dismiss / back"| A
+    F -->|"dismiss"| A
+
+    H --> D
+    I -->|"purchased / restored"| H
+    I -->|"cancelled"| B
+
+    classDef checkpoint fill:#809DE4,stroke:#6580C0,color:#fff
+    classDef grey fill:#9ca3af,stroke:#6b7280,color:#fff
+    classDef default fill:#fff,stroke:#ccc,color:#333

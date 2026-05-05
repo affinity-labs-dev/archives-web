@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archives — Onboarding Flow Spec</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+    background: #fafafa;
+    color: #333;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 40px;
+    margin-bottom: 16px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 24px;
+  }
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+    padding: 14px 20px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .legend-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .swatch-normal { background: #fff; border: 1px solid #ccc; }
+  .swatch-untracked { background: #fee2e2; border: 1px solid #dc2626; }
+  .swatch-checkpoint { background: #809DE4; border: 1px solid #6580C0; }
+  .swatch-grey { background: #9ca3af; border: 1px solid #6b7280; }
+
+  .svg-chart {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 8px;
+    padding: 16px 0;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+  }
+  .svg-chart svg {
+    min-width: 900px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  thead th {
+    background: #f5f5f5;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid #ddd;
+    font-weight: 600;
+  }
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+  tbody tr:hover { background: #fafafa; }
+  .mono {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  .untracked {
+    color: #dc2626;
+    font-weight: 600;
+  }
+  .unwired {
+    color: #9ca3af;
+    font-weight: 600;
+  }
+  .vol {
+    font-size: 12px;
+    color: #888;
+    display: block;
+    margin-top: 2px;
+  }
+  .event-row { margin-bottom: 6px; }
+  .event-row:last-child { margin-bottom: 0; }
+
+  hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 40px 0;
+  }
+  ol {
+    padding-left: 24px;
+  }
+  ol li {
+    margin-bottom: 8px;
+  }
+  .footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+    font-size: 13px;
+    color: #aaa;
+  }
+  .node-name {
+    font-weight: 600;
+  }
+  @page { size: landscape; margin: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Archives — Onboarding Flow Spec</h1>
+<p class="subtitle">AFF-844 &middot; PostHog Project 93650 &middot; Generated 2026-04-30</p>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch swatch-normal"></div>
+    <span><strong>Normal</strong> &mdash; event exists in codebase</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-untracked"></div>
+    <span class="untracked"><strong>Red</strong> &mdash; not in codebase, needs implementation</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background: #e5e7eb; border: 1px solid #9ca3af;"></div>
+    <span style="color: #9ca3af; font-weight: 600;"><strong>Grey</strong> &mdash; in codebase, not wired in new flow</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-checkpoint"></div>
+    <span><strong>Blue</strong> &mdash; checkpoint</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-grey"></div>
+    <span><strong>Dark Grey</strong> &mdash; alternate path (diagram)</span>
+  </div>
+</div>
+
+<!-- Diagram -->
+<h2>User Journey</h2>
+<div class="svg-chart">
+<svg id="onboarding-svg" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" style="max-width: 6056.94px; background-color: transparent;" viewBox="0 0 6056.9375 361.34375" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#onboarding-svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#onboarding-svg .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#onboarding-svg .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#onboarding-svg .error-icon{fill:#552222;}#onboarding-svg .error-text{fill:#552222;stroke:#552222;}#onboarding-svg .edge-thickness-normal{stroke-width:1px;}#onboarding-svg .edge-thickness-thick{stroke-width:3.5px;}#onboarding-svg .edge-pattern-solid{stroke-dasharray:0;}#onboarding-svg .edge-thickness-invisible{stroke-width:0;fill:none;}#onboarding-svg .edge-pattern-dashed{stroke-dasharray:3;}#onboarding-svg .edge-pattern-dotted{stroke-dasharray:2;}#onboarding-svg .marker{fill:#333333;stroke:#333333;}#onboarding-svg .marker.cross{stroke:#333333;}#onboarding-svg svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#onboarding-svg p{margin:0;}#onboarding-svg .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#onboarding-svg .cluster-label text{fill:#333;}#onboarding-svg .cluster-label span{color:#333;}#onboarding-svg .cluster-label span p{background-color:transparent;}#onboarding-svg .label text,#onboarding-svg span{fill:#333;color:#333;}#onboarding-svg .node rect,#onboarding-svg .node circle,#onboarding-svg .node ellipse,#onboarding-svg .node polygon,#onboarding-svg .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#onboarding-svg .rough-node .label text,#onboarding-svg .node .label text,#onboarding-svg .image-shape .label,#onboarding-svg .icon-shape .label{text-anchor:middle;}#onboarding-svg .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#onboarding-svg .rough-node .label,#onboarding-svg .node .label,#onboarding-svg .image-shape .label,#onboarding-svg .icon-shape .label{text-align:center;}#onboarding-svg .node.clickable{cursor:pointer;}#onboarding-svg .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#onboarding-svg .arrowheadPath{fill:#333333;}#onboarding-svg .edgePath .path{stroke:#333333;stroke-width:1px;}#onboarding-svg .flowchart-link{stroke:#333333;fill:none;}#onboarding-svg .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#onboarding-svg .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#onboarding-svg .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#onboarding-svg .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#onboarding-svg .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#onboarding-svg .cluster text{fill:#333;}#onboarding-svg .cluster span{color:#333;}#onboarding-svg div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#onboarding-svg .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#onboarding-svg rect.text{fill:none;stroke-width:0;}#onboarding-svg .icon-shape,#onboarding-svg .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#onboarding-svg .icon-shape p,#onboarding-svg .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#onboarding-svg .icon-shape .label rect,#onboarding-svg .image-shape .label rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#onboarding-svg .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#onboarding-svg .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#onboarding-svg .node .neo-node{stroke:#9370DB;}#onboarding-svg [data-look="neo"].node rect,#onboarding-svg [data-look="neo"].cluster rect,#onboarding-svg [data-look="neo"].node polygon{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#onboarding-svg [data-look="neo"].node path{stroke:#9370DB;stroke-width:1px;}#onboarding-svg [data-look="neo"].node .outer-path{filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#onboarding-svg [data-look="neo"].node .neo-line path{stroke:#9370DB;filter:none;}#onboarding-svg [data-look="neo"].node circle{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#onboarding-svg [data-look="neo"].node circle .state-start{fill:#000000;}#onboarding-svg [data-look="neo"].icon-shape .icon{fill:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#onboarding-svg [data-look="neo"].icon-shape .icon-neo path{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#onboarding-svg :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}#onboarding-svg .checkpoint&gt;*{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#onboarding-svg .checkpoint span{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#onboarding-svg .checkpoint tspan{fill:#fff!important;}#onboarding-svg .grey&gt;*{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#onboarding-svg .grey span{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#onboarding-svg .grey tspan{fill:#fff!important;}#onboarding-svg .default&gt;*{fill:#fff!important;stroke:#ccc!important;color:#333!important;}#onboarding-svg .default span{fill:#fff!important;stroke:#ccc!important;color:#333!important;}#onboarding-svg .default tspan{fill:#333!important;}  @page { size: landscape; margin: 20px; }
+</style><g><marker id="my-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="my-svg_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"/><g class="edgePaths"><path d="M122.454,159.191L132.027,165.494C141.599,171.797,160.745,184.402,173.818,190.705C186.891,197.008,193.891,197.008,197.391,197.008L200.891,197.008" id="my-svg-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTIyLjQ1MzgxMDA1OTIxMTcyLCJ5IjoxNTkuMTkxNDA2MjV9LHsieCI6MTc5Ljg5MDYyNSwieSI6MTk3LjAwNzgxMjV9LHsieCI6MjA0Ljg5MDYyNSwieSI6MTk3LjAwNzgxMjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M344.492,171.344L365.704,161.788C386.917,152.232,429.341,133.12,467.737,117.483C506.133,101.847,540.501,89.686,557.685,83.606L574.869,77.526" id="my-svg-L_B_WB_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_WB_0" data-points="W3sieCI6MzQ0LjQ5MjE3NTM5NTM4Njk0LCJ5IjoxNzEuMzQzNzM3ODk1Mzg2OX0seyJ4Ijo0NzEuNzY1NjI1LCJ5IjoxMTQuMDA3ODEyNX0seyJ4Ijo1NzguNjM5NzYxOTY2NjQyNiwieSI6NzYuMTkxNDA2MjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M736.516,49.191L750.138,49.191C763.76,49.191,791.005,49.191,818.836,49.191C846.667,49.191,875.083,49.191,889.292,49.191L903.5,49.191" id="my-svg-L_WB_WB_AUTH_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_WB_WB_AUTH_0" data-points="W3sieCI6NzM2LjUxNTYyNSwieSI6NDkuMTkxNDA2MjV9LHsieCI6ODE4LjI1LCJ5Ijo0OS4xOTE0MDYyNX0seyJ4Ijo5MDcuNSwieSI6NDkuMTkxNDA2MjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M1014.547,49.191L1025.164,49.191C1035.781,49.191,1057.016,49.191,1077.862,49.191C1098.708,49.191,1119.167,49.191,1129.396,49.191L1139.625,49.191" id="my-svg-L_WB_AUTH_MAIN_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_WB_AUTH_MAIN_0" data-points="W3sieCI6MTAxNC41NDY4NzUsInkiOjQ5LjE5MTQwNjI1fSx7IngiOjEwNzguMjUsInkiOjQ5LjE5MTQwNjI1fSx7IngiOjExNDMuNjI1LCJ5Ijo0OS4xOTE0MDYyNX1d" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M573.375,42.067L556.44,40.587C539.505,39.108,505.635,36.15,457.993,34.671C410.352,33.191,348.938,33.191,300.292,33.191C251.646,33.191,215.768,33.191,186.367,44.719C156.965,56.246,134.04,79.3,122.577,90.828L111.115,102.355" id="my-svg-L_WB_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_WB_A_0" data-points="W3sieCI6NTczLjM3NSwieSI6NDIuMDY2NTcxNTE2MzQ1Mzh9LHsieCI6NDcxLjc2NTYyNSwieSI6MzMuMTkxNDA2MjV9LHsieCI6Mjg3LjUyMzQzNzUsInkiOjMzLjE5MTQwNjI1fSx7IngiOjE3OS44OTA2MjUsInkiOjMzLjE5MTQwNjI1fSx7IngiOjEwOC4yOTQwMzQwOTA5MDkxLCJ5IjoxMDUuMTkxNDA2MjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M361.342,205.822L379.746,208.02C398.15,210.217,434.958,214.613,470.987,216.81C507.016,219.008,542.266,219.008,559.891,219.008L577.516,219.008" id="my-svg-L_B_S1_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_S1_0" data-points="W3sieCI6MzYxLjM0MTc0OTQ1MDczNjc2LCJ5IjoyMDUuODIyMzEzMDQ5MjYzMjR9LHsieCI6NDcxLjc2NTYyNSwieSI6MjE5LjAwNzgxMjV9LHsieCI6NTgxLjUxNTYyNSwieSI6MjE5LjAwNzgxMjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M728.375,219.008L743.354,219.008C758.333,219.008,788.292,219.008,816.227,219.008C844.161,219.008,870.073,219.008,883.029,219.008L895.984,219.008" id="my-svg-L_S1_S2_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S1_S2_0" data-points="W3sieCI6NzI4LjM3NSwieSI6MjE5LjAwNzgxMjV9LHsieCI6ODE4LjI1LCJ5IjoyMTkuMDA3ODEyNX0seyJ4Ijo4OTkuOTg0Mzc1LCJ5IjoyMTkuMDA3ODEyNX1d" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M1022.063,202.866L1031.427,200.39C1040.792,197.913,1059.521,192.961,1077.583,190.484C1095.646,188.008,1113.042,188.008,1121.74,188.008L1130.438,188.008" id="my-svg-L_S2_S3_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S2_S3_0" data-points="W3sieCI6MTAyMi4wNjI1LCJ5IjoyMDIuODY2MzI2MzI4NzIzNzR9LHsieCI6MTA3OC4yNSwieSI6MTg4LjAwNzgxMjV9LHsieCI6MTEzNC40Mzc1LCJ5IjoxODguMDA3ODEyNX1d" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M1006.895,246.008L1018.787,253.008C1030.68,260.008,1054.465,274.008,1087.609,281.008C1120.753,288.008,1163.255,288.008,1205.758,288.008C1248.26,288.008,1290.763,288.008,1339.146,288.008C1387.529,288.008,1441.792,288.008,1505.952,288.008C1570.112,288.008,1644.169,288.008,1716.573,288.008C1788.977,288.008,1859.727,288.008,1920.579,288.008C1981.432,288.008,2032.388,288.008,2079.246,288.008C2126.104,288.008,2168.865,288.008,2211.625,288.008C2254.385,288.008,2297.146,288.008,2331.346,282.28C2365.546,276.552,2391.186,265.096,2404.006,259.368L2416.826,253.64" id="my-svg-L_S2_S7_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S2_S7_0" data-points="W3sieCI6MTAwNi44OTQ3MDEwODY5NTY1LCJ5IjoyNDYuMDA3ODEyNX0seyJ4IjoxMDc4LjI1LCJ5IjoyODguMDA3ODEyNX0seyJ4IjoxMjA1Ljc1NzgxMjUsInkiOjI4OC4wMDc4MTI1fSx7IngiOjEzMzMuMjY1NjI1LCJ5IjoyODguMDA3ODEyNX0seyJ4IjoxNDk2LjA1NDY4NzUsInkiOjI4OC4wMDc4MTI1fSx7IngiOjE3MTguMjI2NTYyNSwieSI6Mjg4LjAwNzgxMjV9LHsieCI6MTkzMC40NzY1NjI1LCJ5IjoyODguMDA3ODEyNX0seyJ4IjoyMDgzLjM0Mzc1LCJ5IjoyODguMDA3ODEyNX0seyJ4IjoyMjExLjYyNSwieSI6Mjg4LjAwNzgxMjV9LHsieCI6MjMzOS45MDYyNSwieSI6Mjg4LjAwNzgxMjV9LHsieCI6MjQyMC40Nzc2Nzg1NzE0Mjg0LCJ5IjoyNTIuMDA3ODEyNX1d" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M1277.078,167.312L1286.443,164.595C1295.807,161.877,1314.536,156.443,1332.599,153.725C1350.661,151.008,1368.057,151.008,1376.755,151.008L1385.453,151.008" id="my-svg-L_S3_S4_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S3_S4_0" data-points="W3sieCI6MTI3Ny4wNzgxMjUsInkiOjE2Ny4zMTIyMDU2MTMxNjcxfSx7IngiOjEzMzMuMjY1NjI1LCJ5IjoxNTEuMDA3ODEyNX0seyJ4IjoxMzg5LjQ1MzEyNSwieSI6MTUxLjAwNzgxMjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M1270.715,215.008L1281.14,219.341C1291.565,223.674,1312.415,232.341,1349.972,236.674C1387.529,241.008,1441.792,241.008,1505.952,241.008C1570.112,241.008,1644.169,241.008,1716.573,241.008C1788.977,241.008,1859.727,241.008,1920.579,241.008C1981.432,241.008,2032.388,241.008,2079.246,241.008C2126.104,241.008,2168.865,241.008,2211.625,241.008C2254.385,241.008,2297.146,241.008,2327.228,240.02C2357.311,239.033,2374.715,237.058,2383.417,236.07L2392.119,235.083" id="my-svg-L_S3_S7_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S3_S7_0" data-points="W3sieCI6MTI3MC43MTQ2MjI2NDE1MDkzLCJ5IjoyMTUuMDA3ODEyNX0seyJ4IjoxMzMzLjI2NTYyNSwieSI6MjQxLjAwNzgxMjV9LHsieCI6MTQ5Ni4wNTQ2ODc1LCJ5IjoyNDEuMDA3ODEyNX0seyJ4IjoxNzE4LjIyNjU2MjUsInkiOjI0MS4wMDc4MTI1fSx7IngiOjE5MzAuNDc2NTYyNSwieSI6MjQxLjAwNzgxMjV9LHsieCI6MjA4My4zNDM3NSwieSI6MjQxLjAwNzgxMjV9LHsieCI6MjIxMS42MjUsInkiOjI0MS4wMDc4MTI1fSx7IngiOjIzMzkuOTA2MjUsInkiOjI0MS4wMDc4MTI1fSx7IngiOjIzOTYuMDkzNzUsInkiOjIzNC42MzE5MjU5NzUxNzczfV0=" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M1602.656,151.008L1621.918,151.008C1641.18,151.008,1679.703,151.008,1717.56,151.008C1755.417,151.008,1792.607,151.008,1811.202,151.008L1829.797,151.008" id="my-svg-L_S4_S5_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S4_S5_0" data-points="W3sieCI6MTYwMi42NTYyNSwieSI6MTUxLjAwNzgxMjV9LHsieCI6MTcxOC4yMjY1NjI1LCJ5IjoxNTEuMDA3ODEyNX0seyJ4IjoxODMzLjc5Njg3NSwieSI6MTUxLjAwNzgxMjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M2027.156,127.607L2036.521,125.341C2045.885,123.074,2064.615,118.541,2082.677,116.274C2100.74,114.008,2118.135,114.008,2126.833,114.008L2135.531,114.008" id="my-svg-L_S5_S6_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S5_S6_0" data-points="W3sieCI6MjAyNy4xNTYyNSwieSI6MTI3LjYwNzQ0NDUzMzUyNTg0fSx7IngiOjIwODMuMzQzNzUsInkiOjExNC4wMDc4MTI1fSx7IngiOjIxMzkuNTMxMjUsInkiOjExNC4wMDc4MTI1fV0=" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M2027.156,174.408L2036.521,176.675C2045.885,178.941,2064.615,183.475,2095.359,185.741C2126.104,188.008,2168.865,188.008,2211.625,188.008C2254.385,188.008,2297.146,188.008,2327.246,190.296C2357.346,192.584,2374.785,197.16,2383.505,199.449L2392.225,201.737" id="my-svg-L_S5_S7_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S5_S7_0" data-points="W3sieCI6MjAyNy4xNTYyNSwieSI6MTc0LjQwODE4MDQ2NjQ3NDE2fSx7IngiOjIwODMuMzQzNzUsInkiOjE4OC4wMDc4MTI1fSx7IngiOjIyMTEuNjI1LCJ5IjoxODguMDA3ODEyNX0seyJ4IjoyMzM5LjkwNjI1LCJ5IjoxODguMDA3ODEyNX0seyJ4IjoyMzk2LjA5Mzc1LCJ5IjoyMDIuNzUyMDUwMDg4NjUyNDh9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M2283.719,114.008L2293.083,114.008C2302.448,114.008,2321.177,114.008,2347.802,127.595C2374.426,141.183,2408.946,168.358,2426.206,181.946L2443.466,195.534" id="my-svg-L_S6_S7_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S6_S7_0" data-points="W3sieCI6MjI4My43MTg3NSwieSI6MTE0LjAwNzgxMjV9LHsieCI6MjMzOS45MDYyNSwieSI6MTE0LjAwNzgxMjV9LHsieCI6MjQ0Ni42MDg5NTI3MDI3MDI1LCJ5IjoxOTguMDA3ODEyNX1d" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M2565.719,245.285L2573.194,247.072C2580.669,248.859,2595.62,252.433,2625.408,254.221C2655.195,256.008,2699.82,256.008,2745.164,256.008C2790.508,256.008,2836.57,256.008,2869.52,253.381C2902.47,250.754,2922.307,245.5,2932.226,242.873L2942.144,240.246" id="my-svg-L_S7_AUTH_OAUTH_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S7_AUTH_OAUTH_0" data-points="W3sieCI6MjU2NS43MTg3NSwieSI6MjQ1LjI4NDczMDAxNTIxMzZ9LHsieCI6MjYxMC41NzAzMTI1LCJ5IjoyNTYuMDA3ODEyNX0seyJ4IjoyNzQ0LjQ0NTMxMjUsInkiOjI1Ni4wMDc4MTI1fSx7IngiOjI4ODIuNjMyODEyNSwieSI6MjU2LjAwNzgxMjV9LHsieCI6Mjk0Ni4wMTEwNzAyNTA2NTk1LCJ5IjoyMzkuMjIyMDA3NzUwNjU5NjN9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M2562.323,198.008L2570.364,195.341C2578.406,192.674,2594.488,187.341,2609.338,184.674C2624.188,182.008,2637.805,182.008,2644.613,182.008L2651.422,182.008" id="my-svg-L_S7_AUTH_EMAIL_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S7_AUTH_EMAIL_0" data-points="W3sieCI6MjU2Mi4zMjMyMTk0NzY3NDQzLCJ5IjoxOTguMDA3ODEyNX0seyJ4IjoyNjEwLjU3MDMxMjUsInkiOjE4Mi4wMDc4MTI1fSx7IngiOjI2NTUuNDIxODc1LCJ5IjoxODIuMDA3ODEyNX1d" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M2833.469,182.008L2841.663,182.008C2849.857,182.008,2866.245,182.008,2885.047,185.905C2903.849,189.802,2925.065,197.596,2935.672,201.493L2946.28,205.39" id="my-svg-L_AUTH_EMAIL_AUTH_OAUTH_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_AUTH_EMAIL_AUTH_OAUTH_0" data-points="W3sieCI6MjgzMy40Njg3NSwieSI6MTgyLjAwNzgxMjV9LHsieCI6Mjg4Mi42MzI4MTI1LCJ5IjoxODIuMDA3ODEyNX0seyJ4IjoyOTUwLjAzNTAzNzY0NzY2MTcsInkiOjIwNi43Njk2NDk4NTIzMzgxOH1d" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M3045.787,246.783L3062.571,254.71C3079.355,262.637,3112.924,278.49,3142.196,286.417C3171.469,294.344,3196.445,294.344,3208.934,294.344L3221.422,294.344" id="my-svg-L_AUTH_OAUTH_S8_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_AUTH_OAUTH_S8_0" data-points="W3sieCI6MzA0NS43ODcxMDExMTU0OTg0LCJ5IjoyNDYuNzgzMjExMzg0NTAxMzl9LHsieCI6MzE0Ni40OTIxODc1LCJ5IjoyOTQuMzQzNzV9LHsieCI6MzIyNS40MjE4NzUsInkiOjI5NC4zNDM3NX1d" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M3034.028,191.473L3052.772,173.173C3071.516,154.873,3109.004,118.272,3160.11,99.972C3211.216,81.672,3275.94,81.672,3336.874,81.672C3397.807,81.672,3454.951,81.672,3511.668,81.672C3568.385,81.672,3624.677,81.672,3689.033,81.672C3753.388,81.672,3825.807,81.672,3891.702,81.672C3957.596,81.672,4016.966,81.672,4068.272,81.672C4119.578,81.672,4162.82,81.672,4204.997,81.672C4247.174,81.672,4288.286,81.672,4329.398,81.672C4370.51,81.672,4411.622,81.672,4451.155,81.672C4490.688,81.672,4528.641,81.672,4569.471,81.672C4610.302,81.672,4654.01,81.672,4694.281,81.672C4734.552,81.672,4771.385,81.672,4789.802,81.672L4808.219,81.672" id="my-svg-L_AUTH_OAUTH_PAYWALL_GATE_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_AUTH_OAUTH_PAYWALL_GATE_0" data-points="W3sieCI6MzAzNC4wMjc3ODAxMzg0NjY0LCJ5IjoxOTEuNDczMDkyNjM4NDY2M30seyJ4IjozMTQ2LjQ5MjE4NzUsInkiOjgxLjY3MTg3NX0seyJ4IjozMzQwLjY2NDA2MjUsInkiOjgxLjY3MTg3NX0seyJ4IjozNTEyLjA5Mzc1LCJ5Ijo4MS42NzE4NzV9LHsieCI6MzY4MC45Njg3NSwieSI6ODEuNjcxODc1fSx7IngiOjM4OTguMjI2NTYyNSwieSI6ODEuNjcxODc1fSx7IngiOjQwNzYuMzM1OTM3NSwieSI6ODEuNjcxODc1fSx7IngiOjQyMDYuMDYyNSwieSI6ODEuNjcxODc1fSx7IngiOjQzMjkuMzk4NDM3NSwieSI6ODEuNjcxODc1fSx7IngiOjQ0NTIuNzM0Mzc1LCJ5Ijo4MS42NzE4NzV9LHsieCI6NDU2Ni41OTM3NSwieSI6ODEuNjcxODc1fSx7IngiOjQ2OTcuNzE4NzUsInkiOjgxLjY3MTg3NX0seyJ4Ijo0ODEyLjIxODc1LCJ5Ijo4MS42NzE4NzV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M3455.906,294.344L3465.271,294.344C3474.635,294.344,3493.365,294.344,3511.427,294.344C3529.49,294.344,3546.885,294.344,3555.583,294.344L3564.281,294.344" id="my-svg-L_S8_S9_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S8_S9_0" data-points="W3sieCI6MzQ1NS45MDYyNSwieSI6Mjk0LjM0Mzc1fSx7IngiOjM1MTIuMDkzNzUsInkiOjI5NC4zNDM3NX0seyJ4IjozNTY4LjI4MTI1LCJ5IjoyOTQuMzQzNzV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M3793.656,294.344L3811.085,294.344C3828.513,294.344,3863.37,294.344,3898.754,294.344C3934.138,294.344,3970.049,294.344,3988.005,294.344L4005.961,294.344" id="my-svg-L_S9_S10_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S9_S10_0" data-points="W3sieCI6Mzc5My42NTYyNSwieSI6Mjk0LjM0Mzc1fSx7IngiOjM4OTguMjI2NTYyNSwieSI6Mjk0LjM0Mzc1fSx7IngiOjQwMDkuOTYwOTM3NSwieSI6Mjk0LjM0Mzc1fV0=" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M4142.711,278.483L4153.27,275.959C4163.828,273.436,4184.945,268.39,4204.202,265.867C4223.458,263.344,4240.854,263.344,4249.552,263.344L4258.25,263.344" id="my-svg-L_S10_S10B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S10_S10B_0" data-points="W3sieCI6NDE0Mi43MTA5Mzc1LCJ5IjoyNzguNDgyNTAzMzg3NTMzOX0seyJ4Ijo0MjA2LjA2MjUsInkiOjI2My4zNDM3NX0seyJ4Ijo0MjYyLjI1LCJ5IjoyNjMuMzQzNzV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M4396.547,246.466L4405.911,244.113C4415.276,241.759,4434.005,237.051,4452.068,234.698C4470.13,232.344,4487.526,232.344,4496.224,232.344L4504.922,232.344" id="my-svg-L_S10B_S11_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S10B_S11_0" data-points="W3sieCI6NDM5Ni41NDY4NzUsInkiOjI0Ni40NjYyNTU4NTkyNTEyOH0seyJ4Ijo0NDUyLjczNDM3NSwieSI6MjMyLjM0Mzc1fSx7IngiOjQ1MDguOTIxODc1LCJ5IjoyMzIuMzQzNzV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M4624.266,232.344L4636.508,232.344C4648.75,232.344,4673.234,232.344,4697.052,232.344C4720.87,232.344,4744.021,232.344,4755.596,232.344L4767.172,232.344" id="my-svg-L_S11_S12_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S11_S12_0" data-points="W3sieCI6NDYyNC4yNjU2MjUsInkiOjIzMi4zNDM3NX0seyJ4Ijo0Njk3LjcxODc1LCJ5IjoyMzIuMzQzNzV9LHsieCI6NDc3MS4xNzE4NzUsInkiOjIzMi4zNDM3NX1d" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M4142.711,318.391L4153.27,322.217C4163.828,326.042,4184.945,333.693,4216.06,337.518C4247.174,341.344,4288.286,341.344,4329.398,341.344C4370.51,341.344,4411.622,341.344,4451.155,341.344C4490.688,341.344,4528.641,341.344,4569.471,341.344C4610.302,341.344,4654.01,341.344,4707.227,341.344C4760.443,341.344,4823.167,341.344,4894.181,341.344C4965.195,341.344,5044.5,341.344,5106.673,330.902C5168.846,320.459,5213.888,299.575,5236.408,289.133L5258.929,278.69" id="my-svg-L_S10_S13_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S10_S13_0" data-points="W3sieCI6NDE0Mi43MTA5Mzc1LCJ5IjozMTguMzkxNDQ2NDc2OTY0NzV9LHsieCI6NDIwNi4wNjI1LCJ5IjozNDEuMzQzNzV9LHsieCI6NDMyOS4zOTg0Mzc1LCJ5IjozNDEuMzQzNzV9LHsieCI6NDQ1Mi43MzQzNzUsInkiOjM0MS4zNDM3NX0seyJ4Ijo0NTY2LjU5Mzc1LCJ5IjozNDEuMzQzNzV9LHsieCI6NDY5Ny43MTg3NSwieSI6MzQxLjM0Mzc1fSx7IngiOjQ4ODUuODkwNjI1LCJ5IjozNDEuMzQzNzV9LHsieCI6NTEyMy44MDQ2ODc1LCJ5IjozNDEuMzQzNzV9LHsieCI6NTI2Mi41NTgxMTU2MTc3ODMsInkiOjI3Ny4wMDc4MTI1fV0=" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M4396.547,280.221L4405.911,282.575C4415.276,284.929,4434.005,289.636,4462.346,291.99C4490.688,294.344,4528.641,294.344,4569.471,294.344C4610.302,294.344,4654.01,294.344,4707.227,294.344C4760.443,294.344,4823.167,294.344,4894.181,294.344C4965.195,294.344,5044.5,294.344,5104.034,289.869C5163.569,285.394,5203.333,276.444,5223.215,271.969L5243.098,267.494" id="my-svg-L_S10B_S13_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S10B_S13_0" data-points="W3sieCI6NDM5Ni41NDY4NzUsInkiOjI4MC4yMjEyNDQxNDA3NDg3fSx7IngiOjQ0NTIuNzM0Mzc1LCJ5IjoyOTQuMzQzNzV9LHsieCI6NDU2Ni41OTM3NSwieSI6Mjk0LjM0Mzc1fSx7IngiOjQ2OTcuNzE4NzUsInkiOjI5NC4zNDM3NX0seyJ4Ijo0ODg1Ljg5MDYyNSwieSI6Mjk0LjM0Mzc1fSx7IngiOjUxMjMuODA0Njg3NSwieSI6Mjk0LjM0Mzc1fSx7IngiOjUyNDcsInkiOjI2Ni42MTU3NjU2MDg4ODc5fV0=" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M5000.609,232.344L5021.142,232.344C5041.674,232.344,5082.74,232.344,5123.141,234.125C5163.542,235.907,5203.279,239.47,5223.147,241.252L5243.016,243.034" id="my-svg-L_S12_S13_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S12_S13_0" data-points="W3sieCI6NTAwMC42MDkzNzUsInkiOjIzMi4zNDM3NX0seyJ4Ijo1MTIzLjgwNDY4NzUsInkiOjIzMi4zNDM3NX0seyJ4Ijo1MjQ3LCJ5IjoyNDMuMzkwOTY5ODYwNDk0MTh9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M5394.578,250.008L5414.669,250.008C5434.76,250.008,5474.943,250.008,5514.458,250.008C5553.974,250.008,5592.823,250.008,5612.247,250.008L5631.672,250.008" id="my-svg-L_S13_S14_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S13_S14_0" data-points="W3sieCI6NTM5NC41NzgxMjUsInkiOjI1MC4wMDc4MTI1fSx7IngiOjU1MTUuMTI1LCJ5IjoyNTAuMDA3ODEyNX0seyJ4Ijo1NjM1LjY3MTg3NSwieSI6MjUwLjAwNzgxMjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M5807.719,263.105L5817.465,264.589C5827.211,266.072,5846.703,269.04,5865.7,266.459C5884.697,263.878,5903.199,255.747,5912.449,251.682L5921.7,247.617" id="my-svg-L_S14_MAIN2_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S14_MAIN2_0" data-points="W3sieCI6NTgwNy43MTg3NSwieSI6MjYzLjEwNDgwNjQ0NDYzNjY3fSx7IngiOjU4NjYuMTk1MzEyNSwieSI6MjcyLjAwNzgxMjV9LHsieCI6NTkyNS4zNjIxNzU3MDc1NDcsInkiOjI0Ni4wMDc4MTI1fV0=" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M5750.104,223.008L5769.452,204.618C5788.801,186.229,5827.498,149.451,5861.344,143.843C5895.19,138.235,5924.185,163.799,5938.683,176.581L5953.18,189.363" id="my-svg-L_S14_MAIN2_2" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S14_MAIN2_2" data-points="W3sieCI6NTc1MC4xMDM3NTQzOTA4OTIsInkiOjIyMy4wMDc4MTI1fSx7IngiOjU4NjYuMTk1MzEyNSwieSI6MTEyLjY3MTg3NX0seyJ4Ijo1OTU2LjE4MDQ4NjQ4NjExNCwieSI6MTkyLjAwNzgxMjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M4951.07,90.165L4979.859,93.916C5008.648,97.667,5066.226,105.169,5120.845,126.929C5175.463,148.688,5227.122,184.704,5252.952,202.712L5278.781,220.72" id="my-svg-L_PAYWALL_GATE_S13_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_PAYWALL_GATE_S13_0" data-points="W3sieCI6NDk1MS4wNjk3MTk0Mjk5OTksInkiOjkwLjE2NDY1NTU3MDAwMDg3fSx7IngiOjUxMjMuODA0Njg3NSwieSI6MTEyLjY3MTg3NX0seyJ4Ijo1MjgyLjA2MjI4NjIzMjg2MywieSI6MjIzLjAwNzgxMjV9XQ==" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/><path d="M4954.92,77.03L4983.068,75.137C5011.215,73.244,5067.51,69.458,5128.488,67.565C5189.466,65.672,5255.128,65.672,5320.348,65.672C5385.568,65.672,5450.346,65.672,5517.164,65.672C5583.982,65.672,5652.839,65.672,5711.35,65.672C5769.862,65.672,5818.029,65.672,5858.262,86.204C5898.495,106.736,5930.795,147.8,5946.945,168.332L5963.094,188.864" id="my-svg-L_PAYWALL_GATE_MAIN2_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_PAYWALL_GATE_MAIN2_0" data-points="W3sieCI6NDk1NC45MjAxODEzMDIxMTQsInkiOjc3LjAyOTU1NjMwMjExMzc4fSx7IngiOjUxMjMuODA0Njg3NSwieSI6NjUuNjcxODc1fSx7IngiOjUzMjAuNzg5MDYyNSwieSI6NjUuNjcxODc1fSx7IngiOjU1MTUuMTI1LCJ5Ijo2NS42NzE4NzV9LHsieCI6NTcyMS42OTUzMTI1LCJ5Ijo2NS42NzE4NzV9LHsieCI6NTg2Ni4xOTUzMTI1LCJ5Ijo2NS42NzE4NzV9LHsieCI6NTk2NS41NjczMTA0MTc0MDksInkiOjE5Mi4wMDc4MTI1fV0=" data-look="classic" marker-end="url(#onboarding-svg_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_A_B_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(459.81042, 119.39356)"><g class="label" data-id="L_B_WB_0" transform="translate(-76.609375, -12)"><foreignObject width="153.21875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>remembered account</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(818.25, 49.19140625)"><g class="label" data-id="L_WB_WB_AUTH_0" transform="translate(-56.734375, -12)"><foreignObject width="113.46875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>one-tap re-auth</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1078.25, 49.19140625)"><g class="label" data-id="L_WB_AUTH_MAIN_0" transform="translate(-26.375, -12)"><foreignObject width="52.75" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>success</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(287.5234375, 33.19140625)"><g class="label" data-id="L_WB_A_0" transform="translate(-60.359375, -12)"><foreignObject width="120.71875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>not you? sign out</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(471.765625, 219.0078125)"><g class="label" data-id="L_B_S1_0" transform="translate(-42.4375, -12)"><foreignObject width="84.875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>fresh install</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(818.25, 219.0078125)"><g class="label" data-id="L_S1_S2_0" transform="translate(-32.4375, -12)"><foreignObject width="64.875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>lets start</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1078.25, 188.0078125)"><g class="label" data-id="L_S2_S3_0" transform="translate(-31.1875, -12)"><foreignObject width="62.375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1718.2265625, 288.0078125)"><g class="label" data-id="L_S2_S7_0" transform="translate(-90.5703125, -12)"><foreignObject width="181.140625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>already have an account?</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1333.265625, 151.0078125)"><g class="label" data-id="L_S3_S4_0" transform="translate(-31.1875, -12)"><foreignObject width="62.375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1930.4765625, 241.0078125)"><g class="label" data-id="L_S3_S7_0" transform="translate(-14.015625, -12)"><foreignObject width="28.03125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>skip</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1718.2265625, 151.0078125)"><g class="label" data-id="L_S4_S5_0" transform="translate(-65.4296875, -12)"><foreignObject width="130.859375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>auto-advance 2.8s</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2083.34375, 114.0078125)"><g class="label" data-id="L_S5_S6_0" transform="translate(-31.1875, -12)"><foreignObject width="62.375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2211.625, 188.0078125)"><g class="label" data-id="L_S5_S7_0" transform="translate(-14.015625, -12)"><foreignObject width="28.03125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>skip</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2339.90625, 114.0078125)"><g class="label" data-id="L_S6_S7_0" transform="translate(-31.1875, -12)"><foreignObject width="62.375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2744.4453125, 256.0078125)"><g class="label" data-id="L_S7_AUTH_OAUTH_0" transform="translate(-52.1953125, -12)"><foreignObject width="104.390625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>apple / google</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2610.5703125, 182.0078125)"><g class="label" data-id="L_S7_AUTH_EMAIL_0" transform="translate(-19.8515625, -12)"><foreignObject width="39.703125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>email</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2882.6328125, 182.0078125)"><g class="label" data-id="L_AUTH_EMAIL_AUTH_OAUTH_0" transform="translate(-24.1640625, -12)"><foreignObject width="48.328125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>submit</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(3146.4921875, 294.34375)"><g class="label" data-id="L_AUTH_OAUTH_S8_0" transform="translate(-53.9296875, -12)"><foreignObject width="107.859375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>sign up success</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(4076.3359375, 81.671875)"><g class="label" data-id="L_AUTH_OAUTH_PAYWALL_GATE_0" transform="translate(-73.5390625, -12)"><foreignObject width="147.078125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>sign in, existing user</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(3512.09375, 294.34375)"><g class="label" data-id="L_S8_S9_0" transform="translate(-31.1875, -12)"><foreignObject width="62.375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(3898.2265625, 294.34375)"><g class="label" data-id="L_S9_S10_0" transform="translate(-79.5703125, -12)"><foreignObject width="159.140625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>enable or maybe later</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(4206.0625, 263.34375)"><g class="label" data-id="L_S10_S10B_0" transform="translate(-31.1875, -12)"><foreignObject width="62.375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(4452.734375, 232.34375)"><g class="label" data-id="L_S10B_S11_0" transform="translate(-31.1875, -12)"><foreignObject width="62.375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(4697.71875, 232.34375)"><g class="label" data-id="L_S11_S12_0" transform="translate(-48.453125, -12)"><foreignObject width="96.90625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>auto-advance</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(4566.59375, 341.34375)"><g class="label" data-id="L_S10_S13_0" transform="translate(-14.015625, -12)"><foreignObject width="28.03125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>skip</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(4697.71875, 294.34375)"><g class="label" data-id="L_S10B_S13_0" transform="translate(-14.015625, -12)"><foreignObject width="28.03125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>skip</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(5123.8046875, 232.34375)"><g class="label" data-id="L_S12_S13_0" transform="translate(-39.6796875, -12)"><foreignObject width="79.359375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>get started</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(5515.125, 250.0078125)"><g class="label" data-id="L_S13_S14_0" transform="translate(-62.2578125, -12)"><foreignObject width="124.515625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>see my free offer</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(5866.1953125, 272.0078125)"><g class="label" data-id="L_S14_MAIN2_0" transform="translate(-33.4765625, -12)"><foreignObject width="66.953125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>subscribe</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(5851.62754, 126.51741)"><g class="label" data-id="L_S14_MAIN2_2" transform="translate(-25.375, -12)"><foreignObject width="50.75" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>dismiss</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(5131.48626, 118.0274)"><g class="label" data-id="L_PAYWALL_GATE_S13_0" transform="translate(-98.1953125, -12)"><foreignObject width="196.390625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>first sign-in, not subscribed</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(5515.125, 65.671875)"><g class="label" data-id="L_PAYWALL_GATE_MAIN2_0" transform="translate(-95.546875, -12)"><foreignObject width="191.09375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>already seen or subscribed</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default checkpoint" id="my-svg-flowchart-A-0" data-look="classic" transform="translate(81.4453125, 132.19140625)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-73.4453125" y="-27" width="146.890625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-43.4453125, -12)"><rect/><foreignObject width="86.890625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>App Opened</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-B-1" data-look="classic" transform="translate(287.5234375, 197.0078125)"><polygon points="82.6328125,0 165.265625,-82.6328125 82.6328125,-165.265625 0,-82.6328125" class="label-container" transform="translate(-82.1328125, 82.6328125)" style="fill:#fff !important;stroke:#ccc !important"/><g class="label" style="color:#333 !important" transform="translate(-55.6328125, -12)"><rect/><foreignObject width="111.265625" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Returning User?</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-WB-3" data-look="classic" transform="translate(654.9453125, 49.19140625)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-81.5703125" y="-27" width="163.140625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-51.5703125, -12)"><rect/><foreignObject width="103.140625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Welcome Back</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-WB_AUTH-5" data-look="classic" transform="translate(961.0234375, 49.19140625)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-53.5234375" y="-27" width="107.046875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-23.5234375, -12)"><rect/><foreignObject width="47.046875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Sign In</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-MAIN-7" data-look="classic" transform="translate(1205.7578125, 49.19140625)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-62.1328125" y="-27" width="124.265625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-32.1328125, -12)"><rect/><foreignObject width="64.265625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Main App</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-S1-11" data-look="classic" transform="translate(654.9453125, 219.0078125)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-73.4296875" y="-27" width="146.859375" height="54"/><g class="label" style="color:#fff !important" transform="translate(-43.4296875, -12)"><rect/><foreignObject width="86.859375" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Hero Screen</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-S2-13" data-look="classic" transform="translate(961.0234375, 219.0078125)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-61.0390625" y="-27" width="122.078125" height="54"/><g class="label" style="color:#333 !important" transform="translate(-31.0390625, -12)"><rect/><foreignObject width="62.078125" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Meet Ibu</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-S3-15" data-look="classic" transform="translate(1205.7578125, 188.0078125)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-71.3203125" y="-27" width="142.640625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-41.3203125, -12)"><rect/><foreignObject width="82.640625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Name Input</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-S7-17" data-look="classic" transform="translate(2480.90625, 225.0078125)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-84.8125" y="-27" width="169.625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-54.8125, -12)"><rect/><foreignObject width="109.625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Create Account</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-S4-19" data-look="classic" transform="translate(1496.0546875, 151.0078125)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-106.6015625" y="-27" width="213.203125" height="54"/><g class="label" style="color:#333 !important" transform="translate(-76.6015625, -12)"><rect/><foreignObject width="153.203125" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Welcome Celebration</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-S5-23" data-look="classic" transform="translate(1930.4765625, 151.0078125)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-96.6796875" y="-27" width="193.359375" height="54"/><g class="label" style="color:#fff !important" transform="translate(-66.6796875, -12)"><rect/><foreignObject width="133.359375" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Interests Selection</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-S6-25" data-look="classic" transform="translate(2211.625, 114.0078125)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-72.09375" y="-27" width="144.1875" height="54"/><g class="label" style="color:#333 !important" transform="translate(-42.09375, -12)"><rect/><foreignObject width="84.1875" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Social Proof</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-AUTH_OAUTH-31" data-look="classic" transform="translate(2999.6796875, 225.0078125)"><polygon points="67.8828125,0 135.765625,-67.8828125 67.8828125,-135.765625 0,-67.8828125" class="label-container" transform="translate(-67.3828125, 67.8828125)" style="fill:#fff !important;stroke:#ccc !important"/><g class="label" style="color:#333 !important" transform="translate(-40.8828125, -12)"><rect/><foreignObject width="81.765625" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Auth Result</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-AUTH_EMAIL-33" data-look="classic" transform="translate(2744.4453125, 182.0078125)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-89.0234375" y="-27" width="178.046875" height="54"/><g class="label" style="color:#333 !important" transform="translate(-59.0234375, -12)"><rect/><foreignObject width="118.046875" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Email Auth Form</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-S8-37" data-look="classic" transform="translate(3340.6640625, 294.34375)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-115.2421875" y="-27" width="230.484375" height="54"/><g class="label" style="color:#333 !important" transform="translate(-85.2421875, -12)"><rect/><foreignObject width="170.484375" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Post-Signup Celebration</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-PAYWALL_GATE-39" data-look="classic" transform="translate(4885.890625, 81.671875)"><polygon points="73.671875,0 147.34375,-73.671875 73.671875,-147.34375 0,-73.671875" class="label-container" transform="translate(-73.171875, 73.671875)" style="fill:#fff !important;stroke:#ccc !important"/><g class="label" style="color:#333 !important" transform="translate(-46.671875, -12)"><rect/><foreignObject width="93.34375" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Paywall Gate</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-S9-41" data-look="classic" transform="translate(3680.96875, 294.34375)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-112.6875" y="-27" width="225.375" height="54"/><g class="label" style="color:#fff !important" transform="translate(-82.6875, -12)"><rect/><foreignObject width="165.375" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Notification Permission</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-S10-43" data-look="classic" transform="translate(4076.3359375, 294.34375)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-66.375" y="-27" width="132.75" height="54"/><g class="label" style="color:#333 !important" transform="translate(-36.375, -12)"><rect/><foreignObject width="72.75" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Daily Goal</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-S10B-45" data-look="classic" transform="translate(4329.3984375, 263.34375)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-67.1484375" y="-27" width="134.296875" height="54"/><g class="label" style="color:#333 !important" transform="translate(-37.1484375, -12)"><rect/><foreignObject width="74.296875" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Age Group</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-S11-47" data-look="classic" transform="translate(4566.59375, 232.34375)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-57.671875" y="-27" width="115.34375" height="54"/><g class="label" style="color:#333 !important" transform="translate(-27.671875, -12)"><rect/><foreignObject width="55.34375" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Loading</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-S12-49" data-look="classic" transform="translate(4885.890625, 232.34375)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-114.71875" y="-27" width="229.4375" height="54"/><g class="label" style="color:#fff !important" transform="translate(-84.71875, -12)"><rect/><foreignObject width="169.4375" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Learning Path Overview</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-S13-51" data-look="classic" transform="translate(5320.7890625, 250.0078125)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-73.7890625" y="-27" width="147.578125" height="54"/><g class="label" style="color:#fff !important" transform="translate(-43.7890625, -12)"><rect/><foreignObject width="87.578125" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Soft Paywall</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-S14-57" data-look="classic" transform="translate(5721.6953125, 250.0078125)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-86.0234375" y="-27" width="172.046875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-56.0234375, -12)"><rect/><foreignObject width="112.046875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Custom Paywall</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-MAIN2-59" data-look="classic" transform="translate(5986.8046875, 219.0078125)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-62.1328125" y="-27" width="124.265625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-32.1328125, -12)"><rect/><foreignObject width="64.265625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Main App</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="my-svg-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="my-svg-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs></svg>
+</div>
+
+<!-- Events Table -->
+<h2>Events</h2>
+<table>
+<thead>
+  <tr>
+    <th>#</th>
+    <th>Node</th>
+    <th>PostHog Events</th>
+    <th>QA</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td>1</td>
+    <td class="node-name">App Opened</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">app_entry_point</span>
+        <span class="vol">screen, is_signed_in, is_loaded</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">auth_state_change</span>
+        <span class="vol">previous_state, new_state, user_id, app_state</span>
+      </div>
+    </td>
+    <td>Blank/frozen splash screen; routing guard loops</td>
+  </tr>
+
+  <tr>
+    <td>2</td>
+    <td class="node-name">Welcome Back</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">welcome_back_viewed</span>
+        <span class="vol">remembered_method (apple / google / email)</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">welcome_back_tapped</span>
+        <span class="vol">action (continue_as / sign_out)</span>
+      </div>
+    </td>
+    <td>Avatar not loading; one-tap auth fails silently</td>
+  </tr>
+
+  <tr>
+    <td>3</td>
+    <td class="node-name">Hero Screen</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: hero</span>
+      </div>
+    </td>
+    <td>Video background not playing; CTA not visible; LET'S START button unresponsive</td>
+  </tr>
+
+  <tr>
+    <td>4</td>
+    <td class="node-name">Meet Ibu</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: meet_ibu</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_login_shortcut_tapped</span>
+        <span class="vol">screen: meet_ibu, destination: create_account</span>
+      </div>
+    </td>
+    <td>Rive animation fails to load; typewriter stalls; CONTINUE button unresponsive; "Already have an account?" link unresponsive</td>
+  </tr>
+
+  <tr>
+    <td>5</td>
+    <td class="node-name">Name Input</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: name_input</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_name_entered</span>
+        <span class="vol">name_length</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_skipped</span>
+        <span class="vol">screen: name_input, action: skip, destination: create_account</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: name_input</span>
+      </div>
+    </td>
+    <td>Keyboard covers input; CONTINUE stays disabled; Skip link unresponsive; back button doesn't navigate</td>
+  </tr>
+
+  <tr>
+    <td>6</td>
+    <td class="node-name">Welcome Celebration</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: welcome_celebration</span>
+      </div>
+    </td>
+    <td>Auto-advance timer doesn't fire; blank screen; tap-to-skip unresponsive</td>
+  </tr>
+
+  <tr>
+    <td>7</td>
+    <td class="node-name">Interests Selection</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: interests</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_interests_selected</span>
+        <span class="vol">interests: string[], count: number</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_skipped</span>
+        <span class="vol">screen: interests, action: skip, destination: create_account</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: interests</span>
+      </div>
+    </td>
+    <td>Options unresponsive; selection state not persisting; CONTINUE button unresponsive; Skip link unresponsive</td>
+  </tr>
+
+  <tr>
+    <td>8</td>
+    <td class="node-name">Social Proof</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: social_proof</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: social_proof</span>
+      </div>
+    </td>
+    <td>Reviews not rendering; scroll broken; CONTINUE button unresponsive; back button doesn't navigate</td>
+  </tr>
+
+  <tr>
+    <td>9</td>
+    <td class="node-name">Create Account</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: create_account</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">auth_method_selected</span>
+        <span class="vol">method (apple / google / email), screen</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">auth_succeeded</span>
+        <span class="vol">method, is_new_user, screen</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">auth_failed</span>
+        <span class="vol">method, error_message, screen</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">user_signed_up</span>
+        <span class="vol">sign_up_method</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">user_session_in</span>
+        <span class="vol">login_method</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: create_account</span>
+      </div>
+    </td>
+    <td>OAuth popup dismissed; email validation fails; spinner hangs; auth buttons unresponsive; back button doesn't navigate</td>
+  </tr>
+
+  <tr>
+    <td>10</td>
+    <td class="node-name">Email Auth Form</td>
+    <td>
+      <div class="event-row">
+        <span class="mono unwired">auth_screen_viewed</span>
+        <span class="vol">screen: onboarding_auth, mode (signin / signup)</span>
+        <br><span class="vol" style="color:#9ca3af">trackAuthScreenViewed() exists in AnalyticsService — needs wiring in onboarding-auth.tsx</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">user_signed_up</span>
+        <span class="vol">sign_up_method: email</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">user_session_in</span>
+        <span class="vol">login_method: email</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: email_auth</span>
+      </div>
+    </td>
+    <td>Validation errors not shown; Clerk timeout; CONTINUE button unresponsive; back button doesn't navigate</td>
+  </tr>
+
+  <tr>
+    <td>11</td>
+    <td class="node-name">Post-Signup Celebration</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: post_signup_celebration</span>
+      </div>
+    </td>
+    <td>Screen flash; mascot image missing; CONTINUE button unresponsive; Maybe later link unresponsive<br><span class="vol">Note: "Maybe later" and CONTINUE both route to Notification Permission — no distinct skip action here</span></td>
+  </tr>
+
+  <tr>
+    <td>12</td>
+    <td class="node-name">Notification Permission</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">permission_requested</span>
+        <span class="vol">permission_type: push_notifications, screen, result, platform</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">push_notifications_enabled</span>
+        <span class="vol">permission_type, screen, result, platform</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">push_notifications_declined</span>
+        <span class="vol">permission_type, screen, result, platform</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: notification_permission</span>
+      </div>
+    </td>
+    <td>OS permission dialog doesn't appear (Expo Go); granted but token not registered; ENABLE button unresponsive; Maybe later link unresponsive<br><span class="vol">Note: "Maybe later" fires <span class="mono">permission_requested</span> with result: undetermined — both paths (enable + maybe later) route to Daily Goal. No header Skip button on this screen.</span></td>
+  </tr>
+
+  <tr>
+    <td>13</td>
+    <td class="node-name">Daily Goal</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: daily_goal</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_daily_goal_selected</span>
+        <span class="vol">daily_goal_minutes: 5 | 10 | 15 | 20</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_skipped</span>
+        <span class="vol">screen: daily_goal, action: skip, destination: soft_paywall</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: daily_goal</span>
+      </div>
+    </td>
+    <td>Options don't highlight on tap; value not saved to store; CONTINUE button unresponsive; Skip link unresponsive<br><span class="vol">Note: Skip calls markSkipped() and jumps directly to Soft Paywall, bypassing Loading + Learning Path Overview</span></td>
+  </tr>
+
+  <tr>
+    <td>14</td>
+    <td class="node-name">Age Group</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: age_group</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_age_group_selected</span>
+        <span class="vol">age_group: 13-17 | 18-24 | 25-34 | 35-44 | 45+</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_skipped</span>
+        <span class="vol">screen: age_group, action: skip, destination: soft_paywall</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: age_group</span>
+      </div>
+    </td>
+    <td>Options don't highlight; CONTINUE button unresponsive; Skip link unresponsive; back button doesn't navigate<br><span class="vol">Note: Same Skip as Daily Goal — shared header Skip button. Back from Age Group returns to Daily Goal (same screen, phase switch).</span></td>
+  </tr>
+
+  <tr>
+    <td>15</td>
+    <td class="node-name">Loading</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: loading</span>
+      </div>
+    </td>
+    <td>Rive animation fails to load; auto-advance timer doesn't fire; stuck on loading screen<br><span class="vol">Note: Auto-advance screen (~9s). No back button, no skip, no user interaction. Cycles through 3 loading messages then auto-navigates to Learning Path Overview.</span></td>
+  </tr>
+
+  <tr>
+    <td>16</td>
+    <td class="node-name">Learning Path Overview</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_step_viewed</span>
+        <span class="vol">screen: learning_path</span>
+      </div>
+      <div class="event-row">
+        <span class="mono unwired">onboarding_completed</span>
+        <span class="vol">time_to_complete_seconds, onboarding_q1 (interests), onboarding_q2 (daily_goal), onboarding_q3 (age_group), onboarding_q4 (name)</span>
+        <br><span class="vol" style="color:#9ca3af">trackOnboardingCompleted() exists in AnalyticsService — not wired in new flow. Only called from dead legacy flow.</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: learning_path</span>
+      </div>
+    </td>
+    <td>GET STARTED doesn't fire markCompleted(); blank week cards; GET STARTED button unresponsive; back button doesn't navigate</td>
+  </tr>
+
+  <tr>
+    <td>17</td>
+    <td class="node-name">Soft Paywall</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">paywall_viewed</span>
+        <span class="vol">screen: onboarding_paywall, source: onboarding | sign_in</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">paywall_cta_tapped</span>
+        <span class="vol">action: see_free_offer</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">onboarding_back_tapped</span>
+        <span class="vol">screen: soft_paywall</span>
+      </div>
+    </td>
+    <td>CTA doesn't navigate; paywall-seen flag not persisted; SEE MY FREE OFFER button unresponsive; back button doesn't navigate</td>
+  </tr>
+
+  <tr>
+    <td>18</td>
+    <td class="node-name">Custom Paywall</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">custom_paywall_viewed</span>
+        <span class="vol">screen: onboarding_custom_paywall, source: onboarding | sign_in</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">custom_paywall_plan_selected</span>
+        <span class="vol">plan: monthly | yearly | lifetime</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">custom_paywall_subscribe_tapped</span>
+        <span class="vol">plan: monthly | yearly | lifetime</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">custom_paywall_subscribe_success</span>
+        <span class="vol">plan, transaction_id</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">custom_paywall_subscribe_failed</span>
+        <span class="vol">plan, error</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">custom_paywall_dismissed</span>
+        <span class="vol">screen: onboarding_custom_paywall, action: dismiss | back</span>
+      </div>
+    </td>
+    <td>Plans not loading; subscribe button unresponsive; purchase flow hangs; dismiss doesn't navigate; RevenueCat error not surfaced</td>
+  </tr>
+
+  <tr>
+    <td>19</td>
+    <td class="node-name">Main App</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">app_opened</span>
+        <span class="vol">PostHog auto-capture</span>
+      </div>
+    </td>
+    <td>Blank Today tab; providers not initialized</td>
+  </tr>
+</tbody>
+</table>
+
+<h3 style="margin-top:12px; font-size:14px; color:#888;">Global events tracked across all onboarding screens</h3>
+<table>
+<thead>
+  <tr>
+    <th>Event</th>
+    <th>Properties</th>
+    <th>Status</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="mono untracked">onboarding_back_tapped</td>
+    <td><span class="vol">screen (name of current screen)</span></td>
+    <td class="untracked">Needs implementation on every screen with a back button</td>
+  </tr>
+  <tr>
+    <td class="mono untracked">onboarding_skipped</td>
+    <td><span class="vol">screen, action (skip | maybe_later)</span></td>
+    <td class="untracked">Needs implementation on screens with Skip / Maybe later</td>
+  </tr>
+  <tr>
+    <td class="mono untracked">onboarding_app_backgrounded</td>
+    <td><span class="vol">screen (name of current screen), time_on_screen_seconds</span></td>
+    <td class="untracked">Needed to distinguish app-background from true drop-off</td>
+  </tr>
+  <tr>
+    <td class="mono untracked">onboarding_app_foregrounded</td>
+    <td><span class="vol">screen (name of current screen), time_away_seconds</span></td>
+    <td class="untracked">Needed to stitch resumed sessions — user came back</td>
+  </tr>
+</tbody>
+</table>
+
+<hr>
+
+<!-- Questions -->
+<h2>Questions This Flow Answers</h2>
+
+<h3>1. Strategic Questions</h3>
+<ol>
+  <li>Where is the major drop-off in the onboarding funnel?</li>
+  <li>How many users tap the back button at least once during onboarding?</li>
+  <li>Which screen has the highest back-button rate?</li>
+  <li>How many users background the app during onboarding and never come back?</li>
+  <li>How many users background the app but return and finish onboarding?</li>
+  <li>How long does the average user take to complete the full onboarding?</li>
+  <li>How many users skip one or more personalization screens?</li>
+  <li>How many users complete all personalization screens?</li>
+</ol>
+
+<h3>2. Behavioral Insights</h3>
+<ol>
+  <li>How many users see the Hero Screen?</li>
+  <li>How many users select at least one interest at the Interests Selection screen?</li>
+  <li>How many users reach the Create Account screen?</li>
+  <li>How many users successfully sign up (new account created)?</li>
+  <li>How many users sign in with an existing account instead of signing up?</li>
+  <li>How many users choose Apple as their auth method?</li>
+  <li>How many users choose Google as their auth method?</li>
+  <li>How many users choose Email as their auth method?</li>
+  <li>How many users fail authentication (and what errors do they hit)?</li>
+  <li>How many users enable push notifications at the Notification Permission screen?</li>
+  <li>How many users decline push notifications?</li>
+  <li>How many users tap "Maybe later" on notifications?</li>
+  <li>How many users select each daily learning goal option (5 / 10 / 15 / 20 min)?</li>
+  <li>How many users are in each age group (13-17 / 18-24 / 25-34 / 35-44 / 45+)?</li>
+  <li>How many users complete the full onboarding (tap GET STARTED at Learning Path Overview)?</li>
+  <li>How many users see the Soft Paywall?</li>
+  <li>How many users tap "See my free offer" on the Soft Paywall?</li>
+  <li>How many users see the Custom Paywall?</li>
+  <li>How many users select a subscription plan on the Custom Paywall?</li>
+  <li>How many users successfully subscribe during onboarding?</li>
+  <li>How many users dismiss the Custom Paywall without subscribing?</li>
+  <li>How many returning users land on the Welcome Back screen?</li>
+  <li>How many returning users re-authenticate via one-tap on Welcome Back?</li>
+</ol>
+
+<h3>3. Checkpoint Validation</h3>
+<ol>
+  <li><strong>App Opened</strong> — How many users reach the routing guard?</li>
+  <li><strong>Hero Screen</strong> — How many users see the first onboarding screen?</li>
+  <li><strong>Name Input</strong> — How many users reach the name input screen?</li>
+  <li><strong>Interests Selection</strong> — How many users select interests and continue?</li>
+  <li><strong>Create Account</strong> — How many users reach the auth screen?</li>
+  <li><strong>Notification Permission</strong> — How many users reach the notification prompt?</li>
+  <li><strong>Learning Path Overview</strong> — How many users see their personalized path and tap GET STARTED?</li>
+  <li><strong>Soft Paywall</strong> — How many users see the soft paywall?</li>
+  <li><strong>Custom Paywall</strong> — How many users see the subscription plans?</li>
+  <li><strong>Main App</strong> — How many users land in the main app after onboarding?</li>
+</ol>
+
+<h3 style="margin-top:24px;">Analysis Notes</h3>
+<ul style="padding-left:24px; margin-bottom:8px;">
+  <li><strong>Exclude skips from drop-off:</strong> Users who tap Skip or Maybe later are intentional — they should not count as drop-offs. Filter by <span class="mono">onboarding_skipped</span> events when calculating funnel conversion rates.</li>
+  <li><strong>Exclude backgrounded sessions:</strong> A user backgrounding the app is not a drop-off. Use <span class="mono">onboarding_app_backgrounded</span> / <span class="mono">onboarding_app_foregrounded</span> to stitch sessions. Only count a user as dropped if they never return.</li>
+  <li><strong>Back-button navigation ≠ drop-off:</strong> Users going back to change an answer should be tracked via <span class="mono">onboarding_back_tapped</span> but not counted as abandonment.</li>
+</ul>
+
+<div class="footer">
+  Archives Onboarding Spec &middot; AFF-844 &middot; 2026-04-30
+</div>
+
+</div>
+</body>
+</html>

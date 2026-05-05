@@ -1,0 +1,77 @@
+graph LR
+    A["Entry Points<br/>(5 triggers)"]
+    B["Subscribe Tab"]
+    C["Onboarding<br/>Paywall"]
+    D["Daily Story<br/>Rewind"]
+    E["Locked Era<br/>Tapped"]
+    F["AI Quiz<br/>Explanation"]
+    G["Chat to Learn<br/>(Quiz Results)"]
+
+    H["Paywall<br/>Presented"]
+
+    I["Plan Selected"]
+
+    J{"Purchase<br/>Outcome"}
+
+    K["Purchase<br/>Completed"]
+
+    L["Purchase<br/>Cancelled"]
+
+    M["Purchase<br/>Failed"]
+
+    N["Restore<br/>Tapped"]
+    O{"Restore<br/>Outcome"}
+    P["Restore<br/>Success"]
+    Q["Restore<br/>Failed"]
+
+    R["Subscriber<br/>Active"]
+
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+    A --> F
+    A --> G
+
+    B --> H
+    C -->|SEE MY FREE OFFER| H
+    D -->|non-subscriber| H
+    E -->|locked era tapped| H
+    F -->|UPGRADE tapped| H
+    G -->|non-subscriber| H
+
+    H --> I
+    H --> N
+
+    I --> J
+
+    J -->|success| K
+    J -->|cancelled| L
+    J -->|error| M
+
+    N --> O
+
+    O -->|success| P
+    O -->|error| Q
+
+    K --> R
+    P --> R
+
+    style A fill:#fff,stroke:#ccc,color:#333
+    style B fill:#809DE4,stroke:#6580C0,color:#fff
+    style C fill:#9ca3af,stroke:#6b7280,color:#fff
+    style D fill:#9ca3af,stroke:#6b7280,color:#fff
+    style E fill:#9ca3af,stroke:#6b7280,color:#fff
+    style F fill:#9ca3af,stroke:#6b7280,color:#fff
+    style G fill:#9ca3af,stroke:#6b7280,color:#fff
+    style H fill:#809DE4,stroke:#6580C0,color:#fff
+    style I fill:#fff,stroke:#ccc,color:#333
+    style J fill:#fff,stroke:#ccc,color:#333
+    style K fill:#809DE4,stroke:#6580C0,color:#fff
+    style L fill:#fff,stroke:#ccc,color:#333
+    style M fill:#fff,stroke:#ccc,color:#333
+    style N fill:#fff,stroke:#ccc,color:#333
+    style O fill:#fff,stroke:#ccc,color:#333
+    style P fill:#fff,stroke:#ccc,color:#333
+    style Q fill:#fff,stroke:#ccc,color:#333
+    style R fill:#809DE4,stroke:#6580C0,color:#fff
