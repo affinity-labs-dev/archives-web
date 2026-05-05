@@ -183,9 +183,25 @@ export function useDailyStoryTracking({
     });
   }, [storyId]);
 
+  // Track daily story started (user tapped START MY DAY / RESTART MY DAY)
+  const trackStarted = useCallback((targetSection: 'video' | 'reading' | 'quiz', isRestart: boolean) => {
+    if (!storyId || !storyDate) return;
+
+    AppLogger.info("daily", "Story started", { storyId, targetSection, isRestart });
+    analyticsService.trackDailyStoryStarted({
+      story_id: storyId,
+      story_date: storyDate,
+      entry_source: entrySource,
+      is_today: isToday,
+      target_section: targetSection,
+      is_restart: isRestart,
+    });
+  }, [storyId, storyDate, entrySource, isToday]);
+
   return {
     trackCardViewed,
     trackCompleted,
+    trackStarted,
     trackMediaPlayed,
     trackRewindTapped,
     trackRewindBlocked,

@@ -328,10 +328,14 @@ export default function AIChatModal({
     if (typewriterMsgId) userIsAtBottomRef.current = true;
   }, [typewriterMsgId]);
 
-  const { getUserProgressSummary, getKnowledgeContextForPrompt, pendingHiddenMessage, clearPendingHiddenMessage } = useAI();
+  const { getUserProgressSummary, getKnowledgeContextForPrompt, pendingHiddenMessage, clearPendingHiddenMessage, currentSessionId, chatTrigger } = useAI();
   const { user } = useUser();
   const { isSubscribed } = useRevenueCat();
   const insets = useSafeAreaInsets();
+
+  // Analytics: track when chat was opened and response timing
+  const chatOpenedAtRef = useRef<number>(0);
+  const responseStartRef = useRef<number>(0);
 
   // Get user's first name for personalized greeting
   const userName = user?.firstName || 'Explorer';
@@ -401,9 +405,13 @@ export default function AIChatModal({
 
   useEffect(() => {
     if (visible) {
-      analyticsService.trackCustomEvent('ai_chat_opened', {
+      chatOpenedAtRef.current = Date.now();
+      analyticsService.trackAIChatOpened({
+        trigger: chatTrigger,
         era_id: context?.eraId || 'unknown_era',
+        adventure_id: context?.adventureId,
         message_count: messages.length,
+        session_id: currentSessionId || undefined,
       });
 
       // Scroll to latest message when modal opens
@@ -679,9 +687,10 @@ export default function AIChatModal({
         (isSubscribed ? '' : 'Upgrade to Premium for higher limits!')
       );
 
-      analyticsService.trackCustomEvent('ai_quota_exceeded', {
+      analyticsService.trackAIChatQuotaReached({
         request_type: requestType,
-        limit: quotaCheck.limit,
+        messages_used: quotaCheck.limit - quotaCheck.remaining,
+        quota_limit: quotaCheck.limit,
         is_subscriber: isSubscribed,
       });
 
@@ -726,12 +735,16 @@ export default function AIChatModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Track ai_chat_message_sent (was broken since Dec 2025)
-    analyticsService.trackCustomEvent('ai_chat_message_sent', {
+    analyticsService.trackAIChatMessageSent({
       era_id: context?.eraId || 'unknown_era',
       message_type: pendingImage ? 'image' : 'text',
       message_length: userMessage.length,
       is_first_message: messages.length === 0,
+      session_id: currentSessionId || undefined,
     });
+
+    // Start response timer for response_time_ms tracking
+    responseStartRef.current = Date.now();
 
     try {
       // If user uploaded an image, check if they want editing or analysis
@@ -868,8 +881,10 @@ export default function AIChatModal({
 
           // Show image immediately
           setMessages((prev) => [...prev, aiMsg]);
-          analyticsService.trackCustomEvent('ai_image_generated', {
+          analyticsService.trackAIChatImageGenerated({
             era_id: context?.eraId || 'unknown_era',
+            prompt_length: userMessage.length,
+            session_id: currentSessionId || undefined,
           });
 
           // Background: Upload image, save URL, and track usage
@@ -933,9 +948,11 @@ export default function AIChatModal({
 
         setTypewriterMsgId(aiMsg.id);
         setMessages((prev) => [...prev, aiMsg]);
-        analyticsService.trackCustomEvent('ai_chat_response_received', {
+        analyticsService.trackAIChatResponseReceived({
           era_id: context?.eraId || 'unknown_era',
           response_length: response.text.length,
+          response_time_ms: responseStartRef.current > 0 ? Date.now() - responseStartRef.current : 0,
+          session_id: currentSessionId || undefined,
           has_web_sources: (response.sources?.length || 0) > 0,
           web_sources_count: response.sources?.length || 0,
         });
@@ -957,9 +974,14 @@ export default function AIChatModal({
   const handleClose = () => {
     setTypewriterMsgId(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    analyticsService.trackCustomEvent('ai_chat_closed', {
+    const sessionDurationSeconds = chatOpenedAtRef.current > 0
+      ? Math.round((Date.now() - chatOpenedAtRef.current) / 1000)
+      : 0;
+    analyticsService.trackAIChatClosed({
       era_id: context?.eraId || 'unknown_era',
-      message_count: messages.length,
+      messages_count: messages.length,
+      session_duration_seconds: sessionDurationSeconds,
+      session_id: currentSessionId || undefined,
     });
     onClose();
   };

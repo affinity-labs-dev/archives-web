@@ -7,6 +7,7 @@ import Animated from 'react-native-reanimated';
 import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { Typography } from '@/components/ui/Typography';
 import { colors } from '@/components/ui/theme';
+import { analyticsService } from '@/services/AnalyticsService';
 
 import { getAchievementImage } from '../assetMaps';
 import { LiftPressable } from '../shared/LiftPressable';
@@ -57,6 +58,11 @@ function ProfileAchievementsImpl({
                 <LiftPressable
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    analyticsService.trackProfileAchievementTapped({
+                      achievement_id: achievement.id,
+                      achievement_name: achievement.name,
+                      is_unlocked: !!achievement.unlocked,
+                    });
                     // Spread + override `image` so the preview card
                     // upstream renders the local locked/unlocked PNG
                     // instead of the Supabase URL the orchestrator

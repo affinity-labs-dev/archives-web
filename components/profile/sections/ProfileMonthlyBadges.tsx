@@ -8,6 +8,7 @@ import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { Typography } from '@/components/ui/Typography';
 import { colors } from '@/components/ui/theme';
 import { GrayscaleImage } from '@/gamification/ui/achievement/GrayscaleImage';
+import { analyticsService } from '@/services/AnalyticsService';
 
 import { LiftPressable } from '../shared/LiftPressable';
 import { MonthPill } from '../shared/MonthPill';
@@ -52,6 +53,10 @@ function ProfileMonthlyBadgesImpl({
               <LiftPressable
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  analyticsService.trackProfileBadgeTapped({
+                    month: badge.month,
+                    is_earned: badge.earned,
+                  });
                   onPreviewBadge({
                     month: badge.month,
                     label: badge.display_text,

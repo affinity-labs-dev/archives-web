@@ -14,14 +14,39 @@
     line-height: 1.6;
     padding: 40px 20px;
   }
-  .container {
-    max-width: 1100px;
-    margin: 0 auto;
-  }
+  .container { max-width: 1100px; margin: 0 auto; }
   h1 { font-size: 32px; font-weight: 700; margin-bottom: 6px; }
   h2 { font-size: 22px; font-weight: 600; margin-top: 40px; margin-bottom: 16px; }
   h3 { font-size: 16px; font-weight: 600; margin-top: 24px; margin-bottom: 12px; }
   .subtitle { font-size: 14px; color: #888; margin-bottom: 24px; }
+
+  /* API key bar */
+  .api-bar {
+    background: #1e1e2e; color: #cdd6f4; border-radius: 10px;
+    padding: 16px 20px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .api-bar label { font-size: 13px; font-weight: 600; color: #89b4fa; white-space: nowrap; }
+  .api-bar input {
+    flex: 1; min-width: 260px; padding: 8px 12px; border-radius: 6px;
+    border: 1px solid #45475a; background: #313244; color: #cdd6f4;
+    font-family: 'SF Mono', monospace; font-size: 13px;
+  }
+  .api-bar input::placeholder { color: #6c7086; }
+  .api-bar button {
+    padding: 8px 18px; border-radius: 6px; border: none; cursor: pointer;
+    font-weight: 600; font-size: 13px; transition: background 0.2s;
+  }
+  .btn-connect { background: #a6e3a1; color: #1e1e2e; }
+  .btn-connect:hover { background: #94e2d5; }
+  .btn-refresh { background: #89b4fa; color: #1e1e2e; }
+  .btn-refresh:hover { background: #74c7ec; }
+  .btn-clear { background: #f38ba8; color: #1e1e2e; }
+  .btn-clear:hover { background: #eba0ac; }
+  .api-status { font-size: 12px; margin-left: 8px; }
+  .status-ok { color: #a6e3a1; }
+  .status-err { color: #f38ba8; }
+  .status-loading { color: #f9e2af; }
 
   .legend {
     display: flex; gap: 24px; flex-wrap: wrap;
@@ -41,8 +66,6 @@
   .auto { color: #2563eb; font-weight: 500; }
   .future { color: #d97706; font-weight: 500; }
   .vol { font-size: 12px; color: #888; display: block; margin-top: 2px; }
-  .event-row { margin-bottom: 6px; }
-  .event-row:last-child { margin-bottom: 0; }
 
   table { width: 100%; border-collapse: collapse; font-size: 15px; margin-bottom: 8px; }
   thead th { background: #f5f5f5; text-align: left; padding: 10px 14px; border-bottom: 2px solid #ddd; font-weight: 600; }
@@ -61,7 +84,6 @@
   ol, ul { padding-left: 24px; }
   ol li, ul li { margin-bottom: 8px; }
 
-  /* Dashboard cards */
   .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
   .dash-card {
     background: #fff; border: 1px solid #e5e5e5; border-radius: 10px;
@@ -71,34 +93,28 @@
   .dash-card h4 { font-size: 14px; font-weight: 600; color: #555; margin-bottom: 12px; }
   .dash-card .metric { font-size: 42px; font-weight: 700; color: #111; }
   .dash-card .metric-sub { font-size: 13px; color: #888; margin-top: 4px; }
-  .dash-card .chart-placeholder {
-    background: linear-gradient(135deg, #f0f4ff, #e8f5e9);
-    border-radius: 8px; padding: 16px; margin-top: 12px;
-    font-size: 13px; color: #555;
-  }
 
-  /* Funnel bars */
   .funnel-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .funnel-label { width: 160px; font-size: 13px; font-weight: 500; flex-shrink: 0; }
   .funnel-bar-bg { flex: 1; height: 26px; background: #f0f0f0; border-radius: 6px; overflow: hidden; position: relative; }
-  .funnel-bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
-  .funnel-pct { width: 50px; text-align: right; font-size: 13px; font-weight: 600; color: #555; }
+  .funnel-bar-fill { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+  .funnel-pct { width: 70px; text-align: right; font-size: 13px; font-weight: 600; color: #555; }
   .funnel-count { width: 60px; text-align: right; font-size: 12px; color: #888; }
 
-  /* Query box */
-  .query-box {
-    background: #1e1e2e; color: #cdd6f4; border-radius: 8px;
-    padding: 14px 16px; font-family: 'SF Mono', monospace; font-size: 12px;
-    line-height: 1.5; overflow-x: auto; margin-top: 8px;
+  .how-to {
+    background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 8px;
+    padding: 12px 16px; margin-top: 12px; font-size: 13px;
   }
-  .query-box .keyword { color: #89b4fa; }
-  .query-box .string { color: #a6e3a1; }
-  .query-box .comment { color: #6c7086; }
+
+  /* Loading pulse */
+  .loading { color: #ccc !important; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
   .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #eee; font-size: 13px; color: #aaa; }
   @media (max-width: 768px) {
     .summary-box { grid-template-columns: repeat(2, 1fr); }
     .dashboard-grid { grid-template-columns: 1fr; }
+    .api-bar { flex-direction: column; align-items: stretch; }
   }
 </style>
 </head>
@@ -106,7 +122,17 @@
 <div class="container">
 
 <h1>Onboarding Analytics Dashboard</h1>
-<p class="subtitle">AFF-857 &middot; Based on AFF-844 spec &middot; PostHog Project 93650 &middot; 2026-05-05</p>
+<p class="subtitle">AFF-857 &middot; Based on AFF-844 spec &middot; PostHog Project 93650 &middot; <span id="refresh-time">Not yet loaded</span></p>
+
+<!-- API Key Bar -->
+<div class="api-bar">
+  <label>PostHog API Key:</label>
+  <input type="password" id="api-key" placeholder="phx_... (personal API key from PostHog Settings &rarr; Personal API Keys)" />
+  <button class="btn-connect" onclick="connectAndFetch()">Connect &amp; Load</button>
+  <button class="btn-refresh" onclick="fetchAllData()" style="display:none" id="btn-refresh">Refresh</button>
+  <button class="btn-clear" onclick="clearKey()">Clear Key</button>
+  <span class="api-status" id="api-status"></span>
+</div>
 
 <!-- Legend -->
 <div class="legend">
@@ -124,13 +150,13 @@
   <div class="summary-card"><div class="value" style="color:#d97706;">6</div><div class="label">Future (Custom Paywall)</div></div>
 </div>
 
-<!-- Existing Data (Live from PostHog — last 30 days as of 2026-05-05) -->
-<h2>Existing Data (Live — Last 30 Days)</h2>
-<p style="font-size:14px; color:#666; margin-bottom:20px;">Real production data already flowing from pre-existing events. Queried from PostHog on 2026-05-05.</p>
+<!-- Existing Data -->
+<h2>Live Data (Last 30 Days)</h2>
+<p style="font-size:14px; color:#666; margin-bottom:20px;">Real production data from PostHog. Numbers update on each page load.</p>
 
 <div class="dashboard-grid">
   <div class="dash-card full">
-    <h4>Pre-existing Onboarding Events (30-day totals)</h4>
+    <h4>Onboarding Events (30-day totals)</h4>
     <table>
       <thead>
         <tr><th>Event</th><th style="text-align:right">Count</th><th>Insight</th></tr>
@@ -138,122 +164,145 @@
       <tbody>
         <tr>
           <td><span class="mono existing">onboarding_question_answered</span></td>
-          <td style="text-align:right; font-weight:700;">23,682</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-onboarding_question_answered" class="loading">&mdash;</td>
           <td style="font-size:13px; color:#888;">Legacy flow question responses (4 questions x users)</td>
         </tr>
         <tr>
           <td><span class="mono existing">user_session_in</span></td>
-          <td style="text-align:right; font-weight:700;">14,349</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-user_session_in" class="loading">&mdash;</td>
           <td style="font-size:13px; color:#888;">All logins (returning + new users)</td>
         </tr>
         <tr>
           <td><span class="mono existing">permission_requested</span></td>
-          <td style="text-align:right; font-weight:700;">11,440</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-permission_requested" class="loading">&mdash;</td>
           <td style="font-size:13px; color:#888;">ATT + push notifications combined</td>
         </tr>
         <tr>
           <td><span class="mono existing">auth_method_selected</span></td>
-          <td style="text-align:right; font-weight:700;">11,015</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-auth_method_selected" class="loading">&mdash;</td>
           <td style="font-size:13px; color:#888;">Apple / Google / Email taps on auth screen</td>
         </tr>
         <tr>
           <td><span class="mono existing">era_selected</span></td>
-          <td style="text-align:right; font-weight:700;">8,607</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-era_selected" class="loading">&mdash;</td>
           <td style="font-size:13px; color:#888;">Era chosen (onboarding + era switch)</td>
         </tr>
         <tr>
           <td><span class="mono existing">user_signed_up</span></td>
-          <td style="text-align:right; font-weight:700;">6,299</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-user_signed_up" class="loading">&mdash;</td>
           <td style="font-size:13px; color:#888;">New account created</td>
         </tr>
         <tr>
           <td><span class="mono existing">auth_succeeded</span></td>
-          <td style="text-align:right; font-weight:700;">6,187</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-auth_succeeded" class="loading">&mdash;</td>
           <td style="font-size:13px; color:#888;">Successful authentication (new + returning)</td>
         </tr>
         <tr>
           <td><span class="mono existing">onboarding_completed</span></td>
-          <td style="text-align:right; font-weight:700;">5,812</td>
-          <td style="font-size:13px; color:#888;">Legacy flow completion (AsyncStorage flag, not new bundled event)</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-onboarding_completed" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">Legacy + new bundled completion event</td>
         </tr>
         <tr>
           <td><span class="mono existing">push_notifications_enabled</span></td>
-          <td style="text-align:right; font-weight:700;">3,696</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-push_notifications_enabled" class="loading">&mdash;</td>
           <td style="font-size:13px; color:#888;">User granted push permission</td>
         </tr>
         <tr>
           <td><span class="mono existing">push_notifications_declined</span></td>
-          <td style="text-align:right; font-weight:700;">510</td>
+          <td style="text-align:right; font-weight:700;" id="cnt-push_notifications_declined" class="loading">&mdash;</td>
           <td style="font-size:13px; color:#888;">User denied push permission</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">onboarding_step_viewed</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-onboarding_step_viewed" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; fires on each onboarding screen mount</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">onboarding_name_entered</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-onboarding_name_entered" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; name input submitted</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">onboarding_skipped</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-onboarding_skipped" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; skip button tapped</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">onboarding_back_tapped</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-onboarding_back_tapped" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; back button tapped</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">onboarding_interests_selected</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-onboarding_interests_selected" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; interests chosen</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">onboarding_daily_goal_selected</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-onboarding_daily_goal_selected" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; daily goal chosen</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">onboarding_age_group_selected</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-onboarding_age_group_selected" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; age group chosen</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">paywall_viewed</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-paywall_viewed" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; soft paywall screen viewed</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">paywall_cta_tapped</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-paywall_cta_tapped" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; CTA button tapped</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">welcome_back_viewed</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-welcome_back_viewed" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; returning user screen shown</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><span class="mono wired">welcome_back_tapped</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-welcome_back_tapped" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AFF-857 &mdash; continue / sign out tapped</td>
         </tr>
       </tbody>
     </table>
   </div>
 
   <div class="dash-card">
-    <h4>Push Notification Opt-in (Real Data)</h4>
-    <div class="metric" style="color:#16a34a;">88%</div>
-    <div class="metric-sub">3,696 enabled / (3,696 + 510) who reached the prompt</div>
+    <h4>Push Notification Opt-in</h4>
+    <div class="metric" id="metric-push-rate" class="loading">&mdash;</div>
+    <div class="metric-sub" id="metric-push-sub"></div>
     <div style="margin-top:12px;">
       <div class="funnel-bar-row">
         <span class="funnel-label">Enabled</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:88%; background:#16a34a;"></div></div>
-        <span class="funnel-pct">88%</span>
+        <div class="funnel-bar-bg"><div class="funnel-bar-fill" id="bar-push-enabled" style="width:0%; background:#16a34a;"></div></div>
+        <span class="funnel-pct" id="pct-push-enabled">&mdash;</span>
       </div>
       <div class="funnel-bar-row">
         <span class="funnel-label">Declined</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:12%; background:#dc2626;"></div></div>
-        <span class="funnel-pct">12%</span>
+        <div class="funnel-bar-bg"><div class="funnel-bar-fill" id="bar-push-declined" style="width:0%; background:#dc2626;"></div></div>
+        <span class="funnel-pct" id="pct-push-declined">&mdash;</span>
       </div>
     </div>
-    <p style="font-size:11px; color:#888; margin-top:8px;">Note: "Maybe later" fires permission_requested with result: undetermined — counted separately from enabled/declined above.</p>
   </div>
 
   <div class="dash-card">
-    <h4>Auth Success Rate (Real Data)</h4>
-    <div class="metric" style="color:#16a34a;">98%</div>
-    <div class="metric-sub">6,187 succeeded / 6,299 signed up</div>
+    <h4>Auth Success Rate</h4>
+    <div class="metric" id="metric-auth-rate" class="loading">&mdash;</div>
+    <div class="metric-sub" id="metric-auth-sub"></div>
     <div style="margin-top:12px;">
       <div class="funnel-bar-row">
         <span class="funnel-label">Signed Up</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:100%; background:#3b82f6;"></div></div>
-        <span class="funnel-pct">6,299</span>
+        <div class="funnel-bar-bg"><div class="funnel-bar-fill" id="bar-auth-signup" style="width:100%; background:#3b82f6;"></div></div>
+        <span class="funnel-pct" id="pct-auth-signup">&mdash;</span>
       </div>
       <div class="funnel-bar-row">
         <span class="funnel-label">Auth Succeeded</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:98%; background:#16a34a;"></div></div>
-        <span class="funnel-pct">6,187</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="dash-card full" style="background:#fffbeb; border-color:#fbbf24;">
-    <h4 style="color:#92400e;">What We Can't See Yet (Gap Filled by AFF-857)</h4>
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:8px;">
-      <div>
-        <p style="font-size:13px; color:#92400e; font-weight:600; margin-bottom:6px;">Currently blind to:</p>
-        <ul style="font-size:13px; color:#78350f; padding-left:16px;">
-          <li>Which screen users drop off at</li>
-          <li>How many see Hero vs reach Create Account</li>
-          <li>Skip rates per screen</li>
-          <li>Back-button friction points</li>
-          <li>Interest / daily goal / age group selections</li>
-          <li>Paywall view &amp; CTA rates</li>
-          <li>Welcome-back returning user behavior</li>
-        </ul>
-      </div>
-      <div>
-        <p style="font-size:13px; color:#92400e; font-weight:600; margin-bottom:6px;">After AFF-857 deploys:</p>
-        <ul style="font-size:13px; color:#78350f; padding-left:16px;">
-          <li><span class="mono wired">onboarding_step_viewed</span> on all 13 screens</li>
-          <li><span class="mono wired">onboarding_skipped</span> with screen + destination</li>
-          <li><span class="mono wired">onboarding_back_tapped</span> per screen</li>
-          <li><span class="mono wired">onboarding_interests_selected</span></li>
-          <li><span class="mono wired">onboarding_daily_goal_selected</span></li>
-          <li><span class="mono wired">onboarding_age_group_selected</span></li>
-          <li><span class="mono wired">paywall_viewed</span> + <span class="mono wired">paywall_cta_tapped</span></li>
-          <li><span class="mono wired">welcome_back_viewed</span> + <span class="mono wired">welcome_back_tapped</span></li>
-        </ul>
+        <div class="funnel-bar-bg"><div class="funnel-bar-fill" id="bar-auth-success" style="width:0%; background:#16a34a;"></div></div>
+        <span class="funnel-pct" id="pct-auth-success">&mdash;</span>
       </div>
     </div>
   </div>
@@ -261,365 +310,117 @@
 
 <hr>
 
-<hr>
-
-<!-- ═══��═══════════════════════════���═══════════════════════════ -->
-<!-- SECTION 1: DATA ANALYSIS DASHBOARD -->
-<!-- ═══════════���═════════════════════���═════════════════════════ -->
-
-<h2>Post-Deploy Analysis (Queries Ready to Run)</h2>
-<p style="font-size:14px; color:#666; margin-bottom:20px;">PostHog queries to run once the new <span class="mono wired">onboarding_step_viewed</span> events start flowing. These charts will populate after deploying AFF-857 via OTA update.</p>
+<h2>Breakdown Charts (Live Data)</h2>
+<p style="font-size:14px; color:#666; margin-bottom:20px;">All charts below are populated from live PostHog data. New AFF-857 events will show data after the OTA deploy.</p>
 
 <div class="dashboard-grid">
 
-  <!-- Funnel conversion -->
+  <!-- Onboarding funnel -->
   <div class="dash-card full">
-    <h4>Onboarding Funnel Conversion</h4>
-    <p style="font-size:12px; color:#888; margin-bottom:16px;">PostHog Funnel Insight &mdash; <span class="mono">onboarding_step_viewed</span> broken down by <span class="mono">screen</span> property. <span style="color:#d97706;">(Bar widths are illustrative structure — real data TBD after deploy)</span></p>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Hero</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:100%; background:#6366f1;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
+    <h4>Onboarding Step Funnel (onboarding_step_viewed by screen)</h4>
+    <div id="funnel-steps">
+      <p class="loading" style="font-size:13px; padding:20px 0;">Connect PostHog API key to load funnel data...</p>
     </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Meet Ibu</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:92%; background:#7c3aed;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Name Input</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:78%; background:#8b5cf6;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Interests</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:65%; background:#a78bfa;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Social Proof</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:60%; background:#3b82f6;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label" style="font-weight:700; color:#dc2626;">Create Account</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:55%; background:#ef4444;"></div></div>
-      <span class="funnel-pct" style="color:#dc2626;">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Post-Signup</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:36%; background:#0ea5e9;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Notifications</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:34%; background:#06b6d4;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Daily Goal</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:32%; background:#10b981;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Age Group</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:30%; background:#22c55e;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label">Learning Path</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:28%; background:#4ade80;"></div></div>
-      <span class="funnel-pct">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div class="funnel-bar-row">
-      <span class="funnel-label" style="font-weight:700; color:#16a34a;">Completed</span>
-      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:28%; background:#16a34a;"></div></div>
-      <span class="funnel-pct" style="color:#16a34a;">—</span>
-      <span class="funnel-count">—</span>
-    </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Funnel &rarr; Add steps:<br>
-      1. <code>onboarding_step_viewed</code> where screen = hero<br>
-      2. <code>onboarding_step_viewed</code> where screen = create_account<br>
-      3. <code>onboarding_completed</code><br>
-      Set conversion window: 1 hour
+    <div class="how-to">
+      <strong>PostHog UI:</strong> New Insight &rarr; Funnel &rarr; Add steps: <code>onboarding_step_viewed</code> where screen = hero, meet_ibu, name_input, ... &rarr; Conversion window: 1 hour
     </div>
   </div>
 
-  <!-- Time to complete -->
-  <div class="dash-card">
-    <h4>Time to Complete Onboarding</h4>
-    <div class="metric" style="color:#ccc;">—<span style="font-size:20px; color:#888;">min</span></div>
-    <div class="metric-sub">Median time_to_complete_seconds from onboarding_completed</div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Trends &rarr; Event: <code>onboarding_completed</code> &rarr; Math: Median &rarr; Property: <code>time_to_complete_seconds</code>
-    </div>
-  </div>
-
-  <!-- Auth method split -->
+  <!-- Auth method -->
   <div class="dash-card">
     <h4>Auth Method Selection</h4>
-    <div style="margin-top:8px;">
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Apple</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:52%; background:#64748b;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Google</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:35%; background:#3b82f6;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Email</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:13%; background:#10b981;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
+    <div id="breakdown-auth-method">
+      <p class="loading" style="font-size:13px;">Loading...</p>
     </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Trends &rarr; Event: <code>auth_method_selected</code> &rarr; Breakdown: <code>auth_method</code>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>auth_method_selected</code> &rarr; Breakdown: <code>auth_method</code>
     </div>
   </div>
 
-  <!-- Daily goal distribution -->
+  <!-- Daily goal -->
   <div class="dash-card">
     <h4>Daily Goal Distribution</h4>
-    <div style="margin-top:8px;">
-      <div class="funnel-bar-row">
-        <span class="funnel-label">5 min (Casual)</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:18%; background:#fbbf24;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">10 min (Regular)</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:42%; background:#f59e0b;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">15 min (Serious)</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:28%; background:#d97706;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">20 min (Intense)</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:12%; background:#b45309;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
+    <div id="breakdown-daily-goal">
+      <p class="loading" style="font-size:13px;">Loading...</p>
     </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Trends &rarr; Event: <code>onboarding_daily_goal_selected</code> &rarr; Breakdown: <code>daily_goal_minutes</code>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>onboarding_daily_goal_selected</code> &rarr; Breakdown: <code>daily_goal_minutes</code>
     </div>
   </div>
 
-  <!-- Age group distribution -->
+  <!-- Age group -->
   <div class="dash-card">
     <h4>Age Group Distribution</h4>
-    <div style="margin-top:8px;">
-      <div class="funnel-bar-row">
-        <span class="funnel-label">13-17</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:15%; background:#a78bfa;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">18-24</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:32%; background:#8b5cf6;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">25-34</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:30%; background:#7c3aed;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">35-44</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:16%; background:#6d28d9;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">45+</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:7%; background:#5b21b6;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
+    <div id="breakdown-age-group">
+      <p class="loading" style="font-size:13px;">Loading...</p>
     </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Trends &rarr; Event: <code>onboarding_age_group_selected</code> &rarr; Breakdown: <code>age_group</code>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>onboarding_age_group_selected</code> &rarr; Breakdown: <code>age_group</code>
     </div>
   </div>
 
-  <!-- Interests breakdown -->
+  <!-- Interests -->
   <div class="dash-card">
     <h4>Interest Selections (Multi-Select)</h4>
-    <div style="margin-top:8px;">
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Connect with heritage</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:68%; background:#059669;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Just for fun</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:45%; background:#10b981;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Teach my children</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:38%; background:#34d399;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Spend time productively</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:30%; background:#6ee7b7;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Other</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:8%; background:#a7f3d0;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
+    <div id="breakdown-interests">
+      <p class="loading" style="font-size:13px;">Loading...</p>
     </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Trends &rarr; Event: <code>onboarding_interests_selected</code> &rarr; Breakdown: <code>interests</code> (array property &mdash; PostHog auto-expands)
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>onboarding_interests_selected</code> &rarr; Breakdown: <code>interests</code>
     </div>
   </div>
 
   <!-- Skip rate -->
   <div class="dash-card">
     <h4>Skip Rate by Screen</h4>
-    <div style="margin-top:8px;">
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Name Input</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:22%; background:#f97316;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Interests</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:12%; background:#fb923c;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Daily Goal</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:8%; background:#fdba74;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Age Group</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:6%; background:#fed7aa;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
+    <div id="breakdown-skipped">
+      <p class="loading" style="font-size:13px;">Loading...</p>
     </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Trends &rarr; Event: <code>onboarding_skipped</code> &rarr; Breakdown: <code>screen</code>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>onboarding_skipped</code> &rarr; Breakdown: <code>screen</code>
     </div>
   </div>
 
-  <!-- Back tap friction -->
+  <!-- Back tap -->
   <div class="dash-card">
     <h4>Back Tap Friction Points</h4>
-    <div style="margin-top:8px;">
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Create Account</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:35%; background:#ef4444;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Social Proof</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:18%; background:#f87171;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Email Auth</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:15%; background:#fca5a5;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Soft Paywall</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:12%; background:#fecaca;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
+    <div id="breakdown-back-tapped">
+      <p class="loading" style="font-size:13px;">Loading...</p>
     </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Trends &rarr; Event: <code>onboarding_back_tapped</code> &rarr; Breakdown: <code>screen</code>
-    </div>
-  </div>
-
-  <!-- Push notification opt-in -->
-  <div class="dash-card">
-    <h4>Push Notification Opt-in</h4>
-    <div class="metric" style="color:#ccc;">—%</div>
-    <div class="metric-sub">Users who enable notifications at the permission screen</div>
-    <div style="margin-top:12px;">
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Enabled</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:62%; background:#16a34a;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Declined</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:18%; background:#dc2626;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Maybe Later</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:20%; background:#f59e0b;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-    </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Trends &rarr; Event: <code>permission_requested</code> &rarr; Filter: permission_type = push_notifications &rarr; Breakdown: <code>result</code>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>onboarding_back_tapped</code> &rarr; Breakdown: <code>screen</code>
     </div>
   </div>
 
   <!-- Welcome back -->
   <div class="dash-card">
     <h4>Welcome Back Flow</h4>
-    <div class="metric" style="color:#ccc;">—%</div>
-    <div class="metric-sub">Returning users who tap "Continue As" (vs sign out)</div>
-    <div style="margin-top:12px;">
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Continue As</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:74%; background:#16a34a;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Sign Out</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:26%; background:#dc2626;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
+    <div id="breakdown-welcome-back">
+      <p class="loading" style="font-size:13px;">Loading...</p>
     </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Trends &rarr; Event: <code>welcome_back_tapped</code> &rarr; Breakdown: <code>action</code>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>welcome_back_tapped</code> &rarr; Breakdown: <code>action</code>
     </div>
   </div>
 
   <!-- Paywall -->
   <div class="dash-card">
     <h4>Soft Paywall CTA Rate</h4>
-    <div class="metric" style="color:#ccc;">—%</div>
-    <div class="metric-sub">Users who tap "SEE MY FREE OFFER" (vs back)</div>
-    <div style="margin-top:12px;">
-      <div class="funnel-bar-row">
-        <span class="funnel-label">See Free Offer</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:89%; background:#16a34a;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
-      <div class="funnel-bar-row">
-        <span class="funnel-label">Back (dismissed)</span>
-        <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:11%; background:#dc2626;"></div></div>
-        <span class="funnel-pct">—</span>
-      </div>
+    <div id="breakdown-paywall">
+      <p class="loading" style="font-size:13px;">Loading...</p>
     </div>
-    <div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px 16px; margin-top:12px; font-size:13px;">
-      <strong>PostHog UI:</strong> New Insight &rarr; Funnel &rarr; Step 1: <code>paywall_viewed</code> &rarr; Step 2: <code>paywall_cta_tapped</code> &rarr; Shows conversion %
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Funnel &rarr; Step 1: <code>paywall_viewed</code> &rarr; Step 2: <code>paywall_cta_tapped</code>
+    </div>
+  </div>
+
+  <!-- Time to complete -->
+  <div class="dash-card">
+    <h4>Time to Complete Onboarding</h4>
+    <div class="metric" id="metric-time-complete" class="loading">&mdash;</div>
+    <div class="metric-sub">Median time_to_complete_seconds from onboarding_completed</div>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>onboarding_completed</code> &rarr; Math: Median &rarr; Property: <code>time_to_complete_seconds</code>
     </div>
   </div>
 
@@ -627,12 +428,8 @@
 
 <hr>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- SECTION 2: WHY NOTHING IS UNTRACKED -->
-<!-- ═════════════════════════��═════════════════════════════════ -->
-
+<!-- Coverage Status -->
 <h2>Coverage Status</h2>
-
 <table>
 <thead>
   <tr><th>Category</th><th>Status</th><th>Explanation</th></tr>
@@ -646,89 +443,381 @@
   <tr>
     <td><strong>Back taps</strong> (all back buttons)</td>
     <td class="wired">All wired</td>
-    <td style="font-size:13px;">OnboardingHeader <span class="mono">screenName</span> prop auto-tracks all back presses. Standalone back arrows (step-6, step-7, auth, paywall) also tracked inline.</td>
+    <td style="font-size:13px;">OnboardingHeader <span class="mono">screenName</span> prop auto-tracks all back presses.</td>
   </tr>
   <tr>
     <td><strong>Skips</strong> (4 screens)</td>
     <td class="wired">All wired</td>
-    <td style="font-size:13px;">name_input, interests, daily_goal, age_group &mdash; all fire <span class="mono">onboarding_skipped</span>.</td>
+    <td style="font-size:13px;">name_input, interests, daily_goal, age_group fire <span class="mono">onboarding_skipped</span>.</td>
   </tr>
   <tr>
     <td><strong>Question answers</strong> (4 questions)</td>
     <td class="wired">All wired</td>
-    <td style="font-size:13px;">Each question fires its own event + all are bundled in <span class="mono">onboarding_completed</span>.</td>
+    <td style="font-size:13px;">Each question fires its own event + all bundled in <span class="mono">onboarding_completed</span>.</td>
   </tr>
   <tr>
     <td><strong>App background/foreground</strong></td>
     <td class="auto">PostHog auto-capture</td>
-    <td style="font-size:13px;">PostHog SDK fires <span class="mono">Application Backgrounded</span> and <span class="mono">Application Opened</span> automatically. Correlate with the last <span class="mono">onboarding_step_viewed</span> in the session to know which screen the user was on.</td>
+    <td style="font-size:13px;">PostHog SDK fires <span class="mono">Application Backgrounded</span> and <span class="mono">Application Opened</span> automatically.</td>
   </tr>
   <tr>
     <td><strong>Custom Paywall</strong></td>
     <td class="future">Screen not built</td>
-    <td style="font-size:13px;">The soft paywall CTA currently routes directly to main app. Custom paywall with plan selection is a future feature — events will be added when the screen is built.</td>
+    <td style="font-size:13px;">Events will be added when the custom paywall screen is built.</td>
   </tr>
 </tbody>
 </table>
 
 <hr>
 
-<!-- ════════════��══════════════════════════════════════════════ -->
-<!-- SECTION 3: QUESTIONS ANSWERED TIMELINE -->
-<!-- ═══════════════════���════════════════════════════════���══════ -->
-
 <h2>When Each Question Is Answered</h2>
-
 <table>
 <thead>
   <tr><th>Question</th><th>Screen</th><th>Event</th><th>Properties</th><th>Also In</th></tr>
 </thead>
 <tbody>
   <tr>
-    <td><strong>Q1:</strong> What's your name?</td>
-    <td>Step 3 &mdash; Name Input</td>
+    <td><strong>Q1:</strong> Name</td>
+    <td>Step 3</td>
     <td><span class="mono wired">onboarding_name_entered</span></td>
     <td><span class="vol">name_length: number</span></td>
     <td><span class="vol">onboarding_completed.onboarding_q1</span></td>
   </tr>
   <tr>
-    <td><strong>Q2:</strong> Why interested in Islamic history?</td>
-    <td>Step 5 &mdash; Interests</td>
+    <td><strong>Q2:</strong> Interests</td>
+    <td>Step 5</td>
     <td><span class="mono wired">onboarding_interests_selected</span></td>
     <td><span class="vol">interests: string[], count: number</span></td>
     <td><span class="vol">onboarding_completed.onboarding_q2</span></td>
   </tr>
   <tr>
-    <td><strong>Q3:</strong> Daily learning goal?</td>
-    <td>Step 10 &mdash; Daily Goal</td>
+    <td><strong>Q3:</strong> Daily goal</td>
+    <td>Step 10</td>
     <td><span class="mono wired">onboarding_daily_goal_selected</span></td>
     <td><span class="vol">daily_goal_minutes: 5 | 10 | 15 | 20</span></td>
     <td><span class="vol">onboarding_completed.onboarding_q3</span></td>
   </tr>
   <tr>
-    <td><strong>Q4:</strong> Age group?</td>
-    <td>Step 10 &mdash; Age Group</td>
+    <td><strong>Q4:</strong> Age group</td>
+    <td>Step 10</td>
     <td><span class="mono wired">onboarding_age_group_selected</span></td>
     <td><span class="vol">age_group: 13-17 | 18-24 | 25-34 | 35-44 | 45+</span></td>
     <td><span class="vol">onboarding_completed.onboarding_q4</span></td>
   </tr>
   <tr style="background: #f0fdf4;">
-    <td colspan="2"><strong>Summary event (all 4 answers bundled)</strong></td>
+    <td colspan="2"><strong>Summary event</strong></td>
     <td><span class="mono wired">onboarding_completed</span></td>
-    <td><span class="vol">time_to_complete_seconds, onboarding_q1, onboarding_q2, onboarding_q3, onboarding_q4</span></td>
+    <td><span class="vol">time_to_complete_seconds, onboarding_q1..q4</span></td>
     <td><span class="vol">Fires on Step 12 GET STARTED tap</span></td>
   </tr>
 </tbody>
 </table>
 
-<p style="font-size: 13px; color: #888; margin-top: 12px;">
-  <strong>Design:</strong> Each question fires immediately when answered (for real-time funnel visibility). The final <span class="mono">onboarding_completed</span> bundles all 4 answers into one event for cohort creation. Skipped questions show as <code>"skipped"</code>.
-</p>
+<hr>
+
+<h2>Questions This Data Answers</h2>
+
+<h3>1. Funnel Drop-off (answerable with onboarding_step_viewed)</h3>
+<ol>
+  <li><strong>Which screen do users drop off at?</strong> &mdash; Compare <code>onboarding_step_viewed</code> counts per screen</li>
+  <li><strong>How many see Hero vs reach Create Account?</strong> &mdash; Funnel from hero &rarr; create_account</li>
+  <li><strong>What's the overall onboarding completion rate?</strong> &mdash; <code>onboarding_completed</code> / <code>onboarding_step_viewed (hero)</code></li>
+  <li><strong>How long does onboarding take?</strong> &mdash; Median <code>time_to_complete_seconds</code> on <code>onboarding_completed</code></li>
+</ol>
+
+<h3>2. Skip &amp; Friction (answerable with onboarding_skipped + onboarding_back_tapped)</h3>
+<ol>
+  <li><strong>What's the skip rate per screen?</strong> &mdash; <code>onboarding_skipped</code> breakdown by <code>screen</code></li>
+  <li><strong>Which screen has the most back-taps?</strong> &mdash; <code>onboarding_back_tapped</code> breakdown by <code>screen</code></li>
+  <li><strong>Is the auth screen a friction point?</strong> &mdash; Back-tap count on create_account vs other screens</li>
+</ol>
+
+<h3>3. User Preferences (answerable with individual question events)</h3>
+<ol>
+  <li><strong>What motivates users?</strong> &mdash; <code>onboarding_interests_selected</code> breakdown by <code>interests</code></li>
+  <li><strong>What daily goal do users set?</strong> &mdash; <code>onboarding_daily_goal_selected</code> breakdown by <code>daily_goal_minutes</code></li>
+  <li><strong>What's the age distribution?</strong> &mdash; <code>onboarding_age_group_selected</code> breakdown by <code>age_group</code></li>
+  <li><strong>Which auth method is preferred?</strong> &mdash; <code>auth_method_selected</code> breakdown by <code>auth_method</code></li>
+</ol>
+
+<h3>4. Paywall &amp; Returning Users</h3>
+<ol>
+  <li><strong>What % tap the paywall CTA?</strong> &mdash; <code>paywall_cta_tapped</code> / <code>paywall_viewed</code></li>
+  <li><strong>Do returning users continue or sign out?</strong> &mdash; <code>welcome_back_tapped</code> breakdown by <code>action</code></li>
+  <li><strong>What's the push notification opt-in rate?</strong> &mdash; <code>push_notifications_enabled</code> / (<code>enabled</code> + <code>declined</code>)</li>
+</ol>
+
+<h3>5. Already Answerable (pre-existing events)</h3>
+<ol>
+  <li><strong>Total sign-ups:</strong> <code>user_signed_up</code></li>
+  <li><strong>Auth success rate:</strong> <code>auth_succeeded</code> / <code>user_signed_up</code></li>
+  <li><strong>Era preference at onboarding:</strong> <code>era_selected</code> breakdown</li>
+  <li><strong>Question responses:</strong> <code>onboarding_question_answered</code> (legacy)</li>
+</ol>
 
 <div class="footer">
-  Archives Onboarding Analytics &middot; AFF-857 (implementation) based on AFF-844 (spec) &middot; 2026-05-05
+  Archives Onboarding Analytics &middot; AFF-857 (implementation) based on AFF-844 (spec)
 </div>
 
 </div>
+
+<script>
+const PH_HOST = 'https://eu.posthog.com';
+const PH_PROJECT = 93650;
+const STORAGE_KEY = 'ph_dashboard_api_key';
+
+// --- API Key Management ---
+function getKey() { return localStorage.getItem(STORAGE_KEY) || ''; }
+function setKey(k) { localStorage.setItem(STORAGE_KEY, k); }
+function clearKey() {
+  localStorage.removeItem(STORAGE_KEY);
+  document.getElementById('api-key').value = '';
+  setStatus('Key cleared', 'err');
+  document.getElementById('btn-refresh').style.display = 'none';
+}
+function setStatus(msg, type) {
+  const el = document.getElementById('api-status');
+  el.textContent = msg;
+  el.className = 'api-status status-' + (type || 'ok');
+}
+
+// --- PostHog Query ---
+async function phQuery(hogql) {
+  const key = getKey();
+  if (!key) throw new Error('No API key');
+  const res = await fetch(`${PH_HOST}/api/projects/${PH_PROJECT}/query/`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: { kind: 'HogQLQuery', query: hogql } })
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`PostHog API ${res.status}: ${txt.slice(0, 200)}`);
+  }
+  return (await res.json()).results || [];
+}
+
+// --- Number Formatting ---
+function fmt(n) { return n != null ? Number(n).toLocaleString() : '—'; }
+function pct(a, b) { return b > 0 ? Math.round((a / b) * 100) : 0; }
+
+// --- Connect ---
+function connectAndFetch() {
+  const input = document.getElementById('api-key').value.trim();
+  if (!input) { setStatus('Please enter an API key', 'err'); return; }
+  setKey(input);
+  fetchAllData();
+}
+
+// --- Build breakdown bars ---
+function renderBreakdown(containerId, rows, color) {
+  const container = document.getElementById(containerId);
+  if (!rows || rows.length === 0) {
+    container.innerHTML = '<p style="font-size:13px; color:#888;">No data yet</p>';
+    return;
+  }
+  const max = Math.max(...rows.map(r => r[1]));
+  const total = rows.reduce((s, r) => s + r[1], 0);
+  container.innerHTML = rows.map(([label, count]) => {
+    const w = max > 0 ? Math.round((count / max) * 100) : 0;
+    const p = pct(count, total);
+    const displayLabel = label || '(empty)';
+    return `<div class="funnel-bar-row">
+      <span class="funnel-label">${displayLabel}</span>
+      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:${w}%; background:${color};"></div></div>
+      <span class="funnel-pct">${fmt(count)} (${p}%)</span>
+    </div>`;
+  }).join('');
+}
+
+// --- Render funnel ---
+function renderFunnel(containerId, rows) {
+  const container = document.getElementById(containerId);
+  if (!rows || rows.length === 0) {
+    container.innerHTML = '<p style="font-size:13px; color:#888;">No onboarding_step_viewed data yet</p>';
+    return;
+  }
+  const max = Math.max(...rows.map(r => r[1]));
+  const colors = ['#6366f1','#7c3aed','#8b5cf6','#a78bfa','#3b82f6','#0ea5e9','#ef4444','#06b6d4','#10b981','#22c55e','#4ade80','#16a34a','#059669'];
+  container.innerHTML = rows.map(([screen, count], i) => {
+    const w = max > 0 ? Math.round((count / max) * 100) : 0;
+    const c = colors[i % colors.length];
+    return `<div class="funnel-bar-row">
+      <span class="funnel-label">${screen || '(unknown)'}</span>
+      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:${w}%; background:${c};"></div></div>
+      <span class="funnel-pct">${fmt(count)}</span>
+    </div>`;
+  }).join('');
+}
+
+// --- Main data fetch ---
+async function fetchAllData() {
+  const key = getKey();
+  if (!key) { setStatus('Enter API key first', 'err'); return; }
+
+  setStatus('Loading...', 'loading');
+  document.getElementById('btn-refresh').style.display = 'inline-block';
+
+  try {
+    // 1. All event counts
+    const eventCountsQuery = `
+      SELECT event, count() as cnt
+      FROM events
+      WHERE timestamp > now() - interval 30 day
+        AND event IN (
+          'onboarding_question_answered', 'user_session_in', 'permission_requested',
+          'auth_method_selected', 'era_selected', 'user_signed_up', 'auth_succeeded',
+          'onboarding_completed', 'push_notifications_enabled', 'push_notifications_declined',
+          'onboarding_step_viewed', 'onboarding_back_tapped', 'onboarding_skipped',
+          'onboarding_name_entered', 'onboarding_interests_selected',
+          'onboarding_daily_goal_selected', 'onboarding_age_group_selected',
+          'paywall_viewed', 'paywall_cta_tapped',
+          'welcome_back_viewed', 'welcome_back_tapped'
+        )
+      GROUP BY event
+      ORDER BY cnt DESC
+    `;
+
+    // 2. Breakdowns (all in parallel)
+    const [
+      eventCounts,
+      stepViewed,
+      authMethod,
+      dailyGoal,
+      ageGroup,
+      interests,
+      skipped,
+      backTapped,
+      welcomeBack,
+      timeToComplete
+    ] = await Promise.all([
+      phQuery(eventCountsQuery),
+      phQuery(`SELECT toString(properties.screen) as screen, count() as cnt FROM events WHERE timestamp > now() - interval 30 day AND event = 'onboarding_step_viewed' GROUP BY screen ORDER BY cnt DESC`).catch(() => []),
+      phQuery(`SELECT toString(properties.auth_method) as method, count() as cnt FROM events WHERE timestamp > now() - interval 30 day AND event = 'auth_method_selected' GROUP BY method ORDER BY cnt DESC`).catch(() => []),
+      phQuery(`SELECT toString(properties.daily_goal_minutes) as goal, count() as cnt FROM events WHERE timestamp > now() - interval 30 day AND event = 'onboarding_daily_goal_selected' GROUP BY goal ORDER BY cnt DESC`).catch(() => []),
+      phQuery(`SELECT toString(properties.age_group) as ag, count() as cnt FROM events WHERE timestamp > now() - interval 30 day AND event = 'onboarding_age_group_selected' GROUP BY ag ORDER BY cnt DESC`).catch(() => []),
+      phQuery(`SELECT toString(properties.interests) as interest, count() as cnt FROM events WHERE timestamp > now() - interval 30 day AND event = 'onboarding_interests_selected' GROUP BY interest ORDER BY cnt DESC`).catch(() => []),
+      phQuery(`SELECT toString(properties.screen) as screen, count() as cnt FROM events WHERE timestamp > now() - interval 30 day AND event = 'onboarding_skipped' GROUP BY screen ORDER BY cnt DESC`).catch(() => []),
+      phQuery(`SELECT toString(properties.screen) as screen, count() as cnt FROM events WHERE timestamp > now() - interval 30 day AND event = 'onboarding_back_tapped' GROUP BY screen ORDER BY cnt DESC`).catch(() => []),
+      phQuery(`SELECT toString(properties.action) as action, count() as cnt FROM events WHERE timestamp > now() - interval 30 day AND event = 'welcome_back_tapped' GROUP BY action ORDER BY cnt DESC`).catch(() => []),
+      phQuery(`SELECT median(toInt(properties.time_to_complete_seconds)) as med FROM events WHERE timestamp > now() - interval 30 day AND event = 'onboarding_completed' AND properties.time_to_complete_seconds IS NOT NULL`).catch(() => [])
+    ]);
+
+    // --- Populate event counts table ---
+    const counts = {};
+    eventCounts.forEach(([event, cnt]) => { counts[event] = cnt; });
+
+    const allEvents = [
+      'onboarding_question_answered', 'user_session_in', 'permission_requested',
+      'auth_method_selected', 'era_selected', 'user_signed_up', 'auth_succeeded',
+      'onboarding_completed', 'push_notifications_enabled', 'push_notifications_declined',
+      'onboarding_step_viewed', 'onboarding_name_entered', 'onboarding_skipped',
+      'onboarding_back_tapped', 'onboarding_interests_selected',
+      'onboarding_daily_goal_selected', 'onboarding_age_group_selected',
+      'paywall_viewed', 'paywall_cta_tapped', 'welcome_back_viewed', 'welcome_back_tapped'
+    ];
+    allEvents.forEach(ev => {
+      const el = document.getElementById('cnt-' + ev);
+      if (el) {
+        el.textContent = fmt(counts[ev] || 0);
+        el.classList.remove('loading');
+      }
+    });
+
+    // --- Push notification rate ---
+    const pushEnabled = counts['push_notifications_enabled'] || 0;
+    const pushDeclined = counts['push_notifications_declined'] || 0;
+    const pushTotal = pushEnabled + pushDeclined;
+    const pushRate = pct(pushEnabled, pushTotal);
+    document.getElementById('metric-push-rate').textContent = pushTotal > 0 ? pushRate + '%' : '—';
+    document.getElementById('metric-push-rate').style.color = pushTotal > 0 ? '#16a34a' : '#ccc';
+    document.getElementById('metric-push-rate').classList.remove('loading');
+    document.getElementById('metric-push-sub').textContent = pushTotal > 0 ? `${fmt(pushEnabled)} enabled / ${fmt(pushTotal)} total` : '';
+    document.getElementById('pct-push-enabled').textContent = pushTotal > 0 ? pushRate + '%' : '—';
+    document.getElementById('pct-push-declined').textContent = pushTotal > 0 ? (100 - pushRate) + '%' : '—';
+    document.getElementById('bar-push-enabled').style.width = pushRate + '%';
+    document.getElementById('bar-push-declined').style.width = (100 - pushRate) + '%';
+
+    // --- Auth success rate ---
+    const signedUp = counts['user_signed_up'] || 0;
+    const authSucceeded = counts['auth_succeeded'] || 0;
+    const authRate = pct(authSucceeded, signedUp);
+    document.getElementById('metric-auth-rate').textContent = signedUp > 0 ? authRate + '%' : '—';
+    document.getElementById('metric-auth-rate').style.color = signedUp > 0 ? '#16a34a' : '#ccc';
+    document.getElementById('metric-auth-rate').classList.remove('loading');
+    document.getElementById('metric-auth-sub').textContent = signedUp > 0 ? `${fmt(authSucceeded)} succeeded / ${fmt(signedUp)} signed up` : '';
+    document.getElementById('pct-auth-signup').textContent = fmt(signedUp);
+    document.getElementById('pct-auth-success').textContent = fmt(authSucceeded);
+    document.getElementById('bar-auth-success').style.width = (signedUp > 0 ? authRate : 0) + '%';
+
+    // --- Breakdown charts ---
+    renderFunnel('funnel-steps', stepViewed);
+    renderBreakdown('breakdown-auth-method', authMethod, '#3b82f6');
+    renderBreakdown('breakdown-daily-goal', dailyGoal, '#f59e0b');
+    renderBreakdown('breakdown-age-group', ageGroup, '#7c3aed');
+    renderBreakdown('breakdown-interests', interests, '#10b981');
+    renderBreakdown('breakdown-skipped', skipped, '#f97316');
+    renderBreakdown('breakdown-back-tapped', backTapped, '#ef4444');
+    renderBreakdown('breakdown-welcome-back', welcomeBack, '#16a34a');
+
+    // --- Paywall conversion ---
+    const pwViewed = counts['paywall_viewed'] || 0;
+    const pwTapped = counts['paywall_cta_tapped'] || 0;
+    const pwRate = pct(pwTapped, pwViewed);
+    const pwContainer = document.getElementById('breakdown-paywall');
+    if (pwViewed > 0) {
+      pwContainer.innerHTML = `
+        <div class="metric" style="color:#16a34a;">${pwRate}%</div>
+        <div class="metric-sub">${fmt(pwTapped)} tapped CTA / ${fmt(pwViewed)} viewed</div>
+        <div style="margin-top:12px;">
+          <div class="funnel-bar-row">
+            <span class="funnel-label">CTA Tapped</span>
+            <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:${pwRate}%; background:#16a34a;"></div></div>
+            <span class="funnel-pct">${pwRate}%</span>
+          </div>
+          <div class="funnel-bar-row">
+            <span class="funnel-label">Dismissed</span>
+            <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:${100-pwRate}%; background:#dc2626;"></div></div>
+            <span class="funnel-pct">${100-pwRate}%</span>
+          </div>
+        </div>`;
+    } else {
+      pwContainer.innerHTML = '<p style="font-size:13px; color:#888;">No paywall_viewed data yet</p>';
+    }
+
+    // --- Time to complete ---
+    const medianTime = timeToComplete?.[0]?.[0];
+    const timeEl = document.getElementById('metric-time-complete');
+    if (medianTime != null && medianTime > 0) {
+      const mins = Math.floor(medianTime / 60);
+      const secs = Math.round(medianTime % 60);
+      timeEl.innerHTML = mins > 0 ? `${mins}<span style="font-size:20px; color:#888;">m</span> ${secs}<span style="font-size:20px; color:#888;">s</span>` : `${secs}<span style="font-size:20px; color:#888;">s</span>`;
+      timeEl.style.color = '#111';
+    } else {
+      timeEl.textContent = '—';
+      timeEl.style.color = '#ccc';
+    }
+    timeEl.classList.remove('loading');
+
+    // --- Timestamp ---
+    document.getElementById('refresh-time').textContent = new Date().toLocaleString();
+    setStatus('Loaded successfully', 'ok');
+
+  } catch (err) {
+    console.error('PostHog fetch error:', err);
+    setStatus('Error: ' + err.message, 'err');
+  }
+}
+
+// --- Auto-load on page open if key exists ---
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = getKey();
+  if (saved) {
+    document.getElementById('api-key').value = saved;
+    fetchAllData();
+  }
+});
+</script>
+
 </body>
 </html>

@@ -65,6 +65,7 @@ export function useProfileAccount({
   const handleSignOut = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
+      analyticsService.trackProfileSignOut();
       const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era'));
       analyticsService.trackUserSessionOut({
         trigger: 'manual_profile',

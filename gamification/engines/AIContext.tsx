@@ -67,11 +67,17 @@ interface UserProgressSummary {
   totalModulesAttempted: number;
 }
 
+export type AIChatTrigger = 'fab' | 'quiz_results' | 'profile' | 'today' | 'unknown';
+
 interface AIContextType {
   // Chat state
   isChatOpen: boolean;
-  openChat: () => void;
+  openChat: (trigger?: AIChatTrigger) => void;
   closeChat: () => void;
+
+  // Session metadata for analytics
+  currentSessionId: string | null;
+  chatTrigger: AIChatTrigger;
 
   // Chat to Learn (post-quiz deep dive)
   pendingHiddenMessage: string | null;
@@ -115,6 +121,7 @@ interface AIProviderProps {
 
 export function AIProvider({ children }: AIProviderProps) {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatTrigger, setChatTrigger] = useState<AIChatTrigger>('unknown');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showFloatingButton, setShowFloatingButton] = useState(true);
   const [currentContext, setCurrentContext] = useState<AIContextType['currentContext']>({});
@@ -362,8 +369,9 @@ export function AIProvider({ children }: AIProviderProps) {
   }, [messages, saveCurrentSession]);
 
   // Open chat
-  const openChat = () => {
-    console.log('🤖 [AIContext] Opening chat');
+  const openChat = (trigger: AIChatTrigger = 'unknown') => {
+    console.log('🤖 [AIContext] Opening chat, trigger:', trigger);
+    setChatTrigger(trigger);
     setIsChatOpen(true);
   };
 
@@ -371,6 +379,7 @@ export function AIProvider({ children }: AIProviderProps) {
   // The hidden message is sent to the AI but not shown in the chat UI
   const openChatToLearn = (hiddenMessage: string) => {
     console.log('🤖 [AIContext] Opening Chat to Learn');
+    setChatTrigger('quiz_results');
     setPendingHiddenMessage(hiddenMessage);
   };
 
@@ -591,6 +600,8 @@ export function AIProvider({ children }: AIProviderProps) {
     isChatOpen,
     openChat,
     closeChat,
+    currentSessionId: sessionsData.current_session_id,
+    chatTrigger,
     pendingHiddenMessage,
     openChatToLearn,
     clearPendingHiddenMessage,

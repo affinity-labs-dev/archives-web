@@ -92,6 +92,55 @@ interface AuthFailedEvent {
 }
 
 
+// ==================== AI CHAT INTERFACES (AFF-857) ====================
+
+export type AIChatTriggerSource = 'fab' | 'quiz_results' | 'profile' | 'today' | 'unknown';
+
+interface AIChatOpenedEvent {
+  trigger: AIChatTriggerSource;
+  era_id: string;
+  adventure_id?: string;
+  message_count: number;
+  session_id?: string;
+}
+
+interface AIChatMessageSentEvent {
+  era_id: string;
+  message_type: 'text' | 'image';
+  message_length: number;
+  is_first_message: boolean;
+  session_id?: string;
+}
+
+interface AIChatResponseReceivedEvent {
+  era_id: string;
+  response_length: number;
+  response_time_ms: number;
+  session_id?: string;
+  has_web_sources?: boolean;
+  web_sources_count?: number;
+}
+
+interface AIChatClosedEvent {
+  era_id: string;
+  messages_count: number;
+  session_duration_seconds: number;
+  session_id?: string;
+}
+
+interface AIChatQuotaReachedEvent {
+  request_type: 'chat' | 'image_generate' | 'image_edit' | 'image_analyze';
+  messages_used?: number;
+  quota_limit: number;
+  is_subscriber: boolean;
+}
+
+interface AIChatImageGeneratedEvent {
+  era_id: string;
+  prompt_length: number;
+  session_id?: string;
+}
+
 // ==================== SESSION TELEMETRY INTERFACES (AFF-151) ====================
 
 export type SessionOutTrigger = 'manual_profile' | 'stale_session_onboarding' | 'clerk_session_ended' | 'account_deleted' | 'app_backgrounded';
@@ -208,6 +257,14 @@ interface SubscribePurchaseCompletedEvent {
   trigger: SubscribeTrigger;
   plan?: SubscriptionType;
   revenue?: number;
+  era_id?: string;
+  era_name?: string;
+}
+
+interface SubscribePurchaseStartedEvent {
+  trigger: SubscribeTrigger;
+  plan_id?: string;
+  billing_cycle?: string;
   era_id?: string;
   era_name?: string;
 }
@@ -377,6 +434,20 @@ interface DailyStoryStreakIncrementedEvent {
   story_id: string;
   current_streak: number;
   is_first_action_today: boolean;
+}
+
+interface DailyStoryStartedEvent {
+  story_id: string;
+  story_date: string;
+  entry_source: 'today_tab' | 'notification' | 'rewind' | 'deep_link';
+  is_today: boolean;
+  target_section: 'video' | 'reading' | 'quiz';
+  is_restart: boolean;
+}
+
+interface StreakViewedEvent {
+  current_streak: number;
+  longest_streak: number;
 }
 
 interface StreakCelebrationShownEvent {
@@ -1419,6 +1490,13 @@ class AnalyticsService {
   }
 
   /**
+   * Track purchase started (user initiated checkout)
+   */
+  trackSubscribePurchaseStarted(data: SubscribePurchaseStartedEvent) {
+    this.trackCustomEvent('subscribe_purchase_started', data);
+  }
+
+  /**
    * Track purchase completed from paywall UI
    */
   trackSubscribePurchaseCompleted(data: SubscribePurchaseCompletedEvent) {
@@ -1466,6 +1544,46 @@ class AnalyticsService {
    */
   trackSubscriptionPurchased(data: SubscriptionPurchasedEvent) {
     this.trackCustomEvent('subscription_purchased', data);
+  }
+
+  // ==================== PROFILE EVENTS (AFF-857) ====================
+
+  trackProfileViewed(data: {
+    total_xp: number;
+    current_streak: number;
+    lessons_completed: number;
+  }) {
+    this.trackCustomEvent('profile_viewed', data);
+  }
+
+  trackProfileStatsExpanded() {
+    this.trackCustomEvent('profile_stats_expanded', {});
+  }
+
+  trackProfileAchievementTapped(data: {
+    achievement_id: string;
+    achievement_name: string;
+    is_unlocked: boolean;
+  }) {
+    this.trackCustomEvent('profile_achievement_tapped', data);
+  }
+
+  trackProfileBadgeTapped(data: {
+    month: number;
+    is_earned: boolean;
+  }) {
+    this.trackCustomEvent('profile_badge_tapped', data);
+  }
+
+  trackProfileAvatarChanged(data: {
+    avatar_id: string;
+    avatar_name: string;
+  }) {
+    this.trackCustomEvent('profile_avatar_changed', data);
+  }
+
+  trackProfileSignOut() {
+    this.trackCustomEvent('profile_sign_out', {});
   }
 
   // ==================== UTILITY METHODS ====================
@@ -1616,6 +1734,20 @@ class AnalyticsService {
     this.trackCustomEvent('daily_story_streak_incremented', properties);
   }
 
+  /**
+   * Track daily story started (user tapped START MY DAY / RESTART MY DAY)
+   */
+  trackDailyStoryStarted(properties: DailyStoryStartedEvent) {
+    this.trackCustomEvent('daily_story_started', properties);
+  }
+
+  /**
+   * Track streak viewed on Today tab (fires once per tab focus)
+   */
+  trackStreakViewed(properties: StreakViewedEvent) {
+    this.trackCustomEvent('streak_viewed', properties);
+  }
+
   // ==================== END DAILY STORY EVENTS ====================
 
   // ==================== STREAK CELEBRATION EVENTS ====================
@@ -1628,6 +1760,52 @@ class AnalyticsService {
   }
 
   // ==================== END STREAK CELEBRATION EVENTS ====================
+
+  // ==================== AI CHAT EVENTS (AFF-857) ====================
+
+  /**
+   * Track AI chat modal opened
+   */
+  trackAIChatOpened(properties: AIChatOpenedEvent) {
+    this.trackCustomEvent('ai_chat_opened', properties);
+  }
+
+  /**
+   * Track user sending a message in AI chat
+   */
+  trackAIChatMessageSent(properties: AIChatMessageSentEvent) {
+    this.trackCustomEvent('ai_chat_message_sent', properties);
+  }
+
+  /**
+   * Track AI response received
+   */
+  trackAIChatResponseReceived(properties: AIChatResponseReceivedEvent) {
+    this.trackCustomEvent('ai_chat_response_received', properties);
+  }
+
+  /**
+   * Track AI chat closed
+   */
+  trackAIChatClosed(properties: AIChatClosedEvent) {
+    this.trackCustomEvent('ai_chat_closed', properties);
+  }
+
+  /**
+   * Track user hitting monthly AI quota
+   */
+  trackAIChatQuotaReached(properties: AIChatQuotaReachedEvent) {
+    this.trackCustomEvent('ai_chat_quota_reached', properties);
+  }
+
+  /**
+   * Track AI image generation completed
+   */
+  trackAIChatImageGenerated(properties: AIChatImageGeneratedEvent) {
+    this.trackCustomEvent('ai_chat_image_generated', properties);
+  }
+
+  // ==================== END AI CHAT EVENTS ====================
 
   // ==================== END NEW TRACKING EVENTS ====================
 

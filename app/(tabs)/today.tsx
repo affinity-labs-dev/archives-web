@@ -71,6 +71,7 @@ export default function TodayScreen() {
   const { isSubscribed, isLoading: isSubscriptionLoading } = useRevenueCat();
   const {
     streak,
+    longestStreak,
     reportTodayComplete,
     showStreakCelebration,
   } = useGamificationOrchestrator();
@@ -110,6 +111,18 @@ export default function TodayScreen() {
         analyticsService.endPageView('today');
       };
     }, [])
+  );
+
+  // Track streak viewed when Today tab is focused and streak data is loaded
+  useFocusEffect(
+    useCallback(() => {
+      if (streak > 0 || longestStreak > 0) {
+        analyticsService.trackStreakViewed({
+          current_streak: streak,
+          longest_streak: longestStreak,
+        });
+      }
+    }, [streak, longestStreak])
   );
 
   // Debug logging
@@ -988,13 +1001,18 @@ export default function TodayScreen() {
               // mock-spec timeline (home fade + center card scale 1→2.1 +
               // lesson crossfade in). `openWithDive` mounts the lesson at
               // lessonOpacity=0 and triggers the timeline on the next frame.
-              if (progress === 100) {
+              const isRestart = progress === 100;
+              if (isRestart) {
+                tracking.trackStarted("video", true);
                 openWithDive("video");
               } else if (!watchCompleted) {
+                tracking.trackStarted("video", false);
                 openWithDive("video");
               } else if (!exploreCompleted) {
+                tracking.trackStarted("reading", false);
                 openWithDive("reading");
               } else if (isQuizUnlocked) {
+                tracking.trackStarted("quiz", false);
                 openWithDive("quiz");
               }
             }}
