@@ -84,8 +84,6 @@ export default function ProfileTab() {
   const { achievements, streak, longestStreak } = useGamificationOrchestrator();
   const dailyGoalMinutes = useOnboardingStore((s) => s.dailyGoalMinutes);
 
-  useProfilePageView({ isSignedIn, user });
-
   // ── UI state ──────────────────────────────────
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
@@ -109,6 +107,8 @@ export default function ProfileTab() {
     calculateModulesCompleted,
     totalXP,
   });
+
+  useProfilePageView({ isSignedIn, user, totalXP, currentStreak: streak, lessonsCompleted });
   const {
     monthlyBadges,
     earnedMonths,

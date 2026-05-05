@@ -43,7 +43,7 @@ export default function AIAssistant() {
     <>
       {/* Floating button - hide when chat is open */}
       {!isChatOpen && pathname !== '/(tabs)/today' && pathname !== '/today' && (
-        <FloatingAIButton onPress={openChat} />
+        <FloatingAIButton onPress={() => openChat('fab')} />
       )}
 
       {/* Chat modal */}

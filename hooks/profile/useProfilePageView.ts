@@ -9,13 +9,17 @@ type ClerkUser = ReturnType<typeof useUser>['user'];
 interface Args {
   isSignedIn: boolean | undefined;
   user: ClerkUser;
+  totalXP: number;
+  currentStreak: number;
+  lessonsCompleted: number;
 }
 
 // Two side-effects that always travel together:
 //   1) sync Clerk user props → PostHog person properties (fallback in
 //      case AnalyticsWrapper missed the auth state on cold launch)
 //   2) start/end PostHog page view as the tab gains/loses focus
-export function useProfilePageView({ isSignedIn, user }: Args) {
+//   3) fire profile_viewed event on each focus
+export function useProfilePageView({ isSignedIn, user, totalXP, currentStreak, lessonsCompleted }: Args) {
   useEffect(() => {
     if (isSignedIn && user) {
       analyticsService.setUserProperties(user.id, {
@@ -30,7 +34,12 @@ export function useProfilePageView({ isSignedIn, user }: Args) {
   useFocusEffect(
     useCallback(() => {
       analyticsService.startPageView('profile', '/profile');
+      analyticsService.trackProfileViewed({
+        total_xp: totalXP,
+        current_streak: currentStreak,
+        lessons_completed: lessonsCompleted,
+      });
       return () => analyticsService.endPageView('profile');
-    }, []),
+    }, [totalXP, currentStreak, lessonsCompleted]),
   );
 }
