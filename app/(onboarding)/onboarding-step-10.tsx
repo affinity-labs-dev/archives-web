@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 import {
   SpeechBubble,
@@ -65,6 +66,23 @@ export default function OnboardingStep10Screen() {
   useEffect(() => {
     analyticsService.trackOnboardingStepViewed(phase === 10 ? 'daily_goal' : 'age_group');
   }, [phase]);
+
+  // Recover from stale exit state when the user navigates back into this
+  // screen. `handleAgeGroupDone` (forward nav) latches `isExiting=true` and
+  // triggers OptionList's exit cascade — without this reset, on return all
+  // gestures stay blocked and the option list remains animated off-screen.
+  // Skipped on initial mount via the ref so the entrance plays only once.
+  const hasFocusedOnceRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasFocusedOnceRef.current) {
+        hasFocusedOnceRef.current = true;
+        return;
+      }
+      setIsExiting(false);
+      setBodyKey((k) => k + 1);
+    }, []),
+  );
 
   const handleTypewriterComplete = useCallback(() => setTypewriterDone(true), []);
 

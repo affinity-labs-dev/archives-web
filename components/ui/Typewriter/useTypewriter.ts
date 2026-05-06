@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 
 import { durations, isReducedMotion } from '@/components/ui/theme';
@@ -10,6 +11,11 @@ export interface UseTypewriterOptions {
   autoStart?: boolean;
   /** Delay before the typewriter starts revealing chars, in ms. Default `0`. */
   startDelay?: number;
+  /**
+   * Fire a soft `selectionAsync` haptic on each non-whitespace character reveal.
+   * Default `true`. Globally gated by user preference via `GlobalHapticsWrapper`.
+   */
+  haptics?: boolean;
 }
 
 export interface UseTypewriterResult {
@@ -32,6 +38,7 @@ export function useTypewriter({
   onComplete,
   autoStart = true,
   startDelay = 0,
+  haptics = true,
 }: UseTypewriterOptions): UseTypewriterResult {
   const [displayText, setDisplayText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -84,7 +91,11 @@ export function useTypewriter({
             setShowCursor(false);
           }, cursorHideDelay);
         } else {
+          const nextChar = text.charAt(indexRef.current - 1);
           setDisplayText(text.slice(0, indexRef.current));
+          if (haptics && nextChar.trim().length > 0) {
+            Haptics.selectionAsync();
+          }
         }
       }, speed);
     };
@@ -101,7 +112,7 @@ export function useTypewriter({
       if (cursorTimeoutRef.current) clearTimeout(cursorTimeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, speed, cursorHideDelay, autoStart, startDelay, runKey]);
+  }, [text, speed, cursorHideDelay, autoStart, startDelay, haptics, runKey]);
 
   return {
     displayText,

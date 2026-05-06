@@ -5,10 +5,8 @@ import {
   Typography,
   DepthButton,
   OptionList,
-  ScrollFade,
   spacing,
 } from '@/components/ui';
-import ArchivesTheme from '@/constants/ArchivesTheme';
 import { AnimatedEntrance } from '@/components/ui/animations';
 import { useOnboardingStore, type AgeGroup } from '@/stores/onboardingStore';
 import { analyticsService } from '@/services/AnalyticsService';
@@ -86,10 +84,6 @@ export function AgeGroupPhase({
       {typewriterDone && (
         <AnimatedEntrance preset="slideFromBottom" delay={CONTINUE_DELAY_AFTER_TYPEWRITER}>
           <View style={styles.bottom}>
-            {/* Soft fade-out — masks the hard horizontal edge where
-                the option list's last visible row meets the CONTINUE
-                slot. Same pattern used by the quiz screen. */}
-            <ScrollFade color={ArchivesTheme.colors.creamWhite} />
             <DepthButton
               surfaceColor="onyx"
               shadowColor="white"
