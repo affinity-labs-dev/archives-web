@@ -38,7 +38,7 @@ struct DailyStoryLiveActivity: Widget {
       } else {
         DailyStoryBanner(
           currentStreak: context.state.currentStreak,
-          endDate: context.state.endDate,
+          startedAt: context.state.startedAt,
           progressPercent: context.state.progressPercent,
           watchCompleted: context.state.watchCompleted,
           exploreCompleted: context.state.exploreCompleted,
@@ -59,7 +59,7 @@ struct DailyStoryLiveActivity: Widget {
         DynamicIslandExpandedRegion(.bottom) {
           DailyStoryExpandedContent(
             currentStreak: context.state.currentStreak,
-            endDate: context.state.endDate,
+            startedAt: context.state.startedAt,
             watchCompleted: context.state.watchCompleted,
             exploreCompleted: context.state.exploreCompleted,
             questionsCompleted: context.state.questionsCompleted,

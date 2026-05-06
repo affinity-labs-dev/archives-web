@@ -41,9 +41,15 @@ struct DailyStoryAttributes: ActivityAttributes {
     /// Current streak count — shown in lock screen banner Row 1.
     var currentStreak: Int
     /// End timestamp (seconds since 1970) — usually midnight local time.
-    /// Drives the countdown timer in banner + expanded views via
-    /// `Text(_, style: .timer)`. 0 in terminal states (saved/failed/incomplete).
+    /// Used by JS midnight scheduler signal flow; the banner timer is now
+    /// driven by `startedAt` (count UP) instead of this field.
     var endDate: Double
+    /// Start timestamp (seconds since 1970) — when user first engaged with
+    /// daily story today. Drives the count-UP timer in banner + expanded
+    /// views via SwiftUI's `Text(_, style: .timer)` rendering of a past
+    /// date. Persisted by JS (DailyStoryTimingService) so the timer resumes
+    /// from the original moment after kill+restart.
+    var startedAt: Double
     /// XP earned — displayed as "+N XP" in completed state banner. 0 for non-completed states.
     var xpEarned: Int
   }

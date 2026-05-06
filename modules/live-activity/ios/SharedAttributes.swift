@@ -42,6 +42,12 @@ struct DailyStoryAttributes: ActivityAttributes {
     var questionsCompleted: Bool
     var currentStreak: Int
     var endDate: Double
+    /// Start timestamp (seconds since 1970) — when user first engaged with
+    /// daily story today. Drives the count-UP timer in banner + expanded
+    /// views via SwiftUI's `Text(_, style: .timer)` rendering of a past
+    /// date. Persisted by JS (DailyStoryTimingService) so the timer resumes
+    /// from the original moment after kill+restart.
+    var startedAt: Double
     var xpEarned: Int
   }
 

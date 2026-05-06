@@ -45,6 +45,7 @@ struct DailyStoryStartRecord: Record {
   @Field var questionsCompleted: Bool = false
   @Field var currentStreak: Int = 0
   @Field var endDate: Double = 0
+  @Field var startedAt: Double = 0
   @Field var xpEarned: Int = 0
 }
 
@@ -59,6 +60,7 @@ struct DailyStoryUpdateRecord: Record {
   @Field var questionsCompleted: Bool = false
   @Field var currentStreak: Int = 0
   @Field var endDate: Double = 0
+  @Field var startedAt: Double = 0
   @Field var xpEarned: Int = 0
 }
 
@@ -294,6 +296,7 @@ public class LiveActivityModule: Module {
         questionsCompleted: params.questionsCompleted,
         currentStreak: params.currentStreak,
         endDate: params.endDate,
+        startedAt: params.startedAt,
         xpEarned: params.xpEarned
       )
 
@@ -354,6 +357,7 @@ public class LiveActivityModule: Module {
         questionsCompleted: params.questionsCompleted,
         currentStreak: params.currentStreak,
         endDate: params.endDate,
+        startedAt: params.startedAt,
         xpEarned: params.xpEarned
       )
 

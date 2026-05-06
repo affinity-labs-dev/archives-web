@@ -9,8 +9,8 @@ import SwiftUI
 @available(iOS 16.2, *)
 struct DailyStoryExpandedContent: View {
   let currentStreak: Int
-  /// Countdown target — matches lock-screen banner. Counts DOWN to midnight.
-  let endDate: Double
+  /// Start anchor — matches lock-screen banner. Counts UP from past dates.
+  let startedAt: Double
   let watchCompleted: Bool
   let exploreCompleted: Bool
   let questionsCompleted: Bool
@@ -19,12 +19,14 @@ struct DailyStoryExpandedContent: View {
   let eraTitle: String
 
   private var displayStreak: Int { max(1, currentStreak) }
-  /// Mirror of `DailyStoryBanner.countdownEnd` — clamp past/missing endDate so
-  /// timer doesn't flip to count-up after midnight.
-  private var countdownEnd: Date {
+  /// Mirror of `DailyStoryBanner.countUpStart` — past-clamp so SwiftUI keeps
+  /// counting UP (default behavior for past dates) instead of flipping to
+  /// count-down for any value that's somehow in the future.
+  private var countUpStart: Date {
     let now = Date()
-    let raw = Date(timeIntervalSince1970: endDate)
-    return max(now.addingTimeInterval(1), raw)
+    if startedAt <= 0 { return now.addingTimeInterval(-1) }
+    let raw = Date(timeIntervalSince1970: startedAt)
+    return min(now.addingTimeInterval(-1), raw)
   }
 
   var body: some View {
@@ -64,14 +66,24 @@ struct DailyStoryExpandedContent: View {
           }
           Spacer()
           HStack(spacing: 0) {
-            // Countdown: counts DOWN to a future date with `style: .timer`.
-            // No JS-driven updates needed — iOS ticks the digits natively.
-            Text(countdownEnd, style: .timer)
-              .font(.system(size: 14, weight: .medium))
-              .foregroundColor(.dailyStoryTimerGold)
-              .monospacedDigit()
-              .multilineTextAlignment(.trailing)
-              .frame(maxWidth: 70, alignment: .trailing)
+            // Two-phase render — see DailyStoryBanner for full rationale.
+            // Pre-engagement: frozen "0:00" placeholder. Post-button-tap:
+            // native count-UP ticker via `Text(_, style: .timer)`.
+            if startedAt > 0 {
+              Text(countUpStart, style: .timer)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.dailyStoryTimerGold)
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 70, alignment: .trailing)
+            } else {
+              Text("0:00")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.dailyStoryTimerGold)
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 70, alignment: .trailing)
+            }
           }
           .fixedSize(horizontal: true, vertical: false)
         }

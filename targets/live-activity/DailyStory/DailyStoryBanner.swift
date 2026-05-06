@@ -9,9 +9,9 @@ import SwiftUI
 @available(iOS 16.2, *)
 struct DailyStoryBanner: View {
   let currentStreak: Int
-  /// Countdown target — usually midnight local time.
-  /// SwiftUI's `Text(_, style: .timer)` auto-counts DOWN to a future date.
-  let endDate: Double
+  /// Start anchor — when user first engaged with daily story today.
+  /// SwiftUI's `Text(_, style: .timer)` auto-counts UP from a past date.
+  let startedAt: Double
   let progressPercent: Double
   let watchCompleted: Bool
   let exploreCompleted: Bool
@@ -23,13 +23,17 @@ struct DailyStoryBanner: View {
   // MARK: Defensive guards
   private var displayStreak: Int { max(1, currentStreak) }
   private var safeProgress: Double { min(max(0, progressPercent), 1) }
-  /// Countdown target. Clamps to `now+1` if `endDate` is past or missing —
-  /// without this, `Text(_, style: .timer)` would silently flip to count-UP
-  /// for any past Date, producing a wrong elapsed-time display after midnight.
-  private var countdownEnd: Date {
+  /// Past-clamped start date. SwiftUI's `Text(_, style: .timer)` counts UP
+  /// only for past dates — clamps to `now-1` if `startedAt` is somehow in
+  /// the future (clock skew, data error) so the timer never silently flips
+  /// back to count-down. `0` is the sentinel value for terminal states; we
+  /// treat it as "now" so the timer reads "0:00" briefly before the banner
+  /// transitions to a completed/incomplete variant without a timer.
+  private var countUpStart: Date {
     let now = Date()
-    let raw = Date(timeIntervalSince1970: endDate)
-    return max(now.addingTimeInterval(1), raw)
+    if startedAt <= 0 { return now.addingTimeInterval(-1) }
+    let raw = Date(timeIntervalSince1970: startedAt)
+    return min(now.addingTimeInterval(-1), raw)
   }
 
   var body: some View {
@@ -97,14 +101,29 @@ struct DailyStoryBanner: View {
           }
           Spacer()
           HStack(spacing: 0) {
-            // Countdown: SwiftUI counts DOWN to a future date with `style: .timer`.
-            // No JS-driven updates needed — iOS ticks the digits natively.
-            Text(countdownEnd, style: .timer)
-              .font(.system(size: 13, weight: .medium))
-              .foregroundColor(.dailyStoryTimerGold)
-              .monospacedDigit()
-              .multilineTextAlignment(.trailing)
-              .frame(maxWidth: 70, alignment: .trailing)
+            // Two-phase render: pre-engagement (`startedAt == 0`) shows a
+            // frozen "0:00" placeholder so the banner appears on focus
+            // without an active ticker. Once the user taps START MY DAY,
+            // JS writes the timing record and pushes an update that lifts
+            // `startedAt` to a real past timestamp — at which point this
+            // branch flips to `Text(_, style: .timer)` and SwiftUI starts
+            // counting UP natively. Same width/style on both sides so the
+            // banner layout doesn't shift on transition.
+            if startedAt > 0 {
+              Text(countUpStart, style: .timer)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.dailyStoryTimerGold)
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 70, alignment: .trailing)
+            } else {
+              Text("0:00")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.dailyStoryTimerGold)
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 70, alignment: .trailing)
+            }
           }
           .fixedSize(horizontal: true, vertical: false)
         }

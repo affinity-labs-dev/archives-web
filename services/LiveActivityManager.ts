@@ -50,6 +50,7 @@ import {
 } from '@/modules/live-activity';
 import AppLogger from './AppLogger';
 import { toLocalDateString } from '@/utils/dateUtils';
+import { DailyStoryTimingService } from '@/services/DailyStoryTimingService';
 
 // MARK: - Dev test overrides
 // Set these to true in __DEV__ to bypass trigger conditions for testing.
@@ -102,6 +103,13 @@ class LiveActivityManager {
   private dailyStoryMeta: {
     currentStreak: number;
     endDate: number;
+    /** Unix seconds — when user first engaged with daily story today.
+     *  Drives the count-UP timer in the Live Activity banner via SwiftUI's
+     *  `Text(_, style: .timer)` rendering of a past date. Persisted across
+     *  app kill so the timer resumes from the original engagement moment.
+     *  Sourced from DailyStoryTimingService — single source of truth shared
+     *  with future in-app stat UI. */
+    startedAt: number;
     watchCompleted: boolean;
     exploreCompleted: boolean;
     questionsCompleted: boolean;
@@ -248,16 +256,27 @@ class LiveActivityManager {
       if (
         parsed &&
         typeof parsed.endDate === 'number' &&
+        typeof parsed.startedAt === 'number' &&
         typeof parsed.currentStreak === 'number' &&
         typeof parsed.watchCompleted === 'boolean' &&
         typeof parsed.exploreCompleted === 'boolean' &&
         typeof parsed.questionsCompleted === 'boolean'
       ) {
-        // Old meta blobs may carry an extra `startDate` field from the
-        // count-up experiment — JSON.parse keeps it, but we ignore it. The
-        // returned object's TS type doesn't declare `startDate` so callers
-        // can't accidentally rely on it.
         return parsed;
+      }
+      // Legacy meta blobs from before count-up wiring lacked `startedAt`. If
+      // we restore one, fall back to now so the count-up timer at least has
+      // a valid anchor (loses true engagement moment but doesn't crash).
+      if (
+        parsed &&
+        typeof parsed.endDate === 'number' &&
+        typeof parsed.currentStreak === 'number' &&
+        typeof parsed.watchCompleted === 'boolean' &&
+        typeof parsed.exploreCompleted === 'boolean' &&
+        typeof parsed.questionsCompleted === 'boolean'
+      ) {
+        AppLogger.warn('gamification', 'Restoring legacy DailyStory meta — startedAt missing, defaulting to now');
+        return { ...parsed, startedAt: Math.floor(Date.now() / 1000) };
       }
       AppLogger.warn('gamification', 'Persisted DailyStory meta has unexpected shape, ignoring');
       return null;
@@ -553,6 +572,19 @@ class LiveActivityManager {
         endDate = Math.floor(midnight.getTime() / 1000);
       }
 
+      // Resolve startedAt from the timing service. Sentinel `0` when no
+      // record exists yet — the LA banner appears for awareness but the
+      // Swift side renders a frozen "0:00" placeholder instead of an
+      // active count-up timer. The user's first START MY DAY tap creates
+      // the record and triggers an update that flips startedAt to a real
+      // past timestamp, at which point Swift switches to the live ticker.
+      //
+      // Cold-start recovery: previous session's button press wrote the
+      // record; on reopen this read finds it and the banner restores with
+      // the original startedAt → ticker resumes from original moment.
+      const timingRecord = await DailyStoryTimingService.getRecord(today);
+      const startedAt = timingRecord?.startedAt ?? 0;
+
       // Calculate initial progress from card states
       const completedCount = [params.watchCompleted, params.exploreCompleted, params.questionsCompleted].filter(Boolean).length;
       const totalCards = 3;
@@ -575,6 +607,7 @@ class LiveActivityManager {
         questionsCompleted: params.questionsCompleted,
         currentStreak: displayStreak,
         endDate,
+        startedAt,
         xpEarned: 0,
       });
 
@@ -582,6 +615,7 @@ class LiveActivityManager {
       this.dailyStoryMeta = {
         currentStreak: displayStreak,
         endDate,
+        startedAt,
         watchCompleted: params.watchCompleted,
         exploreCompleted: params.exploreCompleted,
         questionsCompleted: params.questionsCompleted,
@@ -622,13 +656,30 @@ class LiveActivityManager {
     // on the rare path where the ID was restored but meta wasn't.
     if (!this.dailyStoryMeta) {
       AppLogger.warn('gamification', 'DailyStory meta missing on update — rebuilding from caller state');
+      // Fall back to timing service for startedAt; sentinel `0` when no
+      // record (pre-engagement) so Swift renders the frozen placeholder.
+      const today = toLocalDateString(new Date());
+      const timingRecord = await DailyStoryTimingService.getRecord(today);
       this.dailyStoryMeta = {
         currentStreak: params.currentStreak,
         endDate: this.todayMidnightEpochSeconds(),
+        startedAt: timingRecord?.startedAt ?? 0,
         watchCompleted: params.watchCompleted,
         exploreCompleted: params.exploreCompleted,
         questionsCompleted: params.questionsCompleted,
       };
+    } else {
+      // Refresh startedAt from the timing service on every update. This is
+      // how the START MY DAY tap transitions the LA from frozen-placeholder
+      // to active-ticker: the button writes the record then calls
+      // updateDailyStoryIfActive, which lands here and pulls in the new
+      // startedAt before the native push. Without this refresh, meta would
+      // hold the original `0` sentinel forever and Swift would never flip.
+      const today = toLocalDateString(new Date());
+      const timingRecord = await DailyStoryTimingService.getRecord(today);
+      if (timingRecord) {
+        this.dailyStoryMeta.startedAt = timingRecord.startedAt;
+      }
     }
 
     try {
@@ -648,6 +699,7 @@ class LiveActivityManager {
         questionsCompleted: params.questionsCompleted,
         currentStreak: params.currentStreak,
         endDate: this.dailyStoryMeta.endDate,
+        startedAt: this.dailyStoryMeta.startedAt,
         xpEarned: 0,
       });
 
@@ -697,13 +749,24 @@ class LiveActivityManager {
    * @param xpEarned - XP from quiz results (correctAnswers * 10)
    */
   async onDailyStoryCompleted(newStreakCount: number, xpEarned: number): Promise<void> {
-    // Atomic claim: capture ID + cancel timer + clear state BEFORE await
+    // Atomic claim: capture ID + meta + cancel timer + clear state BEFORE await
     // (prevents race with onDailyStoryIncomplete midnight timer)
     const id = this.activeDailyStoryId;
     if (!id) return;
+    const meta = this.dailyStoryMeta;
     this.activeDailyStoryId = null;
     this.dailyStoryMeta = null;
     this.cancelDailyStoryMidnightTimeout();
+
+    // Finalize timing record — `markCompleted` is idempotent so a double-fire
+    // from the consumer (quiz onComplete + completion screen mount) won't
+    // overwrite the original moment.
+    const today = toLocalDateString(new Date());
+    try {
+      await DailyStoryTimingService.markCompleted(today);
+    } catch (err) {
+      AppLogger.warn('gamification', 'markCompleted failed in onDailyStoryCompleted', { error: String(err) });
+    }
 
     try {
       await updateDailyStory({
@@ -717,6 +780,11 @@ class LiveActivityManager {
         questionsCompleted: true,
         currentStreak: newStreakCount,
         endDate: 0,
+        // Forward the original startedAt — the completion banner could
+        // surface elapsed time in a future copy iteration. 0 is a sentinel
+        // for "no timer" but we keep the real value so downstream views
+        // can opt in without a manager-side change.
+        startedAt: meta?.startedAt ?? 0,
         xpEarned,
       });
       await endDailyStory(id, LINGER_SECONDS);
@@ -740,6 +808,16 @@ class LiveActivityManager {
     this.activeDailyStoryId = null;
     this.dailyStoryMeta = null;
 
+    // Finalize timing record at midnight — `markIncomplete` skips silently if
+    // `markCompleted` already won the race (user finished at 23:59:59 then
+    // scheduler fires at 00:00:01).
+    const today = toLocalDateString(new Date());
+    try {
+      await DailyStoryTimingService.markIncomplete(today);
+    } catch (err) {
+      AppLogger.warn('gamification', 'markIncomplete failed in onDailyStoryIncomplete', { error: String(err) });
+    }
+
     try {
       const completedCount = meta
         ? [meta.watchCompleted, meta.exploreCompleted, meta.questionsCompleted].filter(Boolean).length
@@ -757,6 +835,7 @@ class LiveActivityManager {
         questionsCompleted: meta?.questionsCompleted ?? false,
         currentStreak: meta?.currentStreak ?? 0,
         endDate: 0,
+        startedAt: meta?.startedAt ?? 0,
         xpEarned: 0,
       });
       await endDailyStory(id, LINGER_SECONDS);
@@ -888,12 +967,34 @@ class LiveActivityManager {
           AppLogger.warn('gamification', 'endDailyStory during crossover cleanup failed', { error: String(err) });
         }
         await this.clearDailyStoryFullState();
+
+        // Finalize the stale day's timing record at the midnight that ended
+        // it — NOT now. The user "stopped working" at midnight; opening the
+        // app at 8 AM next morning shouldn't inflate their elapsed time by
+        // 8 hours. Silent crossover bypasses `onDailyStoryIncomplete` so we
+        // need to mark incomplete here to keep the timing record consistent.
+        try {
+          const staleMidnight = DailyStoryTimingService.midnightOfNextDay(storedStoryDate);
+          await DailyStoryTimingService.markIncomplete(storedStoryDate, staleMidnight);
+        } catch (err) {
+          AppLogger.warn('gamification', 'markIncomplete during crossover failed', { error: String(err) });
+        }
       }
 
       // DailyStory date flag stale (no active activity but flag from yesterday):
       // clear so new day can start fresh activity.
       if (!this.activeDailyStoryId && storedStoryDate && storedStoryDate !== today) {
         await AsyncStorage.removeItem(STORAGE_KEY_DAILY_STORY_DATE);
+
+        // Same finalization as above — covers the case where iOS already
+        // auto-terminated the activity (8h/12h limit) so `activeDailyStoryId`
+        // is null but a timing record exists for the stale date.
+        try {
+          const staleMidnight = DailyStoryTimingService.midnightOfNextDay(storedStoryDate);
+          await DailyStoryTimingService.markIncomplete(storedStoryDate, staleMidnight);
+        } catch (err) {
+          AppLogger.warn('gamification', 'markIncomplete (no-active path) during crossover failed', { error: String(err) });
+        }
       }
     } catch (err) {
       AppLogger.warn('gamification', 'checkMidnightCrossover failed', { error: String(err) });

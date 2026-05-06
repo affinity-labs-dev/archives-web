@@ -77,46 +77,54 @@ export function useDailyStoryLiveActivity({
     [streak, isHistoricalView, displayedQuest, todayQuest],
   );
 
-  // Live Activity — start DailyStory on first Today tab open of the day
+  // Imperative LA start — invoked by the START MY DAY button handler in
+  // today.tsx after it stamps the timing record. Manager reads the record
+  // and uses its `startedAt` for the count-up banner anchor. This is the
+  // primary path: timer + banner only appear after explicit user action.
+  const startActivityNow = useCallback(() => {
+    if (!todayQuest) return;
+    if (questCompleted && watchCompleted && exploreCompleted) return;
+    const today = toLocalDateString(new Date());
+    if (todayQuest.date !== today) return;
+    if (!isStreakHydrated) return;
+
+    liveActivityManager
+      .startDailyStoryActivity({
+        storyId: todayQuest.id,
+        storyTitle: todayQuest.content.today_title,
+        dayNumber: todayQuest.content.day_number,
+        totalDays: todayQuest.content.total_days,
+        currentStreak: streakRef.current,
+        watchCompleted,
+        exploreCompleted,
+        questionsCompleted: questCompleted,
+      })
+      .catch((err) => {
+        AppLogger.error(
+          "gamification",
+          "DailyStory Live Activity start failed",
+          {},
+          err as Error,
+        );
+      });
+  }, [
+    todayQuest,
+    questCompleted,
+    watchCompleted,
+    exploreCompleted,
+    isStreakHydrated,
+  ]);
+
+  // Cold-start recovery — on app foreground, if a timing record already
+  // exists for today (user pressed START in a previous session that got
+  // killed), the manager will read it and restore the LA banner with the
+  // original startedAt. Same `startActivityNow` is used: the manager's
+  // `getRecord` check is what gates whether anything actually happens.
+  // No record = no LA, even on focus.
   useFocusEffect(
     useCallback(() => {
-      if (!todayQuest) return;
-
-      // Don't start if quest is already fully completed
-      if (questCompleted && watchCompleted && exploreCompleted) return;
-
-      const today = toLocalDateString(new Date());
-      if (todayQuest.date !== today) return;
-
-      // Skip if streak hasn't hydrated yet — prevents brief "0-day streak" on lock screen
-      if (!isStreakHydrated) return;
-
-      liveActivityManager
-        .startDailyStoryActivity({
-          storyId: todayQuest.id,
-          storyTitle: todayQuest.content.today_title,
-          dayNumber: todayQuest.content.day_number,
-          totalDays: todayQuest.content.total_days,
-          currentStreak: streakRef.current,
-          watchCompleted,
-          exploreCompleted,
-          questionsCompleted: questCompleted,
-        })
-        .catch((err) => {
-          AppLogger.error(
-            "gamification",
-            "DailyStory Live Activity start failed",
-            {},
-            err as Error,
-          );
-        });
-    }, [
-      todayQuest,
-      questCompleted,
-      watchCompleted,
-      exploreCompleted,
-      isStreakHydrated,
-    ]),
+      startActivityNow();
+    }, [startActivityNow]),
   );
 
   // Sync streak changes to Live Activity
@@ -142,5 +150,5 @@ export function useDailyStoryLiveActivity({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [streak, isHistoricalView]);
 
-  return { updateDailyStoryIfActive };
+  return { updateDailyStoryIfActive, startActivityNow };
 }
