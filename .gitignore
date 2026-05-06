@@ -59,6 +59,7 @@ build-*.ipa
 
 # Test data
 data/
+!analytics/data/
 scripts/
 android/app/google-services.json
 supabase/.temp/
