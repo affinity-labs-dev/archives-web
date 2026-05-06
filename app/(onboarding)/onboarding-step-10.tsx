@@ -125,7 +125,7 @@ export default function OnboardingStep10Screen() {
     // Mark skipped so next app launch routes straight to tabs — user
     // explicitly bailed on personalization; don't resume mid-flow.
     markSkipped();
-    router.push('/onboarding-step-13' as never);
+    router.push('/onboarding-step-11' as never);
   };
 
   return (
