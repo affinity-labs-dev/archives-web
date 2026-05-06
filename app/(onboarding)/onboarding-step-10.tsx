@@ -11,7 +11,7 @@ import {
   spacing,
 } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
-import { Mascot } from '@/components/onboarding/Mascot/Mascot';
+import { MascotSlot, useMascotPresence } from '@/components/onboarding/Mascot';
 import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
 import { useOnboardingStore, TOTAL_ONBOARDING_STEPS } from '@/stores/onboardingStore';
 import { toDisplayStep } from '@/constants/OnboardingRoutes';
@@ -62,6 +62,8 @@ export default function OnboardingStep10Screen() {
   const [isExiting, setIsExiting] = useState(false);
   const [bodyKey, setBodyKey] = useState(0);
   const [typewriterDone, setTypewriterDone] = useState(false);
+
+  useMascotPresence();
 
   useEffect(() => {
     analyticsService.trackOnboardingStepViewed(phase === 10 ? 'daily_goal' : 'age_group');
@@ -142,7 +144,7 @@ export default function OnboardingStep10Screen() {
           {/* Mascot + bubble shell — mounts once, stays put. */}
           <AnimatedEntrance preset="slideFromLeft" delay={100}>
             <View style={styles.mascotRow}>
-              <Mascot width={110} height={96} autoPlayEntrance={false} />
+              <MascotSlot />
 
               <View style={styles.bubbleWrapper}>
                 <SpeechBubble
