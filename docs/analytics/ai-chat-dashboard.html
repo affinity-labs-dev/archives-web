@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archives — AI Chat Analytics Dashboard (AFF-857)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+    background: #fafafa;
+    color: #333;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 40px 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 32px; font-weight: 700; margin-bottom: 6px; }
+  h2 { font-size: 22px; font-weight: 600; margin-top: 40px; margin-bottom: 16px; }
+  h3 { font-size: 16px; font-weight: 600; margin-top: 24px; margin-bottom: 12px; }
+  .subtitle { font-size: 14px; color: #888; margin-bottom: 24px; }
+
+  /* API key bar */
+  .api-bar {
+    background: #1e1e2e; color: #cdd6f4; border-radius: 10px;
+    padding: 16px 20px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .api-bar label { font-size: 13px; font-weight: 600; color: #89b4fa; white-space: nowrap; }
+  .api-bar input {
+    flex: 1; min-width: 260px; padding: 8px 12px; border-radius: 6px;
+    border: 1px solid #45475a; background: #313244; color: #cdd6f4;
+    font-family: 'SF Mono', monospace; font-size: 13px;
+  }
+  .api-bar input::placeholder { color: #6c7086; }
+  .api-bar button {
+    padding: 8px 18px; border-radius: 6px; border: none; cursor: pointer;
+    font-weight: 600; font-size: 13px; transition: background 0.2s;
+  }
+  .btn-connect { background: #a6e3a1; color: #1e1e2e; }
+  .btn-connect:hover { background: #94e2d5; }
+  .btn-refresh { background: #89b4fa; color: #1e1e2e; }
+  .btn-refresh:hover { background: #74c7ec; }
+  .btn-clear { background: #f38ba8; color: #1e1e2e; }
+  .btn-clear:hover { background: #eba0ac; }
+  .api-status { font-size: 12px; margin-left: 8px; }
+  .status-ok { color: #a6e3a1; }
+  .status-err { color: #f38ba8; }
+  .status-loading { color: #f9e2af; }
+
+  .mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; margin-bottom: 8px; }
+  thead th { background: #f5f5f5; text-align: left; padding: 10px 14px; border-bottom: 2px solid #ddd; font-weight: 600; }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid #eee; vertical-align: top; }
+  tbody tr:hover td { background: #f9f9f9; }
+
+  .summary-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+  .summary-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 20px; text-align: center; }
+  .summary-card .value { font-size: 36px; font-weight: 700; }
+  .summary-card .label { font-size: 13px; color: #888; margin-top: 4px; }
+
+  hr { border: none; border-top: 1px solid #ddd; margin: 40px 0; }
+  ol, ul { padding-left: 24px; }
+  ol li, ul li { margin-bottom: 8px; }
+
+  .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+  .dash-card {
+    background: #fff; border: 1px solid #e5e5e5; border-radius: 10px;
+    padding: 20px; position: relative;
+  }
+  .dash-card.full { grid-column: 1 / -1; }
+  .dash-card h4 { font-size: 14px; font-weight: 600; color: #555; margin-bottom: 12px; }
+  .dash-card .metric { font-size: 42px; font-weight: 700; color: #111; }
+  .dash-card .metric-sub { font-size: 13px; color: #888; margin-top: 4px; }
+
+  .funnel-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .funnel-label { width: 220px; font-size: 13px; font-weight: 500; flex-shrink: 0; }
+  .funnel-bar-bg { flex: 1; height: 26px; background: #f0f0f0; border-radius: 6px; overflow: hidden; }
+  .funnel-bar-fill { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+  .funnel-pct { width: 70px; text-align: right; font-size: 13px; font-weight: 600; color: #555; }
+
+  .how-to {
+    background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 8px;
+    padding: 12px 16px; margin-top: 12px; font-size: 13px;
+  }
+
+  .loading { color: #ccc !important; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #eee; font-size: 13px; color: #aaa; }
+  @media (max-width: 768px) {
+    .summary-box { grid-template-columns: 1fr; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .api-bar { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>AI Chat Analytics Dashboard</h1>
+<p class="subtitle">AFF-857 &middot; PostHog Project 93650 &middot; <span id="refresh-time">Not yet loaded</span></p>
+
+<!-- API Key Bar -->
+<div class="api-bar">
+  <label>PostHog API Key:</label>
+  <input type="password" id="api-key" placeholder="phx_... (personal API key from PostHog Settings &rarr; Personal API Keys)" />
+  <button class="btn-connect" onclick="connectAndFetch()">Connect &amp; Load</button>
+  <button class="btn-refresh" onclick="fetchAllData()" style="display:none" id="btn-refresh">Refresh</button>
+  <button class="btn-clear" onclick="clearKey()">Clear Key</button>
+  <span class="api-status" id="api-status"></span>
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-box">
+  <div class="summary-card">
+    <div class="value loading" id="summary-opened">&mdash;</div>
+    <div class="label">Chat Sessions Opened (30d)</div>
+  </div>
+  <div class="summary-card">
+    <div class="value loading" id="summary-messages">&mdash;</div>
+    <div class="label">Messages Sent (30d)</div>
+  </div>
+  <div class="summary-card">
+    <div class="value loading" id="summary-images">&mdash;</div>
+    <div class="label">Images Generated (30d)</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- Live Data -->
+<h2>Live Data (Last 30 Days)</h2>
+<p style="font-size:14px; color:#666; margin-bottom:20px;">Real production data from PostHog. Numbers update on each page load.</p>
+
+<div class="dashboard-grid">
+
+  <!-- Event Counts Table -->
+  <div class="dash-card full">
+    <h4>AI Chat Events (30-day totals)</h4>
+    <table>
+      <thead>
+        <tr><th>Event</th><th style="text-align:right">Count (30d)</th><th>What It Tracks</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="mono">ai_chat_opened</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-ai_chat_opened" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">User opens the AI chat modal</td>
+        </tr>
+        <tr>
+          <td><span class="mono">ai_chat_message_sent</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-ai_chat_message_sent" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">User sends a message to the AI</td>
+        </tr>
+        <tr>
+          <td><span class="mono">ai_chat_response_received</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-ai_chat_response_received" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AI response successfully delivered</td>
+        </tr>
+        <tr>
+          <td><span class="mono">ai_chat_closed</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-ai_chat_closed" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">User closes the AI chat modal</td>
+        </tr>
+        <tr>
+          <td><span class="mono">ai_chat_quota_reached</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-ai_chat_quota_reached" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">User hits monthly message quota</td>
+        </tr>
+        <tr>
+          <td><span class="mono">ai_chat_image_generated</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-ai_chat_image_generated" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">AI image generation requested</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Avg Messages Per Session -->
+  <div class="dash-card">
+    <h4>Avg Messages Per Session</h4>
+    <div class="metric loading" id="metric-msgs-per-session">&mdash;</div>
+    <div class="metric-sub" id="metric-msgs-per-session-sub"></div>
+    <p style="font-size:12px; color:#888; margin-top:8px;"><code>ai_chat_message_sent</code> count / <code>ai_chat_opened</code> count</p>
+  </div>
+
+  <!-- Quota Hit Rate -->
+  <div class="dash-card">
+    <h4>Quota Hit Count</h4>
+    <div class="metric loading" id="metric-quota-hits">&mdash;</div>
+    <div class="metric-sub">Total ai_chat_quota_reached events (30d)</div>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Users who ran into the monthly message limit.</p>
+  </div>
+
+  <!-- Median Response Time -->
+  <div class="dash-card">
+    <h4>Median AI Response Time</h4>
+    <div class="metric loading" id="metric-response-time">&mdash;</div>
+    <div class="metric-sub">Median response_time_ms on ai_chat_response_received</div>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>ai_chat_response_received</code> &rarr; Math: Median &rarr; Property: <code>response_time_ms</code>
+    </div>
+  </div>
+
+  <!-- Median Session Duration -->
+  <div class="dash-card">
+    <h4>Median Session Duration</h4>
+    <div class="metric loading" id="metric-session-duration">&mdash;</div>
+    <div class="metric-sub">Median session_duration_seconds on ai_chat_closed</div>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>ai_chat_closed</code> &rarr; Math: Median &rarr; Property: <code>session_duration_seconds</code>
+    </div>
+  </div>
+
+</div>
+
+<hr>
+
+<!-- Breakdown Charts -->
+<h2>Breakdown Charts (Live Data)</h2>
+
+<div class="dashboard-grid">
+
+  <!-- Chat Trigger Breakdown -->
+  <div class="dash-card full">
+    <h4>Chat Opened by Trigger</h4>
+    <div id="breakdown-trigger">
+      <p class="loading" style="font-size:13px; padding:20px 0;">Connect PostHog API key to load data...</p>
+    </div>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>ai_chat_opened</code> &rarr; Breakdown: <code>trigger</code>
+    </div>
+  </div>
+
+  <!-- Chat Flow Funnel -->
+  <div class="dash-card full">
+    <h4>AI Chat Flow (30-day totals)</h4>
+    <div id="funnel-chat">
+      <p class="loading" style="font-size:13px; padding:20px 0;">Loading...</p>
+    </div>
+    <p style="font-size:12px; color:#888; margin-top:12px;"><strong>Note:</strong> These are absolute event counts, not a per-user funnel. Use PostHog Funnel insight with unique users for true conversion rates.</p>
+  </div>
+
+</div>
+
+<hr>
+
+<!-- Questions This Data Answers -->
+<h2>Questions This Data Answers</h2>
+
+<h3>1. How often is AI Chat used?</h3>
+<ol>
+  <li><strong>Total chat sessions:</strong> <code>ai_chat_opened</code> count over 30 days</li>
+  <li><strong>Messages sent vs sessions:</strong> Ratio reveals engagement depth per session</li>
+</ol>
+
+<h3>2. What triggers AI Chat (fab, quiz_results, profile)?</h3>
+<ol>
+  <li><strong>Trigger breakdown:</strong> <code>ai_chat_opened</code> broken down by <code>trigger</code> property</li>
+  <li><strong>Most common entry point:</strong> Which UI element drives the most chat sessions</li>
+</ol>
+
+<h3>3. How many messages per session?</h3>
+<ol>
+  <li><strong>Average messages:</strong> <code>ai_chat_message_sent</code> / <code>ai_chat_opened</code></li>
+  <li><strong>Engagement depth:</strong> Higher ratio = users asking follow-up questions</li>
+</ol>
+
+<h3>4. How fast are AI responses?</h3>
+<ol>
+  <li><strong>Median response time:</strong> Median <code>response_time_ms</code> on <code>ai_chat_response_received</code></li>
+  <li><strong>Performance monitoring:</strong> Track if Gemini API latency is acceptable</li>
+</ol>
+
+<h3>5. How long are chat sessions?</h3>
+<ol>
+  <li><strong>Session duration:</strong> Median <code>session_duration_seconds</code> on <code>ai_chat_closed</code></li>
+  <li><strong>Engagement quality:</strong> Longer sessions suggest deeper conversations</li>
+</ol>
+
+<h3>6. How many users hit the monthly quota?</h3>
+<ol>
+  <li><strong>Quota reached count:</strong> <code>ai_chat_quota_reached</code> events</li>
+  <li><strong>Limit adjustment signal:</strong> High counts may indicate the quota is too low</li>
+</ol>
+
+<h3>7. How often is image generation used?</h3>
+<ol>
+  <li><strong>Image generation count:</strong> <code>ai_chat_image_generated</code> events</li>
+  <li><strong>Feature adoption:</strong> Ratio to total messages shows how popular image gen is</li>
+</ol>
+
+<div class="footer">
+  Archives AI Chat Analytics &middot; AFF-857 &middot; PostHog Project 93650
+</div>
+
+</div>
+
+<script>
+const PH_HOST = 'https://eu.posthog.com';
+const PH_PROJECT = 93650;
+const STORAGE_KEY = 'ph_dashboard_api_key';
+
+function getKey() { return localStorage.getItem(STORAGE_KEY) || ''; }
+function setKey(k) { localStorage.setItem(STORAGE_KEY, k); }
+function clearKey() {
+  localStorage.removeItem(STORAGE_KEY);
+  document.getElementById('api-key').value = '';
+  setStatus('Key cleared', 'err');
+  document.getElementById('btn-refresh').style.display = 'none';
+}
+function setStatus(msg, type) {
+  const el = document.getElementById('api-status');
+  el.textContent = msg;
+  el.className = 'api-status status-' + (type || 'ok');
+}
+
+async function phQuery(hogql) {
+  const key = getKey();
+  if (!key) throw new Error('No API key');
+  const res = await fetch(`${PH_HOST}/api/projects/${PH_PROJECT}/query/`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: { kind: 'HogQLQuery', query: hogql } })
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`PostHog API ${res.status}: ${txt.slice(0, 200)}`);
+  }
+  return (await res.json()).results || [];
+}
+
+function fmt(n) { return n != null ? Number(n).toLocaleString() : '—'; }
+function pct(a, b) { return b > 0 ? Math.round((a / b) * 100) : 0; }
+
+function connectAndFetch() {
+  const input = document.getElementById('api-key').value.trim();
+  if (!input) { setStatus('Please enter an API key', 'err'); return; }
+  setKey(input);
+  fetchAllData();
+}
+
+function renderFunnelBars(containerId, items) {
+  const container = document.getElementById(containerId);
+  if (!items || items.length === 0) {
+    container.innerHTML = '<p style="font-size:13px; color:#888;">No data yet</p>';
+    return;
+  }
+  const max = Math.max(...items.map(i => i.count));
+  container.innerHTML = items.map(item => {
+    const w = max > 0 ? Math.round((item.count / max) * 100) : 0;
+    return `<div class="funnel-bar-row">
+      <span class="funnel-label" style="${item.style || ''}">${item.label}</span>
+      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:${w}%; background:${item.color};"></div></div>
+      <span class="funnel-pct" style="${item.pctStyle || ''}">${item.display || fmt(item.count)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderBreakdown(containerId, rows, color) {
+  const container = document.getElementById(containerId);
+  if (!rows || rows.length === 0) {
+    container.innerHTML = '<p style="font-size:13px; color:#888;">No data yet</p>';
+    return;
+  }
+  const max = Math.max(...rows.map(r => r[1]));
+  const total = rows.reduce((s, r) => s + r[1], 0);
+  container.innerHTML = rows.map(([label, count]) => {
+    const w = max > 0 ? Math.round((count / max) * 100) : 0;
+    const p = pct(count, total);
+    return `<div class="funnel-bar-row">
+      <span class="funnel-label">${label || '(empty)'}</span>
+      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:${w}%; background:${color};"></div></div>
+      <span class="funnel-pct">${fmt(count)} (${p}%)</span>
+    </div>`;
+  }).join('');
+}
+
+async function fetchAllData() {
+  const key = getKey();
+  if (!key) { setStatus('Enter API key first', 'err'); return; }
+
+  setStatus('Loading...', 'loading');
+  document.getElementById('btn-refresh').style.display = 'inline-block';
+
+  try {
+    const [
+      eventCounts,
+      triggerBreakdown,
+      responseTimeMedian,
+      sessionDurationMedian
+    ] = await Promise.all([
+      phQuery(`
+        SELECT event, count() as cnt
+        FROM events
+        WHERE timestamp > now() - interval 30 day
+          AND event IN (
+            'ai_chat_opened', 'ai_chat_message_sent', 'ai_chat_response_received',
+            'ai_chat_closed', 'ai_chat_quota_reached', 'ai_chat_image_generated'
+          )
+        GROUP BY event
+        ORDER BY cnt DESC
+      `),
+      phQuery(`
+        SELECT properties.trigger as trigger_val, count() as cnt
+        FROM events
+        WHERE timestamp > now() - interval 30 day
+          AND event = 'ai_chat_opened'
+        GROUP BY trigger_val
+        ORDER BY cnt DESC
+      `).catch(() => []),
+      phQuery(`
+        SELECT median(toInt(properties.response_time_ms)) as med
+        FROM events
+        WHERE timestamp > now() - interval 30 day
+          AND event = 'ai_chat_response_received'
+          AND properties.response_time_ms IS NOT NULL
+      `).catch(() => []),
+      phQuery(`
+        SELECT median(toInt(properties.session_duration_seconds)) as med
+        FROM events
+        WHERE timestamp > now() - interval 30 day
+          AND event = 'ai_chat_closed'
+          AND properties.session_duration_seconds IS NOT NULL
+      `).catch(() => [])
+    ]);
+
+    // --- Populate event counts ---
+    const counts = {};
+    eventCounts.forEach(([event, cnt]) => { counts[event] = cnt; });
+
+    const allEvents = [
+      'ai_chat_opened', 'ai_chat_message_sent', 'ai_chat_response_received',
+      'ai_chat_closed', 'ai_chat_quota_reached', 'ai_chat_image_generated'
+    ];
+    allEvents.forEach(ev => {
+      const el = document.getElementById('cnt-' + ev);
+      if (el) {
+        el.textContent = fmt(counts[ev] || 0);
+        el.classList.remove('loading');
+      }
+    });
+
+    // --- Summary cards ---
+    const openedEl = document.getElementById('summary-opened');
+    openedEl.textContent = fmt(counts['ai_chat_opened'] || 0);
+    openedEl.classList.remove('loading');
+
+    const msgsEl = document.getElementById('summary-messages');
+    msgsEl.textContent = fmt(counts['ai_chat_message_sent'] || 0);
+    msgsEl.classList.remove('loading');
+
+    const imgsEl = document.getElementById('summary-images');
+    imgsEl.textContent = fmt(counts['ai_chat_image_generated'] || 0);
+    imgsEl.classList.remove('loading');
+
+    // --- Avg messages per session ---
+    const opened = counts['ai_chat_opened'] || 0;
+    const messages = counts['ai_chat_message_sent'] || 0;
+    const msgsPerSessionEl = document.getElementById('metric-msgs-per-session');
+    if (opened > 0) {
+      const avg = (messages / opened).toFixed(1);
+      msgsPerSessionEl.textContent = avg;
+      msgsPerSessionEl.style.color = '#111';
+      document.getElementById('metric-msgs-per-session-sub').textContent = `${fmt(messages)} messages / ${fmt(opened)} sessions`;
+    } else {
+      msgsPerSessionEl.textContent = '—';
+      msgsPerSessionEl.style.color = '#ccc';
+    }
+    msgsPerSessionEl.classList.remove('loading');
+
+    // --- Quota hit count ---
+    const quotaEl = document.getElementById('metric-quota-hits');
+    const quotaCount = counts['ai_chat_quota_reached'] || 0;
+    quotaEl.textContent = fmt(quotaCount);
+    quotaEl.style.color = quotaCount > 0 ? '#ef4444' : '#ccc';
+    quotaEl.classList.remove('loading');
+
+    // --- Median response time ---
+    const respTime = responseTimeMedian?.[0]?.[0];
+    const respEl = document.getElementById('metric-response-time');
+    if (respTime != null && respTime > 0) {
+      if (respTime >= 1000) {
+        respEl.innerHTML = `${(respTime / 1000).toFixed(1)}<span style="font-size:20px; color:#888;">sec</span>`;
+      } else {
+        respEl.innerHTML = `${Math.round(respTime)}<span style="font-size:20px; color:#888;">ms</span>`;
+      }
+      respEl.style.color = '#111';
+    } else {
+      respEl.textContent = '—';
+      respEl.style.color = '#ccc';
+    }
+    respEl.classList.remove('loading');
+
+    // --- Median session duration ---
+    const sessDur = sessionDurationMedian?.[0]?.[0];
+    const sessEl = document.getElementById('metric-session-duration');
+    if (sessDur != null && sessDur > 0) {
+      if (sessDur >= 60) {
+        const mins = Math.floor(sessDur / 60);
+        const secs = Math.round(sessDur % 60);
+        sessEl.innerHTML = `${mins}<span style="font-size:20px; color:#888;">m</span> ${secs}<span style="font-size:20px; color:#888;">s</span>`;
+      } else {
+        sessEl.innerHTML = `${Math.round(sessDur)}<span style="font-size:20px; color:#888;">sec</span>`;
+      }
+      sessEl.style.color = '#111';
+    } else {
+      sessEl.textContent = '—';
+      sessEl.style.color = '#ccc';
+    }
+    sessEl.classList.remove('loading');
+
+    // --- Trigger breakdown ---
+    renderBreakdown('breakdown-trigger', triggerBreakdown, '#7c3aed');
+
+    // --- Chat flow funnel ---
+    const funnelItems = [
+      { label: 'ai_chat_opened', count: counts['ai_chat_opened'] || 0, color: '#6366f1' },
+      { label: 'ai_chat_message_sent', count: counts['ai_chat_message_sent'] || 0, color: '#7c3aed' },
+      { label: 'ai_chat_response_received', count: counts['ai_chat_response_received'] || 0, color: '#3b82f6' },
+      { label: 'ai_chat_image_generated', count: counts['ai_chat_image_generated'] || 0, color: '#06b6d4' },
+      { label: 'ai_chat_closed', count: counts['ai_chat_closed'] || 0, color: '#10b981' },
+      { label: 'ai_chat_quota_reached', count: counts['ai_chat_quota_reached'] || 0, color: '#ef4444' },
+    ];
+    renderFunnelBars('funnel-chat', funnelItems);
+
+    // --- Timestamp ---
+    document.getElementById('refresh-time').textContent = new Date().toLocaleString();
+    setStatus('Loaded successfully', 'ok');
+
+  } catch (err) {
+    console.error('PostHog fetch error:', err);
+    setStatus('Error: ' + err.message, 'err');
+  }
+}
+
+// Auto-load on page open if key exists
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = getKey();
+  if (saved) {
+    document.getElementById('api-key').value = saved;
+    fetchAllData();
+  }
+});
+</script>
+
+</body>
+</html>
