@@ -20,6 +20,8 @@ export interface StoredMessage {
   };
   // Hidden messages are kept in history for AI context but not rendered
   hidden?: boolean;
+  // AI-suggested follow-up questions (1-2 strings, only on assistant messages)
+  suggestedFollowUps?: string[];
 }
 
 export interface UsageStats {

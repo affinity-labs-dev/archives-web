@@ -141,6 +141,19 @@ interface AIChatImageGeneratedEvent {
   session_id?: string;
 }
 
+interface AIChatSuggestionShownEvent {
+  era_id: string;
+  suggestions_count: number;
+  session_id?: string;
+}
+
+interface AIChatSuggestionTappedEvent {
+  era_id: string;
+  suggestion_index: number;
+  suggestion_length: number;
+  session_id?: string;
+}
+
 // ==================== SESSION TELEMETRY INTERFACES (AFF-151) ====================
 
 export type SessionOutTrigger = 'manual_profile' | 'stale_session_onboarding' | 'clerk_session_ended' | 'account_deleted' | 'app_backgrounded';
@@ -1803,6 +1816,20 @@ class AnalyticsService {
    */
   trackAIChatImageGenerated(properties: AIChatImageGeneratedEvent) {
     this.trackCustomEvent('ai_chat_image_generated', properties);
+  }
+
+  /**
+   * Track AI follow-up suggestions shown to user
+   */
+  trackAIChatSuggestionShown(properties: AIChatSuggestionShownEvent) {
+    this.trackCustomEvent('ai_chat_suggestion_shown', properties);
+  }
+
+  /**
+   * Track user tapping on a follow-up suggestion
+   */
+  trackAIChatSuggestionTapped(properties: AIChatSuggestionTappedEvent) {
+    this.trackCustomEvent('ai_chat_suggestion_tapped', properties);
   }
 
   // ==================== END AI CHAT EVENTS ====================

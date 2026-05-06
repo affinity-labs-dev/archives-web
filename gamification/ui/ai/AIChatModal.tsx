@@ -156,6 +156,8 @@ export interface ChatMessage {
   };
   // Hidden messages are included in conversation history for AI context but not rendered in UI
   hidden?: boolean;
+  // AI-generated follow-up question suggestions (only on assistant messages)
+  suggestedFollowUps?: string[];
 }
 
 interface AIChatModalProps {
@@ -237,6 +239,62 @@ function StreamingAssistantMessage({
   return renderMarkdownText(displayText + (showCursor ? '|' : ''), textStyle);
 }
 
+/**
+ * Follow-up suggestion pills rendered below the most recent assistant
+ * message. Reveals AFTER the typewriter finishes (parent gates via
+ * `visible` prop) so suggestions don't compete with the streaming
+ * text for attention.
+ *
+ * Each pill animates in with a 60ms stagger — matches the welcome-
+ * screen suggestions pattern (line ~1180) so the feel is consistent.
+ * Tap behavior: send the suggestion as a user message immediately
+ * (no edit step), per product decision (matches welcome behavior).
+ */
+function FollowUpSuggestions({
+  suggestions,
+  visible,
+  onPress,
+}: {
+  suggestions: string[];
+  visible: boolean;
+  onPress: (suggestion: string, index: number) => void;
+}) {
+  if (!visible || suggestions.length === 0) return null;
+
+  return (
+    <View style={styles.followUpContainer}>
+      {suggestions.slice(0, 2).map((suggestion, index) => (
+        <AnimatedEntrance
+          key={`${suggestion}-${index}`}
+          preset={{
+            translateY: { from: 12, to: 0 },
+            opacity: { from: 0, to: 1 },
+            duration: 280,
+            easing: easings.power2Out,
+          }}
+          delay={index * 60}
+        >
+          <DepthButton
+            variant="secondary"
+            size="medium"
+            surfaceColor="snow"
+            shadowColor="acaiTertiary"
+            borderColor="acaiPrimary"
+            radius={22}
+            shadowOffset={4}
+            pressEffect="dip"
+            onPress={() => onPress(suggestion, index)}
+          >
+            <Typography variant="label.xs" weight="600" color="onyx">
+              {suggestion}
+            </Typography>
+          </DepthButton>
+        </AnimatedEntrance>
+      ))}
+    </View>
+  );
+}
+
 export default function AIChatModal({
   visible,
   onClose,
@@ -266,6 +324,26 @@ export default function AIChatModal({
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
+  // Tracks which userId we've already loaded chat history for, so that
+  // load fires exactly once per (visible × userId) pair and never
+  // re-fires when local state empties (e.g. after Clear Chat). The
+  // previous gate `messages.length === 0` was a state-derived condition
+  // — `setMessages([])` from clear flipped it back to true, which raced
+  // against the in-flight Supabase DELETE and reloaded stale messages.
+  // Symptom: first Clear after a long conversation appeared to "fail",
+  // killing+reopening let the second Clear succeed because state was
+  // already empty by then so the load effect didn't re-fire.
+  // Switching to a userId-keyed ref breaks the link between local
+  // emptiness and re-loading; account-switch still re-loads because
+  // the ref no longer matches the new userId.
+  const lastLoadedUserIdRef = useRef<string | null>(null);
+  // Defensive guard: while a Clear operation is in flight, suppress
+  // any potential load attempt. Belt-and-suspenders next to the ref
+  // gate above — protects against future deps changes accidentally
+  // re-triggering the load effect during the brief window between
+  // setMessages([]) and clearMessages() completing in Supabase.
+  const isClearingRef = useRef(false);
+
   // Auto-follow flag for streaming text. `true` while the user is at
   // (or near) the bottom of the chat — the scroll view auto-pins to
   // the bottom on every typewriter tick. The user can break out of
@@ -341,7 +419,18 @@ export default function AIChatModal({
   const userName = user?.firstName || 'Explorer';
   const userId = user?.id;
 
-  // Load persisted messages when modal opens
+  // Load persisted messages when modal opens.
+  //
+  // Gate is `lastLoadedUserIdRef.current !== userId` (not the legacy
+  // `messages.length === 0`). See ref declaration above for why —
+  // state-derived gate raced with Clear Chat's Supabase DELETE.
+  //
+  // Re-fires only when:
+  //   1. Modal opens for the first time after mount (ref is null)
+  //   2. User switches Clerk account (userId changes — ref no longer matches)
+  // It does NOT re-fire when:
+  //   - User clears chat (messages.length goes N→0 but ref unchanged)
+  //   - User closes and reopens the modal (ref still matches userId)
   useEffect(() => {
     const loadMessages = async () => {
       if (!userId) return;
@@ -368,10 +457,16 @@ export default function AIChatModal({
       }
     };
 
-    if (visible && userId && messages.length === 0) {
+    if (
+      visible &&
+      userId &&
+      !isClearingRef.current &&
+      lastLoadedUserIdRef.current !== userId
+    ) {
+      lastLoadedUserIdRef.current = userId;
       loadMessages();
     }
-  }, [visible, userId, messages.length]);
+  }, [visible, userId]);
 
   // Save messages to storage
   const saveMessages = async (updatedMessages: ChatMessage[]) => {
@@ -387,6 +482,7 @@ export default function AIChatModal({
       isUploadedImage: msg.isUploadedImage,
       quizContext: msg.quizContext,
       hidden: msg.hidden,
+      suggestedFollowUps: msg.suggestedFollowUps,
     }));
 
     await aiStorageService.saveMessages(userId, storedMessages);
@@ -496,6 +592,7 @@ export default function AIChatModal({
           content: response.text,
           timestamp: new Date(),
           quizContext,
+          suggestedFollowUps: response.suggestedFollowUps,
         };
 
         setMessages((prev) => [...prev, hiddenMsg, aiMsg]);
@@ -657,11 +754,21 @@ export default function AIChatModal({
           text: 'Clear',
           style: 'destructive',
           onPress: async () => {
-            setMessages([]);
-            if (userId) {
-              await aiStorageService.clearMessages(userId);
+            // Set guard BEFORE clearing local state. Even though the
+            // load effect's primary gate (lastLoadedUserIdRef) already
+            // prevents re-loading, this guarantees protection if the
+            // effect deps array changes in the future. Reset only
+            // after the Supabase DELETE has fully committed.
+            isClearingRef.current = true;
+            try {
+              setMessages([]);
+              if (userId) {
+                await aiStorageService.clearMessages(userId);
+              }
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } finally {
+              isClearingRef.current = false;
             }
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           },
         },
       ]
@@ -944,6 +1051,7 @@ export default function AIChatModal({
           content: response.text,
           timestamp: new Date(),
           sources: response.sources, // Include web search sources
+          suggestedFollowUps: response.suggestedFollowUps,
         };
 
         setTypewriterMsgId(aiMsg.id);
@@ -998,6 +1106,64 @@ export default function AIChatModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     handleSend(suggestion);
   };
+
+  // Handle tap on AI-generated follow-up suggestion (post-message pills).
+  // Identical send behavior as welcome suggestions, but tracked under a
+  // distinct event so we can measure engagement vs the static welcome set.
+  const handleFollowUpPress = useCallback(
+    (suggestion: string, index: number) => {
+      analyticsService.trackAIChatSuggestionTapped({
+        era_id: context?.eraId || 'unknown_era',
+        suggestion_index: index,
+        suggestion_length: suggestion.length,
+        session_id: currentSessionId || undefined,
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      handleSend(suggestion);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [context?.eraId, currentSessionId],
+  );
+
+  // Find the latest visible (non-hidden) assistant message — that's the
+  // only one that gets follow-up suggestions rendered. Earlier assistant
+  // messages keep their `suggestedFollowUps` in state for persistence,
+  // but we only render the most recent set so the chat doesn't look
+  // cluttered with stacks of stale suggestions on scroll-up.
+  const lastAssistantMessageId = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (!m.hidden && m.role === 'assistant') return m.id;
+    }
+    return null;
+  })();
+
+  // Fire `ai_chat_suggestion_shown` exactly once per (latest message ×
+  // suggestions reveal). The reveal happens when the typewriter
+  // finishes (`typewriterMsgId` flips back to null) on the latest
+  // assistant message that has follow-ups attached. Using a ref-based
+  // dedupe key (instead of a "shownIds" Set in state) keeps the effect
+  // dependency-array minimal and avoids a re-render just to record
+  // analytics.
+  const lastSuggestionFiredIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typewriterMsgId !== null) return;
+    if (!lastAssistantMessageId) return;
+    if (lastSuggestionFiredIdRef.current === lastAssistantMessageId) return;
+
+    const lastMsg = messages.find((m) => m.id === lastAssistantMessageId);
+    const followUps = lastMsg?.suggestedFollowUps || [];
+    if (followUps.length === 0) return;
+    if (lastMsg?.image || lastMsg?.imageUrl) return;
+
+    lastSuggestionFiredIdRef.current = lastAssistantMessageId;
+    analyticsService.trackAIChatSuggestionShown({
+      era_id: context?.eraId || 'unknown_era',
+      suggestions_count: Math.min(followUps.length, 2),
+      session_id: currentSessionId || undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typewriterMsgId, lastAssistantMessageId, messages]);
 
   // Suggestion buttons for welcome screen
   const suggestions = [
@@ -1300,6 +1466,27 @@ export default function AIChatModal({
                             <Text style={styles.tapToViewText}>Tap to expand</Text>
                           </View>
                         </TouchableOpacity>
+                      )}
+                      {/* Follow-up suggestions: only on the latest assistant
+                          message, only when typewriter is done, never on image
+                          responses (visual context, not Q&A), and hidden while
+                          the user is composing their own input or another
+                          request is in flight. Each AI message keeps its own
+                          `suggestedFollowUps` in state for persistence so
+                          that on app restart the latest message can re-render
+                          its pills (visibility check still applies). */}
+                      {!message.image && !message.imageUrl && (
+                        <FollowUpSuggestions
+                          suggestions={message.suggestedFollowUps || []}
+                          visible={
+                            message.id === lastAssistantMessageId &&
+                            typewriterMsgId === null &&
+                            !isLoading &&
+                            !pendingImage &&
+                            inputText.trim().length === 0
+                          }
+                          onPress={handleFollowUpPress}
+                        />
                       )}
                       {/* Render web search sources if present */}
                       {message.sources && message.sources.length > 0 && (
@@ -1698,7 +1885,25 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 8,
     paddingHorizontal: 20,
-    
+
+  },
+  // Inline follow-up suggestions rendered below the latest assistant
+  // message bubble. Right-aligned to mirror user-action affordances
+  // (user messages sit on the right; tappable pills are also actions
+  // the user takes, so they share that side). `width: '100%'` is
+  // required for `justifyContent: 'flex-end'` to work as right-align —
+  // without an explicit full width the container would shrink to its
+  // content and `justifyContent` would have no extra space to pack.
+  // `flexWrap` keeps long suggestion text wrapping cleanly to a
+  // second row on narrow Android devices instead of clipping.
+  followUpContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 4,
+    width: '100%',
   },
   // Message Bubbles
   messageBubble: {

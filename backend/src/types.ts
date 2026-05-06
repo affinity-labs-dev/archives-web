@@ -69,6 +69,7 @@ export interface ChatResponse {
   sources?: Array<{ uri: string; title: string }>;
   searchQueries?: string[];
   toolsUsed?: string[];
+  suggestedFollowUps?: string[];
   quotaRemaining: QuotaInfo;
 }
 

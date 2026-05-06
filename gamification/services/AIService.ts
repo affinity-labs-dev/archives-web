@@ -22,6 +22,7 @@ export interface ChatResponseWithSources {
   text: string;
   sources?: WebSearchSource[];
   searchQueries?: string[];
+  suggestedFollowUps?: string[];
 }
 
 // Request params for quiz explanation
@@ -175,6 +176,7 @@ class AIService {
         content: string;
         sources?: WebSearchSource[];
         searchQueries?: string[];
+        suggestedFollowUps?: string[];
       }>('/ai/chat', {
         message: params.userMessage,
         conversationHistory: params.conversationHistory,
@@ -191,6 +193,7 @@ class AIService {
         text: result.content,
         sources: result.sources,
         searchQueries: result.searchQueries,
+        suggestedFollowUps: result.suggestedFollowUps,
       };
     } catch (error) {
       AppLogger.error('ai', 'Chat error', {}, error instanceof Error ? error : new Error(String(error)));

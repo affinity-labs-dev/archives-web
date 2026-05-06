@@ -35,6 +35,65 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
+// Sentinel-tail pattern: prompt instructs the model to emit
+// `[[FOLLOWUPS]][...]` as the very last line of every response (see
+// section 9 of buildChatSystemPrompt). We strip it server-side so the
+// client receives clean prose + a structured suggestions array.
+//
+// Two-layer defense for backwards compatibility with older client
+// versions in production that don't know about `suggestedFollowUps`:
+//
+//   Layer A (`HAPPY_PATH_REGEX`): strict match — sentinel followed by
+//   a well-formed JSON array. Captures the array for parsing and
+//   yields clean content + structured suggestions.
+//
+//   Layer B (`SAFETY_REGEX`): loose match — strips ANY trailing
+//   `[[FOLLOWUPS]]...` even when the JSON array is malformed,
+//   truncated (maxOutputTokens cutoff mid-array), or completely
+//   missing. Without this, a malformed tail would leak the literal
+//   `[[FOLLOWUPS]]` marker into the visible response — visible to
+//   BOTH old and new clients, since the leak is in the `content`
+//   field that every client renders.
+//
+// Reliability: model may occasionally omit the tail (~5% in early
+// testing). Graceful fallback — empty array, no UI suggestions.
+const HAPPY_PATH_REGEX = /\n*\[\[FOLLOWUPS\]\]\s*(\[[\s\S]*?\])\s*$/;
+const SAFETY_REGEX = /\n*\[\[FOLLOWUPS\]\][\s\S]*$/;
+
+export function parseFollowUpsTail(rawContent: string): {
+  cleanContent: string;
+  suggestedFollowUps: string[];
+} {
+  const happy = rawContent.match(HAPPY_PATH_REGEX);
+  if (happy && happy.index !== undefined) {
+    let suggestedFollowUps: string[] = [];
+    try {
+      const parsed = JSON.parse(happy[1]);
+      if (Array.isArray(parsed)) {
+        suggestedFollowUps = parsed
+          .filter((s): s is string => typeof s === 'string')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0 && s.length <= 80)
+          .slice(0, 2);
+      }
+    } catch {
+      // JSON malformed — fall through to safety strip below
+    }
+
+    if (suggestedFollowUps.length > 0) {
+      const cleanContent = rawContent.slice(0, happy.index).trim();
+      return { cleanContent, suggestedFollowUps };
+    }
+  }
+
+  // Fallback: strip any trailing `[[FOLLOWUPS]]...` (even malformed/
+  // truncated) so the marker NEVER leaks into the response content
+  // that old client versions render. Empty suggestions array means
+  // no follow-up pills shown — same as if model never emitted tail.
+  const cleanContent = rawContent.replace(SAFETY_REGEX, '').trim();
+  return { cleanContent, suggestedFollowUps: [] };
+}
+
 // ─── Chat ───
 
 export async function chat(req: ChatRequest, quotaRemaining: QuotaInfo): Promise<ChatResponse> {
@@ -197,7 +256,8 @@ export async function chat(req: ChatRequest, quotaRemaining: QuotaInfo): Promise
       aiResponse = 'I had trouble generating a detailed response. Please try asking your question again, or rephrase it slightly.';
     }
 
-    return { content: aiResponse, toolsUsed, quotaRemaining };
+    const { cleanContent, suggestedFollowUps } = parseFollowUpsTail(aiResponse);
+    return { content: cleanContent, suggestedFollowUps, toolsUsed, quotaRemaining };
   }
 
   // No function calls — extract text directly
@@ -228,7 +288,8 @@ export async function chat(req: ChatRequest, quotaRemaining: QuotaInfo): Promise
       .map((c: any) => ({ uri: c.web.uri, title: c.web.title }));
   }
 
-  return { content: aiResponse, sources, searchQueries, toolsUsed, quotaRemaining };
+  const { cleanContent, suggestedFollowUps } = parseFollowUpsTail(aiResponse);
+  return { content: cleanContent, sources, searchQueries, suggestedFollowUps, toolsUsed, quotaRemaining };
 }
 
 // ─── Quiz Explanations ───
