@@ -411,11 +411,11 @@
         <span class="vol">correct_answers, total_questions, percentage, total_points, performance_tier: high | medium | low, era_id, era_name</span>
       </div>
       <div class="event-row">
-        <span class="mono">quiz_results_continue_clicked</span>
+        <span class="mono">quiz_results_continue_tapped</span>
         <span class="vol">adventure_id, module_id, era_id, era_name (via trackCustomEvent)</span>
       </div>
       <div class="event-row">
-        <span class="mono">quiz_results_chat_to_learn_clicked</span>
+        <span class="mono">quiz_results_chat_to_learn_tapped</span>
         <span class="vol">adventure_id, module_id, era_id (via trackCustomEvent)</span>
       </div>
       <div class="event-row">
@@ -431,7 +431,7 @@
     <td class="node-name">Continue</td>
     <td>
       <div class="event-row">
-        <span class="mono">quiz_results_continue_clicked</span>
+        <span class="mono">quiz_results_continue_tapped</span>
         <span class="vol">adventure_id, module_id, era_id (via trackCustomEvent)</span>
       </div>
     </td>
@@ -476,7 +476,7 @@
 
   <tr>
     <td>17</td>
-    <td class="node-name">AI Chat (from Quiz Results)</td>
+    <td class="node-name">AI Quiz Explanation</td>
     <td>
       <div class="event-row">
         <span class="mono">ai_quiz_explanation_requested</span>
@@ -486,12 +486,24 @@
         <span class="mono">ai_quiz_explanation_generated</span>
         <span class="vol">adventure_id, module_id (via trackCustomEvent)</span>
       </div>
+    </td>
+    <td>AI explanation times out; explanation sheet doesn't expand; loading spinner stuck; Gemini API error not surfaced</td>
+  </tr>
+
+  <tr>
+    <td>18</td>
+    <td class="node-name">Chat to Learn</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">quiz_results_chat_to_learn_tapped</span>
+        <span class="vol">adventure_id, module_id, era_id (via trackCustomEvent)</span>
+      </div>
       <div class="event-row">
         <span class="mono">chat_to_learn_paywall_shown</span>
         <span class="vol">adventure_id, module_id (via trackCustomEvent, for non-subscribers)</span>
       </div>
     </td>
-    <td>AI explanation times out; paywall not shown for free users; chat context wrong era</td>
+    <td>Chat modal doesn't open; paywall not shown for free users; chat context wrong era; "Chat to learn more" button unresponsive</td>
   </tr>
 </tbody>
 </table>
