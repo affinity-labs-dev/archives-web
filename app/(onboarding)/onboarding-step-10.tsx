@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 import {
   SpeechBubble,
@@ -10,7 +11,7 @@ import {
   spacing,
 } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
-import { Mascot } from '@/components/onboarding/Mascot/Mascot';
+import { MascotSlot, useMascotPresence } from '@/components/onboarding/Mascot';
 import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
 import { useOnboardingStore, TOTAL_ONBOARDING_STEPS } from '@/stores/onboardingStore';
 import { toDisplayStep } from '@/constants/OnboardingRoutes';
@@ -62,9 +63,28 @@ export default function OnboardingStep10Screen() {
   const [bodyKey, setBodyKey] = useState(0);
   const [typewriterDone, setTypewriterDone] = useState(false);
 
+  useMascotPresence();
+
   useEffect(() => {
     analyticsService.trackOnboardingStepViewed(phase === 10 ? 'daily_goal' : 'age_group');
   }, [phase]);
+
+  // Recover from stale exit state when the user navigates back into this
+  // screen. `handleAgeGroupDone` (forward nav) latches `isExiting=true` and
+  // triggers OptionList's exit cascade — without this reset, on return all
+  // gestures stay blocked and the option list remains animated off-screen.
+  // Skipped on initial mount via the ref so the entrance plays only once.
+  const hasFocusedOnceRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasFocusedOnceRef.current) {
+        hasFocusedOnceRef.current = true;
+        return;
+      }
+      setIsExiting(false);
+      setBodyKey((k) => k + 1);
+    }, []),
+  );
 
   const handleTypewriterComplete = useCallback(() => setTypewriterDone(true), []);
 
@@ -105,7 +125,7 @@ export default function OnboardingStep10Screen() {
     // Mark skipped so next app launch routes straight to tabs — user
     // explicitly bailed on personalization; don't resume mid-flow.
     markSkipped();
-    router.push('/onboarding-step-13' as never);
+    router.push('/onboarding-step-11' as never);
   };
 
   return (
@@ -124,7 +144,7 @@ export default function OnboardingStep10Screen() {
           {/* Mascot + bubble shell — mounts once, stays put. */}
           <AnimatedEntrance preset="slideFromLeft" delay={100}>
             <View style={styles.mascotRow}>
-              <Mascot width={110} height={96} autoPlayEntrance={false} />
+              <MascotSlot />
 
               <View style={styles.bubbleWrapper}>
                 <SpeechBubble

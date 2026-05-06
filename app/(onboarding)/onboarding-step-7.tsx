@@ -21,7 +21,7 @@ import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { resolvePostSignInRoute } from '@/services/PaywallGateService';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const ibuJumpingRive = require('@/assets/rive/ibu-jumping.riv');
+const heroIbuRive = require('@/assets/rive/hero_ibu.riv');
 
 /**
  * Screen 7 — Create Account.
@@ -32,7 +32,7 @@ const ibuJumpingRive = require('@/assets/rive/ibu-jumping.riv');
  * Layout (top → bottom):
  *   1. Title "LET'S CREATE AN ACCOUNT"
  *   2. Subtitle "Sign up to save your progress and unlock achievements"
- *   3. Rive mascot (Ibu jumping)
+ *   3. Rive mascot (Hero Ibu)
  *   4. Log In / Sign Up toggle row (navigates to existing auth screen with mode)
  *   5. Divider
  *   6. Continue with Apple  — reuses existing AppleSignInButton (Clerk OAuth)
@@ -169,7 +169,7 @@ export default function OnboardingStep7Screen() {
           >
             <View style={styles.riveWrapper}>
               <Rive
-                source={ibuJumpingRive}
+                source={heroIbuRive}
                 autoplay
                 fit={Fit.Contain}
                 alignment={Alignment.Center}

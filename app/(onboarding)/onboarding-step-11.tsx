@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { Dimensions, View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
@@ -10,6 +10,8 @@ import { Typography, colors, spacing, easings } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { analyticsService } from '@/services/AnalyticsService';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const reruledLoadingRive = require('@/assets/rive/reruled-loading.riv');
@@ -164,8 +166,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   riveBox: {
-    width: 220,
-    height: 220,
+    width: SCREEN_WIDTH * 0.7,
+    height: 250,
     overflow: 'hidden',
     backgroundColor: 'transparent',
   },

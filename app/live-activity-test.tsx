@@ -48,6 +48,13 @@ const TEST_STORY_TITLE = 'The Golden Age of Baghdad';
 const TEST_ERA_TITLE = 'The Golden Age';
 const TEST_STORY_ID = '2026-04-09';
 
+// Anchor count-up timer 30s in the past so the banner shows "0:30+" the
+// instant it appears — easy visual confirmation that count-up is working.
+// `Math.floor(...)` because Swift expects integer Unix seconds (Double field
+// but no fractional precision needed); -30 gives us a head start over the
+// past-clamp guard's `now-1` floor.
+const testStartedAt = () => Math.floor(Date.now() / 1000) - 30;
+
 // When a Live Activity transitions to a terminal state (DailyStory: .completed /
 // .incomplete, StreakGuard: .saved / .failed), we immediately end the activity so
 // the Dynamic Island disappears, while passing a 15-min dismissalPolicy so the
@@ -358,6 +365,7 @@ function LiveActivityTestScreen() {
         questionsCompleted: false,
         currentStreak: TEST_STREAK,
         endDate: Math.floor(midnight.getTime() / 1000),
+        startedAt: testStartedAt(),
         xpEarned: 0,
       });
       setDailyStoryId(id);
@@ -395,6 +403,7 @@ function LiveActivityTestScreen() {
         questionsCompleted: newCount >= 3,
         currentStreak: TEST_STREAK,
         endDate: reachedCompletion ? 0 : Math.floor(midnight.getTime() / 1000),
+        startedAt: testStartedAt(),
         xpEarned: reachedCompletion ? 30 : 0,
       });
       setStoryCompleted(newCount);
@@ -426,6 +435,7 @@ function LiveActivityTestScreen() {
         questionsCompleted: true,
         currentStreak: TEST_STREAK,
         endDate: 0,
+        startedAt: testStartedAt(),
         xpEarned: 30,
       });
       setStoryCompleted(3);
@@ -456,6 +466,7 @@ function LiveActivityTestScreen() {
         questionsCompleted: false,
         currentStreak: TEST_STREAK,
         endDate: 0,
+        startedAt: testStartedAt(),
         xpEarned: 0,
       });
       setStoryCompleted(1);
@@ -487,6 +498,7 @@ function LiveActivityTestScreen() {
         questionsCompleted: true,
         currentStreak: TEST_STREAK,
         endDate: 0,
+        startedAt: testStartedAt(),
         xpEarned: 30,
       });
       setStoryCompleted(3);
@@ -516,6 +528,7 @@ function LiveActivityTestScreen() {
         questionsCompleted: false,
         currentStreak: TEST_STREAK,
         endDate: 0,
+        startedAt: testStartedAt(),
         xpEarned: 0,
       });
       setStoryCompleted(1);
@@ -614,6 +627,7 @@ function LiveActivityTestScreen() {
         questionsCompleted: true,
         currentStreak: TEST_STREAK,
         endDate: 0,
+        startedAt: testStartedAt(),
         xpEarned: 30,
       });
       setStoryCompleted(3);
@@ -693,6 +707,7 @@ function LiveActivityTestScreen() {
         questionsCompleted: false,
         currentStreak: TEST_STREAK,
         endDate: 0,
+        startedAt: testStartedAt(),
         xpEarned: 0,
       });
       await endDailyStory(id, TERMINAL_LINGER_SECONDS);

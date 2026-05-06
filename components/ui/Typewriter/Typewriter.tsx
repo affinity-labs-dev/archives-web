@@ -21,6 +21,8 @@ export interface TypewriterProps {
   autoStart?: boolean;
   /** Delay before typewriter starts (ms). Use to sync with parent entrance animations. */
   startDelay?: number;
+  /** Soft per-character haptic tick. Default `true`. */
+  haptics?: boolean;
   variant?: TypographyProps['variant'];
   color?: TypographyProps['color'];
   size?: TypographyProps['size'];
@@ -42,6 +44,7 @@ export function Typewriter({
   onComplete,
   autoStart = true,
   startDelay,
+  haptics = true,
   variant = 'body.m',
   color,
   size,
@@ -56,6 +59,7 @@ export function Typewriter({
     onComplete,
     autoStart,
     startDelay,
+    haptics,
   });
 
   const cursorOpacity = useSharedValue(0);

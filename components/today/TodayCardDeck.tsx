@@ -40,6 +40,22 @@ import {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Identity key for an ImageSource — used by the day-switch crossfade to
+// detect "did the URL actually change?" instead of trusting object ref
+// equality. Object literals like `{ uri: 'X' }` are recreated on every
+// `useMemo` run, so ref-equality would fire the crossfade even when the
+// underlying URL is unchanged. Returns a stable string keyed off the URI
+// (or the static `require()` module number) so the comparison survives
+// parent re-memos that don't actually change the image.
+const sourceKey = (src: TodayCardData["imageSource"] | null): string => {
+  if (src == null) return 'null';
+  if (typeof src === 'number') return `static:${src}`;
+  if (typeof src === 'object' && 'uri' in src && typeof src.uri === 'string') {
+    return `uri:${src.uri}`;
+  }
+  return 'unknown';
+};
+
 // ──────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────
@@ -527,14 +543,25 @@ function Card({
     opacity: defaultPillOpacity.value,
   }));
 
-  // Day-switch crossfade state — track current vs. outgoing image and title.
-  // When parent changes `data.imageSource` / `data.title`, we keep the OLD
-  // value rendered as a fading overlay while the new value mounts beneath.
-  const [currentImage, setCurrentImage] = useState(data.imageSource);
-  const [outgoingImage, setOutgoingImage] = useState<
-    TodayCardData["imageSource"] | null
-  >(null);
-  const outgoingImageOpacity = useSharedValue(0);
+  // Day-switch crossfade — TWO-LAYER PING-PONG state. Stable Animated.View
+  // layers A and B, each holding its own <Image>. The "active" layer renders
+  // at opacity 1, the "inactive" layer at opacity 0. On swap we assign the
+  // new source to the inactive layer (still invisible), wait one frame for
+  // the native image to upload, then crossfade opacities. This avoids the
+  // single-overlay flicker where <Image> source-change leaves a blank frame
+  // mid-transition (expo-image briefly clears between cache reads).
+  type LayerSource = TodayCardData["imageSource"] | null;
+  const [layerASource, setLayerASource] = useState<LayerSource>(
+    data.imageSource ?? null,
+  );
+  const [layerBSource, setLayerBSource] = useState<LayerSource>(null);
+  const layerAOpacity = useSharedValue(1);
+  const layerBOpacity = useSharedValue(0);
+  // Tracks which layer is the currently visible one. Updated inside the
+  // tween scheduler so the swap is committed atomically with the opacity
+  // ping-pong — earlier writes would let `visibleSource` lookups read a
+  // stale layer and mis-assign the next swap.
+  const activeIsARef = useRef(true);
 
   const [currentTitle, setCurrentTitle] = useState(data.title);
   const titleOpacity = useSharedValue(1);
@@ -543,14 +570,14 @@ function Card({
   const minutesOpacity = useSharedValue(1);
 
   // Cleanup timers so unmount during a fade doesn't leave dangling setStates
-  const imageCrossfadeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const titleSwapTimerRef = useRef<NodeJS.Timeout | null>(null);
   const titleFadeInTimerRef = useRef<NodeJS.Timeout | null>(null);
   const minutesSwapTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const crossfadeRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
-      if (imageCrossfadeTimerRef.current) clearTimeout(imageCrossfadeTimerRef.current);
+      if (crossfadeRafRef.current != null) cancelAnimationFrame(crossfadeRafRef.current);
       if (titleSwapTimerRef.current) clearTimeout(titleSwapTimerRef.current);
       if (titleFadeInTimerRef.current) clearTimeout(titleFadeInTimerRef.current);
       if (minutesSwapTimerRef.current) clearTimeout(minutesSwapTimerRef.current);
@@ -566,27 +593,77 @@ function Card({
     });
   }, [isCenter, contentOpacity]);
 
-  // Image crossfade — mock `index.html:2013-2034`. Outgoing layer fades 1→0
-  // via Reanimated tween; setTimeout schedules the cleanup of the outgoing
-  // layer on the JS thread, so we don't pass JS state setters through a
-  // worklet completion callback (which was causing Hermes crashes).
+  // Image crossfade — TWO-LAYER PING-PONG (mock `index.html:2013-2034`).
+  //
+  // Both layer Animated.Views are always mounted; only their inner <Image>
+  // sources and opacities change. On each swap:
+  //   1. Compute "visible" source from active layer ref → key compare → bail if same
+  //   2. Prefetch new URL into expo-image cache (skip for static `require()`)
+  //   3. Assign new source to the INACTIVE layer (still at opacity 0,
+  //      invisible — gives expo-image a frame to upload pixels to GPU
+  //      without the user seeing the load in progress)
+  //   4. requestAnimationFrame: flip activeIsARef + tween opacities
+  //      atomically. The rAF gap means React has committed step 3's
+  //      setLayerXSource and the native Image has rendered before any
+  //      visible alpha-blend begins — no blank/placeholder mid-fade.
+  //
+  // Network failures: prefetch `.catch` swallows the rejection; the swap
+  // proceeds anyway so the user isn't stuck on the previous day. expo-image
+  // will render its own error/placeholder state on the inactive layer if
+  // the URL truly can't load.
   useEffect(() => {
-    if (data.imageSource === currentImage) return;
-    setOutgoingImage(currentImage);
-    setCurrentImage(data.imageSource);
-    outgoingImageOpacity.value = 1;
-    outgoingImageOpacity.value = withTiming(0, {
-      duration: safeDuration(IMAGE_CROSSFADE_MS),
-      easing: easings.power2InOut,
-    });
-    if (imageCrossfadeTimerRef.current) {
-      clearTimeout(imageCrossfadeTimerRef.current);
+    const next = data.imageSource ?? null;
+    const visibleSource = activeIsARef.current ? layerASource : layerBSource;
+    if (sourceKey(next) === sourceKey(visibleSource)) return;
+
+    let cancelled = false;
+
+    const fireSwap = () => {
+      if (cancelled) return;
+      const newActiveIsA = !activeIsARef.current;
+
+      // Step 3: assign new source to inactive layer (opacity 0, invisible).
+      if (newActiveIsA) setLayerASource(next);
+      else setLayerBSource(next);
+
+      // Step 4: defer to next vsync so React commits + native uploads
+      // the image before the crossfade tween starts. Without this gap,
+      // the tween could begin while the inactive layer still shows the
+      // previous frame's pixels (or nothing) — visible as a flicker.
+      if (crossfadeRafRef.current != null) {
+        cancelAnimationFrame(crossfadeRafRef.current);
+      }
+      crossfadeRafRef.current = requestAnimationFrame(() => {
+        crossfadeRafRef.current = null;
+        if (cancelled) return;
+        activeIsARef.current = newActiveIsA;
+        const dur = safeDuration(IMAGE_CROSSFADE_MS);
+        const tweenCfg = { duration: dur, easing: easings.power2InOut };
+        if (newActiveIsA) {
+          layerAOpacity.value = withTiming(1, tweenCfg);
+          layerBOpacity.value = withTiming(0, tweenCfg);
+        } else {
+          layerBOpacity.value = withTiming(1, tweenCfg);
+          layerAOpacity.value = withTiming(0, tweenCfg);
+        }
+      });
+    };
+
+    const uri =
+      next != null && typeof next === 'object' && 'uri' in next
+        ? next.uri
+        : undefined;
+
+    if (typeof uri === 'string' && uri.length > 0) {
+      Image.prefetch(uri).catch(() => undefined).finally(fireSwap);
+    } else {
+      fireSwap();
     }
-    imageCrossfadeTimerRef.current = setTimeout(() => {
-      setOutgoingImage(null);
-      imageCrossfadeTimerRef.current = null;
-    }, safeDuration(IMAGE_CROSSFADE_MS));
-  }, [data.imageSource, currentImage, outgoingImageOpacity]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data.imageSource, layerASource, layerBSource, layerAOpacity, layerBOpacity]);
 
   // Title fade-swap — mock `index.html:2037-2048`. Out 200ms, swap, in 300ms.
   // Driven by setTimeout chain on JS thread (avoids worklet-callback crash).
@@ -715,8 +792,11 @@ function Card({
     transform: [{ scale: imageScale.value }],
   }));
 
-  const outgoingImageAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: outgoingImageOpacity.value,
+  const layerAStyle = useAnimatedStyle(() => ({
+    opacity: layerAOpacity.value,
+  }));
+  const layerBStyle = useAnimatedStyle(() => ({
+    opacity: layerBOpacity.value,
   }));
 
   const titleAnimatedStyle = useAnimatedStyle(() => ({
@@ -738,29 +818,39 @@ function Card({
         style={styles.cardTouchable}
       >
         <Animated.View style={[styles.imageLayer, imageAnimatedStyle]}>
-          {currentImage != null ? (
-            <Image
-              source={currentImage}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-            />
-          ) : (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: "#222" }]}
-            />
-          )}
-          {outgoingImage != null && (
-            <Animated.View
-              style={[StyleSheet.absoluteFill, outgoingImageAnimatedStyle]}
-              pointerEvents="none"
-            >
+          {/* Two-layer ping-pong. Both layers are ALWAYS mounted so their
+              `useAnimatedStyle` opacity subscriptions are stable across
+              swaps. The inactive layer holds the new image at opacity 0
+              while expo-image uploads pixels — no blank-frame race when
+              the crossfade starts. Inner <Image> stays conditional so
+              an unused slot doesn't render a phantom layer. */}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "#222" }]} />
+          <Animated.View
+            style={[StyleSheet.absoluteFill, layerAStyle]}
+            pointerEvents="none"
+          >
+            {layerASource != null && (
               <Image
-                source={outgoingImage}
+                source={layerASource}
                 style={StyleSheet.absoluteFill}
                 contentFit="cover"
+                cachePolicy="memory-disk"
               />
-            </Animated.View>
-          )}
+            )}
+          </Animated.View>
+          <Animated.View
+            style={[StyleSheet.absoluteFill, layerBStyle]}
+            pointerEvents="none"
+          >
+            {layerBSource != null && (
+              <Image
+                source={layerBSource}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+            )}
+          </Animated.View>
         </Animated.View>
 
         {/* Mock gradient: `linear-gradient(31deg, rgba(0,0,0,0.98) 15.9%, rgba(0,0,0,0) 93.2%)` */}

@@ -70,8 +70,13 @@ export interface DailyStoryStartParams {
   questionsCompleted: boolean;
   /** Current streak count — displayed in banner Row 1 and compact leading */
   currentStreak: number;
-  /** Unix epoch seconds — midnight local. Drives the "5h 12m left" gold timer */
+  /** Unix epoch seconds — midnight local. Used by the JS midnight scheduler signal flow. */
   endDate: number;
+  /** Unix epoch seconds — when user first engaged with daily story today.
+   *  Drives the count-UP timer in banner + expanded views via SwiftUI's
+   *  `Text(_, style: .timer)` rendering of a past date. Persisted so the
+   *  timer resumes from the original moment after kill+restart. */
+  startedAt: number;
   /** XP earned — shown as "+N XP" in completed state. Pass 0 for non-completed states. */
   xpEarned: number;
 }

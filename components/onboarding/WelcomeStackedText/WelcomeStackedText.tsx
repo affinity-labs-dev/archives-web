@@ -1,10 +1,13 @@
+import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 
 import { Typography } from '@/components/ui/Typography';
 import { AnimatedEntrance } from '@/components/ui/animations';
-import { sizeConfigs, type ColorKey, type SizeKey } from '@/components/ui/theme';
+import { isReducedMotion, sizeConfigs, type ColorKey, type SizeKey } from '@/components/ui/theme';
+
+const LAYER_DELAYS_MS = [0, 350, 700] as const;
 
 /**
  * Bounded-Black is a wide display font — empirically each uppercase character
@@ -128,6 +131,21 @@ export function WelcomeStackedText({
     weight: '900' as const,
     align: 'center' as const,
   };
+
+  // One soft haptic synced to each layer's entrance — softer than the
+  // Light/Medium impact used for button taps. Skipped under reduce-motion
+  // to match the visual entrance, which AnimatedEntrance also short-circuits.
+  React.useEffect(() => {
+    if (!autoPlay || isReducedMotion()) return undefined;
+    const timers = LAYER_DELAYS_MS.map((delay) =>
+      setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+      }, delay),
+    );
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, [autoPlay, replayKey]);
 
   const dropShadowStyle = dropShadowColor
     ? {

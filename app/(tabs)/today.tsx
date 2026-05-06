@@ -31,6 +31,7 @@ import { toLocalDateString } from "@/utils/dateUtils";
 import { useGamificationOrchestrator } from "@/gamification";
 import { analyticsService } from "@/services/AnalyticsService";
 import AppLogger from "@/services/AppLogger";
+import { DailyStoryTimingService } from "@/services/DailyStoryTimingService";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useUser } from "@clerk/clerk-expo";
 import * as Haptics from "expo-haptics";
@@ -124,6 +125,11 @@ export default function TodayScreen() {
       }
     }, [streak, longestStreak])
   );
+
+  // Daily Story timing record creation moved to the START MY DAY / RESTART
+  // MY DAY button handlers below — the timer must only begin when the user
+  // explicitly engages, not when they merely land on the today tab. See the
+  // button's onPress for `markStarted` / `resetForReplay` calls.
 
   // Debug logging
   useEffect(() => {
@@ -525,7 +531,7 @@ export default function TodayScreen() {
 
   // iOS Live Activity coordination — starts on first Today focus, syncs
   // streak changes, exposes `updateDailyStoryIfActive` for onNext callbacks.
-  const { updateDailyStoryIfActive } = useDailyStoryLiveActivity({
+  const { updateDailyStoryIfActive, startActivityNow } = useDailyStoryLiveActivity({
     todayQuest,
     displayedQuest,
     isHistoricalView,
@@ -543,8 +549,22 @@ export default function TodayScreen() {
     // Track daily story completed
     await tracking.trackCompleted();
 
-    // Trigger celebration immediately when quiz is completed (including replays)
+    // Finalize the timing record. Idempotent — replays land here too but
+    // `markCompleted` skips if completedAt is already set; the replay path
+    // (RESTART MY DAY) explicitly resets the record before re-running, so
+    // a fresh completedAt gets stamped relative to the new startedAt.
     const currentQuest = displayedQuest || todayQuest;
+    if (currentQuest?.date) {
+      try {
+        await DailyStoryTimingService.markCompleted(currentQuest.date);
+      } catch (err) {
+        AppLogger.warn("daily", "DailyStoryTiming markCompleted failed", {
+          error: String(err),
+        });
+      }
+    }
+
+    // Trigger celebration immediately when quiz is completed (including replays)
     if (currentQuest?.date && watchCompleted && exploreCompleted) {
       const questDate = currentQuest.date;
       const xpEarned = lastQuizCorrectAnswersRef.current * 10;
@@ -1002,6 +1022,46 @@ export default function TodayScreen() {
               // lesson crossfade in). `openWithDive` mounts the lesson at
               // lessonOpacity=0 and triggers the timeline on the next frame.
               const isRestart = progress === 100;
+              const buttonQuest = displayedQuest || todayQuest;
+              const buttonDate = buttonQuest?.date;
+
+              // Stamp the timing record at the moment the user actually
+              // engages. This is what flips the LA banner from its frozen
+              // "0:00" placeholder to an active count-up ticker.
+              //
+              // Sequence:
+              //   1. Write record (markStarted creates if absent — idempotent;
+              //      resetForReplay overwrites for the RESTART path).
+              //   2. updateDailyStoryIfActive → manager refreshes startedAt
+              //      from service → pushes native update → Swift switches
+              //      from frozen "0:00" branch to `Text(_, style: .timer)`.
+              //   3. startActivityNow as defensive fallback in case the LA
+              //      hasn't been started yet (rare — focus effect normally
+              //      starts it on tab mount, but streak hydration may delay).
+              if (buttonDate) {
+                const recordOp = isRestart
+                  ? DailyStoryTimingService.resetForReplay(buttonDate)
+                  : DailyStoryTimingService.markStarted(buttonDate);
+                recordOp
+                  .then(() => {
+                    updateDailyStoryIfActive({
+                      watchCompleted,
+                      exploreCompleted,
+                      questionsCompleted: questCompleted,
+                    });
+                    startActivityNow();
+                  })
+                  .catch((err) => {
+                    AppLogger.warn(
+                      "daily",
+                      isRestart
+                        ? "DailyStoryTiming resetForReplay failed"
+                        : "DailyStoryTiming markStarted failed",
+                      { error: String(err) },
+                    );
+                  });
+              }
+
               if (isRestart) {
                 tracking.trackStarted("video", true);
                 openWithDive("video");

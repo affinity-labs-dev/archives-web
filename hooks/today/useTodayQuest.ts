@@ -26,6 +26,7 @@ export interface Card2Content {
   content_type: "scrollable_media_view";
   title: string;
   thumbnail_title?: string; // Display title for card2 (explore)
+  thumbnail_url?: string; // Background thumbnail for EXPLORE card; falls back to static when absent
   inner_image: string;
   inner_voice: string;
   content: string;
@@ -34,18 +35,19 @@ export interface Card2Content {
 
 export interface Card3Content {
   title: string;
-  questions: Array<{
+  thumbnail_url?: string; // Background thumbnail for QUESTIONS card; falls back to static when absent
+  questions: {
     question_id: string;
     question_text: string;
     question_type: "mcq" | "trueFalse";
-    answers: Array<{
+    answers: {
       answer_id: string;
       text: string;
       is_correct: boolean;
-    }>;
+    }[];
     explanation: string;
     order: number;
-  }>;
+  }[];
 }
 
 export interface TodayContent {

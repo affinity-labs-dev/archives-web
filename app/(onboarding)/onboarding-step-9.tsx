@@ -14,7 +14,7 @@ import {
   easings,
 } from '@/components/ui';
 import { AnimatedEntrance } from '@/components/ui/animations';
-import { Mascot } from '@/components/onboarding/Mascot/Mascot';
+import { MascotSlot, useMascotPresence } from '@/components/onboarding/Mascot';
 import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { toDisplayStep } from '@/constants/OnboardingRoutes';
@@ -46,6 +46,8 @@ export default function OnboardingStep10Screen() {
   const setStep = useOnboardingStore((s) => s.setStep);
   const [typewriterDone, setTypewriterDone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useMascotPresence();
 
   useEffect(() => {
     analyticsService.trackOnboardingStepViewed('notification_permission');
@@ -128,7 +130,7 @@ export default function OnboardingStep10Screen() {
           {/* Phase A — Mascot + bubble slide in as one unit */}
           <AnimatedEntrance preset="slideFromLeft" delay={100}>
             <View style={styles.mascotRow}>
-              <Mascot size={96} autoPlayEntrance={false} />
+              <MascotSlot />
 
               <View style={styles.bubbleWrapper}>
                 <SpeechBubble

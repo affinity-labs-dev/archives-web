@@ -6,9 +6,10 @@ import type { TodayCardData } from "@/components/today/TodayCardDeck";
 import type { Today } from "./useTodayQuest";
 
 // Static per-card config — kicker label, pill label, default duration,
-// background image. Title and completion-state are derived per render.
-// To swap to real per-day Supabase imagery, replace `imageSource` with
-// `card2?.inner_image` / `card1?.thumbnail_url` etc. in the builder below.
+// fallback background image. Title and completion-state are derived per
+// render. Live thumbnails are sourced from Supabase via
+// `cardN.thumbnail_url`; the static `imageSource` here is the fallback
+// used until the per-day field is populated.
 type CardKind = "explore" | "watch" | "questions";
 
 interface CardConfig {
@@ -89,9 +90,13 @@ export function useTodayCardsData({
     const quest = displayedQuest || todayQuest;
     const card1 = quest?.content?.card1;
     const card2 = quest?.content?.card2;
+    const card3 = quest?.content?.card3;
 
     const explore: TodayCardData = {
       ...CARD_CONFIGS.explore,
+      imageSource: card2?.thumbnail_url
+        ? { uri: card2.thumbnail_url }
+        : CARD_CONFIGS.explore.imageSource,
       title: card2?.thumbnail_title ?? "",
       minutes: exploreCompleted ? "DONE" : CARD_CONFIGS.explore.defaultMinutes,
       completed: exploreCompleted,
@@ -103,6 +108,9 @@ export function useTodayCardsData({
 
     const watch: TodayCardData = {
       ...CARD_CONFIGS.watch,
+      imageSource: card1?.thumbnail_url
+        ? { uri: card1.thumbnail_url }
+        : CARD_CONFIGS.watch.imageSource,
       title: card1?.title ?? "",
       minutes: watchCompleted ? "DONE" : CARD_CONFIGS.watch.defaultMinutes,
       completed: watchCompleted,
@@ -114,6 +122,9 @@ export function useTodayCardsData({
 
     const questions: TodayCardData = {
       ...CARD_CONFIGS.questions,
+      imageSource: card3?.thumbnail_url
+        ? { uri: card3.thumbnail_url }
+        : CARD_CONFIGS.questions.imageSource,
       title: "Test your knowledge",
       minutes: questCompleted ? "DONE" : CARD_CONFIGS.questions.defaultMinutes,
       completed: questCompleted,
