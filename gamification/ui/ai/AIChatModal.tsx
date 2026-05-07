@@ -1442,7 +1442,41 @@ export default function AIChatModal({
                           <StreamingAssistantMessage
                             text={message.content}
                             textStyle={styles.assistantText}
-                            onComplete={() => setTypewriterMsgId(null)}
+                            onComplete={() => {
+                              setTypewriterMsgId(null);
+                              // Pills mount on the next render (when
+                              // `typewriterMsgId === null` flips the
+                              // visibility check inside FollowUpSuggestions).
+                              // `handleStreamTick` was the only scroll
+                              // signal during streaming — once typewriter
+                              // ends, nothing else pulls the pills into
+                              // view, so they can land below the fold if
+                              // the message bubble already sat at the
+                              // bottom edge. We fire ONE animated scroll
+                              // ~80ms later: long enough for React to
+                              // commit the new layout (pills + entrance
+                              // transform offset of y:12) and for native
+                              // to recompute contentSize, short enough
+                              // that it overlaps with the pills' 280ms
+                              // entrance animation — user sees a unified
+                              // motion (pills slide up + viewport pulls
+                              // down) rather than a snap.
+                              //
+                              // Respects `userIsAtBottomRef` so we don't
+                              // yank a user who scrolled up to read.
+                              // Skips when no pills will render (image
+                              // response, empty suggestions) to avoid an
+                              // unnecessary scroll.
+                              const hasPills =
+                                !message.image &&
+                                !message.imageUrl &&
+                                (message.suggestedFollowUps?.length || 0) > 0;
+                              if (hasPills && userIsAtBottomRef.current) {
+                                setTimeout(() => {
+                                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                                }, 80);
+                              }
+                            }}
                             onTick={handleStreamTick}
                           />
                         ) : (
