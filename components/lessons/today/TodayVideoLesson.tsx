@@ -20,6 +20,8 @@ import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView, VideoSource } from "expo-video";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { useDeviceHealthMonitor } from "@/hooks/useDeviceHealthMonitor";
+import { useWalkthroughTarget } from "@/hooks/today/useWalkthroughTarget";
+import { useWalkthroughDispatch } from "@/hooks/today/useWalkthroughDispatch";
 import DevHealthOverlay from "@/components/lessons/DevHealthOverlay";
 import { analyticsService } from "@/services/AnalyticsService";
 import { networkPerformanceService } from "@/services/NetworkPerformanceService";
@@ -430,6 +432,17 @@ export default function TodayVideoLesson({
   const insets = useSafeAreaInsets();
   const { startMonitoring, stopMonitoring } = useDeviceHealthMonitor();
 
+  // Walkthrough: target refs (steps 4-6) + event dispatcher.
+  // - dotsRef: PaginationDots container — step 4 'swipe' interactive.
+  // - readBtnRef: leftCta DepthButton wrapper — step 5 'read' action.
+  // - continueBtnRef: rightCta DepthButton wrapper — step 6 'continue-s2' action.
+  // The dispatcher fires 'read-sheet-open'/'read-sheet-close' events that the
+  // walkthrough engine listens for to advance step 5 and ungate step 6's showOn.
+  const dotsRef = useWalkthroughTarget("s2-dots");
+  const readBtnRef = useWalkthroughTarget("s2-read");
+  const continueBtnRef = useWalkthroughTarget("s2-continue");
+  const dispatchWalkthrough = useWalkthroughDispatch();
+
   // Start device health monitoring on mount
   useEffect(() => {
     startMonitoring({ screen: 'TodayVideoLesson' });
@@ -640,6 +653,10 @@ export default function TodayVideoLesson({
   // and snaps the inner content opacities to 0 (matching `gsap.set`).
   const expandCard = () => {
     setIsCardExpanded(true);
+    // Walkthrough advance hook — fires once per sheet open. Step 5 ('read')
+    // listens for this to advance; step 6 ('continue-s2') waits for the
+    // close event before its showOn gate flips and reveals its bubble.
+    dispatchWalkthrough("read-sheet-open");
     sheetTranslateY.value = withTiming(0, {
       duration: safeDuration(SHEET_OPEN_DURATION_MS),
       easing: easings.backOut14,
@@ -673,6 +690,11 @@ export default function TodayVideoLesson({
 
   const collapseCard = () => {
     setIsCardExpanded(false);
+    // Walkthrough advance hook — un-gates step 6 ('continue-s2'), which has
+    // showOn: 'event:read-sheet-close'. The bubble + spotlight stay hidden
+    // until this fires so the user has a clean read-sheet UX uninterrupted
+    // by overlay chrome.
+    dispatchWalkthrough("read-sheet-close");
     sheetTranslateY.value = withTiming(SHEET_HEIGHT, {
       duration: safeDuration(SHEET_CLOSE_DURATION_MS),
       easing: easings.power2In,
@@ -751,44 +773,48 @@ export default function TodayVideoLesson({
             // Light tone defaults match the video backdrop — white text +
             // translucent-white track over the active video.
             leftCta={
-              <DepthButton
-                variant="secondary"
-                surfaceColor="pinkSecondary"
-                shadowColor="pinkPrimary"
-                onPress={() => {
-                  if (isCardExpanded) {
-                    collapseCard();
-                  } else {
-                    expandCard();
+              <View ref={readBtnRef} collapsable={false}>
+                <DepthButton
+                  variant="secondary"
+                  surfaceColor="pinkSecondary"
+                  shadowColor="pinkPrimary"
+                  onPress={() => {
+                    if (isCardExpanded) {
+                      collapseCard();
+                    } else {
+                      expandCard();
+                    }
+                  }}
+                  leftIcon={
+                    <Ionicons name="menu" size={18} color={colors.white} />
                   }
-                }}
-                leftIcon={
-                  <Ionicons name="menu" size={18} color={colors.white} />
-                }
-              >
-                <Typography
-                  family="onest"
-                  size={18}
-                  weight="700"
-                  extraColor={colors.white}
-                  style={styles.ctaLabel}
                 >
-                  {isCardExpanded ? "COLLAPSE" : "READ"}
-                </Typography>
-              </DepthButton>
+                  <Typography
+                    family="onest"
+                    size={18}
+                    weight="700"
+                    extraColor={colors.white}
+                    style={styles.ctaLabel}
+                  >
+                    {isCardExpanded ? "COLLAPSE" : "READ"}
+                  </Typography>
+                </DepthButton>
+              </View>
             }
             rightCta={
-              <DepthButton variant="secondary" onPress={onNext}>
-                <Typography
-                  family="onest"
-                  size={18}
-                  weight="700"
-                  extraColor={colors.white}
-                  style={styles.ctaLabel}
-                >
-                  CONTINUE
-                </Typography>
-              </DepthButton>
+              <View ref={continueBtnRef} collapsable={false}>
+                <DepthButton variant="secondary" onPress={onNext}>
+                  <Typography
+                    family="onest"
+                    size={18}
+                    weight="700"
+                    extraColor={colors.white}
+                    style={styles.ctaLabel}
+                  >
+                    CONTINUE
+                  </Typography>
+                </DepthButton>
+              </View>
             }
           >
           {/* Media Background - Swipeable Carousel */}
@@ -915,6 +941,8 @@ export default function TodayVideoLesson({
               dark video. */}
           {isCarousel && (
             <View
+              ref={dotsRef}
+              collapsable={false}
               style={[
                 styles.dotsContainer,
                 // Sits above the CTA row: insets.bottom + 16 (CTA paddingBottom)

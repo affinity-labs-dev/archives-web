@@ -9,6 +9,7 @@ import {
 import Svg, { Path } from "react-native-svg";
 
 import { Typography, colors } from "@/components/ui";
+import { useWalkthroughTarget } from "@/hooks/today/useWalkthroughTarget";
 
 interface TodayHeaderProps {
   title: string;
@@ -42,6 +43,13 @@ export default function TodayHeader({
   onStreakPress,
   style,
 }: TodayHeaderProps) {
+  // Walkthrough target — step 1 spotlights this pill (with the calendar
+  // week row as a secondary cutout). Wrapped in a View because the
+  // overlay's measureInWindow is more reliable on a plain View than on
+  // a TouchableOpacity (whose underlying host view differs across RN
+  // versions). `collapsable={false}` prevents Android from flattening
+  // this single-child wrapper into its parent at layout time.
+  const streakRef = useWalkthroughTarget("streak");
   return (
     <View style={[styles.container, style]}>
       <View style={styles.titleWrap}>
@@ -54,21 +62,23 @@ export default function TodayHeader({
           {title}
         </Typography>
       </View>
-      <TouchableOpacity
-        style={styles.streakPill}
-        onPress={onStreakPress}
-        activeOpacity={0.7}
-      >
-        <StreakFlameIcon width={16} height={19} color={colors.acaiPrimary} />
-        <Typography
-          size={14}
-          weight="700"
-          extraColor={colors.acaiPrimary}
-          style={styles.streakText}
+      <View ref={streakRef} collapsable={false}>
+        <TouchableOpacity
+          style={styles.streakPill}
+          onPress={onStreakPress}
+          activeOpacity={0.7}
         >
-          {`${streak} ${streak === 1 ? "day" : "days"}`}
-        </Typography>
-      </TouchableOpacity>
+          <StreakFlameIcon width={16} height={19} color={colors.acaiPrimary} />
+          <Typography
+            size={14}
+            weight="700"
+            extraColor={colors.acaiPrimary}
+            style={styles.streakText}
+          >
+            {`${streak} ${streak === 1 ? "day" : "days"}`}
+          </Typography>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

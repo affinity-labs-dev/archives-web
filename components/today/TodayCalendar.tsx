@@ -19,6 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 
+import { useWalkthroughTarget } from "@/hooks/today/useWalkthroughTarget";
 import {
   Typography,
   colors,
@@ -237,8 +238,16 @@ export default function TodayCalendar({
     transform: [{ translateX: translateX.value }],
   }));
 
+  // Walkthrough target — the secondary cutout for step 1 (paired with the
+  // streak pill in TodayHeader). Wraps the whole container so the spotlight
+  // covers the entire week row and its DayCell siblings.
+  const weekRef = useWalkthroughTarget("week");
   return (
-    <View style={[styles.container, { width: dimensions.containerWidth }, style]}>
+    <View
+      ref={weekRef}
+      collapsable={false}
+      style={[styles.container, { width: dimensions.containerWidth }, style]}
+    >
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[styles.weekRow, calendarAnimatedStyle]}>
           {weekDates.map((item, index) => {

@@ -31,7 +31,6 @@ import { useOnboardingStore } from '@/stores/onboardingStore';
 // Profile hooks (logic)
 import {
   useAvatarBreathe,
-  useDisplayedAchievements,
   useMonthlyBadges,
   useNewUserProgress,
   useProfileAccount,
@@ -115,7 +114,6 @@ export default function ProfileTab() {
     selectedBadgeMonth,
     setSelectedBadgeMonth,
   } = useMonthlyBadges({ moduleProgress });
-  const displayedAchievements = useDisplayedAchievements(achievements);
   const avatarAnimatedStyle = useAvatarBreathe();
 
   // ── Account actions ───────────────────────────
