@@ -12,6 +12,10 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { useClerk, useSignIn, useSignUp } from '@clerk/clerk-expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import AppLogger from '@/services/AppLogger';
+import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 
 import {
   Typography,
@@ -226,6 +230,15 @@ export default function OnboardingAuthScreen() {
         const userId = signUpAttempt.createdUserId || signUpAttempt.id;
         if (userId) {
           analyticsService.trackUserSignedUp(userId, { sign_up_method: 'email' });
+        }
+        // Daily-story guided tour gate. Set ONLY on email-signup-complete
+        // (not on the incomplete branch — that's verification-pending and
+        // may fail). today.tsx consumes PENDING on first mount and writes
+        // SEEN on tour finish/skip. Sign-in path doesn't run this.
+        try {
+          await AsyncStorage.setItem(WALKTHROUGH_KEYS.DAILY_STORY_TOUR_PENDING, '1');
+        } catch (err) {
+          AppLogger.warn('walkthrough', 'PENDING flag write failed (email)', { error: String(err) });
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         await onContinue();

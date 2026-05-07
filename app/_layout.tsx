@@ -48,6 +48,8 @@ import {
   NotificationPromptProvider,
 } from "@/gamification";
 import AIAssistant from "@/gamification/ui/ai/AIAssistant";
+import { TodayWalkthroughProvider } from "@/components/today/walkthrough/TodayWalkthroughProvider";
+import { TodayWalkthroughOverlay } from "@/components/today/walkthrough/TodayWalkthroughOverlay";
 
 // Font scaling disabled globally via Babel plugin (plugins/babel-plugin-font-scaling.js) (AFF-331)
 
@@ -877,6 +879,7 @@ export default Sentry.wrap(function RootLayout() {
                             <GamificationOrchestratorProvider>
                               <AIProvider>
                                 <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                                <TodayWalkthroughProvider>
                                 <Stack screenOptions={{
                                   gestureEnabled: false,
                                   animation: 'none',
@@ -891,7 +894,18 @@ export default Sentry.wrap(function RootLayout() {
                                   <Stack.Screen name="+not-found" />
                                 </Stack>
                                 <AIAssistant />
+                                {/* Walkthrough HOME-surface overlay rendered at root so its
+                                    full-screen dim covers the system status bar AND the
+                                    bottom tab bar (both rendered outside the (tabs) tree).
+                                    The overlay's own pointerEvents="box-none" + render-gating
+                                    on currentStep.surface means it's a no-op when no tour is
+                                    active or when the active step is on the modal surface.
+                                    The MODAL-surface overlay still lives inside the lesson
+                                    Modal in today.tsx because that Modal opens its own
+                                    native window — a root overlay would render below it. */}
+                                <TodayWalkthroughOverlay surface="home" />
                                 <StatusBar style="auto" />
+                                </TodayWalkthroughProvider>
                                 </ThemeProvider>
                               </AIProvider>
                             </GamificationOrchestratorProvider>

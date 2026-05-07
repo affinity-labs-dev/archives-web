@@ -24,6 +24,7 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import Svg, { Path, SvgXml } from "react-native-svg";
 
+import { useWalkthroughTarget } from "@/hooks/today/useWalkthroughTarget";
 import {
   PaginationDots,
   Typography,
@@ -1032,6 +1033,11 @@ export default function TodayCardDeck({
   const [centerIdx, setCenterIdx] = useState(initialCenterIdx);
   const centerIdxRef = useRef(centerIdx);
 
+  // Walkthrough target — step 2 spotlights the whole deck so the user sees
+  // they can swipe between Watch / Explore / Questions cards. Attached to
+  // the outer Animated.View below.
+  const deckRef = useWalkthroughTarget("deck");
+
   // Deck-level entrance — slide + fade for the container BEFORE the per-card
   // wave kicks in. Without this, the deck appears at its final position and
   // only the cards bounce, which reads as abrupt because RN tabs switch
@@ -1187,6 +1193,7 @@ export default function TodayCardDeck({
     // wrapper into its child when it detects "no native props besides
     // animated style", which would silently disable the opacity layer.
     <Animated.View
+      ref={deckRef}
       style={[styles.container, containerAnimatedStyle, style]}
       collapsable={false}
     >

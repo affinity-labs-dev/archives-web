@@ -10,6 +10,12 @@ import TodayCardDeck from "@/components/today/TodayCardDeck";
 import TodayEmptyState from "@/components/today/TodayEmptyState";
 import TodayHeader from "@/components/today/TodayHeader";
 import TodayProgressBar from "@/components/today/TodayProgressBar";
+import {
+  useTodayWalkthrough,
+  type WalkthroughModal,
+} from "@/components/today/walkthrough/TodayWalkthroughProvider";
+import { TodayWalkthroughOverlay } from "@/components/today/walkthrough/TodayWalkthroughOverlay";
+import { useWalkthroughTarget } from "@/hooks/today/useWalkthroughTarget";
 import { DepthButton, Typography, colors, easings } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
 import {
@@ -47,11 +53,14 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StatusBar,
   Text,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import {
   SafeAreaProvider,
@@ -191,6 +200,91 @@ export default function TodayScreen() {
   } = useTodayModalSlots({
     onCardViewed: (cardIndex) => tracking.trackCardViewed(cardIndex),
   });
+
+  // Walkthrough integration: drives advance triggers on modal slot changes.
+  // The provider's notifyModalChanged synthesises 'screenEntered:<modal>'
+  // for steps with `advanceOn: 'screenEntered:video|reading|quiz'`, and
+  // dismisses the tour if a modal-step user navigates back to home (mock
+  // back-nav dismissal — HANDOVER.md line 5).
+  // `start` is exposed for the dev-only replay button below + the
+  // first-focus auto-start gate further down.
+  const { notifyModalChanged, start: startWalkthrough } = useTodayWalkthrough();
+
+  // Auto-start gate. Provider lives at app root (so its overlay can dim
+  // status bar + tab bar), so we can't gate auto-start on Provider mount —
+  // that fires at app boot, before the user reaches today. Instead, gate
+  // on the FIRST focus of this tab: read PENDING (set by sign-up paths in
+  // onboarding-step-7.tsx + onboarding-auth.tsx) + SEEN, consume PENDING
+  // immediately, then start. autoStartFiredRef is a session lock — never
+  // re-fires on tab refocus, even if the flags were rewritten somewhere.
+  const autoStartFiredRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (autoStartFiredRef.current) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const [pending, seen] = await Promise.all([
+            AsyncStorage.getItem(WALKTHROUGH_KEYS.DAILY_STORY_TOUR_PENDING),
+            AsyncStorage.getItem(WALKTHROUGH_KEYS.DAILY_STORY_TOUR_SEEN),
+          ]);
+          if (cancelled || autoStartFiredRef.current) return;
+          if (pending === "1" && seen !== "1") {
+            // Consume PENDING immediately so a kill/relaunch mid-tour doesn't
+            // replay. SEEN is the durable "tour completed" record, written
+            // by the engine's finish() / skip() path.
+            await AsyncStorage.removeItem(
+              WALKTHROUGH_KEYS.DAILY_STORY_TOUR_PENDING,
+            );
+            if (cancelled) return;
+            autoStartFiredRef.current = true;
+            AppLogger.info(
+              "walkthrough",
+              "auto-start: PENDING consumed on today focus",
+            );
+            startWalkthrough(0);
+          } else {
+            autoStartFiredRef.current = true; // don't re-check on every refocus
+            AppLogger.info("walkthrough", "auto-start: skipped on today focus", {
+              pending: pending === "1",
+              seen: seen === "1",
+            });
+          }
+        } catch (err) {
+          AppLogger.warn("walkthrough", "AsyncStorage read failed in auto-start", {
+            error: String(err),
+          });
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [startWalkthrough]),
+  );
+  useEffect(() => {
+    // Identify the currently visible (incoming) modal during a transition,
+    // or the only non-none slot if no transition is in flight. Mid-fade is
+    // close enough — the overlay's ENTRY_DELAY_FRESH_SURFACE_MS (1200ms)
+    // already waits for the entrance to settle before measuring targets.
+    let visible: WalkthroughModal = "none";
+    if (outgoingSlot === "A") {
+      visible = slotBModal;
+    } else if (outgoingSlot === "B") {
+      visible = slotAModal;
+    } else if (slotAModal !== "none") {
+      visible = slotAModal;
+    } else if (slotBModal !== "none") {
+      visible = slotBModal;
+    }
+    notifyModalChanged(visible);
+  }, [slotAModal, slotBModal, outgoingSlot, notifyModalChanged]);
+
+  // Walkthrough target ref for the START MY DAY button. DepthButton is a
+  // function component without forwardRef, so we wrap it in a View that
+  // owns the ref. `collapsable={false}` is critical on Android — RN
+  // flattens single-child Views, which would break measureInWindow used
+  // by the overlay to position the spotlight + bubble.
+  const startBtnRef = useWalkthroughTarget("start");
 
   // Caller-level re-entry guard for ANY async lesson-callback path that
   // contains an `await` before `animateModalTransition`. The shared
@@ -893,6 +987,39 @@ export default function TodayScreen() {
 
   return (
     <View style={[themeStyles.container, { paddingTop: Platform.OS === "ios" ? insets.top : (insets.top + 11) }]}>
+      {/* Dev-only walkthrough replay button. Visible only in __DEV__ builds
+          so it never ships to production. Positioned bottom-LEFT above the
+          tab bar zone so it never overlaps the streak pill (step-1 spotlight
+          target) or the START MY DAY CTA. Tapping clears SEEN and calls
+          start(0) directly, bypassing the PENDING gate. The Provider lives
+          at app root now, so this button doesn't need a Modal portal — the
+          root-level home overlay covers status bar + tab bar already. */}
+      {__DEV__ ? (
+        <Pressable
+          onPress={async () => {
+            try {
+              await AsyncStorage.removeItem(WALKTHROUGH_KEYS.DAILY_STORY_TOUR_SEEN);
+            } catch {}
+            startWalkthrough(0);
+          }}
+          style={{
+            position: "absolute",
+            bottom: insets.bottom + 100,
+            left: 12,
+            zIndex: 999,
+            backgroundColor: "rgba(30,60,136,0.85)",
+            paddingVertical: 6,
+            paddingHorizontal: 10,
+            borderRadius: 14,
+          }}
+          hitSlop={8}
+        >
+          <Text style={{ color: "white", fontSize: 10, fontWeight: "700", letterSpacing: 0.5 }}>
+            🧭 REPLAY
+          </Text>
+        </Pressable>
+      ) : null}
+
       {/* Home layer — fades to opacity 0 during the hero dive (mock
           `index.html:1696-1707`). Wraps both the scrollable content AND
           the fixed-bottom CTA so the whole home recedes in lockstep, while
@@ -1013,6 +1140,7 @@ export default function TodayScreen() {
           }}
           style={themeStyles.bottomButtonContainer}
         >
+          <View ref={startBtnRef} collapsable={false}>
           <DepthButton
             isFullWidth
             variant="secondary"
@@ -1081,8 +1209,10 @@ export default function TodayScreen() {
               {progress === 100 ? "RESTART MY DAY" : "START MY DAY"}
             </Typography>
           </DepthButton>
+          </View>
         </AnimatedEntrance>
       )}
+
       </Animated.View>
 
       {/* Dual-slot modal for Apple-style push/pop transitions.
@@ -1137,9 +1267,23 @@ export default function TodayScreen() {
                   {renderModalContent(slotBModal)}
                 </Animated.View>
               </Animated.View>
+
+              {/* Walkthrough overlay — MODAL surface. Sibling of the
+                  lessonAnimatedStyle wrapper, NOT a child. The wrapper's
+                  opacity is animated 0→1 by the hero-dive timeline; if the
+                  overlay sat inside it, the bubble + spotlight would also
+                  fade in over ~1s after the dive completes — by which time
+                  the engine's entry delay had already fired and the user
+                  perceived "walkthrough doesn't run". Hoisting the overlay
+                  to the SafeAreaProvider's content keeps it at full opacity
+                  the moment the modal mounts. The lesson Modal still uses
+                  its own native window so measureInWindow on the targets
+                  inside (s2-dots etc.) returns coords in this same window. */}
+              <TodayWalkthroughOverlay surface="modal" />
             </SafeAreaProvider>
           </Modal>
         )}
     </View>
   );
 }
+

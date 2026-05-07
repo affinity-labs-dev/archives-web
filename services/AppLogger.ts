@@ -32,7 +32,8 @@ type LogCategory =
   | 'startup'
   | 'paywall'
   | 'gamification'
-  | 'daily';
+  | 'daily'
+  | 'walkthrough';
 
 type SentryLevel = 'debug' | 'info' | 'warning' | 'error' | 'fatal';
 
@@ -55,6 +56,7 @@ const CATEGORY_EMOJI: Record<LogCategory, string> = {
   gamification: '🎮',
   paywall: '💸',
   daily: '📅',
+  walkthrough: '🧭',
 };
 
 // ==================== LOGGER ====================

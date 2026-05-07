@@ -19,6 +19,8 @@ import AppLogger from '@/services/AppLogger';
 import { analyticsService } from '@/services/AnalyticsService';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { resolvePostSignInRoute } from '@/services/PaywallGateService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const heroIbuRive = require('@/assets/rive/hero_ibu.riv');
@@ -75,6 +77,15 @@ export default function OnboardingStep7Screen() {
     // Returning users (signed in on an existing account) skip straight to
     // the main app — they've already done onboarding on a prior install.
     if (isNewUser) {
+      // Daily-story guided tour gate. PENDING is consumed (deleted) the
+      // first time today.tsx mounts and reads it, then SEEN is written when
+      // the tour finishes/skips. Sign-in path (else branch below) never
+      // touches PENDING, so returning users never see the tour.
+      try {
+        await AsyncStorage.setItem(WALKTHROUGH_KEYS.DAILY_STORY_TOUR_PENDING, '1');
+      } catch (err) {
+        AppLogger.warn('walkthrough', 'PENDING flag write failed (OAuth)', { error: String(err) });
+      }
       setStep(8);
       setIsSignUpMode(true);
       setTimeout(() => router.replace('/onboarding-step-8' as never), 300);

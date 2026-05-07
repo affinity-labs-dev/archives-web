@@ -26,6 +26,8 @@ import Animated, {
 import RenderHtml from 'react-native-render-html';
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ContentBlock } from "@/components/shared/types";
+import { useWalkthroughTarget } from "@/hooks/today/useWalkthroughTarget";
+import { useWalkthroughDispatch } from "@/hooks/today/useWalkthroughDispatch";
 
 // Voiceover pulse ring — sonar-style outline that expands + fades while
 // the audio is playing. Ports `index.html:2483-2507` from the mock:
@@ -184,6 +186,16 @@ export default function TodayScrollableLesson({
   const insets = useSafeAreaInsets();
   const { width: contentWidth } = useWindowDimensions();
 
+  // Walkthrough: target refs (steps 8-9) + event dispatcher.
+  // - voiceRef: leftCta voice toggle wrapper — step 8 'voice' action.
+  // - continueRef: rightCta CONTINUE wrapper — step 9 'continue-s3' action.
+  // The dispatcher fires 'voice-toggled' (first play) and 'voice-stopped'
+  // (pause). Step 8 advances on 'voice-toggled'; step 9's showOn waits for
+  // 'voice-stopped' before its bubble appears.
+  const voiceRef = useWalkthroughTarget("s3-voice");
+  const continueRef = useWalkthroughTarget("s3-continue");
+  const dispatchWalkthrough = useWalkthroughDispatch();
+
   // Audio player
   const player = useAudioPlayer(innerVoiceUrl || null);
   const status = useAudioPlayerStatus(player);
@@ -252,8 +264,16 @@ export default function TodayScrollableLesson({
 
     if (isPlaying) {
       player.pause();
+      // Walkthrough advance hook — un-gates step 9 ('continue-s3'), which
+      // has showOn: 'event:voice-stopped'. The bubble + spotlight on the
+      // CONTINUE button stay hidden until the user pauses the voiceover.
+      dispatchWalkthrough("voice-stopped");
     } else {
       player.play();
+      // Walkthrough advance hook — fires on every play (mock fires only on
+      // the first play; we mirror that with the existing `hasTrackedMediaRef`
+      // gate below to keep the engine's advance idempotent across replays).
+      dispatchWalkthrough("voice-toggled");
       // Track media played on first play
       if (!hasTrackedMediaRef.current) {
         hasTrackedMediaRef.current = true;
@@ -357,7 +377,7 @@ export default function TodayScrollableLesson({
             innerVoiceUrl ? (
               // `position: 'relative'` anchors the absolute pulse ring
               // overlay to the same bounds as the DepthButton.
-              <View style={{ position: "relative" }}>
+              <View ref={voiceRef} collapsable={false} style={{ position: "relative" }}>
                 <DepthButton
                   variant="secondary"
                   surfaceColor="pinkSecondary"
@@ -386,17 +406,19 @@ export default function TodayScrollableLesson({
             ) : null
           }
           rightCta={
-            <DepthButton variant="secondary" onPress={onContinue}>
-              <Typography
-                family="onest"
-                size={18}
-                weight="700"
-                extraColor={colors.white}
-                style={{ letterSpacing: -0.18 }}
-              >
-                CONTINUE
-              </Typography>
-            </DepthButton>
+            <View ref={continueRef} collapsable={false}>
+              <DepthButton variant="secondary" onPress={onContinue}>
+                <Typography
+                  family="onest"
+                  size={18}
+                  weight="700"
+                  extraColor={colors.white}
+                  style={{ letterSpacing: -0.18 }}
+                >
+                  CONTINUE
+                </Typography>
+              </DepthButton>
+            </View>
           }
         >
           {/* Body — memoized ScrollView that doesn't re-render on
