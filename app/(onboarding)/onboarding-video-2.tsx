@@ -20,14 +20,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
 export default function OnboardingVideo2Screen() {
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoCompleted, setVideoCompleted] = useState(false)
-  const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { isSignedIn, signOut } = useAuth()
   const { trackScreenView, trackVideoPlayed } = useAnalytics()
@@ -43,12 +42,12 @@ export default function OnboardingVideo2Screen() {
         try {
           player.play()
         } catch (playError) {
-          console.error('Video play error:', playError)
+          AppLogger.error('video', 'Onboarding video 2 play error', {}, playError)
         }
       }, 100)
 
     } catch (error) {
-      console.error('Video player setup error:', error)
+      AppLogger.error('video', 'Onboarding video 2 player setup error', {}, error)
     }
   })
 
@@ -56,16 +55,7 @@ export default function OnboardingVideo2Screen() {
   useEffect(() => {
     trackScreenView('Onboarding Video 2')
 
-    // Track screen exit on unmount
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_video_2',
-        exit_action: exitAction,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime, exitAction])
+  }, [trackScreenView])
 
   // Handle video loading state and events
   useEffect(() => {
@@ -73,16 +63,20 @@ export default function OnboardingVideo2Screen() {
 
     try {
       const statusSubscription = player.addListener('statusChange', (status) => {
-        if (status.status === 'readyToPlay' && !videoLoaded) {
-          trackVideoPlayed('archives_intro.mp4')
-          setVideoLoaded(true)
+        try {
+          if (status.status === 'readyToPlay' && !videoLoaded) {
+            trackVideoPlayed('archives_intro.mp4')
+            setVideoLoaded(true)
 
-          // Auto-play when ready
-          try {
-            player.play()
-          } catch (error) {
-            // Auto-play failed silently
+            // Auto-play when ready
+            try {
+              player.play()
+            } catch (error) {
+              AppLogger.error('video', 'Onboarding video 2 auto-play failed', {}, error)
+            }
           }
+        } catch (err) {
+          AppLogger.error('video', 'Onboarding video 2 statusChange error', {}, err)
         }
       })
 
@@ -90,7 +84,7 @@ export default function OnboardingVideo2Screen() {
         statusSubscription?.remove()
       }
     } catch (error) {
-      // Video listener setup failed
+      AppLogger.error('video', 'Onboarding video 2 listener setup failed', {}, error)
     }
   }, [player, videoLoaded, videoCompleted, trackVideoPlayed])
 
@@ -98,7 +92,6 @@ export default function OnboardingVideo2Screen() {
 
   // Navigate to sign in
   const handleSignIn = () => {
-    setExitAction('continued')
     router.push('/(auth)/archives-auth?mode=signin')
   }
 
@@ -108,17 +101,40 @@ export default function OnboardingVideo2Screen() {
       // Sign out if user has a stale session (e.g., reinstalled app but Keychain persisted)
       // This ensures users go through proper auth flow after onboarding
       if (isSignedIn) {
-        await signOut()
+        // AFF-151: Track stale session detection — this is a suspected "stealth sign-out" path
+        AppLogger.warn('auth', 'Stale session detected during onboarding — forcing sign-out')
+        const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era'))
+        AppLogger.info('auth', 'Stale session context', { hadSelectedEra })
+
+        analyticsService.trackUserSessionOut({
+          trigger: 'stale_session_onboarding',
+          session_duration_seconds: null,
+          had_selected_era: hadSelectedEra,
+        })
+
+        let signOutResult: 'success' | 'error' = 'success'
+        let signOutError: string | undefined
+        try {
+          await signOut()
+        } catch (err) {
+          signOutResult = 'error'
+          signOutError = err instanceof Error ? err.message : String(err)
+        }
+
+        analyticsService.trackOnboardingStaleSession({
+          user_id: null, // already signed out at this point
+          had_selected_era: hadSelectedEra,
+          sign_out_result: signOutResult,
+          error_message: signOutError,
+        })
       }
 
       // Mark both videos as viewed
       await AsyncStorage.setItem('onboarding_videos_viewed', 'true')
 
-      setExitAction('continued')
       router.replace('/onboarding-welcome')
     } catch (error) {
-      // Continue anyway to avoid blocking user
-      setExitAction('continued')
+      AppLogger.error('navigation', 'OnboardingVideo2 handleGetStarted failed', {}, error)
       router.replace('/onboarding-welcome')
     }
   }
@@ -138,7 +154,7 @@ export default function OnboardingVideo2Screen() {
             style={styles.fullScreenVideo}
             contentFit="cover"
             nativeControls={false}
-            allowsFullscreen={false}
+            fullscreenOptions={{ enable: false }}
             allowsPictureInPicture={false}
           />
         ) : (

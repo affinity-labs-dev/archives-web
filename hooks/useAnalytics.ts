@@ -161,18 +161,10 @@ export function useAnalytics() {
     }, 'error_occurred');
   };
 
-  // App lifecycle
-  const trackAppOpened = () => {
-    safeTrack(() => {
-      posthog.capture('app_opened');
-    }, 'app_opened');
-  };
-
-  const trackAppBackgrounded = () => {
-    safeTrack(() => {
-      posthog.capture('app_backgrounded');
-    }, 'app_backgrounded');
-  };
+  // App lifecycle events are now handled by PostHog SDK autocapture
+  // (captureAppLifecycleEvents: true in PostHogOptions)
+  // SDK automatically captures: Application Opened, Application Backgrounded,
+  // Application Installed, Application Updated
 
   return {
     // User management
@@ -196,10 +188,6 @@ export function useAnalytics() {
 
     // Error handling
     trackError,
-    
-    // App lifecycle
-    trackAppOpened,
-    trackAppBackgrounded,
     
     // Direct PostHog access for custom events
     posthog,

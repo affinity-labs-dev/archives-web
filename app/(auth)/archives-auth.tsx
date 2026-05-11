@@ -25,6 +25,7 @@ import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -34,8 +35,6 @@ export default function ArchivesAuthScreen() {
 
   // State management (exact replica of SwiftUI)
   const [isSignInMode, setIsSignInMode] = useState(mode === 'signin') // Set based on route parameter
-  const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'authenticated' | 'back_button' | 'app_closed'>('app_closed')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -70,50 +69,25 @@ export default function ArchivesAuthScreen() {
       mode: currentMode,
     })
 
-    // Track screen exit on unmount
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackAuthScreenExited({
-        screen: 'archives_auth',
-        exit_action: exitAction,
-        duration_seconds,
-        mode: currentMode,
-      })
-    }
-  }, [trackScreenView, screenStartTime, exitAction, isSignInMode])
+  }, [trackScreenView, isSignInMode])
 
   // Debug: Log video player status
   React.useEffect(() => {
-    console.log('Video source:', videoSource)
-    console.log('Video player status:', player.status)
+    if (__DEV__) {
+      console.log('Video source:', videoSource)
+      console.log('Video player status:', player.status)
+    }
   }, [player.status])
 
   // Navigation handlers
   const onBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    setExitAction('back_button')
     router.back()
   }
 
-  const onContinue = async () => {
-    // Check if user has already completed onboarding
-    try {
-      const hasSelectedEra = await AsyncStorage.getItem('selected_era')
-
-      if (hasSelectedEra) {
-        // Returning user - go directly to main app
-        console.log('🏠 Returning user after auth - routing to main app')
-        router.replace('/(tabs)')
-      } else {
-        // New user - go to era selection for onboarding
-        console.log('👋 New user after auth - routing to era selection')
-        router.replace('/(tabs)/eras?mode=onboarding')
-      }
-    } catch (error) {
-      console.error('Error checking onboarding status:', error)
-      // Default to era selection on error
-      router.replace('/(tabs)/eras?mode=onboarding')
-    }
+  const onContinue = () => {
+    AppLogger.info('auth', 'Returning user after auth - routing to today tabs')
+    router.replace('/(tabs)/today')
   }
 
   // Sign Up function (exact replica with Clerk)
@@ -136,6 +110,9 @@ export default function ArchivesAuthScreen() {
 
       if (signUpAttempt.status === 'complete') {
         await setActiveSignUp({ session: signUpAttempt.createdSessionId })
+        analyticsService.trackUserSignedUp(signUpAttempt.createdUserId || '', {
+          sign_up_method: 'email',
+        })
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         await onContinue()
       } else {
@@ -276,12 +253,12 @@ export default function ArchivesAuthScreen() {
                 style={styles.video}
                 nativeControls={false}
                 contentFit="contain"
-                allowsFullscreen={false}
+                fullscreenOptions={{ enable: false }}
               />
             </View>
 
             {/* Spacer to push content down - responsive based on screen height */}
-            <View style={{ height: SCREEN_HEIGHT * 0.42 }} />
+            <View style={{ height: SCREEN_HEIGHT * 0.35 }} />
 
             {/* Auth Toggle - Shared Component */}
             <AuthToggle
@@ -320,7 +297,6 @@ export default function ArchivesAuthScreen() {
                     is_new_user: isNewUser,
                   })
 
-                  setExitAction('authenticated')
                   await onContinue()
                 }}
                 onError={(error) => {
@@ -337,7 +313,7 @@ export default function ArchivesAuthScreen() {
 
                   setErrorMessage('Apple Sign In failed. Please try again.')
                   setShowError(true)
-                  console.error('Apple Sign In Error:', error)
+                  AppLogger.error('auth', 'Apple Sign In error', { mode: isSignInMode ? 'signin' : 'signup' }, error)
                 }}
               />
 
@@ -362,7 +338,6 @@ export default function ArchivesAuthScreen() {
                     is_new_user: isNewUser,
                   })
 
-                  setExitAction('authenticated')
                   await onContinue()
                 }}
                 onError={(error) => {
@@ -379,7 +354,7 @@ export default function ArchivesAuthScreen() {
 
                   setErrorMessage('Google Sign In failed. Please try again.')
                   setShowError(true)
-                  console.error('Google Sign In Error:', error)
+                  AppLogger.error('auth', 'Google Sign In error', { mode: isSignInMode ? 'signin' : 'signup' }, error)
                 }}
               />
 
@@ -396,7 +371,6 @@ export default function ArchivesAuthScreen() {
                     mode: isSignInMode ? 'signin' : 'signup',
                   })
 
-                  setExitAction('authenticated') // User continuing auth flow
                   router.push({
                     pathname: '/(auth)/email-details',
                     params: { mode: isSignInMode ? 'signin' : 'signup' }

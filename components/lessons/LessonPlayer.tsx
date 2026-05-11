@@ -3,13 +3,16 @@
 // Handles shared analytics, progress tracking, and completion logic
 
 import React from 'react';
+import { View } from 'react-native';
 import type { ContentItem } from '@/components/shared/types';
+import AppLogger from '@/services/AppLogger';
 
 // Import all lesson renderers
 import ReelLesson from './ReelLesson';
 import VideoCarouselLesson from './VideoCarouselLesson';
 import ImageCarouselLesson from './ImageCarouselLesson';
 import ScrollableMediaViewLesson from './ScrollableMediaViewLesson';
+import DevHealthOverlay from './DevHealthOverlay';
 
 // Context interface for progress tracking & analytics
 export interface LessonContext {
@@ -81,25 +84,32 @@ export default function LessonPlayer({
     onBack,
   };
 
-  // Render the appropriate lesson component based on content_type
+  // Select the appropriate lesson renderer based on content_type
+  let lesson: React.ReactElement;
   switch (contentItem.content_type) {
     case 'reel':
-      return <ReelLesson {...commonProps} />;
-
+      lesson = <ReelLesson {...commonProps} />;
+      break;
     case 'video_carousel':
-      return <VideoCarouselLesson {...commonProps} />;
-
+      lesson = <VideoCarouselLesson {...commonProps} />;
+      break;
     case 'image_carousel':
-      return <ImageCarouselLesson {...commonProps} />;
-
+      lesson = <ImageCarouselLesson {...commonProps} />;
+      break;
     case 'scrollable_media_view':
-      return <ScrollableMediaViewLesson {...commonProps} />;
-
+      lesson = <ScrollableMediaViewLesson {...commonProps} />;
+      break;
     default:
-      // Fallback for unknown content types - log warning and show reel
-      console.warn(`⚠️ [LessonPlayer] Unknown content_type: "${contentItem.content_type}", falling back to reel`);
-      return <ReelLesson {...commonProps} />;
+      AppLogger.warn('content', 'Unknown content_type encountered', { contentType: contentItem.content_type });
+      lesson = <ReelLesson {...commonProps} />;
   }
+
+  return (
+    <View style={{ flex: 1 }}>
+      {lesson}
+      <DevHealthOverlay />
+    </View>
+  );
 }
 
 // Re-export individual lessons for direct usage if needed

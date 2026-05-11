@@ -5,7 +5,8 @@
  */
 
 import { usePostHog } from 'posthog-react-native';
-import CustomerIOService from './CustomerIOService';
+import AppLogger from './AppLogger';
+import { networkPerformanceService } from './NetworkPerformanceService';
 
 // ==================== EVENT TYPES ====================
 
@@ -64,11 +65,6 @@ interface OnboardingQuestionAnsweredEvent {
   answer_index?: number;
 }
 
-interface OnboardingScreenExitedEvent {
-  screen: string;
-  exit_action: 'back_button' | 'continued' | 'app_closed';
-  duration_seconds: number;
-}
 
 interface AuthScreenViewedEvent {
   screen: string;
@@ -95,11 +91,92 @@ interface AuthFailedEvent {
   error_message: string;
 }
 
-interface AuthScreenExitedEvent {
-  screen: string;
-  exit_action: 'authenticated' | 'back_button' | 'app_closed';
-  duration_seconds: number;
-  mode: 'signin' | 'signup';
+
+// ==================== AI CHAT INTERFACES (AFF-857) ====================
+
+export type AIChatTriggerSource = 'fab' | 'quiz_results' | 'profile' | 'today' | 'unknown';
+
+interface AIChatOpenedEvent {
+  trigger: AIChatTriggerSource;
+  era_id: string;
+  adventure_id?: string;
+  message_count: number;
+  session_id?: string;
+}
+
+interface AIChatMessageSentEvent {
+  era_id: string;
+  message_type: 'text' | 'image';
+  message_length: number;
+  is_first_message: boolean;
+  session_id?: string;
+}
+
+interface AIChatResponseReceivedEvent {
+  era_id: string;
+  response_length: number;
+  response_time_ms: number;
+  session_id?: string;
+  has_web_sources?: boolean;
+  web_sources_count?: number;
+}
+
+interface AIChatClosedEvent {
+  era_id: string;
+  messages_count: number;
+  session_duration_seconds: number;
+  session_id?: string;
+}
+
+interface AIChatQuotaReachedEvent {
+  request_type: 'chat' | 'image_generate' | 'image_edit' | 'image_analyze';
+  messages_used?: number;
+  quota_limit: number;
+  is_subscriber: boolean;
+}
+
+interface AIChatImageGeneratedEvent {
+  era_id: string;
+  prompt_length: number;
+  session_id?: string;
+}
+
+interface AIChatSuggestionShownEvent {
+  era_id: string;
+  suggestions_count: number;
+  session_id?: string;
+}
+
+interface AIChatSuggestionTappedEvent {
+  era_id: string;
+  suggestion_index: number;
+  suggestion_length: number;
+  session_id?: string;
+}
+
+// ==================== SESSION TELEMETRY INTERFACES (AFF-151) ====================
+
+export type SessionOutTrigger = 'manual_profile' | 'stale_session_onboarding' | 'clerk_session_ended' | 'account_deleted' | 'app_backgrounded';
+
+interface UserSessionOutEvent {
+  trigger: SessionOutTrigger;
+  session_duration_seconds: number | null;
+  had_selected_era: boolean;
+}
+
+interface AuthStateChangeEvent {
+  previous_state: 'signed_in' | 'signed_out' | 'unknown';
+  new_state: 'signed_in' | 'signed_out';
+  user_id: string | null;
+  had_selected_era: boolean;
+  app_state: string;
+}
+
+interface OnboardingStaleSessionEvent {
+  user_id: string | null;
+  had_selected_era: boolean;
+  sign_out_result: 'success' | 'error';
+  error_message?: string;
 }
 
 interface VideoProgressEvent {
@@ -175,6 +252,65 @@ interface SubscriptionEvent {
   // timestamp removed - PostHog auto-captures $timestamp
 }
 
+// Subscribe flow trigger contexts (paywall placement IDs)
+export type SubscribeTrigger =
+  | 'subscribe_tab'
+  | 'daily_story_rewind'
+  | 'ai_quiz_explanation'
+  | 'era_locked'
+  | 'chat_to_learn';
+
+interface SubscribeScreenViewedEvent {
+  trigger: SubscribeTrigger;
+  era_id?: string;
+  era_name?: string;
+}
+
+interface SubscribePurchaseCompletedEvent {
+  trigger: SubscribeTrigger;
+  plan?: SubscriptionType;
+  revenue?: number;
+  era_id?: string;
+  era_name?: string;
+}
+
+interface SubscribePurchaseStartedEvent {
+  trigger: SubscribeTrigger;
+  plan_id?: string;
+  billing_cycle?: string;
+  era_id?: string;
+  era_name?: string;
+}
+
+interface SubscribePurchaseFailedEvent {
+  trigger: SubscribeTrigger;
+  plan?: SubscriptionType;
+  error_code?: string;
+  era_id?: string;
+  era_name?: string;
+}
+
+interface SubscribeRestoreEvent {
+  trigger: SubscribeTrigger;
+  era_id?: string;
+  era_name?: string;
+}
+
+interface SubscribeRestoreFailedEvent {
+  trigger: SubscribeTrigger;
+  error_code?: string;
+}
+
+interface SubscriptionPurchasedEvent {
+  product_id: string;
+  plan_type: SubscriptionType;
+  price_usd?: number;
+  currency?: string;
+  offering_id?: string;
+  is_trial: boolean;
+  source_placement?: SubscribeTrigger;
+}
+
 interface AdventureStartedEvent {
   era_id: string;
   era_name: string;
@@ -226,10 +362,24 @@ interface QuizResultsViewedEvent {
 interface ModuleStartedEvent {
   era_id: string;
   era_name: string;
-  adventure_id: number;
+  adventure_id: number | string;
   adventure_number: number;
-  module_id: number;
+  module_id: number | string;
   module_number: number;
+  module_title?: string;
+}
+
+interface EraStartedEvent {
+  era_id: string;
+  era_name: string;
+  screen: string;
+}
+
+interface EraCompletedEvent {
+  era_id: string;
+  era_name: string;
+  total_adventures: number;
+  total_xp: number;
 }
 
 interface ModuleCompletedEvent {
@@ -246,6 +396,133 @@ interface ModuleCompletedEvent {
   total_time_seconds?: number;
 }
 
+// ==================== DAILY STORY EVENT INTERFACES ====================
+
+interface DailyStoryViewedEvent {
+  story_id: string;
+  story_date: string;
+  story_title: string;
+  entry_source: 'today_tab' | 'notification' | 'rewind' | 'deep_link';
+  is_today: boolean;
+}
+
+interface DailyStoryDismissedEvent {
+  story_id: string;
+  time_spent_seconds: number;
+  scroll_depth_pct: number;
+  cards_seen: number;
+  completed: boolean;
+}
+
+interface DailyStoryCardViewedEvent {
+  story_id: string;
+  card_index: number;
+}
+
+interface DailyStoryCompletedEvent {
+  story_id: string;
+  story_date: string;
+  time_spent_seconds: number;
+  entry_source: 'today_tab' | 'notification' | 'rewind' | 'deep_link';
+}
+
+interface DailyStoryMediaPlayedEvent {
+  story_id: string;
+  media_type: 'audio' | 'video';
+  media_id: string;
+}
+
+interface DailyStoryRewindTappedEvent {
+  story_date: string;
+  is_subscribed: boolean;
+  days_ago: number;
+}
+
+interface DailyStoryRewindBlockedEvent {
+  story_date: string;
+  days_ago: number;
+}
+
+interface DailyStoryStreakIncrementedEvent {
+  story_id: string;
+  current_streak: number;
+  is_first_action_today: boolean;
+}
+
+interface DailyStoryStartedEvent {
+  story_id: string;
+  story_date: string;
+  entry_source: 'today_tab' | 'notification' | 'rewind' | 'deep_link';
+  is_today: boolean;
+  target_section: 'video' | 'reading' | 'quiz';
+  is_restart: boolean;
+}
+
+interface StreakViewedEvent {
+  current_streak: number;
+  longest_streak: number;
+}
+
+interface StreakCelebrationShownEvent {
+  streak_count: number;
+  is_milestone: boolean;
+  week_data: { day: string; completed: boolean; missed: boolean; is_today: boolean }[];
+}
+
+// ==================== DEVICE HEALTH INTERFACES (AFF-618) ====================
+
+interface DeviceHealthSnapshotEvent {
+  // Memory metrics (from react-native-device-info)
+  memory_used_mb: number;
+  memory_total_mb: number;
+  memory_percent: number;
+  memory_threshold_exceeded: boolean; // >80%
+
+  // CPU metrics (from DeviceHealth native module)
+  cpu_usage_percent: number;
+  cpu_core_count: number;
+  cpu_spike_detected: boolean; // >80% sustained
+
+  // Context
+  screen: string;
+  era_id?: string;
+  adventure_id?: string | number;
+  module_id?: string | number;
+  lesson_id?: string | number;
+}
+
+interface DeviceHealthSummaryEvent {
+  // Peak values over monitoring session
+  peak_memory_mb: number;
+  peak_memory_percent: number;
+  peak_cpu_percent: number;
+  avg_memory_percent: number;
+  avg_cpu_percent: number;
+
+  // Threshold flags
+  memory_threshold_exceeded: boolean;
+  cpu_spike_count: number; // number of consecutive polls >80%
+
+  // Session info
+  monitoring_duration_seconds: number;
+  sample_count: number;
+  screen: string;
+  era_id?: string;
+  adventure_id?: string | number;
+  module_id?: string | number;
+  lesson_id?: string | number;
+}
+
+interface NetworkSpeedEvent {
+  download_speed_mbps?: number;      // Present for progressive, absent for HLS
+  content_size_bytes?: number;       // Present for progressive, absent for HLS
+  load_time_ms: number;
+  media_type: 'video' | 'image';
+  content_type: 'hls' | 'progressive';
+  measurement_method: 'passive' | 'active';
+  cdn_domain: string;
+}
+
 // ==================== ANALYTICS SERVICE ====================
 
 class AnalyticsService {
@@ -258,6 +535,14 @@ class AnalyticsService {
   private anonymousId: string | null = null;
 
   /**
+   * AFF-151: Flag to prevent duplicate user_session_out events.
+   * Set to true BEFORE calling signOut()/user.delete() in profile.tsx,
+   * so _layout.tsx skips its own clerk_session_ended event.
+   * Automatically reset after _layout.tsx reads it.
+   */
+  manualSignOutInProgress = false;
+
+  /**
    * Initialize PostHog instance (call from root component)
    */
   async initialize(posthogInstance: ReturnType<typeof usePostHog>) {
@@ -266,8 +551,8 @@ class AnalyticsService {
     // Generate or retrieve anonymous ID for tracking users before signup
     await this.initializeAnonymousId();
 
-    console.log('📊 [Analytics] Service initialized');
-    console.log('📊 [Analytics] Anonymous ID:', this.anonymousId);
+    AppLogger.info('startup', 'Analytics service initialized');
+    AppLogger.info('startup', 'Analytics anonymous ID set', { anonymousId: this.anonymousId });
   }
 
   /**
@@ -283,7 +568,7 @@ class AnalyticsService {
       // Generate a new anonymous ID
       storedAnonymousId = `anon_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       await AsyncStorage.setItem('analytics_anonymous_id', storedAnonymousId);
-      console.log('📊 [Analytics] Generated new anonymous ID:', storedAnonymousId);
+      AppLogger.info('startup', 'Generated new anonymous ID');
     }
 
     this.anonymousId = storedAnonymousId;
@@ -294,7 +579,7 @@ class AnalyticsService {
    */
   setUserId(userId: string | null) {
     this.currentUserId = userId;
-    console.log('📊 [Analytics] User ID set:', userId);
+    AppLogger.info('auth', 'Analytics user ID set', { userId });
   }
 
   /**
@@ -309,43 +594,19 @@ class AnalyticsService {
     };
   }
 
+  /** AFF-579: Base properties + network context for CDN performance events only */
+  private getPerformanceProperties() {
+    return {
+      ...this.getBaseProperties(),
+      ...networkPerformanceService.getNetworkContext(),
+    };
+  }
+
   /**
    * Get current timestamp in ISO format
    */
   private getTimestamp(): string {
     return new Date().toISOString();
-  }
-
-  /**
-   * Track event to Customer.io (for push notification campaigns)
-   * Only sends key events that are useful for segmentation/campaigns
-   */
-  private trackToCustomerIO(eventName: string, properties?: Record<string, unknown>) {
-    console.log('🔍 [Analytics] trackToCustomerIO called with:', eventName);
-
-    // Only track key events to Customer.io to avoid noise
-    const customerIOEvents = [
-      'user_signed_up',
-      'onboarding_completed',
-      'lesson_started',
-      'lesson_completed',
-      'quiz_started',
-      'quiz_completed',
-      'module_completed',
-      'adventure_started',
-      'adventure_complete_continue',
-      'subscription_details',
-      'push_notifications_enabled',
-      'push_notifications_declined',
-    ];
-
-    const shouldTrack = customerIOEvents.includes(eventName);
-    console.log('🔍 [Analytics] Event in customerIOEvents list:', shouldTrack);
-
-    if (shouldTrack) {
-      console.log('🔍 [Analytics] Calling CustomerIOService.track()...');
-      CustomerIOService.track(eventName, properties);
-    }
   }
 
   // getDeviceType() removed - PostHog auto-captures $os property
@@ -360,10 +621,7 @@ class AnalyticsService {
     // PostHog's alias() assigns an alias to the current user
     if (this.anonymousId) {
       this.posthog?.alias(userId);
-      console.log('📊 [Analytics] Aliased current user to user ID:', {
-        previousAnonymousId: this.anonymousId,
-        userId: userId
-      });
+      AppLogger.info('auth', 'Aliased user to PostHog', { userId });
     }
 
     const event = {
@@ -374,8 +632,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('user_signed_up', event);
-    this.trackToCustomerIO('user_signed_up', event);
-    console.log('📊 [Analytics] User Signed Up:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] User Signed Up:', event);
+    }
   }
 
   /**
@@ -390,8 +649,10 @@ class AnalyticsService {
       // PostHog auto-captures $os (device type)
     };
 
+    // AFF-151: AppLogger breadcrumb fallback for early lifecycle (Sentry inits before PostHog)
+    AppLogger.info('auth', `user_session_in: ${loginMethod}`, event as Record<string, unknown>);
+
     this.posthog?.capture('user_session_in', event);
-    console.log('📊 [Analytics] User Session In:', event);
   }
 
   // ==================== ONBOARDING EVENTS ====================
@@ -406,8 +667,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('onboarding_completed', event);
-    this.trackToCustomerIO('onboarding_completed', event);
-    console.log('📊 [Analytics] Onboarding Completed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Onboarding Completed:', event);
+    }
   }
 
   /**
@@ -420,7 +682,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('era_selected', event);
-    console.log('📊 [Analytics] Era Selected:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Era Selected:', event);
+    }
   }
 
   /**
@@ -433,7 +697,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('permission_requested', event);
-    console.log('📊 [Analytics] Permission Requested:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Permission Requested:', event);
+    }
   }
 
   /**
@@ -446,20 +712,104 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('onboarding_question_answered', event);
-    console.log('📊 [Analytics] Onboarding Question Answered:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Onboarding Question Answered:', event);
+    }
   }
 
-  /**
-   * Track when user exits onboarding screen
-   */
-  trackOnboardingScreenExited(data: OnboardingScreenExitedEvent) {
-    const event = {
-      ...data,
-      ...this.getBaseProperties(),
-    };
 
-    this.posthog?.capture('onboarding_screen_exited', event);
-    console.log('📊 [Analytics] Onboarding Screen Exited:', event);
+  // ==================== LEARN FLOW EVENTS (AFF-857) ====================
+
+  trackLessonDismissed(data: {
+    adventure_id: string;
+    module_id: string;
+    lesson_id: string;
+    lesson_type: string;
+    time_spent_seconds: number;
+    progress_at_exit?: number;
+    era_id?: string;
+    era_name?: string;
+  }) {
+    this.trackCustomEvent('lesson_dismissed', data);
+  }
+
+  trackQuizAbandoned(data: {
+    adventure_id: string;
+    module_id: string;
+    questions_answered: number;
+    total_questions: number;
+    time_spent_seconds: number;
+    era_id?: string;
+    era_name?: string;
+  }) {
+    this.trackCustomEvent('quiz_abandoned', data);
+  }
+
+  trackAdventureCardDismissed(data: {
+    adventure_id: string;
+    time_on_card_seconds: number;
+  }) {
+    this.trackCustomEvent('adventure_card_dismissed', data);
+  }
+
+  trackLearnFlowCompleted(data: {
+    adventure_id: string;
+    module_id: string;
+    had_quiz: boolean;
+    total_time_seconds: number;
+    era_id?: string;
+  }) {
+    this.trackCustomEvent('learn_flow_completed', data);
+  }
+
+  // ==================== ONBOARDING FUNNEL EVENTS (AFF-857) ====================
+
+  trackOnboardingStepViewed(screen: string) {
+    this.trackCustomEvent('onboarding_step_viewed', { screen });
+  }
+
+  trackOnboardingBackTapped(screen: string) {
+    this.trackCustomEvent('onboarding_back_tapped', { screen });
+  }
+
+  trackOnboardingSkipped(screen: string, destination: string) {
+    this.trackCustomEvent('onboarding_skipped', { screen, action: 'skip', destination });
+  }
+
+  trackOnboardingNameEntered(nameLength: number) {
+    this.trackCustomEvent('onboarding_name_entered', { name_length: nameLength });
+  }
+
+  trackOnboardingInterestsSelected(interests: string[], count: number) {
+    this.trackCustomEvent('onboarding_interests_selected', { interests, count });
+  }
+
+  trackOnboardingLoginShortcutTapped(screen: string, destination: string) {
+    this.trackCustomEvent('onboarding_login_shortcut_tapped', { screen, destination });
+  }
+
+  trackOnboardingDailyGoalSelected(dailyGoalMinutes: number) {
+    this.trackCustomEvent('onboarding_daily_goal_selected', { daily_goal_minutes: dailyGoalMinutes });
+  }
+
+  trackOnboardingAgeGroupSelected(ageGroup: string) {
+    this.trackCustomEvent('onboarding_age_group_selected', { age_group: ageGroup });
+  }
+
+  trackWelcomeBackViewed(rememberedMethod: string) {
+    this.trackCustomEvent('welcome_back_viewed', { remembered_method: rememberedMethod });
+  }
+
+  trackWelcomeBackTapped(action: 'continue_as' | 'sign_out') {
+    this.trackCustomEvent('welcome_back_tapped', { action });
+  }
+
+  trackPaywallViewed(screen: string, source: string) {
+    this.trackCustomEvent('paywall_viewed', { screen, source });
+  }
+
+  trackPaywallCtaTapped(action: string) {
+    this.trackCustomEvent('paywall_cta_tapped', { action });
   }
 
   /**
@@ -472,7 +822,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_progress', event);
-    console.log('📊 [Analytics] Video Progress:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Progress:', event);
+    }
   }
 
   // ==================== AUTH EVENTS ====================
@@ -487,7 +839,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('auth_screen_viewed', event);
-    console.log('📊 [Analytics] Auth Screen Viewed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Auth Screen Viewed:', event);
+    }
   }
 
   /**
@@ -500,7 +854,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('auth_method_selected', event);
-    console.log('📊 [Analytics] Auth Method Selected:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Auth Method Selected:', event);
+    }
   }
 
   /**
@@ -513,7 +869,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('auth_succeeded', event);
-    console.log('📊 [Analytics] Auth Succeeded:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Auth Succeeded:', event);
+    }
   }
 
   /**
@@ -526,20 +884,70 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('auth_failed', event);
-    console.log('📊 [Analytics] Auth Failed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Auth Failed:', event);
+    }
+  }
+
+
+  // ==================== SESSION TELEMETRY (AFF-151) ====================
+
+  /**
+   * Track user session end — fires BEFORE posthog.reset() so the event is attributed to the user.
+   * Call this at every sign-out path, then call reset() separately.
+   */
+  trackUserSessionOut(data: UserSessionOutEvent) {
+    const sessionDuration = this.sessionStartTime
+      ? Math.floor((Date.now() - this.sessionStartTime) / 1000)
+      : null;
+
+    const event = {
+      ...this.getBaseProperties(),
+      trigger: data.trigger,
+      session_duration_seconds: data.session_duration_seconds ?? sessionDuration,
+      had_selected_era: data.had_selected_era,
+    };
+
+    // AFF-151: AppLogger breadcrumb ensures event is captured even if PostHog isn't ready
+    AppLogger.info('auth', `user_session_out: ${data.trigger}`, event as Record<string, unknown>);
+
+    this.posthog?.capture('user_session_out', event);
   }
 
   /**
-   * Track when user exits auth screen
+   * Track auth state transitions (signed_in ↔ signed_out) for full timeline visibility.
    */
-  trackAuthScreenExited(data: AuthScreenExitedEvent) {
+  trackAuthStateChange(data: AuthStateChangeEvent) {
     const event = {
       ...data,
       ...this.getBaseProperties(),
     };
 
-    this.posthog?.capture('auth_screen_exited', event);
-    console.log('📊 [Analytics] Auth Screen Exited:', event);
+    // AFF-151: AppLogger breadcrumb as fallback — Sentry inits before PostHog,
+    // so this captures auth events even during the early app lifecycle
+    AppLogger.info('auth', `auth_state_change: ${data.previous_state} → ${data.new_state}`, event as Record<string, unknown>);
+
+    this.posthog?.capture('auth_state_change', event);
+  }
+
+  /**
+   * Track when onboarding-video-2 detects a stale signed-in session and forces sign-out.
+   */
+  trackOnboardingStaleSession(data: OnboardingStaleSessionEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    AppLogger.warn('auth', 'Onboarding stale session detected', event as Record<string, unknown>);
+    this.posthog?.capture('onboarding_stale_session_detected', event);
+  }
+
+  /**
+   * Getter for session start time (used by callers to compute session_duration_seconds).
+   */
+  getSessionStartTime(): number | null {
+    return this.sessionStartTime;
   }
 
   // ==================== LESSON EVENTS ====================
@@ -555,7 +963,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('first_lesson', event);
-    console.log('📊 [Analytics] First Lesson:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] First Lesson:', event);
+    }
   }
 
   /**
@@ -572,16 +982,21 @@ class AnalyticsService {
     module_number?: number;
     $screen_name?: string; // Custom screen name for PostHog activity view
   }) {
-    console.log('🔍 [Analytics] trackLessonStarted called with:', data);
+    if (__DEV__) {
+      console.log('🔍 [Analytics] trackLessonStarted called with:', data);
+    }
     const event = {
       ...data,
       ...this.getBaseProperties(),
     };
 
-    console.log('🔍 [Analytics] About to capture lesson_started, posthog exists:', !!this.posthog);
+    if (__DEV__) {
+      console.log('🔍 [Analytics] About to capture lesson_started, posthog exists:', !!this.posthog);
+    }
     this.posthog?.capture('lesson_started', event);
-    this.trackToCustomerIO('lesson_started', event);
-    console.log('📊 [Analytics] Lesson Started:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Lesson Started:', event);
+    }
   }
 
   /**
@@ -604,8 +1019,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('lesson_completed', event);
-    this.trackToCustomerIO('lesson_completed', event);
-    console.log('📊 [Analytics] Lesson Completed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Lesson Completed:', event);
+    }
   }
 
   /**
@@ -632,7 +1048,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_played', event);
-    console.log('📊 [Analytics] Video Played:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Played:', event);
+    }
   }
 
   /**
@@ -662,7 +1080,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_paused', event);
-    console.log('📊 [Analytics] Video Paused:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Paused:', event);
+    }
   }
 
   /**
@@ -689,7 +1109,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_completed', event);
-    console.log('📊 [Analytics] Video Completed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Completed:', event);
+    }
   }
 
   /**
@@ -710,7 +1132,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('reading_card_expanded', event);
-    console.log('📊 [Analytics] Reading Card Expanded:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Reading Card Expanded:', event);
+    }
   }
 
   /**
@@ -734,7 +1158,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('video_buffering', event);
-    console.log('📊 [Analytics] Video Buffering:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Buffering:', event);
+    }
   }
 
   /**
@@ -759,7 +1185,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('carousel_image_view', event);
-    console.log('📊 [Analytics] Carousel Image View:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Carousel Image View:', event);
+    }
   }
 
   /**
@@ -782,7 +1210,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('screen_press', event);
-    console.log('📊 [Analytics] Screen Press:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Screen Press:', event);
+    }
   }
 
   /**
@@ -795,7 +1225,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('module_tracking', event);
-    console.log('📊 [Analytics] Module Tracking:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Module Tracking:', event);
+    }
   }
 
   // ==================== QUIZ EVENTS ====================
@@ -822,8 +1254,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_started', event);
-    this.trackToCustomerIO('quiz_started', event);
-    console.log('📊 [Analytics] Quiz Started:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Quiz Started:', event);
+    }
   }
 
   /**
@@ -856,7 +1289,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_question_answered', event);
-    console.log('📊 [Analytics] Quiz Question Answered:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Quiz Question Answered:', event);
+    }
   }
 
   /**
@@ -888,8 +1323,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_completed', event);
-    this.trackToCustomerIO('quiz_completed', event);
-    console.log('📊 [Analytics] Quiz Completed:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Quiz Completed:', event);
+    }
   }
 
   /**
@@ -913,7 +1349,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('quiz_retake', event);
-    console.log('📊 [Analytics] Quiz Retake:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Quiz Retake:', event);
+    }
   }
 
   // ==================== DROP-OFF TRACKING ====================
@@ -940,7 +1378,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('drop_off', event);
-    console.log('📊 [Analytics] Drop Off:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Drop Off:', event);
+    }
   }
 
   // ==================== PAGE VIEW TRACKING ====================
@@ -950,17 +1390,19 @@ class AnalyticsService {
    * @param pageName - Human-readable page name
    * @param screenUrl - Screen URL path for PostHog activity view (e.g., '/(tabs)/', '/(tabs)/profile')
    */
-  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home', screenUrl: string) {
+  startPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home' | 'today' | 'adventures', screenUrl: string) {
     this.pageStartTimes.set(pageName, Date.now());
     this.pageClicks.set(pageName, 0);
     this.pageUrls.set(pageName, screenUrl);
-    console.log(`📊 [Analytics] Started tracking ${pageName} page (${screenUrl})`);
+    if (__DEV__) {
+      console.log(`📊 [Analytics] Started tracking ${pageName} page (${screenUrl})`);
+    }
   }
 
   /**
    * Track page click
    */
-  trackPageClick(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home') {
+  trackPageClick(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home' | 'today' | 'adventures') {
     const currentClicks = this.pageClicks.get(pageName) || 0;
     this.pageClicks.set(pageName, currentClicks + 1);
   }
@@ -968,10 +1410,10 @@ class AnalyticsService {
   /**
    * End tracking page view (call on screen blur)
    */
-  endPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home') {
+  endPageView(pageName: 'profile' | 'subscription' | 'era' | 'era_selection_onboarding' | 'home' | 'today' | 'adventures') {
     const startTime = this.pageStartTimes.get(pageName);
     if (!startTime) {
-      console.warn(`⚠️ [Analytics] No start time for ${pageName} page`);
+      AppLogger.warn('navigation', 'No start time for page view', { pageName });
       return;
     }
 
@@ -988,7 +1430,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('page_view', event);
-    console.log(`📊 [Analytics] ${pageName} Page View:`, event);
+    if (__DEV__) {
+      console.log(`📊 [Analytics] ${pageName} Page View:`, event);
+    }
 
     // Clean up
     this.pageStartTimes.delete(pageName);
@@ -1009,7 +1453,9 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('notification_sent', event);
-    console.log('📊 [Analytics] Notification Sent:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Notification Sent:', event);
+    }
   }
 
   /**
@@ -1017,9 +1463,7 @@ class AnalyticsService {
    */
   trackNotificationClicked(messageId: string) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping event (PostHog not ready): notification_clicked');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping event', { eventName: 'notification_clicked' });
       return;
     }
 
@@ -1029,7 +1473,9 @@ class AnalyticsService {
     };
 
     this.posthog.capture('notification_clicked', event);
-    console.log('📊 [Analytics] Notification Clicked:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Notification Clicked:', event);
+    }
   }
 
   // ==================== SUBSCRIPTION EVENTS ====================
@@ -1044,8 +1490,113 @@ class AnalyticsService {
     };
 
     this.posthog?.capture('subscription_details', event);
-    this.trackToCustomerIO('subscription_details', event);
-    console.log('📊 [Analytics] Subscription:', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Subscription:', event);
+    }
+  }
+
+  /**
+   * Track subscribe screen viewed (paywall shown to user)
+   */
+  trackSubscribeScreenViewed(data: SubscribeScreenViewedEvent) {
+    this.trackCustomEvent('subscribe_screen_viewed', data);
+  }
+
+  /**
+   * Track purchase started (user initiated checkout)
+   */
+  trackSubscribePurchaseStarted(data: SubscribePurchaseStartedEvent) {
+    this.trackCustomEvent('subscribe_purchase_started', data);
+  }
+
+  /**
+   * Track purchase completed from paywall UI
+   */
+  trackSubscribePurchaseCompleted(data: SubscribePurchaseCompletedEvent) {
+    this.trackCustomEvent('subscribe_purchase_completed', data);
+  }
+
+  /**
+   * Track purchase failed from paywall UI
+   */
+  trackSubscribePurchaseFailed(data: SubscribePurchaseFailedEvent) {
+    this.trackCustomEvent('subscribe_purchase_failed', data);
+  }
+
+  /**
+   * Track purchase cancelled by user
+   */
+  trackSubscribePurchaseCancelled(data: { trigger: SubscribeTrigger; era_id?: string; era_name?: string }) {
+    this.trackCustomEvent('subscribe_purchase_cancelled', data);
+  }
+
+  /**
+   * Track restore tapped
+   */
+  trackSubscribeRestoreTapped(data: SubscribeRestoreEvent) {
+    this.trackCustomEvent('subscribe_restore_tapped', data);
+  }
+
+  /**
+   * Track restore success
+   */
+  trackSubscribeRestoreSuccess(data: SubscribeRestoreEvent) {
+    this.trackCustomEvent('subscribe_restore_success', data);
+  }
+
+  /**
+   * Track restore failed
+   */
+  trackSubscribeRestoreFailed(data: SubscribeRestoreFailedEvent) {
+    this.trackCustomEvent('subscribe_restore_failed', data);
+  }
+
+  /**
+   * Track authoritative subscription_purchased event
+   * Fires from RevenueCat purchase confirmation, NOT paywall UI
+   */
+  trackSubscriptionPurchased(data: SubscriptionPurchasedEvent) {
+    this.trackCustomEvent('subscription_purchased', data);
+  }
+
+  // ==================== PROFILE EVENTS (AFF-857) ====================
+
+  trackProfileViewed(data: {
+    total_xp: number;
+    current_streak: number;
+    lessons_completed: number;
+  }) {
+    this.trackCustomEvent('profile_viewed', data);
+  }
+
+  trackProfileStatsExpanded() {
+    this.trackCustomEvent('profile_stats_expanded', {});
+  }
+
+  trackProfileAchievementTapped(data: {
+    achievement_id: string;
+    achievement_name: string;
+    is_unlocked: boolean;
+  }) {
+    this.trackCustomEvent('profile_achievement_tapped', data);
+  }
+
+  trackProfileBadgeTapped(data: {
+    month: number;
+    is_earned: boolean;
+  }) {
+    this.trackCustomEvent('profile_badge_tapped', data);
+  }
+
+  trackProfileAvatarChanged(data: {
+    avatar_id: string;
+    avatar_name: string;
+  }) {
+    this.trackCustomEvent('profile_avatar_changed', data);
+  }
+
+  trackProfileSignOut() {
+    this.trackCustomEvent('profile_sign_out', {});
   }
 
   // ==================== UTILITY METHODS ====================
@@ -1055,16 +1606,15 @@ class AnalyticsService {
    */
   trackCustomEvent(eventName: string, properties: Record<string, any>) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log(`📊 [Analytics] Skipping event (PostHog not ready): ${eventName}`);
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping event', { eventName });
       return;
     }
 
     this.posthog.capture(eventName, properties);
-    this.trackToCustomerIO(eventName, properties);
     // PostHog auto-captures $timestamp on every event
-    console.log(`📊 [Analytics] Custom Event (${eventName}):`, properties);
+    if (__DEV__) {
+      console.log(`📊 [Analytics] Custom Event (${eventName}):`, properties);
+    }
   }
 
   // ==================== NEW TRACKING EVENTS ====================
@@ -1125,6 +1675,165 @@ class AnalyticsService {
     this.trackCustomEvent('module_completed', properties);
   }
 
+  /**
+   * Track era started (first time user enters an era's content)
+   */
+  trackEraStarted(properties: EraStartedEvent) {
+    this.trackCustomEvent('era_started', properties);
+  }
+
+  /**
+   * Track era completed (all adventures in era finished)
+   */
+  trackEraCompleted(properties: EraCompletedEvent) {
+    this.trackCustomEvent('era_completed', properties);
+  }
+
+  // ==================== DAILY STORY EVENTS ====================
+
+  /**
+   * Track daily story screen viewed
+   */
+  trackDailyStoryViewed(properties: DailyStoryViewedEvent) {
+    this.trackCustomEvent('daily_story_viewed', properties);
+  }
+
+  /**
+   * Track daily story dismissed (user navigated away)
+   */
+  trackDailyStoryDismissed(properties: DailyStoryDismissedEvent) {
+    this.trackCustomEvent('daily_story_dismissed', properties);
+  }
+
+  /**
+   * Track daily story card/section viewed (WATCH=1, EXPLORE=2, QUESTIONS=3)
+   */
+  trackDailyStoryCardViewed(properties: DailyStoryCardViewedEvent) {
+    this.trackCustomEvent('daily_story_card_viewed', properties);
+  }
+
+  /**
+   * Track daily story completed (all sections finished)
+   */
+  trackDailyStoryCompleted(properties: DailyStoryCompletedEvent) {
+    this.trackCustomEvent('daily_story_completed', properties);
+  }
+
+  /**
+   * Track media played within a daily story (video or audio)
+   */
+  trackDailyStoryMediaPlayed(properties: DailyStoryMediaPlayedEvent) {
+    this.trackCustomEvent('daily_story_media_played', properties);
+  }
+
+  /**
+   * Track user tapping a past story from the calendar
+   */
+  trackDailyStoryRewindTapped(properties: DailyStoryRewindTappedEvent) {
+    this.trackCustomEvent('daily_story_rewind_tapped', properties);
+  }
+
+  /**
+   * Track non-subscriber blocked from accessing past story
+   */
+  trackDailyStoryRewindBlocked(properties: DailyStoryRewindBlockedEvent) {
+    this.trackCustomEvent('daily_story_rewind_blocked', properties);
+  }
+
+  /**
+   * Track streak incremented from daily story completion
+   */
+  trackDailyStoryStreakIncremented(properties: DailyStoryStreakIncrementedEvent) {
+    this.trackCustomEvent('daily_story_streak_incremented', properties);
+  }
+
+  /**
+   * Track daily story started (user tapped START MY DAY / RESTART MY DAY)
+   */
+  trackDailyStoryStarted(properties: DailyStoryStartedEvent) {
+    this.trackCustomEvent('daily_story_started', properties);
+  }
+
+  /**
+   * Track streak viewed on Today tab (fires once per tab focus)
+   */
+  trackStreakViewed(properties: StreakViewedEvent) {
+    this.trackCustomEvent('streak_viewed', properties);
+  }
+
+  // ==================== END DAILY STORY EVENTS ====================
+
+  // ==================== STREAK CELEBRATION EVENTS ====================
+
+  /**
+   * Track streak celebration screen shown to user
+   */
+  trackStreakCelebrationShown(properties: StreakCelebrationShownEvent) {
+    this.trackCustomEvent('streak_celebration_shown', properties);
+  }
+
+  // ==================== END STREAK CELEBRATION EVENTS ====================
+
+  // ==================== AI CHAT EVENTS (AFF-857) ====================
+
+  /**
+   * Track AI chat modal opened
+   */
+  trackAIChatOpened(properties: AIChatOpenedEvent) {
+    this.trackCustomEvent('ai_chat_opened', properties);
+  }
+
+  /**
+   * Track user sending a message in AI chat
+   */
+  trackAIChatMessageSent(properties: AIChatMessageSentEvent) {
+    this.trackCustomEvent('ai_chat_message_sent', properties);
+  }
+
+  /**
+   * Track AI response received
+   */
+  trackAIChatResponseReceived(properties: AIChatResponseReceivedEvent) {
+    this.trackCustomEvent('ai_chat_response_received', properties);
+  }
+
+  /**
+   * Track AI chat closed
+   */
+  trackAIChatClosed(properties: AIChatClosedEvent) {
+    this.trackCustomEvent('ai_chat_closed', properties);
+  }
+
+  /**
+   * Track user hitting monthly AI quota
+   */
+  trackAIChatQuotaReached(properties: AIChatQuotaReachedEvent) {
+    this.trackCustomEvent('ai_chat_quota_reached', properties);
+  }
+
+  /**
+   * Track AI image generation completed
+   */
+  trackAIChatImageGenerated(properties: AIChatImageGeneratedEvent) {
+    this.trackCustomEvent('ai_chat_image_generated', properties);
+  }
+
+  /**
+   * Track AI follow-up suggestions shown to user
+   */
+  trackAIChatSuggestionShown(properties: AIChatSuggestionShownEvent) {
+    this.trackCustomEvent('ai_chat_suggestion_shown', properties);
+  }
+
+  /**
+   * Track user tapping on a follow-up suggestion
+   */
+  trackAIChatSuggestionTapped(properties: AIChatSuggestionTappedEvent) {
+    this.trackCustomEvent('ai_chat_suggestion_tapped', properties);
+  }
+
+  // ==================== END AI CHAT EVENTS ====================
+
   // ==================== END NEW TRACKING EVENTS ====================
 
   // ==================== PERSON PROPERTIES ====================
@@ -1136,9 +1845,7 @@ class AnalyticsService {
    */
   initializePersonProperties() {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping initializePersonProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping initializePersonProperties', {});
       return;
     }
 
@@ -1170,12 +1877,16 @@ class AnalyticsService {
       subscription_product_id: null,
       subscription_billing_cycle: null,
       rc_subscription_status: null,
+      // Daily story properties
+      last_daily_story_date: null,
+      daily_stories_read_count: null,
+      daily_story_completion_rate: null,
     };
 
     this.posthog.capture('$set', {
       $set: nullProperties,
     });
-    console.log('📊 [Analytics] Initialized all 21 person properties with null');
+    AppLogger.info('startup', 'Initialized person properties with null');
   }
 
   /**
@@ -1189,9 +1900,7 @@ class AnalyticsService {
     onboarding_result?: string;
   }) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping updateOnboardingProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping updateOnboardingProperties', {});
       return;
     }
 
@@ -1205,24 +1914,30 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: properties,
     });
-    console.log('📊 [Analytics] Updated onboarding properties:', properties);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated onboarding properties:', properties);
+    }
   }
 
   /**
    * Update push notification status
    */
-  updatePushStatus(isEnabled: boolean) {
+  updatePushStatus(isEnabled: boolean, permissionStatus?: 'Granted' | 'Denied' | 'NotDetermined') {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping updatePushStatus (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping updatePushStatus', {});
       return;
     }
 
     this.posthog.capture('$set', {
-      $set: { is_push_enabled: isEnabled },
+      $set: {
+        is_push_enabled: isEnabled,
+        push_permission_status: permissionStatus || (isEnabled ? 'Granted' : 'Denied'),
+        push_permission_updated_at: new Date().toISOString(),
+      },
     });
-    console.log('📊 [Analytics] Updated push status:', isEnabled);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated push status:', isEnabled, permissionStatus);
+    }
   }
 
   /**
@@ -1237,7 +1952,9 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: { last_active_at: timestamp },
     });
-    console.log('📊 [Analytics] Updated last_active_at:', timestamp);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated last_active_at:', timestamp);
+    }
   }
 
   /**
@@ -1257,9 +1974,7 @@ class AnalyticsService {
     era_xp?: Record<string, number>; // Dynamic: { "umayyad": 200, "rise_of_islam": 80 } - keys are era_ids from Supabase
   }) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping updateProgressProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping updateProgressProperties', {});
       return;
     }
 
@@ -1273,7 +1988,9 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: properties,
     });
-    console.log('📊 [Analytics] Updated progress properties:', properties);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated progress properties:', properties);
+    }
   }
 
   /**
@@ -1285,9 +2002,7 @@ class AnalyticsService {
     rc_subscription_status?: string | null;
   }) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping updateSubscriptionProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping updateSubscriptionProperties', {});
       return;
     }
 
@@ -1301,7 +2016,36 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: properties,
     });
-    console.log('📊 [Analytics] Updated subscription properties:', properties);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated subscription properties:', properties);
+    }
+  }
+
+  /**
+   * Update daily story person properties
+   */
+  updateDailyStoryProperties(data: {
+    last_daily_story_date?: string;
+    daily_stories_read_count?: number;
+    daily_story_completion_rate?: number;
+  }) {
+    if (!this.posthog) {
+      AppLogger.warn('startup', 'PostHog not ready, skipping updateDailyStoryProperties', {});
+      return;
+    }
+
+    const properties = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    );
+
+    if (Object.keys(properties).length === 0) return;
+
+    this.posthog.capture('$set', {
+      $set: properties,
+    });
+    if (__DEV__) {
+      console.log('📊 [Analytics] Updated daily story properties:', properties);
+    }
   }
 
   // ==================== USER IDENTIFICATION ====================
@@ -1311,9 +2055,7 @@ class AnalyticsService {
    */
   identifyUser(userId: string, properties?: Record<string, any>) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping identify (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping identify', {});
       return;
     }
 
@@ -1326,7 +2068,7 @@ class AnalyticsService {
       ) : {};
 
     this.posthog.identify(userId, sanitizedProperties);
-    console.log('📊 [Analytics] User Identified:', userId, sanitizedProperties);
+    AppLogger.info('auth', 'User identified in PostHog', { userId });
   }
 
   /**
@@ -1334,9 +2076,7 @@ class AnalyticsService {
    */
   setUserProperties(clerkUserId: string, properties?: Record<string, any>) {
     if (!this.posthog) {
-      if (__DEV__) {
-        console.log('📊 [Analytics] Skipping setUserProperties (PostHog not ready)');
-      }
+      AppLogger.warn('startup', 'PostHog not ready, skipping setUserProperties', {});
       return;
     }
 
@@ -1356,7 +2096,327 @@ class AnalyticsService {
     this.posthog.capture('$set', {
       $set: allProperties,
     });
-    console.log('📊 [Analytics] User Properties Set:', allProperties);
+    AppLogger.info('auth', 'User properties set in PostHog', { clerkUserId });
+  }
+
+  // ==================== DEVICE HEALTH TRACKING (AFF-618) ====================
+
+  /**
+   * Track a single device health snapshot during video playback.
+   * Sent when a threshold is exceeded (memory >80% or CPU spike >80%).
+   */
+  trackDeviceHealthSnapshot(data: DeviceHealthSnapshotEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('device_health_snapshot', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Device Health Snapshot:', event);
+    }
+  }
+
+  /**
+   * Track a summary of device health metrics for a video playback session.
+   * Sent once when monitoring ends (lesson exit or video completion).
+   */
+  trackDeviceHealthSummary(data: DeviceHealthSummaryEvent) {
+    const event = {
+      ...data,
+      ...this.getBaseProperties(),
+    };
+
+    this.posthog?.capture('device_health_summary', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Device Health Summary:', event);
+    }
+  }
+
+  // ==================== CDN PERFORMANCE TRACKING (AFF-579) ====================
+
+  /**
+   * Track video load time (player creation to readyToPlay)
+   */
+  trackVideoLoadTime(data: {
+    load_time_ms: number;
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    initial_speed_mbps?: number;
+  }) {
+    const event = {
+      ...data,
+      time_to_first_frame_ms: data.load_time_ms, // AFF-612: alias for PostHog queries
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_time', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Time:', event);
+    }
+  }
+
+  /**
+   * Track image load time (mount to onLoad)
+   */
+  trackImageLoadTime(data: {
+    load_time_ms: number;
+    image_url: string;
+    image_index: number;
+    total_images: number;
+    cdn_domain: string;
+    is_first_image: boolean;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('image_load_time', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Image Load Time:', event);
+    }
+  }
+
+  /**
+   * Track CDN media loading errors (video or image)
+   */
+  trackCDNError(data: {
+    media_type: 'video' | 'image';
+    url: string;
+    cdn_domain: string;
+    error_message: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('cdn_error', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] CDN Error:', event);
+    }
+  }
+
+  /**
+   * Track Supabase content fetch time (cache vs network)
+   */
+  trackContentFetchTime(data: {
+    fetch_time_ms: number;
+    era_id: string;
+    record_count: number;
+    source: 'cache' | 'supabase';
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('content_fetch_time', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Content Fetch Time:', event);
+    }
+  }
+
+  /**
+   * Track mid-playback buffer stall detected by VideoPlayer.
+   * Separate from trackVideoBuffering (which requires lesson context from parent).
+   */
+  trackVideoBufferStall(data: {
+    buffer_time_ms: number;
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_buffer_stall', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Buffer Stall:', event);
+    }
+  }
+
+  /**
+   * AFF-612: Track video completion rate (% of video watched before exit).
+   * Fired on unmount or when user navigates away from a video.
+   */
+  trackVideoCompletion(data: {
+    completion_rate: number; // 0.0–1.0
+    watch_duration_ms: number;
+    video_duration_ms: number;
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+  }) {
+    // Guard against NaN/Infinity from expo-video edge cases (e.g. released player)
+    if (!Number.isFinite(data.completion_rate) || !Number.isFinite(data.watch_duration_ms)) {
+      if (__DEV__) {
+        console.warn('📊 [Analytics] Video Completion skipped: invalid metrics', data);
+      }
+      return;
+    }
+
+    const event = {
+      ...data,
+      completion_rate: Math.round(data.completion_rate * 1000) / 1000, // 3 decimal places
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_completion', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Completion:', event);
+    }
+  }
+
+  // ==================== NETWORK SPEED TRACKING ====================
+
+  /** Max network speed events per session to prevent PostHog spam */
+  private networkSpeedEventCount = 0;
+  private static readonly MAX_SPEED_EVENTS = 20;
+
+  /**
+   * Track a passive network speed measurement from an actual media load.
+   * Fired after a video/image load completes and Content-Length is known.
+   * Capped at 20 events per session.
+   */
+  trackNetworkSpeed(data: NetworkSpeedEvent) {
+    if (this.networkSpeedEventCount >= AnalyticsService.MAX_SPEED_EVENTS) return;
+
+    // Guard against invalid data
+    if (!Number.isFinite(data.load_time_ms) || data.load_time_ms <= 0) return;
+    if (data.download_speed_mbps != null && (!Number.isFinite(data.download_speed_mbps) || data.download_speed_mbps <= 0)) return;
+
+    this.networkSpeedEventCount++;
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('network_speed_measurement', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Network Speed:', event);
+    }
+  }
+
+  // ==================== VIDEO STATUS CHANGE TRACKING ====================
+
+  /** Rate-limit: max 20 status change events per session to prevent PostHog spam from retry loops */
+  private videoStatusChangeCount = 0;
+  private static readonly MAX_STATUS_CHANGE_EVENTS = 20;
+
+  /**
+   * Track every video player status transition — fires on each statusChange event.
+   * Gives a full timeline of what the player went through (idle → loading → error → loading → ...).
+   * Rate-limited to 20 events per session to avoid flooding PostHog during retry loops (e.g. 797 errors).
+   */
+  trackVideoStatusChange(data: {
+    video_url: string;
+    status: string;
+    error_code?: string;
+    error_message?: string;
+    time_since_mount_ms: number;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+  }) {
+    if (this.videoStatusChangeCount >= AnalyticsService.MAX_STATUS_CHANGE_EVENTS) return;
+    this.videoStatusChangeCount++;
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_status_change', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Status Change:', event);
+    }
+  }
+
+  // ==================== VIDEO RELIABILITY TRACKING ====================
+
+  /**
+   * Track a video load attempt — fired when player is created, BEFORE readyToPlay.
+   * Ground truth for total attempts. Paired with video_load_time (success),
+   * cdn_error (explicit failure), video_load_timeout, or video_load_abandoned
+   * to calculate true success rate.
+   */
+  trackVideoLoadAttempted(data: {
+    video_url: string;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    trigger: 'auto' | 'user_retry';
+  }) {
+    // Reset status change counter per-video so each video gets full 20-event budget
+    this.videoStatusChangeCount = 0;
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_attempted', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Attempted:', event);
+    }
+  }
+
+  /**
+   * Track a video load timeout — fired when 30s pass without reaching readyToPlay
+   * and without an explicit cdn_error. Captures "stuck loading forever" sessions
+   * that are currently invisible in analytics.
+   */
+  trackVideoLoadTimeout(data: {
+    video_url: string;
+    elapsed_ms: number;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    last_known_status: string;
+  }) {
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_timeout', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Timeout:', event);
+    }
+  }
+
+  /**
+   * Track when user navigates away while video is still loading.
+   * Fired on VideoPlayer unmount if neither readyToPlay nor error occurred.
+   * elapsed_ms = how long the user waited before giving up.
+   */
+  trackVideoLoadAbandoned(data: {
+    video_url: string;
+    elapsed_ms: number;
+    content_type: 'hls' | 'progressive';
+    cdn_domain: string;
+    had_any_playback: boolean;
+  }) {
+    // Guard: only meaningful if user waited at least 500ms (not instant back-nav)
+    if (data.elapsed_ms < 500) {
+      if (__DEV__) {
+        console.log('📊 [Analytics] Video Load Abandoned dropped (elapsed < 500ms):', data.elapsed_ms);
+      }
+      return;
+    }
+
+    const event = {
+      ...data,
+      ...this.getPerformanceProperties(),
+    };
+
+    this.posthog?.capture('video_load_abandoned', event);
+    if (__DEV__) {
+      console.log('📊 [Analytics] Video Load Abandoned:', event);
+    }
   }
 
   /**
@@ -1368,8 +2428,10 @@ class AnalyticsService {
     this.sessionStartTime = null;
     this.pageStartTimes.clear();
     this.pageClicks.clear();
+    this.networkSpeedEventCount = 0;
+    this.videoStatusChangeCount = 0;
     // Note: We keep anonymousId - it persists across sessions
-    console.log('📊 [Analytics] Reset (anonymous ID preserved)');
+    AppLogger.info('auth', 'Analytics reset (anonymous ID preserved)');
   }
 }
 

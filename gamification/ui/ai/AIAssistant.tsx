@@ -6,6 +6,7 @@ import FloatingAIButton from './FloatingAIButton';
 import AIChatModal from './AIChatModal';
 import { useAI } from '@/gamification';
 import { useUser } from '@clerk/clerk-expo';
+import { usePathname } from 'expo-router';
 
 export default function AIAssistant() {
   const {
@@ -20,8 +21,16 @@ export default function AIAssistant() {
   // Get user authentication status
   const { isSignedIn } = useUser();
 
+  // Get current route
+  const pathname = usePathname();
+
   // Don't render if user is not logged in
   if (!isSignedIn) {
+    return null;
+  }
+
+  // Don't render on onboarding screens, auth screens, today screen, or subscription screen
+  if (pathname?.startsWith('/onboarding') || pathname?.startsWith('/(onboarding)') || pathname?.startsWith('/auth') || pathname?.startsWith('/(auth)') || pathname === '/(tabs)/subscribe' || pathname === '/subscribe') {
     return null;
   }
 
@@ -33,8 +42,8 @@ export default function AIAssistant() {
   return (
     <>
       {/* Floating button - hide when chat is open */}
-      {!isChatOpen && (
-        <FloatingAIButton onPress={openChat} />
+      {!isChatOpen && pathname !== '/(tabs)/today' && pathname !== '/today' && (
+        <FloatingAIButton onPress={() => openChat('fab')} />
       )}
 
       {/* Chat modal */}

@@ -1,5 +1,4 @@
-// OnboardingResultsScreen - Shows recommended era based on quiz answers
-// Displays suggested learning path and prompts account creation
+// OnboardingResultsScreen - Shows the default recommended era and prompts account creation
 
 import React, { useState, useEffect, useRef } from 'react'
 import {
@@ -20,20 +19,20 @@ import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useAppTrackingTransparency } from '@/hooks/useAppTrackingTransparency'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 import Svg, { Path } from 'react-native-svg'
 
+const DEFAULT_RECOMMENDED_ERA = 'Prophets of Islam 1'
+
 export default function OnboardingResultsScreen() {
-  const [recommendedEra, setRecommendedEra] = useState('Rise of Islam')
-  const [screenStartTime] = useState(Date.now())
+  const [recommendedEra, setRecommendedEra] = useState(DEFAULT_RECOMMENDED_ERA)
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
   const { requestPermission } = useAppTrackingTransparency()
 
-  // Use refs to prevent duplicate tracking and avoid useEffect dependency issues
   const hasTrackedCompletionRef = useRef(false)
-  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
-  console.log('🎯 [OnboardingResults] Component initializing...')
+  AppLogger.info('navigation', 'OnboardingResults initializing')
 
   // Track screen view and onboarding completion when component mounts (ONCE only)
   useEffect(() => {
@@ -46,21 +45,12 @@ export default function OnboardingResultsScreen() {
       trackOnboardingCompletion()
     }
 
-    // Track screen exit on unmount only (use ref to avoid re-running effect)
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_results',
-        exit_action: exitActionRef.current,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime])
+  }, [trackScreenView])
 
   // Track onboarding completion with all answers
   const trackOnboardingCompletion = async () => {
     try {
-      console.log('🎯 [OnboardingResults] Tracking onboarding completion...')
+      AppLogger.info('navigation', 'Tracking onboarding completion')
 
       // Get start time
       const startTime = await AsyncStorage.getItem('onboarding_start_time')
@@ -97,41 +87,22 @@ export default function OnboardingResultsScreen() {
         awareness_channel: q2Data.answer || null,         // Q2: "How did you learn about Archives?"
         daily_learning_goal: q3Data.answer || null,       // Q3: "What's your daily learning goal?"
         learning_motivation: q4Data.answers || null,      // Q4: "Why are you learning?" (multi-select)
-        onboarding_result: 'Rise of Islam',               // Recommended era
+        onboarding_result: recommendedEra,
       })
 
-      console.log('🎯 [OnboardingResults] Onboarding completion tracked:', {
-        timeToComplete,
-        q1: q1Data.answer,
-        q2: q2Data.answer,
-        q3: q3Data.answer,
-        q4: q4Data.answers,
-      })
+      AppLogger.info('navigation', 'Onboarding completion tracked', { timeToComplete })
     } catch (error) {
-      console.error('🎯 [OnboardingResults] Error tracking onboarding completion:', error)
+      AppLogger.error('navigation', 'Error tracking onboarding completion', {}, error)
     }
   }
 
-  // Load recommendation based on quiz answers
   const loadRecommendation = async () => {
     try {
-      // For now, default to Umayyad Dynasty
-      // In the future, this could analyze quiz answers to suggest different eras
-      const answers = {
-        q1: await AsyncStorage.getItem('onboarding_q1_answer'),
-        q2: await AsyncStorage.getItem('onboarding_q2_answer'),
-        q3: await AsyncStorage.getItem('onboarding_q3_answer'),
-        q4: await AsyncStorage.getItem('onboarding_q4_answer'),
-      }
-
-      console.log('🎯 [OnboardingResults] Quiz answers:', answers)
-
-      // Based on answers, we could recommend different eras
-      // For now, always recommend Rise of Islam
-      setRecommendedEra('Rise of Islam')
+      // Always recommend the default era for now
+      setRecommendedEra(DEFAULT_RECOMMENDED_ERA)
     } catch (error) {
-      console.error('🎯 [OnboardingResults] Error loading answers:', error)
-      setRecommendedEra('Rise of Islam')
+      AppLogger.error('navigation', 'Error loading recommendation', {}, error)
+      setRecommendedEra(DEFAULT_RECOMMENDED_ERA)
     }
   }
 
@@ -139,11 +110,11 @@ export default function OnboardingResultsScreen() {
   const handleCreateAccount = async () => {
     try {
       await Haptics.impactAsync()
-      console.log('🎯 [OnboardingResults] User tapped CREATE ACCOUNT - requesting ATT permission')
+      AppLogger.info('auth', 'User tapped CREATE ACCOUNT - requesting ATT permission')
 
       // Request ATT permission - popup shows here
       const attStatus = await requestPermission()
-      console.log('🎯 [OnboardingResults] ATT permission result:', attStatus)
+      AppLogger.info('auth', 'ATT permission result', { attStatus })
 
       // Track ATT permission request
       analyticsService.trackPermissionRequested({
@@ -155,13 +126,11 @@ export default function OnboardingResultsScreen() {
 
       // Navigate to authentication page after ATT response
       // Note: The authentication screen will handle routing to appropriate tab after successful auth
-      console.log('🎯 [OnboardingResults] Navigating to authentication page')
-      exitActionRef.current = 'continued'
+      AppLogger.info('navigation', 'Navigating to authentication page')
       router.push('/(auth)/archives-auth')
     } catch (error) {
-      console.error('🎯 [OnboardingResults] Error during ATT request or navigation:', error)
+      AppLogger.error('auth', 'Error during ATT request or navigation', {}, error)
       // Even if ATT fails, continue to authentication
-      exitActionRef.current = 'continued'
       router.push('/(auth)/archives-auth')
     }
   }
@@ -179,7 +148,7 @@ export default function OnboardingResultsScreen() {
           <View style={styles.mascotSection}>
             {/* Camel on Left */}
             <Image
-              source={require('@/assets/images/quiz-images/Camel.png')}
+              source={require('@/assets/images/ai-images/hellocharacter.png')}
               style={styles.camelMascot}
               resizeMode="contain"
             />
@@ -187,7 +156,7 @@ export default function OnboardingResultsScreen() {
             {/* Speech Bubble on Right */}
             <View style={styles.speechBubble}>
               <Text style={styles.suggestionText} selectable={false}>
-                Based on your{'\n'}answers, we suggest{'\n'}you to explore...
+                Based on your{'\n'}answers, we suggest...
               </Text>
 
               {/* Speech bubble tail - SVG arrow */}
@@ -236,36 +205,33 @@ export default function OnboardingResultsScreen() {
           {/* Era Recommendation Card */}
           <View style={styles.eraCard}>
             <Image
-              source={require('@/assets/images/eras/era2-bg.jpg')}
+              source={require('@/assets/images/eras/prophets-era.jpeg')}
               style={styles.eraImage}
               resizeMode="cover"
             />
 
-            {/* Gradient Overlay - Bottom to Top (100% to 0%) */}
+            {/* Gradient Overlay - lighter gradient for text readability */}
             <LinearGradient
               colors={[
                 'rgba(0,0,0,0.0)',    // 0% opacity at top
+                'rgba(0,0,0,0.1)',    // 10% opacity
                 'rgba(0,0,0,0.4)',    // 40% opacity
-                'rgba(0,0,0,0.7)',    // 70% opacity
-                'rgba(0,0,0,1.0)'     // 100% opacity at bottom
+                'rgba(0,0,0,0.7)'     // 70% opacity at bottom
               ]}
-              locations={[0, 0.3, 0.7, 1]}
+              locations={[0, 0.4, 0.7, 1]}
               style={styles.gradientOverlay}
             />
 
             <View style={styles.eraOverlay}>
               <Text style={styles.eraTitle} selectable={false}>
-                Rise of Islam
-              </Text>
-              <Text style={styles.eraSubtitle} selectable={false}>
-                (570–632 CE)
+                {recommendedEra}
               </Text>
             </View>
           </View>
 
           {/* Account Creation Prompt */}
           <Text style={styles.accountPrompt} selectable={false}>
-            Start exploring by creating an account
+            Create an account to start exploring
           </Text>
 
           {/* Spacer */}
@@ -308,9 +274,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   camelMascot: {
-    width: 100,
-    height: 100,
-    marginRight: 20,
+    width: 135,
+    height: 135,
+    marginRight: 3,
   },
 
   // Speech Bubble
@@ -358,8 +324,8 @@ const styles = StyleSheet.create({
   // Era Recommendation Card
   eraCard: {
     width: '100%',
-    height: 400,
-    borderRadius: 20,
+    height: 250,
+    borderRadius: 24,
     overflow: 'hidden',
     position: 'relative',
     marginBottom: 30,
@@ -383,13 +349,6 @@ const styles = StyleSheet.create({
     color: 'white',
     marginBottom: 4,
   },
-  eraSubtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#D7C5B6',
-  },
-
   // Account Creation
   accountPrompt: {
     fontFamily: 'DM Sans',

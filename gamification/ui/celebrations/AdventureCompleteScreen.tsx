@@ -1,164 +1,228 @@
-// Adventure Complete Screen - Celebration screen for completing an adventure
-// Figma design: https://www.figma.com/design/rQCyFdW0CFzpUoegFfew7u/Archives_Raw_File?node-id=693-1885
-// Features:
-// - Blurred background image (25% height) with title overlay (respects Supabase newlines)
-// - Badge "ADVENTURE COMPLETED!" with description text
-// - Character illustration
-// - Stats card (Badges, Total XP, Modules as "X/Y" format) with Persian Orange text
-// - Moss green "START NEXT ADVENTURE" button
-// FULLY RESPONSIVE - All values use percentages based on screen dimensions
+// Adventure Complete Screen — celebration modal shown when a user finishes
+// the last module of an adventure.
+//
+// Design source (Figma): node 3215:9503 in Archives_Raw_File. Redesigned
+// for AFF-854 to align with the new Archives design system:
+//   • snow background with a blurred hero image fading into it
+//   • Bounded display typography for subtitle + title
+//   • pink "ADVENTURE COMPLETED!" pill
+//   • ibu_teacher Rive mascot (replaces the previous mp4)
+//   • blue tertiary DepthButton CTA ("NEXT ADVENTURE")
+//
+// Stats (XP / badges / modules) are no longer rendered — they live on
+// QuizResults — but we still resolve them from the progress engine so
+// the `adventure_completed` analytics payload keeps the same shape.
 
 import type { Adventure } from '@/components/shared/types';
-import ArchivesTheme from '@/constants/ArchivesTheme';
+import { DepthButton, Typography, colors, easings } from '@/components/ui';
+import { AnimatedEntrance } from '@/components/ui/animations';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import { useGamifiedProgress } from '@/gamification';
-import { useCelebrationVideoPlayer } from '@/hooks/useCelebrationVideoPlayer';
 import { analyticsService } from '@/services/AnalyticsService';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { VideoView } from 'expo-video';
-import React, { useEffect, useState } from 'react';
-import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  AppState,
+  Dimensions,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  type AppStateStatus,
+} from 'react-native';
+import Animated from 'react-native-reanimated';
+import RenderHtml from 'react-native-render-html';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Rive, { Alignment, Fit } from 'rive-react-native';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ibuTeacherRive = require('@/assets/rive/ibu_teacher.riv');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// ─── Entrance choreography ───────────────────────────────────────────
+// Mirrors the GSAP timeline in `Downloads/03 questions/index.html`
+// (`enterAdventureDone`, lines 2488–2525). Numbers are the GSAP `at`
+// offsets in seconds; we convert to milliseconds for AnimatedEntrance.
+// Each layer plays its own from→to tween with a delay; layers can
+// overlap, matching the mock (e.g. title stagger lasts 550ms but the
+// pill kicks off at 0.65s, before the title settles).
+const ENTRANCE = {
+  hero: { delay: 0, duration: 500 }, // bg + gradient fade in
+  subtitle: { delay: 150, duration: 400 }, // "DAMASCUS"
+  title: { delay: 250, duration: 550, stagger: 90 }, // word stagger
+  pill: { delay: 650, duration: 420 }, // "ADVENTURE COMPLETED!"
+  description: { delay: 850, duration: 400 },
+  mascot: { delay: 1050, duration: 600 },
+  cta: { delay: 1600, duration: 450 },
+} as const;
+
+// Custom pill preset — scale-only pop. Existing `chipPop` uses scale
+// 0.6→1 + 320ms; mock specifies 0.7→1 + 420ms `back.out(2.2)`. Inline
+// the config rather than adding another preset that's only used here.
+const PILL_ENTRANCE = {
+  scale: { from: 0.7, to: 1 },
+  opacity: { from: 0, to: 1 },
+  duration: ENTRANCE.pill.duration,
+  easing: easings.backOut2,
+} as const;
+
+// Module-scoped style objects — RenderHtml warns when these change
+// reference between renders (it re-builds its TRT — Token-Render-Tree —
+// on every prop change). Hoisting them out of the component keeps the
+// tree stable across re-renders and silences the "tagsStyles changed"
+// warning in dev.
+const htmlBaseStyle = {
+  fontFamily: 'Onest-SemiBold',
+  fontSize: 16,
+  lineHeight: 22,
+  color: '#000000',
+  textAlign: 'center' as const,
+  letterSpacing: -0.16,
+};
+
+const htmlTagsStyles = {
+  body: {
+    fontFamily: 'Onest-SemiBold',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#000000',
+    textAlign: 'center' as const,
+    letterSpacing: -0.16,
+    margin: 0,
+    padding: 0,
+  },
+  p: {
+    fontFamily: 'Onest-SemiBold',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#000000',
+    textAlign: 'center' as const,
+    letterSpacing: -0.16,
+    marginTop: 0,
+    marginBottom: 8,
+  },
+  strong: { fontFamily: 'Onest-Bold' },
+  b: { fontFamily: 'Onest-Bold' },
+  em: { fontStyle: 'italic' as const },
+  i: { fontStyle: 'italic' as const },
+  a: { color: '#1E3C88', textDecorationLine: 'underline' as const },
+};
 
 interface AdventureCompleteScreenProps {
   // Option 1: Pass Adventure object (data extracted automatically)
   adventure?: Adventure;
 
   // Option 2: Pass individual props (overrides adventure object)
-  adventureSubtitle?: string; // Small title (e.g., "The New Capital")
-  adventureTitle?: string; // Large title (e.g., "Damascus")
-  adventureDescription?: string; // Description after badge
-  backgroundVideo?: string; // Background video URL (preferred)
-  backgroundImage?: string; // Background image URL (fallback)
+  adventureId?: string;
+  adventureSubtitle?: string;
+  adventureTitle?: string;
+  adventureDescription?: string;
+  backgroundVideo?: string;
+  backgroundImage?: string;
 
-  // Stats
+  // Stats — analytics-only after the redesign; not rendered.
   totalBadges?: number;
   totalXP?: number;
-  completedModules?: number; // Number of completed modules
-  totalModules?: number; // Total number of modules
+  completedModules?: number;
+  totalModules?: number;
+
   onContinue: () => void;
-  onClose?: () => void; // Optional close button handler
+  onClose?: () => void;
 }
 
-// Helper function to split long titles into two lines at a natural word boundary
-const smartWrapTitle = (title: string): string => {
-  // If title already has a newline, return as-is
+// Smart-wrap a long single-line title and pick a font size that won't
+// truncate. Bounded-Black is wide — "SOUTHEAST ASIA" at 42px is ~330px
+// and overflows on a 393-wide phone after horizontal padding. We split
+// long titles into 2 lines AND step the font size down for very long
+// words ("SOUTHEAST", "INDONESIA"). Returns lines + a fitted fontSize.
+const TITLE_BASE_SIZE = 42;
+const TITLE_MEDIUM_SIZE = 34;
+const TITLE_SMALL_SIZE = 28;
+
+const fitTitle = (
+  title: string,
+): { lines: string[]; fontSize: number } => {
+  // Honor manual newlines if the content team authored any.
   if (title.includes('\n')) {
-    return title;
+    const lines = title.split('\n').map((l) => l.trim()).filter(Boolean);
+    const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
+    return { lines, fontSize: pickSize(longest) };
   }
 
-  const words = title.split(' ');
-
-  // If title has 3 words or less, keep on single line
-  if (words.length <= 3) {
-    return title;
+  const words = title.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return { lines: [title], fontSize: TITLE_BASE_SIZE };
+  if (words.length === 1) {
+    return { lines: words, fontSize: pickSize(words[0].length) };
   }
 
-  // For titles with 4+ words, find best split point
-
-  // Try to split after 3rd word
-  if (words.length >= 4) {
-    const firstPart = words.slice(0, 3).join(' ');
-    const secondPart = words.slice(3).join(' ');
-
-    // Only split if first part is reasonable length (10-16 chars to fit on one line)
-    if (firstPart.length >= 10 && firstPart.length <= 16) {
-      return `${firstPart}\n${secondPart}`;
+  // Try every split point; pick the one that minimizes the longer line's
+  // length (so both lines visually balance). Falls back to a single line
+  // if the title is short enough to fit at base size.
+  let best = { lines: [title], longest: title.length };
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(' ');
+    const b = words.slice(i).join(' ');
+    const longest = Math.max(a.length, b.length);
+    if (longest < best.longest) {
+      best = { lines: [a, b], longest };
     }
   }
-
-  // For longer titles, try splitting after 2nd word
-  if (words.length >= 3) {
-    const firstPart = words.slice(0, 2).join(' ');
-    const secondPart = words.slice(2).join(' ');
-
-    // Only split if first part is reasonable length (8-16 chars)
-    if (firstPart.length >= 8 && firstPart.length <= 16) {
-      return `${firstPart}\n${secondPart}`;
-    }
-  }
-
-  // Fallback: find closest space to character 15
-  let splitIndex = 15;
-  const nextSpace = title.indexOf(' ', splitIndex);
-  const prevSpace = title.lastIndexOf(' ', splitIndex);
-
-  // Choose the closer space
-  if (nextSpace !== -1 && prevSpace !== -1) {
-    splitIndex = (nextSpace - splitIndex) < (splitIndex - prevSpace) ? nextSpace : prevSpace;
-  } else if (nextSpace !== -1) {
-    splitIndex = nextSpace;
-  } else if (prevSpace !== -1) {
-    splitIndex = prevSpace;
-  }
-
-  if (splitIndex > 0 && splitIndex < title.length) {
-    return `${title.substring(0, splitIndex)}\n${title.substring(splitIndex + 1)}`;
-  }
-
-  return title;
+  return { lines: best.lines, fontSize: pickSize(best.longest) };
 };
 
-// Consistent line spacing for multi-line titles
-const getLineSpacing = (firstLine: string): number => {
-  // Use consistent negative margin for tight, uniform spacing across all titles
-  const marginValue = -SCREEN_HEIGHT * 0.035; // -3.5% works well for all title lengths
-
-  console.log(`🎨 Title spacing - First line: "${firstLine}" → -3.5% margin`);
-
-  return marginValue;
+// Step the font size down for very long lines so Bounded-Black doesn't
+// overflow the screen. Thresholds tuned to a 393px-wide phone with 48px
+// horizontal padding (≈345px text bbox).
+const pickSize = (longestLineChars: number): number => {
+  if (longestLineChars <= 11) return TITLE_BASE_SIZE; // "DAMASCUS"
+  if (longestLineChars <= 14) return TITLE_MEDIUM_SIZE; // "THE NEW CAPITAL"
+  return TITLE_SMALL_SIZE; // "SOUTHEAST ASIA", "RISE OF INDONESIA"
 };
 
 export default function AdventureCompleteScreen({
   adventure,
+  adventureId: propAdventureId,
   adventureSubtitle: propSubtitle,
   adventureTitle: propTitle,
   adventureDescription: propDescription,
   backgroundImage: propBackgroundImage,
-  totalBadges = 3,
+  totalBadges: _totalBadges = 3,
   totalXP = 0,
   completedModules = 5,
   totalModules = 5,
   onContinue,
   onClose,
 }: AdventureCompleteScreenProps) {
-  // Get progress functions
+  const insets = useSafeAreaInsets();
   const { getROIAdventureStats } = useGamifiedProgress();
 
-  // State for calculated stats
   const [calculatedStats, setCalculatedStats] = useState({ xp: 0, completedModules: 0 });
   const [hasTrackedCompletion, setHasTrackedCompletion] = useState(false);
 
-  // Calculate stats from adventure progress data
+  // Pull XP / module counts from the unified progress engine when an
+  // Adventure object is passed. Used purely for analytics fidelity — the
+  // redesigned screen no longer renders these numbers, but the
+  // `adventure_completed` event downstream is still keyed off them.
   useEffect(() => {
-    const loadStats = async () => {
-      if (adventure?.readable_id) {
-        const stats = await getROIAdventureStats(adventure.readable_id);
-        setCalculatedStats(stats);
-        console.log(`📊 [AdventureCompleteScreen] Loaded stats for ${adventure.readable_id}:`, stats);
-      }
-    };
-    loadStats();
+    if (adventure?.readable_id) {
+      getROIAdventureStats(adventure.readable_id).then(setCalculatedStats);
+    }
   }, [adventure?.readable_id, getROIAdventureStats]);
 
-  // Calculate total modules from adventure content_list
   const totalModulesCount = totalModules || adventure?.content_list?.length || 5;
-
-  // Use calculated stats (with fallback to props for backwards compatibility)
   const displayXP = totalXP || calculatedStats.xp;
   const displayCompletedModules = completedModules || calculatedStats.completedModules;
 
-  // Track adventure completion once when stats are ready
   useEffect(() => {
-    // Only track once, and only when we have valid data
     if (
       !hasTrackedCompletion &&
       adventure?.readable_id &&
-      (totalXP > 0 || calculatedStats.xp > 0) // Ensure we have loaded stats
+      (totalXP > 0 || calculatedStats.xp > 0)
     ) {
       analyticsService.trackCustomEvent('adventure_completed', {
         adventure_id: adventure.readable_id,
@@ -168,176 +232,321 @@ export default function AdventureCompleteScreen({
         total_modules: totalModulesCount,
         era_id: adventure.era_id,
         era_name: adventure.card_content?.era_name || adventure.era_id,
-        adventure_number: adventure.order_by || parseInt(adventure.readable_id.split('_')[2] || '0', 10),
-        // $current_url auto-captured by PostHog
+        adventure_number:
+          adventure.order_by ||
+          parseInt(adventure.readable_id.split('_')[2] || '0', 10),
       });
-      console.log(`📊 [Analytics] Adventure Completed: ${adventure.readable_id} (XP: ${displayXP}, Modules: ${displayCompletedModules}/${totalModulesCount})`);
       setHasTrackedCompletion(true);
     }
-  }, [adventure?.readable_id, adventure?.adventure_title, calculatedStats, totalXP, hasTrackedCompletion, displayXP, displayCompletedModules, totalModulesCount]);
+  }, [
+    adventure?.readable_id,
+    adventure?.adventure_title,
+    adventure?.era_id,
+    adventure?.card_content?.era_name,
+    adventure?.order_by,
+    calculatedStats,
+    totalXP,
+    hasTrackedCompletion,
+    displayXP,
+    displayCompletedModules,
+    totalModulesCount,
+  ]);
 
-  // Set up video player for character animation
-  const videoSource = require('@/assets/videos/advend.mp4');
-  const player = useCelebrationVideoPlayer(videoSource, (player) => {
-    player.loop = true;
-    player.play();
-  });
-
-  // Cleanup video player on unmount
+  // Android-only Rive surface recovery — see components/quiz/results/
+  // Mascot.tsx for the full explanation. When a native modal/sheet
+  // covers this screen and is dismissed, Android's SurfaceView can lose
+  // its GL context and the Rive canvas renders blank. Bumping a remount
+  // key on background→active forces Rive to recreate the surface. iOS
+  // CoreAnimation preserves the layer, so the listener is no-op there.
+  const [riveKey, setRiveKey] = useState(0);
   useEffect(() => {
-    return () => {
-      try {
-        player.pause();
-      } catch (error) {
-        // Silently handle cleanup errors
+    if (Platform.OS !== 'android') return;
+    let prev: AppStateStatus = AppState.currentState;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (prev !== 'active' && next === 'active') {
+        setRiveKey((k) => k + 1);
       }
-    };
-  }, [player]);
+      prev = next;
+    });
+    return () => sub.remove();
+  }, []);
 
-  // Extract data from adventure object or use provided props
   const rawTitle = propTitle || adventure?.adventure_title || 'Complete';
-  const fullTitle = smartWrapTitle(rawTitle); // Apply smart wrapping
-  const description = propDescription || adventure?.adventure_description;
+  const subtitle = propSubtitle ?? adventure?.card_content?.era_name ?? '';
+  const description = propDescription || adventure?.adventure_description || '';
   const bgImage = propBackgroundImage || adventure?.card_content?.background_image || '';
+  const { lines: titleLines, fontSize: titleFontSize } = fitTitle(rawTitle);
 
-  // Split title on newline character (from Supabase or auto-generated by smartWrapTitle)
-  // Both lines: 40px (same size)
-  const titleLines = fullTitle.split('\n');
-  const hasMultipleLines = titleLines.length > 1;
-  const titleLine1 = hasMultipleLines ? titleLines[0] : '';
-  const titleLine2 = hasMultipleLines ? titleLines[1] : fullTitle;
-
-  const handleContinue = async () => {
+  const handleContinue = useCallback(async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // Track continue button click
+    const adventureId = propAdventureId || adventure?.readable_id;
+
     if (adventure?.readable_id) {
       analyticsService.trackCustomEvent('adventure_complete_continue', {
         adventure_id: adventure.readable_id,
         adventure_title: adventure.adventure_title,
         era_id: adventure.era_id,
         era_name: adventure.card_content?.era_name || adventure.era_id,
-        adventure_number: adventure.order_by || parseInt(adventure.readable_id.split('_')[2] || '0', 10),
-        // $current_url auto-captured by PostHog
+        adventure_number:
+          adventure.order_by ||
+          parseInt(adventure.readable_id.split('_')[2] || '0', 10),
       });
-      console.log(`📊 [Analytics] Adventure Complete Continue: ${adventure.readable_id}`);
+    } else if (adventureId) {
+      analyticsService.trackCustomEvent('adventure_complete_continue', {
+        adventure_id: adventureId,
+      });
     }
 
-    // Save flag to mark this adventure complete screen as seen
-    if (adventure?.readable_id) {
+    // Failsafe local flag so the celebration doesn't replay on reinstall
+    // before cloud sync lands. Primary protection lives in Quiz.tsx via
+    // wasAlreadyComplete; this is the belt-and-braces backup for a
+    // cloud-sync-fails-then-reinstall edge case.
+    if (adventureId) {
       try {
-        const adventureCompleteKey = ADVENTURE_KEYS.getAdventureCompleteKey(adventure.readable_id);
-        await AsyncStorage.setItem(adventureCompleteKey, 'true');
-        console.log(`✅ Marked adventure complete screen as seen: ${adventure.readable_id}`);
+        await AsyncStorage.setItem(
+          ADVENTURE_KEYS.getAdventureCompleteKey(adventureId),
+          'true',
+        );
       } catch (error) {
-        console.error('❌ Error saving adventure complete flag:', error);
+        console.error('❌ Error saving failsafe flag:', error);
       }
     }
 
     onContinue();
-  };
+  }, [adventure, propAdventureId, onContinue]);
 
   return (
     <View style={styles.container}>
-      {/* Top Image Section with Two-Line Title */}
-      <View style={styles.topImageSection}>
-        <Image
-          source={{ uri: bgImage }}
-          style={styles.backgroundImage}
-          contentFit="cover"
-          blurRadius={3}
-          placeholder={{ blurhash: 'LKO2?U%2Tw=w]~RBVZRi};RPxuwH' }}
-        />
-
-        {/* Gradient overlay for text readability */}
-        <LinearGradient
-          colors={['rgba(244,235,219,0)', 'rgba(244,235,219,0)', 'rgba(244,235,219,0.8)', 'rgba(244,235,219,1)']}
-          locations={[0, 0.5, 0.85, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.gradientOverlay}
-        />
-
-        {/* Close Button - Top Right */}
-        {onClose && (
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={onClose}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Title over image */}
-        <View style={styles.titleContainer}>
-          {hasMultipleLines && titleLine1 ? (
-            <>
-              <Text style={styles.titleLine2} numberOfLines={1}>{titleLine1}</Text>
-              <Text style={[styles.titleLine2, { marginTop: getLineSpacing(titleLine1) }]} numberOfLines={1}>{titleLine2}</Text>
-            </>
-          ) : (
-            <Text style={styles.titleLine2} numberOfLines={1}>{titleLine2}</Text>
+      {/* Hero — blurred image + gradient fade. Absolute so the title
+          block in normal flow can overlap it. pointerEvents="none"
+          lets taps fall through to the close button above.
+          Wrapped in AnimatedEntrance so the bg + gradient fade in
+          together at t=0 (mock: `.adv-bg, .adv-veil` 0.5s power2.out). */}
+      <AnimatedEntrance
+        preset="fadeIn"
+        delay={ENTRANCE.hero.delay}
+        duration={ENTRANCE.hero.duration}
+        style={styles.hero}
+      >
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {!!bgImage && (
+            <Image
+              source={{ uri: bgImage }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              blurRadius={3}
+              placeholder={{ blurhash: 'LKO2?U%2Tw=w]~RBVZRi};RPxuwH' }}
+            />
           )}
-        </View>
-      </View>
-
-      {/* Content Section - Solid Background */}
-      <View style={styles.contentSection}>
-        {/* Badge - "ADVENTURE COMPLETED!" */}
-        <View style={styles.badgeContainer}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>ADVENTURE COMPLETED!</Text>
-          </View>
-        </View>
-
-        {/* Description Text */}
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.descriptionText}>{description}</Text>
-        </View>
-
-        {/* Character Section */}
-        <View style={styles.characterSection}>
-          <VideoView
-            player={player}
-            style={styles.characterImage}
-            nativeControls={false}
-            contentFit="cover"
-            allowsFullscreen={false}
-            allowsPictureInPicture={false}
+          {/* Top→bottom: transparent (image visible) → cream tint → snow.
+              Mirrors the Figma overlay so the bottom of the hero blends
+              seamlessly into the page background regardless of image. */}
+          <LinearGradient
+            colors={[
+              'rgba(255, 255, 255, 0)',
+              'rgba(255, 255, 255, 0)',
+              'rgba(246, 240, 227, 0.773)',
+              'rgb(244, 236, 220)',
+              colors.snow,
+            ]}
+            locations={[0, 0.35, 0.76, 0.91, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
           />
         </View>
+      </AnimatedEntrance>
 
-        {/* Stats Card */}
-        <View style={styles.statsCard}>
-          {/* Badges Column */}
-          <View style={styles.statColumn}>
-            <Text style={styles.statValue}>{totalBadges}</Text>
-            <Text style={styles.statLabel}>Badges</Text>
-          </View>
+      {onClose && (
+        <Pressable
+          style={[styles.closeButton, { top: insets.top + 8 }]}
+          hitSlop={16}
+          onPress={onClose}
+        >
+          <Ionicons name="close" size={28} color={colors.onyx} />
+        </Pressable>
+      )}
 
-          {/* Total XP Column */}
-          <View style={styles.statColumn}>
-            <Text style={styles.statValue}>{displayXP}</Text>
-            <Text style={styles.statLabel}>Total XP</Text>
-          </View>
+      {/* Scrollable upper region — title → badge → description → mascot.
+          Pinned outside the scroller: the CTA. On large phones the
+          content fits without scrolling; on small phones (SE/mini) or
+          with long HTML descriptions the scroller absorbs the overflow
+          so nothing is clipped or pushed under the CTA.
 
-          {/* Modules Column */}
-          <View style={styles.statColumn}>
-            <Text style={styles.statValue}>{displayCompletedModules}/{totalModulesCount}</Text>
-            <Text style={styles.statLabel}>Modules</Text>
-          </View>
+          Animated.ScrollView (instead of plain RN ScrollView) lets us
+          drive scroll-linked worklets later if needed; the underlying
+          native view is identical so there's no perf penalty for the
+          swap. `scrollEventThrottle={16}` and `removeClippedSubviews`
+          off (entrance children mount partially off-position; clipping
+          would mask their starting state). */}
+      <Animated.ScrollView
+        style={styles.scroller}
+        contentContainerStyle={[
+          styles.scrollerContent,
+          {
+            paddingTop: insets.top + SCREEN_HEIGHT * 0.075,
+            paddingBottom: 24,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+        bounces
+        scrollEventThrottle={16}
+        removeClippedSubviews={false}
+      >
+        {/* Title block — sits ON TOP of the hero gradient. Subtitle in
+            Bounded 22, title in Bounded 42 (allows 2 lines).
+            renderToHardwareTextureAndroid on the wrapper: each title
+            line tween (translateY + opacity) commits via Reanimated;
+            without the texture cache Android re-rasterizes Bounded-
+            Black glyphs every frame on the title stagger, which on
+            mid-tier devices stutters audibly. */}
+        <View
+          style={styles.titleBlock}
+          renderToHardwareTextureAndroid
+          collapsable={false}
+        >
+          {!!subtitle && (
+            <AnimatedEntrance
+              preset="riseSubtle"
+              delay={ENTRANCE.subtitle.delay}
+              duration={ENTRANCE.subtitle.duration}
+            >
+              <Typography
+                family="bounded"
+                weight="900"
+                size={22}
+                lineHeight={28}
+                align="center"
+                extraColor={colors.black}
+                uppercase
+              >
+                {subtitle}
+              </Typography>
+            </AnimatedEntrance>
+          )}
+          {/* Word-stagger title — render each line as its own
+              AnimatedEntrance with compounded delay. Mock spec
+              (line 2503-2505): 0.55s back.out(1.4), stagger 0.09s. */}
+          {titleLines.map((line, i) => (
+            <AnimatedEntrance
+              key={`title-${i}`}
+              preset="riseSoft"
+              delay={ENTRANCE.title.delay + i * ENTRANCE.title.stagger}
+              duration={ENTRANCE.title.duration}
+              style={i === 0 ? styles.title : undefined}
+            >
+              <Typography
+                family="bounded"
+                weight="900"
+                size={titleFontSize}
+                // Tight line-height (1.05× fontSize) so two-line titles
+                // ("THE NEW / CAPITAL") read as one tight block.
+                lineHeight={Math.round(titleFontSize * 1.05)}
+                align="center"
+                extraColor={colors.black}
+                uppercase
+              >
+                {line}
+              </Typography>
+            </AnimatedEntrance>
+          ))}
         </View>
 
-        {/* Continue Button */}
-        <TouchableOpacity
-          style={styles.continueButton}
-          onPress={handleContinue}
-          activeOpacity={0.8}
+        {/* Pill — scale-only pop (custom config; not a preset). */}
+        <AnimatedEntrance
+          preset={PILL_ENTRANCE}
+          delay={ENTRANCE.pill.delay}
         >
-          <Text style={styles.continueButtonText}>START NEXT ADVENTURE</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.badge}>
+            <Typography
+              family="onest"
+              weight="700"
+              size={14}
+              align="center"
+              extraColor={colors.white}
+            >
+              ADVENTURE COMPLETED!
+            </Typography>
+          </View>
+        </AnimatedEntrance>
+
+        {!!description && (
+          <AnimatedEntrance
+            preset="riseSubtle"
+            delay={ENTRANCE.description.delay}
+            duration={ENTRANCE.description.duration}
+            style={styles.descriptionWrap}
+          >
+            {/* HTML rendering — `adventure_description` arrives from
+                Supabase as authored HTML (paragraphs, <strong>, <em>,
+                inline links). RenderHtml maps tags onto the design-
+                system tokens so the inline markup keeps the same
+                Onest-on-snow look as the rest of the screen. */}
+            <RenderHtml
+              contentWidth={SCREEN_WIDTH - 48}
+              source={{ html: description }}
+              defaultTextProps={{ allowFontScaling: false }}
+              baseStyle={htmlBaseStyle}
+              tagsStyles={htmlTagsStyles}
+            />
+          </AnimatedEntrance>
+        )}
+
+        {/* Mascot — Rive ibu_teacher. The wrapper is wrapped in
+            AnimatedEntrance for the entrance lift+fade (mock t=1.05s,
+            translateY 30→0 + fade, 600ms back.out(2)). The inner View
+            keeps `renderToHardwareTextureAndroid` so the Rive native
+            surface lives behind a stable cached layer during the
+            entrance — without it, the translateY tween invalidates
+            the surface every frame and Rive's GL canvas flickers on
+            Android. */}
+        <AnimatedEntrance
+          preset="riseCard"
+          delay={ENTRANCE.mascot.delay}
+          duration={ENTRANCE.mascot.duration}
+        >
+          <View
+            style={styles.mascotWrap}
+            renderToHardwareTextureAndroid
+            collapsable={false}
+          >
+            <Rive
+              key={riveKey}
+              source={ibuTeacherRive}
+              autoplay
+              fit={Fit.Contain}
+              alignment={Alignment.Center}
+              style={styles.rive}
+            />
+          </View>
+        </AnimatedEntrance>
+      </Animated.ScrollView>
+
+      {/* CTA — pinned outside the ScrollView so the button stays
+          tappable at the bottom of every screen size, regardless of
+          how much HTML the description contains. DepthButton tertiary
+          (navy surface + light-blue shadow + light-blue border)
+          matches the Figma button tokens. Entrance: mock t=1.60s,
+          translateY 30→0 + fade, 450ms back.out(2). */}
+      <AnimatedEntrance
+        preset="riseCta"
+        delay={ENTRANCE.cta.delay}
+        duration={ENTRANCE.cta.duration}
+        style={[styles.ctaSlot, { paddingBottom: insets.bottom + 16 }]}
+      >
+        <DepthButton
+          variant="tertiary"
+          surfaceColor="bluePrimary"
+          shadowColor="blueSecondary"
+          borderColor="blueSecondary"
+          onPress={handleContinue}
+        >
+          <Typography variant="label.m" color="white">
+            NEXT ADVENTURE
+          </Typography>
+        </DepthButton>
+      </AnimatedEntrance>
     </View>
   );
 }
@@ -345,184 +554,88 @@ export default function AdventureCompleteScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
+    backgroundColor: colors.snow,
   },
-
-  // Top Image Section - 28% of screen height (increased for two-line titles)
-  topImageSection: {
-    height: SCREEN_HEIGHT * 0.28, // 28% of screen height (allows two-line titles to display fully)
-    width: SCREEN_WIDTH,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backgroundImage: {
+  // Hero strip ≈ 24% of screen height — matches the Figma anchor
+  // (gradient overlay 206px on an 852px frame). The blurred image lives
+  // here; the title block above paints over the gradient's faded zone.
+  hero: {
     position: 'absolute',
-    width: '100%',
-    height: '100%',
     top: 0,
     left: 0,
-  },
-  gradientOverlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    top: 0,
-    left: 0,
+    right: 0,
+    height: SCREEN_HEIGHT * 0.245,
   },
   closeButton: {
     position: 'absolute',
-    top: SCREEN_HEIGHT * 0.05, // 5% from top
-    right: SCREEN_WIDTH * 0.05, // 5% from right
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
+    right: 16,
+    width: 44,
+    height: 44,
     alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
-  closeButtonText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy,
-    lineHeight: 24,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    paddingHorizontal: SCREEN_WIDTH * 0.08, // Increased from 0.05 to prevent truncation
-    marginTop: Platform.OS === 'android'
-      ? SCREEN_HEIGHT * 0.13 // Android: 16% (more space to prevent overlap with close button)
-      : SCREEN_HEIGHT * 0.12, // iOS: 12% (keep current working value)
-  },
-  titleLine2: {
-    fontFamily: 'Cormorant-Bold',
-    fontSize: Platform.OS === 'android'
-      ? SCREEN_WIDTH * 0.085  // Android: 9.5% (slightly smaller to prevent overlap)
-      : SCREEN_WIDTH * 0.096, // iOS: 10.3% (~40px on standard screen)
-    fontWeight: '700',
-    color: ArchivesTheme.colors.mutedNavy, // #41425E - Muted Navy
-    textAlign: 'center',
-    lineHeight: Platform.OS === 'android'
-      ? SCREEN_WIDTH * 0.15   // Android: 11% (more space between lines)
-      : SCREEN_WIDTH * 0.193, // iOS: 10.3% (match font size for tighter spacing)
-  },
-
-  // Content Section - Rest of screen with solid background
-  contentSection: {
+  // ScrollView host: takes the page below the absolute hero. flex:1
+  // gives the scroller all remaining vertical space (above the pinned
+  // CTA). backgroundColor=transparent so the hero gradient bleeds
+  // through the top of the scroll content.
+  scroller: {
     flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-    alignItems: 'center',
-    paddingTop: SCREEN_HEIGHT * 0.03, // 3% top padding
-    paddingBottom: SCREEN_HEIGHT * 0.05, // 5% bottom padding
-    paddingHorizontal: SCREEN_WIDTH * 0.05, // 5% left/right padding
-    justifyContent: 'flex-start',
-    gap: SCREEN_HEIGHT * 0.02, // 2% consistent spacing between elements
   },
-
-  // Badge Section
-  badgeContainer: {
+  // ScrollView content container: alignItems centers each child
+  // horizontally. NO minHeight here — the previous 70% screen min was
+  // forcing a tall content area even when content was short, leaving a
+  // large empty band before the mascot. Letting the container shrink-
+  // to-fit means children sit right under each other; if total content
+  // exceeds the viewport, the scroller absorbs it.
+  scrollerContent: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  titleBlock: {
     alignItems: 'center',
   },
+  title: {
+    marginTop: 6,
+  },
+  // Pink pill — Figma uses #C63D78 (= colors.pinkSecondary). 16.5
+  // borderRadius + ~29px height gives the fully-rounded shape.
   badge: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    borderRadius: SCREEN_WIDTH * 0.042, // 4.2% → ~16.5px on standard screen
-    paddingHorizontal: SCREEN_WIDTH * 0.031, // 3.1% → ~12px
-    paddingVertical: SCREEN_HEIGHT * 0.0024, // 0.24% → ~2px (minimal vertical padding)
-    height: SCREEN_HEIGHT * 0.035, // 3.5% → ~29px fixed height
-    justifyContent: 'center',
-  },
-  badgeText: {
-    fontFamily: 'DM Sans',
-    fontSize: SCREEN_WIDTH * 0.036, // 3.6% → ~14px on standard screen
-    fontWeight: '700',
-    color: 'white',
-    letterSpacing: 0.5,
-  },
-
-  // Description Section
-  descriptionContainer: {
-    alignItems: 'center',
-    paddingHorizontal: SCREEN_WIDTH * 0.05, // 5% horizontal padding
-  },
-  descriptionText: {
-    fontFamily: 'DM Sans',
-    fontSize: SCREEN_WIDTH * 0.046, // 4.6% → ~18px on standard screen
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy, // #41425E
-    textAlign: 'center',
-    lineHeight: SCREEN_WIDTH * 0.059, // Line height for readability
-    letterSpacing: -0.18,
-  },
-
-  // Character Section
-  characterSection: {
+    marginTop: 18,
+    backgroundColor: colors.pinkSecondary,
+    borderRadius: 16.5,
+    paddingHorizontal: 12,
+    minHeight: 29,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  characterImage: {
-    width: SCREEN_WIDTH * 0.60, // 65% of screen width (reduced to fit)
-    height: SCREEN_WIDTH * 0.45, // Reduced height proportionally
+  descriptionWrap: {
+    marginTop: 18,
+    maxWidth: SCREEN_WIDTH - 48,
   },
-
-  // Stats Card
-  statsCard: {
-    backgroundColor: 'white',
-    borderRadius: SCREEN_WIDTH * 0.051, // 5.1% → ~20px on standard screen
-    borderWidth: 2,
-    borderColor: ArchivesTheme.colors.persianOrange,
-    width: SCREEN_WIDTH * 0.835, // 83.5% → ~327px on standard screen
-    height: SCREEN_HEIGHT * 0.127, // 12.7% → ~105px on standard screen
-    paddingVertical: SCREEN_HEIGHT * 0.015, // Vertical padding
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  statColumn: {
+  // Mascot wrapper: explicit pixel height (not minHeight + flex:1).
+  // Rive's native view on Android needs concrete pixel dimensions on
+  // both axes — `width: '100%'` of an alignItems:center parent with no
+  // explicit width and `height: '100%'` of a minHeight-only parent
+  // both collapse to 0 in the native layout pass, which is why the
+  // Rive canvas was rendering invisibly inside a tall empty box.
+  mascotWrap: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * 0.95,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: SCREEN_HEIGHT * 0.008, // 0.8% spacing between value and label
+    marginTop: 16,
   },
-  statValue: {
-    fontFamily: 'DM Sans',
-    fontSize: SCREEN_WIDTH * 0.115, // 11.5% → ~45px on standard screen
-    fontWeight: '600',
-    color: ArchivesTheme.colors.persianOrange, // Changed to Persian Orange
+  // Rive surface: pixel dimensions sized to the wrapper. Centered via
+  // the parent's alignItems/justifyContent. Square-ish aspect lets the
+  // ibu_teacher artboard render fully without horizontal cropping.
+  rive: {
+    width: SCREEN_WIDTH * 0.85,
+    height: SCREEN_WIDTH * 0.85,
+    backgroundColor: 'transparent',
   },
-  statLabel: {
-    fontFamily: 'DM Sans',
-    fontSize: SCREEN_WIDTH * 0.041, // 4.1% → ~16px on standard screen
-    fontWeight: '500',
-    color: ArchivesTheme.colors.persianOrange, // Changed to Persian Orange
-  },
-
-  // Continue Button
-  continueButton: {
-    backgroundColor: '#959C00', // Moss green
-    borderRadius: SCREEN_WIDTH * 0.068, // 6.8% → ~26.5px on standard screen (fully rounded)
-    width: SCREEN_WIDTH * 0.835, // 83.5% → ~327px on standard screen
-    height: SCREEN_HEIGHT * 0.054, // 5.4% → ~44.59px on standard screen
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 'auto', // Push button to bottom
-    marginBottom: SCREEN_HEIGHT * 0.03, // 3% spacing from bottom (moves button up)
-    // Moss green shadow
-    shadowColor: '#6E7300',
-    shadowOffset: { width: 0, height: 4.179 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 5,
-  },
-  continueButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: SCREEN_WIDTH * 0.046, // 4.6% → ~18px on standard screen
-    fontWeight: '700',
-    color: 'white',
-    letterSpacing: -0.18,
+  ctaSlot: {
+    width: '100%',
+    paddingHorizontal: 18,
   },
 });

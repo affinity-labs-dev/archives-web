@@ -1,7 +1,7 @@
 // useEras.ts - Fetch and cache eras from Supabase
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from './lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useState } from 'react';
+import { supabase } from './lib/supabase';
 
 // Era status enum matching Supabase
 export type EraStatus = 'active' | 'premium' | 'founding' | 'coming_soon';
@@ -156,7 +156,7 @@ export function isEraAccessible(
     case 'premium':
       return hasSubscription;
     case 'founding':
-      return isFoundingMember;
+      return isFoundingMember||__DEV__;
     case 'coming_soon':
       return false;
     default:

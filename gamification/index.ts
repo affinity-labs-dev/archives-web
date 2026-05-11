@@ -77,34 +77,39 @@ export {
   calculateStreakBonus,
   XP_MILESTONES,
   STREAK_MILESTONES,
-  ACHIEVEMENTS, // All 17 achievements array
+  ACHIEVEMENTS, // All 21 achievements array (15 original + 6 new XP achievements)
 } from './engines/GamificationOrchestrator';
 
 export type {
   QuizCompleteInput,
   LessonCompleteInput,
-  CelebrationItem,
-  XPMilestoneCelebration,
-  AdventureCompleteCelebration,
-  StreakMilestoneCelebration,
+  CelebrationItem, // Union of all celebration types (XP/Adventure/Streak/Achievement)
   StreakData as OrchestratorStreakData, // Renamed to avoid conflict with GamifiedProgress.StreakData
   Achievement as OrchestratorAchievement, // Achievement type from Orchestrator
   UnlockedAchievement,
-  AchievementCelebration,
   EraProgressStats, // Progress bar data (correctAnswers/totalQuestions)
 } from './engines/GamificationOrchestrator';
+
+// ========== NOTIFICATION PROMPT (AFF-117) ==========
+export { NotificationPromptProvider, useNotificationPrompt, NOTIFICATION_STREAK_MILESTONES } from './engines/NotificationPromptProvider';
+export type { NotificationPromptVariant } from './engines/NotificationPromptProvider';
 
 // ========== PROVIDERS (Contexts) ==========
 export { RewardsProvider, useRewards } from './engines/RewardsContext';
 export { AIProvider, useAI } from './engines/AIContext';
+export type { AIChatTrigger } from './engines/AIContext';
+
+// ========== STORES (Zustand) ==========
+export { useEraProgressStore } from './stores/useEraProgressStore';
+export type { UserProgress as StoreUserProgress } from './stores/useEraProgressStore';
 
 // ========== SERVICES ==========
 export { aiService } from './services/AIService';
+export type { WebSearchSource, ChatResponseWithSources } from './services/AIService';
 export { aiContextService } from './services/AIContextService';
 export { aiStorageService } from './services/AIStorageService';
 export type { StoredMessage } from './services/AIStorageService';
 export { gameGeneratorService } from './services/GameGeneratorService';
 
-// RAG Tools Service (function calling for AI chat)
-export { aiToolsService, AI_TOOL_DECLARATIONS } from './services/AIToolsService';
-export type { AIToolsContext, ToolResult } from './services/AIToolsService';
+// Note: AIToolsService has been moved to the backend (backend/src/rag.ts + backend/src/prompts.ts)
+// RAG tool execution now happens server-side

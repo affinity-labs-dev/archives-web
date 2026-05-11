@@ -1,407 +1,319 @@
-// OnboardingQuestion3Screen - Third questionnaire screen
-// "What's your daily learning goal?"
+// OnboardingRemindersScreen - Notification permission request screen (Question 3)
+// "Get a daily reminder to meet your goal"
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useEffect } from 'react'
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
-  StatusBar,
   Platform,
+  Dimensions,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import OnboardingQuestionLayout from '@/components/onboarding/OnboardingQuestionLayout'
 import { useAnalytics } from '@/hooks/useAnalytics'
-import { MCQOptionButton } from '@/components/modules/QuizSystem'
-import * as Notifications from 'expo-notifications'
-import * as Device from 'expo-device'
+import { useOnboardingTapSound } from '@/hooks/useOnboardingTapSound'
 import { analyticsService } from '@/services/AnalyticsService'
-// eslint-disable-next-line import/no-unresolved
-import CustomerIOService from '@/services/CustomerIOService'
+import AppLogger from '@/services/AppLogger'
+import { requestPushNotificationPermission } from '@/services/PushNotificationService'
 import Svg, { Path } from 'react-native-svg'
 
-const questionOptions = [
-  "5 min / day • Casual",
-  "10 min / day • Regular",
-  "15 min / day • Serious",
-  "20 min / day • Intense"
-]
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
 
-export default function OnboardingQuestion3Screen() {
-  const [selectedOption, setSelectedOption] = useState<number | null>(null)
-  const [screenStartTime] = useState(Date.now())
+// Responsive scaling based on screen size
+const scale = (size: number) => (SCREEN_WIDTH / 393) * size // 393 is iPhone 14 Pro width
+const verticalScale = (size: number) => (SCREEN_HEIGHT / 852) * size // 852 is iPhone 14 Pro height
+
+export default function OnboardingRemindersScreen() {
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
+  const { playTap } = useOnboardingTapSound()
 
-  // Use ref to avoid re-running useEffect when exit action changes
-  const exitActionRef = useRef<'back_button' | 'continued' | 'app_closed'>('app_closed')
-
-  console.log('🔥 [OnboardingQ3] Component initializing...')
+  AppLogger.info('notification', 'OnboardingReminders initializing')
 
   // Track screen view when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Question 3')
 
-    // Track screen exit on unmount only (use ref to avoid duplicate cleanup calls)
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_question_3',
-        exit_action: exitActionRef.current,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime])
+  }, [trackScreenView])
 
-  // Handle option selection (UI only - tracking happens on Continue)
-  const handleOptionSelect = async (optionIndex: number) => {
+  // Handle enable reminders — request permission via expo-notifications + register with Affinity
+  const handleEnableReminders = async () => {
     try {
-      await Haptics.selectionAsync()
-      setSelectedOption(optionIndex)
-      console.log('🔥 [OnboardingQ3] Selected option:', questionOptions[optionIndex])
-    } catch (error) {
-      console.error('🔥 [OnboardingQ3] Error selecting option:', error)
-      setSelectedOption(optionIndex)
-    }
-  }
-
-  // Request notification permissions using Customer.io's recommended method
-  const requestNotificationPermission = async () => {
-    try {
-      // Check if physical device
-      if (!Device.isDevice) {
-        console.warn('⚠️ Push notifications require physical device')
-        await AsyncStorage.setItem('notifications_permission_granted', 'false')
-        return
-      }
-
-      // Use Customer.io's showPromptForPushNotifications
-      // This shows the native prompt AND automatically registers the device token
-      const status = await CustomerIOService.showPromptForPushNotifications({
-        ios: { sound: true, badge: true }
-      })
-
-      console.log('🔔 Customer.io push permission status:', status)
-
-      // Map Customer.io status to our tracking format
-      const trackingStatus = status === 'Granted' ? 'granted' : status === 'Denied' ? 'denied' : 'undetermined'
-
-      // Track notification permission request
-      analyticsService.trackPermissionRequested({
-        permission_type: 'push_notifications',
-        screen: 'onboarding_question_3',
-        result: trackingStatus,
-        platform: Platform.OS,
-      })
-
-      // Track specific permission result
-      if (status === 'Granted') {
-        analyticsService.trackPushNotificationsEnabled({
-          permission_type: 'push_notifications',
-          screen: 'onboarding_question_3',
-          result: 'granted',
-          platform: Platform.OS,
-        })
-        await AsyncStorage.setItem('notifications_permission_granted', 'true')
-      } else if (status === 'Denied') {
-        analyticsService.trackPushNotificationsDeclined({
-          permission_type: 'push_notifications',
-          screen: 'onboarding_question_3',
-          result: 'denied',
-          platform: Platform.OS,
-        })
-        await AsyncStorage.setItem('notifications_permission_granted', 'false')
-      } else {
-        await AsyncStorage.setItem('notifications_permission_granted', 'false')
-      }
-
-      // Update PostHog person property for push notification status
-      analyticsService.updatePushStatus(status === 'Granted')
-
-      await AsyncStorage.setItem('notification_permission_asked', 'true')
-    } catch (error: any) {
-      // Handle specific APS entitlement error (iOS simulator or missing config)
-      if (error?.message?.includes('aps-environment')) {
-        console.log('⚠️ [OnboardingQ3] Push notifications require physical device or proper iOS configuration')
-        await AsyncStorage.setItem('notifications_permission_granted', 'false')
-        await AsyncStorage.setItem('notification_permission_asked', 'true')
-        return
-      }
-
-      // Safely log error message
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error('❌ [OnboardingQ3] Error requesting notifications:', errorMsg)
-      await AsyncStorage.setItem('notifications_permission_granted', 'false')
-      await AsyncStorage.setItem('notification_permission_asked', 'true')
-    }
-  }
-
-  // Continue to next question
-  const handleContinue = async () => {
-    if (selectedOption === null) return
-
-    try {
+      playTap()
       await Haptics.impactAsync()
+      AppLogger.info('notification', 'User tapped ENABLE REMINDERS')
 
-      // Track final answer (only track once on Continue, not on every selection)
+      let permissionStatus: 'granted' | 'denied' | 'undetermined' = 'undetermined'
+      try {
+        AppLogger.info('notification', 'Requesting push notification permission')
+        const result = await requestPushNotificationPermission()
+
+        switch (result.status) {
+          case 'Granted':
+            permissionStatus = 'granted'
+            AppLogger.info('notification', 'Push permission GRANTED')
+            break
+          case 'Denied':
+            permissionStatus = 'denied'
+            AppLogger.info('notification', 'Push permission DENIED')
+            break
+          default:
+            permissionStatus = 'undetermined'
+            AppLogger.info('notification', 'Push permission status', { status: result.status })
+        }
+
+        // Affinity device + permission sync is handled inside requestPushNotificationPermission
+      } catch (permError) {
+        AppLogger.warn('notification', 'Permission request error (may be Expo Go)', { error: String(permError) })
+        permissionStatus = 'undetermined'
+      }
+
+      // Track selection with permission result
       analyticsService.trackOnboardingQuestionAnswered({
         screen: 'onboarding_question_3',
         question_number: 3,
-        question_text: "What's your daily learning goal?",
-        answer: questionOptions[selectedOption],
-        answer_index: selectedOption,
+        question_text: 'Enable reminders?',
+        answer: permissionStatus === 'granted' ? 'Enabled' : 'Enabled (permission denied)',
+        answer_index: 0,
       })
 
-      // Save answer to storage
-      const answerData = {
-        question: "What's your daily learning goal?",
-        answer: questionOptions[selectedOption],
-        optionIndex: selectedOption
+      // Track permission request
+      analyticsService.trackPermissionRequested({
+        permission_type: 'push_notifications',
+        screen: 'onboarding_question_3',
+        result: permissionStatus,
+        platform: Platform.OS,
+      })
+
+      // Track specific push notification permission result
+      const permissionEvent = {
+        permission_type: 'push_notifications' as const,
+        screen: 'onboarding_question_3',
+        result: permissionStatus,
+        platform: Platform.OS,
       }
-
-      await AsyncStorage.setItem('onboarding_q3_answer', JSON.stringify(answerData))
-      console.log('🔥 [OnboardingQ3] Answer saved:', answerData)
-
-      // Check if we've already asked for notification permission
-      const alreadyAsked = await AsyncStorage.getItem('notification_permission_asked')
-
-      if (alreadyAsked !== 'true') {
-        // Request notification permission (shows system modal)
-        console.log('🔥 [OnboardingQ3] Requesting notification permission')
-        await requestNotificationPermission()
+      if (permissionStatus === 'granted') {
+        analyticsService.trackPushNotificationsEnabled(permissionEvent)
       } else {
-        console.log('🔥 [OnboardingQ3] Already asked for notifications, skipping')
+        analyticsService.trackPushNotificationsDeclined(permissionEvent)
       }
+
+      // Save reminder preference
+      await AsyncStorage.setItem('onboarding_reminders_enabled', 'true')
+      await AsyncStorage.setItem('notifications_permission_granted', permissionStatus === 'granted' ? 'true' : 'false')
+
+      // Save as q3 answer with permission status
+      const answerData = {
+        question: 'Enable reminders?',
+        answer: 'Enabled',
+        permission_status: permissionStatus,
+      }
+      await AsyncStorage.setItem('onboarding_q3_answer', JSON.stringify(answerData))
 
       // Navigate to next question
-      exitActionRef.current = 'continued'
       router.push('/onboarding-question-4')
     } catch (error) {
-      console.error('🔥 [OnboardingQ3] Error saving answer:', error)
-      // Continue anyway
-      exitActionRef.current = 'continued'
+      AppLogger.error('notification', 'OnboardingQ3 enable reminders error', {}, error)
       router.push('/onboarding-question-4')
     }
   }
 
-  // Go back to previous question
-  const handleBack = async () => {
+  // Handle "Maybe Later" - skip without requesting permission
+  const handleMaybeLater = async () => {
     try {
+      playTap()
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      exitActionRef.current = 'back_button'
-      router.back()
+      AppLogger.info('notification', 'User skipped reminders')
+
+      // Track skip action
+      analyticsService.trackOnboardingQuestionAnswered({
+        screen: 'onboarding_question_3',
+        question_number: 3,
+        question_text: 'Enable reminders?',
+        answer: 'Skipped',
+        answer_index: -1,
+      })
+
+      // Save as q3 answer
+      const answerData = {
+        question: 'Enable reminders?',
+        answer: 'Skipped',
+        permission_status: 'skipped',
+      }
+      await AsyncStorage.setItem('onboarding_q3_answer', JSON.stringify(answerData))
+
+      // Navigate to next question
+      router.push('/onboarding-question-4')
     } catch (error) {
-      console.error('🔥 [OnboardingQ3] Error going back:', error)
-      exitActionRef.current = 'back_button'
-      router.back()
+      AppLogger.error('notification', 'OnboardingQ3 skip error', {}, error)
+      router.push('/onboarding-question-4')
     }
   }
 
   return (
-    <>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={ArchivesTheme.colors.creamWhite}
-        translucent={true}
-      />
-      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
-        {/* Header with Back Button */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
-          </TouchableOpacity>
-        </View>
+    <OnboardingQuestionLayout activeStep={3} screenName="onboarding_question_3">
+      <View style={styles.content}>
+        {/* Camel Mascot with Speech Bubble */}
+        <View style={styles.mascotSection}>
+          {/* Camel on Left */}
+          <Image
+            source={require('@/assets/images/ai-images/hellocharacter.png')}
+            style={styles.camelMascot}
+            resizeMode="contain"
+          />
 
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressSegments}>
-            {[1, 2, 3, 4].map((step) => (
-              <View
-                key={step}
-                style={[
-                  styles.progressSegment,
-                  step <= 3 && styles.progressSegmentActive
-                ]}
-              />
-            ))}
+          {/* Speech Bubble on Right */}
+          <View style={styles.speechBubble}>
+            <Text style={styles.speechText} selectable={false}>
+              Get a daily reminder{'\n'}to meet your goal
+            </Text>
+
+            {/* Speech bubble tail - SVG arrow */}
+            <View style={styles.speechTail}>
+              <Svg width="15" height="20" viewBox="0 0 15 20" style={{ position: 'absolute' }}>
+                {/* White filled triangle (no stroke) */}
+                <Path
+                  d="M0 10 L15 0 L15 20 Z"
+                  fill="white"
+                />
+
+                {/* Green line on top diagonal edge */}
+                <Path
+                  d="M0 10 L15 0"
+                  stroke={ArchivesTheme.colors.mossGreen}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+
+                {/* Green line on bottom diagonal edge */}
+                <Path
+                  d="M0 10 L15 20"
+                  stroke={ArchivesTheme.colors.mossGreen}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+
+                {/* White line on vertical base - blends with background */}
+                <Path
+                  d="M15 0 L15 20"
+                  stroke="white"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </Svg>
+            </View>
           </View>
         </View>
 
-        <View style={styles.content}>
-          {/* Camel Mascot with Speech Bubble */}
-          <View style={styles.mascotSection}>
-            {/* Camel on Left */}
-            <Image
-              source={require('@/assets/images/quiz-images/Camel.png')}
-              style={styles.camelMascot}
-              resizeMode="contain"
-            />
+        {/* Islamic Quote Section */}
+        <View style={styles.quoteSection}>
+          <Text style={styles.quoteText} selectable={false}>
+            {'"Whoever travels a path seeking knowledge, Allah makes easy their path to Paradise"'}
+          </Text>
+          <Text style={styles.quoteAttribution} selectable={false}>
+            The Prophet Mohammed ﷺ
+          </Text>
+        </View>
 
-            {/* Speech Bubble on Right */}
-            <View style={styles.speechBubble}>
-              <Text style={styles.mainQuestion} selectable={false}>
-                What's your daily{'\n'}learning goal?
-              </Text>
+        {/* Stats Section with Laurel Leaves */}
+        <View style={styles.statsSection}>
+          {/* Left Laurel */}
+          <Image
+            source={require('@/assets/images/leaf.png')}
+            style={styles.laurelLeft}
+            resizeMode="contain"
+          />
 
-              {/* Speech bubble tail - SVG arrow */}
-              <View style={styles.speechTail}>
-                <Svg width="15" height="20" viewBox="0 0 15 20" style={{ position: 'absolute' }}>
-                  {/* White filled triangle (no stroke) */}
-                  <Path
-                    d="M0 10 L15 0 L15 20 Z"
-                    fill="white"
-                  />
+          {/* Stats Container */}
+          <View style={styles.statsContainer}>
+            {/* Learners Stat */}
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber} selectable={false}>+10,000</Text>
+              <Text style={styles.statLabel} selectable={false}>Learners</Text>
+            </View>
 
-                  {/* Green line on top diagonal edge */}
-                  <Path
-                    d="M0 10 L15 0"
-                    stroke={ArchivesTheme.colors.mossGreen}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-
-                  {/* Green line on bottom diagonal edge */}
-                  <Path
-                    d="M0 10 L15 20"
-                    stroke={ArchivesTheme.colors.mossGreen}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-
-                  {/* White line on vertical base - blends with background */}
-                  <Path
-                    d="M15 0 L15 20"
-                    stroke="white"
-                    strokeWidth="1"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </Svg>
-              </View>
+            {/* Lessons Stat */}
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber} selectable={false}>+50,000</Text>
+              <Text style={styles.statLabel} selectable={false}>Lessons Completed</Text>
             </View>
           </View>
 
-          {/* Options List */}
-          <View style={styles.optionsContainer}>
-            {questionOptions.map((option, index) => (
-              <MCQOptionButton
-                key={index}
-                letter={String.fromCharCode(65 + index)} // A, B, C, D
-                text={option}
-                isSelected={selectedOption === index}
-                onPress={() => handleOptionSelect(index)}
-              />
-            ))}
-          </View>
-
-          {/* Continue Button */}
-          <View style={styles.continueContainer}>
-            <TouchableOpacity
-              style={[
-                styles.continueButton,
-                selectedOption === null && styles.continueButtonDisabled
-              ]}
-              onPress={handleContinue}
-              disabled={selectedOption === null}
-              activeOpacity={0.8}
-            >
-              <Text style={[
-                styles.continueText,
-                selectedOption === null && styles.continueTextDisabled
-              ]} selectable={false}>
-                CONTINUE
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* Right Laurel (flipped horizontally) */}
+          <Image
+            source={require('@/assets/images/leaf.png')}
+            style={styles.laurelRight}
+            resizeMode="contain"
+          />
         </View>
-      </SafeAreaView>
-    </>
+
+      </View>
+
+      {/* Bottom Buttons - Fixed at bottom */}
+      <View style={styles.bottomButtonsContainer}>
+        {/* Enable Reminders Button */}
+        <TouchableOpacity
+          style={styles.enableButton}
+          onPress={handleEnableReminders}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.enableButtonText} selectable={false}>
+            ENABLE REMINDERS
+          </Text>
+        </TouchableOpacity>
+
+        {/* Maybe Later Link */}
+        <TouchableOpacity
+          style={styles.maybeLaterButton}
+          onPress={handleMaybeLater}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.maybeLaterText} selectable={false}>
+            MAYBE LATER
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </OnboardingQuestionLayout>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-  },
-
-  // Header
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 10 : 20,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
-  },
-
-  // Back Button
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(139,96,64,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Progress Bar
-  progressContainer: {
-    paddingHorizontal: 0,
-    paddingTop: 10,
-    paddingBottom: 20,
-  },
-  progressSegments: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  progressSegment: {
-    flex: 1,
-    height: 4,
-    backgroundColor: 'rgba(139,96,64,0.2)',
-    borderRadius: 2,
-    marginHorizontal: 2,
-  },
-  progressSegmentActive: {
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-  },
-
   content: {
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 20,
   },
 
   // Mascot Section
   mascotSection: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginTop: 20,
-    marginBottom: 30,
-    paddingLeft: 10,
+    marginTop: verticalScale(10),
+    marginBottom: verticalScale(20),
+    paddingLeft: 0,
     paddingRight: 10,
   },
   camelMascot: {
-    width: 100,
-    height: 100,
-    marginRight: 20,
+    width: scale(110),
+    height: scale(110),
+    marginRight: 3,
   },
 
   // Speech Bubble
   speechBubble: {
-    width: 200,
+    flex: 1,
+    maxWidth: scale(220),
     backgroundColor: 'white',
     borderRadius: 20,
     borderWidth: 3,
@@ -415,14 +327,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  mainQuestion: {
+  speechText: {
     fontFamily: 'DM Sans',
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: '600',
     color: ArchivesTheme.colors.mutedNavy,
     textAlign: 'left',
-    lineHeight: 24,
-    flexWrap: 'wrap',
+    lineHeight: scale(24),
   },
   speechTail: {
     position: 'absolute',
@@ -433,19 +344,91 @@ const styles = StyleSheet.create({
     height: 20,
   },
 
-  // Options
-  optionsContainer: {
+  // Quote Section
+  quoteSection: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: verticalScale(15),
+    marginBottom: verticalScale(8),
+  },
+  quoteText: {
+    fontFamily: 'Cormorant',
+    fontSize: scale(20),
+    fontWeight: '500',
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: scale(26),
+    marginBottom: verticalScale(12),
+  },
+  quoteAttribution: {
+    fontFamily: 'Cormorant',
+    fontSize: scale(20),
+    fontWeight: '700',
+    color: '#000000',
+    textAlign: 'center',
+    marginTop: verticalScale(8),
+  },
+
+  // Stats Section
+  statsSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    marginTop: verticalScale(15),
+  },
+  laurelLeft: {
+    width: scale(96),
+    height: verticalScale(192),
+    marginRight: scale(15),
+    marginTop: verticalScale(20),
+  },
+  laurelRight: {
+    width: scale(96),
+    height: verticalScale(192),
+    marginLeft: scale(15),
+    marginTop: verticalScale(20),
+    transform: [{ scaleX: -1 }], // Flip horizontally
+  },
+  statsContainer: {
     flex: 1,
-    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: verticalScale(20),
+  },
+  statItem: {
+    alignItems: 'center',
+    marginVertical: verticalScale(10),
+  },
+  statNumber: {
+    fontFamily: 'DM Sans',
+    fontSize: scale(22),
+    fontWeight: '800',
+    color: ArchivesTheme.colors.persianOrange,
+    textAlign: 'center',
+  },
+  statLabel: {
+    fontFamily: 'DM Sans',
+    fontSize: scale(16),
+    fontWeight: '600',
+    color: ArchivesTheme.colors.shoeBrown,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+
+  // Bottom Buttons Container - Fixed at bottom
+  bottomButtonsContainer: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 40 : 30,
+    left: 20,
+    right: 20,
     alignItems: 'center',
   },
 
-  // Continue Button
-  continueContainer: {
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
-  },
-  continueButton: {
-    width: 345,
+  // Enable Reminders Button
+  enableButton: {
+    width: '100%',
+    maxWidth: 345,
     height: 48,
     backgroundColor: ArchivesTheme.colors.mossGreen,
     borderRadius: 27,
@@ -458,19 +441,25 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  continueButtonDisabled: {
-    backgroundColor: ArchivesTheme.colors.shoeBrown + '40',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  continueText: {
+  enableButtonText: {
     fontFamily: 'DM Sans',
     fontSize: 20,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
   },
-  continueTextDisabled: {
-    color: 'rgba(255,255,255,0.6)',
+
+  // Maybe Later Link
+  maybeLaterButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  maybeLaterText: {
+    fontFamily: 'DM Sans',
+    fontSize: 18,
+    fontWeight: '600',
+    color: ArchivesTheme.colors.dullBeige,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 })

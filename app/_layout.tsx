@@ -1,6 +1,3 @@
-import { ClerkProvider, useUser } from "@clerk/clerk-expo";
-import { tokenCache } from "@clerk/clerk-expo/token-cache";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   DarkTheme,
   DefaultTheme,
@@ -9,37 +6,52 @@ import {
 import { useFonts } from "expo-font";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { PostHogProvider } from 'posthog-react-native';
+import { Platform, Linking, AppState, AppStateStatus } from "react-native";
 import React from "react";
-import { AppState, AppStateStatus, Linking, Platform } from "react-native";
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import "react-native-reanimated";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ClerkProvider, ClerkLoaded, useUser } from "@clerk/clerk-expo";
+import { tokenCache } from "@/services/ClerkTokenCache";
+import { PostHogProvider, usePostHog } from 'posthog-react-native';
 
-import LoadingScreen from "@/components/LoadingScreen";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
 import { PreferencesProvider } from "@/context/PreferencesContext";
-import { useColorScheme } from "@/hooks/useColorScheme";
-import { analyticsService } from "@/services/AnalyticsService";
-import CustomerIOService from '@/services/CustomerIOService';
-import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
-import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
-import { usePostHog } from 'posthog-react-native';
+import { analyticsService, type LoginMethod } from "@/services/AnalyticsService";
+import '@/services/GlobalHapticsWrapper'; // Patch haptics globally
+import LoadingScreen from "@/components/LoadingScreen";
+import * as Sentry from '@sentry/react-native';
+import AffinityNotificationService from '@/services/AffinityNotificationService';
+import PushNotificationService from '@/services/PushNotificationService';
+import NotificationBadgeService from '@/services/NotificationBadgeService';
+import { useOTAUpdates } from '@/hooks/useOTAUpdates';
+import { useOnboardingStore } from '@/stores/onboardingStore';
+import { upsertRememberedAccount } from '@/services/RememberedAccountService';
+import { useOnboardingSync } from '@/hooks/useOnboardingSync';
+import AppLogger from '@/services/AppLogger';
+import { networkPerformanceService } from '@/services/NetworkPerformanceService';
+import { addPushToStartTokenListener, addActivityPushTokenListener, getCachedPushToStartToken, registerPushToStartTokens } from '@/modules/live-activity';
+import Purchases from 'react-native-purchases';
 
 // Gamification imports - unified from @/gamification
 import {
-  AIProvider,
-  GamificationOrchestratorProvider,
   GamifiedProgressProvider,
+  GamificationOrchestratorProvider,
   RewardsProvider,
-  useRewards,
+  AIProvider,
+  NotificationPromptProvider,
 } from "@/gamification";
 import AIAssistant from "@/gamification/ui/ai/AIAssistant";
-import AvatarUnlockAnimation from "@/gamification/ui/celebrations/AvatarUnlockAnimation";
-import AvatarUnlockNotification from "@/gamification/ui/celebrations/AvatarUnlockNotification";
+import { TodayWalkthroughProvider } from "@/components/today/walkthrough/TodayWalkthroughProvider";
+import { TodayWalkthroughOverlay } from "@/components/today/walkthrough/TodayWalkthroughOverlay";
+
+// Font scaling disabled globally via Babel plugin (plugins/babel-plugin-font-scaling.js) (AFF-331)
 
 Sentry.init({
   dsn: 'https://87a73fd4ec7ba02d87dccedcce85a9fa@o4510499177889792.ingest.de.sentry.io/4510499179790416',
@@ -55,24 +67,21 @@ Sentry.init({
   // Enable Logs
   enableLogs: true,
 
-  // Configure Session Replay
+  // Session Replay enabled at low sample rate — previously disabled due to
+  // EXC_BAD_ACCESS crash (Sentry VC introspection vs expo-video Swift event race).
+  // Re-enabled at 10% after Sentry SDK update; monitor for crashes.
   replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1,
+  replaysOnErrorSampleRate: 0.5,
   integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
 
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: __DEV__,
 });
 
-// Configure how notifications are handled when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// AFF-579: Initialize network performance tracking for CDN analytics
+networkPerformanceService.initialize();
+
+// Note: Foreground notification display is handled by Notifications.setNotificationHandler below.
 
 /**
  * Handle deep links from push notification taps
@@ -80,45 +89,40 @@ Notifications.setNotificationHandler({
  */
 const handleNotificationDeepLink = (response: Notifications.NotificationResponse) => {
   try {
-    const data = response.notification.request.content.data;
-    console.log('🔔 [DeepLink] Notification data:', data);
+    const data = response.notification.request.content.data
+        ?? (response.notification.request.trigger as any)?.payload;
+    AppLogger.info('deeplink', 'Processing notification deep link', { data: data as Record<string, unknown> });
 
-    // Customer.io deep link can be in 'link', 'url', or 'deep_link' field
+    // Deep link can be in 'link', 'url', or 'deep_link' field of the data payload
     const deepLink = data?.link || data?.url || data?.deep_link;
 
     if (deepLink && typeof deepLink === 'string') {
-      console.log('🔗 [DeepLink] Found:', deepLink);
-
       // Handle different URL formats
       if (deepLink.startsWith('archives://')) {
-        // Custom scheme - extract path and navigate
         const path = deepLink.replace('archives://', '/');
-        console.log('🔗 [DeepLink] Custom scheme path:', path);
+        AppLogger.info('deeplink', 'Navigating via custom scheme', { deepLink, path });
         router.push(path as any);
       } else if (deepLink.startsWith('https://link.archiveszone.app')) {
-        // Universal link - extract path
         try {
           const url = new URL(deepLink);
           const path = url.pathname;
-          console.log('🔗 [DeepLink] Universal link path:', path);
+          AppLogger.info('deeplink', 'Navigating via universal link', { deepLink, path });
           if (path && path !== '/') {
             router.push(path as any);
           }
         } catch {
-          console.error('🔗 [DeepLink] Invalid URL:', deepLink);
+          AppLogger.error('deeplink', 'Invalid universal link URL', { deepLink });
         }
       } else if (deepLink.startsWith('/')) {
-        // Direct path - navigate directly
-        console.log('🔗 [DeepLink] Direct path:', deepLink);
+        AppLogger.info('deeplink', 'Navigating via direct path', { deepLink });
         router.push(deepLink as any);
       } else {
-        // External URL - open in browser
-        console.log('🔗 [DeepLink] Opening external URL:', deepLink);
+        AppLogger.info('deeplink', 'Opening external URL', { deepLink });
         Linking.openURL(deepLink);
       }
     }
   } catch (error) {
-    console.error('❌ [DeepLink] Error handling:', error);
+    AppLogger.error('deeplink', 'Error handling notification deep link', {}, error);
   }
 };
 
@@ -131,6 +135,54 @@ SplashScreen.setOptions({
   fade: true,
 });
 
+// Configure foreground notification display (GLOBAL SCOPE).
+// Required so expo-notifications shows banners when the app is in foreground.
+Notifications.setNotificationHandler({
+  handleNotification: async (notification) => {
+    console.log('🔔 [NotifHandler] handleNotification called:', Platform.OS, JSON.stringify({
+      title: notification.request.content.title,
+      body: notification.request.content.body,
+      data: notification.request.content.data,
+    }));
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      priority: Notifications.AndroidNotificationPriority.MAX,
+    };
+  },
+  handleSuccess: (notificationId) => {
+    console.log('🔔 [NotifHandler] SUCCESS - notification presented:', notificationId);
+  },
+  handleError: (notificationId, error) => {
+    console.error('❌ [NotifHandler] ERROR - failed to present:', notificationId, error);
+  },
+});
+
+// Create Android notification channel at module scope so it exists before any push arrives.
+// Must match the channel ID sent in Affinity notification payloads (push_config.android_channel_id).
+// NOTE: On Android, once a channel is created, its importance CANNOT be changed programmatically.
+// If foreground notifications aren't showing, uninstall & reinstall the app to reset the channel.
+if (Platform.OS === 'android') {
+  Notifications.setNotificationChannelAsync('archives_notifications', {
+    name: 'Archives Notifications',
+    importance: Notifications.AndroidImportance.MAX,
+    sound: 'default',
+    vibrationPattern: [0, 250, 250, 250],
+  }).then((channel) => {
+    console.log('🔔 [Android] Notification channel created/verified:', JSON.stringify(channel));
+  });
+}
+
+// Sync bridge placed inside GamifiedProgressProvider so it can read
+// `state.onboarding_answers` and invoke `writeOnboardingAnswers` /
+// `flushOnboardingAnswers`. Renders nothing — pure effect orchestrator.
+function OnboardingSyncBridge() {
+  useOnboardingSync();
+  return null;
+}
+
 // Analytics initialization wrapper that must be inside PostHogProvider
 function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const posthog = usePostHog();
@@ -139,54 +191,248 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // Track if user was previously signed in (to detect actual sign-out vs fresh install)
   const wasSignedInRef = React.useRef(false);
 
-  // Initialize Customer.io SDK IMMEDIATELY (not dependent on PostHog)
-  // This runs once on mount to ensure Customer.io is ready before any events
-  React.useEffect(() => {
-    console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIO init useEffect running (mount)');
-    CustomerIOService.initialize();
-    console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIO init complete');
-  }, []); // Empty deps = runs once on mount
+  // Guard against concurrent RevenueCat logIn calls (Clerk user object updates multiple times)
+  const rcLoginInProgressRef = React.useRef(false);
+  const rcLoggedInUserRef = React.useRef<string | null>(null);
 
-  // Identify user to Customer.io when signed in (independent of PostHog)
+  // AFF-151: Track the previous isSignedIn value to detect actual transitions
+  // (not user object reference changes from token refreshes)
+  const prevSignedInRef = React.useRef<boolean | null>(null);
+
+  // Derive login method from Clerk user object (fixes hardcoded 'email')
+  const getLoginMethod = (clerkUser: typeof user): LoginMethod => {
+    const accounts = clerkUser?.externalAccounts || [];
+    if (accounts.some((a) => a.provider === 'apple')) return 'apple';
+    if (accounts.some((a) => a.provider === 'google')) return 'google';
+    return 'email';
+  };
+
+  // Initialize OTA update checks (foreground check + Sentry tags + PostHog tracking)
+  useOTAUpdates();
+
+  // Bind Clerk user id to onboarding store on first sign-in. The resume-flow
+  // routing guard in app/index.tsx reads this to detect account switches
+  // (user signs out + signs in as someone else → onboarding state is reset).
+  // Idempotent: only binds when userIdAtStart is not yet set, so token
+  // refreshes that re-run this effect don't clobber anything.
+  const bindOnboardingToUser = useOnboardingStore((s) => s.bindToUser);
+  const onboardingUserId = useOnboardingStore((s) => s.userIdAtStart);
   React.useEffect(() => {
-    console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIO identify useEffect, isSignedIn:', isSignedIn, 'user:', !!user);
+    if (isSignedIn && user?.id && !onboardingUserId) {
+      bindOnboardingToUser(user.id);
+    }
+  }, [isSignedIn, user?.id, onboardingUserId, bindOnboardingToUser]);
+
+  // Remembered-account snapshot — keeps the local cache (used by
+  // /welcome-back) in sync with the current Clerk identity. Runs on every
+  // sign-in and on profile changes so that existing users who upgrade to the
+  // version that introduces /welcome-back get snapshotted silently next time
+  // they open the app — no special migration step required.
+  React.useEffect(() => {
+    if (!isSignedIn || !user?.id) return;
+    const email = user.primaryEmailAddress?.emailAddress ?? null;
+    if (!email) return; // Snapshot needs an email to render the card.
+    // Heuristic: prefer an OAuth provider if linked, else treat as email auth.
+    // Clerk exposes `provider` without the `oauth_` prefix (e.g. 'apple').
+    const externalProvider = user.externalAccounts?.[0]?.provider ?? null;
+    const lastAuthMethod: 'oauth_apple' | 'oauth_google' | 'email' =
+      externalProvider === 'apple'
+        ? 'oauth_apple'
+        : externalProvider === 'google'
+          ? 'oauth_google'
+          : 'email';
+
+    (async () => {
+      try {
+        const snapshot = {
+          userId: user.id,
+          firstName: user.firstName ?? null,
+          email,
+          avatarUrl: user.imageUrl ?? null,
+          lastAuthMethod,
+          lastSignedInAt: Date.now(),
+        };
+        await upsertRememberedAccount(snapshot);
+      } catch (err) {
+        AppLogger.warn('auth', 'Remembered-account snapshot failed', {
+          err: String(err),
+        });
+      }
+    })();
+  }, [
+    isSignedIn,
+    user?.id,
+    user?.firstName,
+    user?.imageUrl,
+    user?.primaryEmailAddress?.emailAddress,
+  ]);
+
+  // Register user with Affinity Notification Service on sign-in
+  React.useEffect(() => {
 
     if (isSignedIn && user) {
-      console.log('🔍 [AnalyticsWrapper DEBUG] Calling CustomerIOService.identify()...');
-      CustomerIOService.identify(user.id, {
-        email: user.primaryEmailAddress?.emailAddress,
-        first_name: user.firstName,
-        last_name: user.lastName,
+      // Register user with Affinity Notification Service (idempotent upsert)
+      AffinityNotificationService.registerUser(user.id, {
+        email: user.primaryEmailAddress?.emailAddress ?? null,
+        metadata: {
+          first_name: user.firstName ?? null,
+          last_name: user.lastName ?? null,
+        },
       });
-      console.log('🔍 [AnalyticsWrapper DEBUG] CustomerIOService.identify() returned');
     } else {
-      // Clear Customer.io identity when signed out
-      CustomerIOService.clearIdentify();
+      AffinityNotificationService.logout();
     }
   }, [isSignedIn, user]);
 
+  // Sync RevenueCat identity with Clerk user (independent of PostHog)
+  // Runs for ALL users — free and paid — so every user has real profile data in RevenueCat
+  React.useEffect(() => {
+    // RevenueCat only works on iOS/Android
+    if (Platform.OS === 'web') return;
+
+    const syncRevenueCatIdentity = async () => {
+      if (isSignedIn && user) {
+        // Skip if already logged in as this user or login is in progress
+        if (rcLoggedInUserRef.current === user.id || rcLoginInProgressRef.current) {
+          // Still update attributes (email/name may have loaded later)
+          Purchases.setAttributes({
+            '$email': user.primaryEmailAddress?.emailAddress ?? '',
+            '$displayName': [user.firstName, user.lastName].filter(Boolean).join(' '),
+            'clerk_id': user.id,
+          });
+          return;
+        }
+
+        rcLoginInProgressRef.current = true;
+        try {
+          // Log in to RevenueCat with Clerk user ID
+          // This merges any anonymous purchases with this identified user
+          const { customerInfo } = await Purchases.logIn(user.id);
+          rcLoggedInUserRef.current = user.id;
+          AppLogger.info('subscription', 'RevenueCat user identified', {
+            userId: user.id,
+            activeEntitlements: Object.keys(customerInfo.entitlements.active),
+          });
+
+          // Set subscriber attributes for ALL users (visible in RevenueCat dashboard)
+          Purchases.setAttributes({
+            '$email': user.primaryEmailAddress?.emailAddress ?? '',
+            '$displayName': [user.firstName, user.lastName].filter(Boolean).join(' '),
+            'clerk_id': user.id,
+          });
+
+          // Set ATT status as attribute (iOS only)
+          if (Platform.OS === 'ios') {
+            try {
+              const { getTrackingPermissionsAsync } = require('expo-tracking-transparency');
+              const { status } = await getTrackingPermissionsAsync();
+              Purchases.setAttributes({
+                'att_status': status,
+              });
+              AppLogger.info('subscription', 'RevenueCat ATT status set', { status });
+            } catch (attError) {
+              AppLogger.warn('subscription', 'Could not get ATT status', { error: String(attError) });
+            }
+          }
+
+          // Collect device identifiers (IDFA/GAID) for attribution
+          Purchases.collectDeviceIdentifiers();
+
+          AppLogger.info('subscription', 'RevenueCat subscriber attributes synced', { userId: user.id });
+        } catch (error) {
+          AppLogger.error('subscription', 'RevenueCat identity sync failed', { userId: user.id }, error);
+        } finally {
+          rcLoginInProgressRef.current = false;
+        }
+      } else if (!isSignedIn && wasSignedInRef.current) {
+        // User signed out — reset RevenueCat to anonymous
+        rcLoggedInUserRef.current = null;
+        try {
+          await Purchases.logOut();
+          AppLogger.info('subscription', 'RevenueCat user logged out, reset to anonymous');
+        } catch {
+          // logOut() throws if already anonymous — safe to ignore
+          AppLogger.info('subscription', 'RevenueCat logout skipped (already anonymous)');
+        }
+      }
+    };
+
+    syncRevenueCatIdentity();
+  }, [isSignedIn, user]);
+
+  // Sync push token on sign-in for users who already granted permission
   // Session tracking - track sign-in/sign-out for analytics
+  //
+  // AFF-151 fixes:
+  // - Depend on isSignedIn only (not user object which changes reference on every re-render)
+  // - Use prevSignedInRef to detect actual boolean transitions
+  // - Check manualSignOutInProgress flag to prevent duplicate user_session_out events
   React.useEffect(() => {
     // Skip on web during SSR
     if (Platform.OS === 'web' && typeof window === 'undefined') {
       return;
     }
 
-    if (isSignedIn && user) {
-      console.log('🔑 [AnalyticsWrapper] User signed in, tracking session');
-      analyticsService.trackUserSessionIn('email');
-      wasSignedInRef.current = true;
-    } else if (!isSignedIn && wasSignedInRef.current) {
-      // Only reset analytics if user was PREVIOUSLY signed in (actual sign-out)
-      console.log('👋 [AnalyticsWrapper] User signed out, resetting analytics');
+    const currentSignedIn = !!isSignedIn;
+
+    // AFF-151: Only track auth_state_change on actual boolean transitions
+    // (not on every user object reference change from token refreshes)
+    if (prevSignedInRef.current !== null && prevSignedInRef.current !== currentSignedIn) {
+      const previousState = prevSignedInRef.current ? 'signed_in' : 'signed_out';
+      const newState = currentSignedIn ? 'signed_in' : 'signed_out';
+
+      ;(async () => {
+        const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era').catch(() => null));
+        analyticsService.trackAuthStateChange({
+          previous_state: previousState,
+          new_state: newState,
+          user_id: user?.id ?? null,
+          had_selected_era: hadSelectedEra,
+          app_state: AppState.currentState,
+        });
+      })();
+    }
+    prevSignedInRef.current = currentSignedIn;
+
+    if (currentSignedIn && user) {
+      // Only fire session-in on actual sign-in transition (not on re-renders)
+      if (!wasSignedInRef.current) {
+        AppLogger.info('auth', 'User signed in, tracking session', { userId: user.id, method: getLoginMethod(user) });
+        // AFF-151: Login method via externalAccounts may not be populated immediately;
+        // default to 'email' and let PostHog person properties update on next render
+        analyticsService.trackUserSessionIn(getLoginMethod(user));
+        wasSignedInRef.current = true;
+
+        // Sync push token on sign-in — delegates to PushNotificationService which
+        // handles permission check, Expo token fetch, and Affinity registration.
+        PushNotificationService.syncPushToken();
+      }
+    } else if (!currentSignedIn && wasSignedInRef.current) {
+      // AFF-151: Skip if profile.tsx already fired user_session_out (manual sign-out or account deletion)
+      if (analyticsService.manualSignOutInProgress) {
+        AppLogger.info('auth', 'Skipping duplicate session-out (manual sign-out handled it)');
+        analyticsService.manualSignOutInProgress = false;
+      } else {
+        // Clerk session expired or was revoked — fire clerk_session_ended
+        AppLogger.warn('auth', 'User signed out unexpectedly (Clerk session ended)');
+        ;(async () => {
+          const hadSelectedEra = !!(await AsyncStorage.getItem('selected_era').catch(() => null));
+          analyticsService.trackUserSessionOut({
+            trigger: 'clerk_session_ended',
+            session_duration_seconds: null,
+            had_selected_era: hadSelectedEra,
+          });
+        })();
+      }
       analyticsService.reset();
       wasSignedInRef.current = false;
     }
-  }, [isSignedIn, user]);
+  }, [isSignedIn]);
 
   // Update last_active_at on initial app launch
   React.useEffect(() => {
     analyticsService.updateLastActiveAt();
+    NotificationBadgeService.clearBadge(); // Clear any stale badge on fresh launch
   }, []);
 
   // Monitor app state changes for updating last_active_at - Native only
@@ -198,6 +444,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         analyticsService.updateLastActiveAt();
+        NotificationBadgeService.clearBadge(); // Clear red dot when app opens
       }
     };
 
@@ -209,16 +456,16 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
 
   // Initialize PostHog analytics + set user properties when both PostHog and Clerk user are ready
   React.useEffect(() => {
-    console.log('🔍 [AnalyticsWrapper DEBUG] PostHog useEffect running, posthog:', !!posthog, 'isSignedIn:', isSignedIn);
+    AppLogger.info('startup', 'PostHog init check', { posthogReady: !!posthog, isSignedIn: !!isSignedIn });
 
     if (posthog) {
-      console.log('🔍 [AnalyticsWrapper DEBUG] PostHog available, initializing analytics...');
       analyticsService.initialize(posthog);
+
       // Note: Session replay starts automatically via enableSessionReplay: true config
 
       // Identify user if signed in - this merges all anonymous events to the authenticated user
       if (isSignedIn && user) {
-        console.log('🔍 [AnalyticsWrapper DEBUG] User signed in:', user.id);
+        AppLogger.info('auth', 'Identifying user in PostHog + Sentry', { userId: user.id });
         analyticsService.identifyUser(user.id, {
           email: user.primaryEmailAddress?.emailAddress,
           firstName: user.firstName,
@@ -233,6 +480,13 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
           username: user.username || undefined,
         });
 
+        // Set app_state context so every Sentry error includes session info
+        AppLogger.setContext('app_state', {
+          isSignedIn: true,
+          userId: user.id,
+          loginMethod: getLoginMethod(user),
+        });
+
         // Initialize all 17 person properties with null (only once per user)
         // This establishes the property schema in PostHog for cohort analysis
         const initPersonProperties = async () => {
@@ -245,7 +499,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
               await AsyncStorage.setItem(initKey, 'true');
             }
           } catch (error) {
-            console.error('❌ [Analytics] Error initializing person properties:', error);
+            AppLogger.error('startup', 'Error initializing person properties', {}, error);
             // Don't block app - this is non-critical
           }
         };
@@ -253,6 +507,7 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
       } else {
         // Clear Sentry user when signed out
         Sentry.setUser(null);
+        AppLogger.setContext('app_state', { isSignedIn: false });
       }
     }
   }, [posthog, isSignedIn, user]);
@@ -267,29 +522,145 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   // - Application Updated
 
   // Listen for notifications (both received and tapped) with deep link support
+  // Also listen for push token changes — FCM/APNs can rotate tokens at any time
   React.useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('🚀 ~ AnalyticsWrapper ~ notification:', JSON.stringify(notification, null, 2));
+      // Native APNs puts custom data in trigger.payload, not content.data
+      const data = notification.request.content.data
+        ?? (notification.request.trigger as any)?.payload;
+      const deliveryId = data?.delivery_id as string | undefined;
       const messageId = notification.request.identifier || `notif_${Date.now()}`;
+
+      // Report "open" to Affinity — notification displayed on device confirms delivery
+      if (deliveryId) {
+        AffinityNotificationService.reportEvent(deliveryId, 'open');
+      }
+
       analyticsService.trackCustomEvent('notification_received', {
         message_id: messageId,
+        delivery_id: deliveryId,
         title: notification.request.content.title,
         app_state: 'foreground',
       });
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      const messageId = response.notification.request.identifier || `notif_${Date.now()}`;
+      // Native APNs puts custom data in trigger.payload, not content.data
+      const data = response.notification.request.content.data
+        ?? (response.notification.request.trigger as any)?.payload;
+      const deliveryId = data?.delivery_id as string | undefined;
+      const messageId = deliveryId ?? response.notification.request.identifier ?? `notif_${Date.now()}`;
+
+      // Report "click" to Affinity — user tapped the notification
+      if (deliveryId) {
+        AffinityNotificationService.reportEvent(deliveryId, 'click', {
+          action_id: response.actionIdentifier,
+          deep_link: data?.link || data?.url || data?.deep_link,
+        });
+      }
+
       analyticsService.trackNotificationClicked(messageId);
 
-      // Handle deep links from Customer.io push notifications
+      // Handle deep links for all push notifications (Affinity / Expo gateway)
       handleNotificationDeepLink(response);
     });
+
+    // Update push token when rotated by FCM/APNs — device already exists,
+    // just patch the token via device_identifier lookup.
+    const pushTokenListener = Notifications.addPushTokenListener(({ data: newToken }) => {
+      if (AffinityNotificationService.getLastRegisteredToken() === newToken) return;
+      AppLogger.info('notification', 'Push token changed — updating device with Affinity');
+      AffinityNotificationService.updateDevice({ push_token: newToken });
+    });
+
+    // Live Activity token listeners (iOS 17.2+)
+    // Push-to-start: cached in UserDefaults (survives app restart), listener for future rotations.
+    // Activity: emitted when activity starts with pushType: .token.
+    let pushToStartSub: { remove: () => void } | undefined;
+    let activityTokenSub: { remove: () => void } | undefined;
+    if (Platform.OS === 'ios') {
+      // 1. Attach listener for future token CHANGES (iOS rotates token)
+      pushToStartSub = addPushToStartTokenListener((event) => {
+        AppLogger.info('notification', 'Live Activity push-to-start token changed', {
+          activityType: event.activityType,
+          tokenPrefix: event.token.substring(0, 16),
+        });
+        AffinityNotificationService.registerLiveActivityToken({
+          pushToken: event.token,
+          tokenType: 'push_to_start',
+          activityType: event.activityType,
+        });
+      });
+
+      // 2. Read cached token (every launch — iOS only emits on change, not on restart)
+      getCachedPushToStartToken().then((cached) => {
+        if (cached) {
+          AppLogger.info('notification', 'Registering cached push-to-start token', {
+            activityType: cached.activityType,
+            tokenPrefix: cached.token.substring(0, 16),
+          });
+          AffinityNotificationService.registerLiveActivityToken({
+            pushToken: cached.token,
+            tokenType: 'push_to_start',
+            activityType: cached.activityType,
+          });
+        }
+      }).catch((err) => {
+        AppLogger.warn('notification', 'getCachedPushToStartToken failed (non-fatal)', { error: String(err) });
+      });
+
+      // 3. Start native listener for future changes (also caches first-install token)
+      registerPushToStartTokens().catch((err) => {
+        AppLogger.warn('notification', 'registerPushToStartTokens failed (iOS < 17.2?)', { error: String(err) });
+      });
+
+      activityTokenSub = addActivityPushTokenListener((event) => {
+        AppLogger.info('notification', 'Live Activity activity push token received', {
+          activityType: event.activityType,
+          activityId: event.activityId,
+          tokenPrefix: event.token.substring(0, 16),
+        });
+        AffinityNotificationService.registerLiveActivityToken({
+          pushToken: event.token,
+          tokenType: 'activity',
+          activityType: event.activityType,
+          activityId: event.activityId,
+        });
+      });
+    }
 
     return () => {
       notificationListener.remove();
       responseListener.remove();
+      pushTokenListener.remove();
+      pushToStartSub?.remove();
+      activityTokenSub?.remove();
     };
   }, []);
+
+  // Cold start: catch notification tap that launched the app from killed state.
+  // addNotificationResponseReceivedListener misses this because the listener
+  // registers AFTER the response has already been delivered by the OS.
+  const lastResponse = Notifications.useLastNotificationResponse();
+  React.useEffect(() => {
+    if (!lastResponse) return;
+
+    const data = lastResponse.notification.request.content.data
+      ?? (lastResponse.notification.request.trigger as any)?.payload;
+    const deliveryId = data?.delivery_id as string | undefined;
+    const messageId = deliveryId ?? lastResponse.notification.request.identifier ?? `notif_${Date.now()}`;
+
+    if (deliveryId) {
+      AffinityNotificationService.reportEvent(deliveryId, 'click', {
+        action_id: lastResponse.actionIdentifier,
+        deep_link: data?.link || data?.url || data?.deep_link,
+      });
+    }
+
+    analyticsService.trackNotificationClicked(messageId);
+    handleNotificationDeepLink(lastResponse);
+  }, [lastResponse]);
 
   // PostHog $exception capture - backup to Sentry for crash tracking
   React.useEffect(() => {
@@ -337,6 +708,9 @@ function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
     };
   }, [posthog]);
 
+  // Notification prompting moved to NotificationPromptProvider (AFF-117)
+  // Permission request + token registration now handled via celebration queue
+
   return <>{children}</>;
 }
 
@@ -346,82 +720,6 @@ function GamificationWrapper({ children }: { children: React.ReactNode }) {
   // This wrapper is kept for potential future use
   return <>{children}</>;
 }
-
-// Avatar unlock animation wrapper that must be inside RewardsProvider
-function AvatarAnimationWrapper({ children }: { children: React.ReactNode }) {
-  const { newlyUnlockedItem, clearNewlyUnlockedItem } = useRewards();
-  const [showNotification, setShowNotification] = React.useState(false);
-  const [notificationAvatar, setNotificationAvatar] = React.useState<{ image: any; name: string } | null>(null);
-
-  // Only show animations for avatars (not badges)
-  const newlyUnlockedAvatar = newlyUnlockedItem?.type === 'avatar' ? newlyUnlockedItem : null;
-
-  // Helper to get avatar image - static mapping for require()
-  const AVATAR_IMAGE_MAP: Record<string, any> = {
-    'avatars/Al-Khwarizmi.png': require('@/assets/images/avatars/Al-Khwarizmi.png'),
-    'avatars/Fatima-al-Fihri.png': require('@/assets/images/avatars/Fatima-al-Fihri.png'),
-    'avatars/ibn-sina-avicenna.png': require('@/assets/images/avatars/Ibn-Sina-Avicenna.png'),
-    'avatars/Ziryab.png': require('@/assets/images/avatars/Ziryab.png'),
-    'avatars/Al-Razi.png': require('@/assets/images/avatars/Al-Razi.png'),
-    'avatars/Ibn-Battuta.png': require('@/assets/images/avatars/Ibn-Battuta.png'),
-    'avatars/Lubna-of-Cordoba.png': require('@/assets/images/avatars/Lubna-of-Cordoba.png'),
-    'avatars/Mariam-al-Asturlabi.png': require('@/assets/images/avatars/Mariam-al-Asturlabi.png'),
-    'avatars/Zaynab-al-Shahda.png': require('@/assets/images/avatars/Zaynab-al-Shahda.png'),
-  };
-
-  const getAvatarImage = (imageUrl: string) => {
-    return AVATAR_IMAGE_MAP[imageUrl] || AVATAR_IMAGE_MAP['avatars/Al-Khwarizmi.png'];
-  };
-
-  // TODO: Confetti disabled for now
-  // Trigger confetti when avatar is unlocked
-  // React.useEffect(() => {
-  //   if (newlyUnlockedAvatar) {
-  //     setShowConfetti(true);
-  //   }
-  // }, [newlyUnlockedAvatar]);
-
-  // When animation completes, show notification
-  const handleAnimationComplete = () => {
-    if (newlyUnlockedAvatar) {
-      setNotificationAvatar({
-        image: getAvatarImage(newlyUnlockedAvatar.image_url),
-        name: newlyUnlockedAvatar.display_text,
-      });
-      setShowNotification(true);
-    }
-    clearNewlyUnlockedItem();
-  };
-
-  // When notification completes, clear everything
-  const handleNotificationComplete = () => {
-    setShowNotification(false);
-    setNotificationAvatar(null);
-  };
-
-  return (
-    <>
-      {children}
-      {newlyUnlockedAvatar && (
-        <AvatarUnlockAnimation
-          visible={true}
-          avatarImage={getAvatarImage(newlyUnlockedAvatar.image_url)}
-          avatarName={newlyUnlockedAvatar.display_text}
-          onComplete={handleAnimationComplete}
-        />
-      )}
-      {showNotification && notificationAvatar && (
-        <AvatarUnlockNotification
-          visible={true}
-          avatarImage={notificationAvatar.image}
-          avatarName={notificationAvatar.name}
-          onComplete={handleNotificationComplete}
-        />
-      )}
-    </>
-  );
-}
-
 
 export default Sentry.wrap(function RootLayout() {
   const colorScheme = useColorScheme();
@@ -434,6 +732,11 @@ export default Sentry.wrap(function RootLayout() {
     "DM Sans Bold": require("../assets/fonts/DM_Sans-Bold.ttf"),
     "Cormorant": require("../assets/fonts/Cormorant.ttf"),
     "Cormorant-Bold": require("../assets/fonts/Cormorant-Bold.ttf"),
+    "Bounded-Black": require("../assets/fonts/Bounded-Black.ttf"),
+    "Onest-Black": require("../assets/fonts/Onest-Black.ttf"),
+    "Onest-Bold": require("../assets/fonts/Onest-Bold.ttf"),
+    "Onest-SemiBold": require("../assets/fonts/Onest-SemiBold.ttf"),
+    "Onest-Medium": require("../assets/fonts/Onest-Medium.ttf"),
   });
 
   // Hide splash screen when fonts are loaded
@@ -446,12 +749,11 @@ export default Sentry.wrap(function RootLayout() {
   // Set Android navigation bar color to match app background
   React.useEffect(() => {
     if (Platform.OS === 'android') {
-      SystemUI.setBackgroundColorAsync('#F4EBDB');
+      SystemUI.setBackgroundColorAsync('#FAFAFA');
     }
   }, []);
 
-  // Clean up test/debug data on app launch (only in 
-  //  mode)
+  // Clean up test/debug data on app launch (only in DEV mode)
   React.useEffect(() => {
     const cleanupTestData = async () => {
       if (!__DEV__) return; // Only clean in development mode
@@ -505,7 +807,7 @@ export default Sentry.wrap(function RootLayout() {
     ...DefaultTheme,
     colors: {
       ...DefaultTheme.colors,
-      background: Platform.OS === 'android' ? '#F4EBDB' : DefaultTheme.colors.background,
+      background: Platform.OS === 'android' ? '#FAFAFA' : DefaultTheme.colors.background,
     }
   };
 
@@ -513,7 +815,7 @@ export default Sentry.wrap(function RootLayout() {
     ...DarkTheme,
     colors: {
       ...DarkTheme.colors,
-      background: Platform.OS === 'android' ? '#F4EBDB' : DarkTheme.colors.background,
+      background: Platform.OS === 'android' ? '#FAFAFA' : DarkTheme.colors.background,
     }
   };
 
@@ -522,14 +824,12 @@ export default Sentry.wrap(function RootLayout() {
   const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST!;
 
   // Create PostHog options with platform-specific configuration
+  // NOTE: captureAppLifecycleEvents is a TOP-LEVEL PostHogOptions property (not under autocapture)
+  // autocapture (captureTouches, captureScreens) is passed as a SEPARATE prop to PostHogProvider
   const posthogOptions = {
     host: posthogHost,
-    // Enable autocapture for automatic event tracking
-    autocapture: {
-      captureAppLifecycleEvents: true,  // Auto-track app open/foreground/background
-      captureTouches: false,             // Disable touch tracking (too noisy for educational app)
-      captureScreens: false,             // React Navigation v7 requires manual screen tracking
-    },
+    // Auto-track Application Opened, Application Backgrounded, Application Installed, Application Updated
+    captureAppLifecycleEvents: true,
     // Enable session recording for mobile (disabled on web to prevent compatibility issues)
     enableSessionReplay: Platform.OS !== 'web',
     ...(Platform.OS !== 'web' && {
@@ -552,45 +852,74 @@ export default Sentry.wrap(function RootLayout() {
     }),
   };
 
+  // Autocapture options for touch and screen tracking (separate from PostHogOptions)
+  const posthogAutocaptureOptions = {
+    captureTouches: false,    // Disable touch tracking (too noisy for educational app)
+    captureScreens: false,    // React Navigation v7 / expo-router requires manual screen tracking
+  };
+
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{
         flex: 1,
-        backgroundColor: Platform.OS === 'android' ? '#F4EBDB' : undefined
+        backgroundColor: Platform.OS === 'android' ? '#FAFAFA' : undefined
       }}>
-        <PostHogProvider apiKey={posthogApiKey} options={posthogOptions}>
+        <KeyboardProvider>
+          <PostHogProvider apiKey={posthogApiKey} options={posthogOptions} autocapture={posthogAutocaptureOptions}>
           <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-            <AnalyticsWrapper>
-              <GamificationWrapper>
+            <ClerkLoaded>
+              <AnalyticsWrapper>
+                <GamificationWrapper>
                   <AdventuresContentProvider>
                     <RewardsProvider>
                       <GamifiedProgressProvider>
+                        <OnboardingSyncBridge />
                         <PreferencesProvider>
-                          <GamificationOrchestratorProvider>
-                            <AIProvider>
-                            <AvatarAnimationWrapper>
-                              <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
-                              <Stack>
-                                <Stack.Screen name="index" options={{ headerShown: false }} />
-                                <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                <Stack.Screen name="+not-found" />
-                              </Stack>
-                              <AIAssistant />
-                              <StatusBar style="auto" />
-                              </ThemeProvider>
-                            </AvatarAnimationWrapper>
-                            </AIProvider>
-                          </GamificationOrchestratorProvider>
+                          <NotificationPromptProvider>
+                            <GamificationOrchestratorProvider>
+                              <AIProvider>
+                                <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomTheme}>
+                                <TodayWalkthroughProvider>
+                                <Stack screenOptions={{
+                                  gestureEnabled: false,
+                                  animation: 'none',
+                                  fullScreenGestureEnabled: false
+                                }}>
+                                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                                  <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+                                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                  <Stack.Screen name="welcome-back" options={{ headerShown: false }} />
+                                  <Stack.Screen name="playground" options={{ headerShown: false }} />
+                                  <Stack.Screen name="+not-found" />
+                                </Stack>
+                                <AIAssistant />
+                                {/* Walkthrough HOME-surface overlay rendered at root so its
+                                    full-screen dim covers the system status bar AND the
+                                    bottom tab bar (both rendered outside the (tabs) tree).
+                                    The overlay's own pointerEvents="box-none" + render-gating
+                                    on currentStep.surface means it's a no-op when no tour is
+                                    active or when the active step is on the modal surface.
+                                    The MODAL-surface overlay still lives inside the lesson
+                                    Modal in today.tsx because that Modal opens its own
+                                    native window — a root overlay would render below it. */}
+                                <TodayWalkthroughOverlay surface="home" />
+                                <StatusBar style="auto" />
+                                </TodayWalkthroughProvider>
+                                </ThemeProvider>
+                              </AIProvider>
+                            </GamificationOrchestratorProvider>
+                          </NotificationPromptProvider>
                         </PreferencesProvider>
-                    </GamifiedProgressProvider>
-                </RewardsProvider>
-              </AdventuresContentProvider>
-          </GamificationWrapper>
-          </AnalyticsWrapper>
+                      </GamifiedProgressProvider>
+                    </RewardsProvider>
+                  </AdventuresContentProvider>
+                </GamificationWrapper>
+              </AnalyticsWrapper>
+            </ClerkLoaded>
           </ClerkProvider>
         </PostHogProvider>
+        </KeyboardProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

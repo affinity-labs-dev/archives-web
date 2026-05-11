@@ -4,7 +4,6 @@ import ReactAppDependencyProvider
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
-  let cioSdkHandler = CioSdkAppDelegateHandler()
 
   var window: UIWindow?
 
@@ -31,9 +30,43 @@ public class AppDelegate: ExpoAppDelegate {
       launchOptions: launchOptions)
 #endif
 
-      cioSdkHandler.application(application, didFinishLaunchingWithOptions: launchOptions)
+    // Deep link workaround for app killed state — extract link from push payload
+    // Mirrors JS logic: data?.link || data?.url || data?.deep_link
+    // Also checks nested "data" dict and APNs "aps" payload
+    var modifiedLaunchOptions = launchOptions
+    NSLog("🔗 [DeepLink] didFinishLaunching — remoteNotification present: %@",
+          launchOptions?[UIApplication.LaunchOptionsKey.remoteNotification] != nil ? "YES" : "NO")
 
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    if let launchOptions = launchOptions,
+       let pushContent = launchOptions[UIApplication.LaunchOptionsKey.remoteNotification] as? [AnyHashable: Any],
+       !launchOptions.keys.contains(UIApplication.LaunchOptionsKey.url) {
+
+        NSLog("🔗 [DeepLink] Push payload: %@", pushContent.description)
+
+        let nestedData = pushContent["data"] as? [String: Any]
+
+        // Check link fields in order: top-level → nested data
+        // Matches JS: data?.link || data?.url || data?.deep_link
+        let link = pushContent["link"] as? String
+          ?? pushContent["url"] as? String
+          ?? pushContent["deep_link"] as? String
+          ?? nestedData?["link"] as? String
+          ?? nestedData?["url"] as? String
+          ?? nestedData?["deep_link"] as? String
+
+        NSLog("🔗 [DeepLink] Extracted link: %@", link ?? "nil")
+
+        if let link = link, let url = URL(string: link) {
+          NSLog("🔗 [DeepLink] Injecting URL into launchOptions: %@", url.absoluteString)
+          var mutableLaunchOptions = launchOptions
+          mutableLaunchOptions[UIApplication.LaunchOptionsKey.url] = url
+          modifiedLaunchOptions = mutableLaunchOptions
+        } else {
+          NSLog("🔗 [DeepLink] No valid link found or URL conversion failed")
+        }
+    }
+
+    return super.application(application, didFinishLaunchingWithOptions: modifiedLaunchOptions)
   }
 
   // Linking API
@@ -53,20 +86,6 @@ public class AppDelegate: ExpoAppDelegate {
   ) -> Bool {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
-  }
-
-  // Handle device token registration
-  public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    // Call CustomerIO SDK handler
-    cioSdkHandler.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
-    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
-  }
-
-  // Handle remote notification registration errors
-  public override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-    // Call CustomerIO SDK handler
-    cioSdkHandler.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
-    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
 }
 

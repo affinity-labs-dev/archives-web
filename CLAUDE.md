@@ -8,8 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install                           # Install dependencies (requires Node 20.19.4)
 npx expo start                        # Dev server (i=iOS, a=Android, w=web)
-npm run lint                          # REQUIRED before commits
+npm run lint                          # REQUIRED before commits (expo lint)
 npx expo start --clear                # Clear Metro cache
+npx expo run:ios                      # Run on iOS (native build)
+npx expo run:android                  # Run on Android (native build)
 eas build --platform ios --profile development  # Dev build
 eas update --branch production        # Push OTA update
 ```
@@ -20,7 +22,7 @@ eas update --branch production        # Push OTA update
 - `gamification/engines/GamificationOrchestrator.tsx` - Achievements, celebrations, milestone tracking
 - `gamification/index.ts` - Public API exports for all gamification features
 - `constants/ArchivesTheme.ts` - Design system colors/spacing (ALWAYS use)
-- `components/modules/adventure1/Adventure1_Module1_Lesson1.tsx` - Best lesson implementation reference
+- `components/lessons/ReelLesson.tsx` - Reusable video + reading lesson component (best reference)
 
 **Common code patterns:**
 ```typescript
@@ -67,13 +69,16 @@ color: '#C99151'                 // ❌ Use ArchivesTheme
 SafeAreaProvider + GestureHandlerRootView
 └── PostHogProvider (analytics from app launch)
     └── ClerkProvider (authentication)
-        └── AnalyticsWrapper (PostHog init + Customer.io + Sentry + session tracking)
-            └── AdventuresContentProvider (Supabase content fetching)
-                └── RewardsProvider (badges + avatars system)
-                    └── GamifiedProgressProvider (unified progress + cloud sync)
-                        └── GamificationOrchestratorProvider (achievements, celebrations, milestones)
-                            └── AIProvider (Gemini AI features)
-                                └── ThemeProvider + Stack Navigation + AIAssistant
+        └── AnalyticsWrapper (PostHog init + RevenueCat + Sentry + Affinity + session tracking)
+            └── GamificationWrapper (empty, reserved for future use)
+                └── AdventuresContentProvider (Supabase content fetching)
+                    └── RewardsProvider (badges + avatars system)
+                        └── GamifiedProgressProvider (unified progress + cloud sync)
+                            └── PreferencesProvider (user preferences)
+                                └── NotificationPromptProvider (contextual notification prompts)
+                                    └── GamificationOrchestratorProvider (achievements, celebrations, milestones)
+                                    └── AIProvider (Gemini AI features)
+                                        └── ThemeProvider + Stack Navigation + AIAssistant
 ```
 
 **Critical initialization sequence:**
@@ -88,6 +93,8 @@ SafeAreaProvider + GestureHandlerRootView
 - **Centralized XP calculation** in GamifiedProgress (`calculateXPForEra`, `calculateTotalXP`) with era-specific rules
 - **Unified cloud sync** - GamifiedProgress handles both local state and Supabase sync (debounced 2s)
 - **Font loading critical path**: DM Sans + Cormorant must load before splash screen hides (prevents flash)
+- **Metro config**: Uses Sentry integration (`getSentryExpoConfig`) and adds `.riv` to asset extensions for Rive animations
+- **Babel**: `babel-preset-expo` + `react-native-reanimated/plugin` (reanimated plugin must be last)
 
 ### Progress System Architecture
 
@@ -157,7 +164,7 @@ await reportQuizComplete({
 | `posthog-react-native` | Analytics | Conditional init based on iOS ATT, session replay enabled |
 | `@sentry/react-native` | Error tracking | Performance tracing enabled (tracesSampleRate: 1.0) |
 | `expo-notifications` | Push notifications | Physical device required |
-| `customerio-reactnative` | Push notifications | Customer.io SDK for targeted campaigns |
+| `services/AffinityNotificationService.ts` | Push notifications | Internal service — registers devices with Affinity backend |
 | `@google/genai` | AI features | Gemini API for AI chat and image generation |
 | `rive-react-native` | Animated illustrations | Used for Start Here speech bubble animation |
 | `react-native-bottom-tabs` | Native tab bar | Custom iOS-style tabs (not React Navigation tabs) |
@@ -168,12 +175,12 @@ await reportQuizComplete({
 
 ```
 app/
-├── _layout.tsx                    # Root providers
+├── _layout.tsx                    # Root providers (Sentry.wrap)
 ├── index.tsx                      # Smart routing (onboarding vs main app)
+├── sso-callback.tsx               # Clerk SSO callback handler
 ├── (auth)/                        # Auth screens
-├── (tabs)/                        # Main app (5 tabs)
-├── onboarding-*.tsx               # 8-screen onboarding flow
-└── era-selection.tsx
+├── (onboarding)/                  # 8-screen onboarding flow (welcome, videos, questions, results)
+└── (tabs)/                        # Main app (5 tabs: today, eras, era-view, subscribe, profile)
 
 gamification/                      # Unified gamification module
 ├── engines/                       # Core contexts and logic
@@ -201,24 +208,41 @@ gamification/                      # Unified gamification module
 
 components/
 ├── modules/
-│   ├── adventure1/                # Umayyad Dynasty Adventure 1
-│   ├── adventure2/                # Umayyad Dynasty Adventure 2
-│   ├── adventure3/                # Umayyad Dynasty Adventure 3
-│   ├── adventure4/                # Umayyad Dynasty Adventure 4
-│   ├── adventure5/                # Umayyad Dynasty Adventure 5
-│   ├── ModuleModal.tsx            # Umayyad wrapper
 │   └── QuizSystem.tsx             # Legacy quiz engine
-├── lessons/                       # Reusable lesson components
+├── lessons/                       # Reusable lesson components (all eras)
 │   ├── LessonPlayer.tsx           # Unified lesson orchestrator
 │   ├── ReelLesson.tsx             # Video + reading
 │   ├── ImageCarouselLesson.tsx    # Image galleries
 │   ├── VideoCarouselLesson.tsx    # Video series
-│   └── ScrollableMediaViewLesson.tsx
+│   ├── ScrollableMediaViewLesson.tsx
+│   ├── VideoPlayer.tsx            # Shared video player
+│   ├── LessonConstants.ts        # Lesson configuration
+│   └── renderers/                 # Lesson content renderers
 ├── quiz/                          # Modern quiz system
 │   ├── Quiz.tsx                   # Universal quiz component
-│   └── QuizResults.tsx            # Results screen
-├── adventures/                    # Adventure-specific components
+│   ├── QuizResults.tsx            # Results screen
+│   └── AIQuizExplanation.tsx      # AI-powered quiz explanations
+├── adventure/                     # Adventure components
+│   ├── shared/                    # AdventureComponent, AdventureSummary
+│   └── types/bento-grid/          # AdventureCard, BentoGridScreen
 └── eras/                          # Era selection screens
+
+context/                              # React contexts
+├── AdventuresContentProvider.tsx  # Supabase content fetching
+└── PreferencesContext.tsx          # User preferences
+
+hooks/                                # Reusable hooks
+├── useLessonBase.ts               # Shared lesson logic
+├── useAdventures.ts               # Adventure data hooks
+├── useEras.ts                     # Era data hooks
+├── useRevenueCat.ts               # Subscription hooks
+├── useBackgroundMusic.tsx         # Background audio control
+└── ...                            # Various feature hooks
+
+services/                             # External service integrations
+├── AnalyticsService.ts            # PostHog wrapper
+├── AffinityNotificationService.ts  # Push notifications (Affinity backend)
+└── ...
 ```
 
 ## Environment Configuration
@@ -235,8 +259,10 @@ components/
   - `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` - iOS subscriptions
   - `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` - Android subscriptions
   - `EXPO_PUBLIC_GEMINI_API_KEY` - Gemini AI features
-  - `EXPO_PUBLIC_CUSTOMERIO_CDP_API_KEY` - Customer.io analytics
-  - `EXPO_PUBLIC_CUSTOMERIO_SITE_ID` - Customer.io site identifier
+  - `EXPO_PUBLIC_AFFINITY_API_URL` - Affinity notification service URL
+  - `EXPO_PUBLIC_AFFINITY_API_KEY` - Affinity notification service API key
+  - `EXPO_PUBLIC_AFFINITY_APP_ID` - Affinity notification service app ID
+  - `SENTRY_AUTH_TOKEN` - Sentry source map uploads (build-time only)
 
 ## Common Development Tasks
 
@@ -328,18 +354,18 @@ await atomicProgressUpdate(adventureId, moduleId, {
 
 | Type | Best Reference | Key Features |
 |------|---------------|-------------|
-| **Video + Reading** | `Adventure1_Module1_Lesson1.tsx` | expo-video player, expandable card, ultra-smooth progress animations |
-| **Image Carousel** | `Adventure1_Module2_Lesson1.tsx` | Swipeable gallery, background music, caption overlays |
-| **Video Carousel** | `components/ROI/ROIVideoCarouselLesson.tsx` | Multiple videos, modern useVideoPlayer hooks |
+| **Video + Reading** | `components/lessons/ReelLesson.tsx` | expo-video player, expandable card, progress animations |
+| **Image Carousel** | `components/lessons/ImageCarouselLesson.tsx` | Swipeable gallery, background music, caption overlays |
+| **Video Carousel** | `components/lessons/VideoCarouselLesson.tsx` | Multiple videos, modern useVideoPlayer hooks |
 | **Static Image Reading** | See lesson docs | Hero image + scrollable text |
 | **Scrollable Media View** | See lesson docs | Mixed media storytelling |
 | **Quiz System** | `QuizSystem.tsx` | MCQ/True-False/Drag-drop, sound effects, star ratings |
 
-**Best reference lesson:** `Adventure1_Module1_Lesson1.tsx` has complete animation system, cross-platform gestures, video completion detection, progress tracking integration.
+**Best reference lesson:** `components/lessons/ReelLesson.tsx` — reusable across all eras with animation system, cross-platform gestures, video completion detection, and progress tracking.
 
 **Reusable lesson hooks and components:**
 - `hooks/useLessonBase.ts` - Shared lesson logic (video state, progress tracking, navigation)
-- `components/LessonPlayer.tsx` - Unified orchestrator for all lesson types
+- `components/lessons/LessonPlayer.tsx` - Unified orchestrator for all lesson types
 - `components/eras/` - Generic era components (can be reused for new eras)
 
 **Content status:**
@@ -364,9 +390,9 @@ await atomicProgressUpdate(adventureId, moduleId, {
 - Save flag on lesson completion via `AsyncStorage.setItem(WALKTHROUGH_KEYS.REEL/CAROUSEL, 'true')`
 
 **Reference implementations:**
-- `components/modules/adventure1/Adventure1_Module1_Lesson1.tsx` (reel with percentage timing)
-- `components/modules/adventure1/Adventure1_Module2_Lesson1.tsx` (image carousel)
-- `components/ROI/ROIReelLesson.tsx`, `ROIImageCarouselLesson.tsx`, `ROIVideoCarouselLesson.tsx` (reusable)
+- `components/lessons/ReelLesson.tsx` (video + reading with percentage timing)
+- `components/lessons/ImageCarouselLesson.tsx` (image carousel)
+- `components/lessons/VideoCarouselLesson.tsx` (video carousel)
 
 ### Specialized Claude Code Agents
 
@@ -389,9 +415,18 @@ ArchivesTheme.colors.shoeBrown      // #4D392E (primary)
 ArchivesTheme.colors.persianOrange  // #C99151 (accent)
 ArchivesTheme.colors.creamWhite     // #F4EBDB (background)
 
-// Components
-ArchivesTheme.components.card       // Pre-styled card
-ArchivesTheme.components.primaryButton  // Orange gradient
+// Components (pre-styled buttons, cards, inputs)
+ArchivesTheme.components.card              // Pre-styled card
+ArchivesTheme.components.primaryButton     // Orange gradient button
+ArchivesTheme.components.secondaryButton   // White button with border
+ArchivesTheme.components.input             // Input field styling
+
+ArchivesTheme.common.whiteCard            // White card with shadow
+ArchivesTheme.common.modalTitle           // Modal header text style
+ArchivesTheme.common.bodyText             // Standard body text
+ArchivesTheme.common.rowBetween           // Flex row space-between
+ArchivesTheme.common.circularIcon         // Circular icon container
+// See ArchivesTheme.ts for full list of common styles
 ```
 
 ## Analytics & Privacy
@@ -477,18 +512,24 @@ console.log('🔔 Notification')    // Push notifications
 
 **Shared:**
 - EAS Project: `4f1f4bc4-0ced-48f3-b712-178b54175088`
-- App version: `3.1.0` | Runtime: `1.0.0` | Expo SDK: 54
-- iOS buildNumber: `120` | Android versionCode: `36` (auto-incremented on production builds)
-- New Architecture: Enabled (React Native 0.81.5)
+- App version: `4.0.0` | Runtime: `appVersion` | Expo SDK: 54
+- iOS buildNumber: `150` | Android versionCode: `45` (auto-incremented on production builds)
+- New Architecture: Enabled (React Native 0.81.5, React 19.1.0)
 
 ## Important Patterns & Development Context
 
-**Current status:** Branch `mergeversion` | Both platforms LIVE in production
+**Current status:** Branch `4.0.0` | Both platforms LIVE in production
 (Check `git log --oneline -10` for recent work and current development focus)
 
 ### Recent Development Focus
+- **Achievement system enhancements** - Fixed TypeScript errors, improved popup UX (5s display time, dynamic sizing, better image quality)
+- **CelebrationManager component** - New centralized UI manager for all celebration types (XP milestones, adventure complete, achievements)
+- **iOS/Android gesture management** - Stack navigation gestures disabled globally to prevent swipe back to onboarding, Android back button blocked in tabs
+- **Session-based AI chat** - AI conversations now stored in Supabase with session history for follow-up questions
+- **Prophets of Islam 1 era** - Onboarding recommends Prophets of Islam 1 (Era 2)
+- **Account switching fixes** - Progress and achievements properly reset when switching Clerk accounts
 - **Gamification folder restructure** - Reorganized into feature-based architecture:
-  - `gamification/engines/` - Core contexts (GamifiedProgress, GamificationOrchestrator, AIContext, RewardsContext)
+  - `gamification/engines/` - Core contexts (GamifiedProgress, GamificationOrchestrator, NotificationPromptProvider, AIContext, RewardsContext)
   - `gamification/services/` - AI and game generation services
   - `gamification/ui/` - UI components organized by feature (achievement, ai, celebrations, games)
   - `gamification/index.ts` - Clean public API exports
@@ -500,7 +541,7 @@ console.log('🔔 Notification')    // Push notifications
 - **Current content** - Era 1 (Umayyad Dynasty) and Era 2 (Rise of Islam) with 5 adventures each, all content in Supabase
 - **PostHog person properties** - User progress tracking via person properties for analytics
 - **AI chat improvements** - Correctly shows XP and progress from all eras, monthly quota enforcement
-- **Customer.io integration** - Push notification campaigns with unified analytics tracking via `CustomerIOService.native.ts`
+- **Affinity Notification Service** - Push notification delivery via Expo push gateway with per-device permission tracking
 - **Gemini AI features** - AI chat modal (`AIChatModal.tsx`), image generation, markdown rendering
 - **Generic era architecture** - Reusable lesson components (`ReelLesson`, `ImageCarouselLesson`, etc.) work for all eras
 - **Sentry integration** - Error tracking and performance tracing enabled (tracesSampleRate: 1.0)
@@ -528,7 +569,7 @@ Complete module → Auto-unlock next → Complete adventure → Auto-unlock next
 iOS requires ATT permission before analytics initialization - PostHog wrapped conditionally.
 
 ### Notification Token Sync
-Push notification tokens automatically synced to Supabase on registration and app launch.
+Push notification tokens automatically synced to the Affinity Notification Service backend on registration and app launch.
 
 ### Universal Links & App Links (Deep Linking)
 **Domain:** `link.archiveszone.app` - OS intercepts HTTPS links before browser, app opens directly

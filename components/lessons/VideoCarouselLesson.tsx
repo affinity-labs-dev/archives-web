@@ -5,6 +5,7 @@
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useEvent } from 'expo';
 import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import React, { useRef, useState, useEffect, useMemo } from "react";
@@ -31,10 +32,12 @@ import LoadingOverlay from "@/components/shared/LoadingOverlay";
 import type { ContentItem } from "@/components/shared/types";
 import RenderHtml from 'react-native-render-html';
 import { LESSON_CONSTANTS } from "./LessonConstants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image as ExpoImage } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
+import { useDeviceHealthMonitor } from "@/hooks/useDeviceHealthMonitor";
+import AppLogger from '@/services/AppLogger';
+import { analyticsService } from '@/services/AnalyticsService';
+import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 
 // Static dimensions (module-level) - Umayyad Dynasty pattern
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
@@ -80,9 +83,29 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     uri: videoUrl,
   }), [videoUrl]);
 
+  // AFF-579: Record player creation time for load time measurement
+  const playerCreatedAtRef = useRef<number>(Date.now());
+  const hasTrackedLoadTimeRef = useRef(false);
+  const hasTrackedErrorRef = useRef(false);
+
+  // Video reliability tracking refs
+  const hasTrackedAttemptRef = useRef(false);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasTimedOutRef = useRef(false);
+
+  // AFF-612: Video completion tracking
+  const maxPositionRef = useRef(0);
+  const videoDurationRef = useRef(0);
+  const watchStartTimeRef = useRef<number>(0);
+  const hasTrackedCompletionRef = useRef(false);
+
   const player = useVideoPlayer(videoSource, (player) => {
-    // Always set loop - must be outside isActive check
     player.loop = true;
+    player.muted = true;
+    // CRITICAL: mixWithOthers prevents ExoPlayer from requesting audio focus
+    // Without this, every play() call steals focus from react-native-sound
+    player.audioMixingMode = 'mixWithOthers';
+    player.showNowPlayingNotification = false;
     if (isActive) {
       player.play();
     } else {
@@ -90,21 +113,229 @@ const VideoCarouselItem: React.FC<VideoItemProps> = ({ videoUrl, caption, isActi
     }
   });
 
+  // Video reliability: track attempt + start 30s timeout
+  useEffect(() => {
+    if (hasTrackedAttemptRef.current || !videoUrl) return;
+
+    const contentType = getContentType(videoUrl);
+    const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+
+    analyticsService.trackVideoLoadAttempted({
+      video_url: videoUrl,
+      content_type: contentType,
+      cdn_domain: cdnDomain,
+      trigger: 'auto',
+    });
+    hasTrackedAttemptRef.current = true;
+
+    loadTimeoutRef.current = setTimeout(() => {
+      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current && !isUnmountedRef.current) {
+        hasTimedOutRef.current = true;
+        analyticsService.trackVideoLoadTimeout({
+          video_url: videoUrl,
+          elapsed_ms: 30000,
+          content_type: contentType,
+          cdn_domain: cdnDomain,
+          last_known_status: 'loading',
+        });
+      }
+    }, 30000);
+
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    };
+  }, [videoUrl]);
+
+  // Track player status for loading indicator
+  const { status, error } = useEvent(player, 'statusChange', { status: player.status });
+  const isVideoReady = status === 'readyToPlay';
+
+  // Track every status transition for debugging (rate-limited in AnalyticsService)
+  useEffect(() => {
+    if (status === 'idle') return;
+    const contentType = getContentType(videoUrl);
+    const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+    analyticsService.trackVideoStatusChange({
+      video_url: videoUrl,
+      status,
+      error_code: (error as any)?.code ?? undefined,
+      error_message: error?.message,
+      time_since_mount_ms: Date.now() - playerCreatedAtRef.current,
+      content_type: contentType,
+      cdn_domain: cdnDomain,
+    });
+  }, [status, error, videoUrl]);
+
   useEffect(() => {
     if (isActive) {
       player.play();
+      // AFF-612: Reset watch timer when slide becomes active
+      watchStartTimeRef.current = Date.now();
+      hasTrackedCompletionRef.current = false;
+      maxPositionRef.current = 0;
+
+      // Run speed test on each slide change (non-blocking)
+      // Skipped if a test is already in-flight
+      const contentType = getContentType(videoUrl);
+      const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+      networkPerformanceService.runSpeedTest().then((speedResult) => {
+        if (speedResult && speedResult.downloadSpeedMbps > 0) {
+          analyticsService.trackNetworkSpeed({
+            download_speed_mbps: speedResult.downloadSpeedMbps,
+            content_size_bytes: speedResult.bytesDownloaded,
+            load_time_ms: speedResult.durationMs,
+            media_type: 'video',
+            content_type: contentType,
+            measurement_method: 'active',
+            cdn_domain: cdnDomain,
+          });
+        }
+      }).catch(() => {});
     } else {
       player.pause();
+      // AFF-612: Fire completion when user swipes away from this video
+      if (watchStartTimeRef.current > 0 && videoDurationRef.current > 0 && !hasTrackedCompletionRef.current) {
+        const completionRate = Math.min(maxPositionRef.current / videoDurationRef.current, 1.0);
+        const contentType = getContentType(videoUrl);
+        analyticsService.trackVideoCompletion({
+          completion_rate: completionRate,
+          watch_duration_ms: Date.now() - watchStartTimeRef.current,
+          video_duration_ms: videoDurationRef.current * 1000,
+          video_url: videoUrl,
+          content_type: contentType,
+          cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+        });
+        hasTrackedCompletionRef.current = true;
+      }
     }
+  }, [isActive, player, videoUrl]);
+
+  // AFF-612: Poll player position for max position tracking
+  useEffect(() => {
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      try {
+        if (player.status === 'readyToPlay') {
+          const currentTime = player.currentTime;
+          const duration = player.duration;
+          if (Number.isFinite(currentTime) && Number.isFinite(duration) && duration > 0) {
+            maxPositionRef.current = Math.max(maxPositionRef.current, currentTime);
+            videoDurationRef.current = duration;
+          }
+        }
+      } catch {
+        // Player released mid-interval — safe to ignore, cleanup will clear interval
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
   }, [isActive, player]);
 
-  // Notify parent when video is ready (call once)
+  // Unified success/error/abandoned tracking — single useEffect prevents race condition
+  // where cleanup fires abandoned before the success flag is set in a separate effect
+  const isUnmountedRef = useRef(false);
   useEffect(() => {
-    if (player && onReady) {
-      onReady();
-      console.log('📹 Video player ready');
+    isUnmountedRef.current = false;
+
+    if (isVideoReady) {
+      onReady?.();
+
+      // Clear 30s timeout — video loaded successfully
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+
+      // AFF-579: Track video load time
+      if (!hasTrackedLoadTimeRef.current && playerCreatedAtRef.current > 0) {
+        const loadTimeMs = Date.now() - playerCreatedAtRef.current;
+        const contentType = getContentType(videoUrl);
+        const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl);
+        analyticsService.trackVideoLoadTime({
+          load_time_ms: loadTimeMs,
+          video_url: videoUrl,
+          content_type: contentType,
+          cdn_domain: cdnDomain,
+          initial_speed_mbps: networkPerformanceService.getLastSpeedTest()?.downloadSpeedMbps,
+        });
+        hasTrackedLoadTimeRef.current = true;
+
+        // Run speed test when this slide becomes active (not for pre-rendered next slide)
+        if (isActive) {
+          networkPerformanceService.runSpeedTest().then((speedResult) => {
+            analyticsService.trackNetworkSpeed({
+              download_speed_mbps: speedResult?.downloadSpeedMbps,
+              content_size_bytes: speedResult?.bytesDownloaded,
+              load_time_ms: loadTimeMs,
+              media_type: 'video',
+              content_type: contentType,
+              measurement_method: 'active',
+              cdn_domain: cdnDomain,
+            });
+          }).catch(() => {
+            // Speed test failed — non-critical, ignore
+          });
+        }
+      }
     }
-  }, [player, onReady]);
+
+    // Clear 30s timeout on error
+    if (status === 'error' && loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+
+    // AFF-579: Track CDN errors (once per video)
+    if (status === 'error' && !hasTrackedErrorRef.current) {
+      const errorMsg = (player as any).error?.message || (player as any).error?.toString() || 'carousel_video_load_error';
+      analyticsService.trackCDNError({
+        media_type: 'video',
+        url: videoUrl,
+        cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+        error_message: errorMsg,
+      });
+      hasTrackedErrorRef.current = true;
+    }
+
+    // Cleanup: abandoned + completion on unmount
+    return () => {
+      isUnmountedRef.current = true;
+      // Video reliability: track abandoned if never loaded
+      if (!hasTrackedLoadTimeRef.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current && hasTrackedAttemptRef.current) {
+        const contentType = getContentType(videoUrl);
+        analyticsService.trackVideoLoadAbandoned({
+          video_url: videoUrl,
+          elapsed_ms: Date.now() - playerCreatedAtRef.current,
+          content_type: contentType,
+          cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+          had_any_playback: false,
+        });
+      }
+
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+
+      if (!hasTrackedCompletionRef.current && watchStartTimeRef.current > 0 && videoDurationRef.current > 0) {
+        const completionRate = Math.min(maxPositionRef.current / videoDurationRef.current, 1.0);
+        const contentType = getContentType(videoUrl);
+        analyticsService.trackVideoCompletion({
+          completion_rate: completionRate,
+          watch_duration_ms: Date.now() - watchStartTimeRef.current,
+          video_duration_ms: videoDurationRef.current * 1000,
+          video_url: videoUrl,
+          content_type: contentType,
+          cdn_domain: networkPerformanceService.extractCDNDomain(videoUrl),
+        });
+        hasTrackedCompletionRef.current = true;
+      }
+    };
+  }, [isVideoReady, status, onReady, videoUrl, player, isActive]);
 
   return (
     <View style={styles.videoContainer}>
@@ -142,7 +373,7 @@ export default function VideoCarouselLesson({
   // Shared lesson setup (analytics, walkthrough check, completion handler)
   const {
     walkthroughEnabled,
-    tracking: { trackCardExpanded },
+    tracking: { trackCardExpanded, trackDismiss },
     handleLessonComplete,
   } = useLessonBase({
     contentItem,
@@ -154,6 +385,13 @@ export default function VideoCarouselLesson({
     eraName,
     onContinue,
   });
+
+  // AFF-618: Monitor device health (memory + CPU) during video playback
+  const { startMonitoring, stopMonitoring } = useDeviceHealthMonitor();
+  useEffect(() => {
+    startMonitoring({ screen: 'VideoCarouselLesson', eraId, adventureId, moduleId, lessonId });
+    return () => { stopMonitoring(); };
+  }, [eraId, adventureId, moduleId, lessonId, startMonitoring, stopMonitoring]);
 
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [showReadContent, setShowReadContent] = useState(false);
@@ -191,7 +429,9 @@ export default function VideoCarouselLesson({
   useEffect(() => {
     if (walkthroughEnabled && currentVideoIndex === videos.length - 1) {
       setShowContinueHint(true);
-      console.log('👁️ Continue hint shown - last video reached');
+      if (__DEV__) {
+        console.log('👁️ Continue hint shown - last video reached');
+      }
     } else {
       setShowContinueHint(false);
     }
@@ -199,20 +439,22 @@ export default function VideoCarouselLesson({
 
   // Debug logging for carousel scroll state
   useEffect(() => {
-    console.log(
-      `🎠 Carousel scroll state: ${
-        isCardGestureActive
-          ? "🔒 BLOCKED (card gesture active)"
-          : "✅ ENABLED (can swipe videos)"
-      }`
-    );
+    if (__DEV__) {
+      console.log(
+        `🎠 Carousel scroll state: ${
+          isCardGestureActive
+            ? "🔒 BLOCKED (card gesture active)"
+            : "✅ ENABLED (can swipe videos)"
+        }`
+      );
+    }
   }, [isCardGestureActive]);
 
   // Safety mechanism: Reset gesture state if stuck
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isCardGestureActive) {
-        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        AppLogger.warn('content', 'Safety reset: clearing stuck gesture state');
         setIsCardGestureActive(false);
       }
     }, 100);
@@ -234,7 +476,9 @@ export default function VideoCarouselLesson({
   // Tap Gesture Handler (cross-platform)
   const handleTapGesture = (event: any) => {
     if (event.nativeEvent.state === State.END) {
-      console.log('👆 Tap detected on reading card');
+      if (__DEV__) {
+        console.log('👆 Tap detected on reading card');
+      }
       if (isCardExpanded) {
         collapseCard();
       } else {
@@ -250,15 +494,19 @@ export default function VideoCarouselLesson({
 
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 Card gesture started - blocking carousel");
+      if (__DEV__) {
+        console.log("📱 Card gesture started - blocking carousel");
+      }
     }
 
     if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      console.log("📱 Gesture state:", state, {
-        translationY,
-        velocityY,
-        isCardExpanded,
-      });
+      if (__DEV__) {
+        console.log("📱 Gesture state:", state, {
+          translationY,
+          velocityY,
+          isCardExpanded,
+        });
+      }
 
       if (state === State.END) {
         const minDistance = 20;
@@ -268,7 +516,9 @@ export default function VideoCarouselLesson({
           !isCardExpanded &&
           (translationY < -minDistance || velocityY < -minVelocity)
         ) {
-          console.log("📱 Swipe up detected - expanding card");
+          if (__DEV__) {
+            console.log("📱 Swipe up detected - expanding card");
+          }
           expandCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           return;
@@ -276,7 +526,9 @@ export default function VideoCarouselLesson({
           isCardExpanded &&
           (translationY > minDistance || velocityY > minVelocity)
         ) {
-          console.log("📱 Swipe down detected - collapsing card");
+          if (__DEV__) {
+            console.log("📱 Swipe down detected - collapsing card");
+          }
           collapseCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           return;
@@ -284,13 +536,17 @@ export default function VideoCarouselLesson({
       }
 
       setIsCardGestureActive(false);
-      console.log("📱 Gesture ended - carousel re-enabled");
+      if (__DEV__) {
+        console.log("📱 Gesture ended - carousel re-enabled");
+      }
     }
   };
 
   // Expand card
   const expandCard = () => {
-    console.log("🎬 Card expansion starting...");
+    if (__DEV__) {
+      console.log("🎬 Card expansion starting...");
+    }
     setIsCardExpanded(true);
     setShowReadContent(true);
 
@@ -298,7 +554,9 @@ export default function VideoCarouselLesson({
     trackCardExpanded();
 
     setIsCardGestureActive(false);
-    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    if (__DEV__) {
+      console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    }
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -317,12 +575,16 @@ export default function VideoCarouselLesson({
 
   // Collapse card
   const collapseCard = () => {
-    console.log("🎬 Card collapse starting...");
+    if (__DEV__) {
+      console.log("🎬 Card collapse starting...");
+    }
     setIsCardExpanded(false);
     setShowReadContent(false);
 
     setIsCardGestureActive(false);
-    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    if (__DEV__) {
+      console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    }
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -357,14 +619,19 @@ export default function VideoCarouselLesson({
 
       // Swipe right -> Continue (next lesson) - only when on last video
       if (currentVideoIndex === videos.length - 1 && translationX > minDistance && velocityX > minVelocity) {
-        console.log('👉 Swipe right detected - continuing to next');
+        if (__DEV__) {
+          console.log('👉 Swipe right detected - continuing to next');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         handleLessonComplete();
       }
       // Swipe left -> Go back (dismiss)
       else if (translationX < -minDistance && velocityX < -minVelocity) {
-        console.log('👈 Swipe left detected - going back');
+        if (__DEV__) {
+          console.log('👈 Swipe left detected - going back');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        trackDismiss();
         onDismiss();
       }
     }
@@ -373,7 +640,7 @@ export default function VideoCarouselLesson({
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {Platform.OS === "android" && (
-        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+        <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
       )}
       <PanGestureHandler
         ref={horizontalSwipeRef}

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Archives — Subscribe Flow Spec</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #fafafa; color: #1a1a1a; padding: 40px 50px; line-height: 1.7; max-width: 1100px; margin: 0 auto; }
+    h1 { font-size: 32px; font-weight: 700; color: #111; margin-bottom: 6px; }
+    .subtitle { color: #666; font-size: 16px; margin-bottom: 30px; }
+    h2 { font-size: 22px; font-weight: 600; margin-top: 44px; margin-bottom: 14px; color: #6580C0; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }
+    h3 { font-size: 18px; font-weight: 600; margin-top: 30px; margin-bottom: 10px; color: #333; }
+    p { color: #555; font-size: 16px; margin-bottom: 12px; }
+    table { border-collapse: collapse; width: 100%; margin: 14px 0 22px 0; font-size: 15px; }
+    th { text-align: left; padding: 10px 12px; background: #f3f4f6; color: #333; font-weight: 600; border-bottom: 2px solid #e0e0e0; }
+    td { padding: 9px 12px; border-bottom: 1px solid #eee; color: #444; vertical-align: top; }
+    .mono { font-family: 'SF Mono', Menlo, monospace; font-size: 14px; }
+    .untracked { color: #dc2626; font-weight: 600; }
+    .unwired { color: #9ca3af; font-weight: 600; }
+    .vol { font-size: 12px; color: #888; font-family: -apple-system, sans-serif; }
+    .svg-chart { width: 100%; overflow-x: auto; margin: 18px 0; }
+    .svg-chart svg { max-width: 100%; height: auto; }
+    hr { border: none; border-top: 1px solid #e0e0e0; margin: 36px 0; }
+    .footer { margin-top: 50px; padding-top: 14px; border-top: 1px solid #e0e0e0; color: #999; font-size: 13px; }
+    ol { padding-left: 24px; }
+    ol li { padding: 5px 0; font-size: 15px; color: #333; }
+    .analysis-note { background: #f8f9fa; border-left: 3px solid #6580C0; padding: 12px 16px; margin: 12px 0; font-size: 14px; color: #555; }
+    @page { size: landscape; margin: 20px; }
+</style>
+</head>
+<body>
+
+<h1>Archives — Subscribe Flow Spec</h1>
+<p class="subtitle">AFF-844 &middot; PostHog Project 93650 &middot; Generated 2026-04-30</p>
+<p><strong>Legend:</strong>
+  Normal = tracked &amp; in codebase &nbsp;&nbsp;
+  <span class="untracked">Red</span> = not in codebase, needs implementation &nbsp;&nbsp;
+  <span class="unwired">Grey</span> = in codebase but not wired &nbsp;&nbsp;
+  <span style="background:#809DE4;color:#fff;padding:1px 6px;border-radius:3px;font-size:14px;">Blue</span> = checkpoint &nbsp;&nbsp;
+  <span style="background:#9ca3af;color:#fff;padding:1px 6px;border-radius:3px;font-size:14px;">Dark Grey</span> = alternate entry path
+</p>
+
+<h2>User Journey</h2>
+<div class="svg-chart">
+<svg id="subscribe-svg" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" style="max-width: 1578.75px; background-color: transparent;" viewBox="0 0 1578.75 590" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#subscribe-svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#subscribe-svg .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#subscribe-svg .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#subscribe-svg .error-icon{fill:#552222;}#subscribe-svg .error-text{fill:#552222;stroke:#552222;}#subscribe-svg .edge-thickness-normal{stroke-width:1px;}#subscribe-svg .edge-thickness-thick{stroke-width:3.5px;}#subscribe-svg .edge-pattern-solid{stroke-dasharray:0;}#subscribe-svg .edge-thickness-invisible{stroke-width:0;fill:none;}#subscribe-svg .edge-pattern-dashed{stroke-dasharray:3;}#subscribe-svg .edge-pattern-dotted{stroke-dasharray:2;}#subscribe-svg .marker{fill:#333333;stroke:#333333;}#subscribe-svg .marker.cross{stroke:#333333;}#subscribe-svg svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#subscribe-svg p{margin:0;}#subscribe-svg .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#subscribe-svg .cluster-label text{fill:#333;}#subscribe-svg .cluster-label span{color:#333;}#subscribe-svg .cluster-label span p{background-color:transparent;}#subscribe-svg .label text,#subscribe-svg span{fill:#333;color:#333;}#subscribe-svg .node rect,#subscribe-svg .node circle,#subscribe-svg .node ellipse,#subscribe-svg .node polygon,#subscribe-svg .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#subscribe-svg .rough-node .label text,#subscribe-svg .node .label text,#subscribe-svg .image-shape .label,#subscribe-svg .icon-shape .label{text-anchor:middle;}#subscribe-svg .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#subscribe-svg .rough-node .label,#subscribe-svg .node .label,#subscribe-svg .image-shape .label,#subscribe-svg .icon-shape .label{text-align:center;}#subscribe-svg .node.clickable{cursor:pointer;}#subscribe-svg .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#subscribe-svg .arrowheadPath{fill:#333333;}#subscribe-svg .edgePath .path{stroke:#333333;stroke-width:1px;}#subscribe-svg .flowchart-link{stroke:#333333;fill:none;}#subscribe-svg .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#subscribe-svg .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#subscribe-svg .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#subscribe-svg .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#subscribe-svg .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#subscribe-svg .cluster text{fill:#333;}#subscribe-svg .cluster span{color:#333;}#subscribe-svg div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#subscribe-svg .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#subscribe-svg rect.text{fill:none;stroke-width:0;}#subscribe-svg .icon-shape,#subscribe-svg .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#subscribe-svg .icon-shape p,#subscribe-svg .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#subscribe-svg .icon-shape .label rect,#subscribe-svg .image-shape .label rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#subscribe-svg .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#subscribe-svg .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#subscribe-svg .node .neo-node{stroke:#9370DB;}#subscribe-svg [data-look="neo"].node rect,#subscribe-svg [data-look="neo"].cluster rect,#subscribe-svg [data-look="neo"].node polygon{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#subscribe-svg [data-look="neo"].node path{stroke:#9370DB;stroke-width:1px;}#subscribe-svg [data-look="neo"].node .outer-path{filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#subscribe-svg [data-look="neo"].node .neo-line path{stroke:#9370DB;filter:none;}#subscribe-svg [data-look="neo"].node circle{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#subscribe-svg [data-look="neo"].node circle .state-start{fill:#000000;}#subscribe-svg [data-look="neo"].icon-shape .icon{fill:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#subscribe-svg [data-look="neo"].icon-shape .icon-neo path{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#subscribe-svg :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}#subscribe-svg .checkpoint&gt;*{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#subscribe-svg .checkpoint span{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#subscribe-svg .checkpoint tspan{fill:#fff!important;}#subscribe-svg .grey&gt;*{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#subscribe-svg .grey span{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#subscribe-svg .grey tspan{fill:#fff!important;}#subscribe-svg .default&gt;*{fill:#fff!important;stroke:#ccc!important;color:#333!important;}#subscribe-svg .default span{fill:#fff!important;stroke:#ccc!important;color:#333!important;}#subscribe-svg .default tspan{fill:#333!important;}</style><g><marker id="my-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="my-svg_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"/><g class="edgePaths"><path d="M90.884,268L105.481,229.167C120.079,190.333,149.274,112.667,170.865,73.833C192.456,35,206.443,35,213.436,35L220.43,35" id="my-svg-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6OTAuODgzNzEzOTQyMzA3NywieSI6MjY4fSx7IngiOjE3OC40Njg3NSwieSI6MzV9LHsieCI6MjI0LjQyOTY4NzUsInkiOjM1fV0=" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M97.65,268L111.12,246.5C124.59,225,151.529,182,173.278,160.5C195.026,139,211.583,139,219.862,139L228.141,139" id="my-svg-L_A_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_C_0" data-points="W3sieCI6OTcuNjQ5OTM5OTAzODQ2MTYsInkiOjI2OH0seyJ4IjoxNzguNDY4NzUsInkiOjEzOX0seyJ4IjoyMzIuMTQwNjI1LCJ5IjoxMzl9XQ==" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M131.481,268L139.312,263.833C147.144,259.667,162.806,251.333,174.635,247.167C186.464,243,194.458,243,198.456,243L202.453,243" id="my-svg-L_A_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_D_0" data-points="W3sieCI6MTMxLjQ4MTA2OTcxMTUzODQ1LCJ5IjoyNjh9LHsieCI6MTc4LjQ2ODc1LCJ5IjoyNDN9LHsieCI6MjA2LjQ1MzEyNSwieSI6MjQzfV0=" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M131.481,322L139.312,326.167C147.144,330.333,162.806,338.667,179.213,342.833C195.62,347,212.771,347,221.346,347L229.922,347" id="my-svg-L_A_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_E_0" data-points="W3sieCI6MTMxLjQ4MTA2OTcxMTUzODQ1LCJ5IjozMjJ9LHsieCI6MTc4LjQ2ODc1LCJ5IjozNDd9LHsieCI6MjMzLjkyMTg3NSwieSI6MzQ3fV0=" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M97.65,322L111.12,343.5C124.59,365,151.529,408,168.499,429.5C185.469,451,192.469,451,195.969,451L199.469,451" id="my-svg-L_A_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_F_0" data-points="W3sieCI6OTcuNjQ5OTM5OTAzODQ2MTYsInkiOjMyMn0seyJ4IjoxNzguNDY4NzUsInkiOjQ1MX0seyJ4IjoyMDMuNDY4NzUsInkiOjQ1MX1d" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M90.884,322L105.481,360.833C120.079,399.667,149.274,477.333,170.823,516.167C192.372,555,206.276,555,213.228,555L220.18,555" id="my-svg-L_A_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_G_0" data-points="W3sieCI6OTAuODgzNzEzOTQyMzA3NywieSI6MzIyfSx7IngiOjE3OC40Njg3NSwieSI6NTU1fSx7IngiOjIyNC4xNzk2ODc1LCJ5Ijo1NTV9XQ==" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M381.758,35L402.553,35C423.349,35,464.94,35,515.032,73.304C565.124,111.608,623.717,188.215,653.013,226.519L682.31,264.823" id="my-svg-L_B_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_H_0" data-points="W3sieCI6MzgxLjc1NzgxMjUsInkiOjM1fSx7IngiOjUwNi41MzEyNSwieSI6MzV9LHsieCI6Njg0LjczOTg0Mzc1LCJ5IjoyNjh9XQ==" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M374.047,139L396.128,139C418.208,139,462.37,139,511.333,160.089C560.296,181.177,614.061,223.354,640.943,244.443L667.825,265.531" id="my-svg-L_C_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_H_0" data-points="W3sieCI6Mzc0LjA0Njg3NSwieSI6MTM5fSx7IngiOjUwNi41MzEyNSwieSI6MTM5fSx7IngiOjY3MC45NzI2NTYyNSwieSI6MjY4fV0=" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M399.734,243L417.534,243C435.333,243,470.932,243,505.389,247.356C539.845,251.711,573.16,260.423,589.817,264.778L606.474,269.134" id="my-svg-L_D_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_D_H_0" data-points="W3sieCI6Mzk5LjczNDM3NSwieSI6MjQzfSx7IngiOjUwNi41MzEyNSwieSI6MjQzfSx7IngiOjYxMC4zNDM3NSwieSI6MjcwLjE0NjA2NzQxNTczMDMzfV0=" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M372.266,347L394.643,347C417.021,347,461.776,347,500.811,342.644C539.845,338.289,573.16,329.577,589.817,325.222L606.474,320.866" id="my-svg-L_E_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_E_H_0" data-points="W3sieCI6MzcyLjI2NTYyNSwieSI6MzQ3fSx7IngiOjUwNi41MzEyNSwieSI6MzQ3fSx7IngiOjYxMC4zNDM3NSwieSI6MzE5Ljg1MzkzMjU4NDI2OTY3fV0=" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M402.719,451L420.021,451C437.323,451,471.927,451,516.112,429.911C560.296,408.823,614.061,366.646,640.943,345.557L667.825,324.469" id="my-svg-L_F_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_H_0" data-points="W3sieCI6NDAyLjcxODc1LCJ5Ijo0NTF9LHsieCI6NTA2LjUzMTI1LCJ5Ijo0NTF9LHsieCI6NjcwLjk3MjY1NjI1LCJ5IjozMjJ9XQ==" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M382.008,555L402.762,555C423.516,555,465.023,555,515.074,516.696C565.124,478.392,623.717,401.785,653.013,363.481L682.31,325.177" id="my-svg-L_G_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_G_H_0" data-points="W3sieCI6MzgyLjAwNzgxMjUsInkiOjU1NX0seyJ4Ijo1MDYuNTMxMjUsInkiOjU1NX0seyJ4Ijo2ODQuNzM5ODQzNzUsInkiOjMyMn1d" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M800.438,295L804.604,295C808.771,295,817.104,295,824.771,295C832.438,295,839.438,295,842.938,295L846.438,295" id="my-svg-L_H_I_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_H_I_0" data-points="W3sieCI6ODAwLjQzNzUsInkiOjI5NX0seyJ4Ijo4MjUuNDM3NSwieSI6Mjk1fSx7IngiOjg1MC40Mzc1LCJ5IjoyOTV9XQ==" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M1007.828,295L1011.995,295C1016.161,295,1024.495,295,1032.161,295C1039.828,295,1046.828,295,1050.328,295L1053.828,295" id="my-svg-L_I_J_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_I_J_0" data-points="W3sieCI6MTAwNy44MjgxMjUsInkiOjI5NX0seyJ4IjoxMDMyLjgyODEyNSwieSI6Mjk1fSx7IngiOjEwNTcuODI4MTI1LCJ5IjoyOTV9XQ==" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M1207.29,257.102L1223.506,246.085C1239.722,235.068,1272.154,213.034,1297.603,202.017C1323.052,191,1341.518,191,1350.751,191L1359.984,191" id="my-svg-L_J_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_J_K_0" data-points="W3sieCI6MTIwNy4yODk3MzA1OTYyNDM4LCJ5IjoyNTcuMTAyMjMwNTk2MjQzOH0seyJ4IjoxMzA0LjU4NTkzNzUsInkiOjE5MX0seyJ4IjoxMzYzLjk4NDM3NSwieSI6MTkxfV0=" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M1245.188,295L1255.087,295C1264.987,295,1284.786,295,1307.229,295C1329.672,295,1354.758,295,1367.301,295L1379.844,295" id="my-svg-L_J_L_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_J_L_0" data-points="W3sieCI6MTI0NS4xODc1LCJ5IjoyOTV9LHsieCI6MTMwNC41ODU5Mzc1LCJ5IjoyOTV9LHsieCI6MTM4My44NDM3NSwieSI6Mjk1fV0=" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/><path d="M1207.29,332.898L1223.506,343.915C1239.722,354.932,1272.154,376.966,1300.442,387.983C1328.729,399,1352.872,399,1364.944,399L1377.016,399" id="my-svg-L_J_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_J_M_0" data-points="W3sieCI6MTIwNy4yODk3MzA1OTYyNDM4LCJ5IjozMzIuODk3NzY5NDAzNzU2Mn0seyJ4IjoxMzA0LjU4NTkzNzUsInkiOjM5OX0seyJ4IjoxMzgxLjAxNTYyNSwieSI6Mzk5fV0=" data-look="classic" marker-end="url(#subscribe-svg_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_A_B_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_A_C_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_A_D_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_A_E_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_A_F_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_A_G_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(506.53125, 35)"><g class="label" data-id="L_B_H_0" transform="translate(-67.1328125, -12)"><foreignObject width="134.265625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>from subscribe tab</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(506.53125, 139)"><g class="label" data-id="L_C_H_0" transform="translate(-59.265625, -12)"><foreignObject width="118.53125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>from onboarding</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(506.53125, 243)"><g class="label" data-id="L_D_H_0" transform="translate(-43.9453125, -12)"><foreignObject width="87.890625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>from rewind</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(506.53125, 347)"><g class="label" data-id="L_E_H_0" transform="translate(-56.96875, -12)"><foreignObject width="113.9375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>from locked era</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(506.53125, 451)"><g class="label" data-id="L_F_H_0" transform="translate(-78.8125, -12)"><foreignObject width="157.625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>from quiz explanation</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(506.53125, 555)"><g class="label" data-id="L_G_H_0" transform="translate(-65.8125, -12)"><foreignObject width="131.625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>from chat to learn</p></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_H_I_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_I_J_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1304.5859375, 191)"><g class="label" data-id="L_J_K_0" transform="translate(-26.375, -12)"><foreignObject width="52.75" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>success</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1304.5859375, 295)"><g class="label" data-id="L_J_L_0" transform="translate(-34.3984375, -12)"><foreignObject width="68.796875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>cancelled</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1304.5859375, 399)"><g class="label" data-id="L_J_M_0" transform="translate(-17.984375, -12)"><foreignObject width="35.96875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>error</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="my-svg-flowchart-A-0" data-look="classic" transform="translate(80.734375, 295)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-72.734375" y="-27" width="145.46875" height="54"/><g class="label" style="color:#333 !important" transform="translate(-42.734375, -12)"><rect/><foreignObject width="85.46875" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Entry Points</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-B-2" data-look="classic" transform="translate(303.09375, 35)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-78.6640625" y="-27" width="157.328125" height="54"/><g class="label" style="color:#fff !important" transform="translate(-48.6640625, -12)"><rect/><foreignObject width="97.328125" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Subscribe Tab</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-C-4" data-look="classic" transform="translate(303.09375, 139)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-70.953125" y="-27" width="141.90625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-40.953125, -12)"><rect/><foreignObject width="81.90625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Onboarding</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-D-6" data-look="classic" transform="translate(303.09375, 243)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-96.640625" y="-27" width="193.28125" height="54"/><g class="label" style="color:#fff !important" transform="translate(-66.640625, -12)"><rect/><foreignObject width="133.28125" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Daily Story Rewind</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-E-8" data-look="classic" transform="translate(303.09375, 347)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-69.171875" y="-27" width="138.34375" height="54"/><g class="label" style="color:#fff !important" transform="translate(-39.171875, -12)"><rect/><foreignObject width="78.34375" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Locked Era</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-F-10" data-look="classic" transform="translate(303.09375, 451)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-99.625" y="-27" width="199.25" height="54"/><g class="label" style="color:#fff !important" transform="translate(-69.625, -12)"><rect/><foreignObject width="139.25" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>AI Quiz Explanation</p></span></div></foreignObject></g></g><g class="node default grey" id="my-svg-flowchart-G-12" data-look="classic" transform="translate(303.09375, 555)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-78.9140625" y="-27" width="157.828125" height="54"/><g class="label" style="color:#fff !important" transform="translate(-48.9140625, -12)"><rect/><foreignObject width="97.828125" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Chat to Learn</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-H-14" data-look="classic" transform="translate(705.390625, 295)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-95.046875" y="-27" width="190.09375" height="54"/><g class="label" style="color:#fff !important" transform="translate(-65.046875, -12)"><rect/><foreignObject width="130.09375" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Paywall Presented</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-I-26" data-look="classic" transform="translate(929.1328125, 295)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-78.6953125" y="-27" width="157.390625" height="54"/><g class="label" style="color:#333 !important" transform="translate(-48.6953125, -12)"><rect/><foreignObject width="97.390625" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Plan Selected</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-J-27" data-look="classic" transform="translate(1151.5078125, 295)"><polygon points="93.6796875,0 187.359375,-93.6796875 93.6796875,-187.359375 0,-93.6796875" class="label-container" transform="translate(-93.1796875, 93.6796875)" style="fill:#fff !important;stroke:#ccc !important"/><g class="label" style="color:#333 !important" transform="translate(-66.6796875, -12)"><rect/><foreignObject width="133.359375" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Purchase Outcome</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="my-svg-flowchart-K-29" data-look="classic" transform="translate(1467.3671875, 191)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-103.3828125" y="-27" width="206.765625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-73.3828125, -12)"><rect/><foreignObject width="146.765625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Purchase Completed</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-L-31" data-look="classic" transform="translate(1467.3671875, 295)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-83.5234375" y="-27" width="167.046875" height="54"/><g class="label" style="color:#333 !important" transform="translate(-53.5234375, -12)"><rect/><foreignObject width="107.046875" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Not Subscribed</p></span></div></foreignObject></g></g><g class="node default" id="my-svg-flowchart-M-33" data-look="classic" transform="translate(1467.3671875, 399)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-86.3515625" y="-27" width="172.703125" height="54"/><g class="label" style="color:#333 !important" transform="translate(-56.3515625, -12)"><rect/><foreignObject width="112.703125" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Purchase Failed</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="my-svg-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="my-svg-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs></svg>
+</div>
+
+<h2>Events</h2>
+
+<table>
+  <tr><th>#</th><th>Node</th><th>PostHog Events</th><th>QA</th></tr>
+
+  <tr>
+    <td>1</td>
+    <td>Subscribe Tab</td>
+    <td>
+      <span class="mono untracked">subscribe_tab_viewed</span><br>
+      <span class="vol">paywall_type: embedded</span><br>
+      <span class="mono">$pageview</span><br>
+      <span class="vol">page: subscription, url: /subscribe</span>
+    </td>
+    <td>Blank screen; spinner stuck; offerings not loaded</td>
+  </tr>
+
+  <tr>
+    <td>2</td>
+    <td>Onboarding Paywall</td>
+    <td>
+      <span class="mono untracked">onboarding_paywall_viewed</span><br>
+      <span class="vol">paywall_type: custom</span><br>
+      <span class="mono untracked">onboarding_paywall_cta_tapped</span><br>
+      <span class="vol">SEE MY FREE OFFER button &mdash; currently routes to /(tabs)/today with no event</span>
+    </td>
+    <td>Screen renders but CTA unresponsive; no analytics on mount or CTA tap</td>
+  </tr>
+
+  <tr>
+    <td>3</td>
+    <td>Daily Story Rewind</td>
+    <td>
+      <span class="mono">daily_story_rewind_tapped</span><br>
+      <span class="vol">story_date, is_subscribed, days_ago</span><br>
+      <span class="mono">daily_story_rewind_blocked</span><br>
+      <span class="vol">story_date, days_ago</span><br>
+      <span class="mono untracked">rewind_paywall_viewed</span><br>
+      <span class="vol">paywall_type: revenuecat_modal, story_date, days_ago</span>
+    </td>
+    <td>Calendar tap shows no paywall; modal doesn't present</td>
+  </tr>
+
+  <tr>
+    <td>4</td>
+    <td>Locked Era</td>
+    <td>
+      <span class="mono">era_selected</span><br>
+      <span class="vol">era_id, era_name, context: era_switch</span><br>
+      <span class="mono untracked">era_paywall_viewed</span><br>
+      <span class="vol">paywall_type: revenuecat_modal, era_id, era_name</span>
+    </td>
+    <td>Locked era does not open paywall; era card tap unresponsive</td>
+  </tr>
+
+  <tr>
+    <td>5</td>
+    <td>AI Quiz Explanation</td>
+    <td>
+      <span class="mono">ai_quiz_explanation_requested</span><br>
+      <span class="vol">adventure_id, module_id</span><br>
+      <span class="mono untracked">quiz_explanation_paywall_viewed</span><br>
+      <span class="vol">paywall_type: inline_card, adventure_id, module_id</span>
+    </td>
+    <td>UPGRADE button unresponsive; explanation loads but paywall card doesn't render</td>
+  </tr>
+
+  <tr>
+    <td>6</td>
+    <td>Chat to Learn</td>
+    <td>
+      <span class="mono">quiz_results_chat_to_learn_tapped</span><br>
+      <span class="vol">adventure_id, module_id, era_id</span><br>
+      <span class="mono untracked">chat_to_learn_paywall_viewed</span><br>
+      <span class="vol">paywall_type: revenuecat_modal, adventure_id, module_id</span>
+    </td>
+    <td>Chat opens without subscription check; paywall not shown for free users</td>
+  </tr>
+
+  <tr>
+    <td>7</td>
+    <td>Paywall Presented</td>
+    <td>
+      <span class="mono">subscribe_screen_viewed</span><br>
+      <span class="vol">trigger, paywall_type (embedded | custom | revenuecat_modal | inline_card)</span><br>
+      <span class="mono untracked">paywall_plan_viewed</span><br>
+      <span class="vol">plans shown to user &mdash; not tracked, RevenueCat UI handles internally</span>
+    </td>
+    <td>Paywall blank; offerings not loaded</td>
+  </tr>
+
+  <tr>
+    <td>8</td>
+    <td>Plan Selected</td>
+    <td>
+      <span class="mono untracked">paywall_plan_selected</span><br>
+      <span class="vol">RevenueCat UI handles plan selection internally &mdash; no PostHog event fires when user taps a plan</span>
+    </td>
+    <td>Plan tap does not start purchase</td>
+  </tr>
+
+  <tr>
+    <td>9</td>
+    <td>Purchase Completed</td>
+    <td>
+      <span class="mono">subscribe_purchase_completed</span><br>
+      <span class="vol">(trigger, plan, era_id?, era_name?)</span><br>
+      <span class="mono">subscription_purchased</span><br>
+      <span class="vol">(product_id, plan_type, price_usd, currency, offering_id, is_trial)</span><br>
+      <span class="vol">Fires from useRevenueCat.purchase() only &mdash; NOT from RevenueCat Paywall UI callbacks</span><br>
+      <span class="mono">$set</span><br>
+      <span class="vol">(rc_subscription_status: active, subscription_product_id, subscription_billing_cycle)</span>
+    </td>
+    <td>Purchase succeeds but UI stays on paywall</td>
+  </tr>
+
+  <tr>
+    <td>10</td>
+    <td>Purchase Cancelled</td>
+    <td>
+      <span class="mono">subscribe_purchase_cancelled</span><br>
+      <span class="vol">(trigger, era_id?, era_name?)</span>
+    </td>
+    <td>Cancel dismisses sheet but fires no event</td>
+  </tr>
+
+  <tr>
+    <td>11</td>
+    <td>Purchase Failed</td>
+    <td>
+      <span class="mono">subscribe_purchase_failed</span><br>
+      <span class="vol">(trigger, error_code?, era_id?, era_name?)</span>
+    </td>
+    <td>Error toast not shown, user stuck</td>
+  </tr>
+
+  <tr>
+    <td>12</td>
+    <td>Restore Tapped</td>
+    <td>
+      <span class="mono">subscribe_restore_tapped</span><br>
+      <span class="vol">(trigger: subscribe_tab)</span><br>
+      <span class="vol">Only wired in Subscribe Tab &mdash; imperative paywall (modal) entry points do not fire restore_tapped</span>
+    </td>
+    <td>Restore button unresponsive</td>
+  </tr>
+
+  <tr>
+    <td>13</td>
+    <td>Restore Success</td>
+    <td>
+      <span class="mono">subscribe_restore_success</span><br>
+      <span class="vol">(trigger, era_id?, era_name?)</span><br>
+      <span class="mono">$set</span><br>
+      <span class="vol">(rc_subscription_status: active, subscription_product_id, subscription_billing_cycle)</span>
+    </td>
+    <td>Restore reports success but entitlement not active</td>
+  </tr>
+
+  <tr>
+    <td>14</td>
+    <td>Restore Failed</td>
+    <td>
+      <span class="mono">subscribe_restore_failed</span><br>
+      <span class="vol">(trigger: subscribe_tab)</span><br>
+      <span class="vol">Only wired in Subscribe Tab</span>
+    </td>
+    <td>Silent failure, no error message</td>
+  </tr>
+
+  <tr>
+    <td>15</td>
+    <td>Subscriber Active</td>
+    <td>
+      <span class="mono">$set</span><br>
+      <span class="vol">(rc_subscription_status: active, subscription_product_id, subscription_billing_cycle)</span><br>
+      <span class="mono untracked">subscription_activated</span><br>
+      <span class="vol">No single event marks the moment a user becomes an active subscriber (status change from inactive to active)</span>
+    </td>
+    <td>Subscribe tab still shows paywall after purchase</td>
+  </tr>
+</table>
+
+<hr>
+
+<h2>Questions This Flow Answers</h2>
+
+<h3>Strategic Questions</h3>
+<ol>
+  <li>How many users see the subscribe paywall each day?</li>
+  <li>How many users complete a purchase after seeing the paywall?</li>
+  <li>How many users cancel the purchase flow after starting it?</li>
+  <li>How many users use the restore purchases feature?</li>
+  <li>How many users encounter a purchase error?</li>
+</ol>
+
+<h3>Behavioral Insights</h3>
+<ol start="6">
+  <li>How many users reach the paywall from the Subscribe tab?</li>
+  <li>How many users reach the paywall from a locked era?</li>
+  <li>How many users reach the paywall from the daily story rewind?</li>
+  <li>How many users reach the paywall from the AI quiz explanation?</li>
+  <li>How many users reach the paywall from Chat to Learn on quiz results?</li>
+  <li>How many non-subscribers are blocked from accessing past daily stories?</li>
+  <li>How many users who are blocked from daily story rewind go on to purchase?</li>
+  <li>How many users restore purchases successfully?</li>
+  <li>How many users attempt restore but fail?</li>
+  <li>How many users purchase a monthly plan?</li>
+  <li>How many users purchase a yearly plan?</li>
+  <li>How many users start a free trial?</li>
+</ol>
+
+<h3>Checkpoint Validation</h3>
+<ol start="18">
+  <li><strong>Subscribe Tab:</strong> Do users who open the subscribe tab actually see the paywall?</li>
+  <li><strong>Paywall Presented:</strong> Does the paywall load successfully for every entry point?</li>
+  <li><strong>Purchase Completed:</strong> Does every successful purchase result in an active subscription?</li>
+  <li><strong>Subscriber Active:</strong> Are person properties updated correctly after purchase or restore?</li>
+</ol>
+
+<h3>Analysis Notes</h3>
+<div class="analysis-note">
+  <strong>Dual purchase event system:</strong> <code>subscribe_purchase_completed</code> fires from the RevenueCat Paywall UI callbacks (all entry points), while <code>subscription_purchased</code> fires from <code>useRevenueCat.purchase()</code> only when the hook&rsquo;s <code>purchase()</code> function is called directly. The imperative paywall (modal) entry points (daily story rewind, locked era, AI quiz, chat to learn) only fire <code>subscribe_purchase_completed</code>, not <code>subscription_purchased</code>. The Subscribe Tab fires both because it uses the embedded <code>RevenueCatUI.Paywall</code> component AND the <code>useRevenueCat</code> hook&rsquo;s listener updates <code>syncSubscriptionToPostHog</code>.
+</div>
+<div class="analysis-note">
+  <strong>Onboarding paywall gap:</strong> The onboarding paywall screen (<code>onboarding-step-13.tsx</code>) currently has zero analytics events. It marks the paywall as &ldquo;seen&rdquo; in AsyncStorage via <code>PaywallGateService</code> but does not track screen views or CTA taps. The &ldquo;SEE MY FREE OFFER&rdquo; button routes directly to <code>/(tabs)/today</code> without presenting the RevenueCat paywall, suggesting this screen is a soft-sell placeholder, not a live purchase flow.
+</div>
+<div class="analysis-note">
+  <strong>Plan selection blindspot:</strong> The RevenueCat Paywall UI handles plan rendering and selection internally. There is no PostHog event when a user views available plans or selects one. We only learn which plan was purchased after the fact from <code>subscribe_purchase_completed</code>. Users who browse plans but do not tap &ldquo;Subscribe&rdquo; are invisible.
+</div>
+<div class="analysis-note">
+  <strong>Missing subscription_activated event:</strong> No single event fires at the moment a user transitions from non-subscriber to subscriber. Person properties are updated via <code>$set</code>, but there is no dedicated event for funnel analysis of the activation moment. <code>subscribe_purchase_completed</code> and <code>subscribe_restore_success</code> serve as proxies but do not capture upgrades from external sources (promo codes, web billing, family sharing).
+</div>
+<div class="analysis-note">
+  <strong>Founding Member detection:</strong> The app detects founding members by checking for the <code>Archives_Lifetime_Offer</code> product identifier on the <code>Access of All Eras - Yearly</code> entitlement. These users see a special thank-you screen instead of the paywall. There is no analytics event tracking founding member screen views.
+</div>
+
+<div class="footer">Archives Analytics &middot; AFF-844 &middot; Subscribe Flow Spec</div>
+
+</body>
+</html>

@@ -1,66 +1,108 @@
-// AIQuizExplanation.tsx - AI-powered quiz explanation component
-// Shows personalized explanations for incorrect quiz answers
-
 import { Question } from '@/components/shared/types';
-import ArchivesTheme from '@/constants/ArchivesTheme';
 import { aiService } from '@/gamification';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
+  Dimensions,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { renderMarkdownText } from '@/utils/markdownText';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+
+import { DepthButton, Typography, colors } from '@/components/ui';
+import AppLogger from '@/services/AppLogger';
+import {
+  ExplanationCard,
+  PaywallCard,
+  type ExplanationItem,
+} from './explanation';
 
 interface AIQuizExplanationProps {
+  /** Drives the bottom-sheet visibility. Passing true also kicks off the fetch. */
+  visible: boolean;
+  /** Called when the user dismisses the sheet (close button or swipe). */
+  onClose: () => void;
   questions: Question[];
-  userAnswers: number[]; // Array of user's answer indices
+  userAnswers: number[];
   eraName: string;
   adventureName?: string;
   adventureId: string;
   moduleId: string;
-  onClose?: () => void;
 }
 
-interface ExplanationItem {
-  questionNumber: number;
-  questionText: string;
-  userAnswer: string;
-  correctAnswer: string;
-  isCorrect: boolean;
-  aiExplanation?: string;
-  loading: boolean;
-  error?: string;
-}
+const MAX_RETRIES = 2;
+const TIMEOUT_MS = 15_000;
+
+// ─── Main component ────────────────────────────────────────────────────────
 
 export default function AIQuizExplanation({
+  visible,
+  onClose,
   questions,
   userAnswers,
   eraName,
   adventureName,
   adventureId,
   moduleId,
-  onClose,
 }: AIQuizExplanationProps) {
   const [explanations, setExplanations] = useState<ExplanationItem[]>([]);
-  const [showExplanations, setShowExplanations] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
-  const fadeAnim = useState(new Animated.Value(0))[0];
+  const [timedOut, setTimedOut] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  // Measured at runtime — drives the locked block's minHeight so the
+  // absolutely-positioned paywall always fits inside the block (with a
+  // small peek of Q2 left visible above it).
+  const [paywallHeight, setPaywallHeight] = useState(0);
+  const isPaywallPresentedRef = useRef(false);
+  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const isMountedRef = useRef(true);
+  const hasFetchedRef = useRef(false);
 
-  // Prepare explanation items on mount
+  const { isSubscribed } = useRevenueCat();
+  const isSubscribedRef = useRef(isSubscribed);
+  isSubscribedRef.current = isSubscribed;
+  const prevSubscribedRef = useRef(isSubscribed);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
+    };
+  }, []);
+
+  // Reset fetch guard whenever the modal opens — lets the user re-open the
+  // sheet and refetch (e.g. after subscribing on a different screen and
+  // returning here). Closing then reopening counts as a fresh session.
+  useEffect(() => {
+    if (!visible) {
+      hasFetchedRef.current = false;
+      setLoadingAll(false);
+      setTimedOut(false);
+      setRetryCount(0);
+    }
+  }, [visible]);
+
+  // Build the explanation skeleton from quiz data — runs whenever the
+  // inputs change (new quiz, new answers).
   useEffect(() => {
     const items: ExplanationItem[] = questions.map((question, index) => {
       const userAnswerIndex = userAnswers[index];
-      const correctAnswerIndex = question.answers.findIndex((a) => a.is_correct);
+      const correctAnswerIndex = question.answers.findIndex(
+        (a) => a.is_correct,
+      );
       const isCorrect = userAnswerIndex === correctAnswerIndex;
-
       return {
         questionNumber: index + 1,
         questionText: question.question_text,
@@ -70,362 +112,640 @@ export default function AIQuizExplanation({
         loading: false,
       };
     });
-
     setExplanations(items);
   }, [questions, userAnswers]);
 
-  // Generate AI explanations
-  const handleGetExplanations = async () => {
+  // ─── Fetch logic ─────────────────────────────────────────────────────
+  const handleGetExplanations = useCallback(async () => {
     if (!aiService.isAvailable()) {
-      alert('AI explanations are not available. Please contact support.');
+      AppLogger.warn('ai', 'AI service not available');
       return;
     }
+    if (questions.length === 0) return;
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowExplanations(true);
+    const subscribed = isSubscribedRef.current;
+    const fetchMode = subscribed ? 'batch' : 'single';
+
     setLoadingAll(true);
+    setTimedOut(false);
 
-    // Track AI explanation request
     analyticsService.trackCustomEvent('ai_quiz_explanation_requested', {
       adventure_id: adventureId,
       module_id: moduleId,
       era_name: eraName,
       total_questions: questions.length,
-      incorrect_questions: explanations.filter((e) => !e.isCorrect).length,
+      is_subscriber: subscribed,
+      fetch_mode: fetchMode,
     });
 
-    console.log('🤖 [AIQuizExplanation] Requesting explanations for', questions.length, 'questions');
+    AppLogger.info('ai', 'Requesting AI quiz explanations', {
+      totalQuestions: questions.length,
+      fetchMode,
+    });
 
-    // Animate in
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+    const startTime = Date.now();
 
     try {
-      // Get explanations for all questions
-      const aiExplanations = await aiService.getMultipleExplanations(questions, userAnswers, {
-        eraName,
-        adventureName,
-        userLevel: 'intermediate', // TODO: Get from user profile
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutIdRef.current = setTimeout(
+          () => reject(new Error('TIMEOUT')),
+          TIMEOUT_MS,
+        );
       });
 
-      // Update explanations with AI responses
+      let apiPromise: Promise<{ explanation: string }[]>;
+      if (subscribed) {
+        apiPromise = aiService.getBatchedExplanations(questions, userAnswers, {
+          eraName,
+          adventureName,
+          userLevel: 'intermediate',
+        });
+      } else {
+        const q1 = questions[0];
+        const q1UserAnswerIndex = userAnswers[0];
+        const q1CorrectIndex = q1.answers.findIndex((a) => a.is_correct);
+        apiPromise = aiService
+          .getQuizExplanation({
+            questionText: q1.question_text,
+            correctAnswer: q1.answers[q1CorrectIndex]?.text || 'Unknown',
+            userAnswer: q1.answers[q1UserAnswerIndex]?.text || 'No answer',
+            questionType: q1.question_type,
+            eraName,
+            adventureName,
+            userLevel: 'intermediate',
+            isCorrect: q1UserAnswerIndex === q1CorrectIndex,
+          })
+          .then((r) => [r]);
+      }
+      apiPromise.catch(() => {});
+
+      const aiExplanations = await Promise.race([apiPromise, timeoutPromise]);
+
+      if (!isMountedRef.current) return;
+      const generationTimeMs = Date.now() - startTime;
+
       setExplanations((prev) =>
         prev.map((item, index) => ({
           ...item,
           aiExplanation: aiExplanations[index]?.explanation,
           loading: false,
-        }))
+        })),
       );
 
-      // Track successful generation
       analyticsService.trackCustomEvent('ai_quiz_explanation_generated', {
         adventure_id: adventureId,
         module_id: moduleId,
         era_name: eraName,
         explanations_count: aiExplanations.length,
+        generation_time_ms: generationTimeMs,
+        fetch_mode: fetchMode,
+        is_subscriber: subscribed,
       });
-
-      console.log('✅ [AIQuizExplanation] Generated', aiExplanations.length, 'explanations');
+      AppLogger.info('ai', 'AI explanations generated', {
+        count: aiExplanations.length,
+        timeMs: generationTimeMs,
+      });
     } catch (error) {
-      console.error('❌ [AIQuizExplanation] Error generating explanations:', error);
+      if (!isMountedRef.current) return;
+      const isTimeout = error instanceof Error && error.message === 'TIMEOUT';
+      if (isTimeout) {
+        AppLogger.warn('ai', 'AI explanation request timed out');
+        setTimedOut(true);
+      } else {
+        AppLogger.error('ai', 'Failed to generate AI explanations', {}, error);
+        setExplanations((prev) =>
+          prev.map((item) => ({
+            ...item,
+            loading: false,
+            error: 'Could not generate explanation. Please try again.',
+          })),
+        );
+      }
+    } finally {
+      if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
+      if (isMountedRef.current) setLoadingAll(false);
+    }
+  }, [adventureId, moduleId, eraName, adventureName, questions, userAnswers]);
 
-      // Track error
-      analyticsService.trackCustomEvent('ai_quiz_explanation_error', {
-        adventure_id: adventureId,
-        module_id: moduleId,
-        era_name: eraName,
-        error: String(error),
-      });
+  useEffect(() => {
+    if (!visible) return;
+    if (hasFetchedRef.current) return;
+    if (questions.length === 0) return;
+    hasFetchedRef.current = true;
+    handleGetExplanations();
+  }, [visible, questions.length, handleGetExplanations]);
 
+  useEffect(() => {
+    if (
+      isSubscribed &&
+      !prevSubscribedRef.current &&
+      visible &&
+      explanations.length > 0 &&
+      !loadingAll
+    ) {
+      AppLogger.info('ai', 'User subscribed mid-session, refetching');
+      setRetryCount(0);
+      handleGetExplanations();
+    }
+    prevSubscribedRef.current = isSubscribed;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubscribed]);
+
+  const handleRetry = useCallback(() => {
+    if (retryCount < MAX_RETRIES) {
+      setRetryCount((prev) => prev + 1);
+      handleGetExplanations();
+    } else {
       setExplanations((prev) =>
         prev.map((item) => ({
           ...item,
           loading: false,
-          error: 'Could not generate explanation. Please try again.',
-        }))
+          error: 'Could not generate explanation. Please try again later.',
+        })),
       );
-    } finally {
-      setLoadingAll(false);
+      setTimedOut(false);
     }
+  }, [retryCount, handleGetExplanations]);
+
+  // ─── Paywall ────────────────────────────────────────────────────────
+  const handleShowPaywall = useCallback(async () => {
+    if (isPaywallPresentedRef.current) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    analyticsService.trackSubscribeScreenViewed({
+      trigger: 'ai_quiz_explanation',
+    });
+
+    try {
+      isPaywallPresentedRef.current = true;
+      const result = await RevenueCatUI.presentPaywall();
+      switch (result) {
+        case PAYWALL_RESULT.PURCHASED:
+          AppLogger.info(
+            'subscription',
+            'Premium purchase completed via quiz explanation',
+          );
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          ).catch(() => {});
+          analyticsService.trackSubscribePurchaseCompleted({
+            trigger: 'ai_quiz_explanation',
+            plan: 'yearly',
+          });
+          break;
+        case PAYWALL_RESULT.RESTORED:
+          AppLogger.info(
+            'subscription',
+            'Subscription restore completed via quiz explanation',
+          );
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          ).catch(() => {});
+          analyticsService.trackSubscribeRestoreSuccess({
+            trigger: 'ai_quiz_explanation',
+          });
+          break;
+        case PAYWALL_RESULT.CANCELLED:
+          analyticsService.trackSubscribePurchaseCancelled({
+            trigger: 'ai_quiz_explanation',
+          });
+          break;
+        case PAYWALL_RESULT.NOT_PRESENTED:
+        case PAYWALL_RESULT.ERROR:
+          AppLogger.warn('subscription', 'Paywall presentation issue', {
+            result,
+          });
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Error,
+          ).catch(() => {});
+          break;
+      }
+    } catch (error) {
+      AppLogger.error('subscription', 'Paywall exception', {}, error);
+    } finally {
+      isPaywallPresentedRef.current = false;
+    }
+  }, []);
+
+  // ─── Summary tally for subscribers ──────────────────────────────────
+  const summary = useMemo(() => {
+    const correct = explanations.filter((e) => e.isCorrect).length;
+    const review = explanations.length - correct;
+    return { correct, review };
+  }, [explanations]);
+
+  // ─── Render ─────────────────────────────────────────────────────────
+  const renderContent = () => {
+    if (loadingAll || timedOut) {
+      return (
+        <View style={styles.loadingBlock}>
+          {timedOut ? (
+            <>
+              <Ionicons
+                name="time-outline"
+                size={40}
+                color={colors.acaiSecondary}
+              />
+              <Typography
+                family="onest"
+                size="md"
+                weight="600"
+                color="onyx"
+                style={styles.timeoutTitle}
+              >
+                Taking longer than expected
+              </Typography>
+              <Typography
+                family="onest"
+                size="sm"
+                weight="500"
+                color="onyx"
+                style={styles.timeoutSubtitle}
+              >
+                The AI is still working. You can try again
+                {retryCount < MAX_RETRIES ? '' : ' later'}.
+              </Typography>
+              {retryCount < MAX_RETRIES && (
+                <View style={styles.retryWrap}>
+                  <DepthButton
+                    variant="secondary"
+                    size="medium"
+                    onPress={handleRetry}
+                    haptic="light"
+                    isFullWidth={false}
+                  >
+                    <Ionicons name="refresh" size={18} color={colors.white} />
+                    <Typography
+                      family="onest"
+                      size="md"
+                      weight="700"
+                      color="white"
+                      style={styles.retryText}
+                    >
+                      Try Again
+                    </Typography>
+                  </DepthButton>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              <ActivityIndicator size="large" color={colors.acaiSecondary} />
+              <Typography
+                family="onest"
+                size="sm"
+                weight="500"
+                color="onyx"
+                style={styles.loadingText}
+              >
+                Generating explanations...
+              </Typography>
+            </>
+          )}
+        </View>
+      );
+    }
+
+    // Subscribed: summary tally + scrollable list of all questions.
+    if (isSubscribed) {
+      return (
+        <>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryTextRow}>
+              <Typography
+                family="onest"
+                size="sm"
+                weight="700"
+                style={{ color: colors.correctSecondary }}
+              >
+                {summary.correct} correct
+              </Typography>
+              <Typography
+                family="onest"
+                size="sm"
+                weight="600"
+                color="onyx"
+                style={styles.summaryDot}
+              >
+                {' · '}
+              </Typography>
+              <Typography
+                family="onest"
+                size="sm"
+                weight="700"
+                style={{ color: colors.incorrectSecondary }}
+              >
+                {summary.review} to review
+              </Typography>
+            </View>
+            <View style={styles.summaryPips}>
+              {explanations.map((item) => (
+                <View
+                  key={item.questionNumber}
+                  style={[
+                    styles.summaryPip,
+                    {
+                      backgroundColor: item.isCorrect
+                        ? colors.correctSecondary
+                        : colors.incorrectSecondary,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.isCorrect ? 'checkmark' : 'close'}
+                    size={9}
+                    color={colors.white}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {explanations.map((item) => (
+              <ExplanationCard key={item.questionNumber} item={item} />
+            ))}
+          </ScrollView>
+        </>
+      );
+    }
+
+    // Free tier: ONE ScrollView containing Q1 + a relative block that
+    // holds Q2, Q3 and the upgrade card together.
+    //
+    //   ScrollView
+    //     ├── Q1 (full)
+    //     └── lockedBlock (position: relative)
+    //          ├── Q2 (locked teaser, in flow)
+    //          ├── Q3 (locked teaser, in flow)
+    //          ├── gradient fade (absolute, transparent → lavender)
+    //          └── PaywallCard (absolute, bottom: 0 — overlays Q2/Q3)
+    //
+    // The block's minHeight is set to (paywallHeight + 40) so the
+    // absolute paywall always fits inside the block with ~40px of Q2
+    // peeking out above it. paywallHeight is measured via onLayout so
+    // the layout adapts to copy/Dynamic Type changes.
+    return (
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={styles.freeScrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {explanations[0] && <ExplanationCard item={explanations[0]} />}
+
+        {explanations.length > 1 && (
+          <View
+            style={[styles.lockedBlock, { minHeight: paywallHeight + 40 }]}
+          >
+            {explanations.slice(1).map((item) => (
+              <ExplanationCard
+                key={item.questionNumber}
+                item={item}
+                isLockedPeek
+              />
+            ))}
+
+            {/* Soft fade above the paywall — Q2 (and any of Q3 that's
+                visible) melts into the lavender as it approaches the
+                paywall's top edge. */}
+            <LinearGradient
+              colors={[
+                'rgba(229,212,255,0)',
+                'rgba(229,212,255,0.85)',
+                colors.acaiTertiary,
+              ]}
+              locations={[0, 0.55, 1]}
+              pointerEvents="none"
+              style={[styles.lockedFade, { bottom: paywallHeight - 1 }]}
+            />
+
+            <View
+              style={styles.upgradeAbsolute}
+              onLayout={(e) => setPaywallHeight(e.nativeEvent.layout.height)}
+            >
+              <PaywallCard
+                questionsCount={questions.length}
+                onUpgrade={handleShowPaywall}
+              />
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    );
   };
 
-  // Don't show if all answers are correct
-  const incorrectCount = explanations.filter((e) => !e.isCorrect).length;
-  if (incorrectCount === 0) {
-    return null;
-  }
-
   return (
-    <View style={styles.container}>
-      {!showExplanations ? (
-        // Initial prompt button
-        <TouchableOpacity
-          style={styles.promptCard}
-          onPress={handleGetExplanations}
-          activeOpacity={0.8}
-        >
-          <View style={styles.promptContent}>
-            <View style={styles.aiIconContainer}>
-              <Ionicons name="bulb" size={28} color={ArchivesTheme.colors.persianOrange} />
-            </View>
-            <View style={styles.promptTextContainer}>
-              <Text style={styles.promptTitle}>Want to understand your mistakes?</Text>
-              {/* <Text style={styles.promptSubtitle}>
-                Get AI-powered explanations for {incorrectCount} incorrect {incorrectCount === 1 ? 'answer' : 'answers'}
-              </Text> */}
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={ArchivesTheme.colors.shoeBrown} />
-          </View>
-        </TouchableOpacity>
-      ) : (
-        // Explanations list
-        <Animated.View style={[styles.explanationsContainer, { opacity: fadeAnim }]}>
-          <View style={styles.explanationsHeader}>
-            <Text style={styles.explanationsTitle}>AI Learning Assistant</Text>
-            <Text style={styles.explanationsSubtitle}>
-              Personalized explanations to help you learn
-            </Text>
-          </View>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalRoot}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
 
-          {loadingAll ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={ArchivesTheme.colors.persianOrange} />
-              <Text style={styles.loadingText}>Generating explanations...</Text>
-            </View>
-          ) : (
-            <ScrollView
-              style={styles.explanationsList}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled={true}
+        <SafeAreaView style={styles.sheet} edges={['bottom']}>
+          {/* Floating circular close X — sits inside the top of the sheet
+              (above the sticky header). Mirrors the mock's `.ai-close-x`
+              (top:152px on a sheet starting at 140px = 12px inset). */}
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            style={styles.closeFloat}
+            accessibilityRole="button"
+            accessibilityLabel="Close explanations"
+          >
+            <Ionicons name="close" size={18} color={colors.onyx} />
+          </Pressable>
+
+          {/* Sticky header — title + sub + hairline. Stays pinned at the
+              top of the sheet because everything below is either the
+              free-tier flex column or the subscriber ScrollView. */}
+          <View style={styles.header}>
+            <Typography family="onest" size="md" weight="700" color="onyx">
+              AI Learning Assistant
+            </Typography>
+            <Typography
+              family="onest"
+              size="sm"
+              weight="500"
+              color="onyx"
+              style={styles.headerSub}
             >
-              {explanations
-                .filter((item) => !item.isCorrect) // Only show incorrect answers
-                .map((item) => (
-                  <View key={item.questionNumber} style={styles.explanationCard}>
-                    {/* Question number badge */}
-                    <View style={styles.questionBadge}>
-                      <Text style={styles.questionBadgeText}>Q{item.questionNumber}</Text>
-                    </View>
+              Here&apos;s the &ldquo;why&rdquo; behind your answers
+            </Typography>
+            <View style={styles.headerHairline} />
+          </View>
 
-                    {/* Question text */}
-                    <Text style={styles.questionText}>{item.questionText}</Text>
-
-                    {/* User vs Correct answer */}
-                    <View style={styles.answersContainer}>
-                      <View style={styles.answerRow}>
-                        <Ionicons name="close-circle" size={18} color="#E74C3C" />
-                        <Text style={styles.answerLabel}>Your answer:</Text>
-                        <Text style={styles.userAnswerText}>{item.userAnswer}</Text>
-                      </View>
-                      <View style={styles.answerRow}>
-                        <Ionicons name="checkmark-circle" size={18} color="#27AE60" />
-                        <Text style={styles.answerLabel}>Correct:</Text>
-                        <Text style={styles.correctAnswerText}>{item.correctAnswer}</Text>
-                      </View>
-                    </View>
-
-                    {/* AI Explanation */}
-                    {item.loading ? (
-                      <View style={styles.explanationLoading}>
-                        <ActivityIndicator size="small" color={ArchivesTheme.colors.persianOrange} />
-                      </View>
-                    ) : item.error ? (
-                      <Text style={styles.errorText}>{item.error}</Text>
-                    ) : item.aiExplanation ? (
-                      <View style={styles.aiExplanationContainer}>
-                        <Ionicons name="bulb-outline" size={16} color={ArchivesTheme.colors.persianOrange} />
-                        {renderMarkdownText(item.aiExplanation, styles.aiExplanationText)}
-                      </View>
-                    ) : null}
-                  </View>
-                ))}
-            </ScrollView>
-          )}
-        </Animated.View>
-      )}
-    </View>
+          <View style={styles.body}>{renderContent()}</View>
+        </SafeAreaView>
+      </View>
+    </Modal>
   );
 }
 
+// ─── Styles ────────────────────────────────────────────────────────────
+
+const SHEET_HEIGHT = Dimensions.get('window').height * 0.8;
+
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-  },
-
-  // Prompt Card (before explanations shown)
-  promptCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 2,
-    borderColor: ArchivesTheme.colors.persianOrange,
-    shadowColor: 'black',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  promptContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  aiIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(201, 145, 81, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  promptTextContainer: {
+  modalRoot: {
     flex: 1,
+    justifyContent: 'flex-end',
   },
-  promptTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 4,
+  // Translucent veil above the sheet — taps close the modal.
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.28)',
   },
-  promptSubtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
+  // Lavender bottom-sheet — was snow before. Matches the mock's
+  // --acai-tertiary (#E5D4FF) so cards read as floating tiles on it.
+  sheet: {
+    height: SHEET_HEIGHT,
+    backgroundColor: colors.acaiTertiary,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    overflow: 'hidden',
   },
-
-  // Explanations Container
-  explanationsContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: 'black',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-    maxHeight: 500,
-  },
-  explanationsHeader: {
-    marginBottom: 16,
-  },
-  explanationsTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 4,
-  },
-  explanationsSubtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
-  },
-
-  // Loading State
-  loadingContainer: {
-    paddingVertical: 40,
+  // Floating close-X — child of the sheet, positioned absolutely so it
+  // floats above the sticky header while staying pinned to the sheet's
+  // top-right corner. Inset 12px from the top so it doesn't get clipped
+  // by the sheet's rounded corners (`overflow: hidden`).
+  closeFloat: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 6,
+    zIndex: 10,
   },
-  loadingText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.shoeBrown,
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 12,
+    backgroundColor: colors.acaiTertiary,
+  },
+  headerSub: {
+    opacity: 0.75,
+    marginTop: 2,
+    letterSpacing: -0.13,
+  },
+  headerHairline: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(26,26,26,0.14)',
     marginTop: 12,
   },
-
-  // Explanations List
-  explanationsList: {
-    maxHeight: 400,
-  },
-  explanationCard: {
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  questionBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: ArchivesTheme.colors.persianOrange,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  questionBadgeText: {
-    fontFamily: 'DM Sans',
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'white',
-  },
-  questionText: {
-    fontFamily: 'DM Sans',
-    fontSize: 15,
-    fontWeight: '500',
-    color: ArchivesTheme.colors.mutedNavy,
-    marginBottom: 12,
+  body: {
+    flex: 1,
   },
 
-  // Answers
-  answersContainer: {
-    marginBottom: 12,
-  },
-  answerRow: {
+  // Subscribed: summary strip + scroll list
+  summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
-  answerLabel: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: ArchivesTheme.colors.shoeBrown,
-    marginLeft: 6,
-    marginRight: 4,
-  },
-  userAnswerText: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: '#E74C3C',
-    flex: 1,
-  },
-  correctAnswerText: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: '#27AE60',
-    flex: 1,
-    fontWeight: '500',
-  },
-
-  // AI Explanation
-  aiExplanationContainer: {
+  summaryTextRow: {
     flexDirection: 'row',
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
+    alignItems: 'baseline',
   },
-  aiExplanationText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    color: ArchivesTheme.colors.mutedNavy,
-    lineHeight: 20,
-    marginLeft: 8,
+  summaryDot: {
+    opacity: 0.45,
+    marginHorizontal: 2,
+  },
+  summaryPips: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  summaryPip: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  list: {
     flex: 1,
   },
-
-  // Error State
-  explanationLoading: {
-    padding: 12,
-    alignItems: 'center',
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
-  errorText: {
-    fontFamily: 'DM Sans',
-    fontSize: 13,
-    color: '#E74C3C',
+
+  // Free tier — single ScrollView. Q1 + lockedBlock both live in this
+  // padding box; nothing is fixed to the sheet bottom anymore.
+  freeScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  // The Q2 + Q3 + Paywall block. position:relative so the paywall (an
+  // absolute child below) anchors against this block's edges instead of
+  // the screen. minHeight is patched at runtime to (paywallHeight + 40)
+  // so the paywall fits with ~40px of Q2 peek visible above it.
+  lockedBlock: {
+    position: 'relative',
+    marginTop: 8,
+  },
+  // Lavender fade covers the area just above the paywall — softens the
+  // visual seam between the locked Q2/Q3 (visible at top) and the
+  // paywall card edge.
+  lockedFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 60,
+    zIndex: 1,
+  },
+  // Paywall pinned to the bottom of the lockedBlock. zIndex above the
+  // gradient so the card edges stay crisp.
+  upgradeAbsolute: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
+  },
+
+  // Loading / timeout
+  loadingBlock: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  loadingText: {
+    marginTop: 12,
+  },
+  timeoutTitle: {
+    marginTop: 12,
     textAlign: 'center',
+  },
+  timeoutSubtitle: {
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  retryWrap: {
+    marginTop: 16,
+  },
+  retryText: {
+    marginLeft: 6,
   },
 });

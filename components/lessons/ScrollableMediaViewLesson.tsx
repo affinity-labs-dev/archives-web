@@ -2,12 +2,13 @@
 // Supports flexible content blocks (video, image, text) in any order
 // Videos auto-play and loop, dynamically rendered from content_blocks array
 
+import type { ContentBlock, ContentItem } from "@/components/shared/types";
 import ArchivesTheme from "@/constants/ArchivesTheme";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { useLessonBase } from "@/hooks/useLessonBase";
 import { Ionicons } from "@expo/vector-icons";
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
@@ -16,12 +17,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
   useWindowDimensions,
+  View,
 } from "react-native";
 import RenderHtml from 'react-native-render-html';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { ContentBlock, ContentItem } from "@/components/shared/types";
+import AppLogger from '@/services/AppLogger';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -36,6 +37,10 @@ interface VideoBlockProps {
 function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockProps) {
   const player = useVideoPlayer({ uri: url }, (player) => {
     player.loop = loop;
+    player.muted = true;
+    // CRITICAL: mixWithOthers prevents ExoPlayer from requesting audio focus
+    player.audioMixingMode = 'mixWithOthers';
+    player.showNowPlayingNotification = false;
     // Note: autoplay handled in effect to ensure proper initialization
   });
 
@@ -44,7 +49,7 @@ function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockPro
     if (autoplay && player) {
       const timer = setTimeout(() => {
         player.play();
-        console.log('📺 Video auto-playing');
+        AppLogger.info('video', 'ScrollableMediaView video auto-playing');
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -56,7 +61,7 @@ function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockPro
       if (player) {
         try {
           player.pause();
-          console.log('📺 Video cleaned up');
+          AppLogger.info('video', 'ScrollableMediaView video cleaned up');
         } catch (error) {
           // Silently handle cleanup errors
         }
@@ -70,6 +75,7 @@ function VideoBlock({ url, autoplay = false, loop = true, style }: VideoBlockPro
       style={style}
       contentFit="cover"
       nativeControls={false}
+      surfaceType="textureView"
     />
   );
 }
@@ -135,7 +141,7 @@ export default function ScrollableMediaViewLesson({
   );
 
   // Shared lesson setup (analytics, completion handler - no walkthrough for scrollable)
-  const { handleLessonComplete } = useLessonBase({
+  const { tracking: { trackDismiss }, handleLessonComplete } = useLessonBase({
     contentItem,
     adventureId,
     moduleId,
@@ -290,7 +296,7 @@ export default function ScrollableMediaViewLesson({
 
       {/* Floating back button */}
       <View style={[styles.backButtonContainer, { paddingTop: insets.top + LAYOUT_CONSTANTS.backButtonPadding.top }]}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack || onDismiss}>
+        <TouchableOpacity style={styles.backButton} onPress={() => { trackDismiss(); (onBack || onDismiss)(); }}>
           <Ionicons name="chevron-back" size={24} color={ArchivesTheme.colors.shoeBrown} />
         </TouchableOpacity>
       </View>

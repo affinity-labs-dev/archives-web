@@ -9,6 +9,7 @@ import Purchases, {
   IntroEligibility,
   INTRO_ELIGIBILITY_STATUS
 } from 'react-native-purchases';
+import { analyticsService } from '@/services/AnalyticsService';
 
 // Platform-specific RevenueCat API keys
 const REVENUECAT_API_KEY = Platform.select({
@@ -17,7 +18,40 @@ const REVENUECAT_API_KEY = Platform.select({
   default: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || 'appl_oxMRgfHsashdXXOSrczqvnYYIxg'
 }) as string;
 
-const ENTITLEMENT_IDENTIFIER = 'Access of All Eras';
+const ENTITLEMENT_IDENTIFIER = 'Subscribers (monthly and Yearly combine)';
+
+/**
+ * Sync RevenueCat subscription status to PostHog person properties.
+ * Called whenever CustomerInfo updates (listener, initial fetch, restore, purchase).
+ */
+function syncSubscriptionToPostHog(info: CustomerInfo) {
+  const entitlement = info.entitlements.active[ENTITLEMENT_IDENTIFIER];
+
+  if (entitlement?.isActive) {
+    const productId = entitlement.productIdentifier;
+    // Derive billing cycle from the product identifier
+    let billingCycle = 'unknown';
+    if (productId?.toLowerCase().includes('lifetime')) {
+      billingCycle = 'lifetime';
+    } else if (productId?.toLowerCase().includes('year') || productId?.toLowerCase().includes('annual')) {
+      billingCycle = 'yearly';
+    } else if (productId?.toLowerCase().includes('month')) {
+      billingCycle = 'monthly';
+    }
+
+    analyticsService.updateSubscriptionProperties({
+      rc_subscription_status: 'active',
+      subscription_product_id: productId || null,
+      subscription_billing_cycle: billingCycle,
+    });
+  } else {
+    analyticsService.updateSubscriptionProperties({
+      rc_subscription_status: 'inactive',
+      subscription_product_id: null,
+      subscription_billing_cycle: null,
+    });
+  }
+}
 
 interface UseRevenueCatReturn {
   // Subscription state
@@ -132,6 +166,8 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
 
         // Set up customer info listener for real-time updates
         // This replicates the sample app's customerInfoStream pattern
+        // PERF: Only update state when entitlements actually change to prevent
+        // unnecessary re-renders across all consumers (eras tab, profile, etc.)
         Purchases.addCustomerInfoUpdateListener((info) => {
           if (mounted) {
             console.log('📱 Customer info updated:', {
@@ -139,7 +175,17 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
               entitlements: Object.keys(info.entitlements.active),
               isSubscribed: info.entitlements.active[ENTITLEMENT_IDENTIFIER]?.isActive ?? false
             });
-            setCustomerInfo(info);
+            setCustomerInfo(prev => {
+              // Only update state when subscription status actually changes
+              // Prevents unnecessary re-renders from RevenueCat background refreshes
+              if (prev !== null) {
+                const wasSubscribed = prev.entitlements?.active?.[ENTITLEMENT_IDENTIFIER]?.isActive ?? false;
+                const nowSubscribed = info.entitlements?.active?.[ENTITLEMENT_IDENTIFIER]?.isActive ?? false;
+                if (wasSubscribed === nowSubscribed) return prev;
+              }
+              return info;
+            });
+            syncSubscriptionToPostHog(info);
           }
         });
 
@@ -147,6 +193,7 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
         const initialCustomerInfo = await Purchases.getCustomerInfo();
         if (mounted) {
           setCustomerInfo(initialCustomerInfo);
+          syncSubscriptionToPostHog(initialCustomerInfo);
         }
 
         // Fetch initial offerings
@@ -332,6 +379,31 @@ export const useRevenueCat = (): UseRevenueCatReturn => {
 
       // Update customer info (this will trigger real-time UI updates)
       setCustomerInfo(updatedCustomerInfo);
+
+      // Fire authoritative subscription_purchased event (AFF-111)
+      // Only fires on new purchases (not restores) — guarded by being inside purchase()
+      const entitlement = updatedCustomerInfo.entitlements.active[ENTITLEMENT_IDENTIFIER];
+      if (entitlement?.isActive) {
+        const product = packageToPurchase.product;
+        const productId = product?.identifier || '';
+
+        // Derive plan type from product identifier
+        let planType: 'monthly' | 'yearly' | 'lifetime' = 'yearly';
+        if (productId.toLowerCase().includes('lifetime')) {
+          planType = 'lifetime';
+        } else if (productId.toLowerCase().includes('month')) {
+          planType = 'monthly';
+        }
+
+        analyticsService.trackSubscriptionPurchased({
+          product_id: productId,
+          plan_type: planType,
+          price_usd: product?.price,
+          currency: product?.currencyCode,
+          offering_id: packageToPurchase.offeringIdentifier,
+          is_trial: entitlement.periodType === 'TRIAL',
+        });
+      }
 
     } catch (error) {
       // Handle specific error types

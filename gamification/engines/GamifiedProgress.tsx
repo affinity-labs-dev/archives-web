@@ -30,8 +30,10 @@ import { Platform } from 'react-native';
 import { useUser } from '@clerk/clerk-expo';
 import { supabase } from '@/hooks/lib/supabase';
 import { analyticsService } from '@/services/AnalyticsService';
+import AppLogger from '@/services/AppLogger';
 import { EraType } from '@/gamification/types/gamification';
 import type { ModuleProgress, AdventureProgress } from '@/gamification/types/gamification';
+import { useEraProgressStore } from '@/gamification/stores/useEraProgressStore';
 
 // ========== CONSTANTS ==========
 
@@ -94,6 +96,27 @@ export interface Achievement {
   moduleId?: string;
 }
 
+/**
+ * Onboarding answers captured across the 13-step onboarding flow.
+ *
+ * Written to `gamification_data.data.onboarding_answers` so it rides the
+ * existing debounced cloud sync path and survives reinstalls.
+ *
+ * `status` is terminal on `completed` | `skipped`; `in_progress` means the
+ * user authenticated mid-flow and partial data was flushed.
+ */
+export interface OnboardingAnswers {
+  version: 2;
+  name: string | null;
+  interests: string[];
+  daily_goal_minutes: 5 | 10 | 15 | 20 | null;
+  age_group: '13-17' | '18-24' | '25-34' | '35-44' | '45+' | null;
+  status: 'in_progress' | 'completed' | 'skipped';
+  started_at: string;
+  completed_at: string | null;
+  skipped_at: string | null;
+}
+
 export interface BehaviorData {
   session_style: string;
   avg_attempts_per_visit: number;
@@ -147,6 +170,11 @@ export interface GamifiedProgressState {
     total_quiz_attempts: number;
     total_modules_attempted: number;
   };
+
+  // Onboarding data collected during the 13-step flow (optional — absent
+  // for users who completed onboarding pre-AFF-786 or existing accounts
+  // whose row predates this schema extension).
+  onboarding_answers?: OnboardingAnswers;
 }
 
 export interface QuestionResult {
@@ -218,12 +246,24 @@ interface GamifiedProgressContextType {
   // Sync & reload
   reloadData: () => Promise<void>;
   syncToCloud: () => Promise<void>;
+
+  // Onboarding sync — merges `onboarding_answers` into the current
+  // GamifiedProgressState and writes via existing sync path. `write` uses
+  // the debounced 2s cloud upsert (intermediate edits); `flush` bypasses
+  // the debounce for terminal state transitions where we want the ACK
+  // before navigating.
+  writeOnboardingAnswers: (answers: OnboardingAnswers) => Promise<void>;
+  flushOnboardingAnswers: (answers: OnboardingAnswers) => Promise<void>;
 }
 
 // ========== XP CALCULATION FUNCTIONS ==========
 
 const calculateXPFromProgress = (progress: ProgressEntry[]): number => {
-  return progress.reduce((sum, p) => sum + (p.xp_earned || 0), 0);
+  return progress.reduce((sum, p) => {
+    // Support both formats: xp_earned (new unified format) or quizCorrectAnswers * 10 (AsyncStorage legacy)
+    const xp = p.xp_earned || ((p.quizCorrectAnswers || 0) * 10);
+    return sum + xp;
+  }, 0);
 };
 
 const calculateXPByEra = (progress: ProgressEntry[]): Record<string, number> => {
@@ -231,7 +271,9 @@ const calculateXPByEra = (progress: ProgressEntry[]): Record<string, number> => 
 
   progress.forEach(p => {
     if (p.era_id) {
-      xpByEra[p.era_id] = (xpByEra[p.era_id] || 0) + (p.xp_earned || 0);
+      // Support both formats: xp_earned (new unified format) or quizCorrectAnswers * 10 (AsyncStorage legacy)
+      const xp = p.xp_earned || ((p.quizCorrectAnswers || 0) * 10);
+      xpByEra[p.era_id] = (xpByEra[p.era_id] || 0) + xp;
     }
   });
 
@@ -444,7 +486,7 @@ class WebCompatibleStorage {
     try {
       return await AsyncStorage.getItem(key);
     } catch (error) {
-      console.warn(`Storage getItem error for key ${key}:`, error);
+      AppLogger.error('sync', `Storage getItem error for key ${key}`, { key }, error);
       return null;
     }
   }
@@ -456,7 +498,7 @@ class WebCompatibleStorage {
     try {
       await AsyncStorage.setItem(key, value);
     } catch (error) {
-      console.warn(`Storage setItem error for key ${key}:`, error);
+      AppLogger.error('sync', `Storage setItem error for key ${key}`, { key }, error);
     }
   }
 }
@@ -482,6 +524,31 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
   // Keep ref in sync with state (runs synchronously after every state update)
   useEffect(() => {
     stateRef.current = state;
+  }, [state]);
+
+  // ========== ZUSTAND STORE SYNC ==========
+  // Push state changes to zustand for reactive UI updates across tabs
+  // This eliminates the race condition where components read AsyncStorage
+  // before cloud sync completes on fresh login
+  useEffect(() => {
+    const store = useEraProgressStore.getState();
+    if (state) {
+      store.setSelectedEra(state.selectedEra || null);
+      store.setUserProgress(
+        state.progress.map(p => ({
+          era_id: p.era_id,
+          adventureId: p.adventureId,
+          moduleId: p.moduleId,
+          quizScore: p.quizScore,
+          quizCorrectAnswers: p.quizCorrectAnswers,
+          isCompleted: p.isCompleted,
+          quizCompleted: p.quizCompleted,
+          completedAt: p.completedAt,
+        }))
+      );
+    } else {
+      store.reset();
+    }
   }, [state]);
 
   const { user, isSignedIn, isLoaded: isClerkLoaded } = useUser();
@@ -522,16 +589,71 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         const cloudData = await fetchFromCloud(user.id);
 
         if (cloudData && cloudData.metadata?.migration_completed) {
-          // Already migrated - use cloud data
-          setState(cloudData);
-          await saveToLocal(cloudData);
+          // Already migrated - compare local vs cloud timestamps before deciding
+          // (Prevents losing unsaved local changes when cloud sync previously failed)
+          let localData: GamifiedProgressState | null = null;
+          try {
+            const localRaw = await WebCompatibleStorage.getItem(STORAGE_KEY);
+            if (localRaw) {
+              localData = JSON.parse(localRaw);
+            }
+          } catch (e) {
+            AppLogger.error('sync', 'Failed to read local data for comparison', {}, e);
+          }
+
+          // AFF-500: Compare timestamps to decide local vs cloud winner
+          const localTimestamp = localData?.metadata?.last_updated;
+          const cloudTimestamp = cloudData?.metadata?.last_updated;
+
+          // Guard: if either timestamp is missing or invalid, fall back to cloud-wins with a warning
+          const localTime = localTimestamp ? new Date(localTimestamp).getTime() : NaN;
+          const cloudTime = cloudTimestamp ? new Date(cloudTimestamp).getTime() : NaN;
+
+          if (!localTimestamp || !cloudTimestamp || isNaN(localTime) || isNaN(cloudTime)) {
+            AppLogger.warn('sync', '⚠️ Missing or invalid timestamps during init — defaulting to cloud', {
+              localTimestamp: localTimestamp ?? 'undefined',
+              cloudTimestamp: cloudTimestamp ?? 'undefined',
+              localTimeValid: !isNaN(localTime),
+              cloudTimeValid: !isNaN(cloudTime),
+            });
+          }
+
+          const useLocal = !isNaN(localTime) && !isNaN(cloudTime) &&
+            localData?.user_id === user.id &&
+            localTime > cloudTime;
+
+          if (useLocal && localData) {
+            // AFF-500: Local data survived a previous cloud sync failure.
+            // Use local (newer) and re-sync to cloud to fix stale state.
+            AppLogger.warn('sync', '⚠️ Local data is NEWER than cloud — using local and re-syncing to cloud', {
+              localTimestamp,
+              cloudTimestamp,
+              diffSeconds: (new Date(localTimestamp!).getTime() - new Date(cloudTimestamp!).getTime()) / 1000,
+              localStreak: localData.streak?.currentStreak,
+              cloudStreak: cloudData.streak?.currentStreak,
+            });
+            // Update ref FIRST (synchronous) — prevents stale closure reads
+            // (same pattern as reloadData() line ~1411)
+            stateRef.current = localData;
+            setState(localData);
+            // Fire-and-forget: push local data to cloud since cloud is stale
+            saveToCloud(localData).catch(err => {
+              AppLogger.error('sync', 'Re-sync local→cloud failed during init', {}, err);
+            });
+          } else {
+            setState(cloudData);
+            await saveToLocal(cloudData);
+          }
+
+          // Use whichever data source won the timestamp comparison
+          const activeData = (useLocal && localData) ? localData : cloudData;
 
           // CRITICAL: Sync progress back to legacy AsyncStorage for backward compatibility
           // Many components read directly from 'new_user_progress' AsyncStorage
-          if (cloudData.progress && cloudData.progress.length > 0) {
+          if (activeData.progress && activeData.progress.length > 0) {
             await WebCompatibleStorage.setItem(
               LEGACY_KEYS.NEW_USER_PROGRESS,
-              JSON.stringify(cloudData.progress.map(p => ({
+              JSON.stringify(activeData.progress.map(p => ({
                 era_id: p.era_id,
                 adventureId: p.adventureId,
                 moduleId: p.moduleId,
@@ -543,6 +665,13 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
                 quizCompleted: p.quizCompleted,
               })))
             );
+          }
+
+          // CRITICAL: Sync selectedEra back to legacy 'selected_era' key
+          // index.tsx checks this key to determine if onboarding is complete
+          if (activeData.selectedEra) {
+            await WebCompatibleStorage.setItem(LEGACY_KEYS.SELECTED_ERA, activeData.selectedEra);
+            AppLogger.info('sync', 'Synced selectedEra to legacy key', { selectedEra: activeData.selectedEra });
           }
         } else {
           // Step 2: Check for legacy data and migrate
@@ -568,11 +697,17 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
               })))
             );
           }
+
+          // CRITICAL: Sync selectedEra back to legacy 'selected_era' key
+          if (migratedData.selectedEra) {
+            await WebCompatibleStorage.setItem(LEGACY_KEYS.SELECTED_ERA, migratedData.selectedEra);
+            AppLogger.info('sync', 'Synced selectedEra to legacy key (migration)', { selectedEra: migratedData.selectedEra });
+          }
         }
 
         setIsInitialized(true);
       } catch (error) {
-        console.error('❌ [GamifiedProgress] Initialization error:', error);
+        AppLogger.error('sync', 'GamifiedProgress initialization error', {}, error);
         // Fallback to empty state
         const emptyState = createEmptyState(user.id);
         setState(emptyState);
@@ -589,7 +724,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
   const fetchFromCloud = async (userId: string): Promise<GamifiedProgressState | null> => {
     try {
-      console.log('🔄 [GamifiedProgress] Fetching from Supabase...');
+      AppLogger.info('sync', 'Fetching from Supabase');
       const { data, error } = await supabase
         .from(SUPABASE_TABLE)
         .select('data')
@@ -598,27 +733,41 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
       if (error) {
         if (error.code !== 'PGRST116') {
-          console.error('❌ [GamifiedProgress] Cloud fetch error:', error);
+          AppLogger.error('sync', 'Cloud fetch error', { errorCode: error.code }, error);
         }
         return null;
       }
 
       const cloudData = data?.data as GamifiedProgressState;
       if (cloudData?.streak) {
-        console.log('✅ [GamifiedProgress] Fetched streak from Supabase:', JSON.stringify(cloudData.streak));
+        AppLogger.info('sync', 'Fetched streak from Supabase', { currentStreak: cloudData.streak.currentStreak });
       }
       return cloudData;
     } catch (error) {
-      console.error('❌ [GamifiedProgress] Cloud fetch error:', error);
+      AppLogger.error('sync', 'Cloud fetch error', {}, error);
       return null;
     }
   };
 
-  const saveToCloud = async (data: GamifiedProgressState): Promise<void> => {
-    if (!data.user_id) return;
+  // AFF-500: Helper to schedule a single retry with fresh state data.
+  // Uses stateRef.current at retry time to avoid overwriting newer data
+  // that may have been saved by debouncedSync during the 3s delay.
+  const scheduleCloudRetry = (userId: string) => {
+    setTimeout(() => {
+      const freshData = stateRef.current;
+      if (!freshData?.user_id) return;
+      saveToCloud(freshData, true).catch(err => {
+        AppLogger.error('sync', 'Cloud save retry also FAILED — data only exists locally', {
+          userId, currentStreak: freshData.streak?.currentStreak,
+        }, err);
+      });
+    }, 3000);
+  };
 
-    console.log('🔄 [GamifiedProgress] Saving to Supabase...');
-    console.log('📤 [GamifiedProgress] Streak being saved:', JSON.stringify(data.streak));
+  const saveToCloud = async (data: GamifiedProgressState, isRetry = false): Promise<boolean> => {
+    if (!data.user_id) return false;
+
+    AppLogger.info('sync', `Saving to Supabase${isRetry ? ' (retry)' : ''}`, { currentStreak: data.streak?.currentStreak });
 
     try {
       const { error } = await supabase
@@ -630,12 +779,17 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
         }, { onConflict: 'user_id' });
 
       if (error) {
-        console.error('❌ [GamifiedProgress] Cloud save error:', error);
-      } else {
-        console.log('✅ [GamifiedProgress] Successfully saved to Supabase');
+        AppLogger.error('sync', 'Cloud save FAILED (upsert)', { userId: data.user_id, isRetry, currentStreak: data.streak?.currentStreak, lastUpdated: data.metadata?.last_updated }, error);
+        if (!isRetry) scheduleCloudRetry(data.user_id);
+        return false;
       }
+
+      AppLogger.info('sync', 'Successfully saved to Supabase');
+      return true;
     } catch (error) {
-      console.error('❌ [GamifiedProgress] Cloud save error:', error);
+      AppLogger.error('sync', 'Cloud save FAILED (exception)', { userId: data.user_id, isRetry, currentStreak: data.streak?.currentStreak, lastUpdated: data.metadata?.last_updated }, error);
+      if (!isRetry) scheduleCloudRetry(data.user_id);
+      return false;
     }
   };
 
@@ -643,7 +797,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     try {
       await WebCompatibleStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (error) {
-      console.error('❌ [GamifiedProgress] Local save error:', error);
+      AppLogger.error('sync', 'Local save error', {}, error);
     }
   };
 
@@ -664,7 +818,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     const oldProgressCount = stateRef.current?.progress?.length || 0;
     const newProgressCount = newState.progress?.length || 0;
     if (newProgressCount < oldProgressCount) {
-      console.error(`❌ [GamifiedProgress] PROGRESS LOST! ${oldProgressCount} → ${newProgressCount}`);
+      AppLogger.error('progress', `Progress data regression detected: ${oldProgressCount} → ${newProgressCount}`, { oldProgressCount, newProgressCount });
     }
 
     // Update ref FIRST (synchronous) - prevents stale closure in rapid saves
@@ -922,11 +1076,22 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       metadata: { ...currentState.metadata, last_updated: new Date().toISOString() },
     };
 
-    await saveState(newState);
+    // UPDATE 1: Update React state FIRST (synchronous - immediate)
+    setState(newState);
+    stateRef.current = newState;
+
+    // UPDATE 2: Save to local storage IMMEDIATELY (primary source for navigation)
+    await saveToLocal(newState);
+
+    // UPDATE 3: Save to Supabase IMMEDIATELY (fire and forget - don't block navigation)
+    // This ensures cloud has latest era, but doesn't block if Supabase is slow
+    saveToCloud(newState).catch(err => {
+      AppLogger.error('sync', 'Era cloud save failed (non-critical)', {}, err);
+    });
 
     // Also save to legacy key for backward compatibility
     await WebCompatibleStorage.setItem(LEGACY_KEYS.SELECTED_ERA, eraId);
-  }, [saveState]);
+  }, []);
 
   // ========== PROGRESS GETTERS ==========
 
@@ -974,7 +1139,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     const currentState = stateRef.current;
 
     if (!currentState) {
-      console.error('❌ [GamifiedProgress] Cannot save: Not initialized');
+      AppLogger.error('progress', 'Cannot save: GamifiedProgress not initialized');
       return;
     }
 
@@ -1207,10 +1372,12 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
     // State should ALWAYS be loaded when this is called (test waits for isInitialized)
     if (!currentState) {
-      throw new Error('❌ [GamifiedProgress] getStreak called before state initialized! Wait for isInitialized flag.');
+      throw new Error('[GamifiedProgress] getStreak called before state initialized! Wait for isInitialized flag.');
     }
 
-    console.log('📖 [GamifiedProgress] Reading streak from stateRef:', JSON.stringify(currentState.streak));
+    if (__DEV__) {
+      console.log('📖 [GamifiedProgress] Reading streak from stateRef:', JSON.stringify(currentState.streak));
+    }
     return currentState.streak;
   }, []);
 
@@ -1220,13 +1387,11 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     // Use stateRef for LATEST state - prevents stale closure overwriting progress
     const currentState = stateRef.current;
     if (!currentState) {
-      console.warn('⚠️ [GamifiedProgress] syncStreakToState called but state is null - skipping');
+      AppLogger.warn('sync', 'syncStreakToState called but state is null - skipping');
       return;
     }
 
-    console.log('🔄 [GamifiedProgress] ========== SYNC STREAK TO STATE ==========');
-    console.log('📝 [GamifiedProgress] Incoming streak data:', JSON.stringify(streakData));
-    console.log('📊 [GamifiedProgress] Current stateRef.streak:', JSON.stringify(currentState.streak));
+    AppLogger.info('sync', 'Syncing streak to state', { incoming: streakData.currentStreak, current: currentState.streak.currentStreak });
 
     const newState = {
       ...currentState,
@@ -1234,9 +1399,7 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
       metadata: { ...currentState.metadata, last_updated: new Date().toISOString() },
     };
 
-    console.log('💾 [GamifiedProgress] Calling saveState with new streak:', JSON.stringify(newState.streak));
     await saveState(newState);
-    console.log('📊 [GamifiedProgress] After saveState, stateRef.streak:', JSON.stringify(stateRef.current?.streak));
   }, [saveState]);
 
   // ========== ACHIEVEMENTS & MILESTONES ==========
@@ -1300,23 +1463,40 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
   const reloadData = useCallback(async (): Promise<void> => {
     if (!user?.id) return;
-    console.log('🔄 [GamifiedProgress] ========== RELOAD DATA FROM SUPABASE ==========');
+    AppLogger.info('sync', 'Reloading data from Supabase');
     setIsLoading(true);
 
     try {
       const cloudData = await fetchFromCloud(user.id);
       if (cloudData) {
-        console.log('📥 [GamifiedProgress] Reloaded streak from Supabase:', JSON.stringify(cloudData.streak));
+        // CRITICAL FIX: Compare timestamps before overwriting local data
+        // This prevents losing unsaved local changes (e.g., quiz completion pending cloud sync)
+        const localData = stateRef.current;
+        const localTimestamp = localData?.metadata?.last_updated;
+        const cloudTimestamp = cloudData?.metadata?.last_updated;
+
+        if (localTimestamp && cloudTimestamp) {
+          const localTime = new Date(localTimestamp).getTime();
+          const cloudTime = new Date(cloudTimestamp).getTime();
+
+          if (localTime > cloudTime) {
+            AppLogger.warn('sync', 'Local data is newer - skipping cloud overwrite', { localTimestamp, cloudTimestamp, diffSeconds: (localTime - cloudTime) / 1000 });
+            // Don't overwrite - local has unsaved changes that will sync soon
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        AppLogger.info('sync', 'Cloud data is newer, applying', { currentStreak: cloudData.streak?.currentStreak });
         // Update ref FIRST (synchronous) - prevents stale closure
         stateRef.current = cloudData;
         // Then update React state (async)
         setState(cloudData);
         await saveToLocal(cloudData);
-        console.log('✅ [GamifiedProgress] Data reloaded and stateRef updated');
-        console.log('📊 [GamifiedProgress] stateRef.current.streak:', JSON.stringify(stateRef.current?.streak));
+        AppLogger.info('sync', 'Data reloaded from Supabase');
       }
     } catch (error) {
-      console.error('❌ [GamifiedProgress] Reload error:', error);
+      AppLogger.error('sync', 'Reload from Supabase failed', {}, error);
     } finally {
       setIsLoading(false);
     }
@@ -1326,13 +1506,54 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     // Use stateRef for LATEST state - prevents stale closure in testing scenarios
     const currentState = stateRef.current;
     if (!currentState) {
-      console.error('❌ [GamifiedProgress] syncToCloud called but stateRef is null!');
+      AppLogger.error('sync', 'syncToCloud called but stateRef is null');
       return;
     }
-    console.log('🔄 [GamifiedProgress] ========== FORCE IMMEDIATE CLOUD SYNC ==========');
-    console.log('📤 [GamifiedProgress] stateRef.streak being synced:', JSON.stringify(currentState.streak));
+    AppLogger.info('sync', 'Force immediate cloud sync', { currentStreak: currentState.streak?.currentStreak });
     await saveToCloud(currentState);
   }, []);
+
+  const mergeOnboardingAnswers = (
+    current: GamifiedProgressState,
+    answers: OnboardingAnswers,
+  ): GamifiedProgressState => ({
+    ...current,
+    onboarding_answers: answers,
+    metadata: {
+      ...current.metadata,
+      last_updated: new Date().toISOString(),
+    },
+  });
+
+  const writeOnboardingAnswers = useCallback(
+    async (answers: OnboardingAnswers): Promise<void> => {
+      const current = stateRef.current;
+      if (!current) {
+        AppLogger.warn('sync', 'writeOnboardingAnswers: state not ready, skipping');
+        return;
+      }
+      await saveState(mergeOnboardingAnswers(current, answers));
+    },
+    [saveState],
+  );
+
+  const flushOnboardingAnswers = useCallback(
+    async (answers: OnboardingAnswers): Promise<void> => {
+      const current = stateRef.current;
+      if (!current) {
+        AppLogger.warn('sync', 'flushOnboardingAnswers: state not ready, skipping');
+        return;
+      }
+      const merged = mergeOnboardingAnswers(current, answers);
+      // Update ref + local eagerly so if cloud fails, local is already correct.
+      stateRef.current = merged;
+      setState(merged);
+      await saveToLocal(merged);
+      // Bypass debounce — immediate upsert; saveToCloud handles its own retry.
+      await saveToCloud(merged);
+    },
+    [],
+  );
 
   // ========== CONTEXT VALUE ==========
 
@@ -1384,6 +1605,9 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
 
     reloadData,
     syncToCloud,
+
+    writeOnboardingAnswers,
+    flushOnboardingAnswers,
   };
 
   return (

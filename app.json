@@ -2,7 +2,7 @@
   "expo": {
     "name": "Archives",
     "slug": "archives",
-    "version": "3.2.0",
+    "version": "5.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
     "scheme": "archives",
@@ -13,13 +13,13 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "ai.affinitylabs.archivesexpo",
       "appleTeamId": "LQ9LP2WW94",
-      "buildNumber": "122",
+      "buildNumber": "206",
       "associatedDomains": [
         "applinks:link.archiveszone.app"
       ],
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
+          "audio",
           "remote-notification"
         ],
         "CFBundleURLTypes": [
@@ -30,15 +30,21 @@
           }
         ],
         "NSUserTrackingUsageDescription": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true,
+        "NSSupportsLiveActivitiesFrequentUpdates": true
       }
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android_icon.png",
-        "backgroundColor": "#F4EBDB"
+        "backgroundColor": "#FAFAFA"
       },
       "edgeToEdgeEnabled": false,
+      "androidNavigationBar": {
+        "backgroundColor": "#FAFAFA"
+      },
       "package": "ai.affinitylabs.archivesexpo",
       "permissions": [
         "android.permission.RECORD_AUDIO",
@@ -46,7 +52,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "com.google.android.gms.permission.AD_ID"
       ],
-      "versionCode": 37,
+      "versionCode": 61,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -72,8 +78,8 @@
       "shortName": "Archives",
       "display": "standalone",
       "startUrl": "/",
-      "themeColor": "#F4EBDB",
-      "backgroundColor": "#F4EBDB",
+      "themeColor": "#FAFAFA",
+      "backgroundColor": "#FAFAFA",
       "build": {
         "babel": {
           "include": [
@@ -84,6 +90,7 @@
       }
     },
     "plugins": [
+      "./plugins/withDisableFontScaling",
       [
         "expo-router",
         {
@@ -93,11 +100,11 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F4EBDB",
-          "image": "./assets/images/splash-icon.png",
+          "backgroundColor": "#FAFAFA",
+          "image": "./assets/images/splashscreen.png",
           "dark": {
-            "image": "./assets/images/splash-icon.png",
-            "backgroundColor": "#F4EBDB"
+            "image": "./assets/images/splashscreen.png",
+            "backgroundColor": "#FAFAFA"
           },
           "imageWidth": 200,
           "resizeMode": "contain"
@@ -130,7 +137,8 @@
         {
           "icon": "./assets/images/app-icon.png",
           "color": "#C99151",
-          "sounds": []
+          "sounds": [],
+          "defaultChannel": "archives_notifications"
         }
       ],
       [
@@ -140,7 +148,9 @@
             "useFrameworks": "static"
           },
           "android": {
-            "largeHeap": true
+            "largeHeap": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],
@@ -152,39 +162,24 @@
         "@sentry/react-native/expo",
         {
           "url": "https://sentry.io/",
-          "project": "react-native",
+          "project": "archives",
           "organization": "affinity-labs-0i"
         }
       ],
+      "expo-secure-store",
       [
-        "customerio-expo-plugin",
+        "react-native-fbsdk-next",
         {
-          "ios": {
-            "useFrameworks": "static",
-            "pushNotification": {
-              "useRichPush": true,
-              "showPushAppInForeground": true,
-              "disableNotificationRegistration": true,
-              "env": {
-                "cdpApiKey": "a960d22ebf668571284c",
-                "region": "eu"
-              }
-            }
-          },
-          "android": {
-            "googleServicesFile": "./google-services.json",
-            "pushClickBehavior": "ActivityPreventRestart",
-            "pushNotification": {
-              "channel": {
-                "id": "archives_notifications",
-                "name": "Archives Notifications",
-                "importance": 4
-              }
-            }
-          }
+          "appID": "1421963112813789",
+          "clientToken": "021e8072d5ebfe3e28526cb3254f85eb",
+          "displayName": "Archives",
+          "scheme": "fb1421963112813789",
+          "advertiserIDCollectionEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "isAutoInitEnabled": true
         }
       ],
-      "expo-secure-store"
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true
@@ -195,25 +190,12 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4f1f4bc4-0ced-48f3-b712-178b54175088",
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "NotificationService",
-                  "bundleIdentifier": "ai.affinitylabs.archivesexpo.richpush",
-                  "entitlements": {
-                    "com.apple.developer.usernotifications.service": true
-                  }
-                }
-              ]
-            }
-          }
-        }
+        "projectId": "4f1f4bc4-0ced-48f3-b712-178b54175088"
       }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/4f1f4bc4-0ced-48f3-b712-178b54175088"
     },

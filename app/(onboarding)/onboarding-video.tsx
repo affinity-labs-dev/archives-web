@@ -20,14 +20,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import ArchivesTheme from '@/constants/ArchivesTheme'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
 export default function OnboardingVideoScreen() {
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoCompleted, setVideoCompleted] = useState(false)
-  const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
   const router = useRouter()
   const { trackScreenView, trackVideoPlayed } = useAnalytics()
 
@@ -42,12 +41,12 @@ export default function OnboardingVideoScreen() {
         try {
           player.play()
         } catch (playError) {
-          console.error('🎬 Error calling play():', playError)
+          AppLogger.error('video', 'Onboarding video 1 play error', {}, playError)
         }
       }, 100) // Small delay to ensure player is ready
 
     } catch (error) {
-      console.error('🎬 Error during player setup:', error)
+      AppLogger.error('video', 'Onboarding video 1 player setup error', {}, error)
     }
   })
 
@@ -61,22 +60,13 @@ export default function OnboardingVideoScreen() {
         const startTime = Date.now().toString()
         await AsyncStorage.setItem('onboarding_start_time', startTime)
       } catch (error) {
-        console.error('Error storing start time:', error)
+        AppLogger.error('navigation', 'Error storing onboarding start time', {}, error)
       }
     }
 
     storeStartTime()
 
-    // Track screen exit on unmount
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_video',
-        exit_action: exitAction,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime, exitAction])
+  }, [trackScreenView])
 
   // Handle video loading state and events
   useEffect(() => {
@@ -84,29 +74,37 @@ export default function OnboardingVideoScreen() {
 
     try {
       const statusSubscription = player.addListener('statusChange', (status) => {
-        if (status.status === 'readyToPlay' && !videoLoaded) {
-          trackVideoPlayed('Intro_archives.mp4')
-          setVideoLoaded(true)
+        try {
+          if (status.status === 'readyToPlay' && !videoLoaded) {
+            trackVideoPlayed('Intro_archives.mp4')
+            setVideoLoaded(true)
 
-          // Auto-play when ready
-          try {
-            player.play()
-          } catch (error) {
-            console.error('Auto-play failed:', error)
+            // Auto-play when ready
+            try {
+              player.play()
+            } catch (error) {
+              AppLogger.error('video', 'Onboarding video 1 auto-play failed', {}, error)
+            }
+          } else if (status.status === 'error') {
+            AppLogger.error('video', 'Onboarding video 1 player error', { error: String(status.error) })
           }
-        } else if (status.status === 'error') {
-          console.error('Video player error:', status.error)
+        } catch (err) {
+          AppLogger.error('video', 'Onboarding video 1 statusChange error', {}, err)
         }
       })
 
       // Listen for video completion - playToEnd is the official expo-video v3 event
       const playbackSubscription = player.addListener('playToEnd', () => {
-        if (!videoCompleted) {
-          setVideoCompleted(true)
-          // Auto-continue when video completes
-          setTimeout(() => {
-            handleContinue()
-          }, 1000) // 1 second delay for smooth transition
+        try {
+          if (!videoCompleted) {
+            setVideoCompleted(true)
+            // Auto-continue when video completes
+            setTimeout(() => {
+              handleContinue()
+            }, 1000) // 1 second delay for smooth transition
+          }
+        } catch (err) {
+          AppLogger.error('video', 'Onboarding video 1 playToEnd handler error', {}, err)
         }
       })
 
@@ -115,7 +113,7 @@ export default function OnboardingVideoScreen() {
         playbackSubscription?.remove()
       }
     } catch (error) {
-      console.warn('Video listener error:', error)
+      AppLogger.error('video', 'Onboarding video 1 listener setup error', {}, error)
     }
   }, [player, videoLoaded, videoCompleted, trackVideoPlayed])
 
@@ -138,12 +136,10 @@ export default function OnboardingVideoScreen() {
   // Continue to second video (archives_intro.mp4)
   const handleContinue = async () => {
     try {
-      setExitAction('continued')
       router.replace('/onboarding-video-2')
     } catch (error) {
-      console.error('Error navigating:', error)
+      AppLogger.error('navigation', 'Onboarding video 1 navigation error', {}, error)
       // Continue anyway to avoid blocking user
-      setExitAction('continued')
       router.replace('/onboarding-video-2')
     }
   }
@@ -163,7 +159,7 @@ export default function OnboardingVideoScreen() {
             style={styles.fullScreenVideo}
             contentFit="cover"
             nativeControls={false}
-            allowsFullscreen={false}
+            fullscreenOptions={{ enable: false }}
             allowsPictureInPicture={false}
             allowsVideoFrameAnalysis={false}
           />

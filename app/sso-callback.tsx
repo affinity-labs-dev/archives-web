@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoadingScreen from '@/components/LoadingScreen';
+import AppLogger from '@/services/AppLogger';
 
 /**
  * SSO Callback Screen
@@ -25,24 +26,22 @@ export default function SSOCallback() {
       // Wait for Clerk to finish loading auth state
       if (!isLoaded) return;
 
-      console.log('🔐 [SSO Callback] Auth loaded, isSignedIn:', isSignedIn);
+      AppLogger.info('auth', 'SSO callback auth loaded', { isSignedIn: !!isSignedIn });
 
       if (isSignedIn) {
         // User successfully authenticated - check if they've selected an era
         const hasSelectedEra = await AsyncStorage.getItem('selected_era');
-        console.log('🔐 [SSO Callback] Has selected era:', !!hasSelectedEra);
+        AppLogger.info('auth', 'SSO callback routing', { hasSelectedEra: !!hasSelectedEra });
 
-        if (hasSelectedEra) {
-          // User has already completed era selection - go to main app
-          router.replace('/(tabs)');
-        } else {
-          // New user or hasn't selected era - go to era selection
-          router.replace('/(tabs)/eras?mode=onboarding');
-        }
+        // User has already completed era selection - go to Today tab (AFF-319)
+        router.replace('/(tabs)/today');
       } else {
-        // Authentication failed or was cancelled - return to auth screen
-        console.log('🔐 [SSO Callback] Not signed in, returning to auth');
-        router.replace('/(auth)/archives-auth');
+        // Authentication failed or was cancelled — return to the new-flow
+        // create-account screen so the user can retry with a different
+        // provider. Legacy `/(auth)/archives-auth` is kept as fallback but
+        // is no longer the default entry point post-AFF-786.
+        AppLogger.warn('auth', 'SSO callback: not signed in, returning to onboarding-step-7');
+        router.replace('/onboarding-step-7');
       }
     };
 

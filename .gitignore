@@ -11,12 +11,14 @@ expo-env.d.ts
 
 # Native
 .kotlin/
+.gradle/
 *.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+android/app/google-services.json  # Firebase config (contains API keys)
 
 # Metro
 .metro-health-check*
@@ -31,7 +33,11 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# Backend build output
+backend/dist/
 
 # typescript
 *.tsbuildinfo
@@ -53,4 +59,7 @@ build-*.ipa
 
 # Test data
 data/
+!analytics/data/
 scripts/
+android/app/google-services.json
+supabase/.temp/

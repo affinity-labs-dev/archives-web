@@ -4,14 +4,14 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Animated,
+  Modal,
   Platform,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,14 +24,28 @@ import ArchivesTheme from '@/constants/ArchivesTheme';
 import { useQuizSounds } from '@/hooks/useQuizSounds';
 import type { ContentItem } from '@/components/shared/types';
 import QuizResults from './QuizResults';
+import QuizOptionButton from './QuizOptionButton';
+import QuizFeedbackSheet from './QuizFeedbackSheet';
+import { QUIZ_IMAGES, QUIZ_IMAGE_KEYS } from './quizImages';
 import { ADVENTURE_KEYS } from '@/constants/WalkthroughKeys';
 import XPMilestoneScreen from '@/gamification/ui/celebrations/XPMilestoneScreen';
-import { Modal } from 'react-native';
 import { analyticsService } from '@/services/AnalyticsService';
+import AppLogger from '@/services/AppLogger';
+import {
+  ConfettiBurst,
+  DepthButton,
+  ScrollFade,
+  Typography,
+  colors,
+  durations,
+  type ConfettiBurstHandle,
+} from '@/components/ui';
+import { AnimatedEntrance } from '@/components/ui/animations';
 
+// Used by era quizzes and Today screen (isToday=true, adventureId="daily_quest")
 interface QuizProps {
   contentItem: ContentItem;  // Quiz data from adventures.content_list
-  adventureId: string;       // Database adventure readable_id (e.g., "roi_adventure_1")
+  adventureId: string;       // Database adventure readable_id (e.g., "roi_adventure_1") | "daily_quest" for Today
   moduleId: string;          // Database content_list.id (media_id)
   eraId: string;             // Era ID from adventure (e.g., "rise_of_islam", "umayyad")
   eraName: string;           // Era display name (from card_content.era_name)
@@ -48,234 +62,33 @@ interface QuizProps {
     completedModules: number;  // BEFORE this quiz
     totalBadges?: number;
   };
+  // Today mode - skips gamification saving, calls onQuizResults with score
+  isToday?: boolean;         // true when called from Today screen
+  onQuizResults?: (score: number, correctAnswers: number, totalQuestions: number) => Promise<void>;
+  /**
+   * Optional — fires when the per-question feedback sheet opens or
+   * closes. Today mode uses this to make the surrounding chrome's
+   * floating header transparent while feedback is visible, so Quiz's
+   * existing dim backdrop bleeds through behind the back button +
+   * progress bar (otherwise the chrome header masks the dim and the
+   * top of the screen looks unaffected by the feedback overlay).
+   */
+  onFeedbackChange?: (state: { visible: boolean; isCorrect: boolean }) => void;
+  /**
+   * Optional — fires when the post-quiz results screen opens or
+   * closes. Today mode uses this to hide the chrome's progress bar
+   * once the user reaches the results view (the "Progress today"
+   * label no longer makes sense over a results summary; the back
+   * button stays for navigation).
+   */
+  onResultsChange?: (visible: boolean) => void;
 }
 
-// MCQ Option Button Design
-interface MCQOptionButtonProps {
-  letter: string;
-  text: string;
-  isSelected: boolean;
-  isCorrect?: boolean;
-  isWrong?: boolean;
-  showResult?: boolean;
-  onPress: () => void;
-}
+// QuizOptionButton, QuizFeedbackSheet, and QUIZ_IMAGES live in their
+// own files now (./QuizOptionButton.tsx, ./QuizFeedbackSheet.tsx,
+// ./quizImages.ts). This file is the orchestrator only — state +
+// handlers + layout that wires them together.
 
-function MCQOptionButton({
-  letter,
-  text,
-  isSelected,
-  isCorrect,
-  isWrong,
-  showResult,
-  onPress,
-}: MCQOptionButtonProps) {
-  // Determine colors based on state - match Umayyad design
-  const getShadowColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (showResult && isWrong) return ArchivesTheme.colors.concreteGrey;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return ArchivesTheme.colors.concreteGrey;
-  };
-
-  const getBorderColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return 'rgba(128,128,128,0.3)';
-  };
-
-  const getContentBorderColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return 'rgba(128,128,128,0.2)';
-  };
-
-  return (
-    <TouchableOpacity
-      style={styles.mcqOptionContainer}
-      onPress={onPress}
-      disabled={showResult}
-      activeOpacity={0.7}
-    >
-      {/* Shadow layer - 3D depth effect */}
-      <View style={[styles.mcqOptionShadow, { backgroundColor: getShadowColor() }]} />
-
-      {/* Border layer - 4px stroke */}
-      <View style={[styles.mcqOptionBorder, { borderColor: getBorderColor() }]} />
-
-      {/* Content layer - white background with 2px overlay */}
-      <View style={[styles.mcqOptionContent, { borderColor: getContentBorderColor() }]}>
-        {/* Letter badge */}
-        <View style={styles.mcqOptionLetterContainer}>
-          <View style={styles.mcqOptionLetterCircle}>
-            <Text style={styles.mcqOptionLetter}>{letter}</Text>
-          </View>
-        </View>
-
-        {/* Text */}
-        <View style={styles.mcqOptionTextContainer}>
-          <Text style={styles.mcqOptionText}>{text}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-// True/False Option Button - Umayyad Dynasty Design
-interface ROITrueFalseOptionButtonProps {
-  isTrue: boolean;
-  isSelected: boolean;
-  isCorrect?: boolean;
-  isWrong?: boolean;
-  showResult?: boolean;
-  onPress: () => void;
-}
-
-function ROITrueFalseOptionButton({
-  isTrue,
-  isSelected,
-  isCorrect,
-  isWrong,
-  showResult,
-  onPress,
-}: ROITrueFalseOptionButtonProps) {
-  // Determine colors based on state - match Umayyad design
-  const getShadowColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (showResult && isWrong) return ArchivesTheme.colors.concreteGrey;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return ArchivesTheme.colors.concreteGrey;
-  };
-
-  const getBorderColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return 'rgba(128,128,128,0.3)';
-  };
-
-  const getContentBorderColor = () => {
-    if (showResult && isCorrect) return ArchivesTheme.colors.mossGreen;
-    if (isSelected) return ArchivesTheme.colors.shoeBrown;
-    return 'rgba(128,128,128,0.2)';
-  };
-
-  return (
-    <TouchableOpacity
-      style={styles.trueFalseContainer}
-      onPress={onPress}
-      disabled={showResult}
-      activeOpacity={0.7}
-    >
-      {/* Shadow layer - 3D depth effect */}
-      <View style={[styles.trueFalseShadow, { backgroundColor: getShadowColor() }]} />
-
-      {/* Border layer - 4px stroke */}
-      <View style={[styles.trueFalseBorder, { borderColor: getBorderColor() }]} />
-
-      {/* Content layer - white background with 2px overlay */}
-      <View style={[styles.trueFalseContent, { borderColor: getContentBorderColor() }]}>
-        {/* Icon circle */}
-        <View style={styles.trueFalseIconCircle}>
-          <Ionicons
-            name={isTrue ? "checkmark" : "close"}
-            size={24}
-            color="white"
-          />
-        </View>
-
-        {/* Text */}
-        <Text style={styles.trueFalseText}>{isTrue ? "True" : "False"}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-// Bottom Sheet Feedback - ROI Design
-interface ROIFeedbackSheetProps {
-  isVisible: boolean;
-  isCorrect: boolean;
-  points: number;
-  explanation: string;
-  bottomInset: number;
-}
-
-function ROIFeedbackSheet({
-  isVisible,
-  isCorrect,
-  points,
-  explanation,
-  bottomInset,
-}: ROIFeedbackSheetProps) {
-  const slideAnim = useRef(new Animated.Value(300)).current;
-
-  useEffect(() => {
-    if (isVisible) {
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 80,
-        friction: 12,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      slideAnim.setValue(300);
-    }
-  }, [isVisible, slideAnim]);
-
-  if (!isVisible) return null;
-
-  return (
-    <>
-      {/* Overlay */}
-      <View style={styles.roiFeedbackOverlay} />
-
-      {/* Bottom sheet */}
-      <Animated.View
-        style={[
-          styles.roiFeedbackSheet,
-          {
-            backgroundColor: isCorrect ? ArchivesTheme.colors.mossGreen : ArchivesTheme.colors.persianOrange,
-            transform: [{ translateY: slideAnim }],
-            paddingBottom: 80 + bottomInset, // Content space + safe area
-          },
-        ]}
-      >
-        {/* Header with points badge (correct only) */}
-        <View style={styles.roiFeedbackHeader}>
-          <Text style={styles.roiFeedbackTitle}>
-            {isCorrect ? 'Correct!' : 'Incorrect!'}
-          </Text>
-          {isCorrect && (
-            <View style={styles.roiPointsBadge}>
-              <Text style={styles.roiPointsText}>+{points} points</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Explanation */}
-        <Text style={styles.roiFeedbackExplanation}>{explanation}</Text>
-      </Animated.View>
-    </>
-  );
-}
-
-// Quiz images mapping - randomly selected for each question
-const QUIZ_IMAGES: { [key: string]: any } = {
-  'Bilingual': require('@/assets/images/quiz-images/Bilingual.png'),
-  'Camel': require('@/assets/images/quiz-images/Camel.png'),
-  'Map': require('@/assets/images/quiz-images/Map.png'),
-  'Reader': require('@/assets/images/quiz-images/Reader.png'),
-  'books': require('@/assets/images/quiz-images/books.png'),
-  'engineers': require('@/assets/images/quiz-images/engineers.png'),
-  'explorer': require('@/assets/images/quiz-images/explorer.png'),
-  'navigation': require('@/assets/images/quiz-images/navigation.png'),
-  'scroll': require('@/assets/images/quiz-images/scroll.png'),
-  'ship': require('@/assets/images/quiz-images/ship.png'),
-  'token': require('@/assets/images/quiz-images/token.png'),
-  'writer': require('@/assets/images/quiz-images/writer.png'),
-  'mosque': require('@/assets/images/quiz-images/mosque.png'),
-};
-
-const QUIZ_IMAGE_KEYS = Object.keys(QUIZ_IMAGES);
 
 export default function Quiz({
   contentItem,
@@ -287,11 +100,47 @@ export default function Quiz({
   onDismiss,
   onBack,
   adventureData,
+  isToday = false,
+  onQuizResults,
+  onFeedbackChange,
+  onResultsChange,
 }: QuizProps) {
   const { saveNewProgressData, getProgressByStringIds } = useGamifiedProgress();
   const { reportQuizComplete } = useGamificationOrchestrator();
-  const insets = useSafeAreaInsets();
+  const liveInsets = useSafeAreaInsets();
+  // Stable insets — caches first non-zero values from
+  // `useSafeAreaInsets()` so the quiz body's `paddingTop: insets.top +
+  // 55` doesn't reflow if SafeAreaProvider context re-fires on Android
+  // Modal entrance. Without caching, the entrance animation would
+  // commit the wrong paddingTop for a frame, then jump to the right
+  // value as the provider settled.
+  const cachedInsetsRef = useRef(liveInsets);
+  if (
+    cachedInsetsRef.current.top === 0 &&
+    cachedInsetsRef.current.bottom === 0 &&
+    (liveInsets.top > 0 || liveInsets.bottom > 0)
+  ) {
+    cachedInsetsRef.current = liveInsets;
+  }
+  const insets = cachedInsetsRef.current;
   const { playTap, playCorrect, playIncorrect } = useQuizSounds();
+
+  // StatusBar config — imperative one-shot on mount. The previous JSX
+  // <StatusBar> at the top of the render tree re-applied on every
+  // commit; on Android each commit re-fires window flags through the
+  // bridge → window manager re-layout → chrome + parent tab bar
+  // jitter on every quiz state change.
+  useEffect(() => {
+    StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      if (isToday) {
+        StatusBar.setBackgroundColor('transparent');
+        StatusBar.setTranslucent(true);
+      } else {
+        StatusBar.setBackgroundColor(colors.snow);
+      }
+    }
+  }, [isToday]);
 
   // Extract adventure number from adventureId (e.g., "roi_adventure_1" → 1)
   const adventureNumber = parseInt(adventureId.split('_')[2] || '0', 10);
@@ -319,6 +168,8 @@ export default function Quiz({
     screen: `Quiz - ${adventureId} Module ${moduleNumber}`,
   });
 
+  const quizStartTimeRef = useRef(Date.now());
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -328,11 +179,23 @@ export default function Quiz({
   const [showResults, setShowResults] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [userAnswers, setUserAnswers] = useState<number[]>([]); // Track all user answers for AI explanations
+  // Exit-cascade gate for the option list — flipped true between
+  // questions so the current options slide off-left (mirrors
+  // OptionList.tsx's `exitSignal`). Reset to false alongside the
+  // question-index bump so the new options enter fresh from the right.
+  const [optionsExiting, setOptionsExiting] = useState(false);
 
   // Mid-quiz milestone detection
   const [initialXP, setInitialXP] = useState(0);
   const [showMilestone, setShowMilestone] = useState(false);
   const [milestoneData, setMilestoneData] = useState<{milestoneXP: number; totalXP: number} | null>(null);
+
+  // Confetti ref + per-option view refs. Used on a correct submit to
+  // anchor the puff at the selected option's screen-space center
+  // (mock `index.html:2671-2679`). Refs are populated via `registerView`
+  // callbacks on each `QuizOptionButton`.
+  const confettiRef = useRef<ConfettiBurstHandle>(null);
+  const optionViewRefs = useRef<(View | null)[]>([]);
 
   // Load initial XP when quiz starts (ERA-SPECIFIC)
   useEffect(() => {
@@ -347,13 +210,13 @@ export default function Quiz({
             .filter((p: any) => p.era_id === eraId)
             .reduce((sum: number, p: any) => sum + ((p.quizCorrectAnswers || 0) * 10), 0);
           setInitialXP(eraXP);
-          console.log(`📊 [Quiz] Quiz started with ${eraXP} XP for era: ${eraId}`);
+          AppLogger.info('quiz', 'Quiz started', { eraXP, eraId });
         } else {
           setInitialXP(0);
-          console.log(`📊 [Quiz] Quiz started with 0 XP for era: ${eraId} (no progress data)`);
+          AppLogger.info('quiz', 'Quiz started with no progress data', { eraId });
         }
       } catch (error) {
-        console.error('❌ [Quiz] Error loading era XP:', error);
+        AppLogger.error('quiz', 'Failed to load era XP', { eraId }, error);
         setInitialXP(0);
       }
     };
@@ -361,9 +224,39 @@ export default function Quiz({
     loadInitialXP();
   }, [eraId]);
 
+  // Notify parent (today.tsx's chrome wrapper) when the per-question
+  // feedback sheet opens or closes. The wrapper makes the chrome
+  // header transparent during feedback so Quiz's dim backdrop covers
+  // the floating progress + back-button area too. Adventure mode
+  // passes no callback, making this a no-op there. Hook sits above
+  // the `questions.length === 0` early return so it's called
+  // unconditionally on every render.
+  useEffect(() => {
+    const list = contentItem.questions || [];
+    if (list.length === 0) return;
+    const correctIdx = list[currentQuestionIndex]?.answers.findIndex(
+      (a) => a.is_correct,
+    );
+    const isCorrect = selectedAnswer === correctIdx;
+    onFeedbackChange?.({ visible: showFeedback, isCorrect });
+  }, [
+    showFeedback,
+    selectedAnswer,
+    contentItem,
+    currentQuestionIndex,
+    onFeedbackChange,
+  ]);
+
+  // Notify parent when the post-quiz results screen mounts/unmounts so
+  // the today chrome can hide its progress bar (back button stays).
+  // Adventure mode passes no callback → no-op.
+  useEffect(() => {
+    onResultsChange?.(showResults);
+  }, [showResults, onResultsChange]);
+
   // Early return if no questions
   if (questions.length === 0) {
-    console.error('❌ No questions found in contentItem');
+    AppLogger.error('quiz', 'No questions found in contentItem');
     return null;
   }
 
@@ -411,34 +304,53 @@ export default function Quiz({
       const oldXP = initialXP + (correctAnswers * 10); // Before this answer
       const newXP = initialXP + (newCorrectAnswers * 10); // After this answer
 
-      console.log(`📊 [Quiz] Correct answer! XP: ${oldXP} → ${newXP}`);
+      AppLogger.info('quiz', 'Correct answer', { oldXP, newXP, eraId });
 
-      // Check if we crossed a milestone (uses orchestrator's function)
-      const milestone = checkXPMilestone(oldXP, newXP);
+      // Check if we crossed a milestone (SKIP for Today mode - no XP awarded for Today quizzes)
+      if (!isToday) {
+        const milestone = checkXPMilestone(oldXP, newXP);
 
-      if (milestone) {
-        console.log(`🎉 [Quiz] MID-QUIZ Milestone crossed: ${milestone} XP for era: ${eraId}`);
+        if (milestone) {
+          AppLogger.info('quiz', 'Mid-quiz XP milestone crossed', { milestone, eraId });
 
-        // Check if user already saw this milestone (ERA-SPECIFIC)
-        const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestone, eraId);
-        const hasSeenMilestone = await AsyncStorage.getItem(milestoneKey);
+          // Check if user already saw this milestone (ERA-SPECIFIC)
+          const milestoneKey = ADVENTURE_KEYS.getXPMilestoneKey(milestone, eraId);
+          const hasSeenMilestone = await AsyncStorage.getItem(milestoneKey);
 
-        if (hasSeenMilestone !== 'true') {
-          // Show milestone modal (pauses quiz)
-          setMilestoneData({ milestoneXP: milestone, totalXP: newXP });
-          setShowMilestone(true);
+          if (hasSeenMilestone !== 'true') {
+            // Show milestone modal (pauses quiz)
+            setMilestoneData({ milestoneXP: milestone, totalXP: newXP });
+            setShowMilestone(true);
 
-          // Play correct sound + haptics for celebration
-          playCorrect();
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            // Play correct sound + haptics for celebration
+            playCorrect();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-          return; // Don't show feedback yet - milestone takes priority
+            return; // Don't show feedback yet - milestone takes priority
+          }
         }
       }
 
       // Normal correct answer flow (if no milestone)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       playCorrect();
+
+      // Confetti puff anchored at the selected option's center.
+      // Spec ported from `Downloads/02 daily story/index.html:2669-2677`:
+      //   particleCount: 45, spread: 55, startVelocity: 28, ticks: 140
+      //   colors: ['#5B980C', '#D6FFB8', '#234200', '#aad86a', '#7bc23b']
+      // Render-side overrides (gravity, duration) are configured on the
+      // <ConfettiBurst> element below — see that block for why.
+      // measureInWindow returns screen-space coords that match the
+      // overlay's StyleSheet.absoluteFill positioning. Guard on `w > 0`
+      // because measureInWindow can resolve to (0,0,0,0) on Android if
+      // the view was detached between submit and the async callback —
+      // emitting from (0,0) would be worse than no burst.
+      const optionView = optionViewRefs.current[selectedAnswer];
+      optionView?.measureInWindow((x, y, w, h) => {
+        if (w === 0 && h === 0) return;
+        confettiRef.current?.fire({ x: x + w / 2, y: y + h / 2 });
+      });
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       playIncorrect();
@@ -450,22 +362,43 @@ export default function Quiz({
   // Handle continue to next question
   const handleContinueToNext = () => {
     if (questionNumber < totalQuestions) {
-      // Not last question - clear UI and move to next
+      // Not last question — fire the option exit cascade first, then
+      // advance the question index after the cascade completes. The
+      // SUBMIT slot is gated on `!optionsExiting` so it stays hidden
+      // during the cascade and animates back in via slideFromBottom
+      // once the new question's options have entered.
       setShowFeedback(false);
-      setSelectedAnswer(null);
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
-      setQuestionStartTime(Date.now()); // Reset timer for next question
+      setOptionsExiting(true);
+      // Total cascade time = base exit duration + per-card stagger.
+      // Matches OptionList's exit math (350ms + 40ms × index).
+      const exitTotalMs =
+        durations.cardExit +
+        durations.cardExitInterval * Math.max(0, options.length - 1);
+      setTimeout(() => {
+        setSelectedAnswer(null);
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+        setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
+        setQuestionStartTime(Date.now()); // Reset timer for next question
+        setOptionsExiting(false);
+      }, exitTotalMs);
     } else {
-      // Last question - show results screen
+      // Last question — show results screen.
+      // Fire `onResultsChange` synchronously (alongside setShowResults)
+      // so React 18 batches BOTH state updates into a single commit.
+      // Without this, the parent (today.tsx) only finds out about the
+      // results view AFTER Quiz has already returned <QuizResults />,
+      // and there's a one-frame gap where the chrome still renders its
+      // progress bar above the results screen. The useEffect below is
+      // the safety net for any other state path that flips showResults.
       setShowFeedback(false);
       setShowResults(true);
+      onResultsChange?.(true);
     }
   };
 
   // Handle quiz completion from results screen
   const handleQuizCompletion = async () => {
-    console.log(`🚀 Quiz completion: ${eraName} - ${adventureId}`);
+    AppLogger.info('quiz', 'Quiz completion initiated', { eraName, adventureId, moduleId });
 
     // Percentage-based star calculation (database-agnostic)
     // 0-49% = 1★, 50-99% = 2★, 100% = 3★ (perfect score only)
@@ -475,6 +408,17 @@ export default function Quiz({
     // Track quiz completion (score = star rating, correctAnswers = correct count)
     trackQuizComplete(quizScore, correctAnswers);
 
+    // TODAY MODE - Skip gamification saving, call custom callback
+    if (isToday) {
+      AppLogger.info('quiz', 'Today mode - skipping gamification save');
+      if (onQuizResults) {
+        await onQuizResults(quizScore, correctAnswers, totalQuestions);
+      }
+      onContinue();
+      return;
+    }
+
+    // ADVENTURE/MODULE MODE - Normal gamification flow
     // Load progress from React state (SOURCE OF TRUTH - avoids AsyncStorage race conditions)
     const newModulesData = await AsyncStorage.getItem('new_user_progress');
     const newModules = newModulesData ? JSON.parse(newModulesData) : [];
@@ -483,7 +427,15 @@ export default function Quiz({
     const oldEraXP = newModules
       .filter((m: any) => m.era_id === eraId)
       .reduce((sum: number, m: any) => sum + ((m.quizCorrectAnswers || 0) * 10), 0);
-    console.log(`📊 Old Era XP (${eraId} before quiz): ${oldEraXP}`);
+    AppLogger.info('quiz', 'Calculating era XP', { oldEraXP, eraId });
+
+    // ✅ Check if adventure was already complete BEFORE this quiz completion
+    // This prevents celebration from showing when user retakes quizzes or completes modules in already-finished adventures
+    const adventureModulesBeforeQuiz = newModules.filter((m: any) =>
+      m.adventureId === adventureId && m.quizCompleted === true
+    );
+    const wasAlreadyComplete = adventureModulesBeforeQuiz.length >= (adventureData?.totalModules || 5);
+    AppLogger.info('quiz', 'Adventure completion status before quiz', { adventureId, wasAlreadyComplete });
 
     // Get existing module from React state (SOURCE OF TRUTH)
     // This avoids race conditions with AsyncStorage reads
@@ -503,7 +455,7 @@ export default function Quiz({
       lessonsCompleted: existingLessons // Preserve lessons already completed, backfill will handle if empty
     };
 
-    console.log('💾 [NEW] Saving quiz completion:', moduleData);
+    AppLogger.info('quiz', 'Saving quiz completion', { adventureId, moduleId });
     await saveNewProgressData(moduleData);
 
     // Track module completed event (critical for funnel analysis, era-agnostic)
@@ -519,7 +471,7 @@ export default function Quiz({
       module_number: moduleNumber,
       $current_url: `/${eraId}/${adventureId}/${moduleId}/quiz`,
     });
-    console.log('📊 [Analytics] Module completed event tracked');
+    AppLogger.info('quiz', 'Module completion event tracked');
 
     // Load updated progress to calculate era-specific XP (AFTER saving)
     const updatedNewModulesData = await AsyncStorage.getItem('new_user_progress');
@@ -529,7 +481,21 @@ export default function Quiz({
     const newEraXP = updatedNewModules
       .filter((m: any) => m.era_id === eraId)
       .reduce((sum: number, m: any) => sum + ((m.quizCorrectAnswers || 0) * 10), 0);
-    console.log(`📊 New Era XP (${eraId} after quiz): ${newEraXP}`);
+    AppLogger.info('quiz', 'Updated era XP after quiz', { newEraXP, eraId });
+
+    // Calculate FRESH adventure completion from AsyncStorage (not stale props)
+    const adventureModulesInProgress = updatedNewModules.filter((m: any) =>
+      m.adventureId === adventureId && m.quizCompleted === true
+    );
+    const actualCompletedModules = adventureModulesInProgress.length;
+    const actualTotalModules = adventureData?.totalModules || 5; // Default to 5 modules per adventure
+
+    AppLogger.info('quiz', 'Fresh adventure completion data', { completedModules: actualCompletedModules, totalModules: actualTotalModules });
+
+    // Calculate total badges from FRESH data (quizScore 3 = perfect quiz = badge)
+    const totalBadges = adventureModulesInProgress.filter(
+      (m: any) => m.quizScore === 3
+    ).length;
 
     // Report quiz completion to orchestrator - it handles milestone checks and celebrations
     await reportQuizComplete({
@@ -538,33 +504,22 @@ export default function Quiz({
       moduleId,
       oldEraXP,
       newEraXP,
-      // This module completion increments the count
-      adventureModulesCompleted: (adventureData?.completedModules || 0) + 1,
-      adventureTotalModules: adventureData?.totalModules || 3,
+      // Use FRESH data from AsyncStorage (not stale props)
+      adventureModulesCompleted: actualCompletedModules,
+      adventureTotalModules: actualTotalModules,
+      wasAlreadyComplete, // ✅ Prevents celebration repeat on already-complete adventures
       adventureData: adventureData ? {
         title: adventureData.title,
         subtitle: adventureData.subtitle,
         description: adventureData.description,
         backgroundImage: adventureData.backgroundImage,
-        totalBadges: adventureData.totalBadges,
+        totalBadges,  // ✅ Use FRESH calculated value (not stale prop)
       } : undefined,
     });
-    console.log(`📋 [Quiz] Reported to orchestrator - XP: ${oldEraXP} → ${newEraXP}`);
+    AppLogger.info('quiz', 'Reported to orchestrator', { oldEraXP, newEraXP });
 
-    console.log(`✅ Quiz completed - Correct: ${correctAnswers}/${totalQuestions} (${percentage.toFixed(0)}%), Stars: ${quizScore}★`);
+    AppLogger.info('quiz', 'Quiz completed', { correctAnswers, totalQuestions });
     onContinue();
-  };
-
-  // Handle retake quiz
-  const handleRetakeQuiz = () => {
-    setCurrentQuestionIndex(0);
-    setSelectedAnswer(null);
-    setShowFeedback(false);
-    setScore(0);
-    setCorrectAnswers(0);
-    setShowResults(false);
-    setRandomImageIndex(Math.floor(Math.random() * QUIZ_IMAGE_KEYS.length));
-    setUserAnswers([]); // Reset user answers for fresh quiz attempt
   };
 
   const isCorrect = selectedAnswer === correctAnswerIndex;
@@ -576,9 +531,7 @@ export default function Quiz({
         correctAnswers={correctAnswers}
         totalQuestions={totalQuestions}
         totalPoints={score}
-        onRetake={handleRetakeQuiz}
         onContinue={handleQuizCompletion}
-        onBack={onBack}
         adventureId={adventureId}
         moduleId={moduleId}
         eraId={eraId}
@@ -587,134 +540,263 @@ export default function Quiz({
         moduleNumber={moduleNumber}
         questions={questions}
         userAnswers={userAnswers}
+        moduleTitle={contentItem.thumbnail_title || undefined}
       />
     );
   }
 
   return (
-    <SafeAreaView style={styles.roiContainer} edges={['top']}>
-      {Platform.OS === 'android' && (
-        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
-      )}
+    <SafeAreaView style={styles.quizContainer} edges={isToday ? [] : ['top']}>
+      {/* StatusBar config moved to the mount-time useEffect below.
+          JSX <StatusBar> here re-applied props on every render — and on
+          Android each commit re-fires window flags through the bridge,
+          causing window manager re-layout. Inside Today's modal that
+          translates directly into the chrome + parent tab bar shaking
+          for a frame on every quiz re-render (state changes during
+          countdown, feedback transitions, results, etc.). The
+          imperative one-shot in the useEffect fires once and stays put. */}
 
       <ScrollView
-        style={styles.roiScrollView}
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingTop: isToday ? insets.top + 55 : 0,
+          paddingBottom: 16,
+        }}
       >
         <View style={styles.questionContent}>
-          {/* Header */}
-          <View style={styles.roiHeader}>
-          {onBack && (
-            <TouchableOpacity style={styles.roiBackButton} onPress={onBack}>
-              <Ionicons name="chevron-back" size={24} color="#4D392E" />
-            </TouchableOpacity>
+          {/* Adventure-mode header — quiz title + back button (kept for
+              the existing brown brand). Today mode uses the chrome's
+              back button and skips this block. */}
+          {!isToday && (
+            <View style={styles.adventureHeader}>
+              {onBack && (
+                <TouchableOpacity style={styles.adventureBackButton} onPress={() => {
+                  if (!showResults) {
+                    analyticsService.trackQuizAbandoned({
+                      adventure_id: adventureId,
+                      module_id: moduleId,
+                      questions_answered: currentQuestionIndex,
+                      total_questions: questions.length,
+                      time_spent_seconds: Math.round((Date.now() - quizStartTimeRef.current) / 1000),
+                      era_id: eraId,
+                      era_name: eraName,
+                    });
+                  }
+                  onBack();
+                }}>
+                  <Ionicons name="chevron-back" size={24} color="#4D392E" />
+                </TouchableOpacity>
+              )}
+              <View style={styles.adventureTitleContainer}>
+                <Text style={styles.adventureQuizTitle}>{quizTitle}</Text>
+              </View>
+            </View>
           )}
-          <View style={styles.roiTitleContainer}>
-            <Text style={styles.roiQuizTitle}>{quizTitle}</Text>
-            <Text style={styles.roiQuestionCounter}>
-              Question {questionNumber} of {totalQuestions}
-            </Text>
+
+          {/* Question counter — figma 3379:5267 (Onest Medium 14, black,
+              center, letter-spacing -0.14). Single-line caption above
+              the image. */}
+          <Typography
+            family="onest"
+            weight="500"
+            size={14}
+            extraColor={colors.black}
+            style={styles.questionCounter}
+          >
+            {`Question ${questionNumber} of ${totalQuestions}`}
+          </Typography>
+
+          {/* Question image — preserved from previous design. Random per
+              question, slight rotation, transparent background. */}
+          <View style={styles.imageSection}>
+            <Image
+              source={QUIZ_IMAGES[QUIZ_IMAGE_KEYS[randomImageIndex]]}
+              style={styles.questionImage}
+              contentFit="contain"
+              transition={300}
+            />
           </View>
-        </View>
 
-        {/* Question Image - Randomly selected from quiz images */}
-        <View style={styles.roiImageSection}>
-          <View style={styles.roiImageBackground} />
-          <Image
-            source={QUIZ_IMAGES[QUIZ_IMAGE_KEYS[randomImageIndex]]}
-            style={styles.roiQuestionImage}
-            contentFit="contain"
-            transition={300}
-          />
-        </View>
+          {/* Question text — figma 3379:5285 (Onest SemiBold 18, black,
+              center, letter-spacing -0.18). */}
+          <Typography
+            family="onest"
+            weight="600"
+            size={18}
+            align="center"
+            extraColor={colors.black}
+            style={styles.questionText}
+          >
+            {currentQuestion.question_text}
+          </Typography>
 
-        {/* Question */}
-        <Text style={styles.roiQuestionText}>{currentQuestion.question_text}</Text>
-
-        {/* Answer options - Conditional rendering based on question type */}
-        {currentQuestion.question_type === 'trueFalse' ? (
-          // True/False layout - Horizontal buttons
-          <View style={styles.trueFalseOptionsGroup}>
-            {options.map((option, index) => {
-              const isTrue = option.toLowerCase().includes('true');
-              return (
-                <ROITrueFalseOptionButton
-                  key={index}
-                  isTrue={isTrue}
-                  isSelected={selectedAnswer === index}
-                  isCorrect={showFeedback && index === correctAnswerIndex}
-                  isWrong={showFeedback && selectedAnswer === index && !isCorrect}
-                  showResult={showFeedback}
-                  onPress={() => handleAnswerSelect(index)}
-                />
-              );
-            })}
+          {/* Answer options — same `QuizOptionButton` for MCQ and T/F.
+              The only difference is the option count (2 vs 4).
+              `key` is per-question so React drops + remounts on every
+              advance, replaying the entrance stagger from the right
+              (mirrors OptionList's animateIn/exitSignal pattern). */}
+          <View style={styles.optionsGroup}>
+            {options.map((option, index) => (
+              <QuizOptionButton
+                key={`q${currentQuestionIndex}-${index}`}
+                text={option}
+                isSelected={selectedAnswer === index}
+                isCorrect={showFeedback && index === correctAnswerIndex}
+                isWrong={showFeedback && selectedAnswer === index && !isCorrect}
+                isUserCorrect={isCorrect}
+                showResult={showFeedback}
+                onPress={() => handleAnswerSelect(index)}
+                registerView={(view) => {
+                  optionViewRefs.current[index] = view;
+                }}
+                animationIndex={index}
+                animateIn
+                exitSignal={optionsExiting}
+              />
+            ))}
           </View>
-        ) : (
-          // MCQ layout - Vertical stack
-          <View style={styles.questionOptionsGroup}>
-            {options.map((option, index) => {
-              const letter = String.fromCharCode(65 + index); // A, B, C, D
-              return (
-                <MCQOptionButton
-                  key={index}
-                  letter={letter}
-                  text={option}
-                  isSelected={selectedAnswer === index}
-                  isCorrect={showFeedback && index === correctAnswerIndex}
-                  isWrong={showFeedback && selectedAnswer === index && !isCorrect}
-                  showResult={showFeedback}
-                  onPress={() => handleAnswerSelect(index)}
-                />
-              );
-            })}
-          </View>
-        )}
-
-          {/* Spacer for submit button */}
-          <View style={{ height: 120 }} />
         </View>
       </ScrollView>
 
-      {/* Submit button - Always visible, stays on top with z-index */}
-      <View style={[styles.submitButtonContainer, { bottom: Math.max(50, insets.bottom + 30) }]}>
-        {/* Shadow layer - 3D depth effect */}
-        <View
-          style={[
-            styles.submitButtonShadow,
-            { backgroundColor: showFeedback ? 'rgba(0,0,0,0.3)' : (selectedAnswer !== null ? ArchivesTheme.colors.mossGreenShadow : 'rgba(0,0,0,0.3)') },
-          ]}
-        />
-        {/* Button */}
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            { backgroundColor: showFeedback ? 'white' : (selectedAnswer !== null ? ArchivesTheme.colors.mossGreen : 'gray') },
-          ]}
-          onPress={showFeedback ? handleContinueToNext : handleSubmit}
-          disabled={!showFeedback && selectedAnswer === null}
-          activeOpacity={1}
+      {/* SUBMIT — flows as a regular flex child below the ScrollView
+          (`flex: 0` slot, fixed natural height) so the option list can
+          never overflow underneath it. Previously this was
+          `position: absolute` with manual bottom-padding math on the
+          ScrollView, which broke on shorter devices. The slot's
+          paddingBottom honors the safe-area inset for home-indicator
+          spacing, paddingTop adds breathing room above the button. */}
+      {/* SUBMIT slot — gated on `!optionsExiting` so it stays hidden
+          during the inter-question exit cascade. When the new question
+          mounts, AnimatedEntrance fires the slideFromBottom (y 60 → 0,
+          opacity 0 → 1, 600ms back.out(2)) preset — the same shape used
+          by the CONTINUE button on onboarding-step-5. The 900ms delay
+          lets the option entrance stagger settle before the SUBMIT
+          rises into view, matching the mock spec ordering. The
+          per-question `key` causes the entrance to replay on each new
+          question rather than only on first mount. */}
+      {!showFeedback && !optionsExiting && (
+        <AnimatedEntrance
+          key={`submit-q${currentQuestionIndex}`}
+          preset="slideFromBottom"
+          delay={900}
         >
-          <Text style={[
-            styles.submitButtonText,
-            showFeedback && {
-              color: isCorrect
-                ? ArchivesTheme.colors.mossGreen      // Green text for correct
-                : ArchivesTheme.colors.persianOrange  // Orange text for incorrect
-            }
-          ]}>
-            {showFeedback ? "CONTINUE" : "SUBMIT"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View
+            style={[
+              styles.submitContainer,
+              { paddingBottom: insets.bottom + 16 },
+            ]}
+          >
+            {/* Soft fade-out overlay — masks the hard horizontal edge
+                where the ScrollView's last visible option meets the
+                submit slot. Shared design-system primitive used by both
+                this screen and the onboarding personalize phases. */}
+            <ScrollFade color={colors.snow} />
+            {/* Disabled state goes through DepthButton's `isDisabled` prop
+                — that path uses a veil overlay on top of the surface +
+                shadow stack, preserving 3D depth and rendering correctly
+                on both iOS and Android. The previous wrapper-View opacity
+                approach (`<View opacity:0.4>`) re-introduced the Android
+                alpha-multiplication bug: surface + shadow strip both got
+                50% alpha, shadow bled through the surface, and the green
+                Submit looked desaturated/broken. Pointer events are
+                already gated inside DepthButton when `isDisabled`. */}
+            <DepthButton
+              variant="secondary"
+              surfaceColor="correctSecondary"
+              shadowColor="correctPrimary"
+              isDisabled={selectedAnswer === null}
+              onPress={handleSubmit}
+            >
+              <Typography
+                family="onest"
+                weight="700"
+                size={18}
+                extraColor={colors.white}
+                style={styles.submitLabel}
+              >
+                SUBMIT
+              </Typography>
+            </DepthButton>
+          </View>
+        </AnimatedEntrance>
+      )}
 
-      {/* Feedback bottom sheet */}
-      <ROIFeedbackSheet
-        isVisible={showFeedback}
+      {/* Feedback bottom sheet — replaces both the old Submit-as-Continue
+          button and the legacy ROIFeedbackSheet. Owns its own slide-up
+          animation + content stagger; CONTINUE tap runs close animation,
+          then calls back to advance to the next question. */}
+      <QuizFeedbackSheet
+        visible={showFeedback}
         isCorrect={isCorrect}
         points={pointsPerQuestion}
         explanation={currentQuestion.explanation || 'Good job!'}
         bottomInset={insets.bottom}
+        onContinue={handleContinueToNext}
+      />
+
+      {/* Confetti overlay — mounts at the very top of the tree so its
+          particles render above the option grid AND the feedback sheet's
+          backdrop. `pointerEvents="none"` (set inside the component) means
+          taps still reach CONTINUE.
+          Palette ported from `Downloads/02 daily story/index.html:2669-2677`.
+          The tunings below depart from the mock's literal numeric spec
+          (particleCount/spread/velocity) on purpose — direct user
+          feedback was "bắn thẳng, mạnh, nhanh, cao hơn giống pháo hoa"
+          (shoot upward, fast, hard, and high — like fireworks). The
+          mock's canvas-confetti params (28 velocity, 55 spread) are
+          tuned for a small green "puff"; the user wants a fireworks
+          burst, so the physics here are tuned for that feel instead.
+
+          Tuned aggressively for the "dopamine spike" target — the
+          burst exists to reward correct answers and amplify the
+          excitement of getting one right, so it leans hard on three
+          dials known to drive that response: high impulse (initial
+          shoot velocity), tight time window (snap-fast, brain reads
+          as a single "BANG" not a "fountain"), and high density
+          (more motion cues per frame).
+
+          Reference: MagicUI fireworks demo
+          (https://magicui.design/docs/components/confetti) — uses
+          ticks=60 (~1s) for a snappy short-lived burst. Adapted to
+          the analytic physics in ConfettiBurst.tsx:
+
+          • `startVelocity={70}` — RN port multiplies ×8 → 560 px/s
+            upward initial. Peak height analytic
+            ≈ velocity² / (2·gravity·1000) ≈ 522 px above origin.
+            Particles travel high enough to nearly clear the screen
+            before fading — visual energy maximised.
+
+          • `gravity={0.3}` — light pull. Peak time
+            t_peak = velocity / (gravity·1000) = 560/300 ≈ 1.87 ×
+            lifespan, so particles are still strongly RISING when
+            they fade out. Brain registers "shooting up off-screen",
+            which reads as more energetic than seeing them peak +
+            settle.
+
+          • `spread={40}` — tight ±20° cone from vertical. Wider
+            spreads (75°+) feel like fountains; tight cone reads as
+            a directional rocket — unified motion, easier for the
+            brain to grok as "explosive launch".
+
+          • `count={75}` — denser still. Above ~80 mid-tier Android
+            drops frames on the per-particle opacity blend; 75 is
+            the safe ceiling that still feels lush.
+
+          • `duration={900}` — short and snappy. ≈ 54 ticks at 60fps,
+            slightly under MagicUI's ticks=60. Pulled in from 1300
+            because: (1) particles' visible peak hits well before
+            duration ends regardless (they fade faster than they
+            settle, no benefit to the long tail), and (2) shorter
+            burst window = sharper "BANG" reading, more dopamine. */}
+      <ConfettiBurst
+        ref={confettiRef}
+        colors={['#5B980C', '#D6FFB8', '#234200', '#AAD86A', '#7BC23B']}
+        count={75}
+        spread={40}
+        startVelocity={70}
+        gravity={0.3}
+        duration={900}
       />
 
       {/* Mid-Quiz Milestone Modal (ERA-SPECIFIC) */}
@@ -726,7 +808,7 @@ export default function Quiz({
             eraId={eraId}
             onContinue={() => {
               // Video finished, close modal and show feedback
-              console.log('🎬 [Quiz] Milestone video finished, resuming quiz');
+              AppLogger.info('quiz', 'Milestone video finished, resuming quiz');
               setShowMilestone(false);
               setMilestoneData(null);
               setShowFeedback(true);
@@ -738,31 +820,33 @@ export default function Quiz({
   );
 }
 
+
 const styles = StyleSheet.create({
-  roiContainer: {
+  // Snow body — matches figma 3379:5265 / 5106 / 5141 (`bg-[#fafafa]`).
+  quizContainer: {
     flex: 1,
-    backgroundColor: '#F4EBDB',
+    backgroundColor: colors.snow,
   },
-  roiScrollView: {
+  scroll: {
     flex: 1,
   },
   questionContent: {
-    // Main content container - EXACT iOS measurements
-    paddingHorizontal: 20, // Standard horizontal padding
-    paddingTop: 5,         // Reduced padding for better spacing
-    paddingBottom: 15,     // Minimal bottom padding
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
 
-  // Header
-  roiHeader: {
+  // Adventure-mode header (back button + quiz title) — kept for the
+  // existing brown brand. Today mode skips this entirely (chrome owns it).
+  adventureHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 10,
-    marginBottom: 20,
+    marginBottom: 12,
   },
-  roiBackButton: {
+  adventureBackButton: {
     position: 'absolute',
-    left: 0, // Now 0 since questionContent has paddingHorizontal: 20
+    left: 0,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -771,271 +855,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
   },
-  roiTitleContainer: {
+  adventureTitleContainer: {
     flex: 1,
     alignItems: 'center',
   },
-  roiQuizTitle: {
+  adventureQuizTitle: {
     fontFamily: 'DM Sans',
     fontSize: 18,
     fontWeight: '600',
     color: ArchivesTheme.colors.mutedNavy,
   },
-  roiQuestionCounter: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#4D392E',
-    marginTop: 2,
+
+  // "Question N of M" — figma 3379:5267.
+  questionCounter: {
+    textAlign: 'center',
+    letterSpacing: -0.14,
+    marginTop: 8,
+    marginBottom: 16,
   },
 
-  // Image section
-  roiImageSection: {
+  // Image block — kept transparent + slight rotation per existing
+  // pattern (figma shows the ImageBackground from 3379:5119/5155 as a
+  // light-grey card behind the image; we omit that to match the default
+  // 5265 state which has no card backdrop).
+  imageSection: {
     alignItems: 'center',
-    marginBottom: 30,
-    position: 'relative',
+    marginBottom: 20,
+    height: 180,
+    justifyContent: 'center',
   },
-  roiImageBackground: {
-    position: 'absolute',
-    width: 232.5,
-    height: 120.42,
-    backgroundColor: 'white',
-    borderRadius: 19,
-    top: 40,
-  },
-  roiQuestionImage: {
-    width: 176.09,
-    height: 176.09,
+  questionImage: {
+    width: 175,
+    height: 175,
     transform: [{ rotate: '-1deg' }],
   },
 
-  // Question
-  roiQuestionText: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#4D392E',
-    textAlign: 'center',
-    paddingHorizontal: 0, // Removed - handled by questionContent container
-    marginBottom: 25,
-    lineHeight: 28,
+  // Question text — figma 3379:5285 (Onest SemiBold 18 black, center,
+  // letter-spacing -0.18).
+  questionText: {
+    letterSpacing: -0.18,
+    marginBottom: 28,
   },
 
-  // Options - Umayyad Dynasty Design
-  questionOptionsGroup: {
-    alignItems: 'center', // Center 320px buttons
-    paddingHorizontal: 0,
-  },
-  mcqOptionContainer: {
-    position: 'relative',
-    marginBottom: 18, // EXACT iOS: VStack(spacing: 18)
-  },
-  mcqOptionShadow: {
-    position: 'absolute',
-    width: 322, // EXACT SwiftUI: .frame(width: 322, height: 50)
-    height: 50,
-    borderRadius: 16,
-    top: 7, // EXACT SwiftUI: .offset(y: 7) - 3D depth effect
-  },
-  mcqOptionBorder: {
-    position: 'absolute',
-    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
-    height: 50,
-    borderRadius: 16,
-    borderWidth: 4, // EXACT SwiftUI: lineWidth: 4
-  },
-  mcqOptionContent: {
-    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
-    height: 50,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    flexDirection: 'row',
+  // Options column — both MCQ and T/F use this layout. The pill widths
+  // are fixed (300px) per figma; horizontal centering via alignItems.
+  optionsGroup: {
     alignItems: 'center',
-    borderWidth: 2, // EXACT SwiftUI: overlay stroke
-  },
-  mcqOptionLetterContainer: {
-    paddingLeft: 20,
-  },
-  mcqOptionLetterCircle: {
-    width: 30, // EXACT SwiftUI: .frame(width: 30, height: 30)
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(139,96,64,0.4)', // EXACT SwiftUI: Color("ShoeBrown").opacity(0.4)
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mcqOptionLetter: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
-    fontSize: 16,
-    color: 'white',
-  },
-  mcqOptionTextContainer: {
-    flex: 1,
-    paddingLeft: 20, // Space after circle
-    paddingRight: 20,
-    paddingVertical: 8, // Vertical padding for better text spacing
-    justifyContent: 'center',
-  },
-  mcqOptionText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 16))
-    fontSize: 16,
-    color: ArchivesTheme.colors.shoeBrown,
-    lineHeight: 22,
-    flexWrap: 'wrap',
+    gap: 20,
   },
 
-  // True/False Options - Umayyad Dynasty Design
-  trueFalseOptionsGroup: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20, // Space between True and False buttons
-    paddingHorizontal: 0,
+  // SUBMIT button slot — sits as a regular flex child below the
+  // ScrollView so the option list can never overflow under it on
+  // short devices. paddingBottom is set inline with the safe-area
+  // inset so the button clears the home indicator. Inner opacity
+  // fade (0.4 ↔ 1) follows whether an option is selected, per the
+  // mock's `q-submit-wrap.muted` semantics (`index.html:796`).
+  submitContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
   },
-  trueFalseContainer: {
-    position: 'relative',
-  },
-  trueFalseShadow: {
-    position: 'absolute',
-    width: 132, // EXACT: Vertical button 132x120px
-    height: 120,
-    borderRadius: 20,
-    top: 7, // EXACT: 3D depth effect
-  },
-  trueFalseBorder: {
-    position: 'absolute',
-    width: 130, // EXACT: Border layer
-    height: 120,
-    borderRadius: 20,
-    borderWidth: 4,
-  },
-  trueFalseContent: {
-    width: 130, // EXACT: Content layer
-    height: 120,
-    backgroundColor: '#F7F7F7', // Slightly off-white for True/False
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  trueFalseIconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(77, 57, 46, 0.4)', // ShoeBrown with 40% opacity (matches MCQ circle)
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  trueFalseText: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '500',
-    color: ArchivesTheme.colors.shoeBrown,
-  },
-
-  // Submit button - Umayyad Dynasty Design
-  submitButtonContainer: {
-    position: 'absolute',
-    // bottom: dynamic - set inline with useSafeAreaInsets
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    zIndex: 10, // Keep button on top of feedback sheet
-  },
-  submitButtonShadow: {
-    position: 'absolute',
-    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
-    height: 50,
-    borderRadius: 16,
-    top: 7, // EXACT SwiftUI: .offset(y: 7) - 3D depth effect
-  },
-  submitButton: {
-    width: 320, // EXACT SwiftUI: .frame(width: 320, height: 50)
-    height: 50,
-    borderRadius: 16, // EXACT SwiftUI: .cornerRadius(16)
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitButtonText: {
-    fontFamily: 'DM Sans', // EXACT SwiftUI: .font(.custom("DM Sans", size: 22))
-    fontSize: 22,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-
-  // Feedback Bottom Sheet - ROI Design
-  roiFeedbackOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.30)',
-  },
-  roiFeedbackSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 260,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 32,
-    paddingTop: 18,
-    // paddingBottom: dynamic - set inline with useSafeAreaInsets (80 + insets.bottom)
-    zIndex: 5, // Keep sheet behind button
-  },
-  roiFeedbackHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  roiFeedbackTitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'white',
-  },
-  roiPointsBadge: {
-    backgroundColor: 'white',
-    borderRadius: 13,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  roiPointsText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '600',
-    color: ArchivesTheme.colors.persianOrange,
-  },
-  roiFeedbackExplanation: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'white',
-    lineHeight: 18.21,
-    marginBottom: 20,
-  },
-  roiContinueButton: {
-    width: '100%',
-    height: 54,
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  roiContinueButtonInner: {
-    width: '100%',
-    height: 51,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  roiContinueButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '700',
+  submitLabel: {
+    letterSpacing: -0.18,
   },
 });

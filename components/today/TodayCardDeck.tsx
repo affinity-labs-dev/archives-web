@@ -1,0 +1,1333 @@
+import { Image, type ImageSource } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Dimensions,
+  StyleProp,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
+import Svg, { Path, SvgXml } from "react-native-svg";
+
+import { useWalkthroughTarget } from "@/hooks/today/useWalkthroughTarget";
+import {
+  PaginationDots,
+  Typography,
+  colors,
+  easings,
+  safeDuration,
+} from "@/components/ui";
+
+import {
+  completedStarSvg,
+  incompleteStarSvg,
+  rewatchIconSvg,
+} from "./icons/todayIcons";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Identity key for an ImageSource — used by the day-switch crossfade to
+// detect "did the URL actually change?" instead of trusting object ref
+// equality. Object literals like `{ uri: 'X' }` are recreated on every
+// `useMemo` run, so ref-equality would fire the crossfade even when the
+// underlying URL is unchanged. Returns a stable string keyed off the URI
+// (or the static `require()` module number) so the comparison survives
+// parent re-memos that don't actually change the image.
+const sourceKey = (src: TodayCardData["imageSource"] | null): string => {
+  if (src == null) return 'null';
+  if (typeof src === 'number') return `static:${src}`;
+  if (typeof src === 'object' && 'uri' in src && typeof src.uri === 'string') {
+    return `uri:${src.uri}`;
+  }
+  return 'unknown';
+};
+
+// ──────────────────────────────────────────────────────────
+// Types
+// ──────────────────────────────────────────────────────────
+
+export interface TodayCardData {
+  kind: "watch" | "explore" | "questions";
+  kicker: string;
+  title: string;
+  minutes: string;
+  pillLabel: string;
+  imageSource?: ImageSource | number;
+  /**
+   * When true, the card swaps its right-side pill for the green
+   * Rewatch / Restart-my-day variant (mock `index.html:1196,1893-1908`).
+   * Per-card so each section's pill flips independently as the user
+   * progresses through watch → explore → questions.
+   */
+  completed?: boolean;
+  /**
+   * Quiz correct-answer count (0..3) once the quiz has been submitted; null
+   * before then. Drives the gold-star row that appears at the top of the
+   * centered card. Same value is forwarded to all three cards so the row
+   * follows whichever is currently centered.
+   */
+  quizCorrectAnswers?: number | null;
+  onPress: () => void;
+}
+
+interface TodayCardDeckProps {
+  cards: [TodayCardData, TodayCardData, TodayCardData];
+  initialCenterIdx?: number;
+  onCenterChange?: (idx: number) => void;
+  /**
+   * Forwarded to each Card so the completed-pill entrance animation only
+   * plays for genuine user-action flips. While `true` (Supabase fetch in
+   * flight, day switch, etc.) the pill snaps to whatever `completed` says
+   * without animating — prevents a Watch→Rewatch flash on screen mount
+   * for already-completed days.
+   */
+  isLoading?: boolean;
+  /**
+   * Hero-dive open animation — additive scale/opacity layered on top of the
+   * carousel's slot transforms for the centered card only. Mock `index.html:1713-1717`:
+   *   gsap.to(centerCard, { scale: 2.1, opacity: 0, duration: 0.55 })
+   * Provided by `useHeroDive` in TodayScreen so the same shared values drive
+   * both the card dive and the lesson crossfade timeline.
+   */
+  heroDiveScale?: SharedValue<number>;
+  heroDiveOpacity?: SharedValue<number>;
+  style?: StyleProp<ViewStyle>;
+}
+
+// ──────────────────────────────────────────────────────────
+// Animation + layout constants (ported from
+// `Downloads/02 daily story/index.html:2102-2200` and Figma 3365:9298)
+// ──────────────────────────────────────────────────────────
+
+// const CARD_WIDTH = 252;
+// const CARD_HEIGHT = 402;
+const CARD_WIDTH = (SCREEN_WIDTH - 28) * 0.7;
+// Card height — "fill available content area" instead of flat 50%.
+// The mock's `0.5 * SCREEN_HEIGHT` works on median 6.1" phones but
+// fails at both extremes because the surrounding chrome (header +
+// week strip + progress bar + pagination dots + RESTART CTA + tab
+// bar + safe-area insets ≈ 460pt) is fixed in pixels — its share of
+// the viewport changes with screen height. On iPhone Pro Max / Z
+// Fold 6 (≥880pt) chrome occupies a smaller fraction → card looks
+// undersized with a visible gap below. On iPhone SE (667pt) chrome
+// occupies a larger fraction → card overflows into the pagination
+// dots and pushes them under the CTA.
+//
+// Strategy: target SCREEN_HEIGHT minus the chrome budget so the card
+// always fills the leftover space, but clamp between 42–55% of the
+// viewport so the proportions stay close to the mock and don't go
+// off the rails on unusual aspect ratios.
+const CHROME_BUDGET = 445;
+const CARD_HEIGHT = Math.max(
+  Math.min(SCREEN_HEIGHT - CHROME_BUDGET, SCREEN_HEIGHT * 0.55),
+  SCREEN_HEIGHT * 0.51,
+);
+const CARD_RADIUS = 32;
+
+const SLOT_OFFSET_X = 60;
+const CENTER_SCALE = 1;
+const SIDE_SCALE = 0.96;
+
+const WRAP_FADE_DURATION_MS = 220;
+const WRAP_FADE_DELAY_MS = 60;
+const CONTENT_FADE_MS = 180;
+const HUM_DURATION_MS = 2600;
+const HUM_SCALE = 1.02;
+
+// Day-switch crossfade — mock `index.html:1980-2056` `renderDayCards()`:
+//   image: dual-layer crossfade, outgoing fades 1→0 over 500ms power2.inOut
+//   title: fade out 200ms power2.out → swap text → fade in 300ms power2.out
+const IMAGE_CROSSFADE_MS = 500;
+const TITLE_FADE_OUT_MS = 200;
+const TITLE_FADE_IN_MS = 300;
+
+// Pagination dots — reveal AFTER the per-card wave settles. Last card
+// (entranceIndex 2) lands at 650 + 2*90 + 550 = 1390ms; rounding to
+// 1400ms gives a few ms of breathing room past the back.out overshoot.
+// 350ms fade-in keeps the dots calm — no overshoot, since the bounce
+// belongs to the cards themselves.
+const DOTS_REVEAL_DELAY_MS = 1400;
+const DOTS_REVEAL_DURATION_MS = 350;
+
+// Slide uses a spring instead of a fixed-duration ease — feels snappier than
+// the mock's `power3.out` 600ms timing, no perceptible "decay tail" at the end.
+const SLIDE_SPRING = {
+  damping: 22,
+  stiffness: 220,
+  mass: 0.9,
+  overshootClamping: false,
+  restDisplacementThreshold: 0.5,
+  restSpeedThreshold: 2,
+};
+
+const SWIPE_THRESHOLD = 40;
+
+const N = 3;
+
+// Slot mapping matches `gsap.utils.wrap(-1, 2, i - centerIdx)` for N=3:
+// returns -1 (left), 0 (center), or 1 (right).
+const slotOf = (cardIdx: number, centerIdx: number): -1 | 0 | 1 => {
+  const s = (((cardIdx - centerIdx + 1) % N) + N) % N;
+  return (s - 1) as -1 | 0 | 1;
+};
+
+const slotTarget = (slot: -1 | 0 | 1) => ({
+  x: slot * SLOT_OFFSET_X,
+  scale: slot === 0 ? CENTER_SCALE : SIDE_SCALE,
+});
+
+// ──────────────────────────────────────────────────────────
+// Play-arrow icon (inline SVG — avoids Figma MCP asset expiry)
+// ──────────────────────────────────────────────────────────
+
+const PlayArrowIcon = ({
+  width = 12,
+  height = 14,
+  color = colors.white,
+}: {
+  width?: number;
+  height?: number;
+  color?: string;
+}) => (
+  <Svg width={width} height={height} viewBox="0 0 12 14" fill="none">
+    <Path d="M0 0 L12 7 L0 14 Z" fill={color} />
+  </Svg>
+);
+
+// ──────────────────────────────────────────────────────────
+// Star row — viewBox + drop shadow live in the SVG XML files
+// (`assets/svg/today/{completed,incomplete}_star.svg`). The XML strings
+// are imported above; rendering is delegated to `<SvgXml>` so we don't
+// duplicate the path / filter markup here.
+// Star entrance — mock `index.html:1898-1901`:
+//   gsap.from(stars, { scale: 0, opacity: 0, ease: 'back.out(2)',
+//                      duration: 0.5, stagger: 0.08 })
+// `back.out(N)` ≡ `Easing.out(Easing.back(N))` in Reanimated, no spring
+// approximation — keeps the overshoot identical to the mock.
+const STAR_ENTRANCE_MS = 500;
+const STAR_STAGGER_MS = 80;
+
+interface StarProps {
+  filled: boolean;
+  visible: boolean;
+  delayMs: number;
+  width: number;
+  height: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+function StarSlot({
+  filled,
+  visible,
+  delayMs,
+  width,
+  height,
+  style,
+}: StarProps) {
+  // Always start collapsed (scale 0, opacity 0) and let the effect drive
+  // the entrance. The parent gates StarSlot mount on `showStars`, so a fresh
+  // mount here means we genuinely want the back.out(2) pop to play.
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      // Entrance — mock `index.html:1898-1901`:
+      //   gsap.from(stars, { scale: 0, opacity: 0,
+      //                      ease: 'back.out(2)', duration: 0.5,
+      //                      stagger: 0.08 })
+      opacity.value = withDelay(
+        safeDuration(delayMs),
+        withTiming(1, {
+          duration: safeDuration(STAR_ENTRANCE_MS),
+          easing: easings.power2Out,
+        })
+      );
+      scale.value = withDelay(
+        safeDuration(delayMs),
+        withTiming(1, {
+          duration: safeDuration(STAR_ENTRANCE_MS),
+          easing: Easing.out(Easing.back(2)),
+        })
+      );
+    } else {
+      // Exit — quick fade for the rare case where `visible` flips back
+      // (e.g. carousel slide between a completed and non-completed day).
+      opacity.value = withTiming(0, { duration: safeDuration(180) });
+      scale.value = withTiming(0, { duration: safeDuration(180) });
+    }
+  }, [visible, delayMs, opacity, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  // Asset choice is the only thing that varies — fills (gold/grey).
+  // Drop shadow is applied via RN native shadow style below (not via
+  // SVG filter), because Android's react-native-svg clips the SVG
+  // filter region inconsistently — the middle star's top ~1/3 was
+  // disappearing on Android Z Fold 6 due to that clip. Native RN
+  // shadow renders the same on both platforms.
+  const xml = filled ? completedStarSvg : incompleteStarSvg;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        style,
+        // Explicit width/height so Yoga has hard dimensions for the
+        // wrapper. Without these, the wrapper would size to SvgXml's
+        // intrinsic content — which Android react-native-svg doesn't
+        // advertise reliably, causing 0×0 layout boxes that get clipped
+        // by ancestor `overflow: hidden`.
+        { width, height, overflow: 'visible' },
+        // Native drop shadow replaces the SVG `<g filter>` we stripped
+        // out of `completedStarSvg` / `incompleteStarSvg`. Values match
+        // the original Figma filter (feOffset dx 1.12 dy 4.47, blur
+        // stdDeviation 1.12, opacity 0.6) — slightly scaled with star
+        // size below.
+        starShadowStyle(width),
+        animatedStyle,
+      ]}
+    >
+      <SvgXml xml={xml} width={width} height={height} />
+    </Animated.View>
+  );
+}
+
+// Star drop-shadow constants — match the SVG filter that was stripped
+// (feOffset 1.12 dy 4.47 + Gaussian blur 1.12 at the original 37px
+// reference width). Scales with star size so the visual weight stays
+// proportional across STAR_LEFT/MID/RIGHT.
+const STAR_SHADOW_REFERENCE_WIDTH = 37;
+const STAR_SHADOW_OFFSET_X = 1.11756;
+const STAR_SHADOW_OFFSET_Y = 4.47023;
+const STAR_SHADOW_BLUR = 1.11756;
+const STAR_SHADOW_OPACITY = 0.6;
+
+function starShadowStyle(width: number) {
+  const scale = width / STAR_SHADOW_REFERENCE_WIDTH;
+  return {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: STAR_SHADOW_OFFSET_X * scale,
+      height: STAR_SHADOW_OFFSET_Y * scale,
+    },
+    shadowOpacity: STAR_SHADOW_OPACITY,
+    shadowRadius: STAR_SHADOW_BLUR * scale,
+    // Android's elevation tracks vertical offset roughly — the original
+    // SVG shadow has dy 4.47, so elevation 4 reads close on Android.
+    elevation: 4,
+  };
+}
+
+// Star-row layout — pixel positions copied verbatim from the mock CSS
+// `index.html:391-393` (and the figma node 3977:10165/10166/10167).
+// Card is 252px wide; left/top values are absolute inside that bounds.
+const STAR_LEFT = { left: 110.96, top: 30.4, w: 35.7, h: 36.7 };
+const STAR_MID = { left: 146.66, top: 17.24, w: 51.0, h: 52.4 };
+const STAR_RIGHT = { left: 197.67, top: 30.4, w: 35.7, h: 36.7 };
+
+// ──────────────────────────────────────────────────────────
+// Card subcomponent
+// ──────────────────────────────────────────────────────────
+
+interface CardProps {
+  data: TodayCardData;
+  isCenter: boolean;
+  zIndex: number;
+  translateX: SharedValue<number>;
+  scale: SharedValue<number>;
+  opacity: SharedValue<number>;
+  // Suppresses the Watch↔Rewatch crossfade while progress is being fetched
+  // or refetched (day switch, app cold-start). Cards still render the
+  // correct pill state — they just snap instead of tween.
+  isLoading: boolean;
+  // Card index in the deck (0..2). Drives the wave-staggered entrance —
+  // mock `index.html:1883-1885` plays `tl.from(cards, { y: 60, duration: 0.55,
+  // ease: 'back.out(1.4)', stagger: 0.09 }, 0.65)` so each card rises 90ms
+  // after the previous, with a back-out overshoot.
+  entranceIndex: number;
+  // Hero-dive open animation, applied only to the centered card. Multiplied
+  // into the existing carousel scale/opacity so the dive composes on top of
+  // whatever slot transform is current. `undefined` on side cards.
+  heroDiveScale?: SharedValue<number>;
+  heroDiveOpacity?: SharedValue<number>;
+  onTap: () => void;
+}
+
+function Card({
+  data,
+  isCenter,
+  zIndex,
+  translateX,
+  scale,
+  opacity,
+  isLoading,
+  entranceIndex,
+  heroDiveScale,
+  heroDiveOpacity,
+  onTap,
+}: CardProps) {
+  const contentOpacity = useSharedValue(isCenter ? 1 : 0);
+  const imageScale = useSharedValue(1);
+
+  // Wave entrance — translateY only (mock uses `tl.from` with `y: 60`,
+  // additive on top of the carousel's existing x/scale). Opacity is NOT
+  // animated here; the carousel's `opacity` shared value already handles
+  // slot visibility, and the mock tween targets only `y`.
+  const entranceTranslateY = useSharedValue(60);
+  useEffect(() => {
+    entranceTranslateY.value = withDelay(
+      safeDuration(650 + entranceIndex * 90),
+      withTiming(0, {
+        duration: safeDuration(550),
+        easing: easings.backOut14,
+      }),
+    );
+    // Mount-only — shared value is created with the entrance offset baked in,
+    // so re-running on re-render would replay the entrance every commit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Per-card completion state — drives the pill swap (green Rewatch /
+  // Restart-my-day) and exposes the quiz correct-answer count to the star
+  // row. Stars only render on the WATCH card (figma 3977:10158); they
+  // stay mounted whenever watch is completed and toggle visibility via the
+  // wrapper's opacity (NOT mount/unmount) so a fresh back-out entrance
+  // doesn't replay every time the user swipes watch in/out of center.
+  //
+  // `stableCompleted` is the value the UI actually renders against — it
+  // mirrors the prop, but ONLY updates while we're not loading. While a
+  // fetch is in flight, the prop can flap (synchronous reset to false
+  // followed by an async response back to true) but `stableCompleted`
+  // sits still, so the pill never flashes Restart→Watch→Restart on a
+  // same-quest refetch. Starts `null` on initial mount so neither pill is
+  // shown until the first load actually settles.
+  const completed = !!data.completed;
+  const [stableCompleted, setStableCompleted] = useState<boolean | null>(
+    null,
+  );
+  useEffect(() => {
+    if (isLoading) return;
+    setStableCompleted(completed);
+  }, [completed, isLoading]);
+  const stableCompletedBool = stableCompleted === true;
+  const quizCorrectAnswers = data.quizCorrectAnswers;
+  const renderStars =
+    stableCompletedBool &&
+    quizCorrectAnswers != null;
+  const completedLabel =
+    data.kind === "watch" ? "Rewatch" : "Restart my day";
+
+  // Star-row visibility — opacity-only, runs on UI thread, doesn't fight
+  // the slide spring or the card hum. The inner StarSlots only animate
+  // their own scale once on mount (the completion-flip entrance).
+  const starsRowOpacity = useSharedValue(isCenter ? 1 : 0);
+  useEffect(() => {
+    starsRowOpacity.value = withTiming(isCenter ? 1 : 0, {
+      duration: safeDuration(180),
+      easing: easings.power2Out,
+    });
+  }, [isCenter, starsRowOpacity]);
+  const starsRowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: starsRowOpacity.value,
+  }));
+
+  // Completed-pill entrance — mock `index.html:1903-1907`:
+  //   gsap.from(rewatch, { opacity: 0, y: 4, ease: 'back.out(1.4)',
+  //                        duration: 0.35 })
+  //
+  // Initial values are all 0 (neither pill visible) until `stableCompleted`
+  // settles for the first time. This avoids the cold-start flash where a
+  // pre-completed day would briefly render the default pill before the
+  // Supabase response snaps it to the green pill.
+  const completedPillOpacity = useSharedValue(0);
+  const completedPillTranslateY = useSharedValue(4);
+  const defaultPillOpacity = useSharedValue(0);
+
+  // First-stable-set tracker. When the Card has never seen a non-loading
+  // value before, the next `stableCompleted` update is treated as a snap
+  // (no animation) — that's either the very first load completing, or a
+  // day-switch settling. Both should appear instantly with the right pill.
+  // Reset to true whenever loading kicks back in so subsequent settles
+  // also snap rather than animate from the previous day's state.
+  const shouldSnapNextRef = useRef(true);
+  useEffect(() => {
+    if (isLoading) shouldSnapNextRef.current = true;
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (stableCompleted === null) {
+      // Still waiting for the first stable load. Pills stay at 0/0/0.
+      return;
+    }
+
+    const target = stableCompleted;
+
+    if (shouldSnapNextRef.current) {
+      // First settle (cold start) or post-load settle (day switch) —
+      // snap to the right pill without playing the back-out crossfade.
+      shouldSnapNextRef.current = false;
+      completedPillOpacity.value = target ? 1 : 0;
+      completedPillTranslateY.value = target ? 0 : 4;
+      defaultPillOpacity.value = target ? 0 : 1;
+      return;
+    }
+
+    // Genuine in-session flip (user finished a section / quiz) → animate.
+    if (target) {
+      // Default pill fades out first (200ms), completed pill rises after a
+      // tiny gap with the back-out overshoot.
+      defaultPillOpacity.value = withTiming(0, {
+        duration: safeDuration(200),
+        easing: easings.power2Out,
+      });
+      completedPillOpacity.value = withDelay(
+        safeDuration(120),
+        withTiming(1, {
+          duration: safeDuration(350),
+          easing: Easing.out(Easing.back(1.4)),
+        })
+      );
+      completedPillTranslateY.value = withDelay(
+        safeDuration(120),
+        withTiming(0, {
+          duration: safeDuration(350),
+          easing: Easing.out(Easing.back(1.4)),
+        })
+      );
+    } else {
+      // Reverse: completed pill drops out, default pill fades back in.
+      completedPillOpacity.value = withTiming(0, {
+        duration: safeDuration(180),
+      });
+      completedPillTranslateY.value = withTiming(4, {
+        duration: safeDuration(180),
+      });
+      defaultPillOpacity.value = withDelay(
+        safeDuration(120),
+        withTiming(1, {
+          duration: safeDuration(220),
+          easing: easings.power2Out,
+        })
+      );
+    }
+  }, [
+    stableCompleted,
+    completedPillOpacity,
+    completedPillTranslateY,
+    defaultPillOpacity,
+  ]);
+
+  const completedPillStyle = useAnimatedStyle(() => ({
+    opacity: completedPillOpacity.value,
+    transform: [{ translateY: completedPillTranslateY.value }],
+  }));
+  const defaultPillStyle = useAnimatedStyle(() => ({
+    opacity: defaultPillOpacity.value,
+  }));
+
+  // Day-switch crossfade — TWO-LAYER PING-PONG state. Stable Animated.View
+  // layers A and B, each holding its own <Image>. The "active" layer renders
+  // at opacity 1, the "inactive" layer at opacity 0. On swap we assign the
+  // new source to the inactive layer (still invisible), wait one frame for
+  // the native image to upload, then crossfade opacities. This avoids the
+  // single-overlay flicker where <Image> source-change leaves a blank frame
+  // mid-transition (expo-image briefly clears between cache reads).
+  type LayerSource = TodayCardData["imageSource"] | null;
+  const [layerASource, setLayerASource] = useState<LayerSource>(
+    data.imageSource ?? null,
+  );
+  const [layerBSource, setLayerBSource] = useState<LayerSource>(null);
+  const layerAOpacity = useSharedValue(1);
+  const layerBOpacity = useSharedValue(0);
+  // Tracks which layer is the currently visible one. Updated inside the
+  // tween scheduler so the swap is committed atomically with the opacity
+  // ping-pong — earlier writes would let `visibleSource` lookups read a
+  // stale layer and mis-assign the next swap.
+  const activeIsARef = useRef(true);
+
+  const [currentTitle, setCurrentTitle] = useState(data.title);
+  const titleOpacity = useSharedValue(1);
+
+  const [currentMinutes, setCurrentMinutes] = useState(data.minutes);
+  const minutesOpacity = useSharedValue(1);
+
+  // Cleanup timers so unmount during a fade doesn't leave dangling setStates
+  const titleSwapTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const titleFadeInTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const minutesSwapTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const crossfadeRafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (crossfadeRafRef.current != null) cancelAnimationFrame(crossfadeRafRef.current);
+      if (titleSwapTimerRef.current) clearTimeout(titleSwapTimerRef.current);
+      if (titleFadeInTimerRef.current) clearTimeout(titleFadeInTimerRef.current);
+      if (minutesSwapTimerRef.current) clearTimeout(minutesSwapTimerRef.current);
+    };
+  }, []);
+
+  // Content fade — mock uses CSS `opacity 0.3s ease` but in RN `power3.out`
+  // reads snappier (decelerates harder, no perceived lag tail).
+  useEffect(() => {
+    contentOpacity.value = withTiming(isCenter ? 1 : 0, {
+      duration: safeDuration(CONTENT_FADE_MS),
+      easing: easings.power3Out,
+    });
+  }, [isCenter, contentOpacity]);
+
+  // Image crossfade — TWO-LAYER PING-PONG (mock `index.html:2013-2034`).
+  //
+  // Both layer Animated.Views are always mounted; only their inner <Image>
+  // sources and opacities change. On each swap:
+  //   1. Compute "visible" source from active layer ref → key compare → bail if same
+  //   2. Prefetch new URL into expo-image cache (skip for static `require()`)
+  //   3. Assign new source to the INACTIVE layer (still at opacity 0,
+  //      invisible — gives expo-image a frame to upload pixels to GPU
+  //      without the user seeing the load in progress)
+  //   4. requestAnimationFrame: flip activeIsARef + tween opacities
+  //      atomically. The rAF gap means React has committed step 3's
+  //      setLayerXSource and the native Image has rendered before any
+  //      visible alpha-blend begins — no blank/placeholder mid-fade.
+  //
+  // Network failures: prefetch `.catch` swallows the rejection; the swap
+  // proceeds anyway so the user isn't stuck on the previous day. expo-image
+  // will render its own error/placeholder state on the inactive layer if
+  // the URL truly can't load.
+  useEffect(() => {
+    const next = data.imageSource ?? null;
+    const visibleSource = activeIsARef.current ? layerASource : layerBSource;
+    if (sourceKey(next) === sourceKey(visibleSource)) return;
+
+    let cancelled = false;
+
+    const fireSwap = () => {
+      if (cancelled) return;
+      const newActiveIsA = !activeIsARef.current;
+
+      // Step 3: assign new source to inactive layer (opacity 0, invisible).
+      if (newActiveIsA) setLayerASource(next);
+      else setLayerBSource(next);
+
+      // Step 4: defer to next vsync so React commits + native uploads
+      // the image before the crossfade tween starts. Without this gap,
+      // the tween could begin while the inactive layer still shows the
+      // previous frame's pixels (or nothing) — visible as a flicker.
+      if (crossfadeRafRef.current != null) {
+        cancelAnimationFrame(crossfadeRafRef.current);
+      }
+      crossfadeRafRef.current = requestAnimationFrame(() => {
+        crossfadeRafRef.current = null;
+        if (cancelled) return;
+        activeIsARef.current = newActiveIsA;
+        const dur = safeDuration(IMAGE_CROSSFADE_MS);
+        const tweenCfg = { duration: dur, easing: easings.power2InOut };
+        if (newActiveIsA) {
+          layerAOpacity.value = withTiming(1, tweenCfg);
+          layerBOpacity.value = withTiming(0, tweenCfg);
+        } else {
+          layerBOpacity.value = withTiming(1, tweenCfg);
+          layerAOpacity.value = withTiming(0, tweenCfg);
+        }
+      });
+    };
+
+    const uri =
+      next != null && typeof next === 'object' && 'uri' in next
+        ? next.uri
+        : undefined;
+
+    if (typeof uri === 'string' && uri.length > 0) {
+      Image.prefetch(uri).catch(() => undefined).finally(fireSwap);
+    } else {
+      fireSwap();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data.imageSource, layerASource, layerBSource, layerAOpacity, layerBOpacity]);
+
+  // Title fade-swap — mock `index.html:2037-2048`. Out 200ms, swap, in 300ms.
+  // Driven by setTimeout chain on JS thread (avoids worklet-callback crash).
+  useEffect(() => {
+    if (data.title === currentTitle) return;
+    const nextTitle = data.title;
+    titleOpacity.value = withTiming(0, {
+      duration: safeDuration(TITLE_FADE_OUT_MS),
+      easing: easings.power2Out,
+    });
+    if (titleSwapTimerRef.current) clearTimeout(titleSwapTimerRef.current);
+    if (titleFadeInTimerRef.current) clearTimeout(titleFadeInTimerRef.current);
+    titleSwapTimerRef.current = setTimeout(() => {
+      setCurrentTitle(nextTitle);
+      titleOpacity.value = withTiming(1, {
+        duration: safeDuration(TITLE_FADE_IN_MS),
+        easing: easings.power2Out,
+      });
+      titleSwapTimerRef.current = null;
+    }, safeDuration(TITLE_FADE_OUT_MS));
+  }, [data.title, currentTitle, titleOpacity]);
+
+  // Minutes fade-swap — same timing as title (200ms out → swap → 300ms in).
+  //
+  // Debounced to avoid the day-switch oscillation: today.tsx's loadProgress
+  // effect synchronously resets watchCompleted/exploreCompleted/questCompleted
+  // to false, then async-fetches Supabase and sets them back. That fires
+  // `data.minutes` twice in quick succession (e.g. "DONE" → "1 MIN" → "DONE")
+  // which would animate the wrong intermediate value. The 350ms debounce
+  // collapses that into a single net animation: if the value returns to the
+  // already-displayed value within the window, we cancel the pending swap and
+  // the user sees no change at all. If it settles on a new value, we animate
+  // once to the latest target.
+  useEffect(() => {
+    // Cancel any pending swap on every effect run; we'll re-schedule below
+    // if needed. This is what makes the second change (Supabase response)
+    // collapse the first change's pending animation.
+    if (minutesSwapTimerRef.current) {
+      clearTimeout(minutesSwapTimerRef.current);
+      minutesSwapTimerRef.current = null;
+    }
+
+    if (data.minutes === currentMinutes) {
+      // Latest target equals what's already on screen — make sure opacity is
+      // restored in case a previous fade-out was in flight.
+      minutesOpacity.value = withTiming(1, {
+        duration: safeDuration(120),
+        easing: easings.power2Out,
+      });
+      return;
+    }
+
+    const nextMinutes = data.minutes;
+    const DEBOUNCE_MS = 350;
+
+    minutesSwapTimerRef.current = setTimeout(() => {
+      // Animate fade-out → swap → fade-in
+      minutesOpacity.value = withTiming(0, {
+        duration: safeDuration(TITLE_FADE_OUT_MS),
+        easing: easings.power2Out,
+      });
+      minutesSwapTimerRef.current = setTimeout(() => {
+        setCurrentMinutes(nextMinutes);
+        minutesOpacity.value = withTiming(1, {
+          duration: safeDuration(TITLE_FADE_IN_MS),
+          easing: easings.power2Out,
+        });
+        minutesSwapTimerRef.current = null;
+      }, safeDuration(TITLE_FADE_OUT_MS));
+    }, DEBOUNCE_MS);
+  }, [data.minutes, currentMinutes, minutesOpacity]);
+
+  // Center card's image "hum" — scale 1 ↔ 1.02 over 2.6s sine.inOut yoyo
+  // (mock `startCenterCardHum()` at `index.html:1934-1938`, scales `.card-bg` not the card).
+  //
+  // Cleanup is critical: the `withRepeat(..., -1, true)` is an infinite
+  // animation. On New Architecture, when the component unmounts (e.g.
+  // sign-out cascade tears down the Clerk → providers → tabs tree),
+  // Reanimated's pending shadow-tree commits race against the
+  // ShadowNodeFamily destructor. Without `cancelAnimation`, the
+  // queued tick keeps targeting a freed node → `convertRawProp<Transform>`
+  // dereferences a stale `unordered_map<RawValue>` → segfault with
+  // pointer-auth failure (KERN_INVALID_ADDRESS at 0x8000000000000008).
+  // Cancelling on unmount drains the worklet queue before the family
+  // is destructed.
+  useEffect(() => {
+    if (isCenter) {
+      imageScale.value = withRepeat(
+        withTiming(HUM_SCALE, {
+          duration: safeDuration(HUM_DURATION_MS),
+          easing: Easing.inOut(Easing.sin),
+        }),
+        -1,
+        true
+      );
+    } else {
+      imageScale.value = withTiming(1, { duration: safeDuration(200) });
+    }
+    return () => {
+      cancelAnimation(imageScale);
+    };
+  }, [isCenter, imageScale]);
+
+  const cardStyle = useAnimatedStyle(() => {
+    // Hero-dive contributions — multiplied INTO the existing carousel scale +
+    // opacity so the dive composes additively on top of whatever slot the
+    // card is currently in. Side cards don't receive these refs (undefined →
+    // identity 1) so only the centered card scales out during the dive.
+    const diveScale = heroDiveScale ? heroDiveScale.value : 1;
+    const diveOpacity = heroDiveOpacity ? heroDiveOpacity.value : 1;
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: entranceTranslateY.value },
+        { scale: scale.value * diveScale },
+      ],
+      opacity: opacity.value * diveOpacity,
+    };
+  });
+
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+  }));
+
+  const imageAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: imageScale.value }],
+  }));
+
+  const layerAStyle = useAnimatedStyle(() => ({
+    opacity: layerAOpacity.value,
+  }));
+  const layerBStyle = useAnimatedStyle(() => ({
+    opacity: layerBOpacity.value,
+  }));
+
+  const titleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+  }));
+
+  const minutesAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: minutesOpacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[styles.cardWrap, { zIndex }, cardStyle]}
+      pointerEvents="box-none"
+    >
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onPress={onTap}
+        style={styles.cardTouchable}
+      >
+        <Animated.View style={[styles.imageLayer, imageAnimatedStyle]}>
+          {/* Two-layer ping-pong. Both layers are ALWAYS mounted so their
+              `useAnimatedStyle` opacity subscriptions are stable across
+              swaps. The inactive layer holds the new image at opacity 0
+              while expo-image uploads pixels — no blank-frame race when
+              the crossfade starts. Inner <Image> stays conditional so
+              an unused slot doesn't render a phantom layer. */}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "#222" }]} />
+          <Animated.View
+            style={[StyleSheet.absoluteFill, layerAStyle]}
+            pointerEvents="none"
+          >
+            {layerASource != null && (
+              <Image
+                source={layerASource}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+            )}
+          </Animated.View>
+          <Animated.View
+            style={[StyleSheet.absoluteFill, layerBStyle]}
+            pointerEvents="none"
+          >
+            {layerBSource != null && (
+              <Image
+                source={layerBSource}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+            )}
+          </Animated.View>
+        </Animated.View>
+
+        {/* Mock gradient: `linear-gradient(31deg, rgba(0,0,0,0.98) 15.9%, rgba(0,0,0,0) 93.2%)` */}
+        <LinearGradient
+          colors={["rgba(0,0,0,0.98)", "rgba(0,0,0,0)"]}
+          locations={[0.159, 0.932]}
+          start={{ x: 0.25, y: 1 }}
+          end={{ x: 0.75, y: 0 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+
+        {/* Star row — top-right of the centered card when the day is complete.
+            Positions are absolute pixel offsets from the card's top-left so
+            the layout matches Figma 3977:10165/10166/10167 verbatim. */}
+        {renderStars && (
+          <Animated.View
+            style={[StyleSheet.absoluteFill, starsRowAnimatedStyle]}
+            pointerEvents="none"
+          >
+            <StarSlot
+              filled={(quizCorrectAnswers ?? 0) >= 1}
+              visible={true}
+              delayMs={0}
+              width={STAR_LEFT.w}
+              height={STAR_LEFT.h}
+              style={{
+                position: "absolute",
+                left: STAR_LEFT.left,
+                top: STAR_LEFT.top,
+              }}
+            />
+            <StarSlot
+              filled={(quizCorrectAnswers ?? 0) >= 2}
+              visible={true}
+              delayMs={STAR_STAGGER_MS}
+              width={STAR_MID.w}
+              height={STAR_MID.h}
+              style={{
+                position: "absolute",
+                left: STAR_MID.left,
+                top: STAR_MID.top,
+              }}
+            />
+            <StarSlot
+              filled={(quizCorrectAnswers ?? 0) >= 3}
+              visible={true}
+              delayMs={STAR_STAGGER_MS * 2}
+              width={STAR_RIGHT.w}
+              height={STAR_RIGHT.h}
+              style={{
+                position: "absolute",
+                left: STAR_RIGHT.left,
+                top: STAR_RIGHT.top,
+              }}
+            />
+          </Animated.View>
+        )}
+
+        <Animated.View
+          style={[styles.content, contentStyle]}
+          pointerEvents={isCenter ? "box-none" : "none"}
+        >
+          <Typography
+            variant="heading.l"
+            color="white"
+            numberOfLines={1}
+            style={styles.kicker}
+          >
+            {data.kicker}
+          </Typography>
+          <Animated.View style={titleAnimatedStyle}>
+            <Typography
+              variant="body.m"
+              color="white"
+              weight="700"
+              numberOfLines={3}
+              style={styles.title}
+            >
+              {currentTitle}
+            </Typography>
+          </Animated.View>
+
+          <View style={styles.bottomRow}>
+            <Animated.View style={minutesAnimatedStyle}>
+              <Typography variant="body.s" weight="600" color="white">
+                {currentMinutes}
+              </Typography>
+            </Animated.View>
+
+            {/* Pill stack — sized by an invisible sizer (the completed
+                label, which is always the wider of the two on every card),
+                so `bottomRow`'s gap to the minutes text is reserved before
+                the user finishes the day. Both visible pills are absolute
+                overlays anchored to the right edge so the crossfade doesn't
+                shift the layout. */}
+            <View style={styles.pillStack}>
+              <View style={[styles.pill, styles.pillSizer]} aria-hidden>
+                <SvgXml xml={rewatchIconSvg} width={14} height={16} />
+                <Typography
+                  variant="body.s"
+                  weight="600"
+                  color="white"
+                >
+                  {completedLabel}
+                </Typography>
+              </View>
+
+              <Animated.View
+                style={[styles.pillOverlay, defaultPillStyle]}
+                pointerEvents={stableCompletedBool ? "none" : "auto"}
+              >
+                <TouchableOpacity
+                  style={styles.pill}
+                  activeOpacity={0.85}
+                  onPress={data.onPress}
+                  disabled={stableCompletedBool}
+                >
+                  <PlayArrowIcon
+                    width={10}
+                    height={12}
+                    color={colors.white}
+                  />
+                  <Typography
+                    variant="body.s"
+                    weight="600"
+                    color="white"
+                  >
+                    {data.pillLabel}
+                  </Typography>
+                </TouchableOpacity>
+              </Animated.View>
+
+              <Animated.View
+                style={[styles.pillOverlay, completedPillStyle]}
+                pointerEvents={stableCompletedBool ? "auto" : "none"}
+              >
+                <TouchableOpacity
+                  style={[styles.pill, styles.completedPill]}
+                  activeOpacity={0.85}
+                  onPress={data.onPress}
+                  disabled={!stableCompletedBool}
+                >
+                  <SvgXml xml={rewatchIconSvg} width={14} height={16} />
+                  <Typography
+                    variant="body.s"
+                    weight="600"
+                    color="white"
+                  >
+                    {completedLabel}
+                  </Typography>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+          </View>
+        </Animated.View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// (Pagination dots have moved to a shared design-system primitive:
+// `components/ui/PaginationDots`. Used by both the home-screen card
+// deck and the in-modal video/image carousel.)
+
+// ──────────────────────────────────────────────────────────
+// Deck (main export)
+// ──────────────────────────────────────────────────────────
+
+export default function TodayCardDeck({
+  cards,
+  initialCenterIdx = 1,
+  onCenterChange,
+  isLoading = false,
+  heroDiveScale,
+  heroDiveOpacity,
+  style,
+}: TodayCardDeckProps) {
+  const [centerIdx, setCenterIdx] = useState(initialCenterIdx);
+  const centerIdxRef = useRef(centerIdx);
+
+  // Walkthrough target — step 2 spotlights the whole deck so the user sees
+  // they can swipe between Watch / Explore / Questions cards. Attached to
+  // the outer Animated.View below.
+  const deckRef = useWalkthroughTarget("deck");
+
+  // Deck-level entrance — slide + fade for the container BEFORE the per-card
+  // wave kicks in. Without this, the deck appears at its final position and
+  // only the cards bounce, which reads as abrupt because RN tabs switch
+  // instantly (no parent screen crossfade like the mock's `goTo` 400ms fade).
+  // 500ms `power2.out` settle ends ~150ms before the wave starts at t=650ms,
+  // giving a deliberate "calm before the bounce" beat. No back-out overshoot
+  // here — the container should feel calm; overshoot is reserved for the
+  // per-card wave so it doesn't fight the bounce.
+  const deckOpacity = useSharedValue(0);
+  const deckTranslateY = useSharedValue(30);
+  useEffect(() => {
+    deckOpacity.value = withTiming(1, {
+      duration: safeDuration(500),
+      easing: easings.power2Out,
+    });
+    deckTranslateY.value = withTiming(0, {
+      duration: safeDuration(500),
+      easing: easings.power2Out,
+    });
+    // Mount-only — initial values bake in the entrance offset, replaying on
+    // re-render would restart the animation every commit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: deckOpacity.value,
+    transform: [{ translateY: deckTranslateY.value }],
+  }));
+
+  // Pagination dots — start hidden, fade in only after the per-card wave
+  // has fully settled (last card at ~1390ms post-mount). Mount-only effect
+  // so the reveal plays once per deck mount, not on every re-render.
+  const dotsOpacity = useSharedValue(0);
+  useEffect(() => {
+    dotsOpacity.value = withDelay(
+      safeDuration(DOTS_REVEAL_DELAY_MS),
+      withTiming(1, {
+        duration: safeDuration(DOTS_REVEAL_DURATION_MS),
+        easing: easings.power2Out,
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const dotsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: dotsOpacity.value,
+  }));
+
+  // Shared values — one per card index, initialized to slots for initialCenterIdx.
+  // Declared in triplicate (hooks can't be called in loops) then grouped as arrays.
+  const x0 = useSharedValue(
+    slotTarget(slotOf(0, initialCenterIdx)).x
+  );
+  const x1 = useSharedValue(
+    slotTarget(slotOf(1, initialCenterIdx)).x
+  );
+  const x2 = useSharedValue(
+    slotTarget(slotOf(2, initialCenterIdx)).x
+  );
+  const sc0 = useSharedValue(
+    slotTarget(slotOf(0, initialCenterIdx)).scale
+  );
+  const sc1 = useSharedValue(
+    slotTarget(slotOf(1, initialCenterIdx)).scale
+  );
+  const sc2 = useSharedValue(
+    slotTarget(slotOf(2, initialCenterIdx)).scale
+  );
+  const op0 = useSharedValue(1);
+  const op1 = useSharedValue(1);
+  const op2 = useSharedValue(1);
+
+  const xs = [x0, x1, x2];
+  const scs = [sc0, sc1, sc2];
+  const ops = [op0, op1, op2];
+
+  const slide = (nextCenterIdx: number, wrapIdx: number | null) => {
+    // Update React state FIRST so zIndex / isCenter reflect the target layout
+    // when the next frame paints. The shared-value writes that follow happen
+    // in the same JS task; React batches the re-render, and Reanimated
+    // schedules tweens on the UI thread — both commit on the same paint.
+    centerIdxRef.current = nextCenterIdx;
+    setCenterIdx(nextCenterIdx);
+    onCenterChange?.(nextCenterIdx);
+
+    for (let i = 0; i < N; i++) {
+      const slot = slotOf(i, nextCenterIdx);
+      const target = slotTarget(slot);
+
+      if (i === wrapIdx) {
+        // CRITICAL ORDER: hide FIRST, then teleport x/scale. Otherwise the UI
+        // thread can paint one frame at the new x with the previous (=1)
+        // opacity — that's the flicker.
+        ops[i].value = 0;
+        xs[i].value = target.x;
+        scs[i].value = target.scale;
+        ops[i].value = withDelay(
+          safeDuration(WRAP_FADE_DELAY_MS),
+          withTiming(1, {
+            duration: safeDuration(WRAP_FADE_DURATION_MS),
+            easing: easings.power2Out,
+          })
+        );
+      } else {
+        xs[i].value = withSpring(target.x, SLIDE_SPRING);
+        scs[i].value = withSpring(target.scale, SLIDE_SPRING);
+        // Don't re-tween opacity if it's already 1 — defensive write only
+        // when an earlier wrap left it mid-tween. Cheap idempotent assignment.
+        ops[i].value = 1;
+      }
+    }
+  };
+
+  const goNext = () => {
+    const current = centerIdxRef.current;
+    const wrapIdx = (current - 1 + N) % N;
+    const next = (current + 1) % N;
+    slide(next, wrapIdx);
+  };
+
+  const goPrev = () => {
+    const current = centerIdxRef.current;
+    const wrapIdx = (current + 1) % N;
+    const prev = (current - 1 + N) % N;
+    slide(prev, wrapIdx);
+  };
+
+  const goToIdx = (targetIdx: number) => {
+    if (targetIdx === centerIdxRef.current) return;
+    // Step one at a time so wrap-teleport stays correct (matches mock:2221-2231)
+    const forward = ((targetIdx - centerIdxRef.current + N) % N) <= N / 2;
+    const steps = forward
+      ? (targetIdx - centerIdxRef.current + N) % N
+      : (centerIdxRef.current - targetIdx + N) % N;
+    for (let s = 0; s < steps; s++) {
+      if (forward) goNext();
+      else goPrev();
+    }
+  };
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-20, 20])
+    .onEnd((event) => {
+      if (Math.abs(event.translationX) > SWIPE_THRESHOLD) {
+        if (event.translationX < 0) scheduleOnRN(goNext);
+        else scheduleOnRN(goPrev);
+      }
+    });
+
+  return (
+    // Outer container hosts the deck-level entrance (`containerAnimatedStyle`
+    // — opacity + translateY 30→0). `collapsable={false}` is Android-only
+    // insurance: without it, RN's view-flattening optimizer can fold this
+    // wrapper into its child when it detects "no native props besides
+    // animated style", which would silently disable the opacity layer.
+    <Animated.View
+      ref={deckRef}
+      style={[styles.container, containerAnimatedStyle, style]}
+      collapsable={false}
+    >
+      <GestureDetector gesture={panGesture}>
+        <View style={styles.deck}>
+          {cards.map((card, i) => {
+            const slot = slotOf(i, centerIdx);
+            const isCenter = slot === 0;
+            return (
+              <Card
+                key={card.kind}
+                data={card}
+                isCenter={isCenter}
+                zIndex={isCenter ? 3 : 1}
+                translateX={xs[i]}
+                scale={scs[i]}
+                opacity={ops[i]}
+                isLoading={isLoading}
+                entranceIndex={i}
+                heroDiveScale={isCenter ? heroDiveScale : undefined}
+                heroDiveOpacity={isCenter ? heroDiveOpacity : undefined}
+                onTap={() => {
+                  if (isCenter) {
+                    card.onPress();
+                  } else {
+                    goToIdx(i);
+                  }
+                }}
+              />
+            );
+          })}
+        </View>
+      </GestureDetector>
+
+      {/* Dots delay-reveal after the wave entrance settles. Wrapped in
+          Animated.View so the opacity tween is local — `containerAnimatedStyle`
+          already finished its own fade by t=500ms, well before the dots
+          should appear. `pointerEvents` gates taps until the dots are
+          visible so users can't accidentally trigger `goToIdx` during
+          the cards' bounce. */}
+      <Animated.View style={dotsAnimatedStyle} pointerEvents="box-none">
+        <PaginationDots
+          count={cards.length}
+          activeIndex={centerIdx}
+          onSelect={goToIdx}
+          style={styles.dotsRow}
+        />
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// Styles
+// ──────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+  },
+  deck: {
+    height: CARD_HEIGHT + 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // The dots row is rendered by PaginationDots; this style only
+  // adds the deck-specific top margin (the row's flex layout is owned
+  // by the shared component).
+  dotsRow: {
+    marginTop: 8,
+  },
+  cardWrap: {
+    position: "absolute",
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: CARD_RADIUS,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.32,
+    shadowRadius: 17,
+    elevation: 12,
+    backgroundColor: "#222",
+  },
+  cardTouchable: {
+    flex: 1,
+  },
+  imageLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  content: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
+    paddingHorizontal: 18,
+    paddingBottom: 20,
+  },
+  kicker: {
+    marginBottom: 4,
+  },
+  title: {
+    marginBottom: 14,
+  },
+  bottomRow: {
+    gap: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  pill: {
+    height: 33,
+    paddingHorizontal: 16,
+    borderRadius: 33,
+    backgroundColor: colors.pinkSecondary, // #C63D78
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  // Pill stack — relative parent. The sizer drives the layout width
+  // (always uses the wider "completed" label so the row's right edge
+  // doesn't shift when the user finishes the day); both visible pills
+  // are absolute overlays anchored to the right edge.
+  pillStack: {
+    position: "relative",
+  },
+  pillSizer: {
+    opacity: 0,
+  },
+  pillOverlay: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  completedPill: {
+    backgroundColor: colors.correctSecondary, // #5B980C — Figma 3977:10162
+  },
+});

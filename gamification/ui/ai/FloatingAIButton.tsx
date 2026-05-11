@@ -5,17 +5,21 @@ import React from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+// `runOnJS` is deprecated in both `react-native-reanimated` and
+// `react-native-worklets` — `scheduleOnRN` is the canonical replacement.
+// Calling convention differs: `runOnJS(fn)(arg)` becomes
+// `scheduleOnRN(fn, arg)` (single call, all args after the function).
+import { scheduleOnRN } from 'react-native-worklets';
 
 const IbnIcon = require('@/assets/images/ai-images/Ibn.png');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MARGIN = 20;
-const BUTTON_SIZE = 60;
+const BUTTON_SIZE = 75;  // 48.7x48.47 from Figma, rounded to 49
 
 const INITIAL_X = SCREEN_WIDTH - BUTTON_SIZE - MARGIN;
 const INITIAL_Y = SCREEN_HEIGHT - BUTTON_SIZE - MARGIN - 100;
@@ -44,7 +48,7 @@ export default function FloatingAIButton({ onPress }: FloatingAIButtonProps) {
       startX.value = translateX.value;
       startY.value = translateY.value;
       console.log('📍 [FloatingAIButton] Start position:', { x: startX.value, y: startY.value });
-      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Light);
+      scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Light);
     })
     .onUpdate((event) => {
       // Update position during drag
@@ -79,7 +83,7 @@ export default function FloatingAIButton({ onPress }: FloatingAIButtonProps) {
       translateX.value = withSpring(snappedX, { damping: 15, stiffness: 150 });
       translateY.value = withSpring(finalY, { damping: 15, stiffness: 150 });
 
-      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
+      scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
     });
 
   const tapGesture = Gesture.Tap()
@@ -90,8 +94,8 @@ export default function FloatingAIButton({ onPress }: FloatingAIButtonProps) {
     .onEnd(() => {
       console.log('✅ [FloatingAIButton] Tap gesture ended - triggering onPress');
       scale.value = withSpring(1, { damping: 15, stiffness: 300 });
-      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
-      runOnJS(onPress)();
+      scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
+      scheduleOnRN(onPress);
     })
     .onFinalize(() => {
       console.log('🏁 [FloatingAIButton] Tap gesture finalized');

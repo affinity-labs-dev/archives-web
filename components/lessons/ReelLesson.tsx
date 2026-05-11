@@ -33,6 +33,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
+import { useDeviceHealthMonitor } from "@/hooks/useDeviceHealthMonitor";
 
 // VideoPlayer status type (expo-video compatible)
 interface VideoPlaybackStatus {
@@ -89,7 +90,7 @@ export default function ReelLesson({
   // Shared lesson setup (analytics, walkthrough check, completion handler)
   const {
     walkthroughEnabled,
-    tracking: { trackVideoPlay, trackVideoPause, trackVideoComplete, trackCardExpanded },
+    tracking: { trackVideoPlay, trackVideoPause, trackVideoComplete, trackCardExpanded, trackDismiss },
     handleLessonComplete,
   } = useLessonBase({
     contentItem,
@@ -101,6 +102,13 @@ export default function ReelLesson({
     eraName,
     onContinue,
   });
+
+  // AFF-618: Monitor device health (memory + CPU) during video playback
+  const { startMonitoring, stopMonitoring } = useDeviceHealthMonitor();
+  useEffect(() => {
+    startMonitoring({ screen: 'ReelLesson', eraId, adventureId, moduleId, lessonId });
+    return () => { stopMonitoring(); };
+  }, [eraId, adventureId, moduleId, lessonId, startMonitoring, stopMonitoring]);
 
   // Video-related states
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
@@ -153,12 +161,16 @@ export default function ReelLesson({
         (videoProgress >= 0.95)) {
       if (!showReadHint) {
         setShowReadHint(true);
-        console.log(`👁️ Read hint shown at ${Math.round(videoProgress * 100)}%`);
+        if (__DEV__) {
+          console.log(`👁️ Read hint shown at ${Math.round(videoProgress * 100)}%`);
+        }
       }
     } else {
       if (showReadHint) {
         setShowReadHint(false);
-        console.log(`👁️ Read hint hidden at ${Math.round(videoProgress * 100)}%`);
+        if (__DEV__) {
+          console.log(`👁️ Read hint hidden at ${Math.round(videoProgress * 100)}%`);
+        }
       }
     }
 
@@ -168,12 +180,16 @@ export default function ReelLesson({
         (videoProgress >= 1.0)) {
       if (!showContinueHint) {
         setShowContinueHint(true);
-        console.log(`👁️ Continue hint shown at ${Math.round(videoProgress * 100)}%`);
+        if (__DEV__) {
+          console.log(`👁️ Continue hint shown at ${Math.round(videoProgress * 100)}%`);
+        }
       }
     } else {
       if (showContinueHint && videoProgress < 1.0) {
         setShowContinueHint(false);
-        console.log(`👁️ Continue hint hidden at ${Math.round(videoProgress * 100)}%`);
+        if (__DEV__) {
+          console.log(`👁️ Continue hint hidden at ${Math.round(videoProgress * 100)}%`);
+        }
       }
     }
   }, [videoProgress, walkthroughEnabled, hasEverExpandedCard, showReadHint, showContinueHint]);
@@ -184,15 +200,26 @@ export default function ReelLesson({
       setShowReadHint(false);
       setShowContinueHint(false);
       setHasEverExpandedCard(true);
-      console.log('👁️ Both hints hidden - card expanded');
+      if (__DEV__) {
+        console.log('👁️ Both hints hidden - card expanded');
+      }
     }
   }, [isCardExpanded, hasEverExpandedCard]);
+
+  // Track video_played once when video first starts (fixes video_completed > video_played inversion)
+  const hasTrackedVideoPlayRef = useRef(false);
 
   // Ultra-Smooth Video Progress System
   const handlePlaybackStatusUpdate = (status: VideoPlaybackStatus) => {
     if (status.isLoaded) {
       if (!isVideoLoaded) {
         setIsVideoLoaded(true);
+      }
+
+      // Fire video_played once when video starts playing
+      if (status.isPlaying && !hasTrackedVideoPlayRef.current) {
+        hasTrackedVideoPlayRef.current = true;
+        trackVideoPlay(status.durationMillis ? Math.floor(status.durationMillis / 1000) : undefined);
       }
 
       if (status.durationMillis && status.positionMillis) {
@@ -247,7 +274,9 @@ export default function ReelLesson({
   // Tap Gesture Handler (cross-platform)
   const handleTapGesture = (event: any) => {
     if (event.nativeEvent.state === State.END) {
-      console.log('👆 Tap detected on reading card');
+      if (__DEV__) {
+        console.log('👆 Tap detected on reading card');
+      }
       if (isCardExpanded) {
         collapseCard();
       } else {
@@ -267,13 +296,17 @@ export default function ReelLesson({
 
       if (!isCardExpanded &&
           (translationY < -minDistance || velocityY < -minVelocity)) {
-        console.log('👆 Swipe up detected - expanding card');
+        if (__DEV__) {
+          console.log('👆 Swipe up detected - expanding card');
+        }
         expandCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       else if (isCardExpanded &&
                (translationY > minDistance || velocityY > minVelocity)) {
-        console.log('👇 Swipe down detected - collapsing card');
+        if (__DEV__) {
+          console.log('👇 Swipe down detected - collapsing card');
+        }
         collapseCard();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
@@ -290,14 +323,19 @@ export default function ReelLesson({
 
       // Swipe right -> Continue (next lesson)
       if (hasFinishedReading && translationX > minDistance && velocityX > minVelocity) {
-        console.log('👉 Swipe right detected - continuing to next');
+        if (__DEV__) {
+          console.log('👉 Swipe right detected - continuing to next');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         handleLessonComplete();
       }
       // Swipe left -> Go back (dismiss)
       else if (translationX < -minDistance && velocityX < -minVelocity) {
-        console.log('👈 Swipe left detected - going back');
+        if (__DEV__) {
+          console.log('👈 Swipe left detected - going back');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        trackDismiss();
         onDismiss();
       }
     }
@@ -453,7 +491,7 @@ export default function ReelLesson({
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {Platform.OS === 'android' && (
-        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+        <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
       )}
 
       <PanGestureHandler
@@ -495,7 +533,7 @@ export default function ReelLesson({
 
         {/* Back Button */}
         <View style={[styles.backButtonContainer, { top: insets.top + 8 }]}>
-          <TouchableOpacity style={styles.backButton} onPress={onDismiss}>
+          <TouchableOpacity style={styles.backButton} onPress={() => { trackDismiss(); onDismiss(); }}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </View>

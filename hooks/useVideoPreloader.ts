@@ -2,12 +2,12 @@
 // Creates VideoPlayer instances that buffer in background before display
 // NOTE: Disabled on Android to prevent decoder exhaustion (max ~4-8 hardware decoders)
 
+import { createVideoPlayer, VideoPlayer } from 'expo-video';
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
-import { createVideoPlayer, VideoPlayer } from 'expo-video';
 
 interface PreloadOptions {
-  enabled?: boolean;  // Allow disabling preload
+  enabled?: boolean; // Allow disabling preload
   maxVideos?: number; // Limit number of videos to preload (default: 2 on Android, 6 on iOS)
 }
 
@@ -22,10 +22,7 @@ interface PreloadOptions {
  * @param videoUrls - Array of video URLs to preload
  * @param options - Configuration options
  */
-export function useVideoPreloader(
-  videoUrls: string[],
-  options: PreloadOptions = {}
-): void {
+export function useVideoPreloader(videoUrls: string[], options: PreloadOptions = {}): void {
   // Android: Limit to 2 to prevent decoder exhaustion, iOS: Allow 6
   const defaultMaxVideos = Platform.OS === 'android' ? 2 : 6;
   const { enabled = true, maxVideos = defaultMaxVideos } = options;
@@ -54,7 +51,9 @@ export function useVideoPreloader(
       return;
     }
 
-    console.log(`🎬 [${Platform.OS}] Preloading ${urlsToPreload.length}/${videoUrls.length} videos (max: ${maxVideos})`);
+    console.log(
+      `🎬 [${Platform.OS}] Preloading ${urlsToPreload.length}/${videoUrls.length} videos (max: ${maxVideos})`
+    );
 
     // Create players for each video URL
     const players: VideoPlayer[] = [];
@@ -78,17 +77,36 @@ export function useVideoPreloader(
     playersRef.current = players;
     console.log(`🎬 Created ${players.length} preload players`);
 
-    // Cleanup: release all players on unmount
+    // Cleanup: safe deferred release to prevent EXC_BAD_ACCESS (REACT-NATIVE-17/1P)
+    // AVPlayer KVO callbacks (onLoadedPlayerItem, currentVideoTrack.didset) may still
+    // be queued on the native run loop when release() frees memory. Pausing first stops
+    // new events, then a 200ms delay lets the run loop drain before freeing.
     return () => {
-      console.log(`🎬 Releasing ${playersRef.current.length} preload players`);
-      for (const player of playersRef.current) {
+      const playersToRelease = [...playersRef.current];
+      playersRef.current = [];
+
+      if (playersToRelease.length === 0) return;
+
+      for (const player of playersToRelease) {
         try {
-          player.release();
-        } catch (error) {
-          // Silently ignore cleanup errors
+          player.pause();
+        } catch (err) {
+          console.warn('🎬 [Preload] player.pause() failed before deferred release:', err);
         }
       }
-      playersRef.current = [];
+
+      // ← 50ms delay: lets AVFoundation KVO queue drain before release() frees native memory
+      // Prevents EXC_BAD_ACCESS (REACT-NATIVE-17/1P) from use-after-free on iOS
+      setTimeout(() => {
+        for (const player of playersToRelease) {
+          try {
+            player.release();
+          } catch (err) {
+            console.warn('🎬 [Preload] player.release() failed (deferred 50ms):', err);
+          }
+        }
+        console.log(`🎬 Released ${playersToRelease.length} preload players (deferred)`);
+      }, 50);
     };
   }, [enabled, videoUrls.join(','), maxVideos]);
 }
@@ -96,7 +114,9 @@ export function useVideoPreloader(
 /**
  * Extract all video URLs from ROI content items
  */
-export function extractVideoUrls(contentList: Array<{ media_url?: string[] | null; content_type?: string }>): string[] {
+export function extractVideoUrls(
+  contentList: { media_url?: string[] | null; content_type?: string }[]
+): string[] {
   const urls: string[] = [];
 
   for (const item of contentList) {

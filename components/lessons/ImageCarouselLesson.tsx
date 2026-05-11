@@ -31,10 +31,11 @@ import LoadingOverlay from "@/components/shared/LoadingOverlay";
 import type { ContentItem } from "@/components/shared/types";
 import RenderHtml from 'react-native-render-html';
 import { LESSON_CONSTANTS } from "./LessonConstants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image as ExpoImage } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
+import AppLogger from '@/services/AppLogger';
+import { analyticsService } from '@/services/AnalyticsService';
+import { networkPerformanceService } from '@/services/NetworkPerformanceService';
 
 // Static dimensions (module-level) - Umayyad Dynasty pattern
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
@@ -74,7 +75,7 @@ export default function ImageCarouselLesson({
   // Shared lesson setup (analytics, walkthrough check, completion handler)
   const {
     walkthroughEnabled,
-    tracking: { trackCardExpanded },
+    tracking: { trackCardExpanded, trackDismiss },
     handleLessonComplete,
   } = useLessonBase({
     contentItem,
@@ -104,6 +105,11 @@ export default function ImageCarouselLesson({
   // Loading state for first image
   const [isFirstImageLoaded, setIsFirstImageLoaded] = useState(false);
 
+  // AFF-579: Track first image load time (only image 0 has an accurate start timestamp)
+  const imageLoadStartRef = useRef<number>(Date.now());
+  const hasTrackedFirstImageLoad = useRef(false);
+  const trackedImageErrors = useRef<Set<number>>(new Set());
+
   // Animation values
   const cardHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
@@ -123,7 +129,9 @@ export default function ImageCarouselLesson({
   useEffect(() => {
     if (walkthroughEnabled && currentImageIndex === images.length - 1) {
       setShowContinueHint(true);
-      console.log('👁️ Continue hint shown - last image reached');
+      if (__DEV__) {
+        console.log('👁️ Continue hint shown - last image reached');
+      }
     } else {
       setShowContinueHint(false);
     }
@@ -131,20 +139,22 @@ export default function ImageCarouselLesson({
 
   // Debug logging for carousel scroll state
   useEffect(() => {
-    console.log(
-      `🎠 Carousel scroll state: ${
-        isCardGestureActive
-          ? "🔒 BLOCKED (card gesture active)"
-          : "✅ ENABLED (can swipe images)"
-      }`
-    );
+    if (__DEV__) {
+      console.log(
+        `🎠 Carousel scroll state: ${
+          isCardGestureActive
+            ? "🔒 BLOCKED (card gesture active)"
+            : "✅ ENABLED (can swipe images)"
+        }`
+      );
+    }
   }, [isCardGestureActive]);
 
   // Safety mechanism: Reset gesture state if stuck
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isCardGestureActive) {
-        console.log("⚠️ Safety reset: Clearing stuck gesture state");
+        AppLogger.warn('content', 'Safety reset: clearing stuck gesture state');
         setIsCardGestureActive(false);
       }
     }, 100);
@@ -166,7 +176,9 @@ export default function ImageCarouselLesson({
   // Tap Gesture Handler (cross-platform)
   const handleTapGesture = (event: any) => {
     if (event.nativeEvent.state === State.END) {
-      console.log('👆 Tap detected on reading card');
+      if (__DEV__) {
+        console.log('👆 Tap detected on reading card');
+      }
       if (isCardExpanded) {
         collapseCard();
       } else {
@@ -182,15 +194,19 @@ export default function ImageCarouselLesson({
 
     if (state === State.BEGAN || state === State.ACTIVE) {
       setIsCardGestureActive(true);
-      console.log("📱 Card gesture started - blocking carousel");
+      if (__DEV__) {
+        console.log("📱 Card gesture started - blocking carousel");
+      }
     }
 
     if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      console.log("📱 Gesture state:", state, {
-        translationY,
-        velocityY,
-        isCardExpanded,
-      });
+      if (__DEV__) {
+        console.log("📱 Gesture state:", state, {
+          translationY,
+          velocityY,
+          isCardExpanded,
+        });
+      }
 
       if (state === State.END) {
         const minDistance = 20;
@@ -200,7 +216,9 @@ export default function ImageCarouselLesson({
           !isCardExpanded &&
           (translationY < -minDistance || velocityY < -minVelocity)
         ) {
-          console.log("📱 Swipe up detected - expanding card");
+          if (__DEV__) {
+            console.log("📱 Swipe up detected - expanding card");
+          }
           expandCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           return;
@@ -208,7 +226,9 @@ export default function ImageCarouselLesson({
           isCardExpanded &&
           (translationY > minDistance || velocityY > minVelocity)
         ) {
-          console.log("📱 Swipe down detected - collapsing card");
+          if (__DEV__) {
+            console.log("📱 Swipe down detected - collapsing card");
+          }
           collapseCard();
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           return;
@@ -216,13 +236,17 @@ export default function ImageCarouselLesson({
       }
 
       setIsCardGestureActive(false);
-      console.log("📱 Gesture ended - carousel re-enabled");
+      if (__DEV__) {
+        console.log("📱 Gesture ended - carousel re-enabled");
+      }
     }
   };
 
   // Expand card
   const expandCard = () => {
-    console.log("🎬 Card expansion starting...");
+    if (__DEV__) {
+      console.log("🎬 Card expansion starting...");
+    }
     setIsCardExpanded(true);
     setShowReadContent(true);
 
@@ -230,7 +254,9 @@ export default function ImageCarouselLesson({
     trackCardExpanded();
 
     setIsCardGestureActive(false);
-    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    if (__DEV__) {
+      console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    }
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -249,12 +275,16 @@ export default function ImageCarouselLesson({
 
   // Collapse card
   const collapseCard = () => {
-    console.log("🎬 Card collapse starting...");
+    if (__DEV__) {
+      console.log("🎬 Card collapse starting...");
+    }
     setIsCardExpanded(false);
     setShowReadContent(false);
 
     setIsCardGestureActive(false);
-    console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    if (__DEV__) {
+      console.log("🎬 Carousel re-enabled IMMEDIATELY ✅");
+    }
 
     Animated.parallel([
       Animated.spring(cardHeight, {
@@ -289,14 +319,19 @@ export default function ImageCarouselLesson({
 
       // Swipe right -> Continue (next lesson) - only when on last image
       if (currentImageIndex === images.length - 1 && translationX > minDistance && velocityX > minVelocity) {
-        console.log('👉 Swipe right detected - continuing to next');
+        if (__DEV__) {
+          console.log('👉 Swipe right detected - continuing to next');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         handleLessonComplete();
       }
       // Swipe left -> Go back (dismiss)
       else if (translationX < -minDistance && velocityX < -minVelocity) {
-        console.log('👈 Swipe left detected - going back');
+        if (__DEV__) {
+          console.log('👈 Swipe left detected - going back');
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        trackDismiss();
         onDismiss();
       }
     }
@@ -305,7 +340,7 @@ export default function ImageCarouselLesson({
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {Platform.OS === "android" && (
-        <StatusBar barStyle="dark-content" backgroundColor="#F4EBDB" />
+        <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
       )}
       <PanGestureHandler
         ref={horizontalSwipeRef}
@@ -337,10 +372,38 @@ export default function ImageCarouselLesson({
                   source={{ uri: imageUrl }}
                   style={styles.carouselImage}
                   resizeMode="cover"
-                  onLoad={index === 0 ? () => {
-                    setIsFirstImageLoaded(true);
-                    console.log('🖼️ First image loaded');
-                  } : undefined}
+                  onLoad={() => {
+                    if (index === 0) {
+                      setIsFirstImageLoaded(true);
+                      AppLogger.info('content', 'First carousel image loaded');
+
+                      // AFF-579: Track load time for first image only (accurate start timestamp)
+                      if (!hasTrackedFirstImageLoad.current) {
+                        hasTrackedFirstImageLoad.current = true;
+                        const loadTimeMs = Date.now() - imageLoadStartRef.current;
+                        analyticsService.trackImageLoadTime({
+                          load_time_ms: loadTimeMs,
+                          image_url: imageUrl,
+                          image_index: 0,
+                          total_images: images.length,
+                          cdn_domain: networkPerformanceService.extractCDNDomain(imageUrl),
+                          is_first_image: true,
+                        });
+                      }
+                    }
+                  }}
+                  onError={(e) => {
+                    // AFF-579: Track CDN image errors (once per image)
+                    if (!trackedImageErrors.current.has(index)) {
+                      trackedImageErrors.current.add(index);
+                      analyticsService.trackCDNError({
+                        media_type: 'image',
+                        url: imageUrl,
+                        cdn_domain: networkPerformanceService.extractCDNDomain(imageUrl),
+                        error_message: e.nativeEvent?.error || 'image_load_failed',
+                      });
+                    }
+                  }}
                 />
 
                 {/* Text overlay with caption */}

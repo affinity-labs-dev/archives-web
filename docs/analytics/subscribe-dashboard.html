@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archives — Subscribe Analytics Dashboard (AFF-857)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+    background: #fafafa;
+    color: #333;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 40px 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 32px; font-weight: 700; margin-bottom: 6px; }
+  h2 { font-size: 22px; font-weight: 600; margin-top: 40px; margin-bottom: 16px; }
+  h3 { font-size: 16px; font-weight: 600; margin-top: 24px; margin-bottom: 12px; }
+  .subtitle { font-size: 14px; color: #888; margin-bottom: 24px; }
+
+  /* API key bar */
+  .api-bar {
+    background: #1e1e2e; color: #cdd6f4; border-radius: 10px;
+    padding: 16px 20px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .api-bar label { font-size: 13px; font-weight: 600; color: #89b4fa; white-space: nowrap; }
+  .api-bar input {
+    flex: 1; min-width: 260px; padding: 8px 12px; border-radius: 6px;
+    border: 1px solid #45475a; background: #313244; color: #cdd6f4;
+    font-family: 'SF Mono', monospace; font-size: 13px;
+  }
+  .api-bar input::placeholder { color: #6c7086; }
+  .api-bar button {
+    padding: 8px 18px; border-radius: 6px; border: none; cursor: pointer;
+    font-weight: 600; font-size: 13px; transition: background 0.2s;
+  }
+  .btn-connect { background: #a6e3a1; color: #1e1e2e; }
+  .btn-connect:hover { background: #94e2d5; }
+  .btn-refresh { background: #89b4fa; color: #1e1e2e; }
+  .btn-refresh:hover { background: #74c7ec; }
+  .btn-clear { background: #f38ba8; color: #1e1e2e; }
+  .btn-clear:hover { background: #eba0ac; }
+  .api-status { font-size: 12px; margin-left: 8px; }
+  .status-ok { color: #a6e3a1; }
+  .status-err { color: #f38ba8; }
+  .status-loading { color: #f9e2af; }
+
+  .mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; margin-bottom: 8px; }
+  thead th { background: #f5f5f5; text-align: left; padding: 10px 14px; border-bottom: 2px solid #ddd; font-weight: 600; }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid #eee; vertical-align: top; }
+  tbody tr:hover td { background: #f9f9f9; }
+
+  .summary-box { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+  .summary-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 20px; text-align: center; }
+  .summary-card .value { font-size: 36px; font-weight: 700; }
+  .summary-card .label { font-size: 13px; color: #888; margin-top: 4px; }
+  .summary-card.green .value { color: #16a34a; }
+  .summary-card.blue .value { color: #2563eb; }
+
+  hr { border: none; border-top: 1px solid #ddd; margin: 40px 0; }
+  ol, ul { padding-left: 24px; }
+  ol li, ul li { margin-bottom: 8px; }
+
+  .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+  .dash-card {
+    background: #fff; border: 1px solid #e5e5e5; border-radius: 10px;
+    padding: 20px; position: relative;
+  }
+  .dash-card.full { grid-column: 1 / -1; }
+  .dash-card h4 { font-size: 14px; font-weight: 600; color: #555; margin-bottom: 12px; }
+  .dash-card .metric { font-size: 42px; font-weight: 700; color: #111; }
+  .dash-card .metric-sub { font-size: 13px; color: #888; margin-top: 4px; }
+
+  .funnel-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .funnel-label { width: 220px; font-size: 13px; font-weight: 500; flex-shrink: 0; }
+  .funnel-bar-bg { flex: 1; height: 26px; background: #f0f0f0; border-radius: 6px; overflow: hidden; }
+  .funnel-bar-fill { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+  .funnel-pct { width: 70px; text-align: right; font-size: 13px; font-weight: 600; color: #555; }
+
+  .how-to {
+    background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 8px;
+    padding: 12px 16px; margin-top: 12px; font-size: 13px;
+  }
+
+  .loading { color: #ccc !important; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #eee; font-size: 13px; color: #aaa; }
+  @media (max-width: 768px) {
+    .summary-box { grid-template-columns: repeat(2, 1fr); }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .api-bar { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Subscribe Analytics Dashboard</h1>
+<p class="subtitle">AFF-857 &middot; PostHog Project 93650 &middot; <span id="refresh-time">Not yet loaded</span></p>
+
+<!-- API Key Bar -->
+<div class="api-bar">
+  <label>PostHog API Key:</label>
+  <input type="password" id="api-key" placeholder="phx_... (personal API key from PostHog Settings &rarr; Personal API Keys)" />
+  <button class="btn-connect" onclick="connectAndFetch()">Connect &amp; Load</button>
+  <button class="btn-refresh" onclick="fetchAllData()" style="display:none" id="btn-refresh">Refresh</button>
+  <button class="btn-clear" onclick="clearKey()">Clear Key</button>
+  <span class="api-status" id="api-status"></span>
+</div>
+
+<hr>
+
+<!-- Event Counts Table -->
+<h2>Live Data (Last 30 Days)</h2>
+<p style="font-size:14px; color:#666; margin-bottom:20px;">Real production data from PostHog. Numbers update on each page load.</p>
+
+<div class="dashboard-grid">
+  <div class="dash-card full">
+    <h4>Subscribe Flow Events (30-day totals)</h4>
+    <table>
+      <thead>
+        <tr><th>Event</th><th style="text-align:right">Count (30d)</th><th>What It Tracks</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="mono">subscribe_screen_viewed</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-subscribe_screen_viewed" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">Paywall screen shown to user</td>
+        </tr>
+        <tr>
+          <td><span class="mono">subscribe_purchase_started</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-subscribe_purchase_started" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">User taps subscribe / buy button</td>
+        </tr>
+        <tr>
+          <td><span class="mono">subscribe_purchase_completed</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-subscribe_purchase_completed" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">Purchase transaction successful</td>
+        </tr>
+        <tr>
+          <td><span class="mono">subscribe_purchase_failed</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-subscribe_purchase_failed" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">Purchase transaction failed (error)</td>
+        </tr>
+        <tr>
+          <td><span class="mono">subscribe_purchase_cancelled</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-subscribe_purchase_cancelled" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">User cancelled during purchase flow</td>
+        </tr>
+        <tr>
+          <td><span class="mono">subscribe_restore_tapped</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-subscribe_restore_tapped" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">User taps Restore Purchases</td>
+        </tr>
+        <tr>
+          <td><span class="mono">subscribe_restore_success</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-subscribe_restore_success" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">Restore found active subscription</td>
+        </tr>
+        <tr>
+          <td><span class="mono">subscribe_restore_failed</span></td>
+          <td style="text-align:right; font-weight:700;" id="cnt-subscribe_restore_failed" class="loading">&mdash;</td>
+          <td style="font-size:13px; color:#888;">Restore failed or found nothing</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Conversion Funnel -->
+  <div class="dash-card full">
+    <h4>Conversion Funnel: Viewed &rarr; Started &rarr; Completed</h4>
+    <div id="funnel-conversion">
+      <p class="loading" style="font-size:13px; padding:20px 0;">Connect PostHog API key to load funnel data...</p>
+    </div>
+    <p style="font-size:12px; color:#888; margin-top:12px;"><strong>Note:</strong> These are absolute event counts, not a per-user funnel. Use PostHog Funnel insight with unique users for true conversion rates.</p>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Funnel &rarr; <code>subscribe_screen_viewed</code> &rarr; <code>subscribe_purchase_started</code> &rarr; <code>subscribe_purchase_completed</code> &middot; Unique users &middot; 7 day window
+    </div>
+  </div>
+
+  <!-- Failure Rate -->
+  <div class="dash-card">
+    <h4>Purchase Failure Rate</h4>
+    <div class="metric" id="metric-failure-rate" class="loading">&mdash;</div>
+    <div class="metric-sub" id="metric-failure-sub"></div>
+    <p style="font-size:12px; color:#888; margin-top:8px;"><code>subscribe_purchase_failed</code> / <code>subscribe_purchase_started</code></p>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; Formula: <code>B / A</code> where A = <code>subscribe_purchase_started</code>, B = <code>subscribe_purchase_failed</code>
+    </div>
+  </div>
+
+  <!-- Restore Success Rate -->
+  <div class="dash-card">
+    <h4>Restore Success Rate</h4>
+    <div class="metric" id="metric-restore-rate" class="loading">&mdash;</div>
+    <div class="metric-sub" id="metric-restore-sub"></div>
+    <p style="font-size:12px; color:#888; margin-top:8px;"><code>subscribe_restore_success</code> / <code>subscribe_restore_tapped</code></p>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; Formula: <code>B / A</code> where A = <code>subscribe_restore_tapped</code>, B = <code>subscribe_restore_success</code>
+    </div>
+  </div>
+
+  <!-- View-to-Start Rate -->
+  <div class="dash-card">
+    <h4>View &rarr; Purchase Start Rate</h4>
+    <div class="metric" id="metric-view-start-rate" class="loading">&mdash;</div>
+    <div class="metric-sub" id="metric-view-start-sub"></div>
+    <p style="font-size:12px; color:#888; margin-top:8px;">% of paywall viewers who tap subscribe</p>
+  </div>
+
+  <!-- Start-to-Complete Rate -->
+  <div class="dash-card">
+    <h4>Start &rarr; Purchase Complete Rate</h4>
+    <div class="metric" id="metric-start-complete-rate" class="loading">&mdash;</div>
+    <div class="metric-sub" id="metric-start-complete-sub"></div>
+    <p style="font-size:12px; color:#888; margin-top:8px;">% of purchase attempts that succeed</p>
+  </div>
+
+  <!-- Trigger Breakdown -->
+  <div class="dash-card full">
+    <h4>Paywall Trigger Breakdown (subscribe_screen_viewed by trigger)</h4>
+    <div id="breakdown-trigger">
+      <p class="loading" style="font-size:13px;">Connect PostHog API key to load breakdown data...</p>
+    </div>
+    <div class="how-to">
+      <strong>PostHog UI:</strong> Trends &rarr; <code>subscribe_screen_viewed</code> &rarr; Breakdown: <code>trigger</code>
+    </div>
+  </div>
+
+</div>
+
+<hr>
+
+<!-- Questions this answers -->
+<h2>Questions This Data Answers</h2>
+
+<h3>1. How many users see the paywall?</h3>
+<ol>
+  <li><strong>Total paywall impressions:</strong> &mdash; <code>subscribe_screen_viewed</code> count</li>
+  <li><strong>Unique users:</strong> &mdash; Use PostHog Trends with unique users math on <code>subscribe_screen_viewed</code></li>
+</ol>
+
+<h3>2. What triggers bring users to the paywall?</h3>
+<ol>
+  <li><strong>Trigger distribution:</strong> &mdash; Breakdown <code>subscribe_screen_viewed</code> by <code>trigger</code> property</li>
+  <li><strong>Most effective trigger:</strong> &mdash; Compare trigger breakdown against <code>subscribe_purchase_completed</code> with same breakdown</li>
+</ol>
+
+<h3>3. What % start a purchase after viewing?</h3>
+<ol>
+  <li><strong>View-to-start rate:</strong> &mdash; <code>subscribe_purchase_started</code> / <code>subscribe_screen_viewed</code></li>
+  <li><strong>Per-user funnel:</strong> &mdash; PostHog Funnel: <code>subscribe_screen_viewed</code> &rarr; <code>subscribe_purchase_started</code></li>
+</ol>
+
+<h3>4. What % complete the purchase?</h3>
+<ol>
+  <li><strong>Start-to-complete rate:</strong> &mdash; <code>subscribe_purchase_completed</code> / <code>subscribe_purchase_started</code></li>
+  <li><strong>Overall conversion:</strong> &mdash; <code>subscribe_purchase_completed</code> / <code>subscribe_screen_viewed</code></li>
+</ol>
+
+<h3>5. What is the purchase failure rate?</h3>
+<ol>
+  <li><strong>Failure rate:</strong> &mdash; <code>subscribe_purchase_failed</code> / <code>subscribe_purchase_started</code></li>
+  <li><strong>Cancel vs fail:</strong> &mdash; Compare <code>subscribe_purchase_cancelled</code> vs <code>subscribe_purchase_failed</code> to distinguish user-initiated vs technical failures</li>
+</ol>
+
+<h3>6. How often do users restore purchases?</h3>
+<ol>
+  <li><strong>Restore attempt rate:</strong> &mdash; <code>subscribe_restore_tapped</code> / <code>subscribe_screen_viewed</code></li>
+  <li><strong>Restore success rate:</strong> &mdash; <code>subscribe_restore_success</code> / <code>subscribe_restore_tapped</code></li>
+  <li><strong>Restore failure rate:</strong> &mdash; <code>subscribe_restore_failed</code> / <code>subscribe_restore_tapped</code></li>
+</ol>
+
+<div class="footer">
+  Archives Subscribe Flow Analytics &middot; AFF-857
+</div>
+
+</div>
+
+<script>
+const PH_HOST = 'https://eu.posthog.com';
+const PH_PROJECT = 93650;
+const STORAGE_KEY = 'ph_dashboard_api_key';
+
+function getKey() { return localStorage.getItem(STORAGE_KEY) || ''; }
+function setKey(k) { localStorage.setItem(STORAGE_KEY, k); }
+function clearKey() {
+  localStorage.removeItem(STORAGE_KEY);
+  document.getElementById('api-key').value = '';
+  setStatus('Key cleared', 'err');
+  document.getElementById('btn-refresh').style.display = 'none';
+}
+function setStatus(msg, type) {
+  const el = document.getElementById('api-status');
+  el.textContent = msg;
+  el.className = 'api-status status-' + (type || 'ok');
+}
+
+async function phQuery(hogql) {
+  const key = getKey();
+  if (!key) throw new Error('No API key');
+  const res = await fetch(`${PH_HOST}/api/projects/${PH_PROJECT}/query/`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: { kind: 'HogQLQuery', query: hogql } })
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`PostHog API ${res.status}: ${txt.slice(0, 200)}`);
+  }
+  return (await res.json()).results || [];
+}
+
+function fmt(n) { return n != null ? Number(n).toLocaleString() : '\u2014'; }
+function pct(a, b) { return b > 0 ? Math.round((a / b) * 100) : 0; }
+
+function connectAndFetch() {
+  const input = document.getElementById('api-key').value.trim();
+  if (!input) { setStatus('Please enter an API key', 'err'); return; }
+  setKey(input);
+  fetchAllData();
+}
+
+function renderFunnelBars(containerId, items) {
+  const container = document.getElementById(containerId);
+  if (!items || items.length === 0) {
+    container.innerHTML = '<p style="font-size:13px; color:#888;">No data yet</p>';
+    return;
+  }
+  const max = Math.max(...items.map(i => i.count));
+  container.innerHTML = items.map(item => {
+    const w = max > 0 ? Math.round((item.count / max) * 100) : 0;
+    return `<div class="funnel-bar-row">
+      <span class="funnel-label" style="${item.style || ''}">${item.label}</span>
+      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:${w}%; background:${item.color};"></div></div>
+      <span class="funnel-pct" style="${item.pctStyle || ''}">${item.display || fmt(item.count)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderBreakdown(containerId, rows, color) {
+  const container = document.getElementById(containerId);
+  if (!rows || rows.length === 0) {
+    container.innerHTML = '<p style="font-size:13px; color:#888;">No data yet</p>';
+    return;
+  }
+  const max = Math.max(...rows.map(r => r[1]));
+  const total = rows.reduce((s, r) => s + r[1], 0);
+  container.innerHTML = rows.map(([label, count]) => {
+    const w = max > 0 ? Math.round((count / max) * 100) : 0;
+    const p = pct(count, total);
+    return `<div class="funnel-bar-row">
+      <span class="funnel-label">${label || '(empty)'}</span>
+      <div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:${w}%; background:${color};"></div></div>
+      <span class="funnel-pct">${fmt(count)} (${p}%)</span>
+    </div>`;
+  }).join('');
+}
+
+function setRate(metricId, subId, numerator, denominator, color) {
+  const rate = pct(numerator, denominator);
+  const el = document.getElementById(metricId);
+  el.textContent = denominator > 0 ? rate + '%' : '\u2014';
+  el.style.color = denominator > 0 ? color : '#ccc';
+  el.classList.remove('loading');
+  if (subId) {
+    document.getElementById(subId).textContent = denominator > 0 ? `${fmt(numerator)} / ${fmt(denominator)}` : '';
+  }
+}
+
+async function fetchAllData() {
+  const key = getKey();
+  if (!key) { setStatus('Enter API key first', 'err'); return; }
+
+  setStatus('Loading...', 'loading');
+  document.getElementById('btn-refresh').style.display = 'inline-block';
+
+  try {
+    const [
+      eventCounts,
+      triggerBreakdown
+    ] = await Promise.all([
+      phQuery(`
+        SELECT event, count() as cnt
+        FROM events
+        WHERE timestamp > now() - interval 30 day
+          AND event IN (
+            'subscribe_screen_viewed',
+            'subscribe_purchase_started',
+            'subscribe_purchase_completed',
+            'subscribe_purchase_failed',
+            'subscribe_purchase_cancelled',
+            'subscribe_restore_tapped',
+            'subscribe_restore_success',
+            'subscribe_restore_failed'
+          )
+        GROUP BY event
+        ORDER BY cnt DESC
+      `),
+      phQuery(`
+        SELECT properties.trigger as trigger_value, count() as cnt
+        FROM events
+        WHERE timestamp > now() - interval 30 day
+          AND event = 'subscribe_screen_viewed'
+        GROUP BY trigger_value
+        ORDER BY cnt DESC
+      `).catch(() => [])
+    ]);
+
+    // --- Populate event counts ---
+    const counts = {};
+    eventCounts.forEach(([event, cnt]) => { counts[event] = cnt; });
+
+    const allEvents = [
+      'subscribe_screen_viewed',
+      'subscribe_purchase_started',
+      'subscribe_purchase_completed',
+      'subscribe_purchase_failed',
+      'subscribe_purchase_cancelled',
+      'subscribe_restore_tapped',
+      'subscribe_restore_success',
+      'subscribe_restore_failed'
+    ];
+    allEvents.forEach(ev => {
+      const el = document.getElementById('cnt-' + ev);
+      if (el) {
+        el.textContent = fmt(counts[ev] || 0);
+        el.classList.remove('loading');
+      }
+    });
+
+    // --- Conversion funnel ---
+    const viewed = counts['subscribe_screen_viewed'] || 0;
+    const started = counts['subscribe_purchase_started'] || 0;
+    const completed = counts['subscribe_purchase_completed'] || 0;
+
+    const funnelItems = [
+      { label: 'subscribe_screen_viewed', count: viewed, color: '#6366f1' },
+      { label: 'subscribe_purchase_started', count: started, color: '#3b82f6', display: `${fmt(started)} (${pct(started, viewed)}% of viewed)` },
+      { label: 'subscribe_purchase_completed', count: completed, color: '#16a34a', display: `${fmt(completed)} (${pct(completed, viewed)}% of viewed)` },
+    ];
+    renderFunnelBars('funnel-conversion', funnelItems);
+
+    // --- Rate cards ---
+    // Failure rate
+    const failed = counts['subscribe_purchase_failed'] || 0;
+    setRate('metric-failure-rate', 'metric-failure-sub', failed, started, '#ef4444');
+
+    // Restore success rate
+    const restoreTapped = counts['subscribe_restore_tapped'] || 0;
+    const restoreSuccess = counts['subscribe_restore_success'] || 0;
+    setRate('metric-restore-rate', 'metric-restore-sub', restoreSuccess, restoreTapped, '#16a34a');
+
+    // View-to-start rate
+    setRate('metric-view-start-rate', 'metric-view-start-sub', started, viewed, '#3b82f6');
+
+    // Start-to-complete rate
+    setRate('metric-start-complete-rate', 'metric-start-complete-sub', completed, started, '#16a34a');
+
+    // --- Trigger breakdown ---
+    renderBreakdown('breakdown-trigger', triggerBreakdown, '#6366f1');
+
+    // --- Timestamp ---
+    document.getElementById('refresh-time').textContent = new Date().toLocaleString();
+    setStatus('Loaded successfully', 'ok');
+
+  } catch (err) {
+    console.error('PostHog fetch error:', err);
+    setStatus('Error: ' + err.message, 'err');
+  }
+}
+
+// Auto-load on page open if key exists
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = getKey();
+  if (saved) {
+    document.getElementById('api-key').value = saved;
+    fetchAllData();
+  }
+});
+</script>
+
+</body>
+</html>

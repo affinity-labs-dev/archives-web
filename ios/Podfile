@@ -51,9 +51,6 @@ target 'Archives' do
     :privacy_file_aggregation_enabled => podfile_properties['apple.privacyManifestAggregationEnabled'] != 'false',
   )
 
-# --- CustomerIO Host App START ---
-  pod 'customerio-reactnative/apn', :path => '../node_modules/customerio-reactnative'
-# --- CustomerIO Host App END ---
   post_install do |installer|
     react_native_post_install(
       installer,
@@ -63,9 +60,17 @@ target 'Archives' do
     )
   end
 end
-# --- CustomerIO Notification START ---
-target 'NotificationService' do
-  use_frameworks! :linkage => :static
-  pod 'customerio-reactnative-richpush/apn', :path => '../node_modules/customerio-reactnative'
+
+
+# apple-targets-extension-loader -- Dynamic loading of target configurations
+Dir.glob(File.join(__dir__, '..', 'targets', '**', 'pods.rb')).each do |target_file|
+  target_name = File.basename(File.dirname(target_file))
+  target target_name do
+    # Create a new binding with access to necessary methods and variables
+    target_binding = binding
+    target_binding.local_variable_set(:podfile_properties, podfile_properties)
+
+    # Evaluate the target file content in the new binding
+    eval(File.read(target_file), target_binding, target_file)
+  end
 end
-# --- CustomerIO Notification END ---

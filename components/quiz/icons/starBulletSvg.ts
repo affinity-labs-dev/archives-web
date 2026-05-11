@@ -1,0 +1,7 @@
+// Inline SVG XML for the 4-point star bullet used in the AIQuizExplanation
+// paywall feature list. Sourced from assets/svg/question/star-bullet.svg.
+// Native size 13×13; render via SvgXml at the consumer's preferred size.
+
+export const starBulletSvg = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M5.18771 0.742575C5.45337 -0.244106 6.85327 -0.244107 7.11893 0.742575L7.91282 3.69112C8.00548 4.03527 8.2743 4.30409 8.61845 4.39675L11.567 5.19064C12.5537 5.4563 12.5537 6.8562 11.567 7.12186L8.61845 7.91575C8.2743 8.00841 8.00548 8.27723 7.91282 8.62138L7.11893 11.5699C6.85327 12.5566 5.45337 12.5566 5.18771 11.5699L4.39382 8.62138C4.30116 8.27723 4.03234 8.00841 3.68819 7.91575L0.739645 7.12186C-0.247036 6.8562 -0.247036 5.4563 0.739645 5.19064L3.68819 4.39675C4.03234 4.30409 4.30116 4.03527 4.39382 3.69112L5.18771 0.742575Z" fill="#8C60CD"/>
+</svg>`;

@@ -2,45 +2,34 @@
 // Shows welcome message with camel image and continues to questionnaire
 
 import ArchivesTheme from '@/constants/ArchivesTheme'
+import OnboardingQuestionLayout from '@/components/onboarding/OnboardingQuestionLayout'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { analyticsService } from '@/services/AnalyticsService'
+import AppLogger from '@/services/AppLogger'
 import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import {
   Image,
   Platform,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
 export default function OnboardingWelcomeScreen() {
   const router = useRouter()
   const { trackScreenView } = useAnalytics()
-  const [screenStartTime] = useState(Date.now())
-  const [exitAction, setExitAction] = useState<'back_button' | 'continued' | 'app_closed'>('app_closed')
 
-  console.log('📱 [OnboardingWelcome] Component initializing...')
+  AppLogger.info('navigation', 'OnboardingWelcome initializing')
 
   // Track screen view when component mounts
   useEffect(() => {
     trackScreenView('Onboarding Welcome')
 
-    // Track screen exit on unmount
-    return () => {
-      const duration_seconds = Math.floor((Date.now() - screenStartTime) / 1000)
-      analyticsService.trackOnboardingScreenExited({
-        screen: 'onboarding_welcome',
-        exit_action: exitAction,
-        duration_seconds,
-      })
-    }
-  }, [trackScreenView, screenStartTime, exitAction])
+  }, [trackScreenView])
 
   // Continue to first question
   const handleContinue = async () => {
@@ -49,24 +38,16 @@ export default function OnboardingWelcomeScreen() {
       if (Platform.OS === 'ios') {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
       }
-      console.log('📱 [OnboardingWelcome] Continuing to first question')
-      setExitAction('continued')
+      AppLogger.info('navigation', 'OnboardingWelcome continuing to Q1')
       router.replace('/onboarding-question-1')
     } catch (error) {
-      console.error('📱 [OnboardingWelcome] Error navigating:', error)
-      setExitAction('continued')
+      AppLogger.error('navigation', 'OnboardingWelcome navigation error', {}, error)
       router.replace('/onboarding-question-1')
     }
   }
 
   return (
-    <>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={ArchivesTheme.colors.creamWhite}
-        translucent={false}
-      />
-      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? 10 : 0 }]}>
+    <OnboardingQuestionLayout activeStep={0} screenName="onboarding_welcome" showProgressBar={false}>
         <View style={styles.content}>
           {/* Speech Bubble */}
           <View style={styles.speechBubble}>
@@ -118,7 +99,7 @@ export default function OnboardingWelcomeScreen() {
           {/* Camel Image */}
           <View style={styles.imageContainer}>
             <Image
-              source={require('@/assets/images/quiz-images/Camel.png')}
+              source={require('@/assets/images/ai-images/hellocharacter.png')}
               style={styles.camelImage}
               resizeMode="contain"
             />
@@ -138,16 +119,11 @@ export default function OnboardingWelcomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
-    </>
+    </OnboardingQuestionLayout>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ArchivesTheme.colors.creamWhite,
-  },
   content: {
     flex: 1,
     alignItems: 'center',
@@ -196,11 +172,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 30,
   },
   camelImage: {
-    width: 180,
-    height: 260,
+    width: 158,
+    height: 229,
   },
   spacer: {
     height: 40,

@@ -466,7 +466,6 @@ export function VideoRewardPlayer({ correctAnswers }: VideoRewardPlayerProps) {
 
   const player = useCelebrationVideoPlayer(videoSource, player => {
     player.loop = false
-    player.play()
   })
 
   // Track when video is ready
@@ -488,7 +487,7 @@ export function VideoRewardPlayer({ correctAnswers }: VideoRewardPlayerProps) {
         style={styles.videoRewardPlayer}
         nativeControls={false}
         contentFit="contain"
-        allowsFullscreen={false}
+        fullscreenOptions={{ enable: false }}
         allowsPictureInPicture={false}
       />
     </View>
