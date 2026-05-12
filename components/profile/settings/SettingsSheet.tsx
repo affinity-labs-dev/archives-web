@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Platform, Pressable, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,7 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimatedEntrance } from '@/components/ui/animations/AnimatedEntrance';
 import { StaggerGroup } from '@/components/ui/animations/StaggerGroup';
 import type { EntranceConfig } from '@/components/ui/animations';
-import { colors, easings } from '@/components/ui/theme';
+import { Typography } from '@/components/ui/Typography';
+import { colors, easings, spacing, radius } from '@/components/ui/theme';
+
+import { useGamificationOrchestrator } from '@/gamification';
 
 import { AnimatedDivider } from './AnimatedDivider';
 import { DeleteAccountRow } from './DeleteAccountRow';
@@ -200,6 +203,8 @@ export function SettingsSheet({
         <AnimatedEntrance preset={ROW_PRESET} delay={DELETE_DELAY}>
           <DeleteAccountRow onDelete={onDeleteAccount} />
         </AnimatedEntrance>
+
+        {__DEV__ && <DevStreakPanel onCloseSheet={onClose} />}
       </Animated.ScrollView>
     </SafeAreaView>
   );
@@ -230,3 +235,90 @@ export function SettingsSheet({
     </Modal>
   );
 }
+
+function DevStreakPanel({ onCloseSheet }: { onCloseSheet: () => void }) {
+  const {
+    streak,
+    longestStreak,
+    streakShields,
+    shieldUsedToday,
+    shieldEarnedToday,
+    simulateMissedDay,
+  } = useGamificationOrchestrator();
+
+  const handleSimulateMissed = () => {
+    onCloseSheet();
+    setTimeout(() => simulateMissedDay(), 500);
+  };
+
+  return (
+    <View style={devStyles.container}>
+      <AnimatedDivider />
+      <View style={devStyles.titleRow}>
+        <Typography family="onest" weight="700" size={12} color="incorrectSecondary" align="center" uppercase letterSpacing={1.2}>
+          Dev Mode — Streak Freeze
+        </Typography>
+      </View>
+
+      <View style={devStyles.row}>
+        <Typography family="onest" weight="500" size={14} color="textMuted">Current Streak</Typography>
+        <Typography family="onest" weight="600" size={14} color="onyx">{streak}</Typography>
+      </View>
+      <View style={devStyles.row}>
+        <Typography family="onest" weight="500" size={14} color="textMuted">Longest Streak</Typography>
+        <Typography family="onest" weight="600" size={14} color="onyx">{longestStreak}</Typography>
+      </View>
+      <View style={devStyles.row}>
+        <Typography family="onest" weight="500" size={14} color="textMuted">Shields</Typography>
+        <Typography family="onest" weight="600" size={14} color="onyx">
+          {'\u{1F6E1}\uFE0F'.repeat(streakShields)}{'\u26AA'.repeat(3 - streakShields)} ({streakShields}/3)
+        </Typography>
+      </View>
+      <View style={devStyles.row}>
+        <Typography family="onest" weight="500" size={14} color="textMuted">Shield Used Today</Typography>
+        <Typography family="onest" weight="600" size={14} color={shieldUsedToday ? 'correctSecondary' : 'onyx'}>
+          {shieldUsedToday ? 'Yes' : 'No'}
+        </Typography>
+      </View>
+      <View style={devStyles.row}>
+        <Typography family="onest" weight="500" size={14} color="textMuted">Shield Earned Today</Typography>
+        <Typography family="onest" weight="600" size={14} color={shieldEarnedToday ? 'correctSecondary' : 'onyx'}>
+          {shieldEarnedToday ? 'Yes' : 'No'}
+        </Typography>
+      </View>
+
+      <TouchableOpacity style={devStyles.button} onPress={handleSimulateMissed} activeOpacity={0.8}>
+        <Typography family="onest" weight="700" size={15} color="white">
+          Simulate Missed Day
+        </Typography>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const devStyles = StyleSheet.create({
+  container: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.xs,
+  },
+  titleRow: {
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+  },
+  button: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    backgroundColor: colors.incorrectSecondary,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+});

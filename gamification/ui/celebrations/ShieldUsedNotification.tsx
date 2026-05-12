@@ -1,10 +1,13 @@
-// Shield Used Notification - Duolingo-style notification when shield auto-protects streak
-// Matches Duolingo's streak display design with large number, visual widgets, and green button
+// Shield Used Notification - Modal notification when shield auto-protects streak
+// Design matches v5.0 celebration system (card-based, Typography, DepthButton)
 
+import { DepthButton, Typography } from '@/components/ui';
+import { colors, radius, spacing } from '@/components/ui/theme';
 import { analyticsService } from '@/services/AnalyticsService';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 
 interface ShieldUsedNotificationProps {
   visible: boolean;
@@ -29,61 +32,75 @@ export default function ShieldUsedNotification({
     }
   }, [visible, currentStreak, remainingShields]);
 
-  // Render shield slots (3 total, show filled/empty based on remaining)
-  const renderShieldSlots = () => {
-    const slots = [];
-    for (let i = 0; i < 3; i++) {
-      const isFilled = i < remainingShields;
-      slots.push(
-        <View key={i} style={styles.shieldSlot}>
-          <Text style={[styles.shieldSlotIcon, !isFilled && styles.shieldSlotEmpty]}>
-            {isFilled ? '🛡️' : '⚪'}
-          </Text>
-        </View>
-      );
-    }
-    return slots;
-  };
-
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent={true}
-      statusBarTranslucent
-    >
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent>
       <View style={styles.overlay}>
         <View style={styles.card}>
-          {/* Shield Icon at Top */}
-          <Text style={styles.topIcon}>🛡️</Text>
-
-          {/* Large Streak Number - Duolingo Style */}
-          <Text style={styles.streakNumber}>{currentStreak}</Text>
-
-          {/* "day streak saved!" Text */}
-          <Text style={styles.streakText}>day streak saved!</Text>
-
-          {/* Shield Slots Widget */}
-          <View style={styles.shieldWidget}>
-            <View style={styles.shieldSlotsContainer}>
-              {renderShieldSlots()}
-            </View>
-            <Text style={styles.shieldWidgetLabel}>Shields Remaining</Text>
+          {/* Shield icon */}
+          <View style={styles.iconCircle}>
+            <Ionicons name="shield-checkmark" size={40} color={colors.blueSecondary} />
           </View>
 
-          {/* Motivational Orange Text */}
-          <Text style={styles.motivationalText}>
-            A shield protected your progress!{'\n'}Keep learning to earn more.
-          </Text>
+          {/* Streak number */}
+          <Typography family="bounded" weight="900" size={64} color="acaiPrimary" align="center">
+            {currentStreak}
+          </Typography>
 
-          {/* Duolingo-style Green Button */}
-          <TouchableOpacity
-            style={styles.continueButton}
-            onPress={onClose}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.continueButtonText}>CONTINUE</Text>
-          </TouchableOpacity>
+          {/* Label */}
+          <Typography family="bounded" weight="900" size={20} color="onyx" align="center" uppercase>
+            Day Streak Saved!
+          </Typography>
+
+          {/* Shield slots */}
+          <View style={styles.shieldSlotsCard}>
+            <View style={styles.shieldSlotsRow}>
+              {[0, 1, 2].map((i) => {
+                const isFilled = i < remainingShields;
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.shieldSlot,
+                      isFilled ? styles.shieldSlotFilled : styles.shieldSlotEmpty,
+                    ]}
+                  >
+                    <Ionicons
+                      name={isFilled ? 'shield-checkmark' : 'shield-half'}
+                      size={24}
+                      color={isFilled ? colors.acaiSecondary : 'rgba(255,255,255,0.35)'}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+            <Typography family="onest" weight="600" size={12} extraColor="rgba(255,255,255,0.7)" align="center">
+              Shields Remaining
+            </Typography>
+          </View>
+
+          {/* Message */}
+          <View style={styles.messageRow}>
+            <Typography family="onest" weight="500" size={14} color="textMuted" align="center">
+              A shield protected your progress!{'\n'}Keep learning to earn more.
+            </Typography>
+          </View>
+
+          {/* Continue */}
+          <View style={styles.ctaRow}>
+            <DepthButton
+              surfaceColor="onyx"
+              shadowColor="white"
+              borderColor="onyx"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onClose();
+              }}
+            >
+              <Typography variant="label.m" color="white">
+                CONTINUE
+              </Typography>
+            </DepthButton>
+          </View>
         </View>
       </View>
     </Modal>
@@ -101,96 +118,60 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 32,
+    backgroundColor: colors.white,
+    borderRadius: radius.xxl,
+    paddingTop: 36,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
-    shadowRadius: 16,
+    shadowRadius: 24,
     elevation: 8,
   },
-  topIcon: {
-    fontSize: 56,
-    marginBottom: 16,
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.acaiTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
   },
-  streakNumber: {
-    fontFamily: 'DM Sans',
-    fontSize: 80,
-    fontWeight: '800',
-    color: '#2B3F6C', // Duolingo navy blue
-    textAlign: 'center',
-    marginBottom: 4,
-    lineHeight: 88,
-  },
-  streakText: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#2B3F6C',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  shieldWidget: {
+  shieldSlotsCard: {
     width: '100%',
-    backgroundColor: '#454F63', // Dark navy background like Duolingo calendar
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
+    backgroundColor: colors.acaiPrimary,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
     alignItems: 'center',
   },
-  shieldSlotsContainer: {
+  shieldSlotsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 8,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   shieldSlot: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  shieldSlotIcon: {
-    fontSize: 32,
+  shieldSlotFilled: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   shieldSlotEmpty: {
-    opacity: 0.3,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  shieldWidgetLabel: {
-    fontFamily: 'DM Sans',
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    opacity: 0.7,
-    textAlign: 'center',
+  messageRow: {
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  motivationalText: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FF9600', // Duolingo orange
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  continueButton: {
+  ctaRow: {
     width: '100%',
-    height: 52,
-    backgroundColor: '#58A700', // Duolingo green
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  continueButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
 });

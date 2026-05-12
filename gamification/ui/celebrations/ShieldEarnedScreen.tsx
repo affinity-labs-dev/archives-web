@@ -1,15 +1,15 @@
-// Shield Earned Screen - Celebration screen for earning streak shields
-// Shows shield icon, streak info, and congratulatory message
+// Shield Earned Screen - Full-screen celebration when user earns a streak shield
+// Design matches v5.0 celebration system (StreakCelebrationScreen pattern)
 
-import ArchivesTheme from '@/constants/ArchivesTheme';
+import { DepthButton, Typography } from '@/components/ui';
+import { colors, radius, spacing } from '@/components/ui/theme';
 import { analyticsService } from '@/services/AnalyticsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+import React, { useEffect } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ShieldEarnedScreenProps {
   currentStreak: number;
@@ -18,84 +18,130 @@ interface ShieldEarnedScreenProps {
 }
 
 export default function ShieldEarnedScreen({ currentStreak, totalShields, onContinue }: ShieldEarnedScreenProps) {
-  // Track shield earned event
+  const insets = useSafeAreaInsets();
+
   useEffect(() => {
     analyticsService.trackCustomEvent('shield_earned', {
       current_streak: currentStreak,
       total_shields: totalShields,
     });
-    console.log(`📊 [Analytics] Shield Earned: ${currentStreak} day streak, ${totalShields}/3 shields`);
-
-    // Haptic feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, [currentStreak, totalShields]);
 
   const handleContinue = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     analyticsService.trackCustomEvent('shield_earned_dismissed', {
       current_streak: currentStreak,
     });
-
-    if (onContinue) {
-      onContinue();
-    }
+    onContinue?.();
   };
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#0C4A6E', '#0284C7', '#38BDF8']}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        colors={[colors.acaiPrimary, colors.acaiDeep, colors.acaiSecondary]}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
       />
 
-      {/* Close Button */}
-      <TouchableOpacity style={styles.closeButton} onPress={handleContinue}>
-        <Ionicons name="close" size={28} color="white" />
-      </TouchableOpacity>
+      <View style={[styles.safe, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        {/* Close button */}
+        <Pressable style={styles.closeButton} hitSlop={16} onPress={handleContinue}>
+          <Ionicons name="close" size={28} color={colors.white} />
+        </Pressable>
 
-      {/* Main Content */}
-      <View style={styles.contentContainer}>
-        {/* Shield Icon */}
-        <View style={styles.shieldContainer}>
-          <Text style={styles.shieldEmoji}>🛡️</Text>
-          <View style={styles.sparkleContainer}>
-            <Text style={styles.sparkle}>✨</Text>
-            <Text style={[styles.sparkle, styles.sparkleDelay1]}>✨</Text>
-            <Text style={[styles.sparkle, styles.sparkleDelay2]}>✨</Text>
+        {/* Center content */}
+        <View style={styles.contentColumn}>
+          <View style={styles.card}>
+            {/* Shield icon */}
+            <View style={styles.iconContainer}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="shield-checkmark" size={56} color={colors.acaiSecondary} />
+              </View>
+            </View>
+
+            {/* Title */}
+            <Typography
+              family="bounded"
+              weight="900"
+              size={28}
+              align="center"
+              uppercase
+              extraColor={colors.onyx}
+            >
+              Shield Earned!
+            </Typography>
+
+            {/* Subtitle */}
+            <View style={styles.subtitleRow}>
+              <Typography family="onest" weight="600" size={16} color="textMuted" align="center">
+                Perfect week complete
+              </Typography>
+            </View>
+
+            {/* Shield slots */}
+            <View style={styles.shieldSlotsRow}>
+              {[0, 1, 2].map((i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.shieldSlot,
+                    i < totalShields ? styles.shieldSlotFilled : styles.shieldSlotEmpty,
+                  ]}
+                >
+                  <Ionicons
+                    name={i < totalShields ? 'shield-checkmark' : 'shield-half'}
+                    size={28}
+                    color={i < totalShields ? colors.acaiSecondary : colors.concreteGrey}
+                  />
+                </View>
+              ))}
+            </View>
+
+            {/* Stats */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Typography family="onest" weight="700" size={28} color="acaiPrimary" align="center">
+                  {currentStreak}
+                </Typography>
+                <Typography family="onest" weight="500" size={12} color="textMuted" align="center">
+                  Day Streak
+                </Typography>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Typography family="onest" weight="700" size={28} color="acaiPrimary" align="center">
+                  {totalShields}/3
+                </Typography>
+                <Typography family="onest" weight="500" size={12} color="textMuted" align="center">
+                  Shields
+                </Typography>
+              </View>
+            </View>
+
+            {/* Description */}
+            <View style={styles.descriptionRow}>
+              <Typography family="onest" weight="500" size={14} color="textMuted" align="center">
+                Shields protect your streak if you miss a day. Keep learning to earn more!
+              </Typography>
+            </View>
           </View>
         </View>
 
-        {/* Title */}
-        <Text style={styles.title}>Shield Earned!</Text>
-
-        {/* Subtitle */}
-        <Text style={styles.subtitle}>Perfect Week Complete! 🎉</Text>
-
-        {/* Stats Card */}
-        <View style={styles.statsCard}>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Current Streak</Text>
-            <Text style={styles.statValue}>{currentStreak} days 🔥</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Total Shields</Text>
-            <Text style={styles.statValue}>{totalShields}/3 🛡️</Text>
-          </View>
+        {/* CTA button */}
+        <View style={styles.ctaSlot}>
+          <DepthButton
+            surfaceColor="onyx"
+            shadowColor="white"
+            borderColor="onyx"
+            onPress={handleContinue}
+          >
+            <Typography variant="label.m" color="white">
+              CONTINUE
+            </Typography>
+          </DepthButton>
         </View>
-
-        {/* Description */}
-        <Text style={styles.description}>
-          Shields protect your streak if you miss a day. Keep learning to earn more!
-        </Text>
-
-        {/* Continue Button */}
-        <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>Continue</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -104,135 +150,92 @@ export default function ShieldEarnedScreen({ currentStreak, totalShields, onCont
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0C4A6E',
+    backgroundColor: colors.acaiPrimary,
   },
-  gradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+  safe: {
+    flex: 1,
   },
   closeButton: {
     position: 'absolute',
-    top: SCREEN_HEIGHT * 0.06,
-    right: 20,
-    zIndex: 10,
+    top: 56,
+    right: 24,
+    zIndex: 100,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  contentContainer: {
+  contentColumn: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xxl,
+    paddingTop: 40,
+    paddingBottom: 28,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  iconContainer: {
+    marginBottom: spacing.md,
+  },
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: colors.acaiTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subtitleRow: {
+    marginTop: spacing.xxs,
+    marginBottom: spacing.lg,
+  },
+  shieldSlotsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  shieldSlot: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shieldSlotFilled: {
+    backgroundColor: colors.acaiTertiary,
+  },
+  shieldSlotEmpty: {
+    backgroundColor: '#F0F0F0',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: spacing.md,
+  },
+  statItem: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
   },
-  shieldContainer: {
-    position: 'relative',
-    marginBottom: 32,
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: colors.border,
   },
-  shieldEmoji: {
-    fontSize: 120,
-    textAlign: 'center',
+  descriptionRow: {
+    paddingHorizontal: spacing.sm,
   },
-  sparkleContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  sparkle: {
-    position: 'absolute',
-    fontSize: 32,
-    opacity: 0.8,
-  },
-  sparkleDelay1: {
-    top: -10,
-    right: -10,
-  },
-  sparkleDelay2: {
-    bottom: -10,
-    left: -10,
-  },
-  title: {
-    fontFamily: 'Cormorant-Bold',
-    fontSize: 48,
-    fontWeight: '700',
-    color: 'white',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'DM Sans',
-    fontSize: 20,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  statsCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginVertical: 12,
-  },
-  statLabel: {
-    fontFamily: 'DM Sans',
-    fontSize: 16,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  statValue: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '700',
-    color: 'white',
-  },
-  description: {
-    fontFamily: 'DM Sans',
-    fontSize: 14,
-    fontWeight: '400',
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 32,
-    paddingHorizontal: 16,
-  },
-  continueButton: {
-    width: '100%',
-    height: 56,
-    backgroundColor: 'white',
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  continueButtonText: {
-    fontFamily: 'DM Sans',
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0C4A6E',
+  ctaSlot: {
+    paddingHorizontal: 20,
+    paddingBottom: spacing.md,
   },
 });

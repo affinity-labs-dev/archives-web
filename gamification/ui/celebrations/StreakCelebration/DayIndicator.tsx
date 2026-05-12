@@ -12,7 +12,7 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 
 interface DayIndicatorProps {
-  state: 'done' | 'missed' | 'pending';
+  state: 'done' | 'missed' | 'shielded' | 'pending';
   isToday: boolean;
   scale: SharedValue<number>;
   opacity: SharedValue<number>;
@@ -63,11 +63,24 @@ export function DayIndicator({
     );
   }
 
+  if (state === 'shielded') {
+    // Shielded day — streak was saved by a freeze shield (ice blue circle + shield icon)
+    return (
+      <Animated.View style={[styles.dayCircle, styles.dayCircleShielded, wrapStyle]}>
+        <Animated.View style={checkStyle}>
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M12 2L4 6V12C4 16.42 7.39 20.53 12 22C16.61 20.53 20 16.42 20 12V6L12 2Z"
+              fill="#fff"
+              fillOpacity={0.9}
+            />
+          </Svg>
+        </Animated.View>
+      </Animated.View>
+    );
+  }
+
   if (state === 'missed') {
-    // Cross-platform missed indicator — em-dash via <Text> rendered
-    // inconsistently on Android (font-metric / includeFontPadding
-    // quirks shift the dash off-center). A 10×2 white View centered
-    // in the circle is pixel-identical on iOS + Android.
     return (
       <Animated.View style={[styles.dayCircle, styles.dayCircleMissed, wrapStyle]}>
         <View style={styles.missedDash} />
@@ -97,6 +110,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 5,
+  },
+  dayCircleShielded: {
+    backgroundColor: '#3B82F6', // Ice blue for shield-protected day
   },
   dayCircleMissed: {
     backgroundColor: '#999999',

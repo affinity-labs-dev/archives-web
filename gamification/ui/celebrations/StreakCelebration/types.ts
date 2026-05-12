@@ -5,6 +5,7 @@ export interface WeekDay {
   completed: boolean;
   missed: boolean;
   isToday: boolean;
+  shielded?: boolean; // Day was saved by a streak freeze shield
 }
 
 export interface StreakCelebrationScreenProps {

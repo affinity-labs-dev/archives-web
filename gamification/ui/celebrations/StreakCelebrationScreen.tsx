@@ -283,12 +283,14 @@ export default function StreakCelebrationScreen({
                   ))}
                 </Animated.View>
                 <View style={styles.weekIndicatorsRow}>
-                  {weekData.map(({ day, completed, missed, isToday }, idx) => {
-                    const state: 'done' | 'missed' | 'pending' = completed
-                      ? 'done'
-                      : missed
-                        ? 'missed'
-                        : 'pending';
+                  {weekData.map(({ day, completed, missed, shielded, isToday }, idx) => {
+                    const state: 'done' | 'missed' | 'shielded' | 'pending' = shielded
+                      ? 'shielded'
+                      : completed
+                        ? 'done'
+                        : missed
+                          ? 'missed'
+                          : 'pending';
                     return (
                       <DayIndicator
                         key={day}
@@ -296,8 +298,8 @@ export default function StreakCelebrationScreen({
                         isToday={isToday}
                         scale={anim.dayScales[idx]}
                         opacity={anim.dayOpacities[idx]}
-                        checkScale={state === 'done' ? anim.checkScales[idx] : undefined}
-                        checkOpacity={state === 'done' ? anim.checkOpacities[idx] : undefined}
+                        checkScale={state === 'done' || state === 'shielded' ? anim.checkScales[idx] : undefined}
+                        checkOpacity={state === 'done' || state === 'shielded' ? anim.checkOpacities[idx] : undefined}
                       />
                     );
                   })}
