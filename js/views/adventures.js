@@ -41,9 +41,9 @@ export default function adventuresView(app, params) {
         `;
       }).join('');
 
-      app.innerHTML = renderHeader(escapeHtml(eraTitle), '/', [
+      app.innerHTML = renderHeader(eraTitle, '/', [
             { label: 'Home', hash: '/' },
-            { label: escapeHtml(eraTitle) }
+            { label: eraTitle }
           ]) + `
         <div class="adventures">
           <div class="adventures__hero">

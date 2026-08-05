@@ -51,10 +51,10 @@ export default function lessonView(app, { readableId, moduleIndex }) {
     const hasQuiz = mod.questions && mod.questions.length > 0;
     const hasBgMusic = !!mod.background_music_url;
 
-    var advTitle = escapeHtml(adv.adventure_title?.replace(/\r?\n/g, ' '));
-    var modTitle = escapeHtml(mod.thumbnail_title || 'Module ' + (idx + 1));
+    var advTitle = (adv.adventure_title?.replace(/\r?\n/g, ' '));
+    var modTitle = mod.thumbnail_title || 'Module ' + (idx + 1);
     var eraId = adv.era_id || 'prophets';
-    var eraName = escapeHtml((adv.card_content && adv.card_content.era_name) || eraId);
+    var eraName = (adv.card_content && adv.card_content.era_name) || eraId;
 
     app.innerHTML = `
       ${renderHeader(modTitle, backHash, [

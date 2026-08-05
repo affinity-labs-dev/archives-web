@@ -55,10 +55,9 @@ export default function quizView(app, { readableId, moduleIndex }) {
     }
 
     const questions = mod.questions;
-    const advTitle = escapeHtml(adv.adventure_title?.replace(/\r?\n/g, ' '));
-    const modTitle = escapeHtml(mod.thumbnail_title || 'Module ' + (idx + 1));
+    const advTitle = (adv.adventure_title?.replace(/\r?\n/g, ' '));
     const eraId = adv.era_id || 'prophets';
-    const eraName = escapeHtml((adv.card_content && adv.card_content.era_name) || eraId);
+    const eraName = (adv.card_content && adv.card_content.era_name) || eraId;
     let current = 0;
     let score = 0;
     let incorrectAnswers = [];

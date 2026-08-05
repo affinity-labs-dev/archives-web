@@ -48,7 +48,9 @@ export default function adventureDetailView(app, params) {
     }
 
     var eraId = adv.era_id || 'prophets';
-    var title = escapeHtml(adv.adventure_title?.replace(/\r?\n/g, ' '));
+    // titleRaw goes to renderHeader (which escapes); title is for our own HTML.
+    var titleRaw = (adv.adventure_title?.replace(/\r?\n/g, ' '));
+    var title = escapeHtml(titleRaw);
     var bgImage = sanitizeUrl((adv.card_content && adv.card_content.background_image) || adv.icon_url);
     var iconUrl = sanitizeUrl(adv.icon_url);
     var story = (adv.card_content && adv.card_content.adventure_story) || '';
@@ -79,7 +81,7 @@ export default function adventureDetailView(app, params) {
         + '</div></div></div>';
     }).join('');
 
-    var eraName = escapeHtml((adv.card_content && adv.card_content.era_name) || eraId);
+    var eraName = (adv.card_content && adv.card_content.era_name) || eraId;
 
     // Find next module to continue/start
     var nextModuleIdx = null;
@@ -114,7 +116,7 @@ export default function adventureDetailView(app, params) {
     app.innerHTML = renderHeader(eraName, '/era/' + encodeURIComponent(eraId), [
           { label: 'Home', hash: '/' },
           { label: eraName, hash: '/era/' + encodeURIComponent(eraId) },
-          { label: title }
+          { label: titleRaw }
         ])
       + '<div class="detail-wrap">'
       + '<div class="detail-hero">'

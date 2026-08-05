@@ -49,7 +49,7 @@ export default function dailyView(app, params) {
 
     var c;
     try { c = typeof entry.content === 'string' ? JSON.parse(entry.content) : entry.content; } catch (e) { c = null; }
-    var storyTitle = escapeHtml(c.today_title || 'Today\'s Story');
+    var storyTitle = (c.today_title || 'Today\'s Story');
     var dayNum = escapeHtml(c.day_number || '');
 
     // Determine which steps exist
@@ -73,7 +73,7 @@ export default function dailyView(app, params) {
     html += '<div class="ds__progress"><div class="ds__progress-fill" id="ds-progress"></div></div>';
     html += '<div class="ds__header">';
     if (dayNum) html += '<div class="ds__day">Day ' + dayNum + '</div>';
-    html += '<h1 class="ds__title">' + storyTitle + '</h1>';
+    html += '<h1 class="ds__title">' + escapeHtml(storyTitle) + '</h1>';
 
     // Step indicator pills
     html += '<div class="ds__steps">';
