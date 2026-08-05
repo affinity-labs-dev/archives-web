@@ -1,9 +1,18 @@
-/** Escape HTML entities to prevent XSS when inserting text into innerHTML */
+/**
+ * Escape HTML entities before inserting text into innerHTML.
+ *
+ * Quotes are escaped too: most call sites interpolate into quoted attributes
+ * (`data-era="' + escapeHtml(x) + '"`), and the older textContent/innerHTML
+ * approach left " and ' intact, which lets a value break out of the attribute.
+ */
 export function escapeHtml(str) {
   if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = String(str);
-  return div.innerHTML;
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /** Sanitize CMS HTML — allows formatting tags, strips scripts/events */

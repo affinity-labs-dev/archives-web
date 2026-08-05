@@ -1,0 +1,9 @@
+# Archives web app - Supabase Edge Functions
+# Project: kcgihainlnntshupiztu (same project as the app's REST reads)
+project_id = "archives-web"
+
+[functions.restore-entitlement]
+# The caller presents a Clerk session JWT, not a Supabase one. The function
+# verifies it itself against Clerk's JWKS, so the platform gateway must not
+# reject the request first.
+verify_jwt = false

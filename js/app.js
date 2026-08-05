@@ -1,4 +1,4 @@
-import { route, startRouter } from './router.js';
+import { route, startRouter, forceResolve } from './router.js';
 import { initClerk, isSignedIn, mountSignIn, mountUserMenu } from './auth.js';
 import { initPurchases } from './services/revenuecat.js';
 import { initSync } from './services/sync.js';
@@ -52,10 +52,20 @@ function startApp(clerk) {
     userBtnEl.className = 'header__user';
     document.body.appendChild(userBtnEl);
   }
+  // Must run BEFORE mountUserMenu: initPurchases seeds the cached entitlement
+  // synchronously (everything before its first await), so the menu and the
+  // first route render both see the right status. Mounting the menu first left
+  // a paying subscriber looking at a "Free" pill for the whole session.
+  initPurchases(clerk.user.id).catch(function(err) { console.warn('RevenueCat init:', err); });
+
   mountUserMenu(userBtnEl);
 
-  // Init RevenueCat for premium entitlements (fire-and-forget)
-  initPurchases(clerk.user.id).catch(function(err) { console.warn('RevenueCat init:', err); });
+  // The authoritative answer lands after first paint (and again if Restore
+  // links a purchase). Re-render the menu and the current view when it flips.
+  window.addEventListener('archives:premium-changed', function() {
+    mountUserMenu(userBtnEl);
+    forceResolve();
+  });
 
   // Sync progress from mobile + web cloud (fire-and-forget)
   initSync().catch(function(err) { console.warn('Progress sync:', err); });

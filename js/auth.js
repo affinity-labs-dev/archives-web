@@ -1,3 +1,5 @@
+import { sanitizeUrl } from './utils.js';
+
 let clerkInstance = null;
 
 export async function initClerk() {
@@ -56,11 +58,17 @@ export function mountSignIn(el) {
   });
 }
 
+// Values here land inside quoted HTML attributes (alt="…", src="…", href="…").
+// The old textContent/innerHTML trick escaped < > & but left quotes intact, so a
+// Clerk display name containing a double quote broke out of the attribute.
 function _esc(str) {
   if (!str) return '';
-  var d = document.createElement('div');
-  d.textContent = String(str);
-  return d.innerHTML;
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export function mountUserMenu(el) {
@@ -78,6 +86,13 @@ export function mountUserMenu(el) {
 function _renderUserMenu(el, avatarUrl, name, email) {
   var premium = false;
   try { premium = window.__archivesPremium || false; } catch (e) {}
+
+  // Set by services/revenuecat.js; points at the App Store / Play / Stripe
+  // portal that owns this subscription.
+  // sanitizeUrl only vets the scheme - it does not escape quotes, so the result
+  // still has to be escaped before going into href="…".
+  var manageUrl = '';
+  try { manageUrl = premium ? _esc(sanitizeUrl(window.__archivesManagementUrl)) : ''; } catch (e) {}
 
   var statusLabel = premium ? 'Premium' : 'Free';
   var statusClass = premium ? 'user-menu__status--premium' : 'user-menu__status--free';
@@ -103,6 +118,12 @@ function _renderUserMenu(el, avatarUrl, name, email) {
     + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
     + 'Settings'
     + '</button>'
+    + (manageUrl
+      ? '<a class="user-menu__item" href="' + manageUrl + '" target="_blank" rel="noopener noreferrer">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>'
+        + 'Manage subscription'
+        + '</a>'
+      : '')
     + '<button class="user-menu__item" data-action="signout">'
     + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
     + 'Sign out'

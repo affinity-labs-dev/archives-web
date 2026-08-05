@@ -3523,6 +3523,9 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   font-size: 0.85rem;
   cursor: pointer;
   transition: background 0.15s;
+  text-align: left;
+  text-decoration: none; /* the Manage subscription item is an <a> */
+  box-sizing: border-box;
 }
 .user-menu__item:hover {
   background: var(--amber-subtle);

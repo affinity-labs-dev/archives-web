@@ -1,3 +1,12 @@
 .env
 .claude/
 config/
+
+# Tooling added with the test suite
+node_modules/
+test-results/
+playwright-report/
+coverage/
+
+# Supabase CLI scratch state
+supabase/.temp/
