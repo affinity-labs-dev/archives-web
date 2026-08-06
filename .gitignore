@@ -63,3 +63,4 @@ data/
 scripts/
 android/app/google-services.json
 supabase/.temp/
+.env.web-spike
