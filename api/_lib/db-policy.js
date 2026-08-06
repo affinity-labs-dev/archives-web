@@ -228,8 +228,6 @@ export function scopeBody(body, { userId }) {
  * or throws PolicyError.
  */
 export function authorize({ method, path, searchParams, body, userId }) {
-  if (!userId) throw new PolicyError('Not signed in', 401);
-
   if (!Array.isArray(path) || path.length !== 1) {
     // rpc/ lives at length 2 and is handled by its own route, not here: the one
     // function we expose takes a caller-supplied number that has nothing to do
@@ -244,6 +242,18 @@ export function authorize({ method, path, searchParams, body, userId }) {
   const upper = String(method || '').toUpperCase();
   if (!ALLOWED_METHODS[policy].includes(upper)) {
     throw new PolicyError(`${upper} not allowed on ${table}`, 405);
+  }
+
+  // Public content does not need a session; everything else does.
+  //
+  // Requiring a token for the CMS tables too looked tidier and broke the app:
+  // the content providers and RewardsContext load `eras`, `content` and
+  // `unlockable_items` at startup, before anyone has signed in, exactly as they
+  // do on mobile with the anon key. Answering 401 there left the engines with
+  // no data and they crashed on it. Scoped tables are unaffected - without a
+  // verified subject there is nothing to scope to, so they still refuse.
+  if (policy !== PUBLIC_READ && !userId) {
+    throw new PolicyError('Not signed in', 401);
   }
 
   const search = scopeSearch(searchParams, { policy, userId });

@@ -59,18 +59,53 @@ describe('the table allowlist', () => {
     ]);
   });
 
-  it('refuses everything when there is no verified user', () => {
+  it('refuses every scoped table when there is no verified user', () => {
     // Called directly rather than through `run`, whose default would paper
     // over an absent userId - exactly the case being tested.
     const noUser = (userId, table) =>
       authorize({ method: 'GET', path: [table], searchParams: new URLSearchParams(), userId });
 
     for (const userId of [null, undefined, '']) {
-      expect(() => noUser(userId, 'gamification_data')).toThrow(PolicyError);
-      // Public content too: an unauthenticated caller should use /api/eras,
-      // which is cached at the edge, not this path.
-      expect(() => noUser(userId, 'eras')).toThrow(PolicyError);
+      for (const table of Object.keys(TABLE_POLICY)) {
+        if (TABLE_POLICY[table] === PUBLIC_READ) continue;
+        // Without a verified subject there is nothing to scope to, so the only
+        // safe answer is no.
+        expect(
+          () => noUser(userId, table),
+          `${table} was served to an anonymous caller`
+        ).toThrow(PolicyError);
+      }
     }
+  });
+
+  it('serves public content without a session', () => {
+    // The content providers and RewardsContext read these at startup, before
+    // anyone signs in, exactly as mobile does with the anon key. Refusing them
+    // left the engines with no data and they crashed on it - so this is app
+    // behaviour, not a relaxation for convenience.
+    for (const table of ['eras', 'content', 'daily_content', 'unlockable_items']) {
+      const out = authorize({
+        method: 'GET',
+        path: [table],
+        searchParams: new URLSearchParams('select=*'),
+        userId: null,
+      });
+      expect(out.table).toBe(table);
+      // Still unscoped, because there is nobody to scope to.
+      expect(out.search.has('user_id')).toBe(false);
+    }
+  });
+
+  it('still refuses writes to public tables without a session', () => {
+    expect(() =>
+      authorize({
+        method: 'POST',
+        path: ['content'],
+        searchParams: new URLSearchParams(),
+        body: {},
+        userId: null,
+      })
+    ).toThrow(PolicyError);
   });
 });
 

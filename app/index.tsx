@@ -17,6 +17,8 @@ import { DepthButton, Typography, colors, easings } from "@/components/ui";
 import { AnimatedEntrance } from "@/components/ui/animations";
 import { useHeroDive } from "@/hooks/today/useHeroDive";
 import { useTodayModalSlots } from "@/hooks/today/useTodayModalSlots";
+import { useTodayQuest } from "@/hooks/today/useTodayQuest";
+import { useUser } from "@clerk/clerk-expo";
 
 // ─────────────────────────────────────────────────────────────
 // The real Today screen, running in a browser, on today's real content.
@@ -36,13 +38,15 @@ import { useTodayModalSlots } from "@/hooks/today/useTodayModalSlots";
 // components, same animation timings, same video pipeline.
 // ─────────────────────────────────────────────────────────────
 
-// Today's real payload, served same-origin. The live /api/* endpoints send no
-// Access-Control-Allow-Origin - correct for production, since only the app
-// itself should call them - so a cross-origin fetch from the dev server is
-// blocked. Worth noting for the port: once the app is served from the same
-// Vercel project this goes away, but any dev server on another port needs a
-// proxy.
-const API = "/today.json";
+// The real endpoint, same origin. /api/* sends no Access-Control-Allow-Origin -
+// correct, since only the app should be calling it - which is why the dev
+// server serves the API itself instead of running it on a second port. See
+// dev/api-middleware.js.
+//
+// The date is the client's on purpose: "today" belongs to the user's timezone,
+// not the server's. Computing it server-side rolls the story over in the
+// afternoon for anyone west of Greenwich and marks streak days missed.
+const API = "/api/daily/today";
 
 function localDateStr(d = new Date()) {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -53,6 +57,12 @@ export default function TodayOnWeb() {
   const insets = useSafeAreaInsets();
   const hero = useHeroDive();
   const slots = useTodayModalSlots();
+  const { user } = useUser();
+  // The daily quiz does NOT write progress itself: Quiz.tsx:412 short-circuits
+  // on `isToday` with "skipping gamification save" and hands the score to
+  // onQuizResults instead. The caller owns the write, which is why nothing was
+  // persisted until this was wired - the same handoff today.tsx:917 does.
+  const { saveQuestCompletion } = useTodayQuest(user?.id);
   const [quest, setQuest] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -64,8 +74,11 @@ export default function TodayOnWeb() {
   const quizChromeClear = quizFeedback || quizResultsVisible;
 
   useEffect(() => {
-    fetch(`${API}?d=${localDateStr()}`)
-      .then((r) => r.json())
+    fetch(`${API}?date=${localDateStr()}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 120)}`);
+        return r.json();
+      })
       .then((entry) => {
         const c = typeof entry?.content === "string" ? JSON.parse(entry.content) : entry?.content;
         if (!c?.card1) throw new Error("no story published for today");
@@ -236,10 +249,32 @@ export default function TodayOnWeb() {
               isToday
               onFeedbackChange={({ visible }: { visible: boolean }) => setQuizFeedback(visible)}
               onResultsChange={setQuizResultsVisible}
+              onQuizResults={async (
+                score: number,
+                correctAnswers: number,
+                totalQuestions: number
+              ) => {
+                if (!user?.id) return;
+                try {
+                  await saveQuestCompletion(
+                    user.id,
+                    quest.id,
+                    score,
+                    correctAnswers,
+                    totalQuestions
+                  );
+                } catch (err) {
+                  // Non-fatal, exactly as on mobile: the score is already on
+                  // screen, and failing the write must not block the user from
+                  // finishing their day.
+                  console.error("Failed to save quest completion", err);
+                }
+              }}
               onContinue={() => {
                 setProgress(100);
                 close();
               }}
+              onDismiss={close}
             />
           </TodayLessonChrome>
         </SafeAreaView>
@@ -267,7 +302,15 @@ export default function TodayOnWeb() {
               easing: easings.power2Out,
             }}
           >
-            <TodayHeader title="Today" streak={4} style={{ marginBottom: 15 }} />
+            {/* onStreakPress is a required prop and the streak detail sheet is
+                not ported yet, so this is an explicit no-op rather than an
+                accidental one. */}
+            <TodayHeader
+              title="Today"
+              streak={4}
+              style={{ marginBottom: 15 }}
+              onStreakPress={() => {}}
+            />
           </AnimatedEntrance>
 
           <TodayCalendar
@@ -307,8 +350,10 @@ export default function TodayOnWeb() {
         >
           <DepthButton testID="cta-start" isFullWidth variant="secondary" onPress={openVideo}>
             {/* DepthButton renders children inside a View, so a bare string
-                warns. The app wraps its label the same way. */}
-            <Typography variant="button">START MY DAY</Typography>
+                warns. Same variant the real screen uses (today.tsx:1208). */}
+            <Typography variant="label.m" color="white">
+              START MY DAY
+            </Typography>
           </DepthButton>
         </AnimatedEntrance>
       </Animated.View>

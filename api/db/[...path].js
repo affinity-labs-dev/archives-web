@@ -86,13 +86,16 @@ function restPath(segments) {
 }
 
 export default handler(async (req, res) => {
-  let userId;
+  // Absence of a token is not an error here. Public content is readable without
+  // one - the content providers and RewardsContext load it before anyone signs
+  // in, exactly as they do on mobile - and the policy decides per table. A bad
+  // or expired token is treated as no token, so a stale session degrades to
+  // signed-out rather than breaking content loading.
+  let userId = null;
   try {
     userId = await requireUser(req);
   } catch {
-    // Deliberately uniform: an unauthenticated caller learns nothing about
-    // which tables exist or which of them are public.
-    return json(res, 401, { message: 'Not signed in', code: '401' });
+    userId = null;
   }
 
   const path = restPath(req.query?.path);
@@ -103,6 +106,8 @@ export default handler(async (req, res) => {
         throw new PolicyError('Unknown function', 404);
       }
       if (req.method !== 'POST') throw new PolicyError('Method not allowed', 405);
+      // The percentile is the caller's own, so this one does need a session.
+      if (!userId) throw new PolicyError('Not signed in', 401);
       return await callXpPercentile(userId, res);
     }
 

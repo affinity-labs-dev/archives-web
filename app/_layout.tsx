@@ -10,11 +10,17 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { PreferencesProvider } from "@/context/PreferencesContext";
+import { AdventuresContentProvider } from "@/context/AdventuresContentProvider";
 import { TodayWalkthroughProvider } from "@/components/today/walkthrough/TodayWalkthroughProvider";
 // The lesson and quiz components read XP/streak state through these, so they
-// throw without them even though nothing here writes to the cloud. Nesting
-// order matches app/_layout.tsx:874-880.
-import { GamifiedProgressProvider, RewardsProvider } from "@/gamification";
+// throw without them. Nesting order matches app_full/_layout.tsx:862-924.
+import {
+  GamifiedProgressProvider,
+  GamificationOrchestratorProvider,
+  RewardsProvider,
+  AIProvider,
+  NotificationPromptProvider,
+} from "@/gamification";
 // The gamification engines call Clerk's useUser(), so ClerkProvider has to be
 // present. Unlike the real root layout this does NOT gate rendering on Clerk
 // being loaded - signed-out is a state the engines already handle, and gating
@@ -23,7 +29,7 @@ import { GamifiedProgressProvider, RewardsProvider } from "@/gamification";
 // Local development now uses a Clerk *development* instance
 // (welcomed-flea-99.clerk.accounts.dev, set in .env.web-spike). The production
 // instance is origin-locked to archiveszone.app and returns 400 on localhost.
-import { ClerkProvider } from "@clerk/clerk-expo";
+import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 
 /**
@@ -84,25 +90,46 @@ export default function SpikeLayout() {
             overflow: "hidden",
           }}
         >
-          <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
-          <SupabaseAuthBridge>
+          {/* Nesting order is copied from app_full/_layout.tsx:862-924 rather
+              than chosen. These providers read each other during
+              initialisation, so the order is behaviour, not style - and the
+              quiz is what needs the full chain:
+                Quiz.tsx:109        useGamificationOrchestrator()
+                QuizResults.tsx:152 useAI()
+              and the orchestrator in turn needs AdventuresContentProvider,
+              which needs the data layer. That dependency is why the quiz could
+              not be wired before the proxy existed. */}
           <SafeAreaProvider>
-            <PreferencesProvider>
+          <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+          {/* Nothing that reads data may mount before Clerk is ready, or its
+              first queries go out unauthenticated, get a correct 401, and the
+              engines crash on the empty result. app_full/_layout.tsx:870 does
+              the same. Safe here now that local development uses a Clerk
+              development instance - the production one never loads on
+              localhost, which is why the spike originally skipped this. */}
+          <ClerkLoaded>
+          <SupabaseAuthBridge>
+            <AdventuresContentProvider>
               <RewardsProvider>
                 <GamifiedProgressProvider>
-                  {/* GamificationOrchestratorProvider is NOT here on purpose: it
-                      requires AdventuresContentProvider, which requires the Supabase
-                      data layer. Adding it blanks the page. The quiz needs it, so
-                      the quiz is the next piece of work - see notes. */}
-                  <TodayWalkthroughProvider>
-                    <Stack screenOptions={{ headerShown: false }} />
-                  </TodayWalkthroughProvider>
+                  <PreferencesProvider>
+                    <NotificationPromptProvider>
+                      <GamificationOrchestratorProvider>
+                        <AIProvider>
+                          <TodayWalkthroughProvider>
+                            <Stack screenOptions={{ headerShown: false }} />
+                          </TodayWalkthroughProvider>
+                        </AIProvider>
+                      </GamificationOrchestratorProvider>
+                    </NotificationPromptProvider>
+                  </PreferencesProvider>
                 </GamifiedProgressProvider>
               </RewardsProvider>
-            </PreferencesProvider>
-          </SafeAreaProvider>
+            </AdventuresContentProvider>
           </SupabaseAuthBridge>
+          </ClerkLoaded>
           </ClerkProvider>
+          </SafeAreaProvider>
         </View>
       </View>
     </GestureHandlerRootView>

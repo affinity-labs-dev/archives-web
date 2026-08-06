@@ -535,7 +535,15 @@ export function GamifiedProgressProvider({ children }: { children: React.ReactNo
     if (state) {
       store.setSelectedEra(state.selectedEra || null);
       store.setUserProgress(
-        state.progress.map(p => ({
+        // Array.isArray, not a truthiness check. `state` arrives straight from
+        // `setState(cloudData)` during init with no normalisation, and at least
+        // one live gamification_data row stores `progress` as `{}` instead of
+        // `[]`. An object is truthy, so `{}.map` is undefined and this throws
+        // during commit, taking the whole app down for that user - on native as
+        // much as on web. The later `activeData.progress.length > 0` guard
+        // survives the same row only by accident, since `{}.length` is
+        // undefined.
+        (Array.isArray(state.progress) ? state.progress : []).map(p => ({
           era_id: p.era_id,
           adventureId: p.adventureId,
           moduleId: p.moduleId,

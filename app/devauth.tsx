@@ -106,9 +106,14 @@ export default function DevAuth() {
 
       // A write, round-tripped back out.
       const stamp = new Date().toISOString();
-      const write = await supabase
-        .from("gamification_data")
-        .upsert({ user_id: "forged-should-be-overwritten", data: { devauth: stamp } });
+      // Shape matters: this row is what GamifiedProgress loads as its state on
+      // the next boot. Writing a bare marker leaves `progress` undefined and
+      // the engine dies on `state.progress.map` - which is how this harness
+      // spent an hour looking like an app bug.
+      const write = await supabase.from("gamification_data").upsert({
+        user_id: "forged-should-be-overwritten",
+        data: { user_id: user!.id, progress: [], devauth: stamp },
+      });
       say(`write: ${write.error ? `ERROR ${write.error.message}` : "ok"}`);
 
       const readback = await supabase

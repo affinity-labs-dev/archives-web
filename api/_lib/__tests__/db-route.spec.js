@@ -64,11 +64,42 @@ beforeEach(() => {
 });
 
 describe('authentication', () => {
-  it('answers 401 without touching the database', async () => {
+  it('refuses a scoped table without a token, without touching the database', async () => {
+    requireUser.mockRejectedValue(new Error('no token'));
+    const res = makeRes();
+    await route(makeReq({ path: ['rest', 'v1', 'gamification_data'] }), res);
+
+    expect(res.statusCode).toBe(401);
+    expect(restRequest).not.toHaveBeenCalled();
+  });
+
+  it('serves public content without a token', async () => {
+    // Content loads before anyone signs in - the providers do it at startup,
+    // as mobile does with the anon key. Refusing it broke app boot.
     requireUser.mockRejectedValue(new Error('no token'));
     const res = makeRes();
     await route(makeReq({ path: ['rest', 'v1', 'eras'] }), res);
 
+    expect(res.statusCode).toBe(200);
+    expect(restRequest).toHaveBeenCalled();
+    expect(restRequest.mock.calls[0][0].search.has('user_id')).toBe(false);
+  });
+
+  it('treats an invalid token as no token rather than as an error', async () => {
+    // A stale session should degrade to signed-out, not break content loading.
+    requireUser.mockRejectedValue(new Error('expired'));
+    const res = makeRes();
+    await route(makeReq({ path: ['rest', 'v1', 'content'] }), res);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('still refuses the percentile function without a token', async () => {
+    requireUser.mockRejectedValue(new Error('no token'));
+    const res = makeRes();
+    await route(
+      makeReq({ method: 'POST', path: ['rest', 'v1', 'rpc', 'get_xp_percentile'], body: {} }),
+      res
+    );
     expect(res.statusCode).toBe(401);
     expect(restRequest).not.toHaveBeenCalled();
   });

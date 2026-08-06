@@ -13,5 +13,15 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "// Deno, not Expo. It resolves imports by URL and has its own globals, so",
+    "// checking it against the app's tsconfig produces nine errors that are",
+    "// noise - and noise in a typecheck is how a real error goes unnoticed.",
+    "supabase/functions",
+    "// The mobile backend service, checked by its own tsconfig.",
+    "backend"
   ]
 }
