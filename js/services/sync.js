@@ -1,4 +1,11 @@
-import { SUPABASE_URL, ANON_KEY } from '../api.js';
+// Cross-device progress sync, via the backend.
+//
+// This used to talk to PostgREST directly with the public anon key and put
+// clerk.user.id in the request itself - so anyone holding that key (it shipped
+// in the page) could read or overwrite any user's progress just by knowing
+// their Clerk id. The row is now keyed on the `sub` claim of a verified token
+// server-side; nothing here can name a different user.
+
 import { getClerk } from '../auth.js';
 
 const PROGRESS_KEY = 'archives_progress';
@@ -6,18 +13,12 @@ const DAILY_KEY = 'archives_daily_progress';
 const MOBILE_STREAK_KEY = 'archives_mobile_streak';
 const MOBILE_XP_KEY = 'archives_mobile_xp';
 
-function getUserId() {
+async function authHeaders() {
   const clerk = getClerk();
-  return clerk && clerk.user ? clerk.user.id : null;
-}
-
-function headers() {
-  return {
-    'apikey': ANON_KEY,
-    'Authorization': 'Bearer ' + ANON_KEY,
-    'Content-Type': 'application/json',
-    'Prefer': 'resolution=merge-duplicates',
-  };
+  if (!clerk || !clerk.session) return null;
+  const token = await clerk.session.getToken();
+  if (!token) return null;
+  return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
 }
 
 // mastery_level → star count
@@ -27,155 +28,111 @@ function masteryToStars(level) {
   return 1;
 }
 
-// Pull mobile progress from gamification_data (read-only)
-async function pullMobileProgress() {
-  var userId = getUserId();
-  if (!userId) return;
-
-  var res = await fetch(SUPABASE_URL + '/rest/v1/gamification_data?user_id=eq.' + encodeURIComponent(userId) + '&select=data', {
-    headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY },
-  });
-  if (!res.ok) return;
-  var rows = await res.json();
-  if (!rows.length || !rows[0].data) return;
-
-  var cloud = rows[0].data;
-
-  // Convert progress[] to web format and merge
-  if (cloud.progress && cloud.progress.length) {
-    var local = {};
-    try { local = JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; } catch (e) { /* empty */ }
-
-    for (var i = 0; i < cloud.progress.length; i++) {
-      var entry = cloud.progress[i];
-      var advId = entry.adventureId;
-      var modId = entry.moduleId;
-      if (!advId || !modId) continue;
-
-      var stars = masteryToStars(entry.mastery_level);
-      if (!local[advId] || Array.isArray(local[advId])) local[advId] = {};
-      var prev = local[advId][modId] || 0;
-      local[advId][modId] = Math.max(prev, stars);
-    }
-
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(local));
-  }
-
-  // Store streak data
-  if (cloud.streak) {
-    localStorage.setItem(MOBILE_STREAK_KEY, JSON.stringify(cloud.streak));
-  }
-
-  // Store XP data
-  if (cloud.totalXP || cloud.xp_by_era) {
-    localStorage.setItem(MOBILE_XP_KEY, JSON.stringify({
-      totalXP: cloud.totalXP || 0,
-      xp_by_era: cloud.xp_by_era || {},
-    }));
+function readJson(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || {};
+  } catch (e) {
+    return {};
   }
 }
 
-// Pull web progress from web_gamification_data (in case used on another browser)
-async function pullWebProgress() {
-  var userId = getUserId();
-  if (!userId) return;
+/** Merge mobile progress (mastery levels) into local stars, best score wins. */
+function mergeMobileProgress(cloud) {
+  if (!cloud || !cloud.progress || !cloud.progress.length) return;
 
-  var res = await fetch(SUPABASE_URL + '/rest/v1/web_gamification_data?user_id=eq.' + encodeURIComponent(userId) + '&select=adventure_progress,daily_progress', {
-    headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY },
-  });
-  if (!res.ok) return;
-  var rows = await res.json();
-  if (!rows.length) return;
+  var local = readJson(PROGRESS_KEY);
+  for (var i = 0; i < cloud.progress.length; i++) {
+    var entry = cloud.progress[i];
+    var advId = entry.adventureId;
+    var modId = entry.moduleId;
+    if (!advId || !modId) continue;
 
-  var row = rows[0];
+    var stars = masteryToStars(entry.mastery_level);
+    if (!local[advId] || Array.isArray(local[advId])) local[advId] = {};
+    local[advId][modId] = Math.max(local[advId][modId] || 0, stars);
+  }
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(local));
 
-  // Merge adventure progress
-  if (row.adventure_progress && Object.keys(row.adventure_progress).length) {
-    var local = {};
-    try { local = JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; } catch (e) { /* empty */ }
+  if (cloud.streak) {
+    localStorage.setItem(MOBILE_STREAK_KEY, JSON.stringify(cloud.streak));
+  }
+  if (cloud.totalXP || cloud.xp_by_era) {
+    localStorage.setItem(
+      MOBILE_XP_KEY,
+      JSON.stringify({ totalXP: cloud.totalXP || 0, xp_by_era: cloud.xp_by_era || {} })
+    );
+  }
+}
 
-    var cloud = row.adventure_progress;
-    for (var advId in cloud) {
+/** Merge this user's web progress from another browser. */
+function mergeWebProgress(web) {
+  if (!web) return;
+
+  if (web.adventure_progress && Object.keys(web.adventure_progress).length) {
+    var local = readJson(PROGRESS_KEY);
+    for (var advId in web.adventure_progress) {
       if (!local[advId] || Array.isArray(local[advId])) local[advId] = {};
-      var mods = cloud[advId];
+      var mods = web.adventure_progress[advId];
       for (var modId in mods) {
-        var prev = local[advId][modId] || 0;
-        local[advId][modId] = Math.max(prev, mods[modId]);
+        local[advId][modId] = Math.max(local[advId][modId] || 0, mods[modId]);
       }
     }
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(local));
   }
 
-  // Merge daily progress
-  if (row.daily_progress && Object.keys(row.daily_progress).length) {
-    var localDaily = {};
-    try { localDaily = JSON.parse(localStorage.getItem(DAILY_KEY)) || {}; } catch (e) { /* empty */ }
-
-    var cloudDaily = row.daily_progress;
-    for (var date in cloudDaily) {
+  if (web.daily_progress && Object.keys(web.daily_progress).length) {
+    var localDaily = readJson(DAILY_KEY);
+    for (var date in web.daily_progress) {
       if (!localDaily[date]) localDaily[date] = {};
-      var steps = cloudDaily[date];
+      var steps = web.daily_progress[date];
       for (var step in steps) {
-        // Keep existing or take cloud value
-        if (!(step in localDaily[date])) {
-          localDaily[date][step] = steps[step];
-        }
+        if (!(step in localDaily[date])) localDaily[date][step] = steps[step];
       }
     }
     localStorage.setItem(DAILY_KEY, JSON.stringify(localDaily));
   }
 }
 
-// Push adventure progress to web_gamification_data
+async function push(path, body) {
+  var headers = await authHeaders();
+  if (!headers) return;
+  try {
+    await fetch(path, { method: 'PUT', headers: headers, body: JSON.stringify(body) });
+  } catch (err) {
+    console.warn('Sync push failed:', err);
+  }
+}
+
+// Both pushes stay debounced - progress changes in bursts as a quiz is answered.
 var _advTimer = null;
 export function pushAdventureProgress() {
   clearTimeout(_advTimer);
   _advTimer = setTimeout(function () {
-    var userId = getUserId();
-    if (!userId) return;
-    var data = {};
-    try { data = JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; } catch (e) { /* empty */ }
-
-    fetch(SUPABASE_URL + '/rest/v1/web_gamification_data', {
-      method: 'POST',
-      headers: headers(),
-      body: JSON.stringify({
-        user_id: userId,
-        adventure_progress: data,
-        updated_at: new Date().toISOString(),
-      }),
-    }).catch(function (err) { console.warn('Sync push adventure:', err); });
+    push('/api/progress/adventures', { adventure_progress: readJson(PROGRESS_KEY) });
   }, 1000);
 }
 
-// Push daily progress to web_gamification_data
 var _dailyTimer = null;
 export function pushDailyProgress() {
   clearTimeout(_dailyTimer);
   _dailyTimer = setTimeout(function () {
-    var userId = getUserId();
-    if (!userId) return;
-    var data = {};
-    try { data = JSON.parse(localStorage.getItem(DAILY_KEY)) || {}; } catch (e) { /* empty */ }
-
-    fetch(SUPABASE_URL + '/rest/v1/web_gamification_data', {
-      method: 'POST',
-      headers: headers(),
-      body: JSON.stringify({
-        user_id: userId,
-        daily_progress: data,
-        updated_at: new Date().toISOString(),
-      }),
-    }).catch(function (err) { console.warn('Sync push daily:', err); });
+    push('/api/progress/daily', { daily_progress: readJson(DAILY_KEY) });
   }, 1000);
 }
 
-// Boot: pull from both sources, merge into localStorage
+/** Boot: pull both sources in one request and merge into localStorage. */
 export async function initSync() {
-  var userId = getUserId();
-  if (!userId) return;
+  var headers = await authHeaders();
+  if (!headers) return;
 
-  await pullMobileProgress();
-  await pullWebProgress();
-  console.log('[Sync] Progress merged from mobile + web cloud');
+  try {
+    var res = await fetch('/api/progress', { headers: headers });
+    if (!res.ok) return;
+    var data = await res.json();
+    mergeMobileProgress(data.mobile);
+    mergeWebProgress(data.web);
+    console.log('[Sync] Progress merged from mobile + web cloud');
+  } catch (err) {
+    console.warn('Progress sync failed:', err);
+  }
 }

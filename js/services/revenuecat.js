@@ -9,7 +9,6 @@
 //      It verifies the Clerk session server-side and aliases the customer onto
 //      the Clerk id, so this only has to happen once per user.
 
-import { SUPABASE_URL } from '../api.js';
 import { getClerk } from '../auth.js';
 
 // Public Web Billing key for the "Archives (Web Billing)" app (app84d4105344).
@@ -20,7 +19,7 @@ var RC_API_KEY = 'rcb_pIfTfyBWFlWYZnlVJenySSHNokTC';
 // signature and every failure looks identical to "not a subscriber".
 var RC_SDK_URL = 'https://esm.sh/@revenuecat/purchases-js@1.51.0';
 
-var RESTORE_FN_URL = SUPABASE_URL + '/functions/v1/restore-entitlement';
+var RESTORE_FN_URL = '/api/entitlement/restore';
 
 // The project's only entitlement. Checked by name, with "any active entitlement"
 // as a fallback so a dashboard rename can't silently un-premium everyone again.

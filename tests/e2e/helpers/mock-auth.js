@@ -62,7 +62,7 @@ export async function mockAuth(page, options = {}) {
  * Stub the restore-entitlement Edge Function with a fixed response.
  */
 export async function mockRestoreEndpoint(page, body) {
-  await page.route('**/functions/v1/restore-entitlement', route =>
+  await page.route('**/api/entitlement/restore', route =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',

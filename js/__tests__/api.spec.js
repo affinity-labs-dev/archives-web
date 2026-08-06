@@ -1,133 +1,119 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getAdventures, getAdventure, getEra, getAllEras, getDailyStory, getDailyStories, getFeaturedAdventure, getTodayStory } from '../api.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock global fetch
-const mockFetch = vi.fn();
-globalThis.fetch = mockFetch;
+// These used to assert on PostgREST URLs and the anon key. api.js now calls
+// same-origin /api/* endpoints and holds no credential, so the tests assert the
+// request paths instead - and, importantly, that nothing is ever sent with them.
 
-function mockFetchOk(data) {
-  mockFetch.mockResolvedValueOnce({
-    ok: true,
-    json: () => Promise.resolve(data),
-  });
-}
-
-function mockFetchError(status = 500) {
-  mockFetch.mockResolvedValueOnce({
-    ok: false,
+function mockJson(payload, ok = true, status = 200) {
+  return vi.fn().mockResolvedValue({
+    ok,
     status,
+    json: () => Promise.resolve(payload),
   });
 }
 
-describe('API module', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+/** api.js caches by path for 5 minutes, so each test needs a fresh module. */
+async function freshApi() {
+  vi.resetModules();
+  return import('../api.js');
+}
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe('api module', () => {
+  it('calls the backend, not Supabase', async () => {
+    global.fetch = mockJson([{ era_id: 'prophets' }]);
+    const api = await freshApi();
+    await api.getAllEras();
+
+    const url = global.fetch.mock.calls[0][0];
+    expect(url).toBe('/api/eras');
+    expect(url).not.toContain('supabase.co');
   });
 
-  it('fetches adventures and returns data', async () => {
-    const fakeAdventures = [{ readable_id: 'prophets_1' }];
-    mockFetchOk(fakeAdventures);
+  it('sends no credentials', async () => {
+    global.fetch = mockJson([]);
+    const api = await freshApi();
+    await api.getAllEras();
 
-    const result = await getAdventures('prophets');
-    expect(result).toEqual(fakeAdventures);
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch.mock.calls[0][0]).toContain('era_id=eq.prophets');
+    // A bare fetch(path): no apikey header, no Authorization, nothing to leak.
+    const [, init] = global.fetch.mock.calls[0];
+    expect(init).toBeUndefined();
   });
 
-  it('returns cached data on second call within TTL', async () => {
-    const fakeData = [{ readable_id: 'prophets_1' }];
-    mockFetchOk(fakeData);
+  it('builds each content path', async () => {
+    global.fetch = mockJson([]);
+    const api = await freshApi();
 
-    const result1 = await getAdventures('test_cache_era');
-    const result2 = await getAdventures('test_cache_era');
+    await api.getAdventures('umayyad');
+    await api.getAdventure('prophets_1');
+    await api.getEra('prophets');
+    await api.getDailyStory('2026-08-06');
+    await api.getDailyStories();
 
-    expect(result1).toEqual(fakeData);
-    expect(result2).toEqual(fakeData);
-    // fetch called only once — second call served from cache
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      '/api/adventures?era=umayyad',
+      '/api/adventures/prophets_1',
+      '/api/eras/prophets',
+      '/api/daily/2026-08-06',
+      '/api/daily',
+    ]);
   });
 
-  it('throws on API error', async () => {
-    mockFetchError(404);
-    await expect(getAdventures('nonexistent_era')).rejects.toThrow('API error: 404');
+  it('sends the local date to /api/daily/today', async () => {
+    global.fetch = mockJson(null);
+    const api = await freshApi();
+    await api.getTodayStory();
+
+    // The functions run in UTC, so the server must be told the user's own day.
+    expect(global.fetch.mock.calls[0][0]).toMatch(
+      /^\/api\/daily\/today\?date=\d{4}-\d{2}-\d{2}$/
+    );
   });
 
-  it('getAdventure returns first row or null', async () => {
-    mockFetchOk([{ readable_id: 'prophets_1', adventure_title: 'Test' }]);
-    const adv = await getAdventure('prophets_1');
-    expect(adv.adventure_title).toBe('Test');
+  it('encodes path parameters', async () => {
+    global.fetch = mockJson(null);
+    const api = await freshApi();
+    await api.getAdventure('a b/c');
+    expect(global.fetch.mock.calls[0][0]).toBe('/api/adventures/a%20b%2Fc');
   });
 
-  it('getAdventure returns null for empty result', async () => {
-    mockFetchOk([]);
-    const adv = await getAdventure('nonexistent_unique_id');
-    expect(adv).toBeNull();
+  it('passes the response through untouched', async () => {
+    const rows = [{ readable_id: 'prophets_1' }];
+    global.fetch = mockJson(rows);
+    const api = await freshApi();
+    await expect(api.getAdventures('prophets')).resolves.toEqual(rows);
   });
 
-  it('getEra fetches era by ID', async () => {
-    mockFetchOk([{ era_id: 'prophets', title: 'The Prophets' }]);
-    const era = await getEra('prophets');
-    expect(era.era_id).toBe('prophets');
+  it('returns null when the backend has no row', async () => {
+    global.fetch = mockJson(null);
+    const api = await freshApi();
+    await expect(api.getAdventure('nope')).resolves.toBeNull();
+    await expect(api.getEra('nope')).resolves.toBeNull();
   });
 
-  it('getAllEras returns array', async () => {
-    mockFetchOk([{ era_id: 'prophets' }, { era_id: 'prophets_2' }]);
-    const eras = await getAllEras();
-    expect(eras).toHaveLength(2);
+  it('throws on a non-OK response instead of returning empty data', async () => {
+    // Silently returning [] would render as "this era has no adventures".
+    global.fetch = mockJson(null, false, 502);
+    const api = await freshApi();
+    await expect(api.getAllEras()).rejects.toThrow('API error: 502');
   });
 
-  it('getDailyStory fetches by date', async () => {
-    mockFetchOk([{ date: '2026-03-24', content: {} }]);
-    const story = await getDailyStory('2026-03-24');
-    expect(story.date).toBe('2026-03-24');
-    expect(mockFetch.mock.calls[0][0]).toContain('date=eq.2026-03-24');
+  it('caches by path for repeat calls', async () => {
+    global.fetch = mockJson([]);
+    const api = await freshApi();
+    await api.getAllEras();
+    await api.getAllEras();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('getDailyStory returns null for no result', async () => {
-    mockFetchOk([]);
-    const story = await getDailyStory('1999-01-01');
-    expect(story).toBeNull();
-  });
-
-  it('getDailyStories returns all stories', async () => {
-    mockFetchOk([{ date: '2026-03-24' }, { date: '2026-03-23' }]);
-    const stories = await getDailyStories();
-    expect(stories).toHaveLength(2);
-    expect(mockFetch.mock.calls[0][0]).toContain('order=date.desc');
-  });
-
-  it('getFeaturedAdventure returns first result', async () => {
-    mockFetchOk([{ readable_id: 'prophets_3', adventure_title: 'Featured' }]);
-    const adv = await getFeaturedAdventure();
-    expect(adv.adventure_title).toBe('Featured');
-    expect(mockFetch.mock.calls[0][0]).toContain('order=created_at.desc');
-  });
-
-  it('getFeaturedAdventure returns null when empty', async () => {
-    // Use a unique query path to avoid cache hits from previous test
-    mockFetchOk([]);
-    // getFeaturedAdventure always uses the same path, and prior test cached it.
-    // We test the null-handling logic by testing getAdventure with empty result instead.
-    // (getFeaturedAdventure null case already covered by getAdventure null test)
-    const adv = await getAdventure('truly_nonexistent_xyz_' + Date.now());
-    expect(adv).toBeNull();
-  });
-
-  it('getTodayStory returns a story (uses cache-aware fetch)', async () => {
-    // getTodayStory uses today's date in its query path.
-    // Due to module-level cache, we just verify it returns data.
-    const today = new Date().toISOString().split('T')[0];
-    mockFetchOk([{ date: today, content: { title: 'Today' } }]);
-    mockFetchOk([]); // in case fallback is needed
-
-    const story = await getTodayStory();
-    expect(story).not.toBeNull();
-    expect(story.date).toBeDefined();
-  });
-
-  it('encodes special characters in query params', async () => {
-    mockFetchOk([]);
-    await getAdventure('test&evil=1');
-    expect(mockFetch.mock.calls[0][0]).toContain('test%26evil%3D1');
+  it('caches per path, not globally', async () => {
+    global.fetch = mockJson([]);
+    const api = await freshApi();
+    await api.getEra('prophets');
+    await api.getEra('umayyad');
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });

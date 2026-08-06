@@ -1,63 +1,59 @@
+// Content reads, via the backend.
+//
+// This module used to hold the Supabase URL and anon key and query PostgREST
+// directly, which meant shipping a database credential to every visitor. It now
+// calls same-origin /api/* endpoints; the credential lives only in the
+// serverless functions. Nothing secret is exported from here any more - if you
+// find yourself needing a key in the browser, that is the bug.
+//
+// The function signatures are unchanged, so no view needed touching.
+
 import { localDateStr } from './utils.js';
-export const SUPABASE_URL = 'https://kcgihainlnntshupiztu.supabase.co';
-export const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ2loYWlubG5udHNodXBpenR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODMzNzMsImV4cCI6MjA3MDI1OTM3M30.hyZB28wO88jiCh30PoLCDGt8MvsmaLjsl96a56xpyJk';
 
 const cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-async function query(path) {
+async function get(path) {
   const cached = cache.get(path);
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers: {
-      'apikey': ANON_KEY,
-      'Authorization': `Bearer ${ANON_KEY}`,
-    },
-  });
+
+  const res = await fetch(`/api${path}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
+
   const data = await res.json();
   cache.set(path, { data, ts: Date.now() });
   return data;
 }
 
 export async function getAdventures(eraId = 'prophets') {
-  return query(`content?era_id=eq.${encodeURIComponent(eraId)}&order=order_by.asc&select=readable_id,era_id,adventure_title,adventure_description,timeline,order_by,icon_url,card_content`);
+  return get(`/adventures?era=${encodeURIComponent(eraId)}`);
 }
 
 export async function getAdventure(readableId) {
-  const rows = await query(`content?readable_id=eq.${encodeURIComponent(readableId)}&select=*`);
-  return rows[0] || null;
+  return get(`/adventures/${encodeURIComponent(readableId)}`);
 }
 
 export async function getEra(eraId = 'prophets') {
-  const rows = await query(`eras?era_id=eq.${encodeURIComponent(eraId)}&select=*`);
-  return rows[0] || null;
+  return get(`/eras/${encodeURIComponent(eraId)}`);
 }
 
 export async function getAllEras() {
-  return query('eras?order=order_by.asc&select=*');
+  return get('/eras');
 }
 
 export async function getTodayStory() {
-  const today = localDateStr();
-  const rows = await query(`daily_content?date=eq.${encodeURIComponent(today)}&select=*`);
-  if (rows[0]) return rows[0];
-  // Fallback: get most recent past entry
-  const fallback = await query('daily_content?date=lte.' + encodeURIComponent(today) + '&order=date.desc&limit=1&select=*');
-  return fallback[0] || null;
+  // The date is computed here rather than on the server: "today" belongs to the
+  // user's timezone and the functions run in UTC. Sending it keeps the rollover
+  // correct for anyone west of Greenwich.
+  return get(`/daily/today?date=${encodeURIComponent(localDateStr())}`);
 }
 
 export async function getDailyStory(date) {
-  const rows = await query(`daily_content?date=eq.${encodeURIComponent(date)}&select=*`);
-  return rows[0] || null;
+  return get(`/daily/${encodeURIComponent(date)}`);
 }
 
 export async function getDailyStories() {
-  return query('daily_content?order=date.desc&select=id,date,content,is_active');
-}
-
-export async function getFeaturedAdventure() {
-  // Get the newest adventure, excluding recaps
-  const rows = await query('content?select=readable_id,adventure_title,adventure_description,timeline,era_id,card_content,icon_url&order=created_at.desc&readable_id=not.like.*recap*&limit=1');
-  return rows[0] || null;
+  // Dates only - every caller uses nothing else, and the old query pulled about
+  // a megabyte of story bodies just to build a list of days.
+  return get('/daily');
 }
