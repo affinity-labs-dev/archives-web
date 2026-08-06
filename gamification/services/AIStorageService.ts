@@ -2,7 +2,7 @@
 // Uses Supabase for storing conversations, usage tracking, and images
 
 import { supabase } from '@/hooks/lib/supabase';
-import { decode } from 'base64-arraybuffer';
+import { uploadAiImage } from './aiImageUpload';
 
 // Types
 export interface StoredMessage {
@@ -94,30 +94,13 @@ class AIStorageService {
     type: 'generated' | 'edited' | 'uploaded'
   ): Promise<string | null> {
     try {
-      const filename = `${userId}/${Date.now()}_${type}.png`;
-
-      // Convert base64 to ArrayBuffer
-      const arrayBuffer = decode(base64Data);
-
-      const { data, error } = await supabase.storage
-        .from(this.bucket)
-        .upload(filename, arrayBuffer, {
-          contentType: 'image/png',
-          upsert: false,
-        });
-
-      if (error) {
-        console.error('❌ [AIStorage] Upload error:', error);
-        return null;
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from(this.bucket)
-        .getPublicUrl(data.path);
-
-      console.log('✅ [AIStorage] Image uploaded:', urlData.publicUrl);
-      return urlData.publicUrl;
+      // Delegated so the web build can substitute a backend call: storage is
+      // not PostgREST, so it is the one part of the data layer the web proxy
+      // cannot carry. The native implementation in aiImageUpload.ts is exactly
+      // what used to be inline here. See aiImageUpload.web.ts.
+      const publicUrl = await uploadAiImage(this.bucket, userId, base64Data, type);
+      if (publicUrl) console.log('✅ [AIStorage] Image uploaded:', publicUrl);
+      return publicUrl;
     } catch (error) {
       console.error('❌ [AIStorage] Upload failed:', error);
       return null;
