@@ -139,6 +139,17 @@ describe('the patterns themselves still work', () => {
 
 const hasDist = existsSync(DIST);
 
+/**
+ * Whether the process carries the values the build was given.
+ *
+ * The value scan can only look for values it has. Requires a *usable* one, not
+ * merely a defined name: CI sets unconfigured variables to empty strings, so
+ * counting names would report a healthy environment while checking nothing.
+ */
+const hasBuildEnv = Object.entries(process.env).some(
+  ([k, v]) => k.startsWith('EXPO_PUBLIC_') && v && v.length >= 12
+);
+
 describe.skipIf(!hasDist)('nothing secret ships to the browser', () => {
   const files = hasDist ? distFiles() : [];
 
@@ -167,7 +178,7 @@ describe.skipIf(!hasDist)('nothing secret ships to the browser', () => {
   //
   // So the check that matters is the other direction: take the values the build
   // had available and look for those.
-  it('no unreviewed EXPO_PUBLIC_* value reached the build', () => {
+  it.skipIf(!hasBuildEnv)('no unreviewed EXPO_PUBLIC_* value reached the build', () => {
     const bundle = files.map((f) => readFileSync(f, 'utf8')).join('\n');
 
     const leaked = [];
@@ -182,22 +193,6 @@ describe.skipIf(!hasDist)('nothing secret ships to the browser', () => {
     }
 
     expect(leaked).toEqual([]);
-  });
-
-  it('has the build environment available, or it is not really checking', () => {
-    // The value scan silently passes when the process has no EXPO_PUBLIC_*
-    // values to look for - which is what happens if the suite runs without the
-    // env the build used. Requires a *usable* value, not merely a defined name:
-    // CI sets unconfigured variables to empty strings, so counting names would
-    // pass while checking nothing, which is the failure this guard exists to
-    // prevent in the first place.
-    const usable = Object.entries(process.env).filter(
-      ([k, v]) => k.startsWith('EXPO_PUBLIC_') && v && v.length >= 12
-    );
-    expect(
-      usable.length,
-      'no usable EXPO_PUBLIC_* value in env - source the build env first, or the value scan checks nothing'
-    ).toBeGreaterThan(0);
   });
 
   it('names appearing in the build are still reviewed', () => {
@@ -234,8 +229,19 @@ describe.skipIf(!hasDist)('nothing secret ships to the browser', () => {
 // assertion above, so in CI - where the build always runs first - absence of a
 // build must itself be a failure. Locally it stays a skip so `npm test` works
 // without a five-minute export.
-describe.skipIf(!process.env.CI)('the build exists in CI', () => {
-  it('dist/ was built before the scan ran', () => {
-    expect(hasDist).toBe(true);
+// Guards the guards. Both scans above degrade to a skip when something is
+// missing - no dist/, or no build env - which is right for `npm test` on a
+// laptop and catastrophic in CI, where a skipped security scan is
+// indistinguishable from a passing one. CI is where they must be mandatory.
+describe.skipIf(!process.env.CI)('the scans actually ran in CI', () => {
+  it('dist/ was built before the scan', () => {
+    expect(hasDist, 'no dist/ - build before scanning, or the scan checks nothing').toBe(true);
+  });
+
+  it('the build environment was present, so the value scan had something to find', () => {
+    expect(
+      hasBuildEnv,
+      'no usable EXPO_PUBLIC_* value in env - the value scan silently checked nothing'
+    ).toBe(true);
   });
 });

@@ -16,12 +16,28 @@ import { TodayWalkthroughProvider } from "@/components/today/walkthrough/TodayWa
 // order matches app/_layout.tsx:874-880.
 import { GamifiedProgressProvider, RewardsProvider } from "@/gamification";
 // The gamification engines call Clerk's useUser(), so ClerkProvider has to be
-// present even though nobody signs in here. Unlike the real root layout this
-// does NOT gate rendering on Clerk being loaded: the production instance only
-// accepts archiveszone.app, so on localhost it never loads and gating would
-// mean a permanently blank screen. Signed-out is a state the engines already
-// handle (they fall back to local storage).
+// present. Unlike the real root layout this does NOT gate rendering on Clerk
+// being loaded - signed-out is a state the engines already handle, and gating
+// turns any Clerk hiccup into a permanently blank screen.
+//
+// Local development now uses a Clerk *development* instance
+// (welcomed-flea-99.clerk.accounts.dev, set in .env.web-spike). The production
+// instance is origin-locked to archiveszone.app and returns 400 on localhost.
 import { ClerkProvider } from "@clerk/clerk-expo";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+
+/**
+ * Hands the web Supabase client a Clerk token getter. Must be inside
+ * ClerkProvider.
+ *
+ * Without it every /api/db request goes out unauthenticated and the proxy
+ * answers 401 - which is correct behaviour but reads as "the data layer is
+ * broken" rather than "nothing registered a token".
+ */
+function SupabaseAuthBridge({ children }: { children: React.ReactNode }) {
+  useSupabaseAuth();
+  return <>{children}</>;
+}
 
 // Spike layout: the smallest provider tree the real Today components need.
 //
@@ -69,6 +85,7 @@ export default function SpikeLayout() {
           }}
         >
           <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+          <SupabaseAuthBridge>
           <SafeAreaProvider>
             <PreferencesProvider>
               <RewardsProvider>
@@ -84,6 +101,7 @@ export default function SpikeLayout() {
               </RewardsProvider>
             </PreferencesProvider>
           </SafeAreaProvider>
+          </SupabaseAuthBridge>
           </ClerkProvider>
         </View>
       </View>

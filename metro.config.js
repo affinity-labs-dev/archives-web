@@ -53,4 +53,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return (defaultResolveRequest ?? context.resolveRequest)(context, moduleName, platform)
 }
 
+// Serve api/ from the dev server so local development has a single origin.
+//
+// /api/* sends no CORS headers by design, so running the backend on a second
+// port means the browser blocks every call. Development only - Vercel runs the
+// real functions in production and never reads this.
+config.server = config.server || {}
+config.server.enhanceMiddleware = require('./dev/api-middleware')
+
 module.exports = config
