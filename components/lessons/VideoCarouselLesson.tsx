@@ -38,6 +38,7 @@ import { useDeviceHealthMonitor } from "@/hooks/useDeviceHealthMonitor";
 import AppLogger from '@/services/AppLogger';
 import { analyticsService } from '@/services/AnalyticsService';
 import { networkPerformanceService } from '@/services/NetworkPerformanceService';
+import { isHlsUrl } from '@/utils/videoSource';
 
 // Static dimensions (module-level) - Umayyad Dynasty pattern
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get(
@@ -71,7 +72,7 @@ interface VideoItemProps {
 
 // Helper to detect content type based on URL (HLS vs progressive MP4)
 const getContentType = (url: string): 'hls' | 'progressive' => {
-  if (url?.includes('.m3u8') || url?.includes('/hls/') || url?.includes('format=m3u8')) {
+  if (isHlsUrl(url)) {
     return 'hls';
   }
   return 'progressive'; // MP4 and other formats

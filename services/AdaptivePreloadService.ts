@@ -19,6 +19,7 @@ import { Image } from 'expo-image';
 import { createVideoPlayer, VideoPlayer } from 'expo-video';
 import { Platform } from 'react-native';
 
+import { isHlsUrl } from '@/utils/videoSource';
 import AppLogger from './AppLogger';
 
 // ============================================================================
@@ -112,18 +113,15 @@ const IOS_CELLULAR_HLS_PRELOAD_LIMIT = 2;
 // ============================================================================
 
 /**
- * Detect if a video URL is HLS (HTTP Live Streaming)
- * HLS uses .m3u8 manifest files and cannot be cached on iOS
+ * Detect if a video URL is HLS (HTTP Live Streaming).
+ * HLS uses .m3u8 manifest files and cannot be cached on iOS.
+ *
+ * Delegates to utils/videoSource so there is one definition rather than
+ * fourteen. Kept as a named export because callers here and in the preload
+ * paths already use this name.
  */
 export function isHLSVideo(url: string): boolean {
-  if (!url) return false;
-  const lowerUrl = url.toLowerCase();
-  return (
-    lowerUrl.includes('.m3u8') ||
-    lowerUrl.includes('/hls/') ||
-    lowerUrl.includes('format=m3u8') ||
-    lowerUrl.includes('format=hls')
-  );
+  return isHlsUrl(url);
 }
 
 /**

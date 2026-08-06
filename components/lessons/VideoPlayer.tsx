@@ -16,6 +16,7 @@ import {
 import AppLogger from '@/services/AppLogger'
 import { analyticsService } from '@/services/AnalyticsService'
 import { networkPerformanceService } from '@/services/NetworkPerformanceService'
+import { isHlsUrl } from '@/utils/videoSource';
 
 interface VideoPlayerProps {
   videoSource: any
@@ -66,7 +67,7 @@ export default function VideoPlayer({
       const uri = videoSource.uri || '';
 
       // Auto-detect HLS for Android compatibility
-      const isHLS = uri.includes('.m3u8') || uri.includes('/hls/') || uri.includes('format=m3u8');
+      const isHLS = isHlsUrl(uri);
 
       const source = {
         ...videoSource,
@@ -95,7 +96,7 @@ export default function VideoPlayer({
 
     // String URI
     if (typeof videoSource === 'string') {
-      const isHLS = videoSource.includes('.m3u8') || videoSource.includes('/hls/') || videoSource.includes('format=m3u8');
+      const isHLS = isHlsUrl(videoSource);
       return {
         uri: videoSource,
         contentType: isHLS ? 'hls' : 'progressive',
@@ -123,7 +124,7 @@ export default function VideoPlayer({
     // Emit abandoned for previous video before resetting flags (prevents orphaned attempts)
     const prevUrl = videoSourceUriRef.current;
     if (prevUrl && hasTrackedAttemptRef.current && !hasTrackedLoadTime.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current) {
-      const isHLS = prevUrl.includes('.m3u8') || prevUrl.includes('/hls/') || prevUrl.includes('format=m3u8');
+      const isHLS = isHlsUrl(prevUrl);
       analyticsService.trackVideoLoadAbandoned({
         video_url: prevUrl,
         elapsed_ms: Date.now() - playerCreatedAtRef.current,
@@ -173,7 +174,7 @@ export default function VideoPlayer({
     const url = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
     if (!url || typeof videoSource === 'number') return; // Skip local assets
 
-    const isHLS = url.includes('.m3u8') || url.includes('/hls/') || url.includes('format=m3u8');
+    const isHLS = isHlsUrl(url);
     const cdnDomain = networkPerformanceService.extractCDNDomain(url);
     const contentType = isHLS ? 'hls' as const : 'progressive' as const;
 
@@ -236,7 +237,7 @@ export default function VideoPlayer({
         // Track every status transition for debugging (rate-limited in AnalyticsService)
         if (status !== 'idle') {
           const url = videoSourceUriRef.current || '';
-          const isHLS = url.includes('.m3u8') || url.includes('/hls/') || url.includes('format=m3u8');
+          const isHLS = isHlsUrl(url);
           analyticsService.trackVideoStatusChange({
             video_url: url,
             status,
@@ -265,7 +266,7 @@ export default function VideoPlayer({
           if (!hasTrackedLoadTime.current && playerCreatedAtRef.current > 0) {
             const loadTimeMs = Date.now() - playerCreatedAtRef.current;
             const videoUrl = typeof videoSource === 'object' ? videoSource?.uri : String(videoSource ?? '');
-            const isHLS = videoUrl?.includes('.m3u8') || videoUrl?.includes('/hls/') || videoUrl?.includes('format=m3u8');
+            const isHLS = isHlsUrl(videoUrl);
             const cdnDomain = networkPerformanceService.extractCDNDomain(videoUrl || '');
             analyticsService.trackVideoLoadTime({
               load_time_ms: loadTimeMs,
@@ -357,7 +358,7 @@ export default function VideoPlayer({
       bufferStartTimeRef.current = null;
 
       if (bufferDurationMs > MIN_BUFFER_MS && bufferDurationMs < MAX_BUFFER_MS) {
-        const isHLS = videoSourceUri?.includes('.m3u8') || videoSourceUri?.includes('/hls/') || videoSourceUri?.includes('format=m3u8');
+        const isHLS = isHlsUrl(videoSourceUri);
         analyticsService.trackVideoBufferStall({
           buffer_time_ms: bufferDurationMs,
           video_url: videoSourceUri || '',
@@ -414,7 +415,7 @@ export default function VideoPlayer({
       if (!hasTrackedLoadTime.current && !hasTrackedErrorRef.current && !hasTimedOutRef.current) {
         const url = videoSourceUriRef.current;
         if (url && hasTrackedAttemptRef.current) {
-          const isHLS = url.includes('.m3u8') || url.includes('/hls/') || url.includes('format=m3u8');
+          const isHLS = isHlsUrl(url);
           analyticsService.trackVideoLoadAbandoned({
             video_url: url,
             elapsed_ms: Date.now() - playerCreatedAtRef.current,
@@ -429,7 +430,7 @@ export default function VideoPlayer({
       if (!hasTrackedCompletionRef.current && videoDurationRef.current > 0) {
         const url = videoSourceUriRef.current;
         const completionRate = Math.min(maxPositionRef.current / videoDurationRef.current, 1.0);
-        const isHLS = url?.includes('.m3u8') || url?.includes('/hls/') || url?.includes('format=m3u8');
+        const isHLS = isHlsUrl(url);
         analyticsService.trackVideoCompletion({
           completion_rate: completionRate,
           watch_duration_ms: Date.now() - watchStartTimeRef.current,

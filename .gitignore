@@ -69,3 +69,4 @@ app-example
 # migration lives there - and the rule would quietly stop new ones being added.
 data/
 !analytics/data/
+.beta-deploy/

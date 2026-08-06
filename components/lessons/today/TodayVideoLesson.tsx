@@ -50,6 +50,7 @@ import {
 } from "react-native-gesture-handler";
 import RenderHtml from "react-native-render-html";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { isHlsUrl } from '@/utils/videoSource';
 
 // Static dimensions - Use "screen" for Android, "window" for iOS (matches adventure pattern)
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get(
@@ -100,7 +101,7 @@ const TodayVideoItem: React.FC<TodayVideoItemProps> = ({
   onReady,
 }) => {
   // Auto-detect HLS for cross-platform compatibility (Android ExoPlayer needs explicit hint)
-  const isHLS = videoUrl?.includes('.m3u8') || videoUrl?.includes('/hls/') || videoUrl?.includes('format=m3u8');
+  const isHLS = isHlsUrl(videoUrl);
 
   const videoSource: VideoSource = useMemo(
     () => ({

@@ -34,6 +34,7 @@ import { WALKTHROUGH_KEYS } from "@/constants/WalkthroughKeys";
 import { Image } from "expo-image";
 import { useLessonBase } from "@/hooks/useLessonBase";
 import { useDeviceHealthMonitor } from "@/hooks/useDeviceHealthMonitor";
+import { isHlsUrl } from '@/utils/videoSource';
 
 // VideoPlayer status type (expo-video compatible)
 interface VideoPlaybackStatus {
@@ -144,7 +145,7 @@ export default function ReelLesson({
 
   // Detect content type based on URL (HLS vs progressive MP4)
   const getContentType = (url: string): 'hls' | 'progressive' => {
-    if (url?.includes('.m3u8') || url?.includes('/hls/') || url?.includes('format=m3u8')) {
+    if (isHlsUrl(url)) {
       return 'hls';
     }
     return 'progressive'; // MP4 and other formats
