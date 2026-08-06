@@ -12,11 +12,20 @@ config.resolver.sourceExts = [...config.resolver.sourceExts, 'tsx', 'ts', 'jsx',
 // Add .riv as an asset extension for Rive animations
 config.resolver.assetExts = [...config.resolver.assetExts, 'riv']
 
-// Ensure platform-specific files are resolved in the correct order.
+// A no-op, kept only because deleting it invites someone to add it back "fixed".
 //
-// Web needs `browser` first: this list was applied to every platform, which
-// silently defeated the `browser` field in all 75 dependencies when bundling
-// for the web.
+// It reads like it forces `react-native` ahead of `browser` on every platform,
+// and therefore like it defeats the browser build of every dependency on web.
+// It does not. This array is byte-for-byte Expo's own default, and web
+// resolution does not consult resolverMainFields at all: Expo picks web builds
+// via `unstable_conditionsByPlatform` ({ web: ['browser'] }) plus package
+// exports, both on by default and both untouched here.
+//
+// Verified, not reasoned about - getDefaultConfig() returns exactly
+// ['react-native', 'browser', 'main'] and conditionsByPlatform web: ['browser'].
+//
+// Putting `browser` first here would change *native* resolution, which is the
+// one thing this repo must never do.
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main']
 
 // Native-only packages that blow up at *import* time on web, not at call time:
