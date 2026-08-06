@@ -10,3 +10,6 @@ coverage/
 
 # Supabase CLI scratch state
 supabase/.temp/
+
+.vercel
+.env*
