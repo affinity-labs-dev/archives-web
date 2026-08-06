@@ -109,7 +109,7 @@ async function sendMessage(text) {
     chatState.history.push({ role: 'model', text: response });
   } catch (err) {
     removeTyping();
-    addMessage('ai', 'Sorry, something went wrong. Please try again.');
+    addMessage('ai', err && err.code ? err.message : 'Sorry, something went wrong. Please try again.');
   }
 
   if (input) { input.disabled = false; input.focus(); }
@@ -167,9 +167,9 @@ export function openChat(context) {
     removeTyping();
     addMessage('ai', response);
     chatState.history.push({ role: 'model', text: response });
-  }).catch(function() {
+  }).catch(function(err) {
     removeTyping();
-    addMessage('ai', 'Sorry, something went wrong. Please try again.');
+    addMessage('ai', err && err.code ? err.message : 'Sorry, something went wrong. Please try again.');
   });
 }
 
