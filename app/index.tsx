@@ -18,6 +18,7 @@ import { AnimatedEntrance } from "@/components/ui/animations";
 import { useHeroDive } from "@/hooks/today/useHeroDive";
 import { useTodayModalSlots } from "@/hooks/today/useTodayModalSlots";
 import { useTodayQuest } from "@/hooks/today/useTodayQuest";
+import { useGamificationOrchestrator } from "@/gamification";
 import { useUser } from "@clerk/clerk-expo";
 
 // ─────────────────────────────────────────────────────────────
@@ -63,6 +64,14 @@ export default function TodayOnWeb() {
   // onQuizResults instead. The caller owns the write, which is why nothing was
   // persisted until this was wired - the same handoff today.tsx:917 does.
   const { saveQuestCompletion } = useTodayQuest(user?.id);
+  // The orchestrator owns the celebration overlay - it renders
+  // DailyStoryEndScreen, the streak screen and the XP milestone itself
+  // (GamificationOrchestrator.tsx:2290). The screen only has to report that the
+  // day finished; it decides what, if anything, to show.
+  const { reportTodayComplete } = useGamificationOrchestrator();
+  // The score is needed for the celebration's XP figure, and onQuizResults
+  // fires before onContinue - so it is captured rather than re-derived.
+  const lastCorrectRef = React.useRef(0);
   const [quest, setQuest] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -254,6 +263,7 @@ export default function TodayOnWeb() {
                 correctAnswers: number,
                 totalQuestions: number
               ) => {
+                lastCorrectRef.current = correctAnswers;
                 if (!user?.id) return;
                 try {
                   await saveQuestCompletion(
@@ -270,9 +280,16 @@ export default function TodayOnWeb() {
                   console.error("Failed to save quest completion", err);
                 }
               }}
-              onContinue={() => {
+              onContinue={async () => {
                 setProgress(100);
+                // Sequential, not parallel: today.tsx:947 learned this the hard
+                // way. Running the celebration's entrance choreography against
+                // the closing animation shows up as a frozen modal with no
+                // tappable buttons.
                 close();
+                if (quest.date) {
+                  await reportTodayComplete(quest.date, lastCorrectRef.current * 10);
+                }
               }}
               onDismiss={close}
             />

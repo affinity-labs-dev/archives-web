@@ -34,14 +34,18 @@ config.resolver.resolverMainFields = ['react-native', 'browser', 'main']
 // before a route renders. Point them at local placeholders for web only;
 // native resolution is untouched.
 //
-// These are deliberately placeholders, not implementations - see the header of
-// each stub for what replacing it actually involves.
+// Two of these are real implementations and one is still a placeholder; the
+// header of each says which and why.
 const WEB_STUBS = {
+  // Real: @rive-app/react-canvas plays the same .riv files the app ships. Only
+  // the API differs, so this file is a shim rather than a stand-in.
   'rive-react-native': require.resolve('./web-stubs/rive-react-native.js'),
-  'react-native-purchases-ui': require.resolve('./web-stubs/react-native-purchases-ui.js'),
-  // Unlike the two above this one is a real implementation, not a placeholder -
-  // HTMLAudioElement covers everything useBackgroundMusic asks for.
+  // Real: HTMLAudioElement covers everything useBackgroundMusic asks for.
   'react-native-sound': require.resolve('./web-stubs/react-native-sound.js'),
+  // Still a placeholder. RevenueCatUI.presentPaywall has no web equivalent -
+  // the paywall has to be rebuilt in RN primitives against
+  // @revenuecat/purchases-js. That is M5, and it is revenue-critical.
+  'react-native-purchases-ui': require.resolve('./web-stubs/react-native-purchases-ui.js'),
 }
 
 const defaultResolveRequest = config.resolver.resolveRequest

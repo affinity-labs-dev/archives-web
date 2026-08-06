@@ -106,13 +106,54 @@ export default function DevAuth() {
 
       // A write, round-tripped back out.
       const stamp = new Date().toISOString();
-      // Shape matters: this row is what GamifiedProgress loads as its state on
-      // the next boot. Writing a bare marker leaves `progress` undefined and
-      // the engine dies on `state.progress.map` - which is how this harness
-      // spent an hour looking like an app bug.
+      // Shape matters, and more of it than is obvious: this row is what
+      // GamifiedProgress loads as its state on the next boot, and it reaches
+      // `setState(cloudData)` with no normalisation. A partial blob does not
+      // fail loudly - it crashes somewhere else entirely, once per missing
+      // field. `progress` missing kills `state.progress.map`; `behavior`
+      // missing kills `mastered_modules`; `streak` missing kills
+      // `streakShields`. So write a whole one.
+      const day = stamp.split("T")[0];
       const write = await supabase.from("gamification_data").upsert({
         user_id: "forged-should-be-overwritten",
-        data: { user_id: user!.id, progress: [], devauth: stamp },
+        data: {
+          user_id: user!.id,
+          progress: [],
+          adventureProgress: [],
+          selectedEra: "",
+          totalXP: 0,
+          xp_by_era: {},
+          xp_by_source: { lessons: 0, quizzes: 0, games: 0 },
+          streak: {
+            currentStreak: 0,
+            longestStreak: 0,
+            lastActiveDate: day,
+            longestStreakDate: day,
+            streakShields: 0,
+          },
+          milestones: [],
+          achievements_unlocked: [],
+          behavior: {
+            session_style: "moderate",
+            avg_attempts_per_visit: 0,
+            engagement_trend: "stable",
+            weak_modules: [],
+            strong_modules: [],
+            last_computed: stamp,
+            mastery_percentage: 0,
+            mastered_modules: 0,
+            total_modules: 0,
+            active_days: 0,
+          },
+          metadata: {
+            created_at: stamp,
+            last_updated: stamp,
+            migration_completed: true,
+            total_quiz_attempts: 0,
+            total_modules_attempted: 0,
+          },
+          devauth: stamp,
+        },
       });
       say(`write: ${write.error ? `ERROR ${write.error.message}` : "ok"}`);
 

@@ -36,3 +36,54 @@ Dimensions.get = ((dim: "window" | "screen") => {
   // Return a new object rather than mutating: callers cache these.
   return { ...value, width };
 }) as typeof Dimensions.get;
+
+/**
+ * Keep react-native Modals inside the column too.
+ *
+ * Clamping Dimensions is not enough by itself. `Modal` renders through a portal
+ * appended to document.body, so it never sees the wrapper in app/_layout.tsx -
+ * the celebration screens escaped to full window width while the page behind
+ * them stayed 430px. Every sheet and the paywall would have done the same.
+ *
+ * The load-bearing declaration is `transform`. Modal content is
+ * `position: fixed`, which is resolved against the viewport and is therefore
+ * normally immune to an ancestor's width - but a transformed ancestor becomes
+ * the containing block for fixed descendants. Centring some other way (margin,
+ * inset) looks equivalent and silently stops constraining them.
+ *
+ * Portals are identified by having no id: #root and #clerk-components both have
+ * one, and react-native-web's portals never do.
+ */
+function constrainPortalsToColumn() {
+  if (typeof document === "undefined") return;
+  const id = "phone-column-portal-style";
+  if (document.getElementById(id)) return;
+
+  const style = document.createElement("style");
+  style.id = id;
+  // pointer-events is not decoration. The containing block has to be full
+  // height for a fixed child with top/bottom to resolve against it, which turns
+  // every one of these wrappers - including the empty ones react-native-web
+  // leaves lying around for modals that are not open - into an invisible sheet
+  // over the whole column. The first version of this swallowed every click on
+  // the page. Children re-enable it, so real modal content still receives
+  // input.
+  style.textContent = `
+    body > div:not([id]) {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 100%;
+      max-width: ${PHONE_COLUMN_WIDTH}px;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    body > div:not([id]) > * {
+      pointer-events: auto;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+constrainPortalsToColumn();
