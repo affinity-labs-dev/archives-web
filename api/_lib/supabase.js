@@ -35,6 +35,34 @@ export async function select(path) {
 }
 
 /**
+ * Raw PostgREST call, returning the response untouched.
+ *
+ * Unlike `select` and `upsert` above, this does not interpret the result. The
+ * proxy needs the status and body verbatim: the mobile modules branch on
+ * supabase-js error codes - `PGRST116` when `.single()` finds no row
+ * (GamifiedProgress.tsx:734), `23505` on a duplicate insert that
+ * RewardsContext.tsx:482 deliberately swallows - and those codes only survive
+ * if nothing rewrites them on the way through.
+ *
+ * `headers` carries the caller's `Accept` and `Prefer`, which is what makes
+ * `.single()` and `.upsert()` behave the same as they do against Supabase.
+ */
+export async function restRequest({ path, search, method, body, headers = {} }) {
+  assertConfigured();
+  const qs = search && String(search) ? `?${search}` : '';
+  return fetch(`${SUPABASE_URL}/rest/v1/${path}${qs}`, {
+    method,
+    headers: {
+      ...headers,
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+/**
  * Upsert a row. `conflictColumn` is the primary key PostgREST merges on.
  */
 export async function upsert(table, row, conflictColumn) {
