@@ -29,8 +29,11 @@ backend/dist/
 # env - every variant, including .env.web-spike
 .env
 .env*
-.claude/
 config/
+
+# NOT ignored: .claude/. Upstream tracks it, and ignoring a file the other side
+# tracks means fighting the same merge conflict forever. It holds tool
+# permissions, no credentials.
 
 # Vercel
 .vercel
