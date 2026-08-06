@@ -1,0 +1,67 @@
+{
+  "cli": {
+    "version": ">= 0.34.0"
+  },
+  "build": {
+    "base": {
+      "node": "20.19.4",
+      "channel": "base"
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true,
+        "resourceClass": "medium"
+      },
+      "channel": "development"
+    },
+    "development-device": {
+      "extends": "development",
+      "distribution": "internal",
+      "ios": {
+        "simulator": false,
+        "resourceClass": "medium"
+      }
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true,
+        "resourceClass": "medium"
+      },
+      "channel": "preview"
+    },
+    "production": {
+      "extends": "base",
+      "distribution": "store",
+      "channel": "production",
+      "android": {
+        "buildType": "app-bundle",
+        "autoIncrement": "versionCode"
+      },
+      "ios": {
+        "autoIncrement": "buildNumber",
+        "resourceClass": "medium"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "sunnypanchal99@icloud.com",
+        "ascAppId": "6751173663",
+        "appleTeamId": "LQ9LP2WW94",
+        "sku": "ARCHIVES-EXPO-2025"
+      }
+    }
+  }
+}

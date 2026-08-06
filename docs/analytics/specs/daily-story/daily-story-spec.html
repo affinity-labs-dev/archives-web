@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archives — Daily Story Flow Spec</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+    background: #fafafa;
+    color: #333;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 40px;
+    margin-bottom: 16px;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 28px;
+    margin-bottom: 12px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 24px;
+  }
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+    padding: 14px 20px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .legend-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .swatch-normal { background: #fff; border: 1px solid #ccc; }
+  .swatch-untracked { background: #fee2e2; border: 1px solid #dc2626; }
+  .swatch-checkpoint { background: #809DE4; border: 1px solid #6580C0; }
+  .swatch-grey { background: #9ca3af; border: 1px solid #6b7280; }
+
+  .svg-chart {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 8px;
+    padding: 16px 0;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+  }
+  .svg-chart svg {
+    min-width: 900px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  thead th {
+    background: #f5f5f5;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid #ddd;
+    font-weight: 600;
+  }
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+  tbody tr:hover { background: #fafafa; }
+  .mono {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  .untracked {
+    color: #dc2626;
+    font-weight: 600;
+  }
+  .unwired {
+    color: #9ca3af;
+    font-weight: 600;
+  }
+  .vol {
+    font-size: 12px;
+    color: #888;
+    display: block;
+    margin-top: 2px;
+  }
+  .event-row { margin-bottom: 6px; }
+  .event-row:last-child { margin-bottom: 0; }
+
+  hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 40px 0;
+  }
+  ol {
+    padding-left: 24px;
+  }
+  ol li {
+    margin-bottom: 8px;
+  }
+  ul {
+    padding-left: 24px;
+  }
+  ul li {
+    margin-bottom: 6px;
+  }
+  .footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+    font-size: 13px;
+    color: #aaa;
+  }
+  .node-name {
+    font-weight: 600;
+  }
+  @page { size: landscape; margin: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Archives — Daily Story Flow Spec</h1>
+<p class="subtitle">AFF-844 &middot; PostHog Project 93650 &middot; Generated 2026-04-30</p>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch swatch-normal"></div>
+    <span><strong>Normal</strong> &mdash; event exists in codebase</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-untracked"></div>
+    <span class="untracked"><strong>Red</strong> &mdash; not in codebase, needs implementation</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background: #e5e7eb; border: 1px solid #9ca3af;"></div>
+    <span style="color: #9ca3af; font-weight: 600;"><strong>Grey</strong> &mdash; in codebase, not wired in flow</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-checkpoint"></div>
+    <span><strong>Blue</strong> &mdash; checkpoint</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-grey"></div>
+    <span><strong>Dark Grey</strong> &mdash; alternate path (diagram)</span>
+  </div>
+</div>
+
+<!-- Diagram -->
+<h2>User Journey</h2>
+<div class="svg-chart">
+<svg id="daily-story-svg" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" style="max-width: 3028.81px; background-color: transparent;" viewBox="0 0 3028.8125 424" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#daily-story-svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#daily-story-svg .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#daily-story-svg .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#daily-story-svg .error-icon{fill:#552222;}#daily-story-svg .error-text{fill:#552222;stroke:#552222;}#daily-story-svg .edge-thickness-normal{stroke-width:1px;}#daily-story-svg .edge-thickness-thick{stroke-width:3.5px;}#daily-story-svg .edge-pattern-solid{stroke-dasharray:0;}#daily-story-svg .edge-thickness-invisible{stroke-width:0;fill:none;}#daily-story-svg .edge-pattern-dashed{stroke-dasharray:3;}#daily-story-svg .edge-pattern-dotted{stroke-dasharray:2;}#daily-story-svg .marker{fill:#333333;stroke:#333333;}#daily-story-svg .marker.cross{stroke:#333333;}#daily-story-svg svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#daily-story-svg p{margin:0;}#daily-story-svg .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#daily-story-svg .cluster-label text{fill:#333;}#daily-story-svg .cluster-label span{color:#333;}#daily-story-svg .cluster-label span p{background-color:transparent;}#daily-story-svg .label text,#daily-story-svg span{fill:#333;color:#333;}#daily-story-svg .node rect,#daily-story-svg .node circle,#daily-story-svg .node ellipse,#daily-story-svg .node polygon,#daily-story-svg .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#daily-story-svg .rough-node .label text,#daily-story-svg .node .label text,#daily-story-svg .image-shape .label,#daily-story-svg .icon-shape .label{text-anchor:middle;}#daily-story-svg .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#daily-story-svg .rough-node .label,#daily-story-svg .node .label,#daily-story-svg .image-shape .label,#daily-story-svg .icon-shape .label{text-align:center;}#daily-story-svg .node.clickable{cursor:pointer;}#daily-story-svg .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#daily-story-svg .arrowheadPath{fill:#333333;}#daily-story-svg .edgePath .path{stroke:#333333;stroke-width:1px;}#daily-story-svg .flowchart-link{stroke:#333333;fill:none;}#daily-story-svg .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#daily-story-svg .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#daily-story-svg .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#daily-story-svg .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#daily-story-svg .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#daily-story-svg .cluster text{fill:#333;}#daily-story-svg .cluster span{color:#333;}#daily-story-svg div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#daily-story-svg .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#daily-story-svg rect.text{fill:none;stroke-width:0;}#daily-story-svg .icon-shape,#daily-story-svg .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#daily-story-svg .icon-shape p,#daily-story-svg .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#daily-story-svg .icon-shape .label rect,#daily-story-svg .image-shape .label rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#daily-story-svg .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#daily-story-svg .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#daily-story-svg .node .neo-node{stroke:#9370DB;}#daily-story-svg [data-look="neo"].node rect,#daily-story-svg [data-look="neo"].cluster rect,#daily-story-svg [data-look="neo"].node polygon{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#daily-story-svg [data-look="neo"].node path{stroke:#9370DB;stroke-width:1px;}#daily-story-svg [data-look="neo"].node .outer-path{filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#daily-story-svg [data-look="neo"].node .neo-line path{stroke:#9370DB;filter:none;}#daily-story-svg [data-look="neo"].node circle{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#daily-story-svg [data-look="neo"].node circle .state-start{fill:#000000;}#daily-story-svg [data-look="neo"].icon-shape .icon{fill:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#daily-story-svg [data-look="neo"].icon-shape .icon-neo path{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#daily-story-svg :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}#daily-story-svg .checkpoint&gt;*{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#daily-story-svg .checkpoint span{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#daily-story-svg .checkpoint tspan{fill:#fff!important;}#daily-story-svg .grey&gt;*{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#daily-story-svg .grey span{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#daily-story-svg .grey tspan{fill:#fff!important;}#daily-story-svg .default&gt;*{fill:#fff!important;stroke:#ccc!important;color:#333!important;}#daily-story-svg .default span{fill:#fff!important;stroke:#ccc!important;color:#333!important;}#daily-story-svg .default tspan{fill:#333!important;}  @page { size: landscape; margin: 20px; }
+</style><g><marker id="daily-story-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="daily-story-svg_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="daily-story-svg_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"/><g class="edgePaths"><path d="M91.337,307L103.322,281.333C115.308,255.667,139.279,204.333,154.764,178.667C170.25,153,177.25,153,180.75,153L184.25,153" id="daily-story-svg-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6OTEuMzM2Nzg3NTY0NzY2ODQsInkiOjMwN30seyJ4IjoxNjMuMjUsInkiOjE1M30seyJ4IjoxODguMjUsInkiOjE1M31d" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M314.04,114L330.366,102.833C346.691,91.667,379.342,69.333,424.393,58.167C469.445,47,526.898,47,586.762,47C646.625,47,708.898,47,757.656,47C806.414,47,841.656,47,859.277,47L876.898,47" id="daily-story-svg-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzE0LjA0MDI0MTc0NTI4MywieSI6MTE0fSx7IngiOjQxMS45OTIxODc1LCJ5Ijo0N30seyJ4Ijo1ODQuMzUxNTYyNSwieSI6NDd9LHsieCI6NzcxLjE3MTg3NSwieSI6NDd9LHsieCI6ODgwLjg5ODQzNzUsInkiOjQ3fV0=" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M325.797,146.787L340.163,145.489C354.529,144.191,383.26,141.596,426.353,140.298C469.445,139,526.898,139,586.762,139C646.625,139,708.898,139,756.167,143.347C803.437,147.693,835.701,156.387,851.834,160.733L867.966,165.08" id="daily-story-svg-L_B_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_H_0" data-points="W3sieCI6MzI1Ljc5Njg3NSwieSI6MTQ2Ljc4Njk1MzAxNDcyMDcyfSx7IngiOjQxMS45OTIxODc1LCJ5IjoxMzl9LHsieCI6NTg0LjM1MTU2MjUsInkiOjEzOX0seyJ4Ijo3NzEuMTcxODc1LCJ5IjoxMzl9LHsieCI6ODcxLjgyODEyNSwieSI6MTY2LjEyMDc4NDc0Mjk3OTgyfV0=" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M325.797,178.296L340.163,183.58C354.529,188.864,383.26,199.432,411.334,206.943C439.408,214.454,466.824,218.907,480.531,221.134L494.239,223.361" id="daily-story-svg-L_B_I_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_I_0" data-points="W3sieCI6MzI1Ljc5Njg3NSwieSI6MTc4LjI5NTk3NzAxMTQ5NDI0fSx7IngiOjQxMS45OTIxODc1LCJ5IjoyMTB9LHsieCI6NDk4LjE4NzUsInkiOjIyNC4wMDI1MzgzMDExNTEzfV0=" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1032.586,47L1038.264,47C1043.943,47,1055.299,47,1069.153,53.101C1083.007,59.203,1099.358,71.405,1107.533,77.506L1115.708,83.608" id="daily-story-svg-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6MTAzMi41ODU5Mzc1LCJ5Ijo0N30seyJ4IjoxMDY2LjY1NjI1LCJ5Ijo0N30seyJ4IjoxMTE4LjkxNDA2MjUsInkiOjg2fV0=" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1250.688,125L1260.449,125C1270.211,125,1289.734,125,1308.615,127.509C1327.496,130.018,1345.734,135.035,1354.852,137.544L1363.971,140.053" id="daily-story-svg-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6MTI1MC42ODc1LCJ5IjoxMjV9LHsieCI6MTMwOS4yNTc4MTI1LCJ5IjoxMjV9LHsieCI6MTM2Ny44MjgxMjUsInkiOjE0MS4xMTQxNTEyNzIyMjAyOH1d" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1516.127,123L1530.666,115.167C1545.204,107.333,1574.282,91.667,1603.897,85.729C1633.513,79.791,1663.667,83.582,1678.743,85.478L1693.82,87.373" id="daily-story-svg-L_E_E2_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_E_E2_0" data-points="W3sieCI6MTUxNi4xMjY3MjYwMTc0NDE4LCJ5IjoxMjN9LHsieCI6MTYwMy4zNTkzNzUsInkiOjc2fSx7IngiOjE2OTcuNzg5MDYyNSwieSI6ODcuODcyMjIwNzMzOTk0MTF9XQ==" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1697.789,128.844L1682.051,134.87C1666.313,140.896,1634.836,152.948,1605.814,158.724C1576.791,164.501,1550.223,164.001,1536.94,163.752L1523.656,163.502" id="daily-story-svg-L_E2_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_E2_E_0" data-points="W3sieCI6MTY5Ny43ODkwNjI1LCJ5IjoxMjguODQzNjkxNDAxMDE3OTZ9LHsieCI6MTYwMy4zNTkzNzUsInkiOjE2NX0seyJ4IjoxNTE5LjY1NjI1LCJ5IjoxNjMuNDI2ODAyNDA4MTA1MzJ9XQ==" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1501.92,201L1518.827,212.333C1535.733,223.667,1569.546,246.333,1599.773,262.234C1629.999,278.134,1656.639,287.269,1669.959,291.836L1683.279,296.403" id="daily-story-svg-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MTUwMS45MjA0MTQ3MTk2MjYzLCJ5IjoyMDF9LHsieCI6MTYwMy4zNTkzNzUsInkiOjI2OX0seyJ4IjoxNjg3LjA2MjUsInkiOjI5Ny43MDA3NzY4NTUwNzYzNn1d" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1687.063,320.654L1673.112,319.378C1659.161,318.102,1631.26,315.551,1598.062,296.067C1564.864,276.583,1526.369,240.166,1507.121,221.957L1487.874,203.749" id="daily-story-svg-L_F_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_E_0" data-points="W3sieCI6MTY4Ny4wNjI1LCJ5IjozMjAuNjUzNTQwNDk0Njg3MDR9LHsieCI6MTYwMy4zNTkzNzUsInkiOjMxM30seyJ4IjoxNDg0Ljk2NzgxODcwODYwOTIsInkiOjIwMX1d" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1869.625,317.524L1883.576,315.77C1897.526,314.016,1925.427,310.508,1952.668,310.657C1979.909,310.806,2006.49,314.612,2019.781,316.515L2033.072,318.418" id="daily-story-svg-L_F_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_G_0" data-points="W3sieCI6MTg2OS42MjUsInkiOjMxNy41MjM2MTgxODAxOTQ2Nn0seyJ4IjoxOTUzLjMyODEyNSwieSI6MzA3fSx7IngiOjIwMzcuMDMxMjUsInkiOjMxOC45ODQ5NDk0MDc2MzcxNX1d" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M2037.031,339.015L2023.081,341.013C2009.13,343.01,1981.229,347.005,1953.99,347.332C1926.75,347.658,1900.172,344.317,1886.883,342.646L1873.594,340.975" id="daily-story-svg-L_G_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_G_F_0" data-points="W3sieCI6MjAzNy4wMzEyNSwieSI6MzM5LjAxNTA1MDU5MjM2Mjg1fSx7IngiOjE5NTMuMzI4MTI1LCJ5IjozNTF9LHsieCI6MTg2OS42MjUsInkiOjM0MC40NzYzODE4MTk4MDUzNH1d" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M2176.922,329L2190,329C2203.078,329,2229.234,329,2254.724,329C2280.214,329,2305.036,329,2317.448,329L2329.859,329" id="daily-story-svg-L_G_G2_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_G_G2_0" data-points="W3sieCI6MjE3Ni45MjE4NzUsInkiOjMyOX0seyJ4IjoyMjU1LjM5MDYyNSwieSI6MzI5fSx7IngiOjIzMzMuODU5Mzc1LCJ5IjozMjl9XQ==" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M2480.547,329L2494.497,329C2508.448,329,2536.349,329,2563.583,329C2590.818,329,2617.385,329,2630.669,329L2643.953,329" id="daily-story-svg-L_G2_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_G2_K_0" data-points="W3sieCI6MjQ4MC41NDY4NzUsInkiOjMyOX0seyJ4IjoyNTY0LjI1LCJ5IjozMjl9LHsieCI6MjY0Ny45NTMxMjUsInkiOjMyOX1d" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M2827.297,329L2831.464,329C2835.63,329,2843.964,329,2851.688,330.581C2859.412,332.162,2866.527,335.324,2870.084,336.905L2873.642,338.486" id="daily-story-svg-L_K_L_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_K_L_0" data-points="W3sieCI6MjgyNy4yOTY4NzUsInkiOjMyOX0seyJ4IjoyODUyLjI5Njg3NSwieSI6MzI5fSx7IngiOjI4NzcuMjk2ODc1LCJ5IjozNDAuMTEwMjEzOTY4NTEwMjd9XQ==" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M2877.297,395.732L2873.13,397.11C2868.964,398.488,2860.63,401.244,2837.352,402.622C2814.073,404,2775.849,404,2727.841,404C2679.833,404,2622.042,404,2566.971,404C2511.901,404,2459.552,404,2408.076,404C2356.599,404,2305.995,404,2255.957,404C2205.919,404,2156.448,404,2106.104,404C2055.76,404,2004.544,404,1949.772,404C1895,404,1836.672,404,1778.344,404C1720.016,404,1661.688,404,1605.921,404C1550.154,404,1496.948,404,1447.931,404C1398.914,404,1354.086,404,1308.658,404C1263.229,404,1217.201,404,1176.767,404C1136.333,404,1101.495,404,1065.757,404C1030.018,404,993.38,404,944.133,404C894.885,404,833.029,404,770.964,404C708.898,404,646.625,404,586.762,404C526.898,404,469.445,404,414.891,404C360.336,404,308.68,404,267.223,404C225.766,404,194.508,404,174.519,401.194C154.53,398.388,145.81,392.776,141.45,389.971L137.09,387.165" id="daily-story-svg-L_L_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_L_A_0" data-points="W3sieCI6Mjg3Ny4yOTY4NzUsInkiOjM5NS43MzE5MzM3OTA4NzYwNH0seyJ4IjoyODUyLjI5Njg3NSwieSI6NDA0fSx7IngiOjI3MzcuNjI1LCJ5Ijo0MDR9LHsieCI6MjU2NC4yNSwieSI6NDA0fSx7IngiOjI0MDcuMjAzMTI1LCJ5Ijo0MDR9LHsieCI6MjI1NS4zOTA2MjUsInkiOjQwNH0seyJ4IjoyMTA2Ljk3NjU2MjUsInkiOjQwNH0seyJ4IjoxOTUzLjMyODEyNSwieSI6NDA0fSx7IngiOjE3NzguMzQzNzUsInkiOjQwNH0seyJ4IjoxNjAzLjM1OTM3NSwieSI6NDA0fSx7IngiOjE0NDMuNzQyMTg3NSwieSI6NDA0fSx7IngiOjEzMDkuMjU3ODEyNSwieSI6NDA0fSx7IngiOjExNzEuMTcxODc1LCJ5Ijo0MDR9LHsieCI6MTA2Ni42NTYyNSwieSI6NDA0fSx7IngiOjk1Ni43NDIxODc1LCJ5Ijo0MDR9LHsieCI6NzcxLjE3MTg3NSwieSI6NDA0fSx7IngiOjU4NC4zNTE1NjI1LCJ5Ijo0MDR9LHsieCI6NDExLjk5MjE4NzUsInkiOjQwNH0seyJ4IjoyNTcuMDIzNDM3NSwieSI6NDA0fSx7IngiOjE2My4yNSwieSI6NDA0fSx7IngiOjEzMy43MjYyOTMxMDM0NDgyOCwieSI6Mzg1fV0=" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1410.335,201L1393.489,220.667C1376.643,240.333,1342.95,279.667,1303.09,299.333C1263.229,319,1217.201,319,1176.767,319C1136.333,319,1101.495,319,1065.757,319C1030.018,319,993.38,319,944.133,319C894.885,319,833.029,319,770.964,319C708.898,319,646.625,319,586.762,319C526.898,319,469.445,319,414.891,319C360.336,319,308.68,319,267.223,319C225.766,319,194.508,319,175.351,320.057C156.194,321.114,149.138,323.228,145.61,324.285L142.082,325.342" id="daily-story-svg-L_E_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_E_A_0" data-points="W3sieCI6MTQxMC4zMzUyNDA4NDM5NDkxLCJ5IjoyMDF9LHsieCI6MTMwOS4yNTc4MTI1LCJ5IjozMTl9LHsieCI6MTE3MS4xNzE4NzUsInkiOjMxOX0seyJ4IjoxMDY2LjY1NjI1LCJ5IjozMTl9LHsieCI6OTU2Ljc0MjE4NzUsInkiOjMxOX0seyJ4Ijo3NzEuMTcxODc1LCJ5IjozMTl9LHsieCI6NTg0LjM1MTU2MjUsInkiOjMxOX0seyJ4Ijo0MTEuOTkyMTg3NSwieSI6MzE5fSx7IngiOjI1Ny4wMjM0Mzc1LCJ5IjozMTl9LHsieCI6MTYzLjI1LCJ5IjozMTl9LHsieCI6MTM4LjI1LCJ5IjozMjYuNDg5NTk3NzgwODU5OX1d" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1687.063,351.431L1673.112,354.859C1659.161,358.287,1631.26,365.144,1590.707,368.572C1550.154,372,1496.948,372,1447.931,372C1398.914,372,1354.086,372,1308.658,372C1263.229,372,1217.201,372,1176.767,372C1136.333,372,1101.495,372,1065.757,372C1030.018,372,993.38,372,944.133,372C894.885,372,833.029,372,770.964,372C708.898,372,646.625,372,586.762,372C526.898,372,469.445,372,414.891,372C360.336,372,308.68,372,267.223,372C225.766,372,194.508,372,175.353,370.983C156.198,369.966,149.146,367.931,145.619,366.914L142.093,365.897" id="daily-story-svg-L_F_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_A_0" data-points="W3sieCI6MTY4Ny4wNjI1LCJ5IjozNTEuNDMxMTA5OTIwNTI4Nn0seyJ4IjoxNjAzLjM1OTM3NSwieSI6MzcyfSx7IngiOjE0NDMuNzQyMTg3NSwieSI6MzcyfSx7IngiOjEzMDkuMjU3ODEyNSwieSI6MzcyfSx7IngiOjExNzEuMTcxODc1LCJ5IjozNzJ9LHsieCI6MTA2Ni42NTYyNSwieSI6MzcyfSx7IngiOjk1Ni43NDIxODc1LCJ5IjozNzJ9LHsieCI6NzcxLjE3MTg3NSwieSI6MzcyfSx7IngiOjU4NC4zNTE1NjI1LCJ5IjozNzJ9LHsieCI6NDExLjk5MjE4NzUsInkiOjM3Mn0seyJ4IjoyNTcuMDIzNDM3NSwieSI6MzcyfSx7IngiOjE2My4yNSwieSI6MzcyfSx7IngiOjEzOC4yNSwieSI6MzY0Ljc4Nzc5NDcyOTU0MjN9XQ==" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M1041.656,189L1045.823,189C1049.99,189,1058.323,189,1068.725,185.181C1079.128,181.363,1091.6,173.726,1097.836,169.907L1104.071,166.089" id="daily-story-svg-L_H_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_H_D_0" data-points="W3sieCI6MTA0MS42NTYyNSwieSI6MTg5fSx7IngiOjEwNjYuNjU2MjUsInkiOjE4OX0seyJ4IjoxMTA3LjQ4MjY2NjAxNTYyNSwieSI6MTY0fV0=" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M670.516,238L687.292,238C704.068,238,737.62,238,770.527,233.74C803.435,229.481,835.698,220.962,851.829,216.702L867.961,212.443" id="daily-story-svg-L_I_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_I_H_0" data-points="W3sieCI6NjcwLjUxNTYyNSwieSI6MjM4fSx7IngiOjc3MS4xNzE4NzUsInkiOjIzOH0seyJ4Ijo4NzEuODI4MTI1LCJ5IjoyMTEuNDIxNjMwOTUxODc5NzZ9XQ==" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/><path d="M498.188,251.997L483.822,254.331C469.456,256.665,440.724,261.332,409.983,251.726C379.242,242.119,346.491,218.238,330.116,206.297L313.74,194.357" id="daily-story-svg-L_I_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_I_B_0" data-points="W3sieCI6NDk4LjE4NzUsInkiOjI1MS45OTc0NjE2OTg4NDg3fSx7IngiOjQxMS45OTIxODc1LCJ5IjoyNjZ9LHsieCI6MzEwLjUwODIyNzMyMzAwODg0LCJ5IjoxOTJ9XQ==" data-look="classic" marker-end="url(#daily-story-svg_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_A_B_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(584.3515625, 47)"><g class="label" data-id="L_B_C_0" transform="translate(-47.59375, -12)"><foreignObject width="95.1875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>today tapped</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(584.3515625, 139)"><g class="label" data-id="L_B_H_0" transform="translate(-61.1953125, -24)"><foreignObject width="122.390625" height="48"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>past date tapped<br />(subscriber)</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(409.8731, 209.22057)"><g class="label" data-id="L_B_I_0" transform="translate(-61.1953125, -24)"><foreignObject width="122.390625" height="48"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>past date tapped<br />(non-subscriber)</p></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_C_D_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1309.2578125, 125)"><g class="label" data-id="L_D_E_0" transform="translate(-33.5703125, -12)"><foreignObject width="67.140625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>hero dive</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1601.6359, 76.92859)"><g class="label" data-id="L_E_E2_0" transform="translate(-43.65625, -12)"><foreignObject width="87.3125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>read tapped</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1603.359375, 165)"><g class="label" data-id="L_E2_E_0" transform="translate(-58.546875, -12)"><foreignObject width="117.09375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>collapse / swipe</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1589.39005, 259.63561)"><g class="label" data-id="L_E_F_0" transform="translate(-58.703125, -12)"><foreignObject width="117.40625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue tapped</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1574.69324, 285.88145)"><g class="label" data-id="L_F_E_0" transform="translate(-44.1796875, -12)"><foreignObject width="88.359375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>back tapped</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1953.328125, 307)"><g class="label" data-id="L_F_G_0" transform="translate(-58.703125, -12)"><foreignObject width="117.40625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue tapped</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1953.4245, 350.9862)"><g class="label" data-id="L_G_F_0" transform="translate(-44.1796875, -12)"><foreignObject width="88.359375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>back tapped</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2255.390625, 329)"><g class="label" data-id="L_G_G2_0" transform="translate(-53.46875, -12)"><foreignObject width="106.9375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>quiz submitted</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(2564.25, 329)"><g class="label" data-id="L_G2_K_0" transform="translate(-58.703125, -12)"><foreignObject width="117.40625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue tapped</p></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_K_L_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1443.7421875, 404)"><g class="label" data-id="L_L_A_0" transform="translate(-58.4140625, -12)"><foreignObject width="116.828125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>continue / close</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(771.171875, 319)"><g class="label" data-id="L_E_A_0" transform="translate(-51.046875, -12)"><foreignObject width="102.09375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>dismiss / back</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(956.7421875, 372)"><g class="label" data-id="L_F_A_0" transform="translate(-25.375, -12)"><foreignObject width="50.75" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>dismiss</p></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_H_D_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(771.171875, 238)"><g class="label" data-id="L_I_H_0" transform="translate(-75.65625, -12)"><foreignObject width="151.3125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>purchased / restored</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(396.52973, 254.7251)"><g class="label" data-id="L_I_B_0" transform="translate(-34.3984375, -12)"><foreignObject width="68.796875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>cancelled</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default checkpoint" id="daily-story-svg-flowchart-A-0" data-look="classic" transform="translate(73.125, 346)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-65.125" y="-39" width="130.25" height="78"/><g class="label" style="color:#fff !important" transform="translate(-35.125, -24)"><rect/><foreignObject width="70.25" height="48"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Today Tab<br />Opened</p></span></div></foreignObject></g></g><g class="node default" id="daily-story-svg-flowchart-B-1" data-look="classic" transform="translate(257.0234375, 153)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-68.7734375" y="-39" width="137.546875" height="78"/><g class="label" style="color:#333 !important" transform="translate(-38.7734375, -24)"><rect/><foreignObject width="77.546875" height="48"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Calendar<br />Week View</p></span></div></foreignObject></g></g><g class="node default" id="daily-story-svg-flowchart-C-3" data-look="classic" transform="translate(956.7421875, 47)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-75.84375" y="-39" width="151.6875" height="78"/><g class="label" style="color:#333 !important" transform="translate(-45.84375, -24)"><rect/><foreignObject width="91.6875" height="48"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Today's Story<br />Home</p></span></div></foreignObject></g></g><g class="node default grey" id="daily-story-svg-flowchart-H-5" data-look="classic" transform="translate(956.7421875, 189)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-84.9140625" y="-39" width="169.828125" height="78"/><g class="label" style="color:#fff !important" transform="translate(-54.9140625, -24)"><rect/><foreignObject width="109.828125" height="48"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Historical Story<br />Loaded</p></span></div></foreignObject></g></g><g class="node default grey" id="daily-story-svg-flowchart-I-7" data-look="classic" transform="translate(584.3515625, 238)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-86.1640625" y="-39" width="172.328125" height="78"/><g class="label" style="color:#fff !important" transform="translate(-56.1640625, -24)"><rect/><foreignObject width="112.328125" height="48"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Rewind Blocked<br />Paywall Shown</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="daily-story-svg-flowchart-D-9" data-look="classic" transform="translate(1171.171875, 125)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-79.515625" y="-39" width="159.03125" height="78"/><g class="label" style="color:#fff !important" transform="translate(-49.515625, -24)"><rect/><foreignObject width="99.03125" height="48"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>START MY DAY<br />Tapped</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="daily-story-svg-flowchart-E-11" data-look="classic" transform="translate(1443.7421875, 162)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-75.9140625" y="-39" width="151.828125" height="78"/><g class="label" style="color:#fff !important" transform="translate(-45.9140625, -24)"><rect/><foreignObject width="91.828125" height="48"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>WATCH<br />Video Lesson</p></span></div></foreignObject></g></g><g class="node default" id="daily-story-svg-flowchart-E2-13" data-look="classic" transform="translate(1778.34375, 98)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-80.5546875" y="-39" width="161.109375" height="78"/><g class="label" style="color:#333 !important" transform="translate(-50.5546875, -24)"><rect/><foreignObject width="101.109375" height="48"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Reading Sheet<br />Expanded</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="daily-story-svg-flowchart-F-17" data-look="classic" transform="translate(1778.34375, 329)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-91.28125" y="-39" width="182.5625" height="78"/><g class="label" style="color:#fff !important" transform="translate(-61.28125, -24)"><rect/><foreignObject width="122.5625" height="48"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>EXPLORE<br />Scrollable Lesson</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="daily-story-svg-flowchart-G-21" data-look="classic" transform="translate(2106.9765625, 329)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-69.9453125" y="-39" width="139.890625" height="78"/><g class="label" style="color:#fff !important" transform="translate(-39.9453125, -24)"><rect/><foreignObject width="79.890625" height="48"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>QUESTIONS<br />Quiz</p></span></div></foreignObject></g></g><g class="node default" id="daily-story-svg-flowchart-G2-25" data-look="classic" transform="translate(2407.203125, 329)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-73.34375" y="-27" width="146.6875" height="54"/><g class="label" style="color:#333 !important" transform="translate(-43.34375, -12)"><rect/><foreignObject width="86.6875" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Quiz Results</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="daily-story-svg-flowchart-K-27" data-look="classic" transform="translate(2737.625, 329)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-89.671875" y="-27" width="179.34375" height="54"/><g class="label" style="color:#fff !important" transform="translate(-59.671875, -12)"><rect/><foreignObject width="119.34375" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Story Completed</p></span></div></foreignObject></g></g><g class="node default" id="daily-story-svg-flowchart-L-29" data-look="classic" transform="translate(2949.0546875, 372)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-71.7578125" y="-39" width="143.515625" height="78"/><g class="label" style="color:#333 !important" transform="translate(-41.7578125, -24)"><rect/><foreignObject width="83.515625" height="48"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Celebration<br />Screen</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="daily-story-svg-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="daily-story-svg-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs></svg></div>
+
+<!-- Events -->
+<h2>Events</h2>
+<table>
+<thead>
+  <tr>
+    <th>#</th>
+    <th>Node</th>
+    <th>PostHog Events</th>
+    <th>QA</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td>1</td>
+    <td class="node-name">Today Tab Opened</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">$pageview</span>
+        <span class="vol">pageName: "today", screenUrl: "/(tabs)/today"</span>
+        <span class="vol">Auto via analyticsService.startPageView / endPageView</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">daily_story_viewed</span>
+        <span class="vol">story_id, story_date, story_title, entry_source, is_today</span>
+      </div>
+    </td>
+    <td>Loading spinner stuck; quest data null</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td class="node-name">Calendar Week View</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">daily_story_calendar_swiped</span>
+        <span class="vol">direction: "prev_week" | "current_week"</span>
+        <span class="vol">Not in codebase &mdash; needs implementation</span>
+      </div>
+    </td>
+    <td>Calendar dates misaligned; future dates tappable</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td class="node-name">Today&rsquo;s Story Home</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">daily_story_card_swiped</span>
+        <span class="vol">from_card: number, to_card: number, direction: "left" | "right"</span>
+        <span class="vol">Not in codebase &mdash; needs implementation</span>
+      </div>
+    </td>
+    <td>Empty state for today; card deck not rendering</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td class="node-name">START MY DAY Tapped</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">daily_story_card_viewed</span>
+        <span class="vol">story_id, card_index: 1</span>
+        <span class="vol">Fires via onCardViewed callback when openModal("video") called</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">daily_story_started</span>
+        <span class="vol">story_id, story_date, entry_source, is_replay: boolean</span>
+        <span class="vol">Not in codebase &mdash; needs implementation. Distinct from daily_story_viewed (passive load vs active tap).</span>
+      </div>
+    </td>
+    <td>Hero dive animation freezes; modal doesn&rsquo;t mount</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td class="node-name">WATCH &mdash; Video Lesson</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">daily_story_watch_viewed</span>
+        <span class="vol">story_id, section: "watch"</span>
+        <span class="vol">Not in codebase &mdash; needs implementation. Fires when user enters the WATCH (video) section.</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">daily_story_media_played</span>
+        <span class="vol">story_id, media_type: "video", media_id</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">video_load_attempted</span>
+        <span class="vol">video_url, content_type, cdn_domain, trigger: "auto"</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">video_load_time</span>
+        <span class="vol">load_time_ms, video_url, content_type, cdn_domain</span>
+      </div>
+    </td>
+    <td>Video black screen; HLS timeout; background music not playing</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td class="node-name">Reading Sheet Expanded</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">daily_story_reading_expanded</span>
+        <span class="vol">story_id</span>
+        <span class="vol">Not in codebase &mdash; needs implementation</span>
+      </div>
+    </td>
+    <td>Sheet doesn&rsquo;t open; swipe-to-close gesture broken</td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td class="node-name">EXPLORE &mdash; Scrollable Lesson</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">daily_story_card_viewed</span>
+        <span class="vol">story_id, card_index: 2</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">daily_story_media_played</span>
+        <span class="vol">story_id, media_type: "audio", media_id</span>
+      </div>
+    </td>
+    <td>Audio inner voice doesn&rsquo;t play; scroll content empty</td>
+  </tr>
+  <tr>
+    <td>8</td>
+    <td class="node-name">QUESTIONS &mdash; Quiz</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">daily_story_card_viewed</span>
+        <span class="vol">story_id, card_index: 3</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">quiz_started</span>
+        <span class="vol">adventureId: "daily_quest", moduleId: quest.id, eraId: "daily_quest"</span>
+        <span class="vol">Fired by Quiz component internally</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">quiz_answer_selected</span>
+        <span class="vol">question_index, selected_answer, is_correct</span>
+        <span class="vol">Fired by Quiz component internally</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">quiz_completed</span>
+        <span class="vol">score, correct_answers, total_questions, adventureId: "daily_quest"</span>
+        <span class="vol">Fired by Quiz component internally</span>
+      </div>
+    </td>
+    <td>Quiz modal opens without user auth; questions array empty</td>
+  </tr>
+  <tr>
+    <td>9</td>
+    <td class="node-name">Quiz Results</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">daily_story_quiz_score</span>
+        <span class="vol">story_id, story_date, score, correct_answers, total_questions</span>
+        <span class="vol">Not in codebase &mdash; quiz_completed fires but daily-story-specific score is not tracked</span>
+      </div>
+    </td>
+    <td>Results screen stuck; stars don&rsquo;t animate</td>
+  </tr>
+  <tr>
+    <td>10</td>
+    <td class="node-name">Story Completed</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">daily_story_completed</span>
+        <span class="vol">story_id, story_date, time_spent_seconds, entry_source</span>
+      </div>
+      <div class="event-row">
+        <span class="mono unwired">daily_story_streak_incremented</span>
+        <span class="vol">story_id, current_streak, is_first_action_today</span>
+        <span class="vol">In codebase (AnalyticsService + useDailyStoryTracking) but trackStreakIncremented is never called from today.tsx</span>
+      </div>
+    </td>
+    <td>Completion not saved to Supabase; streak not updated</td>
+  </tr>
+  <tr>
+    <td>11</td>
+    <td class="node-name">Celebration Screen</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">daily_story_celebration_shown</span>
+        <span class="vol">story_id, story_date, xp_earned</span>
+        <span class="vol">Not in codebase &mdash; needs implementation</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">daily_story_celebration_dismissed</span>
+        <span class="vol">story_id, dismiss_method: "continue" | "close"</span>
+        <span class="vol">Not in codebase &mdash; needs implementation</span>
+      </div>
+    </td>
+    <td>Rive animation doesn&rsquo;t load; celebration never appears</td>
+  </tr>
+  <tr>
+    <td>12</td>
+    <td class="node-name">Dismiss / Back (from WATCH or EXPLORE)</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">daily_story_dismissed</span>
+        <span class="vol">story_id, time_spent_seconds, scroll_depth_pct, cards_seen, completed</span>
+        <span class="vol">Fires on hook unmount (story change or tab switch)</span>
+      </div>
+    </td>
+    <td>Close animation stutters; modal stays mounted</td>
+  </tr>
+  <tr>
+    <td>13</td>
+    <td class="node-name">Historical Story Loaded (subscriber)</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">daily_story_rewind_tapped</span>
+        <span class="vol">story_date, is_subscribed: true, days_ago</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">daily_story_viewed</span>
+        <span class="vol">story_id, story_date, entry_source: "rewind", is_today: false</span>
+      </div>
+    </td>
+    <td>Supabase query fails; spinner stuck on historical date</td>
+  </tr>
+  <tr>
+    <td>14</td>
+    <td class="node-name">Rewind Blocked &mdash; Paywall Shown</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">daily_story_rewind_tapped</span>
+        <span class="vol">story_date, is_subscribed: false, days_ago</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">daily_story_rewind_blocked</span>
+        <span class="vol">story_date, days_ago</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">subscribe_screen_viewed</span>
+        <span class="vol">trigger: "daily_story_rewind"</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">subscribe_purchase_completed</span>
+        <span class="vol">trigger: "daily_story_rewind", plan: "yearly"</span>
+        <span class="vol">On successful purchase</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">subscribe_purchase_cancelled</span>
+        <span class="vol">trigger: "daily_story_rewind"</span>
+        <span class="vol">On user cancel</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">subscribe_purchase_failed</span>
+        <span class="vol">trigger: "daily_story_rewind", error_code</span>
+        <span class="vol">On error or NOT_PRESENTED</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">subscribe_restore_success</span>
+        <span class="vol">trigger: "daily_story_rewind"</span>
+        <span class="vol">On successful restore</span>
+      </div>
+    </td>
+    <td>Paywall not presented; purchase race condition with history reset</td>
+  </tr>
+</tbody>
+</table>
+
+<hr>
+
+<!-- Questions -->
+<h2>Questions This Flow Answers</h2>
+
+<h3>Strategic Questions</h3>
+<ol>
+  <li>How many users open the Today tab each day?</li>
+  <li>How many users who open the Today tab tap START MY DAY?</li>
+  <li>How many users complete the full daily story (all 3 sections)?</li>
+  <li>How many users drop off after WATCH without continuing to EXPLORE?</li>
+  <li>How many users drop off after EXPLORE without starting QUESTIONS?</li>
+  <li>How many users return to a completed story and replay it?</li>
+  <li>How many users tap a past date on the calendar (rewind)?</li>
+  <li>How many non-subscribers hit the rewind paywall?</li>
+  <li>How many users purchase a subscription through the daily story rewind paywall?</li>
+</ol>
+
+<h3>Behavioral Insights</h3>
+<ol>
+  <li>How many users expand the reading sheet during WATCH?</li>
+  <li>How many users play the inner voice audio during EXPLORE?</li>
+  <li>How many users use the back button to revisit a previous section?</li>
+  <li>How many users dismiss the story from the WATCH section?</li>
+  <li>How many users dismiss the story from the EXPLORE section?</li>
+  <li>How many users swipe between cards on the home deck before starting?</li>
+  <li>How many users view the celebration screen to completion?</li>
+  <li>How many users close the celebration screen early?</li>
+  <li>How long do users who complete the story spend on it?</li>
+  <li>How long do users who abandon the story spend before leaving?</li>
+  <li>How many users have their video fail to load?</li>
+</ol>
+
+<h3>Checkpoint Validation</h3>
+<ol>
+  <li><strong>Today Tab Opened</strong> &mdash; How many users open the Today tab?</li>
+  <li><strong>START MY DAY Tapped</strong> &mdash; How many users actively start the daily story?</li>
+  <li><strong>WATCH</strong> &mdash; How many users play the video lesson?</li>
+  <li><strong>EXPLORE</strong> &mdash; How many users reach the scrollable reading section?</li>
+  <li><strong>QUESTIONS</strong> &mdash; How many users reach the quiz?</li>
+  <li><strong>Story Completed</strong> &mdash; How many users finish the full daily story?</li>
+</ol>
+
+<h3>Analysis Notes</h3>
+<ul>
+  <li><strong>Exclude background dismissals</strong> &mdash; daily_story_dismissed fires on hook unmount, which includes app backgrounding and tab switching. Filter by completed: false AND time_spent_seconds &gt; 5 to isolate intentional abandons.</li>
+  <li><strong>Replay detection</strong> &mdash; When progress is 100%, the button reads "RESTART MY DAY" and opens the video modal. There is no separate event for replay vs. first play. Proposed daily_story_started includes is_replay to distinguish.</li>
+  <li><strong>Streak tracking gap</strong> &mdash; trackStreakIncremented exists in useDailyStoryTracking and AnalyticsService but is never called from today.tsx. Wire it in handleQuizComplete or reportTodayComplete.</li>
+  <li><strong>Rewind paywall deduplication</strong> &mdash; subscribe_screen_viewed fires once per paywall presentation (re-entrancy guarded by isPaywallPresentedRef). Multiple calendar taps during presentation are blocked.</li>
+  <li><strong>Card viewed debouncing</strong> &mdash; daily_story_card_viewed fires once per card per session (tracked via cardsSeenRef Set). Story ID change resets the set.</li>
+  <li><strong>Historical content</strong> &mdash; When a subscriber loads a past date, daily_story_viewed fires with entry_source: "rewind" and is_today: false. The same tracking hook is reused for both flows.</li>
+</ul>
+
+<hr>
+
+<p class="footer">Generated 2026-04-30 &middot; Archives Expo Daily Story Flow &middot; AFF-844</p>
+
+</div>
+</body>
+</html>

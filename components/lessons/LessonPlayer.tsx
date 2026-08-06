@@ -1,0 +1,116 @@
+// LessonPlayer.tsx - Unified lesson orchestrator for all content types
+// Automatically selects the correct renderer based on content_type
+// Handles shared analytics, progress tracking, and completion logic
+
+import React from 'react';
+import { View } from 'react-native';
+import type { ContentItem } from '@/components/shared/types';
+import AppLogger from '@/services/AppLogger';
+
+// Import all lesson renderers
+import ReelLesson from './ReelLesson';
+import VideoCarouselLesson from './VideoCarouselLesson';
+import ImageCarouselLesson from './ImageCarouselLesson';
+import ScrollableMediaViewLesson from './ScrollableMediaViewLesson';
+import DevHealthOverlay from './DevHealthOverlay';
+
+// Context interface for progress tracking & analytics
+export interface LessonContext {
+  eraId: string;        // "rise_of_islam", "umayyad", "abbasid"
+  adventureId: string;  // "roi_adventure_1", "adv_2"
+  moduleId: string;     // "media_1", "media_2"
+  lessonId: string;     // "lesson1", "lesson2"
+}
+
+export interface LessonPlayerProps {
+  // Content from Supabase (has content_type, media_url, questions, etc.)
+  contentItem: ContentItem;
+
+  // Context for progress tracking & analytics
+  adventureId: string;
+  moduleId: string;
+  lessonId: string;
+  eraId: string;             // Era ID (e.g., "rise_of_islam", "umayyad")
+  eraName: string;           // Era display name
+
+  // Callbacks
+  onContinue: () => void;
+  onDismiss: () => void;
+  onBack?: () => void;
+}
+
+/**
+ * LessonPlayer - Unified entry point for all lesson types
+ *
+ * Usage:
+ * ```tsx
+ * <LessonPlayer
+ *   contentItem={selectedLesson.contentItem}
+ *   adventureId={selectedLesson.adventureId}
+ *   moduleId={selectedLesson.moduleId}
+ *   lessonId={selectedLesson.lessonId}
+ *   onContinue={handleLessonContinue}
+ *   onDismiss={handleLessonDismiss}
+ * />
+ * ```
+ *
+ * Supported content_type values:
+ * - "reel" → ReelLesson (video + reading card)
+ * - "video_carousel" → VideoCarouselLesson (swipeable video gallery)
+ * - "image_carousel" → ImageCarouselLesson (image gallery with music)
+ * - "scrollable_media_view" → ScrollableMediaViewLesson (mixed content blocks)
+ */
+export default function LessonPlayer({
+  contentItem,
+  adventureId,
+  moduleId,
+  lessonId,
+  eraId,
+  eraName,
+  onContinue,
+  onDismiss,
+  onBack,
+}: LessonPlayerProps) {
+  // Common props passed to all lesson renderers
+  const commonProps = {
+    contentItem,
+    adventureId,
+    moduleId,
+    lessonId,
+    eraId,
+    eraName,
+    onContinue,
+    onDismiss,
+    onBack,
+  };
+
+  // Select the appropriate lesson renderer based on content_type
+  let lesson: React.ReactElement;
+  switch (contentItem.content_type) {
+    case 'reel':
+      lesson = <ReelLesson {...commonProps} />;
+      break;
+    case 'video_carousel':
+      lesson = <VideoCarouselLesson {...commonProps} />;
+      break;
+    case 'image_carousel':
+      lesson = <ImageCarouselLesson {...commonProps} />;
+      break;
+    case 'scrollable_media_view':
+      lesson = <ScrollableMediaViewLesson {...commonProps} />;
+      break;
+    default:
+      AppLogger.warn('content', 'Unknown content_type encountered', { contentType: contentItem.content_type });
+      lesson = <ReelLesson {...commonProps} />;
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      {lesson}
+      <DevHealthOverlay />
+    </View>
+  );
+}
+
+// Re-export individual lessons for direct usage if needed
+export { ReelLesson, VideoCarouselLesson, ImageCarouselLesson, ScrollableMediaViewLesson };

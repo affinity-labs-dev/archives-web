@@ -1,9 +1,41 @@
+# dependencies
+node_modules/
+
+# Expo / Metro
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+
+# Native build output. The iOS and Android trees are carried along so this repo
+# can keep merging from the mobile app, but nothing here builds them.
+.kotlin/
+.gradle/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+android/app/google-services.json
+*.ipa
+*.apk
+build-*.ipa
+
+# Backend build output
+backend/dist/
+
+# env - every variant, including .env.web-spike
 .env
+.env*
 .claude/
 config/
 
-# Tooling added with the test suite
-node_modules/
+# Vercel
+.vercel
+
+# Tests
 test-results/
 playwright-report/
 coverage/
@@ -11,5 +43,26 @@ coverage/
 # Supabase CLI scratch state
 supabase/.temp/
 
-.vercel
-.env*
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# typescript
+*.tsbuildinfo
+
+# editors / OS
+.idea/
+.DS_Store
+*.pem
+*.swp
+*.swo
+*~
+
+app-example
+
+# Test data. The mobile .gitignore also carried a bare `scripts/` rule, which is
+# deliberately NOT brought over: this repo tracks scripts/ - the progress
+# migration lives there - and the rule would quietly stop new ones being added.
+data/
+!analytics/data/

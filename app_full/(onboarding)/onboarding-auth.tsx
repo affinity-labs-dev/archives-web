@@ -1,0 +1,542 @@
+import React, { useEffect, useState } from 'react';
+import {
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { SvgXml } from 'react-native-svg';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import { useClerk, useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { router, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import AppLogger from '@/services/AppLogger';
+import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
+
+import {
+  Typography,
+  DepthButton,
+  colors,
+  spacing,
+  easings,
+} from '@/components/ui';
+import { AnimatedEntrance } from '@/components/ui/animations';
+import { AuthOutlineButton } from '@/components/onboarding/auth/AuthOutlineButton';
+import { AuthInput } from '@/components/onboarding/auth/AuthInput';
+import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
+import { personAddSvg, personCheckSvg } from '@/components/onboarding/icons/personIcons';
+import { analyticsService } from '@/services/AnalyticsService';
+import { useOnboardingStore } from '@/stores/onboardingStore';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { resolvePostSignInRoute } from '@/services/PaywallGateService';
+
+/**
+ * Single-screen auth flow — merged login + signup. Initial mode comes from the
+ * `?mode=signin|signup` route param. The Log In / Sign Up toggle buttons then
+ * flip local state (no navigation) so the same screen swaps its shape.
+ *
+ * Shape by mode:
+ *   Sign In (mode=signin) — title "WELCOME BACK", email + password only,
+ *     "Forgot password?" link in the password label.
+ *   Sign Up (mode=signup) — title "COMPLETE PROFILE", first/last name row,
+ *     email, password, confirm password.
+ *
+ * Clerk `useSignIn` + `useSignUp` hooks + validation + error mapping cloned
+ * verbatim from legacy `/(auth)/email-details.tsx`.
+ *
+ * Entrance (fixed delays; conditional fields use the same timeline regardless
+ * of mode, empty-space gaps are acceptable):
+ *   t=0    title
+ *   t=150  toggle row
+ *   t=300  first/last name row (signup only)
+ *   t=400  email
+ *   t=500  password
+ *   t=600  confirm password (signup only)
+ *   t=750  CONTINUE button
+ */
+export default function OnboardingAuthScreen() {
+  const { isSubscribed } = useRevenueCat();
+  const params = useLocalSearchParams<{ mode?: string; email?: string }>();
+  const setStep = useOnboardingStore((s) => s.setStep);
+  const setIsSignUpMode = useOnboardingStore((s) => s.setIsSignUpMode);
+  const markCompleted = useOnboardingStore((s) => s.markCompleted);
+  const confirmAuth = useOnboardingStore((s) => s.confirmAuth);
+
+  // `useClerk()` exposes the Clerk instance directly — after `await
+  // setActive`, `clerk.user?.id` is synchronously updated. `useUser()` is
+  // reactive and may lag a React render, which is too late for the
+  // immediate route decision in `onContinue()`.
+  const clerk = useClerk();
+  const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn();
+  const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp();
+
+  const [isSignInMode, setIsSignInMode] = useState(params.mode === 'signin');
+
+  useEffect(() => {
+    analyticsService.trackAuthScreenViewed({
+      screen: 'onboarding_auth',
+      mode: params.mode === 'signin' ? 'signin' : 'signup',
+    });
+  }, []);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  // Pre-fill email when provided via query param (welcome-back screen routes
+  // email-auth users here with their remembered email to save a tap).
+  const [email, setEmail] = useState(params.email ?? '');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const canSubmit = isSignInMode
+    ? email.trim().length > 0 && password.trim().length > 0 && !isLoading
+    : firstName.trim().length > 0 &&
+      lastName.trim().length > 0 &&
+      email.trim().length > 0 &&
+      password.trim().length > 0 &&
+      !isLoading;
+
+  const switchMode = (toSignIn: boolean) => {
+    if (isSignInMode === toSignIn) return;
+    Haptics.selectionAsync();
+    setIsSignInMode(toSignIn);
+    setErrorMessage('');
+  };
+
+  const goToForgotPassword = () => {
+    router.push('/(auth)/forgot-password' as never);
+  };
+
+  const onContinue = async () => {
+    // Unlock AsyncStorage persistence — until this fires, the
+    // onboarding store's `partialize` returns `{}` and nothing is
+    // persisted across kill/relaunch. Calling `confirmAuth()` here
+    // (after Clerk's `setActive*` resolved successfully in the
+    // signIn/signUp helpers) flips the gate so every subsequent
+    // state mutation writes the full whitelist. Sign-in / sign-up
+    // are the ONLY entry points to this function, so no further
+    // guard is needed. Mirror call lives in onboarding-step-7.tsx
+    // for the OAuth (Apple/Google) path.
+    confirmAuth();
+
+    // New sign-ups flow through the post-signup celebration (step 8) and
+    // the personalize phases (9-12). Sign-in of an existing account skips
+    // straight to the main app — their profile is already set up.
+    if (isSignInMode) {
+      markCompleted();
+      // Per-user paywall gate: show /onboarding-step-13 only on the first
+      // sign-in for this Clerk user_id on this install. See
+      // PaywallGateService for the full contract.
+      const route = await resolvePostSignInRoute(clerk.user?.id, isSubscribed);
+      router.replace(route as never);
+    } else {
+      setStep(8);
+      setIsSignUpMode(true);
+      setTimeout(() => router.replace('/onboarding-step-8' as never), 300);
+    }
+  };
+
+  const validateInputs = (): boolean => {
+    if (isSignInMode) {
+      if (!email.trim() || !password.trim()) {
+        setErrorMessage('Please fill in all fields');
+        return false;
+      }
+    } else {
+      if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
+        setErrorMessage('Please fill in all fields');
+        return false;
+      }
+    }
+
+    const emailRegEx = /[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,64}/;
+    if (!emailRegEx.test(email)) {
+      setErrorMessage('Please enter a valid email address');
+      return false;
+    }
+
+    if (!isSignInMode) {
+      if (!confirmPassword.trim()) {
+        setErrorMessage('Please confirm your password');
+        return false;
+      }
+      if (password !== confirmPassword) {
+        setErrorMessage('Passwords do not match');
+        return false;
+      }
+      if (password.length < 6) {
+        setErrorMessage('Password must be at least 6 characters');
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const signInUser = async () => {
+    if (!signInLoaded) return;
+
+    setIsLoading(true);
+    setErrorMessage('');
+
+    try {
+      const signInAttempt = await signIn.create({
+        identifier: email,
+        password,
+      });
+
+      if (signInAttempt.status === 'complete') {
+        await setActiveSignIn({ session: signInAttempt.createdSessionId });
+        analyticsService.trackUserSessionIn('email');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await onContinue();
+      } else {
+        setIsLoading(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setErrorMessage('Sign in incomplete. Please try again.');
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (err.errors && err.errors[0]) {
+        setErrorMessage(err.errors[0].longMessage || err.errors[0].message);
+      } else {
+        setErrorMessage('An error occurred during sign in');
+      }
+    }
+  };
+
+  const signUpUser = async () => {
+    if (!signUpLoaded) return;
+
+    setIsLoading(true);
+    setErrorMessage('');
+
+    try {
+      const signUpAttempt = await signUp.create({
+        emailAddress: email,
+        password,
+        firstName,
+        lastName,
+      });
+
+      if (signUpAttempt.status === 'complete') {
+        await setActiveSignUp({ session: signUpAttempt.createdSessionId });
+        const userId = signUpAttempt.createdUserId || signUpAttempt.id;
+        if (userId) {
+          analyticsService.trackUserSignedUp(userId, { sign_up_method: 'email' });
+        }
+        // Daily-story guided tour gate. Set ONLY on email-signup-complete
+        // (not on the incomplete branch — that's verification-pending and
+        // may fail). today.tsx consumes PENDING on first mount and writes
+        // SEEN on tour finish/skip. Sign-in path doesn't run this.
+        try {
+          await AsyncStorage.setItem(WALKTHROUGH_KEYS.DAILY_STORY_TOUR_PENDING, '1');
+        } catch (err) {
+          AppLogger.warn('walkthrough', 'PENDING flag write failed (email)', { error: String(err) });
+        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await onContinue();
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await onContinue();
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (err.errors && err.errors[0]) {
+        setErrorMessage(err.errors[0].longMessage || err.errors[0].message);
+      } else {
+        setErrorMessage('An error occurred during sign up');
+      }
+    }
+  };
+
+  const onPressContinue = () => {
+    if (!validateInputs()) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isSignInMode) {
+      signInUser();
+    } else {
+      signUpUser();
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.topBar}>
+          <Pressable onPress={() => { analyticsService.trackOnboardingBackTapped('email_auth'); router.back(); }} hitSlop={16}>
+            <SvgXml xml={backArrowSvg} width={12} height={22} />
+          </Pressable>
+        </View>
+
+        <KeyboardAwareScrollView
+          style={styles.body}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={16}
+        >
+            {/* Title */}
+            <AnimatedEntrance
+              preset={{
+                translateY: { from: -25, to: 0 },
+                opacity: { from: 0, to: 1 },
+                duration: 500,
+                easing: easings.backOut15,
+              }}
+            >
+              <Typography
+                family="bounded"
+                size={28}
+                lineHeight={42}
+                color="onyx"
+                uppercase
+              >
+                {isSignInMode ? 'Welcome back' : 'Complete profile'}
+              </Typography>
+            </AnimatedEntrance>
+
+            {/* Log In / Sign Up toggle */}
+            <AnimatedEntrance
+              preset={{
+                translateY: { from: 20, to: 0 },
+                opacity: { from: 0, to: 1 },
+                duration: 500,
+                easing: easings.backOut15,
+              }}
+              delay={150}
+              style={styles.toggleRowWrapper}
+            >
+              <View style={styles.toggleRow}>
+                <AuthOutlineButton
+                  compact
+                  active={isSignInMode}
+                  label="Log In"
+                  icon={
+                    <SvgXml
+                      xml={personAddSvg}
+                      width={26}
+                      height={18}
+                      color={isSignInMode ? colors.white : colors.onyx}
+                    />
+                  }
+                  onPress={() => switchMode(true)}
+                  style={styles.toggleButton}
+                />
+                <AuthOutlineButton
+                  compact
+                  active={!isSignInMode}
+                  label="Sign Up"
+                  icon={
+                    <SvgXml
+                      xml={personCheckSvg}
+                      width={26}
+                      height={18}
+                      color={!isSignInMode ? colors.white : colors.onyx}
+                    />
+                  }
+                  onPress={() => switchMode(false)}
+                  style={styles.toggleButton}
+                />
+              </View>
+            </AnimatedEntrance>
+
+            {/* First / Last name row — signup only */}
+            {!isSignInMode && (
+              <Animated.View
+                entering={FadeIn.duration(400).delay(200)}
+                exiting={FadeOut.duration(200)}
+                layout={LinearTransition.duration(300)}
+                style={styles.fieldWrapper}
+              >
+                <View style={styles.nameRow}>
+                  <AuthInput
+                    label="First Name"
+                    placeholder="Basel"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    autoCapitalize="words"
+                    autoComplete="given-name"
+                    containerStyle={styles.nameField}
+                  />
+                  <AuthInput
+                    label="Last Name"
+                    placeholder="Ghazi"
+                    value={lastName}
+                    onChangeText={setLastName}
+                    autoCapitalize="words"
+                    autoComplete="family-name"
+                    containerStyle={styles.nameField}
+                  />
+                </View>
+              </Animated.View>
+            )}
+
+            {/* Email — layout prop smooths vertical slide when signup fields above mount/unmount */}
+            <Animated.View
+              layout={LinearTransition.duration(300)}
+              style={styles.fieldWrapper}
+            >
+              <AnimatedEntrance
+                preset={{
+                  translateX: { from: 40, to: 0 },
+                  opacity: { from: 0, to: 1 },
+                  duration: 400,
+                  easing: easings.power2Out,
+                }}
+                delay={400}
+              >
+                <AuthInput
+                  label="Your Email Address"
+                  placeholder="basel@archiveszone.app"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                />
+              </AnimatedEntrance>
+            </Animated.View>
+
+            {/* Password — same layout wrapper pattern as email */}
+            <Animated.View
+              layout={LinearTransition.duration(300)}
+              style={styles.fieldWrapper}
+            >
+              <AnimatedEntrance
+                preset={{
+                  translateX: { from: 40, to: 0 },
+                  opacity: { from: 0, to: 1 },
+                  duration: 400,
+                  easing: easings.power2Out,
+                }}
+                delay={500}
+              >
+                <AuthInput
+                  label="Password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  isPassword
+                  autoComplete={isSignInMode ? 'password' : 'new-password'}
+                  rightSlot={
+                    isSignInMode ? (
+                      <Pressable onPress={goToForgotPassword} hitSlop={8}>
+                        <Typography size="xs" weight="600" color="bluePrimary">
+                          Forgot password?
+                        </Typography>
+                      </Pressable>
+                    ) : undefined
+                  }
+                />
+              </AnimatedEntrance>
+            </Animated.View>
+
+            {/* Confirm password — signup only */}
+            {!isSignInMode && (
+              <Animated.View
+                entering={FadeIn.duration(400).delay(200)}
+                exiting={FadeOut.duration(200)}
+                layout={LinearTransition.duration(300)}
+                style={styles.fieldWrapper}
+              >
+                <AuthInput
+                  label="Confirm Password"
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  isPassword
+                  autoComplete="new-password"
+                />
+              </Animated.View>
+            )}
+
+            {errorMessage ? (
+              <Typography
+                size="sm"
+                weight="500"
+                extraColor="#D32F2F"
+                align="center"
+                style={styles.errorText}
+              >
+                {errorMessage}
+              </Typography>
+            ) : null}
+
+            <View style={styles.flex} />
+
+            {/* CONTINUE */}
+            <AnimatedEntrance
+              preset="slideFromBottom"
+              delay={750}
+              style={styles.bottom}
+            >
+              <DepthButton
+                surfaceColor="onyx"
+                shadowColor="white"
+                borderColor="onyx"
+                onPress={onPressContinue}
+                isDisabled={!canSubmit}
+              >
+                <Typography variant="label.m" color="white">
+                  {isLoading ? 'Loading...' : 'CONTINUE'}
+                </Typography>
+              </DepthButton>
+            </AnimatedEntrance>
+        </KeyboardAwareScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.snow },
+  safe: { flex: 1 },
+  topBar: {
+    paddingHorizontal: spacing.md,
+    minHeight: 28,
+  },
+  body: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  toggleRowWrapper: {
+    marginTop: spacing.xl,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  toggleButton: {
+    width: 148,
+  },
+  fieldWrapper: {
+    marginTop: spacing.lg,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  nameField: {
+    flex: 1,
+  },
+  errorText: {
+    marginTop: spacing.md,
+  },
+  flex: { flex: 1, minHeight: spacing.xl },
+  bottom: {
+    marginTop: spacing.xl,
+  },
+});

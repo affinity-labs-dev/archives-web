@@ -1,0 +1,6 @@
+# Query: explorer@archives.com
+
+1 result - 1 file
+
+app/(auth)/forgot-password.tsx:
+  103:                     placeholder="explorer@archives.com"

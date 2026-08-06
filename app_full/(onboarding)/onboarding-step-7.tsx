@@ -1,0 +1,338 @@
+import React, { useEffect } from 'react';
+import { View, StyleSheet, StatusBar, Pressable, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { SvgXml } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
+import Rive, { Alignment, Fit } from 'rive-react-native';
+import { router } from 'expo-router';
+import { useClerk } from '@clerk/clerk-expo';
+
+import { Typography, colors, spacing, easings } from '@/components/ui';
+import { AnimatedEntrance } from '@/components/ui/animations';
+import { AppleOutlineButton } from '@/components/onboarding/auth/AppleOutlineButton';
+import { GoogleOutlineButton } from '@/components/onboarding/auth/GoogleOutlineButton';
+import { AuthOutlineButton } from '@/components/onboarding/auth/AuthOutlineButton';
+import { backArrowSvg } from '@/components/onboarding/icons/backArrowSvg';
+import { personAddSvg, personCheckSvg } from '@/components/onboarding/icons/personIcons';
+import { useOnboardingStore } from '@/stores/onboardingStore';
+import AppLogger from '@/services/AppLogger';
+import { analyticsService } from '@/services/AnalyticsService';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { resolvePostSignInRoute } from '@/services/PaywallGateService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WALKTHROUGH_KEYS } from '@/constants/WalkthroughKeys';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const heroIbuRive = require('@/assets/rive/hero_ibu.riv');
+
+/**
+ * Screen 7 — Create Account.
+ *
+ * Figma: 3421:7503. No progress bar (this is the auth entry point, not a
+ * question step). Back arrow top-left only.
+ *
+ * Layout (top → bottom):
+ *   1. Title "LET'S CREATE AN ACCOUNT"
+ *   2. Subtitle "Sign up to save your progress and unlock achievements"
+ *   3. Rive mascot (Hero Ibu)
+ *   4. Log In / Sign Up toggle row (navigates to existing auth screen with mode)
+ *   5. Divider
+ *   6. Continue with Apple  — reuses existing AppleSignInButton (Clerk OAuth)
+ *   7. Continue with Google — reuses existing GoogleSignInButton (Clerk OAuth)
+ *   8. Continue with Email  — navigates to email-details form
+ *
+ * Staggered entrance per DEVELOPER_INSTRUCTIONS.md:
+ *   title @ 0ms, subtitle @ 150ms, rive @ 300ms, toggle @ 500ms,
+ *   divider @ 550ms, apple @ 600ms, google @ 700ms, email @ 800ms.
+ */
+export default function OnboardingStep7Screen() {
+  const { isSubscribed } = useRevenueCat();
+  // `useClerk()` exposes the Clerk instance directly, which updates
+  // synchronously under `await setActive()` inside the OAuth buttons. By the
+  // time `onAuthSuccess` fires, `clerk.user?.id` is the freshly-signed-in
+  // user — more reliable than `useUser()` whose React state may lag a tick.
+  const clerk = useClerk();
+
+  const setStep = useOnboardingStore((s) => s.setStep);
+  const setIsSignUpMode = useOnboardingStore((s) => s.setIsSignUpMode);
+  const markCompleted = useOnboardingStore((s) => s.markCompleted);
+  const confirmAuth = useOnboardingStore((s) => s.confirmAuth);
+
+  useEffect(() => {
+    analyticsService.trackOnboardingStepViewed('create_account');
+  }, []);
+
+  const onAuthSuccess = async (isNewUser: boolean) => {
+    AppLogger.info('auth', 'Onboarding step-7 auth success', { isNewUser });
+    // Unlock AsyncStorage persistence — same gate as
+    // onboarding-auth.tsx's email path. OAuth (Apple/Google) reaches
+    // this callback after `setActive()` inside the OutlineButton
+    // helpers, so the Clerk session is live by now. Without this
+    // call, the user would still be in Phase 1 of the onboarding
+    // store's auth-gated persistence and their answers would
+    // disappear on cold start.
+    confirmAuth();
+
+    // New users go through the post-signup celebration + personalize flow.
+    // Returning users (signed in on an existing account) skip straight to
+    // the main app — they've already done onboarding on a prior install.
+    if (isNewUser) {
+      // Daily-story guided tour gate. PENDING is consumed (deleted) the
+      // first time today.tsx mounts and reads it, then SEEN is written when
+      // the tour finishes/skips. Sign-in path (else branch below) never
+      // touches PENDING, so returning users never see the tour.
+      try {
+        await AsyncStorage.setItem(WALKTHROUGH_KEYS.DAILY_STORY_TOUR_PENDING, '1');
+      } catch (err) {
+        AppLogger.warn('walkthrough', 'PENDING flag write failed (OAuth)', { error: String(err) });
+      }
+      setStep(8);
+      setIsSignUpMode(true);
+      setTimeout(() => router.replace('/onboarding-step-8' as never), 300);
+      return;
+    }
+
+    markCompleted();
+    // Per-user paywall gate: show /onboarding-step-13 only the first time
+    // this Clerk user_id signs in on this install. See PaywallGateService.
+    const route = await resolvePostSignInRoute(clerk.user?.id, isSubscribed);
+    router.replace(route as never);
+  };
+
+  const onAuthError = (error: { message: string }) => {
+    AppLogger.warn('auth', 'Onboarding step-7 auth error', { message: error.message });
+  };
+
+  const goToLogIn = () => {
+    analyticsService.trackAuthMethodSelected({ screen: 'onboarding_create_account', auth_method: 'email', mode: 'signin' });
+    router.push('/onboarding-auth?mode=signin' as never);
+  };
+
+  const goToSignUp = () => {
+    analyticsService.trackAuthMethodSelected({ screen: 'onboarding_create_account', auth_method: 'email', mode: 'signup' });
+    router.push('/onboarding-auth?mode=signup' as never);
+  };
+
+  const goToEmail = () => {
+    analyticsService.trackAuthMethodSelected({ screen: 'onboarding_create_account', auth_method: 'email', mode: 'signin' });
+    router.push('/onboarding-auth?mode=signin' as never);
+  };
+
+  return (
+    <View style={styles.root}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.topBar}>
+          <Pressable onPress={() => { analyticsService.trackOnboardingBackTapped('create_account'); router.back(); }} hitSlop={16}>
+            <SvgXml xml={backArrowSvg} width={12} height={22} />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* 1. Title */}
+          <AnimatedEntrance
+            preset={{
+              translateY: { from: 25, to: 0 },
+              opacity: { from: 0, to: 1 },
+              duration: 500,
+              easing: easings.backOut15,
+            }}
+          >
+            <Typography
+              family="bounded"
+              size={28}
+              lineHeight={42}
+              color="onyx"
+              uppercase
+            >
+              Let&apos;s create an account
+            </Typography>
+          </AnimatedEntrance>
+
+          {/* 2. Subtitle */}
+          <AnimatedEntrance
+            preset={{
+              translateY: { from: 20, to: 0 },
+              opacity: { from: 0, to: 1 },
+              duration: 500,
+              easing: easings.backOut15,
+            }}
+            delay={150}
+            style={styles.subtitleWrapper}
+          >
+            <Typography size={20} weight="600" color="onyx">
+              Sign up to save your progress and unlock achievements
+            </Typography>
+          </AnimatedEntrance>
+
+          {/* 3. Rive mascot */}
+          <AnimatedEntrance
+            preset={{
+              scale: { from: 0.8, to: 1 },
+              opacity: { from: 0, to: 1 },
+              duration: 600,
+              easing: easings.backOut15,
+            }}
+            delay={300}
+          >
+            <View style={styles.riveWrapper}>
+              <Rive
+                source={heroIbuRive}
+                autoplay
+                fit={Fit.Contain}
+                alignment={Alignment.Center}
+                style={styles.rive}
+              />
+            </View>
+          </AnimatedEntrance>
+
+          {/* 4. Log In / Sign Up toggle row */}
+          <AnimatedEntrance
+            preset={{
+              translateY: { from: 30, to: 0 },
+              opacity: { from: 0, to: 1 },
+              duration: 500,
+              easing: easings.backOut15,
+            }}
+            delay={500}
+          >
+            <View style={styles.toggleRow}>
+              <AuthOutlineButton
+                compact
+                label="Log In"
+                icon={
+                  <SvgXml
+                    xml={personAddSvg}
+                    width={26}
+                    height={18}
+                    color={colors.onyx}
+                  />
+                }
+                onPress={goToLogIn}
+                style={styles.toggleButton}
+              />
+              <AuthOutlineButton
+                compact
+                label="Sign Up"
+                icon={
+                  <SvgXml
+                    xml={personCheckSvg}
+                    width={26}
+                    height={18}
+                    color={colors.onyx}
+                  />
+                }
+                onPress={goToSignUp}
+                style={styles.toggleButton}
+              />
+            </View>
+          </AnimatedEntrance>
+
+          {/* 5. Divider */}
+          <AnimatedEntrance preset="fadeIn" delay={550}>
+            <View style={styles.divider} />
+          </AnimatedEntrance>
+
+          {/* 6-8. Social auth buttons */}
+          <View style={styles.socialButtonsSection}>
+            <AnimatedEntrance
+              preset={{
+                translateX: { from: -30, to: 0 },
+                opacity: { from: 0, to: 1 },
+                duration: 400,
+                easing: easings.power2Out,
+              }}
+              delay={600}
+            >
+              <AppleOutlineButton
+                onSuccess={onAuthSuccess}
+                onError={onAuthError}
+              />
+            </AnimatedEntrance>
+
+            <AnimatedEntrance
+              preset={{
+                translateX: { from: 30, to: 0 },
+                opacity: { from: 0, to: 1 },
+                duration: 400,
+                easing: easings.power2Out,
+              }}
+              delay={700}
+            >
+              <GoogleOutlineButton
+                onSuccess={onAuthSuccess}
+                onError={onAuthError}
+              />
+            </AnimatedEntrance>
+
+            <AnimatedEntrance
+              preset={{
+                translateX: { from: -30, to: 0 },
+                opacity: { from: 0, to: 1 },
+                duration: 400,
+                easing: easings.power2Out,
+              }}
+              delay={800}
+            >
+              <AuthOutlineButton
+                label="Continue with Email"
+                icon={
+                  <Ionicons name="mail-outline" size={22} color={colors.onyx} />
+                }
+                onPress={goToEmail}
+              />
+            </AnimatedEntrance>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.snow },
+  safe: { flex: 1 },
+  topBar: {
+    paddingHorizontal: spacing.md,
+    minHeight: 28,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  subtitleWrapper: {
+    marginTop: spacing.sm,
+  },
+  riveWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.lg,
+  },
+  rive: {
+    width: 220,
+    height: 220,
+    backgroundColor: 'transparent',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xl,
+  },
+  toggleButton: {
+    width: 148,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.concreteGrey,
+    marginTop: spacing.lg,
+  },
+  socialButtonsSection: {
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+});

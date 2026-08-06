@@ -1,0 +1,69 @@
+// Shared TypeScript interfaces for all era components (era-agnostic)
+// Used by: Adventures, Lessons, Quizzes, Progress tracking
+
+export interface Answer {
+  text: string;
+  is_correct: boolean;
+}
+
+export interface Question {
+  question_text: string;
+  question_type: 'mcq' | 'trueFalse' | 'fillInBlank';
+  answers: Answer[];
+  explanation?: string;
+}
+
+export interface ContentBlock {
+  type: 'video' | 'image' | 'text';
+  order: number;
+  url?: string;  // For video/image blocks
+  content?: string;  // For text blocks
+  autoplay?: boolean;  // For video blocks
+  loop?: boolean;  // For video blocks
+}
+
+export interface KeyTerm {
+  term: string;
+  definition: string;
+}
+
+export interface BottomContent {
+  reading_text: string; // HTML content string (supports h1-h6, p, strong, em, ul, li, blockquote, hr, etc.)
+  carousel_captions?: string[]; // Plain text captions for video carousel items
+  key_terms?: KeyTerm[]; // Optional glossary terms for the lesson
+}
+
+export interface ContentItem {
+  id: string;
+  thumbnail_url: string | null;
+  thumbnail_title: string | null;
+  media_url: string[] | null;
+  content_type: 'reel' | 'video_carousel' | 'image_carousel' | 'scrollable_media_view';
+  bottom_content: BottomContent | null;
+  questions?: Question[];
+  order_by: number;
+  background_music_url?: string | null;
+  content_blocks?: ContentBlock[];  // For scrollable_media_view lesson type
+}
+
+export interface CardContent {
+  era_name: string;
+  background_image: string;
+  map_image?: string;
+  overview_text: string;
+  adventure_story: string;
+  estimated_time: string;
+}
+
+export interface Adventure {
+  readable_id: string;
+  era_id: string;  // String FK to eras.era_id (e.g., "rise_of_islam")
+  adventure_title: string;
+  adventure_description?: string;
+  order_by: number;
+  timeline: string;
+  adv_design: string;  // "bento_grid" for 5-module bento layout
+  icon_url: string | null;
+  content_list: ContentItem[];
+  card_content?: CardContent | null;
+}

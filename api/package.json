@@ -1,0 +1,4 @@
+{
+  "//": "Scopes the serverless functions to ES modules. The root package.json deliberately has no `type` field, because Expo's metro.config.js, babel.config.js and eslint.config.js are CommonJS and would fail to parse as ESM. Node resolves module type from the nearest package.json, so this file makes api/**/*.js ESM without forcing the whole repo either way.",
+  "type": "module"
+}

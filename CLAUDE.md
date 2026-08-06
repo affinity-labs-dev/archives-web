@@ -1,108 +1,105 @@
-# Archives Web App
+# Archives Web
 
-## What This Is
-A browser-based version of the Archives app (currently Expo/React Native only). Plain HTML/CSS/JS with ES modules. No build step, no frameworks. Reads from Supabase, renders one era's content (Prophets) in the browser - watch videos, read stories, take quizzes.
+## What this is
 
-## How to Run
-```
-cd archives-web-app
-python -m http.server 8080
-```
-Open http://localhost:8080
+The Archives mobile app, running in a browser. This repo is a **fork of the Expo
+app** (`affinity-labs-dev/Archives_Expo`), not a reimplementation — same
+components, fonts, animations, sounds and quiz logic, rendered by
+react-native-web.
 
-## Supabase Connection
-- **URL**: `https://kcgihainlnntshupiztu.supabase.co`
-- **Anon key**: In `js/api.js` (public read-only via RLS)
-- **Table**: `content` (not `adventures`) with `era_id=eq.prophets`
-- **Eras table**: `eras` with string IDs like `prophets`, `prophets_2`, etc.
+It also contains the **Vercel backend** (`api/`), which is the reason the browser
+holds no database credential, and the **legacy vanilla app** (`js/`, `css/`,
+`index.html`) that this port replaces.
 
-## File Structure
-```
-index.html                    # Shell + Google Fonts + hls.js CDN
-css/styles.css                # All styles (Cormorant Garamond + DM Sans, amber/dark theme)
-js/
-  app.js                      # Route registration + router start
-  router.js                   # Hash-based routing with param extraction + cleanup
-  api.js                      # Supabase REST fetch + session cache (Map)
-  state.js                    # localStorage progress + star ratings per module
-  views/
-    adventures.js             # Era overview - 2-col grid of adventure cards with bg images
-    adventure-detail.js       # Hero + Netflix-style horizontal carousel of module tiles
-    lesson.js                 # Reel player (HLS video + reading text) or scrollable view
-    quiz.js                   # 3-question quiz with sounds + 3-star score screen
-  components/
-    header.js                 # Sticky back nav + title (frosted glass)
-    reel-player.js            # HLS video (9:16) + reading panel (side-by-side on tablet+)
-    scrollable-view.js        # Mixed text/image blocks
-    quiz-card.js              # Single question with A/B/C/D letter badges + sound effects
-    sounds.js                 # Web Audio API - correct chime, wrong buzz, star arpeggio
+The mobile repo is wired in as a read-only `upstream` remote so mobile changes
+can be pulled forward:
+
+```bash
+git fetch upstream && git merge upstream/streak-freeze
 ```
 
-## Routes
-| Hash | View | Description |
-|------|------|-------------|
-| `#/` | adventures.js | Grid of all prophets adventures |
-| `#/adventure/:readableId` | adventure-detail.js | Hero + horizontal module carousel |
-| `#/lesson/:readableId/:moduleIndex` | lesson.js | Video or scrollable content |
-| `#/quiz/:readableId/:moduleIndex` | quiz.js | 3 questions + star-rated score |
+**Never push to `upstream`.** Its push URL is deliberately set to a bogus value.
+The mobile app is live on iOS and Android; nothing in this repo ships to it.
 
-## Data Shape (from Supabase `content` table)
-- `readable_id`: e.g. `prophets_1`
-- `era_id`: string `prophets`
-- `adventure_title`, `adventure_description`, `timeline`, `icon_url`
-- `card_content`: `{ background_image, adventure_story, estimated_time, era_name }`
-- `content_list[]`: array of modules, each with:
-  - `id`, `order_by`, `content_type` (reel / scrollable_media_view)
-  - `media_url[]` (HLS .m3u8 URLs)
-  - `thumbnail_url`, `thumbnail_title`
-  - `bottom_content.reading_text` (HTML for reels)
-  - `content_blocks[]` (for scrollable: `{ type, content/url, order }`)
-  - `questions[]` (MCQ with answers, explanations)
+## Critical rules
 
-## Image Dimensions (important - don't crop)
-- **Modules 1 & 5** thumbnails: 928x1232 (portrait ~3:4)
-- **Modules 2-4** thumbnails: 1456x816 (landscape ~16:9)
-- **Adventure background images**: landscape
-- The module carousel uses fixed height with `aspect-ratio` on imgs so widths vary naturally
+1. **No credential ever ships to a browser.** No Supabase key, no service key,
+   no API key. Data goes through `api/`. `EXPO_PUBLIC_*` values are inlined into
+   the bundle by Metro — treat every one as public.
+2. **NEVER ASSUME — ALWAYS VERIFY.** Read the code, grep for the usage, query
+   Supabase for the real shape. Do not reason from column names or naming
+   conventions. This rule has paid for itself repeatedly here: the era of an
+   adventure genuinely cannot be derived from its id (`prophets_6` is in era
+   `prophets_2`), and a live `gamification_data` row has `progress: {}` where the
+   type says array.
+3. **Never access AsyncStorage directly.** Use `atomicProgressUpdate()` from
+   `@/gamification`.
+4. **Always use ArchivesTheme constants.** Never hardcode colours or spacing.
+5. **Keep merges from mobile cheap.** Prefer a `.web.ts` sibling over editing a
+   shared file — Metro resolves `foo.web.ts` over `foo.ts` on web automatically.
+   Every edit to a shared file is a future merge conflict.
+6. **Git commit attribution** — do not include Claude attribution in commits. No
+   `Co-Authored-By: Claude` and no `Generated with Claude Code` lines. Carried
+   over from the mobile repo's convention.
+7. **JSX text content** — use curly quotes or escape apostrophes, or
+   `react/no-unescaped-entities` fails the lint.
 
-## localStorage Format
-Key: `archives_progress`
-```json
-{
-  "prophets_1": {
-    "media_1": 3,
-    "media_2": 2
-  }
-}
+## Commands
+
+```bash
+npm run web            # Expo dev server on web
+npm run build:web      # expo export -p web  ->  dist/
+npm test               # vitest (api/ + js/ unit tests)
+npm run test:e2e       # playwright
+npm run lint
 ```
-Values are star counts (0-3). Best score is preserved on retry.
 
-## Design System
-- **Typography**: Cormorant Garamond (display/headings), DM Sans (UI/body)
-- **Colors**: Amber #D4A04A (primary), Cream #F0EAE0 (text), Dark #0C0B09 (bg)
-- **Spacing**: `--page-px` CSS variable scales with viewport (16/32/48/64px)
-- **Breakpoints**: 540, 700, 900, 1024, 1200, 1400, 1800px
-- **Effects**: Film grain overlay, frosted glass header, staggered entrance animations, spring easing
+## How the data layer works on web
 
-## What's Done (Phase 1-4 complete)
-- [x] Full routing system with hash-based navigation
-- [x] Supabase data fetching with session cache
-- [x] Adventures list - full-width 2-col grid with cinematic cards
-- [x] Adventure detail - full-bleed hero + horizontal scroll carousel
-- [x] Reel player - HLS video with side-by-side reading panel
-- [x] Scrollable view - text/image blocks
-- [x] Quiz - letter-badged answers, correct/wrong sound effects
-- [x] 3-star scoring system with animated score screen
-- [x] Stars displayed on module tiles after completion
-- [x] localStorage progress persistence
-- [x] Responsive design (mobile, iPad, desktop)
+Native talks to Supabase directly with the anon key. A browser cannot, so
+`hooks/lib/supabase.web.ts` points the same client at `/api/db` and swaps the
+key for a Clerk session token inside a custom `fetch`.
 
-## What's Left (Phase 5-6)
-- [ ] Image carousel component (for carousel-type modules if any exist)
-- [ ] Loading skeleton states (shimmer placeholders instead of spinner)
-- [ ] Error retry buttons
-- [ ] Transition animations between views (currently instant swap)
-- [ ] Scroll position restoration when navigating back
-- [ ] Test all adventures beyond prophets_1 (some may have different module structures)
-- [ ] Deploy to GitHub Pages
-- [ ] Consider: service worker for offline, share buttons, keyboard navigation
+- `api/db/[...path].js` — the proxy. Transport only.
+- `api/_lib/db-policy.js` — **every access decision.** Pure and unit-tested.
+  Content is read-only; user tables are force-scoped to the token's subject.
+- The **ten** modules that import `{ supabase }` are unchanged, and must stay
+  that way — that is the whole point of the proxy.
+
+Scoping **appends** `user_id=eq.<sub>` rather than replacing it, because
+PostgREST ANDs repeated top-level params, so a forged id is intersected with the
+real one and matches nothing.
+
+PostgREST's status and body pass through **untouched**: the modules branch on
+supabase-js error codes (`PGRST116`, `23505`) and rewriting them breaks code
+that also has to keep working on mobile.
+
+Two things the proxy is the wrong shape for, both handled separately:
+`get_xp_percentile` (an oracle if proxied verbatim) and Storage
+(`/api/ai/image-upload`).
+
+## Web-specific mechanics
+
+- **`constants/phoneColumn.web.ts` clamps what `Dimensions.get("window")`
+  reports.** Layout constants are computed at *module scope*
+  (`TodayCardDeck.tsx:119`), so a CSS wrapper cannot fix the desktop letterbox —
+  it must be imported before any component module evaluates.
+- **`web-stubs/`** — Metro `resolveRequest` aliases for native-only packages.
+  `react-native-sound` is a real HTMLAudioElement implementation; Rive and
+  `react-native-purchases-ui` are placeholders.
+- **`babel-preset-expo` needs `unstable_transformImportMeta`** — zustand v5 ships
+  `import.meta` and Metro emits a classic `<script>`, so without it the page is
+  blank before any app code runs.
+- **`public/` is copied over the build output**, so `public/index.html` clobbers
+  the generated `dist/index.html`. Unresolved — see the plan.
+
+## Layout
+
+| Path | What |
+|---|---|
+| `app/` | expo-router routes. Currently the spike; `app_full/` is the real tree, renamed aside. |
+| `components/`, `hooks/`, `gamification/`, `services/`, `constants/` | The app. Merges from upstream. |
+| `api/` | Vercel functions. ESM via `api/package.json`; the root is CommonJS for Expo's configs. |
+| `scripts/` | One-offs. `migrate-web-progress.mjs` runs at cutover. |
+| `js/`, `css/`, `index.html` | The legacy vanilla app. Live today, retired at cutover. |
+| `ios/`, `android/`, `backend/`, `modules/` | Mobile-only. Carried for merge hygiene; nothing here builds them. |

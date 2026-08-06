@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["LQ9LP2WW94.ai.affinitylabs.archivesexpo"],
+        "components": [
+          {
+            "/": "*"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["LQ9LP2WW94.ai.affinitylabs.archivesexpo"]
+  }
+}

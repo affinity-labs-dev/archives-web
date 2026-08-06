@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ai.affinitylabs.archivesexpo",
+      "sha256_cert_fingerprints": [
+        "DB:00:7D:4D:EB:F5:75:79:D9:73:AD:F7:C1:0E:63:65:BC:B9:3F:72:D2:A2:33:DF:2B:FA:8A:C6:FC:89:29:B3"
+      ]
+    }
+  }
+]

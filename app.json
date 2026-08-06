@@ -1,0 +1,204 @@
+{
+  "expo": {
+    "name": "Archives",
+    "slug": "archives",
+    "version": "5.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/app-icon.png",
+    "scheme": "archives",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "usesAppleSignIn": true,
+      "bundleIdentifier": "ai.affinitylabs.archivesexpo",
+      "appleTeamId": "LQ9LP2WW94",
+      "buildNumber": "206",
+      "associatedDomains": [
+        "applinks:link.archiveszone.app"
+      ],
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio",
+          "remote-notification"
+        ],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "archives"
+            ]
+          }
+        ],
+        "NSUserTrackingUsageDescription": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true,
+        "NSSupportsLiveActivitiesFrequentUpdates": true
+      }
+    },
+    "android": {
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android_icon.png",
+        "backgroundColor": "#FAFAFA"
+      },
+      "edgeToEdgeEnabled": false,
+      "androidNavigationBar": {
+        "backgroundColor": "#FAFAFA"
+      },
+      "package": "ai.affinitylabs.archivesexpo",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "com.google.android.gms.permission.AD_ID"
+      ],
+      "versionCode": 61,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "link.archiveszone.app"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Archives",
+      "shortName": "Archives",
+      "display": "standalone",
+      "startUrl": "/",
+      "themeColor": "#FAFAFA",
+      "backgroundColor": "#FAFAFA",
+      "build": {
+        "babel": {
+          "include": [
+            "@react-native-async-storage/async-storage",
+            "posthog-react-native"
+          ]
+        }
+      }
+    },
+    "plugins": [
+      "./plugins/withDisableFontScaling",
+      [
+        "expo-router",
+        {
+          "origin": "https://archives.expo.app"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FAFAFA",
+          "image": "./assets/images/splashscreen.png",
+          "dark": {
+            "image": "./assets/images/splashscreen.png",
+            "backgroundColor": "#FAFAFA"
+          },
+          "imageWidth": 200,
+          "resizeMode": "contain"
+        }
+      ],
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Archives needs access to your photos so you can share images with Ibu, your AI learning buddy."
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ],
+      "expo-audio",
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "Archives uses tracking to provide personalized educational recommendations based on your learning progress and interests, helping you discover relevant historical topics and adventures through our analytics platform."
+        }
+      ],
+      "react-native-bottom-tabs",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/app-icon.png",
+          "color": "#C99151",
+          "sounds": [],
+          "defaultChannel": "archives_notifications"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          },
+          "android": {
+            "largeHeap": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
+      "expo-iap",
+      "expo-web-browser",
+      "expo-font",
+      "expo-asset",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "archives",
+          "organization": "affinity-labs-0i"
+        }
+      ],
+      "expo-secure-store",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1421963112813789",
+          "clientToken": "021e8072d5ebfe3e28526cb3254f85eb",
+          "displayName": "Archives",
+          "scheme": "fb1421963112813789",
+          "advertiserIDCollectionEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "isAutoInitEnabled": true
+        }
+      ],
+      "@bacons/apple-targets"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4f1f4bc4-0ced-48f3-b712-178b54175088"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4f1f4bc4-0ced-48f3-b712-178b54175088"
+    },
+    "owner": "sunny_panchal"
+  }
+}

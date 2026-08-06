@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Opening Archives...</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: #F4EBDB;
+      color: #4D392E;
+    }
+    .container {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .spinner {
+      border: 4px solid rgba(201, 145, 81, 0.2);
+      border-top: 4px solid #C99151;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 30px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin: 0 0 12px 0;
+      color: #4D392E;
+    }
+    p {
+      font-size: 16px;
+      opacity: 0.7;
+      margin: 0 0 30px 0;
+    }
+    #fallback {
+      display: none;
+      margin-top: 30px;
+    }
+    .download-button {
+      display: inline-block;
+      background: linear-gradient(135deg, #C99151 0%, #D4A574 100%);
+      color: white;
+      padding: 14px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 16px;
+      box-shadow: 0 4px 12px rgba(201, 145, 81, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .download-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(201, 145, 81, 0.4);
+    }
+    .secondary-text {
+      margin-top: 16px;
+      font-size: 14px;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h1>Opening Archives...</h1>
+    <p>You'll be redirected to the app in a moment</p>
+
+    <div id="fallback">
+      <p style="opacity: 1; margin-bottom: 20px;">Don't have the app yet?</p>
+      <a href="https://apps.apple.com/app/id6751173663" class="download-button">
+        Download Archives
+      </a>
+      <p class="secondary-text">Available on iOS</p>
+    </div>
+  </div>
+
+  <script>
+    // Extract the path from the current URL
+    const path = window.location.pathname === '/' ? '' : window.location.pathname;
+
+    // Construct the custom scheme URL
+    const appUrl = 'archives:/' + path;
+
+    // Try to open the app
+    window.location = appUrl;
+
+    // After 2.5 seconds, show download button if app didn't open
+    setTimeout(() => {
+      document.getElementById('fallback').style.display = 'block';
+    }, 2500);
+
+    // Also provide a fallback redirect to main website after 5 seconds
+    setTimeout(() => {
+      // Only redirect if user is still on this page (didn't open app)
+      if (document.visibilityState === 'visible') {
+        window.location.href = 'https://archiveszone.app';
+      }
+    }, 5000);
+  </script>
+</body>
+</html>

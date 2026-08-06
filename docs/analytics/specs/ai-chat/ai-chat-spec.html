@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archives — AI Chat Flow Spec</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+    background: #fafafa;
+    color: #333;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 40px;
+    margin-bottom: 16px;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 24px;
+    margin-bottom: 12px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 24px;
+  }
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+    padding: 14px 20px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .legend-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .swatch-normal { background: #fff; border: 1px solid #ccc; }
+  .swatch-untracked { background: #fee2e2; border: 1px solid #dc2626; }
+  .swatch-checkpoint { background: #809DE4; border: 1px solid #6580C0; }
+  .swatch-grey { background: #9ca3af; border: 1px solid #6b7280; }
+
+  .svg-chart {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 8px;
+    padding: 16px 0;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+  }
+  .svg-chart svg {
+    min-width: 900px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  thead th {
+    background: #f5f5f5;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid #ddd;
+    font-weight: 600;
+  }
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+  tbody tr:hover { background: #fafafa; }
+  .mono {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  .untracked {
+    color: #dc2626;
+    font-weight: 600;
+  }
+  .vol {
+    font-size: 12px;
+    color: #888;
+    display: block;
+    margin-top: 2px;
+  }
+  .event-row { margin-bottom: 6px; }
+  .event-row:last-child { margin-bottom: 0; }
+
+  hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 40px 0;
+  }
+  ol {
+    padding-left: 24px;
+  }
+  ol li {
+    margin-bottom: 8px;
+  }
+  ul {
+    padding-left: 24px;
+  }
+  ul li {
+    margin-bottom: 8px;
+  }
+  .footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+    font-size: 13px;
+    color: #aaa;
+  }
+  .node-name {
+    font-weight: 600;
+  }
+  @page { size: landscape; margin: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Archives &mdash; AI Chat Flow Spec</h1>
+<p class="subtitle">AFF-844 &middot; PostHog Project 93650 &middot; Updated 2026-05-06</p>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch swatch-normal"></div>
+    <span><strong>Normal</strong> &mdash; event exists in codebase</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-untracked"></div>
+    <span><strong>Red</strong> &mdash; not in codebase, needs implementation</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-checkpoint"></div>
+    <span><strong>Blue</strong> &mdash; checkpoint (key milestone)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch swatch-grey"></div>
+    <span><strong>Dark Grey</strong> &mdash; entry point / alternate path</span>
+  </div>
+</div>
+
+<!-- User Journey Diagram -->
+<h2>User Journey</h2>
+<div class="svg-chart">
+<svg id="ai-chat-svg" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" style="max-width: 1304.05px; background-color: transparent;" viewBox="0 0 1304.046875 590" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#ai-chat-svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#ai-chat-svg .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#ai-chat-svg .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#ai-chat-svg .error-icon{fill:#552222;}#ai-chat-svg .error-text{fill:#552222;stroke:#552222;}#ai-chat-svg .edge-thickness-normal{stroke-width:1px;}#ai-chat-svg .edge-thickness-thick{stroke-width:3.5px;}#ai-chat-svg .edge-pattern-solid{stroke-dasharray:0;}#ai-chat-svg .edge-thickness-invisible{stroke-width:0;fill:none;}#ai-chat-svg .edge-pattern-dashed{stroke-dasharray:3;}#ai-chat-svg .edge-pattern-dotted{stroke-dasharray:2;}#ai-chat-svg .marker{fill:#333333;stroke:#333333;}#ai-chat-svg .marker.cross{stroke:#333333;}#ai-chat-svg svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#ai-chat-svg p{margin:0;}#ai-chat-svg .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#ai-chat-svg .cluster-label text{fill:#333;}#ai-chat-svg .cluster-label span{color:#333;}#ai-chat-svg .cluster-label span p{background-color:transparent;}#ai-chat-svg .label text,#ai-chat-svg span{fill:#333;color:#333;}#ai-chat-svg .node rect,#ai-chat-svg .node circle,#ai-chat-svg .node ellipse,#ai-chat-svg .node polygon,#ai-chat-svg .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#ai-chat-svg .rough-node .label text,#ai-chat-svg .node .label text,#ai-chat-svg .image-shape .label,#ai-chat-svg .icon-shape .label{text-anchor:middle;}#ai-chat-svg .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#ai-chat-svg .rough-node .label,#ai-chat-svg .node .label,#ai-chat-svg .image-shape .label,#ai-chat-svg .icon-shape .label{text-align:center;}#ai-chat-svg .node.clickable{cursor:pointer;}#ai-chat-svg .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#ai-chat-svg .arrowheadPath{fill:#333333;}#ai-chat-svg .edgePath .path{stroke:#333333;stroke-width:1px;}#ai-chat-svg .flowchart-link{stroke:#333333;fill:none;}#ai-chat-svg .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#ai-chat-svg .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#ai-chat-svg .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#ai-chat-svg .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#ai-chat-svg .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#ai-chat-svg .cluster text{fill:#333;}#ai-chat-svg .cluster span{color:#333;}#ai-chat-svg div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#ai-chat-svg .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#ai-chat-svg rect.text{fill:none;stroke-width:0;}#ai-chat-svg .icon-shape,#ai-chat-svg .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#ai-chat-svg .icon-shape p,#ai-chat-svg .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#ai-chat-svg .icon-shape .label rect,#ai-chat-svg .image-shape .label rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#ai-chat-svg .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#ai-chat-svg .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#ai-chat-svg .node .neo-node{stroke:#9370DB;}#ai-chat-svg [data-look="neo"].node rect,#ai-chat-svg [data-look="neo"].cluster rect,#ai-chat-svg [data-look="neo"].node polygon{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#ai-chat-svg [data-look="neo"].node path{stroke:#9370DB;stroke-width:1px;}#ai-chat-svg [data-look="neo"].node .outer-path{filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#ai-chat-svg [data-look="neo"].node .neo-line path{stroke:#9370DB;filter:none;}#ai-chat-svg [data-look="neo"].node circle{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#ai-chat-svg [data-look="neo"].node circle .state-start{fill:#000000;}#ai-chat-svg [data-look="neo"].icon-shape .icon{fill:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#ai-chat-svg [data-look="neo"].icon-shape .icon-neo path{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#ai-chat-svg :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}#ai-chat-svg .checkpoint&gt;*{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#ai-chat-svg .checkpoint span{fill:#809DE4!important;stroke:#6580C0!important;color:#fff!important;}#ai-chat-svg .checkpoint tspan{fill:#fff!important;}#ai-chat-svg .grey&gt;*{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#ai-chat-svg .grey span{fill:#9ca3af!important;stroke:#6b7280!important;color:#fff!important;}#ai-chat-svg .grey tspan{fill:#fff!important;}#ai-chat-svg .default&gt;*{fill:#fff!important;stroke:#ccc!important;color:#333!important;}#ai-chat-svg .default span{fill:#fff!important;stroke:#ccc!important;color:#333!important;}#ai-chat-svg .default tspan{fill:#333!important;}</style><g><marker id="ai-chat-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="ai-chat-svg_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="ai-chat-svg_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"/><g class="edgePaths"><path d="M178.422,347L192.685,347C206.948,347,235.474,347,263.363,351.171C291.251,355.343,318.502,363.686,332.128,367.857L345.753,372.029" id="ai-chat-svg-L_A_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_C_0" data-points="W3sieCI6MTc4LjQyMTg3NSwieSI6MzQ3fSx7IngiOjI2NCwieSI6MzQ3fSx7IngiOjM0OS41NzgxMjUsInkiOjM3My4xOTk3MTQ4MjQ1MjUxfV0=" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M166.555,451L182.796,451C199.036,451,231.518,451,261.385,446.829C291.251,442.657,318.502,434.314,332.128,430.143L345.753,425.971" id="ai-chat-svg-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MTY2LjU1NDY4NzUsInkiOjQ1MX0seyJ4IjoyNjQsInkiOjQ1MX0seyJ4IjozNDkuNTc4MTI1LCJ5Ijo0MjQuODAwMjg1MTc1NDc0OX1d" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M444.541,372L460.972,330.5C477.403,289,510.264,206,530.194,164.5C550.125,123,557.125,123,560.625,123L564.125,123" id="ai-chat-svg-L_C_S_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_S_0" data-points="W3sieCI6NDQ0LjU0MTM1NTI5ODkxMzA2LCJ5IjozNzJ9LHsieCI6NTQzLjEyNSwieSI6MTIzfSx7IngiOjU2OC4xMjUsInkiOjEyM31d" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M759.766,123L771.874,123C783.982,123,808.198,123,832.01,124.236C855.822,125.473,879.231,127.945,890.935,129.182L902.639,130.418" id="ai-chat-svg-L_S_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_S_D_0" data-points="W3sieCI6NzU5Ljc2NTYyNSwieSI6MTIzfSx7IngiOjgzMi40MTQwNjI1LCJ5IjoxMjN9LHsieCI6OTA2LjYxNzE4NzUsInkiOjEzMC44MzgyNTA0NjQyMDQ2Nn1d" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M490.59,372L499.346,367.833C508.101,363.667,525.613,355.333,542.902,351.167C560.19,347,577.255,347,585.788,347L594.32,347" id="ai-chat-svg-L_C_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_E_0" data-points="W3sieCI6NDkwLjU4OTY5MzUwOTYxNTM2LCJ5IjozNzJ9LHsieCI6NTQzLjEyNSwieSI6MzQ3fSx7IngiOjU5OC4zMjAzMTI1LCJ5IjozNDd9XQ==" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M693.103,320L716.322,298.5C739.54,277,785.977,234,820.932,208.471C855.887,182.941,879.361,174.883,891.097,170.854L902.834,166.824" id="ai-chat-svg-L_E_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_E_D_0" data-points="W3sieCI6NjkzLjEwMzM2NTM4NDYxNTQsInkiOjMyMH0seyJ4Ijo4MzIuNDE0MDYyNSwieSI6MTkxfSx7IngiOjkwNi42MTcxODc1LCJ5IjoxNjUuNTI1Njg1OTkxMzM0ODV9XQ==" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M729.57,367.256L746.711,372.547C763.852,377.837,798.133,388.419,826.715,393.709C855.297,399,878.18,399,889.621,399L901.063,399" id="ai-chat-svg-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6NzI5LjU3MDMxMjUsInkiOjM2Ny4yNTU5ODIxOTI1NDMxfSx7IngiOjgzMi40MTQwNjI1LCJ5IjozOTl9LHsieCI6OTA1LjA2MjUsInkiOjM5OX1d" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M490.59,426L499.346,430.167C508.101,434.333,525.613,442.667,539.908,446.833C554.203,451,565.281,451,570.82,451L576.359,451" id="ai-chat-svg-L_C_L_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_L_0" data-points="W3sieCI6NDkwLjU4OTY5MzUwOTYxNTM2LCJ5Ijo0MjZ9LHsieCI6NTQzLjEyNSwieSI6NDUxfSx7IngiOjU4MC4zNTkzNzUsInkiOjQ1MX1d" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M452.764,426L467.824,447.5C482.885,469,513.005,512,536.241,533.5C559.477,555,575.828,555,584.004,555L592.18,555" id="ai-chat-svg-L_C_CL_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_CL_0" data-points="W3sieCI6NDUyLjc2NDI3MjgzNjUzODQ1LCJ5Ijo0MjZ9LHsieCI6NTQzLjEyNSwieSI6NTU1fSx7IngiOjU5Ni4xNzk2ODc1LCJ5Ijo1NTV9XQ==" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M1010.836,112L1023.647,99.167C1036.458,86.333,1062.081,60.667,1080.294,47.833C1098.508,35,1109.313,35,1114.715,35L1120.117,35" id="ai-chat-svg-L_D_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_D_G_0" data-points="W3sieCI6MTAxMC44MzYxNjI4NjA1NzY5LCJ5IjoxMTJ9LHsieCI6MTA4Ny43MDMxMjUsInkiOjM1fSx7IngiOjExMjQuMTE3MTg3NSwieSI6MzV9XQ==" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M1061.148,139L1065.574,139C1070,139,1078.852,139,1086.777,139C1094.703,139,1101.703,139,1105.203,139L1108.703,139" id="ai-chat-svg-L_D_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_D_H_0" data-points="W3sieCI6MTA2MS4xNDg0Mzc1LCJ5IjoxMzl9LHsieCI6MTA4Ny43MDMxMjUsInkiOjEzOX0seyJ4IjoxMTEyLjcwMzEyNSwieSI6MTM5fV0=" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M1010.836,166L1023.647,178.833C1036.458,191.667,1062.081,217.333,1078.984,230.167C1095.888,243,1104.073,243,1108.165,243L1112.258,243" id="ai-chat-svg-L_D_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_D_K_0" data-points="W3sieCI6MTAxMC44MzYxNjI4NjA1NzY5LCJ5IjoxNjZ9LHsieCI6MTA4Ny43MDMxMjUsInkiOjI0M30seyJ4IjoxMTE2LjI1NzgxMjUsInkiOjI0M31d" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M1037.79,372L1046.108,367.833C1054.427,363.667,1071.065,355.333,1083.891,351.167C1096.716,347,1105.729,347,1110.236,347L1114.742,347" id="ai-chat-svg-L_F_I_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_I_0" data-points="W3sieCI6MTAzNy43ODk1MTMyMjExNTM4LCJ5IjozNzJ9LHsieCI6MTA4Ny43MDMxMjUsInkiOjM0N30seyJ4IjoxMTE4Ljc0MjE4NzUsInkiOjM0N31d" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/><path d="M1037.79,426L1046.108,430.167C1054.427,434.333,1071.065,442.667,1085.35,446.833C1099.635,451,1111.568,451,1117.534,451L1123.5,451" id="ai-chat-svg-L_F_J_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_J_0" data-points="W3sieCI6MTAzNy43ODk1MTMyMjExNTM4LCJ5Ijo0MjZ9LHsieCI6MTA4Ny43MDMxMjUsInkiOjQ1MX0seyJ4IjoxMTI3LjUsInkiOjQ1MX1d" data-look="classic" marker-end="url(#ai-chat-svg_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(264, 347)"><g class="label" data-id="L_A_C_0" transform="translate(-25.109375, -12)"><foreignObject width="50.21875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>tapped</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(264, 451)"><g class="label" data-id="L_B_C_0" transform="translate(-60.578125, -12)"><foreignObject width="121.15625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>from quiz results</p></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_C_S_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_S_D_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_C_E_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(791.54109, 228.84787)"><g class="label" data-id="L_E_D_0" transform="translate(-47.6484375, -12)"><foreignObject width="95.296875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>quick prompt</p></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_E_F_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_C_L_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_C_CL_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_D_G_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_D_H_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_D_K_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_F_I_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_F_J_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default grey" id="ai-chat-svg-flowchart-A-0" data-look="classic" transform="translate(93.2109375, 347)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-85.2109375" y="-27" width="170.421875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-55.2109375, -12)"><rect/><foreignObject width="110.421875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Floating Button</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="ai-chat-svg-flowchart-C-1" data-look="classic" transform="translate(433.8515625, 399)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-84.2734375" y="-27" width="168.546875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-54.2734375, -12)"><rect/><foreignObject width="108.546875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>AI Chat Viewed</p></span></div></foreignObject></g></g><g class="node default grey" id="ai-chat-svg-flowchart-B-2" data-look="classic" transform="translate(93.2109375, 451)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-73.34375" y="-27" width="146.6875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-43.34375, -12)"><rect/><foreignObject width="86.6875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Quiz Results</p></span></div></foreignObject></g></g><g class="node default default" id="ai-chat-svg-flowchart-S-5" data-look="classic" transform="translate(663.9453125, 123)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-95.8203125" y="-27" width="191.640625" height="54"/><g class="label" style="color:#333 !important" transform="translate(-65.8203125, -12)"><rect/><foreignObject width="131.640625" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Suggestion Tapped</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="ai-chat-svg-flowchart-D-7" data-look="classic" transform="translate(983.8828125, 139)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-77.265625" y="-27" width="154.53125" height="54"/><g class="label" style="color:#fff !important" transform="translate(-47.265625, -12)"><rect/><foreignObject width="94.53125" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Message Sent</p></span></div></foreignObject></g></g><g class="node default default" id="ai-chat-svg-flowchart-E-9" data-look="classic" transform="translate(663.9453125, 347)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-65.625" y="-27" width="131.25" height="54"/><g class="label" style="color:#333 !important" transform="translate(-35.625, -12)"><rect/><foreignObject width="71.25" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Plus Menu</p></span></div></foreignObject></g></g><g class="node default default" id="ai-chat-svg-flowchart-F-13" data-look="classic" transform="translate(983.8828125, 399)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-78.8203125" y="-27" width="157.640625" height="54"/><g class="label" style="color:#333 !important" transform="translate(-48.8203125, -12)"><rect/><foreignObject width="97.640625" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Upload Image</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="ai-chat-svg-flowchart-L-15" data-look="classic" transform="translate(663.9453125, 451)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-83.5859375" y="-27" width="167.171875" height="54"/><g class="label" style="color:#fff !important" transform="translate(-53.5859375, -12)"><rect/><foreignObject width="107.171875" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Chat Dismissed</p></span></div></foreignObject></g></g><g class="node default default" id="ai-chat-svg-flowchart-CL-17" data-look="classic" transform="translate(663.9453125, 555)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-67.765625" y="-27" width="135.53125" height="54"/><g class="label" style="color:#333 !important" transform="translate(-37.765625, -12)"><rect/><foreignObject width="75.53125" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Clear Chat</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="ai-chat-svg-flowchart-G-19" data-look="classic" transform="translate(1204.375, 35)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-80.2578125" y="-27" width="160.515625" height="54"/><g class="label" style="color:#fff !important" transform="translate(-50.2578125, -12)"><rect/><foreignObject width="100.515625" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Text Response</p></span></div></foreignObject></g></g><g class="node default checkpoint" id="ai-chat-svg-flowchart-H-21" data-look="classic" transform="translate(1204.375, 139)"><rect class="basic label-container" style="fill:#809DE4 !important;stroke:#6580C0 !important" x="-91.671875" y="-27" width="183.34375" height="54"/><g class="label" style="color:#fff !important" transform="translate(-61.671875, -12)"><rect/><foreignObject width="123.34375" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Image Generated</p></span></div></foreignObject></g></g><g class="node default grey" id="ai-chat-svg-flowchart-K-23" data-look="classic" transform="translate(1204.375, 243)"><rect class="basic label-container" style="fill:#9ca3af !important;stroke:#6b7280 !important" x="-88.1171875" y="-27" width="176.234375" height="54"/><g class="label" style="color:#fff !important" transform="translate(-58.1171875, -12)"><rect/><foreignObject width="116.234375" height="24"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#fff !important" class="nodeLabel"><p>Quota Exceeded</p></span></div></foreignObject></g></g><g class="node default default" id="ai-chat-svg-flowchart-I-25" data-look="classic" transform="translate(1204.375, 347)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-85.6328125" y="-27" width="171.265625" height="54"/><g class="label" style="color:#333 !important" transform="translate(-55.6328125, -12)"><rect/><foreignObject width="111.265625" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Image Analyzed</p></span></div></foreignObject></g></g><g class="node default default" id="ai-chat-svg-flowchart-J-27" data-look="classic" transform="translate(1204.375, 451)"><rect class="basic label-container" style="fill:#fff !important;stroke:#ccc !important" x="-76.875" y="-27" width="153.75" height="54"/><g class="label" style="color:#333 !important" transform="translate(-46.875, -12)"><rect/><foreignObject width="93.75" height="24"><div style="color: rgb(51, 51, 51) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#333 !important" class="nodeLabel"><p>Image Edited</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="ai-chat-svg-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="ai-chat-svg-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs></svg>
+</div>
+
+<!-- Events Table -->
+<h2>Events</h2>
+<table>
+<thead>
+  <tr>
+    <th>#</th>
+    <th>Node</th>
+    <th>PostHog Events</th>
+    <th>QA</th>
+  </tr>
+</thead>
+<tbody>
+
+  <tr>
+    <td>1</td>
+    <td class="node-name">Floating Button</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">ai_button_visible</span>
+        <span class="vol">screen (current route pathname)</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">ai_button_tapped</span>
+        <span class="vol">screen (current route pathname)</span>
+      </div>
+    </td>
+    <td>Button not visible; button overlaps content; tap doesn't open chat; drag gesture blocks tap; button disappears after drag</td>
+  </tr>
+
+  <tr>
+    <td>2</td>
+    <td class="node-name">Quiz Results</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">quiz_results_chat_to_learn_tapped</span>
+        <span class="vol">adventure_id, module_id, previous_score, era_id, era_name</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">chat_to_learn_paywall_shown</span>
+        <span class="vol">adventure_id, module_id, era_id, era_name, trigger: chat_to_learn</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">subscribe_purchase_completed</span>
+        <span class="vol">trigger: chat_to_learn</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">subscribe_purchase_cancelled</span>
+        <span class="vol">trigger: chat_to_learn</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">chat_to_learn_response</span>
+        <span class="vol">era_id, response_length</span>
+      </div>
+    </td>
+    <td>Paywall not presented; hidden context not sent to AI; quota error before API call; response not displayed; quiz context banner missing</td>
+  </tr>
+
+  <tr>
+    <td>3</td>
+    <td class="node-name">AI Chat Viewed</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_chat_viewed</span>
+        <span class="vol">era_id, message_count</span>
+      </div>
+    </td>
+    <td>Modal doesn't open; analytics event not firing; era_id missing or wrong; welcome screen not shown when messages is empty</td>
+  </tr>
+
+  <tr>
+    <td>4</td>
+    <td class="node-name">Suggestion Tapped</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">ai_suggestion_tapped</span>
+        <span class="vol">suggestion_text, era_id</span>
+      </div>
+    </td>
+    <td>Suggestion buttons unresponsive; wrong suggestion text sent; suggestion tap doesn't trigger handleSend; welcome screen suggestions not shown for empty chat</td>
+  </tr>
+
+  <tr>
+    <td>5</td>
+    <td class="node-name">Message Sent</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_chat_message_sent</span>
+        <span class="vol">era_id, message_type (text | image), message_length, is_first_message</span>
+      </div>
+    </td>
+    <td>Send button disabled when it should be active; keyboard doesn't dismiss; empty message gets sent; input text not cleared after send</td>
+  </tr>
+
+  <tr>
+    <td>6</td>
+    <td class="node-name">Text Response</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_chat_response_received</span>
+        <span class="vol">era_id, response_length, has_web_sources, web_sources_count</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">ai_chat_error</span>
+        <span class="vol">era_id</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">ai_web_source_tapped</span>
+        <span class="vol">source_url, source_title, era_id</span>
+      </div>
+    </td>
+    <td>Response not displayed; loading spinner stuck; error message not shown; web source links broken; markdown not rendering</td>
+  </tr>
+
+  <tr>
+    <td>7</td>
+    <td class="node-name">Image Generated</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_image_generated</span>
+        <span class="vol">era_id</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">ai_chat_error</span>
+        <span class="vol">era_id</span>
+      </div>
+    </td>
+    <td>Image prompt not detected; "Generating image..." spinner stuck; generated image not displayed; base64 decode failure</td>
+  </tr>
+
+  <tr>
+    <td>8</td>
+    <td class="node-name">Upload Image</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_image_selected</span>
+        <span class="vol">era_id, source: library</span>
+      </div>
+    </td>
+    <td>Permission denied on iOS; image picker doesn't launch; base64 encoding fails; pending image preview not shown; remove button doesn't clear</td>
+  </tr>
+
+  <tr>
+    <td>9</td>
+    <td class="node-name">Image Analyzed</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_image_analyzed</span>
+        <span class="vol">era_id, has_question</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">ai_chat_error</span>
+        <span class="vol">era_id</span>
+      </div>
+    </td>
+    <td>"Analyzing image..." spinner stuck; analysis response empty; uploaded image not sent to API; error not surfaced</td>
+  </tr>
+
+  <tr>
+    <td>10</td>
+    <td class="node-name">Image Edited</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_image_edited</span>
+        <span class="vol">era_id</span>
+      </div>
+      <div class="event-row">
+        <span class="mono">ai_chat_error</span>
+        <span class="vol">era_id</span>
+      </div>
+    </td>
+    <td>Edit prompt not detected; "Generating image..." spinner stuck; edited image not displayed; upload to storage fails</td>
+  </tr>
+
+  <tr>
+    <td>11</td>
+    <td class="node-name">Quota Exceeded</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_quota_exceeded</span>
+        <span class="vol">request_type (chat | image_generate | image_edit | image_analyze), limit, is_subscriber</span>
+      </div>
+    </td>
+    <td>Quota error message not shown; wrong limit displayed; reset date incorrect; subscriber flag wrong</td>
+  </tr>
+
+  <tr>
+    <td>12</td>
+    <td class="node-name">Plus Menu</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">ai_action_menu_viewed</span>
+        <span class="vol">era_id</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">ai_quick_prompt_tapped</span>
+        <span class="vol">prompt_text, era_id</span>
+      </div>
+    </td>
+    <td>Menu doesn't appear; menu items unresponsive; cancel button doesn't dismiss; quick prompt sends wrong text</td>
+  </tr>
+
+  <tr>
+    <td>13</td>
+    <td class="node-name">Image Viewer</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_image_shared</span>
+        <span class="vol">era_id</span>
+      </div>
+      <div class="event-row">
+        <span class="mono untracked">ai_image_viewer_viewed</span>
+        <span class="vol">era_id, image_type (generated | edited | uploaded)</span>
+      </div>
+    </td>
+    <td>Image viewer blank; full-screen image not loading; share button doesn't open share sheet; temp file cleanup fails; close button unresponsive</td>
+  </tr>
+
+  <tr>
+    <td>14</td>
+    <td class="node-name">Clear Chat</td>
+    <td>
+      <div class="event-row">
+        <span class="mono untracked">ai_chat_history_cleared</span>
+        <span class="vol">era_id, message_count (before clear)</span>
+      </div>
+    </td>
+    <td>Menu doesn't appear; clear confirmation alert doesn't show; messages not deleted from storage; menu doesn't dismiss after action</td>
+  </tr>
+
+  <tr>
+    <td>15</td>
+    <td class="node-name">Chat Dismissed</td>
+    <td>
+      <div class="event-row">
+        <span class="mono">ai_chat_dismissed</span>
+        <span class="vol">era_id, message_count</span>
+      </div>
+    </td>
+    <td>Modal doesn't close; messages not saved to cloud before close; back button on Android doesn't trigger close tracking</td>
+  </tr>
+
+</tbody>
+</table>
+
+<h3 style="margin-top:12px; font-size:14px; color:#888;">AI Quiz Explanation events (related but outside chat modal)</h3>
+<table>
+<thead>
+  <tr>
+    <th>Event</th>
+    <th>Properties</th>
+    <th>Status</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="mono">ai_quiz_explanation_requested</td>
+    <td><span class="vol">adventure_id, module_id, era_name, question_count</span></td>
+    <td>Wired in AIQuizExplanation.tsx</td>
+  </tr>
+  <tr>
+    <td class="mono">ai_quiz_explanation_generated</td>
+    <td><span class="vol">adventure_id, module_id, era_name, question_count, duration_ms</span></td>
+    <td>Wired in AIQuizExplanation.tsx</td>
+  </tr>
+</tbody>
+</table>
+
+<hr>
+
+<!-- Questions -->
+<h2>Questions This Flow Answers</h2>
+
+<h3>1. Strategic Questions</h3>
+<ol>
+  <li>How many users open the AI chat at least once per week?</li>
+  <li>How many users open AI chat from the floating button vs from Chat to Learn?</li>
+  <li>How many users hit the monthly quota limit?</li>
+  <li>How many free users hit the quota limit and then see the paywall?</li>
+  <li>How many users who hit the quota limit upgrade to a paid plan?</li>
+  <li>How many AI chat sessions result in zero messages sent (opened and dismissed immediately)?</li>
+  <li>How many users send image-related requests (generation, editing, analysis)?</li>
+  <li>How many users use the AI chat more than 5 times in a single day?</li>
+</ol>
+
+<h3>2. Behavioral Insights</h3>
+<ol>
+  <li>How many users tap a suggestion on the welcome screen as their first message?</li>
+  <li>How many users type a custom first message instead of tapping a suggestion?</li>
+  <li>How many users receive a response with web search sources?</li>
+  <li>How many users tap on a web search source link?</li>
+  <li>How many users request image generation through text prompts?</li>
+  <li>How many users upload an image from their photo library?</li>
+  <li>How many uploaded images are analyzed vs edited?</li>
+  <li>How many users open the full-screen image viewer?</li>
+  <li>How many users share a generated or edited image?</li>
+  <li>How many users open the action menu (plus button)?</li>
+  <li>How many users select a quick prompt from the action menu?</li>
+  <li>How many users clear their chat history?</li>
+  <li>How many users encounter an AI chat error?</li>
+  <li>How many users complete a Chat to Learn session (quiz context + AI response)?</li>
+  <li>How many users send a follow-up message after a Chat to Learn response?</li>
+</ol>
+
+<h3>3. Checkpoint Validation</h3>
+<ol>
+  <li><strong>AI Chat Viewed</strong> &mdash; How many users open the chat modal?</li>
+  <li><strong>Message Sent</strong> &mdash; How many users send at least one message?</li>
+  <li><strong>Text Response</strong> &mdash; How many messages get a successful AI response?</li>
+  <li><strong>Image Generated</strong> &mdash; How many users request and receive a generated image?</li>
+  <li><strong>Chat Dismissed</strong> &mdash; How many users close the chat after at least one exchange?</li>
+</ol>
+
+<h3 style="margin-top:24px;">Analysis Notes</h3>
+<ul style="padding-left:24px; margin-bottom:8px;">
+  <li><strong>Chat to Learn is gated by subscription:</strong> Non-subscribers see a paywall when tapping "Chat to Learn" on quiz results. Track conversion rate from <span class="mono">chat_to_learn_paywall_shown</span> to <span class="mono">subscribe_purchase_completed</span> with trigger <code>chat_to_learn</code>.</li>
+  <li><strong>Quota enforcement is server-side:</strong> The client <code>checkQuota()</code> always returns <code>allowed: true</code>. The backend API returns HTTP 429 when the limit is hit. The <span class="mono">ai_quota_exceeded</span> event fires on the client when the backend rejects a request.</li>
+  <li><strong>Image routing is heuristic:</strong> <code>isImageRequest()</code> and <code>isImageEditRequest()</code> use keyword matching. Some prompts may be misclassified (image intent routed to text chat or vice versa).</li>
+  <li><strong>Suggestion tap vs typed message:</strong> Both go through the same <code>handleSend()</code> path and fire <span class="mono">ai_chat_message_sent</span>. To distinguish them, add <span class="mono">ai_suggestion_tapped</span> on the welcome screen.</li>
+  <li><strong>Chat to Learn auto-context:</strong> When the user taps "Chat to Learn" after a quiz, a hidden context message is sent to the AI automatically. This is not a user action. The AI response appears with a quiz context banner. The <span class="mono">chat_to_learn_response</span> event tracks this.</li>
+  <li><strong>Floating button is hidden on certain screens:</strong> Hidden on onboarding, auth, today tab, and subscribe screens. Track <span class="mono">ai_button_visible</span> to understand which screens drive the most chat opens.</li>
+</ul>
+
+<div class="footer">
+  Archives AI Chat Spec &middot; AFF-844 &middot; 2026-05-06
+</div>
+
+</div>
+</body>
+</html>
