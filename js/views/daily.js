@@ -7,7 +7,7 @@ import { renderQuizCard, attachQuizHandlers } from '../components/quiz-card.js';
 import { playStars } from '../components/sounds.js';
 import { openChat } from '../components/chat.js';
 import { setDailyStepComplete } from '../state.js';
-import { escapeHtml, sanitizeUrl, sanitizeHtml } from '../utils.js';
+import { escapeHtml, sanitizeUrl, sanitizeHtml, normaliseContentType } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
 import { tryStreakCelebration } from '../components/streak-celebration.js';
@@ -99,7 +99,7 @@ export default function dailyView(app, params) {
     var isMobile = window.innerWidth < 700;
     if (c.card1) {
       var card1 = c.card1;
-      var ct = card1.content_type || 'reel';
+      var ct = normaliseContentType(card1.content_type);
       var bc = card1.bottom_content || card1.content || {};
       var reading = bc.reading_text || '';
       var captions = bc.captions || bc.carousel_captions || [];
@@ -416,7 +416,7 @@ export default function dailyView(app, params) {
 
     // Init card 1 media
     if (c.card1) {
-      var ct = c.card1.content_type || 'reel';
+      var ct = normaliseContentType(c.card1.content_type);
       var card1Urls = Array.isArray(c.card1.media_url) ? c.card1.media_url : (c.card1.media_url ? [c.card1.media_url] : []);
 
       if (isMobile) {

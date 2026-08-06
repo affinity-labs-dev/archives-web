@@ -16,6 +16,25 @@ export function localDateStr(date) {
 }
 
 /**
+ * The content types this app has a renderer for.
+ *
+ * Anything else falls back to the video player, which picks HLS or progressive
+ * from the URL itself - the same rule the mobile app applies in
+ * TodayVideoLesson. Without this fallback an unrecognised type matched no
+ * branch and the step rendered empty: `content_type: 'video'` is 77 of the 184
+ * daily stories, including every day this month, and none of them played.
+ *
+ * Branch on the return value, never on the raw column.
+ */
+export function normaliseContentType(contentType) {
+  // Only the types the watch step actually has a renderer for. 'reel' is the
+  // fallback rather than a member, so a new content type degrades to a playable
+  // video instead of a blank panel.
+  const known = ['image_carousel', 'video_carousel'];
+  return known.indexOf(contentType) === -1 ? 'reel' : contentType;
+}
+
+/**
  * Escape HTML entities before inserting text into innerHTML.
  *
  * Quotes are escaped too: most call sites interpolate into quoted attributes

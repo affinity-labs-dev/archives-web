@@ -1,5 +1,29 @@
 import { describe, it, expect } from 'vitest';
-import { escapeHtml, sanitizeHtml, sanitizeUrl, localDateStr } from '../utils.js';
+import { escapeHtml, sanitizeHtml, sanitizeUrl, localDateStr, normaliseContentType } from '../utils.js';
+
+describe('normaliseContentType', () => {
+  it('maps "video" to the reel renderer', () => {
+    // The bug this exists for: the watch step branched on the raw column and
+    // had no "video" case, so 77 of 184 daily stories - every day of the
+    // current month - rendered an empty panel with no player at all.
+    expect(normaliseContentType('video')).toBe('reel');
+  });
+
+  it('keeps the types that have their own renderer', () => {
+    expect(normaliseContentType('reel')).toBe('reel');
+    expect(normaliseContentType('image_carousel')).toBe('image_carousel');
+    expect(normaliseContentType('video_carousel')).toBe('video_carousel');
+  });
+
+  it('degrades an unknown type to a player rather than to nothing', () => {
+    // A new content type appearing in the CMS should cost us correct chrome,
+    // not the whole step.
+    expect(normaliseContentType('some_future_type')).toBe('reel');
+    expect(normaliseContentType(undefined)).toBe('reel');
+    expect(normaliseContentType(null)).toBe('reel');
+    expect(normaliseContentType('')).toBe('reel');
+  });
+});
 
 describe('escapeHtml', () => {
   it('escapes angle brackets', () => {
