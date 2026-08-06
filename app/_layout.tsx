@@ -4,6 +4,7 @@
 import { PHONE_COLUMN_WIDTH } from "@/constants/phoneColumn.web";
 
 import { useFonts } from "expo-font";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -58,6 +59,19 @@ export default function SpikeLayout() {
   // Same registration as the real root layout, aliases included - the aliases
   // are what the components actually reference.
   const [loaded] = useFonts({
+    // Icon fonts, and they are not optional on web.
+    //
+    // @expo/vector-icons loads these itself on native, so nothing here ever
+    // mentioned them - and on web every icon rendered as a black square,
+    // because the glyph has no font and falls back to the missing-character
+    // box. It hits 45 call sites across Ionicons and MaterialIcons: the back
+    // arrow, the read/voiceover controls, the quiz answer marks, "understand
+    // your answers", "chat to learn more".
+    //
+    // Registering them costs nothing on native, where they are already bundled.
+    ...Ionicons.font,
+    ...MaterialIcons.font,
+
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     "DM Sans": require("../assets/fonts/DM_Sans.ttf"),
     "DM-Sans-SemiBold": require("../assets/fonts/DM_Sans-SemiBold.ttf"),
@@ -75,11 +89,15 @@ export default function SpikeLayout() {
 
   if (!loaded) return null;
 
+  // The outer chrome is the same #FAFAFA as the column, so the page reads as
+  // one surface rather than a phone sitting on a dark backdrop. It is the app's
+  // own background - app.json uses it for the splash and every native
+  // background too.
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0C0B09" }}>
-      {/* The column. Centred, phone-width, everything outside it is chrome.
-          Width matches what phoneColumn.web.ts reports to Dimensions, so the
-          layout inside is laid out against exactly the space it occupies. */}
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#FAFAFA" }}>
+      {/* The column. Centred, phone-width. Width matches what
+          phoneColumn.web.ts reports to Dimensions, so the layout inside is laid
+          out against exactly the space it occupies. */}
       <View style={{ flex: 1, alignItems: "center" }}>
         <View
           style={{

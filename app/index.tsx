@@ -18,6 +18,7 @@ import { AnimatedEntrance } from "@/components/ui/animations";
 import { useHeroDive } from "@/hooks/today/useHeroDive";
 import { useTodayModalSlots } from "@/hooks/today/useTodayModalSlots";
 import { useTodayQuest } from "@/hooks/today/useTodayQuest";
+import { useTodayHistory } from "@/hooks/today/useTodayHistory";
 import { useGamificationOrchestrator } from "@/gamification";
 import { useUser } from "@clerk/clerk-expo";
 
@@ -75,6 +76,24 @@ export default function TodayOnWeb() {
   const [quest, setQuest] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  // Which day is on screen. The calendar was wired to a no-op `onSelectDate`
+  // with `selectedDate` pinned to today, so tapping a past day did nothing at
+  // all - the same shape of gap as the missing onQuizResults.
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  // The app's own hook for which days are finished, so the calendar's ticks
+  // come from the same query the phone uses (useTodayHistory.ts:97 - watch AND
+  // explore AND score > 0, all three). Only completedDatesCache is taken from
+  // it: this screen owns day selection itself, because it fetches through
+  // /api/daily/today rather than holding a Today object.
+  const justPurchasedRef = React.useRef(false);
+  const { completedDatesCache: completedDates } = useTodayHistory({
+    todayQuest: quest as any,
+    userId: user?.id,
+    isSubscribed: true,
+    isSubscriptionLoading: false,
+    justPurchasedRef,
+  });
   // The quiz owns its own feedback sheet and results screen; the chrome header
   // has to go transparent for both so the dim backdrop and the results body
   // bleed up behind the back button (today.tsx:880-891).
@@ -83,18 +102,31 @@ export default function TodayOnWeb() {
   const quizChromeClear = quizFeedback || quizResultsVisible;
 
   useEffect(() => {
-    fetch(`${API}?date=${localDateStr()}`)
+    let cancelled = false;
+    setQuest(null);
+    setError(null);
+    // Progress belongs to the day being viewed, not to the session.
+    setProgress(0);
+    fetch(`${API}?date=${localDateStr(selectedDate)}`)
       .then(async (r) => {
         if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 120)}`);
         return r.json();
       })
       .then((entry) => {
+        if (cancelled) return;
         const c = typeof entry?.content === "string" ? JSON.parse(entry.content) : entry?.content;
-        if (!c?.card1) throw new Error("no story published for today");
+        if (!c?.card1) throw new Error("no story published for this day");
         setQuest({ id: entry.id ?? "today", date: entry.date, content: c });
       })
-      .catch((e) => setError(String(e.message || e)));
-  }, []);
+      .catch((e) => {
+        // Guarded: switching days quickly would otherwise let a slow response
+        // for the previous day overwrite the current one.
+        if (!cancelled) setError(String(e.message || e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDate]);
 
   // Same shape today.tsx hands the lesson (app/(tabs)/today.tsx:750-773).
   const contentItem = React.useMemo(() => {
@@ -331,9 +363,9 @@ export default function TodayOnWeb() {
           </AnimatedEntrance>
 
           <TodayCalendar
-            selectedDate={new Date()}
-            onSelectDate={() => {}}
-            completedDates={new Set<string>()}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            completedDates={completedDates ?? new Set<string>()}
             isSubscribed
             style={{ marginBottom: 8 }}
             entranceDelay={180}
