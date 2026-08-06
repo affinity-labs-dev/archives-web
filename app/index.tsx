@@ -1,144 +1,332 @@
-// App Entry Point — smart router for new, returning, and mid-flow onboarding users.
-import React, { useEffect, useState } from 'react';
-import { Redirect } from 'expo-router';
-import { useUser } from '@clerk/clerk-expo';
-import { usePostHog } from 'posthog-react-native';
-import { Platform } from 'react-native';
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import LoadingScreen from '@/components/LoadingScreen';
-import { analyticsService } from '@/services/AnalyticsService';
-import AppLogger from '@/services/AppLogger';
-import { useOnboardingStore } from '@/stores/onboardingStore';
-import { STEP_ROUTE_MAP, POST_SIGNUP_STEPS } from '@/constants/OnboardingRoutes';
-import { hasRememberedAccount } from '@/services/RememberedAccountService';
+import { SafeAreaView } from "react-native-safe-area-context";
 
-/**
- * Routing decision tree (first-match wins):
- *
- *   1. Wait for Clerk + Zustand rehydration + remembered-account check →
- *      LoadingScreen.
- *   2. Signed-in + Clerk user.id ≠ userIdAtStart → account switch → reset +
- *      fresh start at step 1.
- *   3. Signed-in + status ∈ {completed, skipped} → /(tabs)/today.
- *   4. Signed-in + status = in_progress + currentStep ∈ POST_SIGNUP_STEPS →
- *      resume at STEP_ROUTE_MAP[currentStep].
- *   5. Signed-in + no onboarding state → existing returning user →
- *      /(tabs)/today.
- *   6. Not signed-in + status = in_progress + currentStep >= 8 → resume
- *      pre-auth onboarding at that step. Active mid-flow beats /welcome-back
- *      because a user who was *just* in onboarding hasn't really "left off"
- *      yet.
- *   7. Not signed-in + a remembered account exists (from a prior successful
- *      sign-in on this install) → /welcome-back for one-tap re-auth.
- *   8. Default → /onboarding-step-1.
- */
-export default function Index() {
-  const { isSignedIn, isLoaded, user } = useUser();
-  const posthog = usePostHog();
+import TodayCardDeck, { type TodayCardData } from "@/components/today/TodayCardDeck";
+import TodayCalendar from "@/components/today/TodayCalendar";
+import TodayHeader from "@/components/today/TodayHeader";
+import TodayLessonChrome from "@/components/today/TodayLessonChrome";
+import TodayProgressBar from "@/components/today/TodayProgressBar";
+import TodayScrollableLesson from "@/components/lessons/today/TodayScrollableLesson";
+import TodayVideoLesson from "@/components/lessons/today/TodayVideoLesson";
+import Quiz from "@/components/quiz/Quiz";
+import { DepthButton, Typography, colors, easings } from "@/components/ui";
+import { AnimatedEntrance } from "@/components/ui/animations";
+import { useHeroDive } from "@/hooks/today/useHeroDive";
+import { useTodayModalSlots } from "@/hooks/today/useTodayModalSlots";
 
-  const hasHydrated = useOnboardingStore((s) => s._hasHydrated);
-  const status = useOnboardingStore((s) => s.status);
-  const currentStep = useOnboardingStore((s) => s.currentStep);
-  const userIdAtStart = useOnboardingStore((s) => s.userIdAtStart);
-  const reset = useOnboardingStore((s) => s.reset);
+// ─────────────────────────────────────────────────────────────
+// The real Today screen, running in a browser, on today's real content.
+//
+// This is the mobile app's own code - TodayCardDeck, TodayVideoLesson, the
+// hero-dive and the dual-slot crossfade - not a re-implementation. What it
+// deliberately does NOT include is the parts that have nothing to do with how
+// the app looks and would block the page from rendering at all:
+//
+//   Clerk    - the production instance only accepts archiveszone.app as an
+//              origin, so including it gates everything behind a blank splash.
+//   Supabase - the data layer is being replaced by the /api/* backend anyway
+//              (M2), so content is fetched from that backend here instead.
+//              That also means no credential is needed to run this.
+//
+// Everything else is the shipping code: same fonts, same colours, same
+// components, same animation timings, same video pipeline.
+// ─────────────────────────────────────────────────────────────
 
-  // Cold-start check for a remembered-identity cache. Kept local to this
-  // screen because the check is only relevant during the routing decision —
-  // no consumer downstream needs it. Starts `null` (= still loading) so the
-  // router waits before making a decision.
-  const [hasRemembered, setHasRemembered] = useState<boolean | null>(null);
+// Today's real payload, served same-origin. The live /api/* endpoints send no
+// Access-Control-Allow-Origin - correct for production, since only the app
+// itself should call them - so a cross-origin fetch from the dev server is
+// blocked. Worth noting for the port: once the app is served from the same
+// Vercel project this goes away, but any dev server on another port needs a
+// proxy.
+const API = "/today.json";
+
+function localDateStr(d = new Date()) {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+export default function TodayOnWeb() {
+  const insets = useSafeAreaInsets();
+  const hero = useHeroDive();
+  const slots = useTodayModalSlots();
+  const [quest, setQuest] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  // The quiz owns its own feedback sheet and results screen; the chrome header
+  // has to go transparent for both so the dim backdrop and the results body
+  // bleed up behind the back button (today.tsx:880-891).
+  const [quizFeedback, setQuizFeedback] = useState(false);
+  const [quizResultsVisible, setQuizResultsVisible] = useState(false);
+  const quizChromeClear = quizFeedback || quizResultsVisible;
+
   useEffect(() => {
-    let cancelled = false;
-    hasRememberedAccount()
-      .then((result) => {
-        if (!cancelled) setHasRemembered(result);
+    fetch(`${API}?d=${localDateStr()}`)
+      .then((r) => r.json())
+      .then((entry) => {
+        const c = typeof entry?.content === "string" ? JSON.parse(entry.content) : entry?.content;
+        if (!c?.card1) throw new Error("no story published for today");
+        setQuest({ id: entry.id ?? "today", date: entry.date, content: c });
       })
-      .catch((err) => {
-        AppLogger.warn('navigation', 'Remembered-account check failed', { err: String(err) });
-        if (!cancelled) setHasRemembered(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch((e) => setError(String(e.message || e)));
   }, []);
 
+  // Same shape today.tsx hands the lesson (app/(tabs)/today.tsx:750-773).
+  const contentItem = React.useMemo(() => {
+    if (!quest) return null;
+    const card1 = quest.content.card1;
+    const source = card1.media_hls_url !== undefined ? card1.media_hls_url : card1.media_url;
+    return {
+      id: quest.id,
+      thumbnail_title: card1.title,
+      thumbnail_url: "",
+      media_url: Array.isArray(source) ? source : [source],
+      content_type: card1.content_type || "reel",
+      background_music_url: card1.background_music_url,
+      bottom_content: {
+        title: card1.title,
+        description: card1.content?.reading_text,
+        reading_text: card1.content?.reading_text,
+        captions: card1.content?.captions || [],
+      },
+      order_by: 0,
+    } as any;
+  }, [quest]);
+
+  // The hero dive: fade the home, fly the centred card forward, mount the
+  // lesson, then fade it in. Same two-phase sequence as today.tsx.
+  const openAt = useCallback(
+    async (modal: "video" | "reading" | "quiz") => {
+      await hero.playDivePhase1();
+      slots.openModal(modal);
+      await hero.playDivePhase2();
+    },
+    [hero, slots]
+  );
+  const openVideo = useCallback(() => openAt("video"), [openAt]);
+
+  // Spike-only: expose the modal state so a browser test can assert which step
+  // opened instead of guessing from the visible text (two steps can show the
+  // same reading copy).
   useEffect(() => {
-    if (posthog && Platform.OS !== 'web') {
-      posthog.capture('app_entry_point', {
-        screen: 'index',
-        is_signed_in: isSignedIn ?? false,
-        is_loaded: isLoaded ?? false,
-      });
-      AppLogger.info('navigation', 'App entry point tracked');
+    (globalThis as any).__step = slots.activeModal;
+  }, [slots.activeModal]);
+
+  const close = useCallback(() => {
+    slots.closeModal();
+    hero.reset();
+    setQuizFeedback(false);
+    setQuizResultsVisible(false);
+  }, [slots, hero]);
+
+  if (error) {
+    return (
+      <View style={styles.centre}>
+        <Text style={styles.err}>Could not load today's story{"\n"}{error}</Text>
+      </View>
+    );
+  }
+  if (!quest) {
+    return (
+      <View style={styles.centre}>
+        <ActivityIndicator color="#C99151" />
+      </View>
+    );
+  }
+
+  const c = quest.content;
+  const img = (u?: string) => (u ? { uri: u } : undefined);
+
+  const cards: [TodayCardData, TodayCardData, TodayCardData] = [
+    {
+      kind: "watch",
+      kicker: "TODAY",
+      title: c.card1?.title || c.today_title || "Today's Story",
+      minutes: `${c.card1?.duration_minutes ?? 3} min`,
+      pillLabel: "Watch",
+      imageSource: img(c.card1?.thumbnail_url || c.card1?.image_url || c.background_image),
+      onPress: openVideo,
+    },
+    {
+      kind: "explore",
+      kicker: "TODAY",
+      title: c.card2?.title || "Explore",
+      minutes: `${c.card2?.duration_minutes ?? 1} min`,
+      pillLabel: "Read",
+      imageSource: img(c.card2?.thumbnail_url || c.card2?.image_url),
+      onPress: () => openAt("reading"),
+    },
+    {
+      kind: "questions",
+      kicker: "TODAY",
+      title: c.card3?.title || "Questions",
+      minutes: `${c.card3?.duration_minutes ?? 2} min`,
+      pillLabel: "Start",
+      imageSource: img(c.card3?.thumbnail_url || c.card3?.image_url),
+      onPress: () => openAt("quiz"),
+    },
+  ];
+
+  // Each step hands off to the next through the same 400ms dual-slot crossfade
+  // the app uses, so the sequence is watch -> read -> quiz without a flash.
+  // Progress is local state here rather than a Supabase write.
+  const renderSlot = (modal: string) => {
+    if (modal === "video" && contentItem) {
+      return (
+        <TodayVideoLesson
+          contentItem={contentItem}
+          progress={progress}
+          onNext={() => {
+            setProgress(33);
+            slots.animateModalTransition("reading", "video", "forward");
+          }}
+          onDismiss={close}
+        />
+      );
     }
-  }, [posthog, isSignedIn, isLoaded]);
 
-  // 1. Wait for Clerk, onboarding rehydration, and remembered-account probe.
-  //    Without all three the guard would make a decision on incomplete data.
-  if (!isLoaded || !hasHydrated || hasRemembered === null) {
-    return <LoadingScreen />;
-  }
+    if (modal === "reading") {
+      return (
+        <TodayScrollableLesson
+          contentBlocks={c.card2?.content_blocks || []}
+          progress={progress}
+          innerVoiceUrl={c.card2?.inner_voice}
+          onContinue={() => {
+            setProgress(66);
+            slots.animateModalTransition("quiz", "reading", "forward");
+          }}
+          onBack={() => slots.animateModalTransition("video", "none", "backward")}
+        />
+      );
+    }
 
-  // 2. Account switch detection — a previously-bound Clerk id doesn't match
-  //    the current signed-in user. Clears stale onboarding answers so the
-  //    new account starts clean.
-  if (isSignedIn && userIdAtStart && user?.id && user.id !== userIdAtStart) {
-    AppLogger.info('navigation', 'Clerk user id mismatch — resetting onboarding', {
-      previous: userIdAtStart,
-      current: user.id,
-    });
-    reset();
-    return <Redirect href="/onboarding-step-1" />;
-  }
+    if (modal === "quiz") {
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.snow }} edges={[]}>
+          <TodayLessonChrome
+            progress={progress}
+            onBack={() => slots.animateModalTransition("reading", "video", "backward")}
+            headerBackground={quizChromeClear ? "transparent" : colors.snow}
+            backIconColor={colors.bluePrimary}
+            progressLabelColor={colors.bluePrimary}
+            progressFillColor={colors.bluePrimary}
+            progressTrackColor={colors.blueSecondary}
+            hideProgress={quizResultsVisible}
+            hideBottomCtas
+            rightCta={null}
+          >
+            <Quiz
+              contentItem={{
+                id: quest.id,
+                questions: c.card3?.questions || [],
+                thumbnail_title: c.card3?.title,
+                thumbnail_url: "",
+                media_url: [],
+                content_type: "reel",
+                bottom_content: null,
+                order_by: 0,
+              } as any}
+              adventureId="daily_quest"
+              moduleId={quest.id}
+              eraId="daily_quest"
+              eraName="Daily Quest"
+              isToday
+              onFeedbackChange={({ visible }: { visible: boolean }) => setQuizFeedback(visible)}
+              onResultsChange={setQuizResultsVisible}
+              onContinue={() => {
+                setProgress(100);
+                close();
+              }}
+            />
+          </TodayLessonChrome>
+        </SafeAreaView>
+      );
+    }
 
-  const routingData = {
-    previous_state: 'unknown' as const,
-    new_state: (isSignedIn ? 'signed_in' : 'signed_out') as 'signed_in' | 'signed_out',
-    user_id: user?.id ?? null,
-    had_selected_era: false,
-    app_state: `routing:status=${status},step=${currentStep},signed_in=${!!isSignedIn},remembered=${hasRemembered}`,
+    return null;
   };
-  analyticsService.trackAuthStateChange(routingData);
 
-  // 3-5. Signed-in branches
-  if (isSignedIn) {
-    if (status === 'completed' || status === 'skipped') {
-      AppLogger.info('navigation', 'Routing to /(tabs)/today', { status });
-      return <Redirect href="/(tabs)/today" />;
-    }
+  // Same composition and the same entrance delays as app/(tabs)/today.tsx:1063-1155.
+  return (
+    <View style={styles.root}>
+      <Animated.View style={{ flex: 1, opacity: hero.homeOpacity }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingTop: insets.top + 8, paddingHorizontal: 14 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <AnimatedEntrance
+            delay={0}
+            preset={{
+              translateY: { from: -16, to: 0 },
+              opacity: { from: 0, to: 1 },
+              duration: 450,
+              easing: easings.power2Out,
+            }}
+          >
+            <TodayHeader title="Today" streak={4} style={{ marginBottom: 15 }} />
+          </AnimatedEntrance>
 
-    if (status === 'in_progress' && POST_SIGNUP_STEPS.includes(currentStep)) {
-      const route = STEP_ROUTE_MAP[currentStep];
-      if (route) {
-        AppLogger.info('navigation', `Resuming post-auth onboarding at step ${currentStep}`, {
-          route,
-        });
-        return <Redirect href={route as never} />;
-      }
-    }
+          <TodayCalendar
+            selectedDate={new Date()}
+            onSelectDate={() => {}}
+            completedDates={new Set<string>()}
+            isSubscribed
+            style={{ marginBottom: 8 }}
+            entranceDelay={180}
+          />
 
-    // Signed-in but no (or pre-auth) onboarding state → existing user
-    AppLogger.info('navigation', 'Signed-in user w/o resumable state → /(tabs)/today');
-    return <Redirect href="/(tabs)/today" />;
-  }
+          <AnimatedEntrance
+            delay={500}
+            preset={{ opacity: { from: 0, to: 1 }, duration: 300, easing: easings.power2Out }}
+          >
+            <TodayProgressBar label="Progress today" progress={progress} style={{ marginBottom: 18 }} />
+          </AnimatedEntrance>
 
-  if (status === 'in_progress' && currentStep >= 8) {
-    const route = STEP_ROUTE_MAP[currentStep];
-    if (route) {
-      AppLogger.info('navigation', `Resuming pre-auth onboarding at step ${currentStep}`, {
-        route,
-      });
-      return <Redirect href={route as never} />;
-    }
-  }
+          <TodayCardDeck
+            cards={cards}
+            heroDiveScale={hero.cardScale}
+            heroDiveOpacity={hero.cardOpacity}
+          />
 
-  // 7. Not signed-in + a remembered identity exists → offer one-tap re-auth.
-  if (hasRemembered) {
-    AppLogger.info('navigation', 'Routing to /welcome-back (remembered account found)');
-    return <Redirect href={'/welcome-back' as never} />;
-  }
+          <View style={{ height: 100 }} />
+        </ScrollView>
 
-  // 8. Default: fresh install, start from the top.
-  AppLogger.info('navigation', 'Starting onboarding from step 1');
-  return <Redirect href="/onboarding-step-1" />;
+        <AnimatedEntrance
+          delay={1050}
+          preset={{
+            translateY: { from: 40, to: 0 },
+            opacity: { from: 0, to: 1 },
+            duration: 500,
+            easing: easings.backOut2,
+          }}
+          style={[styles.cta, { paddingBottom: insets.bottom + 16 }]}
+        >
+          <DepthButton testID="cta-start" isFullWidth variant="secondary" onPress={openVideo}>
+            {/* DepthButton renders children inside a View, so a bare string
+                warns. The app wraps its label the same way. */}
+            <Typography variant="button">START MY DAY</Typography>
+          </DepthButton>
+        </AnimatedEntrance>
+      </Animated.View>
+
+      <Animated.View style={[styles.slot, slots.slotAAnimatedStyle]} pointerEvents="box-none">
+        {renderSlot(slots.slotAModal)}
+      </Animated.View>
+      <Animated.View style={[styles.slot, slots.slotBAnimatedStyle]} pointerEvents="box-none">
+        {renderSlot(slots.slotBModal)}
+      </Animated.View>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors?.snow ?? "#FAFAFA" },
+  cta: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 14 },
+  centre: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#FAFAFA" },
+  err: { color: "#8a2b2b", textAlign: "center", padding: 24 },
+  slot: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+});

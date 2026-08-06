@@ -30,6 +30,9 @@ config.resolver.resolverMainFields = ['react-native', 'browser', 'main']
 const WEB_STUBS = {
   'rive-react-native': require.resolve('./web-stubs/rive-react-native.js'),
   'react-native-purchases-ui': require.resolve('./web-stubs/react-native-purchases-ui.js'),
+  // Unlike the two above this one is a real implementation, not a placeholder -
+  // HTMLAudioElement covers everything useBackgroundMusic asks for.
+  'react-native-sound': require.resolve('./web-stubs/react-native-sound.js'),
 }
 
 const defaultResolveRequest = config.resolver.resolveRequest

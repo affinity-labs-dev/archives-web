@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Archives — app UI on web</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 24px;
+    background: radial-gradient(ellipse at top, #23201c 0%, #0C0B09 60%);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #8b8378;
+  }
+  .bar { display: flex; gap: 8px; align-items: center; }
+  button {
+    background: #1a1815; color: #E8E0D4; border: 1px solid #35302a;
+    padding: 7px 13px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px;
+  }
+  button:hover { background: #262220; border-color: #4a423a; }
+  button[aria-pressed="true"] { background: #C99151; color: #17140f; border-color: #C99151; font-weight: 600; }
+  .phone {
+    /* The device frame is the point: the app derives its layout from the
+       viewport, so it only looks like the app at app proportions. */
+    position: relative; flex: none;
+    border-radius: 44px; padding: 12px;
+    background: linear-gradient(160deg, #3a352f, #16130f);
+    box-shadow: 0 40px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.05);
+  }
+  iframe { display: block; border: 0; border-radius: 33px; background: #FAFAFA; }
+  .note { max-width: 460px; text-align: center; font-size: 12.5px; color: #6d665c; }
+  a { color: #C99151; }
+</style>
+</head>
+<body>
+  <div class="bar" id="bar"></div>
+
+  <div class="phone">
+    <iframe id="app" src="/" title="Archives app"></iframe>
+  </div>
+
+  <p class="note">
+    The mobile app's own components running on react-native-web. It is framed to a
+    phone because the app sizes its layout from the viewport — at desktop width the
+    card deck stretches into a letterbox. Making it fill a desktop window properly
+    is real responsive work, not a wrapper.
+  </p>
+
+<script>
+  // Sizes chosen to match what the app is actually laid out against.
+  var DEVICES = [
+    ['iPhone 15 Pro',     393, 852],
+    ['iPhone 15 Pro Max', 430, 932],
+    ['iPhone SE',         375, 667],
+    ['Pixel 8',           412, 915],
+    ['iPad mini',         744, 1133],
+  ];
+
+  var frame = document.getElementById('app');
+  var bar = document.getElementById('bar');
+
+  function fit(w, h) {
+    // Shrink to fit the window so the whole screen is visible without scrolling,
+    // but never scale up past 1:1.
+    var scale = Math.min(1, (window.innerHeight - 190) / h, (window.innerWidth - 80) / w);
+    frame.style.width = w + 'px';
+    frame.style.height = h + 'px';
+    frame.style.transform = 'scale(' + scale + ')';
+    frame.style.transformOrigin = 'top left';
+    frame.parentElement.style.width = (w * scale + 24) + 'px';
+    frame.parentElement.style.height = (h * scale + 24) + 'px';
+  }
+
+  var current = DEVICES[1];
+
+  function select(d) {
+    current = d;
+    fit(d[1], d[2]);
+    [].forEach.call(bar.children, function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.name === d[0]));
+    });
+  }
+
+  DEVICES.forEach(function (d) {
+    var b = document.createElement('button');
+    b.textContent = d[0];
+    b.dataset.name = d[0];
+    b.onclick = function () { select(d); };
+    bar.appendChild(b);
+  });
+
+  var reload = document.createElement('button');
+  reload.textContent = '↻ reload';
+  reload.onclick = function () { frame.src = frame.src; };
+  bar.appendChild(reload);
+
+  select(current);
+  window.addEventListener('resize', function () { fit(current[1], current[2]); });
+</script>
+</body>
+</html>
