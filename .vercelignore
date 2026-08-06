@@ -1,0 +1,9 @@
+node_modules
+test-results
+playwright-report
+coverage
+tests
+supabase
+.claude
+*.md
+!index.html
