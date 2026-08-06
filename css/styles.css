@@ -2396,11 +2396,21 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     -webkit-overflow-scrolling: touch;
     padding: 0;
     border-top: none;
-    background: linear-gradient(to top, rgba(12, 11, 9, 0.92) 0%, rgba(12, 11, 9, 0.7) 70%, transparent 100%);
+    /* The old ramp (0.92 -> 0.7 at 70% -> transparent) was still ~77%
+       transparent where the text actually starts, so the first lines of every
+       passage rendered over bare video and collided with the burned-in
+       captions. Hold near-opaque for the whole text area and fade only in the
+       last few percent, so the top edge stays soft without costing legibility. */
+    background: linear-gradient(to top,
+      rgba(12, 11, 9, 0.97) 0%,
+      rgba(12, 11, 9, 0.95) 62%,
+      rgba(12, 11, 9, 0.90) 88%,
+      rgba(12, 11, 9, 0) 100%);
   }
 
   .reel-player__reading-inner {
-    padding: 60px var(--page-px) calc(24px + env(safe-area-inset-bottom));
+    /* Was 60px, which pushed the first line up into the fade. */
+    padding: 28px var(--page-px) calc(24px + env(safe-area-inset-bottom));
     font-size: 0.95rem;
     line-height: 1.7;
   }
@@ -4327,3 +4337,42 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     scroll-behavior: auto !important;
   }
 }
+
+/* ========== Locked state (premium era reached by URL) ========== */
+.locked-state {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 120px var(--page-px) 60px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.locked-state__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--amber-dim);
+  color: var(--amber);
+}
+.locked-state__title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--cream);
+}
+.locked-state__text {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.locked-state .cta-btn { width: 100%; margin-top: 6px; }
+.locked-state__back {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-decoration: none;
+  margin-top: 4px;
+}
+.locked-state__back:hover { color: var(--amber); }

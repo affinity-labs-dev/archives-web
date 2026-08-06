@@ -1,4 +1,21 @@
 /**
+ * The calendar date in the user's own timezone, as YYYY-MM-DD.
+ *
+ * Use this for anything meaning "which day is it for this person": the daily
+ * story, streaks, the week tracker, once-per-day flags. Date#toISOString
+ * returns UTC, so west of Greenwich the day rolled over in the local afternoon
+ * and streaks marked days missed that the user had actually completed.
+ *
+ * Timestamps (updated_at, checkedAt) stay ISO/UTC - this is only for calendar
+ * days.
+ */
+export function localDateStr(date) {
+  const d = date || new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
  * Escape HTML entities before inserting text into innerHTML.
  *
  * Quotes are escaped too: most call sites interpolate into quoted attributes

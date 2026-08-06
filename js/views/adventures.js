@@ -1,4 +1,5 @@
 import { getAdventures, getEra } from '../api.js';
+import { canAccessEraRecord, renderLocked } from '../guards.js';
 import { getCompletedCount } from '../state.js';
 import { renderHeader } from '../components/header.js';
 import { escapeHtml, sanitizeUrl } from '../utils.js';
@@ -10,8 +11,16 @@ export default function adventuresView(app, params) {
   let aborted = false;
 
   Promise.all([getAdventures(eraId), getEra(eraId)])
-    .then(([adventures, era]) => {
+    .then(async ([adventures, era]) => {
       if (aborted) return;
+
+      // A premium era reached by URL rather than by clicking its card.
+      if (!(await canAccessEraRecord(era))) {
+        if (aborted) return;
+        renderLocked(app, () => adventuresView(app, params));
+        return;
+      }
+
       const eraTitle = era?.title || eraId;
 
       const cards = adventures.map((adv, idx) => {

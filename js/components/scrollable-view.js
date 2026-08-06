@@ -39,8 +39,12 @@ export function renderScrollableView(module) {
       if (block.type === 'video' && block.url) {
         const vidUrl = sanitizeUrl(block.url);
         const isHls = vidUrl.includes('.m3u8');
+        // Without controls, a block that isn't set to autoplay has no way to
+        // be played at all - no play button, no click handler. Autoplaying
+        // blocks stay chrome-free; everything else gets native controls.
+        const needsControls = !block.autoplay;
         return `<div class="scrollable-view__block scrollable-view__block--video">
-          <video class="scrollable-view__video" playsinline ${block.autoplay ? 'autoplay' : ''} ${block.loop ? 'loop' : ''} muted
+          <video class="scrollable-view__video" playsinline ${block.autoplay ? 'autoplay' : ''} ${block.loop ? 'loop' : ''} ${needsControls ? 'controls' : ''} muted
             ${isHls ? 'data-hls="' + vidUrl + '"' : 'src="' + vidUrl + '"'}></video>
         </div>`;
       }

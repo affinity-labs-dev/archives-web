@@ -1,6 +1,7 @@
 import { getDailyStreak, getWeekStatus } from '../state.js';
 import { getDailyStories } from '../api.js';
 import { playCorrect } from './sounds.js';
+import { localDateStr } from '../utils.js';
 
 var SHOWN_KEY = 'archives_streak_shown_date';
 
@@ -14,11 +15,11 @@ function getMotivation(streak) {
 
 function wasShownToday() {
   var last = localStorage.getItem(SHOWN_KEY);
-  return last === new Date().toISOString().split('T')[0];
+  return last === localDateStr();
 }
 
 function markShownToday() {
-  localStorage.setItem(SHOWN_KEY, new Date().toISOString().split('T')[0]);
+  localStorage.setItem(SHOWN_KEY, localDateStr());
 }
 
 /**

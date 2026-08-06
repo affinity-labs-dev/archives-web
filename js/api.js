@@ -1,3 +1,4 @@
+import { localDateStr } from './utils.js';
 export const SUPABASE_URL = 'https://kcgihainlnntshupiztu.supabase.co';
 export const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ2loYWlubG5udHNodXBpenR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODMzNzMsImV4cCI6MjA3MDI1OTM3M30.hyZB28wO88jiCh30PoLCDGt8MvsmaLjsl96a56xpyJk';
 
@@ -38,7 +39,7 @@ export async function getAllEras() {
 }
 
 export async function getTodayStory() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const rows = await query(`daily_content?date=eq.${encodeURIComponent(today)}&select=*`);
   if (rows[0]) return rows[0];
   // Fallback: get most recent past entry

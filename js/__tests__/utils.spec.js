@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { escapeHtml, sanitizeHtml, sanitizeUrl } from '../utils.js';
+import { escapeHtml, sanitizeHtml, sanitizeUrl, localDateStr } from '../utils.js';
 
 describe('escapeHtml', () => {
   it('escapes angle brackets', () => {
@@ -90,5 +90,27 @@ describe('sanitizeUrl', () => {
 
   it('trims whitespace', () => {
     expect(sanitizeUrl('  https://example.com  ')).toBe('https://example.com');
+  });
+});
+
+describe('localDateStr', () => {
+  it('returns the local calendar day, not the UTC one', () => {
+    // 2026-08-06 21:30 in UTC-8 is still the 6th locally, but toISOString()
+    // reports the 7th. That gap is what marked streak days as missed.
+    const evening = new Date(2026, 7, 6, 21, 30, 0);
+    expect(localDateStr(evening)).toBe('2026-08-06');
+  });
+
+  it('zero-pads month and day', () => {
+    expect(localDateStr(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+
+  it('defaults to now', () => {
+    expect(localDateStr()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('agrees with the date parts of the local Date object', () => {
+    const d = new Date(2027, 11, 31, 23, 59, 59);
+    expect(localDateStr(d)).toBe('2027-12-31');
   });
 });

@@ -1,4 +1,5 @@
 import { getAdventure, getEra } from '../api.js';
+import { canAccessEra, renderLocked } from '../guards.js';
 import { isComplete, getStars } from '../state.js';
 import { renderHeader } from '../components/header.js';
 import { escapeHtml, sanitizeUrl, sanitizeHtml } from '../utils.js';
@@ -40,7 +41,7 @@ export default function adventureDetailView(app, params) {
     + '</div></div></div>';
   let aborted = false;
 
-  getAdventure(readableId).then(function(adv) {
+  getAdventure(readableId).then(async function(adv) {
     if (aborted) return;
     if (!adv) {
       app.innerHTML = '<div class="error-msg">Adventure not found.</div>';
@@ -48,6 +49,14 @@ export default function adventureDetailView(app, params) {
     }
 
     var eraId = adv.era_id || 'prophets';
+
+    // Reachable by URL without ever passing the home-grid gate.
+    if (!(await canAccessEra(eraId))) {
+      if (aborted) return;
+      renderLocked(app, function() { adventureDetailView(app, params); });
+      return;
+    }
+
     // titleRaw goes to renderHeader (which escapes); title is for our own HTML.
     var titleRaw = (adv.adventure_title?.replace(/\r?\n/g, ' '));
     var title = escapeHtml(titleRaw);

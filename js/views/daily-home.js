@@ -5,6 +5,7 @@ import { playStars } from '../components/sounds.js';
 import { escapeHtml, sanitizeUrl } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
+import { localDateStr } from '../utils.js';
 
 function isAllComplete(steps, dayProgress) {
   if (!dayProgress || steps.length === 0) return false;
@@ -157,7 +158,7 @@ export default function dailyHomeView(app, params) {
   let aborted = false;
 
   var viewDate = params && params.date ? params.date : null;
-  var todayStr = new Date().toISOString().split('T')[0];
+  var todayStr = localDateStr();
   var isToday = !viewDate || viewDate === todayStr;
   var storyFetch = viewDate ? getDailyStory(viewDate) : getTodayStory();
 

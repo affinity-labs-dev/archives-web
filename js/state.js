@@ -1,4 +1,5 @@
 import { pushAdventureProgress, pushDailyProgress } from './services/sync.js';
+import { localDateStr } from './utils.js';
 
 // === Settings ===
 const SETTINGS_KEY = 'archives_settings';
@@ -109,12 +110,12 @@ export function getDailyStreak(availableDates) {
   var streak = 0;
   var d = new Date();
   // Check today first
-  var todayStr = d.toISOString().split('T')[0];
+  var todayStr = localDateStr(d);
   if (data[todayStr]) streak++;
   // Walk backwards from yesterday
   d.setDate(d.getDate() - 1);
   while (true) {
-    var ds = d.toISOString().split('T')[0];
+    var ds = localDateStr(d);
     if (availableDates && availableDates.indexOf(ds) === -1) {
       // No content for this day, skip (don't break streak)
       d.setDate(d.getDate() - 1);
@@ -146,8 +147,8 @@ export function getWeekStatus(availableDates) {
   for (var i = 0; i < 7; i++) {
     var d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    var ds = d.toISOString().split('T')[0];
-    var todayStr = today.toISOString().split('T')[0];
+    var ds = localDateStr(d);
+    var todayStr = localDateStr(today);
     var status;
     if (ds === todayStr) {
       status = data[ds] ? 'complete' : 'today';

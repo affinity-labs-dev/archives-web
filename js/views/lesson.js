@@ -1,10 +1,12 @@
 import { getAdventure } from '../api.js';
+import { markComplete } from '../state.js';
 import { renderHeader } from '../components/header.js';
 import { renderReelPlayer, initReelPlayer } from '../components/reel-player.js';
 import { renderScrollableView, initScrollableVideos } from '../components/scrollable-view.js';
 import { renderImageCarousel, renderVideoCarousel, initCarousel } from '../components/carousel.js';
 import { startBgMusic, stopBgMusic, renderBgMusicToggle, initBgMusicToggle } from '../components/bg-music.js';
 import { escapeHtml } from '../utils.js';
+import { canAccessEra, renderLocked } from '../guards.js';
 import { headerEntrance, revealOnScroll } from '../animations.js';
 
 export default function lessonView(app, { readableId, moduleIndex }) {
@@ -19,10 +21,17 @@ export default function lessonView(app, { readableId, moduleIndex }) {
   let cleanupFn = null;
   let aborted = false;
 
-  getAdventure(readableId).then(adv => {
+  getAdventure(readableId).then(async adv => {
     if (aborted) return;
     if (!adv) {
       app.innerHTML = '<div class="error-msg">Adventure not found.</div>';
+      return;
+    }
+
+    // Deep links land here directly, bypassing every grid-level check.
+    if (!(await canAccessEra(adv.era_id || 'prophets'))) {
+      if (aborted) return;
+      renderLocked(app, () => lessonView(app, { readableId, moduleIndex }));
       return;
     }
 
@@ -71,27 +80,36 @@ export default function lessonView(app, { readableId, moduleIndex }) {
     // Determine forward navigation
     var forwardHash = hasQuiz ? `/quiz/${readableId}/${idx}` : backHash;
 
-    // Add quiz button (desktop/tablet — inside reading panel)
-    if (hasQuiz) {
-      const reading = app.querySelector('.reel-player__reading');
-      if (reading) {
-        const btn = document.createElement('button');
-        btn.className = 'cta-btn';
-        btn.style.width = '100%';
-        btn.style.margin = '12px 0 0';
-        btn.textContent = 'Take Quiz';
-        btn.addEventListener('click', () => { window.location.hash = forwardHash; });
-        reading.appendChild(btn);
-      } else {
-        const wrap = document.createElement('div');
-        wrap.className = 'lesson-quiz-btn-wrap';
-        const btn = document.createElement('button');
-        btn.className = 'cta-btn';
-        btn.textContent = 'Take Quiz';
-        btn.addEventListener('click', () => { window.location.hash = forwardHash; });
-        wrap.appendChild(btn);
-        app.querySelector('.lesson-wrap').appendChild(wrap);
-      }
+    // Modules with a quiz get their completion recorded by the quiz score
+    // screen. Modules without one had nothing recording it at all, so they
+    // stayed incomplete forever and the home hero kept sending users back to
+    // them. Zero stars, because nothing was scored - isComplete() checks for
+    // the key, not the value.
+    function advance() {
+      if (!hasQuiz && mod.id) markComplete(readableId, mod.id, 0);
+      window.location.hash = forwardHash;
+    }
+
+    // Forward button (desktop/tablet — inside reading panel)
+    const forwardLabel = hasQuiz ? 'Take Quiz' : 'Mark as Complete';
+    const reading = app.querySelector('.reel-player__reading');
+    if (reading) {
+      const btn = document.createElement('button');
+      btn.className = 'cta-btn';
+      btn.style.width = '100%';
+      btn.style.margin = '12px 0 0';
+      btn.textContent = forwardLabel;
+      btn.addEventListener('click', advance);
+      reading.appendChild(btn);
+    } else {
+      const wrap = document.createElement('div');
+      wrap.className = 'lesson-quiz-btn-wrap';
+      const btn = document.createElement('button');
+      btn.className = 'cta-btn';
+      btn.textContent = forwardLabel;
+      btn.addEventListener('click', advance);
+      wrap.appendChild(btn);
+      app.querySelector('.lesson-wrap').appendChild(wrap);
     }
 
     // Mobile forward arrow — overlaid on video/carousel (not scrollable)
@@ -103,7 +121,7 @@ export default function lessonView(app, { readableId, moduleIndex }) {
         fwd.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
         fwd.addEventListener('click', function(e) {
           e.stopPropagation();
-          window.location.hash = forwardHash;
+          advance();
         });
         videoWrap.appendChild(fwd);
       }

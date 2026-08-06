@@ -13,6 +13,7 @@ import { showPaywall } from '../components/paywall.js';
 import { tryStreakCelebration } from '../components/streak-celebration.js';
 import { getStars, getRewardVideo, getResultMessage } from '../components/quiz-helpers.js';
 import { animateCounter, starPopIn, celebrationBurst } from '../animations.js';
+import { localDateStr } from '../utils.js';
 
 export default function dailyView(app, params) {
   app.innerHTML = '<div class="loading"><div class="spinner"></div>Loading</div>';
@@ -60,7 +61,7 @@ export default function dailyView(app, params) {
     totalSteps = steps.length;
 
     // Store the date for progress tracking
-    var storyDate = entry.date || new Date().toISOString().split('T')[0];
+    var storyDate = entry.date || localDateStr();
 
     var html = renderHeader('Daily Story', '/daily', [
       { label: 'Home', hash: '/' },
@@ -252,16 +253,69 @@ export default function dailyView(app, params) {
       window.addEventListener('resize', _fitDailyReel);
     }
 
+    // === ENGAGEMENT ===
+    // A step counts as done when the user actually consumed it, not when they
+    // navigated past it.
+
+    var WATCHED_FRACTION = 0.9;
+
+    function completeStep(step) {
+      if (aborted || steps.indexOf(step) === -1) return;
+      setDailyStepComplete(storyDate, step);
+    }
+
+    // Watch: the video reached the end, or effectively the end. Covers users
+    // who skip the last second of credits.
+    function trackWatch(videoEl) {
+      if (!videoEl) return;
+      var done = false;
+      function mark() {
+        if (done) return;
+        done = true;
+        completeStep('watch');
+      }
+      videoEl.addEventListener('ended', mark);
+      videoEl.addEventListener('timeupdate', function () {
+        if (videoEl.duration && videoEl.currentTime / videoEl.duration >= WATCHED_FRACTION) mark();
+      });
+    }
+
+    // Explore: the passage was read to the bottom. Panels shorter than the
+    // viewport can't scroll, so those count once they've been on screen a
+    // moment.
+    var exploreBound = false;
+    function trackExplore(panelEl) {
+      if (!panelEl || exploreBound) return;
+      exploreBound = true;
+      var done = false;
+      function mark() {
+        if (done) return;
+        done = true;
+        completeStep('explore');
+      }
+      function check() {
+        var atEnd = panelEl.scrollTop + panelEl.clientHeight >= panelEl.scrollHeight - 80;
+        if (atEnd) mark();
+      }
+      panelEl.addEventListener('scroll', check);
+      // Nothing to scroll: give it a short dwell instead of marking instantly.
+      if (panelEl.scrollHeight <= panelEl.clientHeight + 80) {
+        setTimeout(function () { if (!aborted) mark(); }, 4000);
+      }
+    }
+
     // === INIT ===
 
     // Step navigation
     function goToStep(idx) {
       if (aborted || idx < 0 || idx >= totalSteps) return;
 
-      // Mark the step we're leaving as complete
-      if (currentStep < steps.length) {
-        setDailyStepComplete(storyDate, steps[currentStep]);
-      }
+      // Deliberately does NOT mark the step being left as complete. It used to,
+      // which meant tapping through the pills produced a 100% day without
+      // watching a second of video or answering a question - so streaks and
+      // completion measured navigation, not engagement. Each step now reports
+      // its own completion: watch when the video is genuinely watched, explore
+      // when the passage is read through, questions on the score screen.
 
       // Stop media when leaving a step
       if (steps[currentStep] === 'watch') {
@@ -299,6 +353,13 @@ export default function dailyView(app, params) {
         f.style.display = parseInt(f.dataset.showStep, 10) === idx ? '' : 'none';
       });
 
+      // Only start watching for engagement once the user is actually on the
+      // step - otherwise the dwell timer would complete Explore for someone
+      // who never opened it.
+      if (steps[idx] === 'explore') {
+        trackExplore(app.querySelector('.ds__panel[data-step="' + idx + '"]'));
+      }
+
       // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -329,6 +390,11 @@ export default function dailyView(app, params) {
       app.querySelectorAll('.ds__panel-footer[data-show-step]').forEach(function(f) {
         if (parseInt(f.dataset.showStep, 10) !== currentStep) f.style.display = 'none';
       });
+      // A story that opens straight onto Explore (no watch card) never passes
+      // through goToStep, so bind it here too.
+      if (steps[currentStep] === 'explore') {
+        trackExplore(app.querySelector('.ds__panel[data-step="' + currentStep + '"]'));
+      }
     }
 
     // Inject "Continue" button into reading panel (right side), like era quiz buttons
@@ -358,6 +424,7 @@ export default function dailyView(app, params) {
         var hlsInstances = [];
         if (ct === 'reel' && card1Urls.length > 0) {
           cleanupFn = initReelPlayer(card1Urls[0]);
+          trackWatch(document.getElementById('reel-video'));
         } else if (ct === 'video_carousel' && card1Urls.length > 0) {
           // Init HLS for each video
           card1Urls.forEach(function(url, i) {
@@ -430,6 +497,7 @@ export default function dailyView(app, params) {
         // Desktop/tablet: use existing components
         if (ct === 'reel' && card1Urls.length > 0) {
           cleanupFn = initReelPlayer(card1Urls[0]);
+          trackWatch(document.getElementById('reel-video'));
         } else if (ct === 'image_carousel' || ct === 'video_carousel') {
           var carouselMod = { content_type: ct, media_url: c.card1.media_url, bottom_content: c.card1.bottom_content || c.card1.content || {} };
           cleanupFn = initCarousel(carouselMod);

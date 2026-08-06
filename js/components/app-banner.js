@@ -1,3 +1,4 @@
+import { localDateStr } from '../utils.js';
 var APP_STORE_URL = 'https://apps.apple.com/us/app/archives-islamic-history/id6751173663';
 var PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=ai.affinitylabs.archivesexpo';
 
@@ -24,7 +25,7 @@ export function showAppBanner() {
     : 'assets/images/google-play-badge.png';
 
   // Show once per day
-  var today = new Date().toISOString().split('T')[0];
+  var today = localDateStr();
   if (localStorage.getItem('archives_banner_dismissed') === today) return false;
 
   var overlay = document.createElement('div');
