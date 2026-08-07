@@ -1094,7 +1094,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .dh__day-label {
   font-family: var(--font-body);
-  font-size: 0.6rem;
+  /* Was 0.6rem (9.6px) - below any readable caption floor. */
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
