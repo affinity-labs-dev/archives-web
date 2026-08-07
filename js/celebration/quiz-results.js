@@ -93,9 +93,15 @@ export function buildQuizResults(slot, opts) {
   const { tl } = timeline;
 
   // ── Rive ────────────────────────────────────────────────────────────────
+  // Same breakpoint as the CSS's desktop column. Checked at mount, not on
+  // resize: a Rive Layout is fixed once created, and mid-celebration window
+  // resizing is not a case worth re-mounting for.
+  const wide = typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(min-width: 700px)').matches;
   const bg = mountRive(root.querySelector('.qres__bg'), {
     src: spec.background,
-    fit: 'cover',
+    fit: (wide && spec.backgroundFitWide) || 'cover',
   });
   timeline.add(() => bg.destroy());
 

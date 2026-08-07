@@ -4602,14 +4602,24 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .exp-sheet--open .exp__panel { transform: translateY(0); }
 
 @media (min-width: 700px) {
+  /* On desktop this is a centred modal, not a bottom sheet: anchored to the
+     middle, wider and height-capped so it reads squarish instead of a tall
+     column pinned to the bottom edge. */
   .exp__panel {
     left: 50%;
     right: auto;
-    transform: translate(-50%, 24px);
-    width: 520px;
-    max-height: 82dvh;
+    top: 50%;
+    bottom: auto;
+    transform: translate(-50%, calc(-50% + 24px));
+    width: 640px;
+    max-height: 70dvh;
+    border-radius: 22px;
+    border-bottom: 1px solid var(--dark-border, #333);
+    padding-bottom: 0;
   }
-  .exp-sheet--open .exp__panel { transform: translate(-50%, 0); }
+  .exp-sheet--open .exp__panel { transform: translate(-50%, -50%); }
+  /* A drag affordance on something that cannot be dragged reads as broken. */
+  .exp__grab { display: none; }
 }
 
 .exp__grab {
