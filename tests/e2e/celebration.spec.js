@@ -465,3 +465,42 @@ test.describe('fit', () => {
     }
   });
 });
+
+test.describe('desktop', () => {
+  test('the artwork spans the window and only the content is columned', async ({ page }) => {
+    // Clamping the whole screen to a phone column clamped the artwork with it,
+    // leaving a strip of illustration between two bands of flat colour - and
+    // since the art is a gradient and the flat colour is one value out of it,
+    // that read as two hard seams down the window.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
+    for (const [screen, contentSel] of [
+      ['results&correct=3&total=3', '.qres__body'],
+      ['dailyend', '.dsend__headline'],
+      ['streak&streak=12', '.streak__card'],
+    ]) {
+      await openScreen(page, `screen=${screen}`);
+      await page.evaluate(() => window.__play());
+      await page.waitForTimeout(200);
+
+      const m = await page.evaluate((sel) => {
+        const root = document.querySelector('.qres, .dsend, .streak');
+        const canvas = root.querySelector('canvas');
+        const content = document.querySelector(sel);
+        const c = canvas.getBoundingClientRect();
+        const k = content.getBoundingClientRect();
+        return {
+          artWidth: c.width,
+          contentWidth: k.width,
+          centreOffset: Math.abs((k.left + k.right) / 2 - window.innerWidth / 2),
+          viewport: window.innerWidth,
+        };
+      }, contentSel);
+
+      expect(m.artWidth, `${screen}: artwork is not full width`).toBe(m.viewport);
+      expect(m.contentWidth, `${screen}: content is not held to a column`).toBeLessThanOrEqual(500);
+      expect(m.centreOffset, `${screen}: content is not centred`).toBeLessThan(2);
+    }
+  });
+});

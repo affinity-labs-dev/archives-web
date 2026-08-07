@@ -3938,18 +3938,54 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 
 /*
- * These screens are authored for a portrait phone. Left to fill a desktop
- * window the score card stretches to 1200px and the full-bleed Rive crops its
- * subject out of frame, so the content is held to a phone column with the
- * tier colour bleeding to the edges behind it.
+ * Desktop: art edge to edge, content in a phone column.
+ *
+ * These screens are authored for a portrait phone, so the CONTENT has to stay
+ * narrow - a score card stretched to 1200px is not the same design. But
+ * clamping the whole screen clamped the artwork with it, leaving a strip of
+ * illustration in the middle and flat colour either side. Since the artwork is
+ * a gradient and the flat colour is one value out of it, that produced two hard
+ * vertical seams down the window.
+ *
+ * So the screen itself is full width and its background canvas fills the
+ * window; only the card, the text and the buttons are held to the column. The
+ * absolutely-positioned ones use left/right offsets rather than a transform,
+ * because their entrance animations own the transform property.
  */
 @media (min-width: 700px) {
   .cel__slot > * {
-    max-width: 480px;
-    margin: 0 auto;
-    /* A soft edge against the matching backdrop, not a slab on black. */
-    box-shadow: 0 0 80px rgba(0, 0, 0, 0.12);
+    --cel-col: 480px;
+    /* Distance from the window edge to the column edge. */
+    --cel-gutter: calc(50% - var(--cel-col) / 2);
   }
+
+  /* Scoped through .cel__slot for specificity: these rules sit above the base
+     ones in this file, and at equal weight the later rule would win. */
+  .cel__slot .qres__body {
+    max-width: var(--cel-col);
+    margin-inline: auto;
+    width: 100%;
+  }
+
+  .cel__slot .dsend__headline {
+    left: var(--cel-gutter);
+    right: var(--cel-gutter);
+  }
+  .cel__slot .dsend__cta {
+    left: calc(var(--cel-gutter) + 33px);
+    right: calc(var(--cel-gutter) + 33px);
+  }
+  .cel__slot .dsend__close { right: calc(var(--cel-gutter) + 16px); }
+
+  .cel__slot .streak__card {
+    left: calc(var(--cel-gutter) + 18px);
+    right: calc(var(--cel-gutter) + 18px);
+  }
+  .cel__slot .streak__cta {
+    left: calc(var(--cel-gutter) + 33px);
+    right: calc(var(--cel-gutter) + 33px);
+  }
+  .cel__slot .streak__close { right: calc(var(--cel-gutter) + 24px); }
 }
 
 /* ========== Quiz Results ========== */

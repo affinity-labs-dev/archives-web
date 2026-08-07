@@ -132,7 +132,11 @@ export function buildStreak(slot, opts) {
   const bgRive = mountRive(root.querySelector('.streak__bg'), {
     src: 'streak.riv',
     artboard: 'background',
-    fit: 'contain',
+    // Cover, not contain. Contained, the sunburst renders at its own aspect
+    // and leaves flat lavender around it - a visible rectangle of rays with
+    // two hard edges on any window wider than a phone. The rays radiate from
+    // the top centre, so cropping the sides costs nothing.
+    fit: 'cover',
     autoplay: false,
   });
   // flamefinal.riv, not flame.riv - and this is a deliberate divergence from
