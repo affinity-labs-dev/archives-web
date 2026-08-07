@@ -80,6 +80,13 @@ JSON
 
 echo "==> Deploying"
 cd "$PAYLOAD"
+
+# Link explicitly. The payload directory is rebuilt from scratch every run, so
+# it never carries a .vercel/project.json - and without this the CLI treats it
+# as a new project and names it after the directory. It did exactly that once,
+# creating a stray project called ".beta-deploy" and deploying there instead of
+# to beta.
+VERCEL_TOKEN= npx vercel link --yes --project "$PROJECT" --scope "$SCOPE" > /dev/null
 # VERCEL_TOKEN is cleared per-command: a stale one in the environment overrides
 # the logged-in session and deploys as the wrong account.
 URL=$(VERCEL_TOKEN= npx vercel deploy --prod --yes --scope "$SCOPE" \
