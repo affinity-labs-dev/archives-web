@@ -137,6 +137,27 @@ const RiveWeb = React.forwardRef(function RiveWeb(props, ref) {
     onLoadError: onError,
   });
 
+  // Play the file's own default when the call site names nothing.
+  //
+  // Most call sites pass only `source` and `autoplay` - Mascot.tsx is the one
+  // on the quiz results screen. Native <Rive> starts the default state machine
+  // in that case; the web runtime, given neither `stateMachines` nor
+  // `animations`, autoplays the first *timeline animation* instead. For a file
+  // whose motion lives in a state machine that means a correctly-drawn, utterly
+  // still character - which is why `drew` and `moves` are different questions,
+  // and why a "did it render" check passes while the screen looks broken.
+  React.useEffect(() => {
+    if (!rive || !autoplay) return;
+    if (stateMachineName || animationName) return;
+    const machines = rive.stateMachineNames ?? [];
+    if (machines.length) {
+      rive.play(machines[0]);
+      return;
+    }
+    const anims = rive.animationNames ?? [];
+    if (anims.length) rive.play(anims[0]);
+  }, [rive, autoplay, stateMachineName, animationName]);
+
   // The native ref API, mapped onto the web instance. Call sites use these to
   // drive state machines - firing a trigger is how several celebrations start.
   React.useImperativeHandle(
