@@ -7,10 +7,10 @@
 // server-side; nothing here can name a different user.
 
 import { getClerk } from '../auth.js';
+import { cacheStreak, cacheActivityDates, extractActivityDates } from './streak.js';
 
 const PROGRESS_KEY = 'archives_progress';
 const DAILY_KEY = 'archives_daily_progress';
-const MOBILE_STREAK_KEY = 'archives_mobile_streak';
 const MOBILE_XP_KEY = 'archives_mobile_xp';
 
 async function authHeaders() {
@@ -38,6 +38,13 @@ function readJson(key) {
 
 /** Merge mobile progress (mastery levels) into local stars, best score wins. */
 function mergeMobileProgress(cloud) {
+  // The activity dates and the streak are useful even when there is no
+  // adventure progress to merge, so they are read before the early return that
+  // used to skip them.
+  if (cloud) {
+    if (cloud.streak) cacheStreak(cloud.streak);
+    cacheActivityDates(extractActivityDates(cloud));
+  }
   if (!cloud || !cloud.progress || !cloud.progress.length) return;
 
   var local = readJson(PROGRESS_KEY);
@@ -53,9 +60,6 @@ function mergeMobileProgress(cloud) {
   }
   localStorage.setItem(PROGRESS_KEY, JSON.stringify(local));
 
-  if (cloud.streak) {
-    localStorage.setItem(MOBILE_STREAK_KEY, JSON.stringify(cloud.streak));
-  }
   if (cloud.totalXP || cloud.xp_by_era) {
     localStorage.setItem(
       MOBILE_XP_KEY,

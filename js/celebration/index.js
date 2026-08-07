@@ -12,6 +12,8 @@
 
 import { getDailyStories } from '../api.js';
 import { getDailyStreak, getWeekStatus } from '../state.js';
+import { bumpStreak, getCachedStreak, getMobileActivityDates } from '../services/streak.js';
+import { localDateStr } from '../utils.js';
 import { createStage } from './stage.js';
 import { buildQuizResults } from './quiz-results.js';
 import { buildDailyStoryEnd } from './daily-story-end.js';
@@ -38,16 +40,51 @@ export function unlockCelebrationAudio() {
 /**
  * Build the week strip the streak screen renders.
  *
- * getWeekStatus returns `complete | today | future | missed | none` per day.
- * `none` means no content was published that day, which is not the user's
- * failure, so it is shown as pending rather than missed.
+ * The union of both platforms, because the streak is. getWeekStatus only sees
+ * the browser's daily-story progress, so a day the user spent on adventures -
+ * or spent on their phone - read as missed under a streak number that counted
+ * it. The mobile side comes from the activity dates sync.js extracts from the
+ * app's own progress entries.
+ *
+ * `none` means no content was published that day. That is not the user's
+ * failure, so it shows as pending rather than as a missed day.
  */
 function toWeek(availableDates) {
   const week = getWeekStatus(availableDates) || [];
-  return week.map((d) => ({
-    day: (d.label || '').charAt(0).toUpperCase(),
-    status: d.status === 'none' ? 'future' : d.status,
-  }));
+  const elsewhere = new Set(getMobileActivityDates());
+  const today = localDateStr(new Date());
+
+  return week.map((d) => {
+    let status = d.status === 'none' ? 'future' : d.status;
+    // Anything the other platform recorded counts, unless the day is still
+    // ahead of us - a future date cannot be complete.
+    if (elsewhere.has(d.date) && status !== 'future') {
+      status = d.date === today ? 'today' : 'complete';
+    }
+    return { day: (d.label || '').charAt(0).toUpperCase(), status };
+  });
+}
+
+/**
+ * The streak to celebrate, from the server's answer.
+ *
+ * Falls back to the last mirrored value, then to the old derived count, so a
+ * signed-out or offline user still sees something honest rather than a blank or
+ * a zero. The cache only wins when it is at least as high as the derived
+ * number: it can be stale, but it cannot be lower than what this browser can
+ * prove locally.
+ */
+function resolveStreak(bumped, availableDates) {
+  if (bumped && typeof bumped.currentStreak === 'number') {
+    return { count: bumped.currentStreak, source: 'server' };
+  }
+
+  const cached = getCachedStreak();
+  const derived = getDailyStreak(availableDates);
+  if (cached && cached.currentStreak >= derived) {
+    return { count: cached.currentStreak, source: 'cache' };
+  }
+  return { count: derived, source: 'derived' };
 }
 
 /**
@@ -68,6 +105,17 @@ export function runCelebration(opts) {
   const stage = createStage();
   let finished = false;
   let destroyed = false;
+
+  // Record the activity now, not when the streak screen is about to show.
+  //
+  // Finishing a quiz IS the activity, and the app counts it that way - both
+  // reportQuizComplete and reportTodayComplete bump the streak. Doing it inside
+  // showStreak would have meant an adventure quiz on a day the streak screen
+  // had already been shown never reached the server at all.
+  //
+  // Fire-and-forget, resolving to null when signed out or offline. Nothing
+  // waits on it except the streak screen, which is several seconds away.
+  const streakBump = bumpStreak();
 
   const finish = () => {
     if (finished || destroyed) return;
@@ -106,15 +154,17 @@ export function runCelebration(opts) {
     getDailyStories()
       .then((stories) => (stories || []).map((s) => s.date))
       .catch(() => [])
-      .then((dates) => {
+      .then(async (dates) => {
         if (destroyed) return;
-        const streak = getDailyStreak(dates);
+        const { count: streak } = resolveStreak(await streakBump, dates);
+        if (destroyed) return;
 
         // Nothing to celebrate at zero.
         //
-        // The streak counts back from TODAY, so finishing a story that is not
-        // today's leaves it at 0 - which real users do, because past days are
-        // replayable from the archive. A screen reading "0 Day Streak!" over
+        // Far rarer now the streak is the shared one - any completion on either
+        // platform advances it, so finishing a quiz almost always leaves it at
+        // 1 or more. It still happens for a signed-out user, whose completions
+        // reach no server, and there a screen reading "0 Day Streak!" over
         // "Every journey starts with a single day" is worse than no screen.
         //
         // The old code hid this by clamping the number up to 1, which showed
