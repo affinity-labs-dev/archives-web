@@ -199,7 +199,7 @@ export default function dailyView(app, params) {
           + '</button>'
           + '<div class="ds__voiceover-info">'
           + '<div class="ds__voiceover-label">Listen to Voiceover</div>'
-          + '<div class="ds__voiceover-sub">Tap to play</div>'
+          + '<div class="ds__voiceover-sub">Play the narration</div>'
           + '</div></div>';
       }
 

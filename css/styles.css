@@ -925,21 +925,29 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   .dh {
     display: grid;
     grid-template-columns: auto 1fr;
-    column-gap: 48px;
+    column-gap: 56px;
     align-items: start;
-    max-width: 1160px;
+    max-width: 1240px;
     margin: 0 auto;
     padding: 28px var(--page-px) 40px;
   }
-  .dh__hero {
+  .dh .dh__hero {
     grid-column: 1;
     grid-row: 1 / span 2;
-    width: min(34vw, calc(76vh * 9 / 16));
-    height: auto;
+    /* Fill the viewport height: header (56px) + the grid's own padding.
+       Width follows from the 9:16 aspect, capped so short-wide windows
+       cannot let the art swallow the session column. Scoped .dh .dh__hero:
+       the 700px/1024px height rules live LATER in the file and win at equal
+       specificity - measured, not guessed. */
+    height: calc(100dvh - 56px - 68px);
+    max-height: none;
+    width: auto;
+    max-width: 44vw;
     aspect-ratio: 9 / 16;
-    max-height: 76vh;
     min-height: 0;
     border-radius: 20px;
+    position: sticky;
+    top: calc(56px + 28px);
   }
   .dh__week-wrap {
     grid-column: 2;
@@ -2565,7 +2573,11 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   .reel-player__reading { padding: 40px 36px; }
 }
 
-.reel-player__reading-inner {}
+/* Centres a short read (the era lesson page ended in a void of dark below
+   its button), while long transcripts keep top-aligned scrolling - auto
+   margins collapse to zero once content exceeds the container. Needs the
+   parent to be a flex column. */
+.reel-player__reading-inner { margin: auto 0; }
 
 .reel-player__reading h1,
 .reel-player__reading h2,
