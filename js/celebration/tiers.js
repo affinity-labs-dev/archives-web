@@ -73,11 +73,13 @@ export const TIER_SPECS = {
     screenBg: '#FAFAFA',
     background: 'ibu-3-of-3.riv',
     // This background is a portrait-authored CHARACTER scene, unlike the two
-    // ambient patterns above. Cover on a desktop-wide window scales it to the
-    // window's width and crops it to a sliver of its middle - Ibu himself
-    // ends up outside the frame. On wide viewports it fits by height instead,
-    // fully visible, centred over the backdrop colour.
-    backgroundFitWide: 'contain',
+    // ambient patterns above. Cover scales it to fill the window and crops
+    // whatever does not fit - on desktop that cut Ibu out of his own
+    // celebration entirely. It renders contained at EVERY size: the whole
+    // scene, aspect ratio kept, centred over the backdrop colour. On a phone
+    // the artboard's aspect is close enough to the screen's that this looks
+    // identical to Cover anyway.
+    backgroundFit: 'contain',
     // No mascot: at 3/3 the background Rive IS Ibu, full screen. The layout
     // still reserves the space, so the card sits where it does in the other
     // two tiers rather than jumping up.
