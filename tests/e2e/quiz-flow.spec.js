@@ -95,8 +95,13 @@ test.describe('Quiz Flow', () => {
     await expect(headline).toBeVisible();
     expect(await headline.textContent()).toMatch(/NICE EFFORT|GOT THIS|AMAZING JOB/);
 
-    // Two actions and a CTA - Retake Quiz is gone, matching the app.
-    await expect(page.locator('[data-action="explain"]')).toBeVisible();
+    // One action and a CTA - Retake Quiz is gone, matching the app. The
+    // explain pill only renders once a screen passes onExplanations, and no
+    // screen does until the "understand your answers" feature lands; the
+    // results screen deliberately hides a pill with no handler rather than
+    // show a button that does nothing. When that feature ships, flip the
+    // explain assertion to toBeVisible.
+    await expect(page.locator('[data-action="explain"]')).toHaveCount(0);
     await expect(page.locator('[data-action="chat"]')).toBeVisible();
     await expect(page.locator('.qres__cta')).toBeVisible();
   });
