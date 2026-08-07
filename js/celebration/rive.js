@@ -21,6 +21,8 @@ const NOOP = {
  * @param {string} opts.src            filename within assets/rive/
  * @param {string} [opts.artboard]     artboard name, when the file has several
  * @param {string} [opts.stateMachine] state machine name, when the call site knows it
+ * @param {string} [opts.animation]    timeline animation name, when the state
+ *                                     machine is NOT what should play - see below
  * @param {string} [opts.fit]          'cover' | 'contain' (default 'contain')
  * @param {boolean} [opts.autoplay]    default true; false means the caller plays it
  * @returns {{ok: boolean, play: Function, pause: Function, destroy: Function}}
@@ -30,6 +32,7 @@ export function mountRive(canvas, opts) {
     src,
     artboard,
     stateMachine,
+    animation,
     fit = 'contain',
     autoplay = true,
   } = opts || {};
@@ -48,7 +51,7 @@ export function mountRive(canvas, opts) {
   let observer = null;
   let resizeFrame = 0;
   // What play() should actually play. Resolved on load - see the note there.
-  let playTarget = stateMachine || null;
+  let playTarget = stateMachine || animation || null;
 
   const handle = {
     ok: false,
@@ -123,6 +126,7 @@ export function mountRive(canvas, opts) {
       artboard: artboard || undefined,
       // Pass ONE of these or neither - never both. See the note in onLoad.
       stateMachines: stateMachine || undefined,
+      animations: animation || undefined,
       layout: new R.Layout({
         fit: fit === 'cover' ? R.Fit.Cover : R.Fit.Contain,
         alignment: R.Alignment.Center,
@@ -146,6 +150,13 @@ export function mountRive(canvas, opts) {
         // Resolve the target here, for BOTH paths: autoplay files get it
         // played now, deferred ones get it stored for handle.play(). Ported
         // from the React Native web shim that hit the same wall.
+        //
+        // The state machine is the right default but NOT a universal rule, so
+        // `animation` overrides it. flame.riv is the counter-example: its state
+        // machine has no inputs and settles on a still brazier, while its
+        // `loop` timeline is the fire actually burning. Playing the machine
+        // there produced a lit-but-motionless badge - which reads exactly like
+        // the animation failing to load, and was reported as such.
         try {
           if (!playTarget) {
             const machines = instance.stateMachineNames || [];

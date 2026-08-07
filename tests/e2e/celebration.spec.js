@@ -363,3 +363,42 @@ test.describe('interaction', () => {
     expect(await page.locator('.qres').count()).toBe(0);
   });
 });
+
+test.describe('streak flame', () => {
+  test('the flame is on screen and burning', async ({ page }) => {
+    // Reported from beta as "the fire animation doesn't load". It had loaded -
+    // it was flame.riv, whose state machine settles on a still pot and whose
+    // loop timeline bursts it apart. Neither reads as a flame at 140px, so the
+    // screen now uses flamefinal.riv's burning_flame.
+    //
+    // Two assertions, because either alone passes on the broken versions:
+    // enough of the canvas painted to be a flame rather than a fragment, and
+    // the pixels changing over time.
+    await openScreen(page, 'screen=streak&streak=12');
+    await page.evaluate(() => window.__play());
+
+    const sample = () =>
+      page.evaluate(() => {
+        const c = document.querySelector('.streak__flame');
+        if (!c || !c.width) return null;
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let sum = 0;
+        let opaque = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          sum += d[i] + d[i + 1] + d[i + 2];
+          if (d[i + 3] > 10) opaque++;
+        }
+        return { sum, painted: (100 * opaque) / (d.length / 4) };
+      });
+
+    await page.waitForTimeout(1400);
+    const a = await sample();
+    expect(a, 'no flame canvas').not.toBeNull();
+    // The pot-in-a-corner versions covered ~13%; a real flame covers far more.
+    expect(a.painted, 'flame canvas barely painted - wrong artboard?').toBeGreaterThan(25);
+
+    await page.waitForTimeout(700);
+    const b = await sample();
+    expect(b.sum, 'flame is drawn but frozen').not.toBe(a.sum);
+  });
+});

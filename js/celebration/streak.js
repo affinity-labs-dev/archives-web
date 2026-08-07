@@ -135,8 +135,21 @@ export function buildStreak(slot, opts) {
     fit: 'contain',
     autoplay: false,
   });
+  // flamefinal.riv, not flame.riv - and this is a deliberate divergence from
+  // the app, which names flame.riv as its STREAK_FLAME.
+  //
+  // flame.riv draws a small flame inside a pot that bursts, with embers. At the
+  // 140px this card gives it, that reads as a broken graphic rather than a
+  // flame; it was reported as "the fire animation doesn't load". flamefinal.riv
+  // is a single clean flame, and it is what the web's own streak modal used
+  // before this rewrite, so it is not a regression for anyone.
+  //
+  // `burning_flame` is named explicitly because the file also holds `sparkle`
+  // and `particles`, and the runtime's unnamed default picks the first timeline
+  // rather than the one that burns.
   const flameRive = mountRive(root.querySelector('.streak__flame'), {
-    src: 'flame.riv',
+    src: 'flamefinal.riv',
+    animation: 'burning_flame',
     fit: 'contain',
     autoplay: false,
   });
