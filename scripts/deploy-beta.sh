@@ -120,4 +120,18 @@ check "/api/db/rest/v1/gamification_data?select=data" 401 "proxy: scoped needs a
 check "/api/db/rest/v1/billing_events?select=id" 404 "proxy: table not allowlisted"
 check "/api/db/rest/v1/daily_content?select=*,user_daily_quest_progress(*)" 403 "proxy: cannot embed a scoped table"
 
+# Status codes cannot tell you the app works. This exact set of ticks was green
+# over a completely blank page once - a 404ed font fell through to the SPA
+# rewrite, useFonts never resolved, and nothing rendered while every response
+# was a 200. So the gate ends by loading the site in a browser.
+echo "==> Render check"
+cd ..
+if BASE_URL="https://$DOMAIN" npx playwright test tests/e2e/beta-smoke.spec.js      --project=desktop --workers=1 --retries=0 --reporter=line > /dev/null 2>&1; then
+  echo "    ok   app renders in a browser"
+else
+  echo "    FAIL app did not render - re-run for detail:"
+  echo "         BASE_URL=https://$DOMAIN npx playwright test tests/e2e/beta-smoke.spec.js --project=desktop"
+  fail=1
+fi
+
 exit $fail

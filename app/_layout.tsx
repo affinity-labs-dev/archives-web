@@ -4,7 +4,6 @@
 import { PHONE_COLUMN_WIDTH } from "@/constants/phoneColumn.web";
 
 import { useFonts } from "expo-font";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -58,7 +57,7 @@ function SupabaseAuthBridge({ children }: { children: React.ReactNode }) {
 export default function SpikeLayout() {
   // Same registration as the real root layout, aliases included - the aliases
   // are what the components actually reference.
-  const [loaded] = useFonts({
+  const [loaded, fontError] = useFonts({
     // Icon fonts, and they are not optional on web.
     //
     // @expo/vector-icons loads these itself on native, so nothing here ever
@@ -68,9 +67,15 @@ export default function SpikeLayout() {
     // arrow, the read/voiceover controls, the quiz answer marks, "understand
     // your answers", "chat to learn more".
     //
-    // Registering them costs nothing on native, where they are already bundled.
-    ...Ionicons.font,
-    ...MaterialIcons.font,
+    // Loaded from our own assets/fonts rather than via `...Ionicons.font`,
+    // which resolves into node_modules. Expo exports that as
+    // `assets/node_modules/@expo/vector-icons/...`, and Vercel's uploader drops
+    // every path containing a `node_modules` segment - so the files 404ed,
+    // the SPA rewrite answered with index.html, and the browser tried to parse
+    // `<!DOCTYPE` as a font. The keys must stay `ionicons` and `material`:
+    // those are the family names the icon components render with.
+    ionicons: require("../assets/fonts/Ionicons.ttf"),
+    material: require("../assets/fonts/MaterialIcons.ttf"),
 
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     "DM Sans": require("../assets/fonts/DM_Sans.ttf"),
@@ -87,7 +92,14 @@ export default function SpikeLayout() {
     "Onest-Medium": require("../assets/fonts/Onest-Medium.ttf"),
   });
 
-  if (!loaded) return null;
+  // Render even if a font fails.
+  //
+  // `if (!loaded) return null` is the Expo default and it means one unreachable
+  // font file blanks the entire app with no error - which is exactly what
+  // happened on the first beta deploy: MaterialIcons 404ed, useFonts never
+  // resolved, and the page stayed empty forever with a clean console. Missing
+  // fonts should cost you a typeface, not the product.
+  if (!loaded && !fontError) return null;
 
   // The outer chrome is the same #FAFAFA as the column, so the page reads as
   // one surface rather than a phone sitting on a dark backdrop. It is the app's
