@@ -3276,7 +3276,10 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  /* The avatar is 32px; the padding brings the hit area to 44px without
+     changing what is drawn. */
+  padding: 6px;
+  margin: -6px;
   border-radius: 50%;
   transition: opacity 0.2s;
 }
