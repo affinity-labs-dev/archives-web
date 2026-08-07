@@ -1405,7 +1405,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   background: rgba(240, 234, 224, 0.05);
   border: 1px solid var(--dark-border);
   color: var(--text-secondary);
-  transition: all 0.3s var(--ease-out);
+  transition: background 0.3s var(--ease-out), border-color 0.3s var(--ease-out), color 0.3s var(--ease-out), transform 0.3s var(--ease-out);
   -webkit-tap-highlight-color: transparent;
 }
 
