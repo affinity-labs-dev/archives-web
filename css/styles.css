@@ -357,6 +357,14 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 /* ========== Adventures List ========== */
 /* ========== Home / Era Selection ========== */
+/* Keyboard focus. The stylesheet had ZERO :focus-visible rules, and one
+   input removes the browser outline - so a keyboard user could not see where
+   they were anywhere on the site. Amber ring, keyboard-only. */
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
 /* ========== Primary button ==========
    The base style for .cta-btn. This never existed: the class was styled only
    inside specific containers, so "Take Quiz" on the lesson page and the
