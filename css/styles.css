@@ -470,6 +470,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 
 .pcard__title {
+  margin: 0;
   font-family: 'Changa One', sans-serif;
   font-size: clamp(1.15rem, 2.6vw, 1.7rem);
   line-height: 1.08;
@@ -940,6 +941,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 
 .dh__hero-title {
+  margin: 0;
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4.5vw, 3.2rem);
   font-weight: 400;

@@ -72,7 +72,7 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
     if (dayNum) {
       html += '<div class="dh__hero-day">Day ' + escapeHtml(dayNum) + (totalDays ? ' of ' + escapeHtml(totalDays) : '') + '</div>';
     }
-    html += '<div class="dh__hero-title">' + watchTitle + '</div>';
+    html += '<h1 class="dh__hero-title">' + watchTitle + '</h1>';
     html += '<div class="dh__hero-bottom">';
     html += '<span class="dh__hero-dur">3 MIN</span>';
     html += '<span class="dh__hero-play"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5 3 19 12 5 21"/></svg> Watch</span>';

@@ -155,7 +155,7 @@ export default function homeView(app) {
             + '<img class="pcard__bg" src="' + advBg + '" alt="" fetchpriority="high">'
             + '<div class="pcard__overlay">'
             + '<div class="pcard__kicker">' + heroBadge + '</div>'
-            + '<div class="pcard__title">' + advTitle + '</div>'
+            + '<h2 class="pcard__title">' + advTitle + '</h2>'
             + '<div class="pcard__meta">' + eraName
             + (advCompleted > 0 ? ' · ' + advCompleted + '/' + advTotal + ' done' : (featuredAdv.timeline ? ' · ' + escapeHtml(featuredAdv.timeline) : ''))
             + '</div>'
@@ -188,7 +188,7 @@ export default function homeView(app) {
         + '<div class="pcard__kicker">Daily'
         + (dailyDayNum ? ' · Day ' + escapeHtml(dailyDayNum) + (dailyTotalDays ? ' of ' + escapeHtml(dailyTotalDays) : '') : '')
         + '</div>'
-        + '<div class="pcard__title">' + escapeHtml(dailyTitle) + '</div>'
+        + '<h1 class="pcard__title">' + escapeHtml(dailyTitle) + '</h1>'
         + (dailyStreak > 0
             ? '<div class="pcard__meta"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style="vertical-align:-2px"><path d="M12 23c-3.6 0-8-3-8-9 0-4 2.5-7.5 5-9.5.4-.3 1 0 1 .5 0 1.5 1 3 2.5 3.5.3.1.6-.1.6-.4 0-2.5 1.5-5.5 3.5-7.1.4-.3 1 0 1 .5C18 5 20 9 20 14c0 6-4.4 9-8 9z"/></svg> ' + dailyStreak + ' day streak</div>'
             : '<div class="pcard__meta">A few minutes of history, daily</div>')
