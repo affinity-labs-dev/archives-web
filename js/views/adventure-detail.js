@@ -66,6 +66,20 @@ export default function adventureDetailView(app, params) {
     var estTime = escapeHtml((adv.card_content && adv.card_content.estimated_time) || '');
     var sorted = (adv.content_list || []).sort(function(a, b) { return a.order_by - b.order_by; });
 
+    // The next-up module, so its tile can carry a visible Start chip - the
+    // only actionable affordance the grid had was a subtle type icon.
+    var nextIdx = -1;
+    for (var ni = 0; ni < sorted.length; ni++) {
+      if (!isComplete(readableId, sorted[ni].id)) { nextIdx = ni; break; }
+    }
+
+    function completedSoFar(idx) {
+      for (var ci = 0; ci < idx; ci++) {
+        if (isComplete(readableId, sorted[ci].id)) return true;
+      }
+      return false;
+    }
+
     var tiles = sorted.map(function(mod, i) {
       var done = isComplete(readableId, mod.id);
       var stars = getStars(readableId, mod.id);
@@ -76,7 +90,7 @@ export default function adventureDetailView(app, params) {
       var cls = isPortraitModule(i, sorted.length) ? 'mtile--portrait' : 'mtile--landscape';
       var thumbUrl = sanitizeUrl(mod.thumbnail_url);
 
-      return '<div class="mtile ' + cls + (done ? ' mtile--done' : '') + '" data-lesson-idx="' + i + '">'
+      return '<div class="mtile ' + cls + (done ? ' mtile--done' : '') + (i === nextIdx ? ' mtile--next' : '') + '" data-lesson-idx="' + i + '">'
         + '<img class="mtile__img" src="' + thumbUrl + '" alt="" loading="lazy">'
         + '<div class="mtile__overlay">'
         + '<div class="mtile__number">' + num + '</div>'
@@ -86,6 +100,7 @@ export default function adventureDetailView(app, params) {
         + '<div class="mtile__title">' + escapeHtml(mod.thumbnail_title || 'Module ' + (i + 1)) + '</div>'
         + '<div class="mtile__meta-row">'
         + '<span class="mtile__subtitle">' + escapeHtml(typeLabel) + '</span>'
+        + (i === nextIdx ? '<span class="mtile__go">' + (completedSoFar(i) ? 'Continue' : 'Start') + '</span>' : '')
         + '</div>'
         + '</div></div></div>';
     }).join('');

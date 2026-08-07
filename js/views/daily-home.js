@@ -90,9 +90,21 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
   // Body content (constrained width)
   html += '<div class="dh__body">';
 
-  // Start button (hidden when all complete)
+  // The one primary button. Its label tells the truth about where the user
+  // is: a fresh day starts, a half-done day continues into the next step by
+  // name - the old label said START MY DAY even when two of three steps were
+  // already done.
   if (c && !allDone) {
-    html += '<button class="dh__start-btn" id="dh-start">' + (isToday ? 'START MY DAY' : 'START THIS STORY') + '</button>';
+    var stepNames = { watch: 'Watch', explore: 'Explore', questions: 'Questions' };
+    var nextStep = null;
+    for (var s = 0; s < steps.length; s++) {
+      if (!dayProgress || !dayProgress[steps[s]]) { nextStep = steps[s]; break; }
+    }
+    var started = dayProgress && Object.keys(dayProgress).length > 0;
+    var startLabel = !started
+      ? (isToday ? 'Start my day' : 'Start this story')
+      : 'Continue · ' + (stepNames[nextStep] || 'Next');
+    html += '<button class="dh__start-btn" id="dh-start" data-step-target="' + steps.indexOf(nextStep) + '">' + startLabel + '</button>';
   }
 
   // Progress bar
@@ -123,7 +135,7 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
       if (exploreDone) {
         html += '<svg class="dh__card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>';
       } else {
-        html += '<svg class="dh__card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="6 9 12 15 18 9"/></svg>';
+        html += '<svg class="dh__card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="9 6 15 12 9 18"/></svg>';
       }
       html += '</div></div>';
     }
@@ -138,7 +150,7 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
       if (questionsDone) {
         html += '<svg class="dh__card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>';
       } else {
-        html += '<svg class="dh__card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="6 9 12 15 18 9"/></svg>';
+        html += '<svg class="dh__card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="9 6 15 12 9 18"/></svg>';
       }
       html += '</div></div>';
     }

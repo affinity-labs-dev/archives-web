@@ -96,8 +96,8 @@ test.describe('Navigation', () => {
 
   test('daily story link navigates from home', async ({ page }) => {
     await page.goto('/#/');
-    await page.waitForSelector('.home__daily', { timeout: 15000 });
-    await page.locator('.home__daily').click();
+    await page.waitForSelector('#pcard-daily', { timeout: 15000 });
+    await page.locator('#pcard-daily').click();
     await expect(page).toHaveURL(/#\/daily/);
   });
 });

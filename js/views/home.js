@@ -4,7 +4,7 @@ import { getDailyStreak, getDailyProgress, getAllProgress, getCompletedCount } f
 import { escapeHtml, sanitizeUrl } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
-import { heroEntrance, staggerEntrance, revealOnScroll, textReveal } from '../animations.js';
+import { staggerEntrance, revealOnScroll } from '../animations.js';
 
 export default function homeView(app) {
   app.innerHTML = '<div class="skeleton-home">'
@@ -44,8 +44,7 @@ export default function homeView(app) {
       var activeEras = eras.filter(function(e) { return e.status === 'active' || e.status === 'premium'; });
       var otherEras = eras.filter(function(e) { return e.status !== 'active' && e.status !== 'premium'; });
 
-      // Smart featured adventure — find where user left off
-      var heroHtml = '';
+      // Smart featured adventure - find where the user left off
       var heroTarget = null; // { rid, moduleIdx } or null
 
       // Accessible eras (skip premium for non-premium users)
@@ -116,6 +115,7 @@ export default function homeView(app) {
           featuredAdv = allAccessibleAdvs[0];
         }
 
+        var pairAdvCard = '';
         if (featuredAdv) {
           // Determine deep link — find first incomplete module
           var featuredRid = featuredAdv.readable_id;
@@ -136,11 +136,11 @@ export default function homeView(app) {
 
           var advTitle = escapeHtml(featuredAdv.adventure_title?.replace(/\r?\n/g, ' '));
           var advBg = sanitizeUrl((featuredAdv.card_content && featuredAdv.card_content.background_image) || featuredAdv.icon_url);
-          var advDesc = escapeHtml(featuredAdv.adventure_description);
           var eraName = escapeHtml((featuredAdv.card_content && featuredAdv.card_content.era_name) || featuredAdv.era_id);
-          var estTime = escapeHtml((featuredAdv.card_content && featuredAdv.card_content.estimated_time) || '');
+          var advCompleted = getCompletedCount(featuredAdv.readable_id);
+          var advTotal = (featuredAdv.card_content && featuredAdv.card_content.total_modules) || 5;
 
-          // Preload hero image (reuse existing link if present)
+          // Preload the card image (reuse existing link if present)
           var heroLink = document.getElementById('preload-hero');
           if (!heroLink) {
             heroLink = document.createElement('link');
@@ -151,20 +151,19 @@ export default function homeView(app) {
           }
           heroLink.href = advBg;
 
-          heroHtml = '<div class="home__hero" id="home-hero">'
-            + '<img class="home__hero-bg" src="' + advBg + '" alt="" fetchpriority="high">'
-            + '<div class="home__hero-badge">' + heroBadge + '</div>'
-            + '<div class="home__hero-overlay">'
-            + '<div class="home__hero-label">' + eraName + (estTime ? ' · ' + estTime : '') + '</div>'
-            + '<h1 class="home__hero-title">' + advTitle + '</h1>'
-            + (featuredAdv.timeline ? '<div class="home__hero-timeline">' + escapeHtml(featuredAdv.timeline) + '</div>' : '')
-            + '<p class="home__hero-desc">' + advDesc + '</p>'
-            + '<div class="home__hero-cta">' + heroCta + ' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>'
+          pairAdvCard = '<div class="pcard" id="pcard-adventure">'
+            + '<img class="pcard__bg" src="' + advBg + '" alt="" fetchpriority="high">'
+            + '<div class="pcard__overlay">'
+            + '<div class="pcard__kicker">' + heroBadge + '</div>'
+            + '<div class="pcard__title">' + advTitle + '</div>'
+            + '<div class="pcard__meta">' + eraName
+            + (advCompleted > 0 ? ' · ' + advCompleted + '/' + advTotal + ' done' : (featuredAdv.timeline ? ' · ' + escapeHtml(featuredAdv.timeline) : ''))
+            + '</div>'
+            + '<button class="cta-btn cta-btn--sm pcard__btn" type="button">' + escapeHtml(heroCta) + '</button>'
             + '</div></div>';
         }
 
-      // Daily Story section — cinematic card with thumbnail
-      var dailyHtml = '';
+      // Daily Story portrait card
       var dc = null;
       var dailyThumb = '';
       var dailyTitle = 'Today\'s Story';
@@ -180,21 +179,30 @@ export default function homeView(app) {
         if (dc.card1 && dc.card1.thumbnail_url) dailyThumb = sanitizeUrl(dc.card1.thumbnail_url);
       }
 
-      dailyHtml = '<div class="home__section">'
-        + '<div class="home__section-header">'
-        + '<div class="home__section-label">Daily</div>'
-        + '<h2 class="home__section-title">Today\'s Story</h2>'
+      var dailyProgress = getDailyProgress(new Date().toISOString().slice(0, 10));
+      var dailyStarted = dailyProgress && Object.keys(dailyProgress).length > 0;
+
+      var pairDailyCard = '<div class="pcard" id="pcard-daily" data-nav="daily">'
+        + (dailyThumb ? '<img class="pcard__bg" src="' + dailyThumb + '" alt="" loading="lazy">' : '<div class="pcard__bg pcard__bg--empty"></div>')
+        + '<div class="pcard__overlay">'
+        + '<div class="pcard__kicker">Daily'
+        + (dailyDayNum ? ' · Day ' + escapeHtml(dailyDayNum) + (dailyTotalDays ? ' of ' + escapeHtml(dailyTotalDays) : '') : '')
         + '</div>'
-        + '<div class="home__daily" data-nav="daily">'
-        + (dailyThumb ? '<img class="home__daily-bg" src="' + dailyThumb + '" alt="" loading="lazy">' : '')
-        + '<div class="home__daily-overlay">'
-        + (dailyDayNum ? '<div class="home__daily-day">Day ' + escapeHtml(dailyDayNum) + (dailyTotalDays ? ' of ' + escapeHtml(dailyTotalDays) : '') + '</div>' : '')
-        + '<div class="home__daily-title">' + escapeHtml(dailyTitle) + '</div>'
-        + '<div class="home__daily-bottom">'
-        + '<div class="home__daily-cta">Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>'
-        + (dailyStreak > 0 ? '<div class="home__daily-streak"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 23c-3.6 0-8-3-8-9 0-4 2.5-7.5 5-9.5.4-.3 1 0 1 .5 0 1.5 1 3 2.5 3.5.3.1.6-.1.6-.4 0-2.5 1.5-5.5 3.5-7.1.4-.3 1 0 1 .5C18 5 20 9 20 14c0 6-4.4 9-8 9z"/></svg> ' + dailyStreak + ' day streak</div>' : '')
-        + '</div>'
-        + '</div></div></div>';
+        + '<div class="pcard__title">' + escapeHtml(dailyTitle) + '</div>'
+        + (dailyStreak > 0
+            ? '<div class="pcard__meta"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style="vertical-align:-2px"><path d="M12 23c-3.6 0-8-3-8-9 0-4 2.5-7.5 5-9.5.4-.3 1 0 1 .5 0 1.5 1 3 2.5 3.5.3.1.6-.1.6-.4 0-2.5 1.5-5.5 3.5-7.1.4-.3 1 0 1 .5C18 5 20 9 20 14c0 6-4.4 9-8 9z"/></svg> ' + dailyStreak + ' day streak</div>'
+            : '<div class="pcard__meta">A few minutes of history, daily</div>')
+        + '<button class="cta-btn cta-btn--sm pcard__btn" type="button">' + (dailyStarted ? 'Continue' : 'Start') + '</button>'
+        + '</div></div>';
+
+      // The two portrait cards, side by side. These ARE the hero now: the
+      // old full-bleed hero and the wide daily banner said the same two
+      // things twice at different sizes.
+      var dailyHtml = '<div class="home__section home__section--pair">'
+        + '<div class="home__pair">'
+        + pairDailyCard
+        + pairAdvCard
+        + '</div></div>';
 
       // Active eras grid
       var eraCards = activeEras.map(function(era, idx) {
@@ -247,11 +255,9 @@ export default function homeView(app) {
 
       app.innerHTML = renderHeader('', null)
         + '<div class="home">'
-        + heroHtml
         + dailyHtml
         + '<div class="home__section">'
         + '<div class="home__section-header">'
-        + '<div class="home__section-label">Explore</div>'
         + '<h2 class="home__section-title">All Eras</h2>'
         + '</div>'
         + '<div class="era-grid ">' + eraCards + '</div>'
@@ -259,24 +265,15 @@ export default function homeView(app) {
         + comingSoonHtml
         + '</div>';
 
-      // Animate hero entrance (title handled separately by textReveal)
-      heroEntrance({
-        bg: '.home__hero-bg',
-        elements: ['.home__hero-badge', '.home__hero-label', '.home__hero-desc', '.home__hero-cta']
-      });
-
-      // Text reveal on hero title (separate from heroEntrance to avoid conflict)
-      var heroTitle = app.querySelector('.home__hero-title');
-      if (heroTitle) textReveal(heroTitle);
-
-      // Scroll-triggered reveals for sections below the fold
-      revealOnScroll('.home__daily');
+      // Entrances: the pair rises together, the grids reveal on scroll.
+      staggerEntrance('.home__pair .pcard');
       revealOnScroll('.era-grid .era-card');
       revealOnScroll('.era-grid--compact .era-card');
 
-      // Attach click handlers via event delegation
-      var hero = document.getElementById('home-hero');
-      if (hero) hero.addEventListener('click', function() {
+      // Attach click handlers. The whole card navigates; the button inside is
+      // the visible affordance for the same action.
+      var advCard = document.getElementById('pcard-adventure');
+      if (advCard) advCard.addEventListener('click', function() {
         if (heroTarget && heroTarget.moduleIdx !== null) {
           window.location.hash = '/lesson/' + heroTarget.rid + '/' + heroTarget.moduleIdx;
         } else if (heroTarget) {
@@ -284,7 +281,7 @@ export default function homeView(app) {
         }
       });
 
-      var daily = app.querySelector('.home__daily[data-nav]');
+      var daily = document.getElementById('pcard-daily');
       if (daily) daily.addEventListener('click', function() { window.location.hash = '/daily'; });
 
       app.querySelectorAll('.era-card[data-era]').forEach(function(card) {

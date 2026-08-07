@@ -135,7 +135,7 @@ export function revealOnScroll(selector, opts = {}) {
 
 // ── Tactile button press (squash & stretch) ────────────────────
 const PRESS_SELECTORS = [
-  '.era-card', '.adventure-card', '.mtile', '.home__daily', '.home__hero-cta',
+  '.era-card', '.adventure-card', '.mtile', '.pcard',
   '.dh__start-btn', '.ds__next-btn', '.ds__finish-btn', '.quiz__next',
   '.qres__pill', '.qres__cta', '.dsend__cta', '.streak__cta',
   '.quiz__answer', '.cta-btn',
