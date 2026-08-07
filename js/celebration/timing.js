@@ -20,6 +20,31 @@ import { prefersReducedMotion } from '../animations.js';
 const G = typeof window !== 'undefined' ? window.gsap : null;
 
 /**
+ * Is the animation library actually here?
+ *
+ * GSAP comes from a CDN script tag, so "no" is a real state, not a theoretical
+ * one. Every screen has to be readable and usable without it - see
+ * STATIC_CLASS.
+ */
+export function hasGsap() {
+  return !!G;
+}
+
+/**
+ * Marks a screen as rendering without animation.
+ *
+ * Elements that animate in start at `opacity: 0` in CSS, which is right when
+ * GSAP is going to fade them up and catastrophic when it is not: the score
+ * read 0%, the streak read 0, and the CONTINUE button never appeared, so the
+ * user was stuck on a dead screen with no way out.
+ *
+ * The class makes CSS reveal everything at its final value. Each builder adds
+ * it when hasGsap() is false, and the markup carries real values rather than
+ * placeholders, so the static render is correct rather than merely visible.
+ */
+export const STATIC_CLASS = 'cel-static';
+
+/**
  * Milliseconds to GSAP seconds, collapsing to 0 under reduced motion.
  *
  * The web twin of the mobile app's `safeDuration()`. Apply it to timeline
@@ -133,10 +158,14 @@ export const ENTRANCE = {
 export function enter(tl, el, preset, atMs) {
   if (!el) return tl;
   const p = typeof preset === 'string' ? ENTRANCE[preset] : preset;
+  // pointerEvents alongside opacity: buttons sit at their final position while
+  // invisible - up to 8.7s on the 3/3 tier - and CSS keeps them inert until
+  // they are actually on screen. Without restoring it here they would stay
+  // unclickable forever.
   return tl.fromTo(
     el,
     { opacity: 0, y: p.y },
-    { opacity: 1, y: 0, duration: T(p.dur), ease: p.ease },
+    { opacity: 1, y: 0, pointerEvents: 'auto', duration: T(p.dur), ease: p.ease },
     T(atMs),
   );
 }

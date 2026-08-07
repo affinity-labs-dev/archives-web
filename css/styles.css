@@ -4407,3 +4407,62 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   opacity: 0;
 }
 .streak__cta:active { transform: translateY(4px); box-shadow: 0 2px 0 #FFFFFF; }
+
+/* ========== Celebration: no-animation fallback ========== */
+/*
+ * GSAP is a CDN script tag, so "it did not load" is a real state.
+ *
+ * Everything that animates in starts at opacity 0, which is right when GSAP is
+ * about to fade it up and catastrophic when it is not: the score read 0%, the
+ * streak read 0, and CONTINUE never appeared, so the user was stranded on a
+ * dead screen. js/celebration/timing.js adds this class when window.gsap is
+ * absent, and the markup carries real values rather than placeholders, so this
+ * reveals a correct screen rather than merely a visible one.
+ */
+.cel-static .qres__card-wrap,
+.cel-static .qres__headline,
+.cel-static .qres__sub,
+.cel-static .qres__pill,
+.cel-static .qres__cta,
+.cel-static .dsend__headline,
+.cel-static .dsend__cta,
+.cel-static .streak__card,
+.cel-static .streak__count,
+.cel-static .streak__label,
+.cel-static .streak__week,
+.cel-static .streak__week-label,
+.cel-static .streak__day,
+.cel-static .streak__check,
+.cel-static .streak__message,
+.cel-static .streak__cta {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Purely decorative; without a timeline they have no life-cycle, so hide them
+   rather than leave six static gold blobs pinned around the card. */
+.cel-static .qres__sparkle,
+.cel-static .qres__star {
+  display: none;
+}
+
+/*
+ * Nothing invisible should be clickable.
+ *
+ * The pills and CTA sit at opacity 0 for up to 8.7 seconds on the 3/3 tier,
+ * but at their final positions - so they were tappable the whole time, and a
+ * stray tap during the hold would skip the celebration the user never saw.
+ * Restored by the entrance, which sets pointer-events along with opacity.
+ */
+.qres__pill,
+.qres__cta,
+.dsend__cta,
+.streak__cta {
+  pointer-events: none;
+}
+.cel-static .qres__pill,
+.cel-static .qres__cta,
+.cel-static .dsend__cta,
+.cel-static .streak__cta {
+  pointer-events: auto;
+}

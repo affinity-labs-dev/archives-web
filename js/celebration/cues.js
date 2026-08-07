@@ -75,23 +75,34 @@ export function prepare() {
  * taps have happened.
  */
 export function unlock() {
-  if (unlocked) return;
+  // Nothing to unlock yet: prepare() has not run, and marking it done here
+  // would permanently skip the real unlock once the elements exist.
+  if (unlocked || !Object.keys(elements).length) return;
   unlocked = true;
   Object.keys(elements).forEach((name) => {
     const el = elements[name];
+    // Silent priming. Playing eight cues at their real volume - even for the
+    // handful of milliseconds before pause() lands - is an audible pile-up on
+    // the first answer tap, and it happened even with sound switched off.
+    const restore = el.volume;
+    el.muted = true;
+    el.volume = 0;
+    const finish = () => {
+      el.pause();
+      el.currentTime = 0;
+      el.muted = false;
+      el.volume = restore;
+    };
     const p = el.play();
     if (p && typeof p.then === 'function') {
-      p.then(() => {
-        el.pause();
-        el.currentTime = 0;
-      }).catch(() => {
+      p.then(finish).catch(() => {
+        finish();
         // Refused. Nothing to do - the cue simply will not sound on this
         // device, and the timeline does not care.
       });
     } else {
       try {
-        el.pause();
-        el.currentTime = 0;
+        finish();
       } catch (e) {
         /* nothing to recover */
       }

@@ -8,7 +8,7 @@
 // Rives play alone, then everything on the card enters over the next 2.5s.
 
 import { escapeHtml } from '../utils.js';
-import { T, EASE, createTimeline } from './timing.js';
+import { T, EASE, createTimeline, hasGsap, STATIC_CLASS } from './timing.js';
 import { getMotivationalQuote } from './tiers.js';
 import { mountRive } from './rive.js';
 import * as cues from './cues.js';
@@ -96,7 +96,10 @@ export function buildStreak(slot, opts) {
   const week = Array.isArray(opts.week) ? opts.week : [];
 
   const root = document.createElement('div');
-  root.className = 'streak';
+  // Without GSAP nothing fades in, and every animated element would stay at
+  // the opacity: 0 CSS sets for its entrance - a blank purple screen with no
+  // number and no way out. The class reveals the final state instead.
+  root.className = 'streak' + (hasGsap() ? '' : ' ' + STATIC_CLASS);
   root.innerHTML = `
     <canvas class="streak__bg" aria-hidden="true"></canvas>
     <button class="streak__close" type="button" data-action="continue" aria-label="Close">
@@ -106,7 +109,7 @@ export function buildStreak(slot, opts) {
       </svg>
     </button>
     <div class="streak__card">
-      <div class="streak__count">0</div>
+      <div class="streak__count">${streak}</div>
       <div class="streak__label">Day Streak!</div>
       <div class="streak__week">
         <div class="streak__week-labels">
@@ -181,8 +184,14 @@ export function buildStreak(slot, opts) {
       at('number'),
     );
 
-    // The count-up itself, on the timeline so it can be seeked.
+    // The count-up, on the timeline so it can be seeked.
+    //
+    // The markup already holds the real number; this knocks it to zero at the
+    // cue and counts back up. So any moment before the cue - and any world
+    // without GSAP - shows the true streak rather than a 0 the user has to
+    // wait to see corrected.
     const counter = { v: 0 };
+    tl.set(count, { textContent: '0' }, at('countUp'));
     tl.to(
       counter,
       {
@@ -263,9 +272,16 @@ export function buildStreak(slot, opts) {
     tl.fromTo(
       root.querySelector('.streak__cta'),
       { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: dur('button'), ease: EASE.riseCta },
+      { opacity: 1, y: 0, pointerEvents: 'auto', duration: dur('button'), ease: EASE.riseCta },
       at('button'),
     );
+  }
+
+  if (!tl || !G) {
+    // No timeline to hang them off, but the art should still move.
+    bgRive.play();
+    flameRive.play();
+    cues.play('streak', { volume: 0.5 });
   }
 
   const onClick = (e) => {
@@ -281,6 +297,10 @@ export function buildStreak(slot, opts) {
     pauseRives() {
       bgRive.pause();
       flameRive.pause();
+    },
+    resumeRives() {
+      bgRive.play();
+      flameRive.play();
     },
     destroy() {
       timeline.destroy();

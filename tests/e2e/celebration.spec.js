@@ -256,3 +256,110 @@ test.describe('robustness', () => {
     await expect(page.locator('.qres__headline')).toHaveCSS('opacity', '1');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Regressions from the adversarial review. Every one of these passed the
+// original suite, which asserted the card, the headline and the CTA and
+// nothing else.
+// ─────────────────────────────────────────────────────────────────────────
+
+test.describe('degradation', () => {
+  test('without GSAP the screen still tells the truth and can be left', async ({ page }) => {
+    // The worst failure this subsystem had: with the animation library absent,
+    // a 3/3 rendered "0%" and the CONTINUE button never became visible, so the
+    // user was stranded on a dead screen showing a score they had not got.
+    await page.route('**/gsap**', (r) => r.abort());
+    await page.goto(`${HARNESS}?screen=results&correct=3&total=3`);
+    await page.waitForFunction(() => window.__ready === true, null, { timeout: 20000 });
+
+    expect(await page.evaluate(() => typeof window.gsap)).toBe('undefined');
+    await expect(page.locator('.qres__pct')).toHaveText('100');
+    await expect(page.locator('.qres__fill')).toHaveCSS('width', /^(?!0px)/);
+    await expect(page.locator('.qres__cta')).toHaveCSS('opacity', '1');
+
+    // And it must actually work, not merely be visible.
+    await page.locator('.qres__cta').click();
+    expect(await page.evaluate(() => window.__lastAction)).toBe('continue');
+  });
+
+  test('without GSAP the streak shows the real number', async ({ page }) => {
+    await page.route('**/gsap**', (r) => r.abort());
+    await page.goto(`${HARNESS}?screen=streak&streak=12`);
+    await page.waitForFunction(() => window.__ready === true, null, { timeout: 20000 });
+    await expect(page.locator('.streak__count')).toHaveText('12');
+    await expect(page.locator('.streak__cta')).toHaveCSS('opacity', '1');
+  });
+});
+
+test.describe('timing regressions', () => {
+  test('sparkles burst around the card, not before it', async ({ page }) => {
+    // The sparkle delays are absolute values from the low tier. Used as-is on
+    // the other two they fired around empty space and were gone before the
+    // card arrived - at 2s on medium, six seconds early on high.
+    for (const [correct, cardAt] of [
+      [2, 3.5],
+      [3, 7.5],
+    ]) {
+      await openScreen(page, `screen=results&correct=${correct}&total=3`);
+      const peak = () =>
+        page.evaluate(() =>
+          Math.max(
+            ...Array.from(document.querySelectorAll('.qres__sparkle')).map((e) =>
+              Number(getComputedStyle(e).opacity),
+            ),
+          ),
+        );
+
+      // Well before the card: nothing.
+      await seek(page, cardAt - 1.5);
+      expect(await peak(), `sparkles visible before the ${correct}/3 card`).toBeLessThan(0.05);
+
+      // Just after it: they are doing their job.
+      await seek(page, cardAt + 0.7);
+      expect(await peak(), `no sparkles after the ${correct}/3 card`).toBeGreaterThan(0.5);
+    }
+  });
+});
+
+test.describe('interaction', () => {
+  test('controls are not clickable while they are invisible', async ({ page }) => {
+    // They sit at their final position at opacity 0 for up to 8.7s on the 3/3
+    // tier, so a stray tap during the hold used to skip a celebration the user
+    // had not seen.
+    await openScreen(page, 'screen=results&correct=3&total=3');
+    await seek(page, 1);
+    await expect(page.locator('.qres__cta')).toHaveCSS('pointer-events', 'none');
+    await seek(page, 20);
+    await expect(page.locator('.qres__cta')).toHaveCSS('pointer-events', 'auto');
+  });
+
+  test('a pill with no handler is not rendered at all', async ({ page }) => {
+    // "Understand your answers" has no handler yet. A visible button that does
+    // nothing reads as broken; an absent one reads as unbuilt.
+    await openScreen(page, 'screen=results&correct=3&total=3&pills=chat');
+    await seek(page, 20);
+    await expect(page.locator('[data-action="explain"]')).toHaveCount(0);
+    await expect(page.locator('[data-action="chat"]')).toHaveCount(1);
+  });
+
+  test('double-tapping CONTINUE does not start two transitions', async ({ page }) => {
+    // The second transition mounted into the slot the first was still using
+    // and cleared it with innerHTML, orphaning that screen's timeline and Rive
+    // instances on detached nodes.
+    await openScreen(page, 'screen=flow&correct=3&total=3&mode=daily');
+    await page.route('**/api/daily*', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    const cta = page.locator('.qres__cta');
+    await cta.waitFor({ timeout: 20000 });
+    await page.waitForTimeout(11000); // let it become clickable
+
+    await cta.click({ force: true });
+    await cta.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(1200);
+
+    // Exactly one screen, in exactly one slot.
+    expect(await page.locator('.dsend').count()).toBeLessThanOrEqual(1);
+    expect(await page.locator('.qres').count()).toBe(0);
+  });
+});

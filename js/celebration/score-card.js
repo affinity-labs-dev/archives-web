@@ -28,7 +28,15 @@ const POP_SEGMENTS = [
   { dur: 100, scale: 1, rot: 0 },
 ];
 
-/** Markup for the card. Values start at zero; the timeline fills them in. */
+/**
+ * Markup for the card.
+ *
+ * The percentage and the bar are rendered at their TRUE values, not at zero.
+ * The count-up animates from 0 up to them, so the markup is the end state and
+ * the animation is the decoration. When GSAP is missing the card is simply
+ * correct - which is the whole point, since it used to render a permanent 0%
+ * for a user who had just scored 3/3.
+ */
 export function renderScoreCard(spec, data) {
   const sparkles = SPARKLES.map(
     (s) => `
@@ -45,7 +53,7 @@ export function renderScoreCard(spec, data) {
         <div class="qres__card-grid">
           <div class="qres__card-col">
             <div class="qres__pct-row">
-              <span class="qres__pct">0</span><span class="qres__pct-sign">%</span>
+              <span class="qres__pct">${data.percentage}</span><span class="qres__pct-sign">%</span>
             </div>
             <div class="qres__card-label" style="color:${spec.cardSubText}">Final Score</div>
           </div>
@@ -60,7 +68,7 @@ export function renderScoreCard(spec, data) {
           </div>
         </div>
         <div class="qres__track" style="background:${spec.progressTrack}">
-          <div class="qres__fill" style="background:${spec.progressFill}"></div>
+          <div class="qres__fill" style="background:${spec.progressFill}; width:${data.percentage}%"></div>
         </div>
       </div>
     </div>`;
@@ -106,7 +114,13 @@ export function animateScoreCard(tl, root, spec, timing, data) {
   // Two tweens would be two clocks: with different eases, or just floating
   // point, the bar can reach 100% while the digits still read 97. Driving
   // both from a single object makes that impossible by construction.
+  //
+  // Note the direction: the markup already holds the true values, so this
+  // knocks them down to zero at the bar's cue and counts back up. Any moment
+  // before the cue, and any world without GSAP, shows the real score.
   const counter = { v: 0 };
+  tl.set(pct, { textContent: '0' }, T(timing.bar));
+  tl.set(fill, { width: '0%' }, T(timing.bar));
   tl.to(
     counter,
     {
@@ -114,8 +128,7 @@ export function animateScoreCard(tl, root, spec, timing, data) {
       duration: T(timing.barDur),
       ease: timing.barEase,
       onUpdate() {
-        const n = Math.round(counter.v);
-        pct.textContent = String(n);
+        pct.textContent = String(Math.round(counter.v));
         fill.style.width = counter.v + '%';
       },
     },
@@ -128,27 +141,23 @@ export function animateScoreCard(tl, root, spec, timing, data) {
   tl.set(fill, { width: data.percentage + '%' }, T(timing.bar + timing.barDur));
 
   // ── Sparkles ────────────────────────────────────────────────────────────
-  // Each is its own three-stage pop, staggered by the delays in the table.
+  // Each is its own three-stage pop, staggered by the offsets in the table.
+  //
+  // Anchored to the tier's own spark time, NOT to the raw delays in SPARKLES.
+  // Those delays are absolute values from the low tier, where the card pops at
+  // 1000ms; used as-is they had the medium tier's sparkles burst around empty
+  // space at 2s and finish before its card arrived at 3.5s, and the high
+  // tier's a full six seconds early.
+  const sparkBase = SPARKLES[0] ? SPARKLES[0].delay : 0;
   sparkleEls.forEach((el, i) => {
     const s = SPARKLES[i];
     if (!s) return;
-    tl.set(el, { scale: 0, rotation: 0, opacity: 0 }, T(s.delay));
-    tl.to(
-      el,
-      { scale: 1.4, opacity: 1, duration: T(420), ease: EASE.riseSoft },
-      T(s.delay),
-    );
-    tl.to(el, { scale: 1, duration: T(350), ease: 'power2.out' }, T(s.delay + 420));
-    tl.to(
-      el,
-      { scale: 0.4, opacity: 0, duration: T(630), ease: 'power2.in' },
-      T(s.delay + 770),
-    );
-    tl.to(
-      el,
-      { rotation: 180, duration: T(1400), ease: 'none' },
-      T(s.delay),
-    );
+    const at = timing.spark + (s.delay - sparkBase);
+    tl.set(el, { scale: 0, rotation: 0, opacity: 0 }, T(at));
+    tl.to(el, { scale: 1.4, opacity: 1, duration: T(420), ease: EASE.riseSoft }, T(at));
+    tl.to(el, { scale: 1, duration: T(350), ease: 'power2.out' }, T(at + 420));
+    tl.to(el, { scale: 0.4, opacity: 0, duration: T(630), ease: 'power2.in' }, T(at + 770));
+    tl.to(el, { rotation: 180, duration: T(1400), ease: 'none' }, T(at));
   });
 
   // ── The perfect-score pop ───────────────────────────────────────────────

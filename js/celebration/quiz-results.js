@@ -5,7 +5,8 @@
 // screen whose shape never changes.
 
 import { escapeHtml } from '../utils.js';
-import { T, EASE, enter, createTimeline } from './timing.js';
+import { prefersReducedMotion } from '../animations.js';
+import { T, EASE, enter, createTimeline, hasGsap, STATIC_CLASS } from './timing.js';
 import { TIER_SPECS, TIER_TIMING, tierFor } from './tiers.js';
 import { mountRive } from './rive.js';
 import * as cues from './cues.js';
@@ -44,8 +45,21 @@ export function buildQuizResults(slot, opts) {
   const timing = TIER_TIMING[tier];
   const data = { correct, total, percentage, xp };
 
+  // Only offer what is actually wired up. "Understand your answers" has no
+  // handler yet, and a visible button that silently does nothing is worse than
+  // an absent one - it reads as broken rather than as unbuilt.
+  const pills = PILLS.filter((p) =>
+    p.action === 'explain' ? typeof opts.onExplanations === 'function'
+    : p.action === 'chat' ? typeof opts.onChat === 'function'
+    : true,
+  );
+
   const root = document.createElement('div');
-  root.className = 'qres qres--' + tier;
+  // Without GSAP nothing animates in, and everything that enters would sit at
+  // the opacity: 0 CSS gives it - including the CONTINUE button, leaving the
+  // user stuck on a screen with a 0% score and no way out. The class reveals
+  // the true end state instead.
+  root.className = 'qres qres--' + tier + (hasGsap() ? '' : ' ' + STATIC_CLASS);
   // The screen colour behind the Rive. Also the whole visual if Rive failed
   // to load, which is why it is a tier colour and not a neutral.
   root.style.background = spec.screenBg;
@@ -61,7 +75,7 @@ export function buildQuizResults(slot, opts) {
       ${renderScoreCard(spec, data)}
       ${renderStars(spec.starColor)}
       <div class="qres__pills">
-        ${PILLS.map(
+        ${pills.map(
           (p) => `
           <button class="qres__pill" type="button" data-action="${p.action}">
             <svg class="qres__pill-icon" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">${ICONS[p.icon]}</svg>
@@ -95,9 +109,15 @@ export function buildQuizResults(slot, opts) {
   }
 
   // ── Audio ───────────────────────────────────────────────────────────────
-  if (tl) {
+  if (tl && G) {
     tl.call(() => cues.play(spec.introCue, { volume: 0.7 }), null, T(timing.intro));
-    tl.call(() => cues.play(spec.countUpCue, { volume: 0.7 }), null, T(timing.countUp));
+    // Only the intro under reduced motion: every position collapses to zero,
+    // so scheduling both would fire them over each other at t=0.
+    if (!prefersReducedMotion()) {
+      tl.call(() => cues.play(spec.countUpCue, { volume: 0.7 }), null, T(timing.countUp));
+    }
+  } else {
+    cues.play(spec.introCue, { volume: 0.7 });
   }
 
   // ── Mascot landing ──────────────────────────────────────────────────────
@@ -123,9 +143,9 @@ export function buildQuizResults(slot, opts) {
   if (tl) {
     enter(tl, root.querySelector('.qres__headline'), 'riseSoft', timing.head);
     enter(tl, root.querySelector('.qres__sub'), 'riseSubtle', timing.sub);
-    const pills = root.querySelectorAll('.qres__pill');
-    enter(tl, pills[0], 'riseListItem', timing.pill1);
-    enter(tl, pills[1], 'riseListItem', timing.pill2);
+    const pillEls = root.querySelectorAll('.qres__pill');
+    if (pillEls[0]) enter(tl, pillEls[0], 'riseListItem', timing.pill1);
+    if (pillEls[1]) enter(tl, pillEls[1], 'riseListItem', timing.pill2);
     enter(tl, root.querySelector('.qres__cta'), 'riseCta', timing.cta);
   }
 
@@ -151,6 +171,10 @@ export function buildQuizResults(slot, opts) {
     pauseRives() {
       bg.pause();
       if (mascot) mascot.pause();
+    },
+    resumeRives() {
+      bg.play();
+      if (mascot) mascot.play();
     },
     destroy() {
       timeline.destroy();

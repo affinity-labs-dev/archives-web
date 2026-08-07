@@ -7,7 +7,7 @@
 // stillness would otherwise look like the state-machine autoplay bug.
 
 import { escapeHtml } from '../utils.js';
-import { T, EASE, createTimeline } from './timing.js';
+import { T, EASE, createTimeline, hasGsap, STATIC_CLASS } from './timing.js';
 import { mountRive } from './rive.js';
 import * as cues from './cues.js';
 
@@ -48,7 +48,8 @@ export function headlineFor(dailyDate) {
 
 export function buildDailyStoryEnd(slot, opts) {
   const root = document.createElement('div');
-  root.className = 'dsend';
+  // See quiz-results.js: without GSAP the headline and CTA never appear.
+  root.className = 'dsend' + (hasGsap() ? '' : ' ' + STATIC_CLASS);
   root.innerHTML = `
     <canvas class="dsend__bg" aria-hidden="true"></canvas>
     <canvas class="dsend__hero" aria-hidden="true"></canvas>
@@ -79,25 +80,25 @@ export function buildDailyStoryEnd(slot, opts) {
   timeline.add(() => bg.destroy());
   timeline.add(() => hero.destroy());
 
-  if (tl) {
+  if (tl && G) {
     tl.call(() => cues.play('dailyStoryEnd', { volume: 0.7 }), null, 0);
 
-    if (G) {
-      // Drops in from above rather than rising, unlike the results screen -
-      // it lands as the Ibu does.
-      tl.fromTo(
-        root.querySelector('.dsend__headline'),
-        { opacity: 0, y: -18 },
-        { opacity: 1, y: 0, duration: T(550), ease: EASE.riseSoft },
-        T(HEADLINE_AT),
-      );
-      tl.fromTo(
-        root.querySelector('.dsend__cta'),
-        { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: T(500), ease: EASE.riseCta },
-        T(CTA_AT),
-      );
-    }
+    // Drops in from above rather than rising, unlike the results screen - it
+    // lands as the Ibu does.
+    tl.fromTo(
+      root.querySelector('.dsend__headline'),
+      { opacity: 0, y: -18 },
+      { opacity: 1, y: 0, duration: T(550), ease: EASE.riseSoft },
+      T(HEADLINE_AT),
+    );
+    tl.fromTo(
+      root.querySelector('.dsend__cta'),
+      { opacity: 0, y: 30 },
+      { opacity: 1, y: 0, pointerEvents: 'auto', duration: T(500), ease: EASE.riseCta },
+      T(CTA_AT),
+    );
+  } else {
+    cues.play('dailyStoryEnd', { volume: 0.7 });
   }
 
   const onClick = (e) => {
@@ -113,6 +114,10 @@ export function buildDailyStoryEnd(slot, opts) {
     pauseRives() {
       bg.pause();
       hero.pause();
+    },
+    resumeRives() {
+      bg.play();
+      hero.play();
     },
     destroy() {
       timeline.destroy();

@@ -65,11 +65,15 @@
   const stage = createStage();
   window.__stage = stage;
 
+  // ?pills=chat renders only the chat pill; ?pills=none renders neither. The
+  // screen omits any pill whose handler is missing, so this exercises that.
+  const wanted = (params.get('pills') || 'all').split(',');
+  const want = (k) => wanted.includes('all') || wanted.includes(k);
   const actions = {
-    onExplanations() { window.__lastAction = 'explain'; },
-    onChat() { window.__lastAction = 'chat'; },
     onContinue() { window.__lastAction = 'continue'; },
   };
+  if (want('explain')) actions.onExplanations = () => { window.__lastAction = 'explain'; };
+  if (want('chat')) actions.onChat = () => { window.__lastAction = 'chat'; };
 
   let built;
   if (screen === 'results') {

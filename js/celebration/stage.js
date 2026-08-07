@@ -47,16 +47,27 @@ export function createStage() {
   let idle = slotB;
   let current = null; // the mounted screen: { el, timeline, pauseRives?, destroy }
   let destroyed = false;
+  // True while a crossfade is in flight. Two taps on CONTINUE used to start
+  // two transitions: the second mounted into the slot the first was still
+  // using and cleared it with innerHTML, orphaning that screen's timeline and
+  // Rive instances on detached nodes.
+  let transitioning = false;
 
-  // The router binds Escape to "go back". Mid-celebration that would navigate
-  // out from under a screen that is still animating, so it is swallowed here.
-  // The screens have their own close affordances.
+  // The router binds Escape to "go back". Mid-celebration that navigates out
+  // from under a screen that is still animating, so it is swallowed here.
+  //
+  // On `document`, in the CAPTURE phase, not on the host. Keydown fires at the
+  // focused element - which is `body`, or a stale quiz button behind the
+  // overlay, since nothing here takes focus. Those events bubble straight to
+  // document without ever passing through the host, so a listener on the host
+  // never ran and the router navigated anyway. Capturing at the document means
+  // it is seen before the router's own listener regardless of focus.
   const onKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-    }
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    e.preventDefault();
   };
-  host.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keydown', onKeyDown, true);
 
   // A hidden tab pauses requestAnimationFrame, so GSAP stops. Someone who
   // switches away at 2s and comes back at 30s would otherwise return to a
@@ -66,9 +77,15 @@ export function createStage() {
     if (document.hidden) {
       cues.stopAll();
       if (current && current.pauseRives) current.pauseRives();
-    } else if (current && current.timeline) {
-      const tl = current.timeline.tl;
-      if (tl && tl.time() > 0 && tl.progress() < 1) current.timeline.finish();
+    } else {
+      if (current && current.timeline) {
+        const tl = current.timeline.tl;
+        if (tl && tl.time() > 0 && tl.progress() < 1) current.timeline.finish();
+      }
+      // Resume the art too. Pausing on hide without resuming left the screen
+      // holding a frozen frame - a still flame, a motionless Ibu - for the
+      // rest of the celebration.
+      if (current && current.resumeRives) current.resumeRives();
     }
   };
   document.addEventListener('visibilitychange', onVisibility);
@@ -102,13 +119,17 @@ export function createStage() {
      * mobile app documents landing on the same answer.
      */
     next(factory) {
-      if (destroyed) return null;
+      if (destroyed || transitioning) return null;
+      transitioning = true;
       const outgoing = active;
       const incoming = idle;
       const leaving = current;
 
       incoming.style.zIndex = '2';
       outgoing.style.zIndex = '1';
+      // It is fading out; its buttons should not still be live underneath.
+      outgoing.style.pointerEvents = 'none';
+      incoming.style.pointerEvents = '';
       if (G) G.set(outgoing, { opacity: 1 });
 
       const entered = mount(incoming, factory);
@@ -131,6 +152,7 @@ export function createStage() {
         outgoing.innerHTML = '';
         active = incoming;
         idle = outgoing;
+        transitioning = false;
       };
 
       if (!G) {
@@ -173,7 +195,7 @@ export function createStage() {
       if (destroyed) return;
       destroyed = true;
       document.removeEventListener('visibilitychange', onVisibility);
-      host.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('keydown', onKeyDown, true);
       cues.stopAll();
       if (current) {
         try {
