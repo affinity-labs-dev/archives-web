@@ -414,9 +414,13 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  max-width: 780px;
   margin: 0 auto;
   padding: 0 var(--page-px);
+  /* Sized from the viewport HEIGHT: two 3:4 portrait cards standing ~78vh
+     tall, so the pair owns the first screen the way a hero would. The width
+     is derived (h * 3/4 each) and capped so ultrawide monitors don't get
+     billboard cards. */
+  max-width: min(1200px, calc(78vh * 1.5 + 20px + 2 * var(--page-px)));
 }
 
 @media (min-width: 700px) {
