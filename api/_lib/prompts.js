@@ -96,6 +96,61 @@ DEPTH ADJUSTMENT:
 - If a question enters controversial sectarian territory, provide the mainstream
   scholarly view and note that scholars have discussed the topic in depth.`;
 
+/**
+ * The prompt for /api/ai/explain, ported from the mobile backend's
+ * buildBatchExplanationPrompt so both apps ask for explanations in the same
+ * voice. The tone and STRICT RULES blocks are verbatim; two things differ:
+ *
+ * - Each question carries its authored explanation as a LESSON NOTE. The app
+ *   shows that text under the answer the moment a question is answered, so
+ *   without this the model happily paraphrases what the user read seconds
+ *   ago and the feature feels like a broken echo.
+ * - The response schema is enforced by Gemini's responseSchema at the call
+ *   site, but the count-and-order instruction stays: the schema constrains
+ *   shape, not correspondence to questions.
+ *
+ * `questions` here is the sanitized server-side form: an array of
+ * { questionText, userAnswer, correctAnswer, isCorrect, lessonNote }.
+ */
+export function buildExplainPrompt(questions, context) {
+  const eraName = context.eraName || 'Islamic History';
+  const adventureName = context.adventureName || '';
+
+  let questionsBlock = '';
+  questions.forEach((q, i) => {
+    questionsBlock += `\nQ${i + 1}: ${q.questionText}\n`;
+    if (q.isCorrect) {
+      questionsBlock += `User answered: ${q.correctAnswer} ✓ (Correct)\n`;
+    } else {
+      questionsBlock += `User answered: ${q.userAnswer} ✗ (Incorrect, correct answer: ${q.correctAnswer})\n`;
+    }
+    if (q.lessonNote) {
+      questionsBlock += `LESSON NOTE (already shown to the user, do NOT repeat or paraphrase it): ${q.lessonNote}\n`;
+    }
+  });
+
+  return `You are an educational history tutor explaining ${eraName}${adventureName ? ` (${adventureName})` : ''} history to a curious learner who just completed a quiz.
+Provide a thorough, educational explanation for each question below.
+${questionsBlock}
+For each question, write 3-5 sentences:
+- If the student answered correctly: reinforce why that answer is right with specific historical evidence, and add deeper historical context or connections
+- If the student answered incorrectly: explain why the correct answer is right, briefly clarify why their chosen answer was wrong, and add an interesting historical fact that helps the concept stick
+- Where a LESSON NOTE is given, go beyond it: add depth, causes, consequences or connections it does not contain. Never restate it.
+
+TONE: Educational and warm. Be encouraging through the richness of your explanations, but avoid generic praise or consolation.
+
+STRICT RULES:
+- NEVER start any explanation with "Actually", "Well", "So", or similar filler words
+- Start each explanation directly with the historical content
+- Do NOT say things like "Great job!", "Don't worry", or "Keep trying"
+- End each explanation with a meaningful historical insight, not fluff
+- Give enough depth that the learner genuinely understands each topic
+- Whenever Prophet Muhammad is mentioned, always write: "Prophet Muhammad (peace be upon him)". Use respectful honorifics for other prophets (AS).
+
+Return ONLY a JSON array with exactly ${questions.length} objects in order (Q1 first, Q2 second, etc.):
+[{ "explanation": "3-5 sentence explanation" }, { "explanation": "..." }, ...]`;
+}
+
 export function buildContext(ctx) {
   var lines = ['CURRENT CONTEXT:'];
   if (ctx.eraName) lines.push('- Era: ' + ctx.eraName);
