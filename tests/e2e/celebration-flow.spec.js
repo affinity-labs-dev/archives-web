@@ -249,3 +249,53 @@ test('a late entitlement result does not wipe the celebration', async ({ page })
   await expect(page.locator('#cel-root')).toHaveCount(1);
   await expect(page.locator('.qres__headline')).toHaveText('AMAZING JOB!');
 });
+
+test('skips the streak when there is nothing to celebrate', async ({ page }) => {
+  // Finishing a story that is not today's leaves the streak at 0, because the
+  // count runs back from today. Real users reach this: past days are
+  // replayable from the archive, and content is published ahead of time.
+  //
+  // Two things have to hold. The screen must not appear reading "0 Day
+  // Streak!" over "Every journey starts with a single day" - the old code hid
+  // that by clamping the number up to 1, which showed people a streak they did
+  // not have. And skipping it must not spend the day's allowance, or finishing
+  // a past story in the morning would silently suppress the real streak when
+  // they came back for today's.
+  const future = new Date();
+  future.setDate(future.getDate() + 3);
+  const FUTURE = [
+    future.getFullYear(),
+    String(future.getMonth() + 1).padStart(2, '0'),
+    String(future.getDate()).padStart(2, '0'),
+  ].join('-');
+
+  await allowStreak(page);
+  await page.route('**/api/daily/**', (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ...STORY, date: FUTURE }),
+    }),
+  );
+  await page.route('**/api/daily*', (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ date: FUTURE }]),
+    }),
+  );
+
+  await page.goto(`/#/daily/play/${FUTURE}`);
+  await gotoQuestions(page);
+  await answerAll(page, true);
+
+  await page.locator('.qres__cta').click();
+  await page.locator('.dsend__cta').click();
+
+  await expect(page.locator('.streak')).toHaveCount(0);
+  await expect(page.locator('#cel-root')).toHaveCount(0);
+  // The allowance is untouched, so today's story still gets its streak.
+  expect(
+    await page.evaluate(() => localStorage.getItem('archives_streak_shown_date')),
+  ).toBeNull();
+});

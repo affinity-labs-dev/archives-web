@@ -70,3 +70,6 @@ app-example
 data/
 !analytics/data/
 .beta-deploy/
+
+# QA/review artifacts (screenshots, reports, ad-hoc drivers)
+.gstack/

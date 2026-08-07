@@ -102,7 +102,6 @@ export function runCelebration(opts) {
       finish();
       return;
     }
-    markShownToday();
 
     getDailyStories()
       .then((stories) => (stories || []).map((s) => s.date))
@@ -110,6 +109,27 @@ export function runCelebration(opts) {
       .then((dates) => {
         if (destroyed) return;
         const streak = getDailyStreak(dates);
+
+        // Nothing to celebrate at zero.
+        //
+        // The streak counts back from TODAY, so finishing a story that is not
+        // today's leaves it at 0 - which real users do, because past days are
+        // replayable from the archive. A screen reading "0 Day Streak!" over
+        // "Every journey starts with a single day" is worse than no screen.
+        //
+        // The old code hid this by clamping the number up to 1, which showed
+        // people a streak they did not have.
+        if (streak < 1) {
+          finish();
+          return;
+        }
+
+        // Marked only now that it is actually being shown. Marking earlier
+        // meant a skipped screen still spent the day's allowance, so finishing
+        // a past story in the morning silently suppressed the real streak when
+        // they came back for today's.
+        markShownToday();
+
         const screen = stage.next((slot) =>
           buildStreak(slot, { streak, week: toWeek(dates), onContinue: finish }),
         );
