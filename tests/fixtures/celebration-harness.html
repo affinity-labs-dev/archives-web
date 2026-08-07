@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Served from tests/fixtures/ but every asset path in the app is relative
+       to the site root, so rebase rather than rewriting the modules. -->
+  <base href="/">
+  <title>Celebration harness</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script src="https://unpkg.com/@rive-app/canvas@2"></script>
+  <style>html, body { margin: 0; height: 100%; background: #0C0B09; }</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+  // Runs before the module below, so the setting is in place by the time
+  // cues.js reads it. Silence is the default here - a test run should not
+  // play 40 seconds of music per case - and it exercises the real sfx gate
+  // rather than monkey-patching around it (module namespaces are frozen
+  // anyway, so patching is not an option).
+  (function () {
+    var params = new URLSearchParams(location.search);
+    var sfx = params.get('silent') === '0';
+    try {
+      var s = JSON.parse(localStorage.getItem('archives_settings') || '{}');
+      s.sfx = sfx;
+      localStorage.setItem('archives_settings', JSON.stringify(s));
+    } catch (e) {}
+  })();
+</script>
+<script type="module">
+  import { createStage } from './js/celebration/stage.js';
+  import { buildQuizResults } from './js/celebration/quiz-results.js';
+  import { buildDailyStoryEnd } from './js/celebration/daily-story-end.js';
+  import { buildStreak } from './js/celebration/streak.js';
+  import * as cues from './js/celebration/cues.js';
+
+  const params = new URLSearchParams(location.search);
+  const screen = params.get('screen') || 'results';
+  const correct = Number(params.get('correct') ?? 3);
+  const total = Number(params.get('total') ?? 3);
+  const streak = Number(params.get('streak') ?? 5);
+
+  // Sound is off unless ?silent=0; see the inline script above.
+  cues.prepare();
+
+  const stage = createStage();
+  window.__stage = stage;
+
+  const actions = {
+    onExplanations() { window.__lastAction = 'explain'; },
+    onChat() { window.__lastAction = 'chat'; },
+    onContinue() { window.__lastAction = 'continue'; },
+  };
+
+  let built;
+  if (screen === 'results') {
+    built = stage.first((slot) =>
+      buildQuizResults(slot, { correct, total, xp: correct * 10, ...actions }));
+  } else if (screen === 'dailyend') {
+    built = stage.first((slot) =>
+      buildDailyStoryEnd(slot, { dailyDate: params.get('date') || null, ...actions }));
+  } else if (screen === 'streak') {
+    const week = JSON.parse(params.get('week') || 'null') || [
+      { day: 'M', status: 'complete' }, { day: 'T', status: 'complete' },
+      { day: 'W', status: 'missed' },   { day: 'T', status: 'complete' },
+      { day: 'F', status: 'today' },    { day: 'S', status: 'future' },
+      { day: 'S', status: 'future' },
+    ];
+    built = stage.first((slot) => buildStreak(slot, { streak, week, ...actions }));
+  }
+
+  // The whole point of the harness: expose the paused timeline so a test can
+  // seek to an exact instant and assert what is on screen, with no waiting.
+  window.__screen = built;
+  window.__tl = built && built.timeline ? built.timeline.tl : null;
+  window.__seek = (seconds) => {
+    if (window.__tl) window.__tl.seek(seconds, false);
+  };
+  window.__play = () => built && built.timeline && built.timeline.play();
+  window.__ready = true;
+</script>
+</body>
+</html>

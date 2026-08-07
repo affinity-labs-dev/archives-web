@@ -35,8 +35,10 @@ export const TIER_SPECS = {
     cardSubText: '#A2C5FF',
     progressTrack: 'rgba(255, 255, 255, 0.3)',
     progressFill: '#FFFFFF',
-    // Behind the Rive, and all that shows if the Rive fails to load.
-    screenBg: '#1E3C88',
+    // Behind the Rive, and all that shows if the Rive fails to load. All
+    // three tiers use the app's `snow`, not a tier colour: the Rive IS the
+    // colour, and the headline over it is onyx on every tier.
+    screenBg: '#FAFAFA',
     // Measured, so nobody "fixes" it later: this is a ~2s one-shot that
     // animates in and then settles on a still frame. It is not stuck.
     background: 'wave_animation.riv',
@@ -53,7 +55,7 @@ export const TIER_SPECS = {
     cardSubText: '#E5D4FF',
     progressTrack: 'rgba(229, 212, 255, 0.3)',
     progressFill: '#E5D4FF',
-    screenBg: '#3E2368',
+    screenBg: '#FAFAFA',
     background: 'disco_animation.riv',
     mascot: 'ibu-skating.riv',
     introCue: 'mediumIntro',
@@ -68,7 +70,7 @@ export const TIER_SPECS = {
     cardSubText: '#1A1A1A',
     progressTrack: 'rgba(26, 26, 26, 0.18)',
     progressFill: '#1A1A1A',
-    screenBg: '#FFDD63',
+    screenBg: '#FAFAFA',
     background: 'ibu-3-of-3.riv',
     // No mascot: at 3/3 the background Rive IS Ibu, full screen. The layout
     // still reserves the space, so the card sits where it does in the other

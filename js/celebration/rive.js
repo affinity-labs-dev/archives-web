@@ -47,15 +47,24 @@ export function mountRive(canvas, opts) {
   let instance = null;
   let observer = null;
   let resizeFrame = 0;
+  // What play() should actually play. Resolved on load - see the note there.
+  let playTarget = stateMachine || null;
+
   const handle = {
     ok: false,
     play() {
-      if (instance) {
-        try {
-          instance.play();
-        } catch (e) {
-          /* a stopped-then-played instance can throw; nothing to do */
-        }
+      if (!instance) return;
+      try {
+        // Always name the target. `instance.play()` with no argument resumes
+        // whatever the runtime picked by default, which for these files is the
+        // first TIMELINE animation - so the streak flame played "loop" in
+        // isolation instead of its state machine, and rendered a fragment of
+        // the scene. Deferred-play call sites hit this because the onLoad
+        // fallback below only fires for autoplay.
+        if (playTarget) instance.play(playTarget);
+        else instance.play();
+      } catch (e) {
+        /* a stopped-then-played instance can throw; nothing to do */
       }
     },
     pause() {
@@ -125,28 +134,27 @@ export function mountRive(canvas, opts) {
         // The one non-obvious thing.
         //
         // Given neither `stateMachines` nor `animations`, the web runtime
-        // autoplays the file's first TIMELINE ANIMATION. Native's <Rive>
-        // starts the default STATE MACHINE. Every .riv in this celebration
-        // keeps its motion in a state machine, so on the web they load, draw
-        // perfectly, and then sit there - a correct, motionless character.
+        // plays the file's first TIMELINE ANIMATION. Native's <Rive> starts
+        // the default STATE MACHINE. Every .riv here keeps its motion in a
+        // state machine, so on the web they load, draw perfectly, and then
+        // either sit still or play one fragment of the scene in isolation -
+        // the streak flame rendered as a puff of smoke this way.
         //
-        // That failure is invisible to any "did it render" check, which is why
-        // there is an e2e test comparing two screenshots 500ms apart.
+        // Neither failure is visible to a "did it render" check, which is why
+        // there is a test comparing canvas contents over time.
         //
-        // Fix: once loaded, ask the file what state machines it has and play
-        // the first one explicitly. Ported from the React Native web shim that
-        // hit this same wall (web-stubs/rive-react-native.js).
-        if (!autoplay || stateMachine) return;
+        // Resolve the target here, for BOTH paths: autoplay files get it
+        // played now, deferred ones get it stored for handle.play(). Ported
+        // from the React Native web shim that hit the same wall.
         try {
-          const machines = instance.stateMachineNames || [];
-          if (machines.length) {
-            instance.play(machines[0]);
-            return;
+          if (!playTarget) {
+            const machines = instance.stateMachineNames || [];
+            const anims = instance.animationNames || [];
+            playTarget = machines[0] || anims[0] || null;
           }
-          const anims = instance.animationNames || [];
-          if (anims.length) instance.play(anims[0]);
+          if (autoplay && playTarget) instance.play(playTarget);
         } catch (e) {
-          console.warn('[celebration] rive autoplay fallback failed', src, e);
+          console.warn('[celebration] rive play target resolution failed', src, e);
         }
       },
       onLoadError(err) {
