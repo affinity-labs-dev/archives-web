@@ -6,11 +6,11 @@
   "cleanUrls": false,
   "trailingSlash": false,
   "functions": {
+    "api/ai/**/*.js": {
+      "maxDuration": 30
+    },
     "api/**/*.js": {
       "maxDuration": 15
-    },
-    "api/ai/*.js": {
-      "maxDuration": 30
     }
   },
   "headers": [
