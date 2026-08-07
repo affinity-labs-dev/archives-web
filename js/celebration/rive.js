@@ -128,7 +128,9 @@ export function mountRive(canvas, opts) {
       stateMachines: stateMachine || undefined,
       animations: animation || undefined,
       layout: new R.Layout({
-        fit: fit === 'cover' ? R.Fit.Cover : R.Fit.Contain,
+        fit: fit === 'cover' ? R.Fit.Cover
+          : fit === 'layout' && R.Fit.Layout ? R.Fit.Layout
+          : R.Fit.Contain,
         alignment: R.Alignment.Center,
       }),
       onLoad() {

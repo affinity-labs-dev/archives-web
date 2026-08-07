@@ -80,6 +80,17 @@ export const TIER_SPECS = {
     // the artboard's aspect is close enough to the screen's that this looks
     // identical to Cover anyway.
     backgroundFit: 'contain',
+    // The flanks either side of the contained artboard, animated in sync
+    // with the artwork. The scene opens light, fades into a night sky by
+    // 1.2s, holds it to ~7.4s, and dissolves back to light - measured by
+    // sampling the rendered canvas edge at 400ms intervals. The sky gradient
+    // is horizontally uniform, so continuing it into the flanks makes the
+    // artboard boundary all but disappear during the dark stretch.
+    introBackdrop: {
+      gradient: 'linear-gradient(180deg, #080F22 0%, #0D1A3B 45%, #142758 100%)',
+      fadeIn: 600, fadeInDur: 600,
+      fadeOut: 7400, fadeOutDur: 500,
+    },
     // No mascot: at 3/3 the background Rive IS Ibu, full screen. The layout
     // still reserves the space, so the card sits where it does in the other
     // two tiers rather than jumping up.

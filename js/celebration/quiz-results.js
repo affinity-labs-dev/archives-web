@@ -99,6 +99,23 @@ export function buildQuizResults(slot, opts) {
   });
   timeline.add(() => bg.destroy());
 
+  // A contained artboard leaves flanks either side on wide windows. Where the
+  // spec declares an intro backdrop, a layer behind the canvas continues the
+  // scene's sky into them, fading in and out on the artwork's own schedule.
+  // Without GSAP, or under reduced motion, it simply never appears and the
+  // screen stays on the static screenBg - the settled frame matches that.
+  if (spec.introBackdrop && tl && G && !prefersReducedMotion()) {
+    const night = document.createElement('div');
+    night.className = 'qres__nightfall';
+    night.style.background = spec.introBackdrop.gradient;
+    const canvas = root.querySelector('.qres__bg');
+    canvas.parentNode.insertBefore(night, canvas);
+
+    const nb = spec.introBackdrop;
+    tl.to(night, { opacity: 1, duration: T(nb.fadeInDur), ease: 'power1.inOut' }, T(nb.fadeIn));
+    tl.to(night, { opacity: 0, duration: T(nb.fadeOutDur), ease: 'power1.inOut' }, T(nb.fadeOut));
+  }
+
   let mascot = null;
   if (spec.mascot) {
     mascot = mountRive(root.querySelector('.qres__mascot-canvas'), {

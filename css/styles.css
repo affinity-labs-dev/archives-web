@@ -4041,6 +4041,17 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   pointer-events: none;
 }
 
+/* The 3/3 tier's night sky, continued into the flanks either side of the
+   contained artboard and faded in sync with the artwork. Sits behind the
+   canvas in source order; starts invisible so the no-GSAP and reduced-motion
+   paths never show it. */
+.qres__nightfall {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .qres__body {
   position: relative;
   z-index: 1;

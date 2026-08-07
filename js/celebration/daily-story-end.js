@@ -75,7 +75,10 @@ export function buildDailyStoryEnd(slot, opts) {
   const hero = mountRive(root.querySelector('.dsend__hero'), {
     src: 'ibu_flying_landing_without_bg.riv',
     stateMachine: 'State Machine 1',
-    fit: 'cover',
+    // Contain, not cover: this layer is Ibu himself, portrait-authored. Cover
+    // on a desktop window scales him to the window's width and shows only his
+    // face. The sky layer behind stays cover - it is ambient and crops fine.
+    fit: 'contain',
   });
   timeline.add(() => bg.destroy());
   timeline.add(() => hero.destroy());
