@@ -22,6 +22,46 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
   var html = '';
 
   // Full-bleed hero thumbnail (like adventure detail page)
+// Week tracker - its own row above the art, not a slab floating on it
+  html += '<div class="dh__week-wrap">';
+  html += '<div class="dh__week" aria-label="This week">';
+  html += '<div class="dh__week-label">This week</div>';
+  week.forEach(function(day) {
+    var dotClass = 'dh__day-dot';
+    var dotContent = '';
+    var dayClass = 'dh__day';
+    var clickable = false;
+    var isViewing = day.date === storyDate;
+
+    var isPastDay = day.status === 'complete' || day.status === 'missed';
+    var needsLock = isPastDay && !isPremium() && !isViewing;
+
+    if (day.status === 'complete') {
+      dotClass += ' dh__day-dot--complete';
+      dotContent = '<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      if (!isViewing) clickable = true;
+    } else if (day.status === 'missed') {
+      dotClass += ' dh__day-dot--missed';
+      dotContent = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="10" height="10" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      clickable = true;
+    } else if (day.status === 'today') {
+      dotClass += ' dh__day-dot--today';
+      if (!isViewing) clickable = true;
+    } else {
+      dotClass += ' dh__day-dot--future';
+    }
+
+    if (isViewing) dotClass += ' dh__day-dot--viewing';
+    if (clickable) dayClass += ' dh__day--clickable';
+
+    html += '<div class="' + dayClass + '"' + (clickable ? ' data-date="' + escapeHtml(day.date) + '" role="link" tabindex="0" aria-label="' + escapeHtml(day.label) + '"' : '') + '>'
+      + '<div class="dh__day-label">' + escapeHtml(day.label) + '</div>'
+      + '<div class="' + dotClass + '">' + dotContent + '</div>'
+      + (needsLock ? '<svg class="dh__day-lock" viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2"/></svg>' : '')
+      + '</div>';
+  });
+  html += '</div></div>';
+
   if (c && c.card1) {
     var watchDone = dayProgress && dayProgress.watch;
     var thumb = sanitizeUrl(c.card1.thumbnail_url);
@@ -29,45 +69,6 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
     html += '<div class="dh__hero' + (watchDone ? ' dh__hero--done' : '') + '" data-step="0" role="link" tabindex="0" aria-label="Watch the story">';
     if (thumb) html += '<img class="dh__hero-img" src="' + thumb + '" alt="">';
 
-    // Week tracker overlaid at top of hero
-    html += '<div class="dh__week-wrap">';
-    html += '<div class="dh__week" aria-label="This week">';
-    html += '<div class="dh__week-label">This week</div>';
-    week.forEach(function(day) {
-      var dotClass = 'dh__day-dot';
-      var dotContent = '';
-      var dayClass = 'dh__day';
-      var clickable = false;
-      var isViewing = day.date === storyDate;
-
-      var isPastDay = day.status === 'complete' || day.status === 'missed';
-      var needsLock = isPastDay && !isPremium() && !isViewing;
-
-      if (day.status === 'complete') {
-        dotClass += ' dh__day-dot--complete';
-        dotContent = '<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        if (!isViewing) clickable = true;
-      } else if (day.status === 'missed') {
-        dotClass += ' dh__day-dot--missed';
-        dotContent = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="10" height="10" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-        clickable = true;
-      } else if (day.status === 'today') {
-        dotClass += ' dh__day-dot--today';
-        if (!isViewing) clickable = true;
-      } else {
-        dotClass += ' dh__day-dot--future';
-      }
-
-      if (isViewing) dotClass += ' dh__day-dot--viewing';
-      if (clickable) dayClass += ' dh__day--clickable';
-
-      html += '<div class="' + dayClass + '"' + (clickable ? ' data-date="' + escapeHtml(day.date) + '" role="link" tabindex="0" aria-label="' + escapeHtml(day.label) + '"' : '') + '>'
-        + '<div class="dh__day-label">' + escapeHtml(day.label) + '</div>'
-        + '<div class="' + dotClass + '">' + dotContent + '</div>'
-        + (needsLock ? '<svg class="dh__day-lock" viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2"/></svg>' : '')
-        + '</div>';
-    });
-    html += '</div></div>';
 
     html += '<div class="dh__hero-overlay">';
     if (dayNum) {
@@ -91,16 +92,17 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
   // Body content (constrained width)
   html += '<div class="dh__body">';
 
+  var stepNames = { watch: 'Watch', explore: 'Explore', questions: 'Questions' };
+  var nextStep = null;
+  for (var si = 0; si < steps.length; si++) {
+    if (!dayProgress || !dayProgress[steps[si]]) { nextStep = steps[si]; break; }
+  }
+
   // The one primary button. Its label tells the truth about where the user
   // is: a fresh day starts, a half-done day continues into the next step by
   // name - the old label said START MY DAY even when two of three steps were
   // already done.
   if (c && !allDone) {
-    var stepNames = { watch: 'Watch', explore: 'Explore', questions: 'Questions' };
-    var nextStep = null;
-    for (var s = 0; s < steps.length; s++) {
-      if (!dayProgress || !dayProgress[steps[s]]) { nextStep = steps[s]; break; }
-    }
     var started = dayProgress && Object.keys(dayProgress).length > 0;
     var startLabel = !started
       ? (isToday ? 'Start my day' : 'Start this story')
@@ -126,9 +128,24 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
   if (c) {
     html += '<div class="dh__cards">';
 
+    if (c.card1) {
+      var watchRowDone = dayProgress && dayProgress.watch;
+      html += '<div class="dh__card' + (watchRowDone ? ' dh__card--done' : '') + (nextStep === 'watch' ? ' dh__card--next' : '') + '" data-step="' + steps.indexOf('watch') + '" role="link" tabindex="0">';
+      html += '<div class="dh__card-row">';
+      html += '<div class="dh__card-icon"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5 3 19 12 5 21"/></svg></div>';
+      html += '<span class="dh__card-label">Watch</span>';
+      html += '<span class="dh__card-dur">3 MIN</span>';
+      if (watchRowDone) {
+        html += '<svg class="dh__card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>';
+      } else {
+        html += '<svg class="dh__card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="9 6 15 12 9 18"/></svg>';
+      }
+      html += '</div></div>';
+    }
+
     if (c.card2) {
       var exploreDone = dayProgress && dayProgress.explore;
-      html += '<div class="dh__card dh__card--explore' + (exploreDone ? ' dh__card--done' : '') + '" data-step="' + steps.indexOf('explore') + '" role="link" tabindex="0">';
+      html += '<div class="dh__card' + (exploreDone ? ' dh__card--done' : '') + (nextStep === 'explore' ? ' dh__card--next' : '') + '" data-step="' + steps.indexOf('explore') + '" role="link" tabindex="0">';
       html += '<div class="dh__card-row">';
       html += '<div class="dh__card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>';
       html += '<span class="dh__card-label">Explore</span>';
@@ -143,7 +160,7 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
 
     if (c.card3 && c.card3.questions && c.card3.questions.length > 0) {
       var questionsDone = dayProgress && dayProgress.questions;
-      html += '<div class="dh__card dh__card--questions' + (questionsDone ? ' dh__card--done' : '') + '" data-step="' + steps.indexOf('questions') + '" role="link" tabindex="0">';
+      html += '<div class="dh__card' + (questionsDone ? ' dh__card--done' : '') + (nextStep === 'questions' ? ' dh__card--next' : '') + '" data-step="' + steps.indexOf('questions') + '" role="link" tabindex="0">';
       html += '<div class="dh__card-row">';
       html += '<div class="dh__card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>';
       html += '<span class="dh__card-label">Questions</span>';
