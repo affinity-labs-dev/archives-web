@@ -55,6 +55,17 @@ const QUESTIONS = [
 ];
 const ANSWERS = [0, 0, 0]; // right, wrong, right
 
+// Fresh identity per call: reopening with the SAME arrays is the reuse path
+// (tested explicitly below); every other test wants a new attempt.
+function openFresh(extra) {
+  const opts = Object.assign(
+    { questions: QUESTIONS.map((q) => ({ ...q })), userAnswers: [...ANSWERS], eraName: 'Al Andalus' },
+    extra || {},
+  );
+  openExplanations(opts);
+  return opts;
+}
+
 const FULL = {
   explanations: [
     { explanation: 'Deeper one.' },
@@ -92,7 +103,7 @@ afterEach(() => {
 describe('the explanations sheet', () => {
   it('renders every card from client data before the network answers', async () => {
     explainAnswers.mockReturnValue(new Promise(() => {})); // never resolves
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
 
     // All three cards, verdicts, and the authored text - at t=0.
     expect(text()).toContain('Who crossed in 711?');
@@ -109,7 +120,7 @@ describe('the explanations sheet', () => {
   it('renders full mode with a deeper text per card and the ask pill', async () => {
     explainAnswers.mockResolvedValue(FULL);
     const onAsk = vi.fn();
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus', onAsk });
+    openFresh({ onAsk });
     await settle();
 
     expect(text()).toContain('Deeper one.');
@@ -127,17 +138,17 @@ describe('the explanations sheet', () => {
     // stale "premium" cache must end at a locked layout, not an unlocked one.
     isPremium.mockReturnValue(true);
     explainAnswers.mockResolvedValue(PREVIEW);
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
     await settle();
 
     expect(text()).toContain('Deeper one.');
     expect(sheet().querySelectorAll('.exp__deeper--locked')).toHaveLength(2);
-    expect(text()).toContain('Unlock all 3 explanations');
+    expect(text()).toContain('Go deeper on all 3 questions');
   });
 
   it('locked cards contain synthetic filler, never fetched text', async () => {
     explainAnswers.mockResolvedValue(PREVIEW);
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
     await settle();
 
     const locked = sheet().querySelectorAll('.exp__deeper--locked');
@@ -153,7 +164,7 @@ describe('the explanations sheet', () => {
 
   it('shows a neutral verify strip - not an upsell - when entitlement is unknown', async () => {
     explainAnswers.mockResolvedValue({ ...PREVIEW, entitlementUnknown: true });
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
     await settle();
 
     expect(text()).toContain("Couldn't verify your subscription");
@@ -162,7 +173,7 @@ describe('the explanations sheet', () => {
 
   it('keeps the authored cards and offers retry when the request fails', async () => {
     explainAnswers.mockRejectedValue(Object.assign(new Error('down'), { code: 'REQUEST_FAILED' }));
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
     await settle();
 
     // The failure cost the AI slots, nothing else.
@@ -180,7 +191,7 @@ describe('the explanations sheet', () => {
 
   it('stops offering retry after MAX_RETRIES', async () => {
     explainAnswers.mockRejectedValue(Object.assign(new Error('down'), { code: 'REQUEST_FAILED' }));
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
     await settle();
 
     for (let i = 0; i < 2; i++) {
@@ -194,16 +205,16 @@ describe('the explanations sheet', () => {
 
   it('turns quota exhaustion into the upgrade card, not an error', async () => {
     explainAnswers.mockRejectedValue(Object.assign(new Error('quota'), { code: 'QUOTA_EXHAUSTED' }));
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
     await settle();
 
-    expect(text()).toContain("used this month's free explanations");
+    expect(text()).toContain("used this month's free AI explanations");
     expect(document.getElementById('exp-retry')).toBeNull();
   });
 
   it('refetches when premium changes under it', async () => {
     explainAnswers.mockResolvedValue(PREVIEW);
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
     await settle();
     expect(sheet().querySelectorAll('.exp__deeper--locked')).toHaveLength(2);
 
@@ -219,7 +230,7 @@ describe('the explanations sheet', () => {
       ...FULL,
       explanations: [{ explanation: 'Deeper one.' }, null, { explanation: 'Deeper three.' }],
     });
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
     await settle();
 
     expect(text()).toContain('Deeper one.');
@@ -231,7 +242,7 @@ describe('the explanations sheet', () => {
 
   it('closes cleanly and stops listening', async () => {
     explainAnswers.mockResolvedValue(PREVIEW);
-    openExplanations({ questions: QUESTIONS, userAnswers: ANSWERS, eraName: 'Al Andalus' });
+    openFresh();
     await settle();
 
     closeExplanations();
@@ -243,5 +254,72 @@ describe('the explanations sheet', () => {
     window.dispatchEvent(new CustomEvent('archives:premium-changed'));
     await settle();
     expect(explainAnswers).not.toHaveBeenCalled();
+  });
+
+  it('reuses the fetched response when the same attempt reopens', async () => {
+    // A reopen must not spend another model call on text the client holds.
+    explainAnswers.mockResolvedValue(FULL);
+    const opts = openFresh();
+    await settle();
+    expect(explainAnswers).toHaveBeenCalledTimes(1);
+
+    closeExplanations();
+    await settle();
+    openExplanations(opts); // same array identities = same attempt
+    await settle();
+
+    expect(explainAnswers).toHaveBeenCalledTimes(1); // no second call
+    expect(text()).toContain('Deeper one.');
+  });
+
+  it('survives rapid reopen without duplicating the sheet', async () => {
+    // The old close left the node alive for 400ms; a reopen then bound all
+    // its listeners to the dying instance and froze the page.
+    explainAnswers.mockResolvedValue(PREVIEW);
+    openFresh();
+    closeExplanations();
+    openFresh(); // immediately, inside the old grace window
+
+    expect(document.querySelectorAll('#exp-sheet')).toHaveLength(1);
+    await settle();
+    expect(text()).toContain('Deeper one.');
+    // And its close button is the live one.
+    document.getElementById('exp-close').click();
+    await new Promise((r) => setTimeout(r, 450));
+    expect(document.querySelectorAll('#exp-sheet')).toHaveLength(0);
+  });
+
+  it('locks the page scroll while open and restores it on close', async () => {
+    explainAnswers.mockReturnValue(new Promise(() => {}));
+    openFresh();
+    expect(document.body.style.overflow).toBe('hidden');
+    closeExplanations();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('closes on Escape', async () => {
+    explainAnswers.mockReturnValue(new Promise(() => {}));
+    openFresh();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await new Promise((r) => setTimeout(r, 450));
+    expect(sheet()).toBeNull();
+  });
+
+  it('treats a malformed server response as an error, not a render', async () => {
+    explainAnswers.mockResolvedValue({ mode: 'sideways', explanations: 'nope' });
+    openFresh();
+    await settle();
+    expect(text()).toContain("Couldn't reach the AI");
+    // Authored content is intact underneath.
+    expect(text()).toContain('Tariq ibn Ziyad led the crossing.');
+  });
+
+  it('renders an explicit unknown for malformed quiz data, never a blank verdict', async () => {
+    explainAnswers.mockReturnValue(new Promise(() => {}));
+    const questions = [{ question_text: 'Broken?', explanation: '', answers: [{ text: 'A' }, { text: 'B' }] }];
+    openExplanations({ questions, userAnswers: [0], eraName: 'X' });
+    expect(sheet().querySelectorAll('.exp__pip--unknown')).toHaveLength(1);
+    expect(text()).toContain('No answer recorded');
+    expect(sheet().querySelectorAll('.exp__pip--right')).toHaveLength(0);
   });
 });

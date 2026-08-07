@@ -1,25 +1,35 @@
-// The "Understand your answers" bottom sheet.
+// The "Understand your answers" sheet.
 //
-// Useful at t=0, before any network: it opens with one card per question
-// built from data the client already holds - the verdict, both answers, and
-// the authored lesson explanation under a "From the lesson" label - then asks
-// /api/ai/explain to go deeper, card by card. That design is both the answer
-// to redundancy (the AI is told not to repeat the authored text) and the
-// answer to failure (a timeout degrades a card footer, never the screen).
+// Useful at t=0, before any network: it opens with one card per question -
+// the verdict, both answers, and the AUTHORED lesson explanation, which is
+// the reviewed content and therefore the typographic lead. The AI's
+// "going deeper" text arrives as a clearly-labelled addition beneath it,
+// never above it: fluent unvetted prose must not outrank vetted prose in a
+// children's education product.
 //
-// The one rule that must survive refactors: after the response arrives,
-// everything renders from the server's `mode` - the client's cached
-// isPremium() picks the initial skeleton and NOTHING else. The free tier's
-// locked cards contain synthetic filler bars, never blurred real text,
-// because the server never generated the locked explanations at all.
+// Rules that must survive refactors (each earned by a real defect):
 //
-// Same idioms as chat.js: module state, insertAdjacentHTML, rAF for the
-// open transition, transitionend + timeout fallback on close.
+// 1. After the first response, EVERYTHING renders from the server's mode -
+//    the cached isPremium() picks the initial skeleton and nothing else.
+//    The first version recomputed locks from the cached flag on retry and
+//    re-locked paying subscribers after one network error.
+// 2. Reopening reuses the response already fetched for this quiz attempt.
+//    The first version refetched on every open - a metered model call spent
+//    on text the client already held.
+// 3. openExplanations() removes any existing sheet SYNCHRONOUSLY. The first
+//    version let the closing sheet linger 400ms while inserting a new one
+//    with the same ids; every lookup then bound to the dying node and the
+//    new sheet stayed invisible while intercepting every click.
+// 4. The sheet is a real dialog: focus moves in, Tab cycles inside it,
+//    Escape closes it, focus returns to the opener, the page behind is
+//    scroll-locked. It sits over the celebration, whose CTA must not remain
+//    legible through the scrim.
 
 import { explainAnswers } from '../services/gemini.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from './paywall.js';
 import { escapeHtml } from '../utils.js';
+import { prefersReducedMotion } from '../animations.js';
 
 var sheetState = null;
 
@@ -27,32 +37,47 @@ var TIMEOUT_MS = 15000;
 var MAX_RETRIES = 2;
 
 function verdictFor(question, userIdx) {
-  var correctIdx = question.answers.findIndex(function (a) { return a.is_correct; });
+  var answers = Array.isArray(question.answers) ? question.answers : [];
+  var correctIdx = answers.findIndex(function (a) { return a && a.is_correct; });
+  var answered = Number.isInteger(userIdx) && userIdx >= 0 && userIdx < answers.length;
   return {
-    correctIdx: correctIdx,
-    isCorrect: userIdx === correctIdx,
-    userText: (question.answers[userIdx] && question.answers[userIdx].text) || '',
-    correctText: (question.answers[correctIdx] && question.answers[correctIdx].text) || '',
+    // Malformed content (no flagged correct answer) or a missing user index
+    // must never render as a blank "correct": it becomes an explicit
+    // unknown, with the texts it can honestly show.
+    known: correctIdx !== -1 && answered,
+    isCorrect: answered && userIdx === correctIdx,
+    userText: answered ? (answers[userIdx].text || '') : '',
+    correctText: correctIdx !== -1 ? (answers[correctIdx].text || '') : '',
   };
 }
 
 /** The instant part of a card: everything the client already knows. */
 function renderCardTop(question, userIdx, number) {
   var v = verdictFor(question, userIdx);
-  var pip = v.isCorrect
-    ? '<span class="exp__pip exp__pip--right" aria-label="Correct">✓</span>'
-    : '<span class="exp__pip exp__pip--wrong" aria-label="Incorrect">✗</span>';
-  var answerLine = v.isCorrect
-    ? 'You answered: <strong>' + escapeHtml(v.correctText) + '</strong>'
-    : 'Your answer: <strong>' + escapeHtml(v.userText) + '</strong> · Correct: <strong>' + escapeHtml(v.correctText) + '</strong>';
+  var pip;
+  var answerLine;
+  if (!v.known) {
+    pip = '<span class="exp__pip exp__pip--unknown" aria-label="No answer recorded">–</span>';
+    answerLine = v.correctText
+      ? 'Correct answer: <strong>' + escapeHtml(v.correctText) + '</strong>'
+      : 'No answer recorded';
+  } else if (v.isCorrect) {
+    pip = '<span class="exp__pip exp__pip--right" aria-label="Correct">✓</span>';
+    answerLine = 'You answered: <strong>' + escapeHtml(v.correctText) + '</strong>';
+  } else {
+    pip = '<span class="exp__pip exp__pip--wrong" aria-label="Incorrect">✗</span>';
+    answerLine = 'Your answer: <strong>' + escapeHtml(v.userText) + '</strong> · Correct: <strong>' + escapeHtml(v.correctText) + '</strong>';
+  }
 
+  // The authored explanation is the reviewed content: full size, full
+  // opacity, amber-marked. It leads.
   var lesson = question.explanation
     ? '<div class="exp__lesson"><div class="exp__lesson-label">From the lesson</div>' + escapeHtml(question.explanation) + '</div>'
     : '';
 
   return '<div class="exp__card-head">' + pip
     + '<div class="exp__card-q"><div class="exp__card-number">Question ' + number + '</div>'
-    + '<div class="exp__card-text">' + escapeHtml(question.question_text) + '</div>'
+    + '<div class="exp__card-text">' + escapeHtml(question.question_text || '') + '</div>'
     + '<div class="exp__card-answers">' + answerLine + '</div></div></div>'
     + lesson;
 }
@@ -60,7 +85,7 @@ function renderCardTop(question, userIdx, number) {
 /** The AI slot of an unlocked card, in its loading state. */
 function renderDeeperLoading() {
   return '<div class="exp__deeper exp__deeper--loading">'
-    + '<div class="exp__deeper-label">Going deeper…</div>'
+    + '<div class="exp__deeper-label">Going deeper<span class="exp__ai-tag">AI</span></div>'
     + '<div class="exp__shimmer" style="width:92%"></div>'
     + '<div class="exp__shimmer" style="width:84%"></div>'
     + '<div class="exp__shimmer" style="width:61%"></div>'
@@ -69,22 +94,24 @@ function renderDeeperLoading() {
 
 /**
  * A locked card's filler: synthetic bars behind a fade. Nothing to reveal -
- * the text does not exist on this side of the paywall - so devtools finds
- * exactly what the design promises: decoration.
+ * the text does not exist on this side of the paywall.
  */
 function renderLockedFiller() {
   return '<div class="exp__deeper exp__deeper--locked" aria-hidden="true">'
     + '<div class="exp__filler" style="width:95%"></div>'
     + '<div class="exp__filler" style="width:88%"></div>'
     + '<div class="exp__filler" style="width:72%"></div>'
-    + '<div class="exp__filler" style="width:80%"></div>'
     + '</div>';
 }
 
 function renderSheet(questions, userAnswers, assumePremium) {
   var cards = questions.map(function (q, i) {
     var locked = !assumePremium && i > 0;
-    return '<div class="exp__card" data-q="' + i + '">'
+    var v = verdictFor(q, userAnswers[i]);
+    // Wrong answers are the reason this sheet exists; their cards carry the
+    // accent so the eye lands on what needs re-learning.
+    var mod = v.known && !v.isCorrect ? ' exp__card--wrong' : '';
+    return '<div class="exp__card' + mod + '" data-q="' + i + '">'
       + renderCardTop(q, userAnswers[i], i + 1)
       + '<div class="exp__slot" data-slot="' + i + '">'
       + (locked ? renderLockedFiller() : renderDeeperLoading())
@@ -92,7 +119,7 @@ function renderSheet(questions, userAnswers, assumePremium) {
       + '</div>';
   }).join('');
 
-  return '<div class="exp-sheet" id="exp-sheet" role="dialog" aria-label="Understand your answers">'
+  return '<div class="exp-sheet" id="exp-sheet" role="dialog" aria-modal="true" aria-label="Understand your answers">'
     + '<div class="exp__scrim" id="exp-scrim"></div>'
     + '<div class="exp__panel">'
     + '<div class="exp__grab" aria-hidden="true"></div>'
@@ -103,9 +130,10 @@ function renderSheet(questions, userAnswers, assumePremium) {
     + '</button>'
     + '</div>'
     + '<div class="exp__body" id="exp-body">'
-    + '<div class="exp__status" id="exp-status"></div>'
+    + '<div class="exp__status" id="exp-status" role="status" aria-live="polite"></div>'
     + cards
-    + '<div class="exp__tail" id="exp-tail"></div>'
+    + '<div class="exp__tail" id="exp-tail" aria-live="polite"></div>'
+    + '<div class="exp__foot">The lesson notes are written and reviewed by Archives. "Going deeper" is AI-written context and can be imperfect.</div>'
     + '</div>'
     + '</div></div>';
 }
@@ -127,6 +155,32 @@ function setTail(html) {
   if (tail) tail.innerHTML = html;
 }
 
+/** Locked state per card index, derived from the truth we have. Before any
+ * response that is the cached flag (skeleton only); after a response it is
+ * ONLY the server's verdict. */
+function isLocked(i) {
+  var s = sheetState;
+  if (!s) return false;
+  if (s.lastResponse) return i >= s.lastResponse.unlockedCount;
+  return !s.assumePremium && i > 0;
+}
+
+/** Normalise a server response; null when the shape is unusable. */
+function normalizeResponse(out, questionCount) {
+  if (!out || (out.mode !== 'full' && out.mode !== 'preview')) return null;
+  var unlocked = Number.isInteger(out.unlockedCount)
+    ? Math.max(0, Math.min(out.unlockedCount, questionCount))
+    : (out.mode === 'full' ? questionCount : 1);
+  return {
+    explanations: Array.isArray(out.explanations) ? out.explanations : [],
+    mode: out.mode,
+    unlockedCount: unlocked,
+    lockedCount: questionCount - unlocked,
+    entitlementUnknown: out.entitlementUnknown === true,
+    degraded: out.degraded === true,
+  };
+}
+
 /** Render the server's answer. The response's mode decides everything. */
 function applyResponse(out) {
   if (!sheetState) return;
@@ -140,13 +194,11 @@ function applyResponse(out) {
     if (i < out.unlockedCount) {
       var e = explanations[i];
       if (e && e.explanation) {
-        setSlot(i, '<div class="exp__deeper"><div class="exp__deeper-label">Going deeper</div>'
+        setSlot(i, '<div class="exp__deeper"><div class="exp__deeper-label">Going deeper<span class="exp__ai-tag">AI</span></div>'
           + '<div class="exp__deeper-text">' + escapeHtml(e.explanation) + '</div></div>');
       } else {
-        // This question's explanation did not survive parsing; the authored
-        // text above the slot is intact, so the loss is a footer, not a card.
         setSlot(i, '<div class="exp__deeper exp__deeper--failed">'
-          + '<span>Couldn\'t go deeper on this one.</span>'
+          + '<span>Couldn\'t go deeper on this one. The lesson note above is complete.</span>'
           + '</div>');
       }
     } else {
@@ -155,20 +207,24 @@ function applyResponse(out) {
   }
 
   if (out.mode === 'preview' && n > out.unlockedCount) {
+    var locked = n - out.unlockedCount;
     if (out.entitlementUnknown) {
-      // Possibly a subscriber; RevenueCat could not say. An upsell here would
-      // pitch Premium to someone who may already pay for it.
       setTail('<div class="exp__promo exp__promo--neutral">'
         + '<div class="exp__promo-title">Couldn\'t verify your subscription</div>'
-        + '<div class="exp__promo-sub">' + (n - out.unlockedCount) + ' more explanations are waiting.</div>'
+        + '<div class="exp__promo-sub">' + locked + ' more AI explanation' + (locked === 1 ? '' : 's') + ' waiting.</div>'
         + '<button class="exp__promo-btn" id="exp-reverify">Try again</button>'
         + '</div>');
       var reverify = el('exp-reverify');
-      if (reverify) reverify.addEventListener('click', function () { startFetch(true); });
+      if (reverify) reverify.addEventListener('click', function () {
+        if (sheetState && sheetState.inFlight) return;
+        startFetch(true);
+      });
     } else {
+      // Honest copy: the corrections and lesson notes above are already
+      // free; what Premium adds is the AI expansion on the locked cards.
       setTail('<div class="exp__promo">'
-        + '<div class="exp__promo-title">Unlock all ' + n + ' explanations</div>'
-        + '<div class="exp__promo-sub">Premium explains every answer, right or wrong.</div>'
+        + '<div class="exp__promo-title">Go deeper on ' + (locked === 1 ? 'the other question' : 'all ' + n + ' questions') + '</div>'
+        + '<div class="exp__promo-sub">Premium adds the AI context for ' + locked + ' more answer' + (locked === 1 ? '' : 's') + '.</div>'
         + '<button class="exp__promo-btn" id="exp-upgrade">Upgrade</button>'
         + '</div>');
       var upgrade = el('exp-upgrade');
@@ -185,6 +241,8 @@ function applyResponse(out) {
       closeExplanations();
       cb();
     });
+  } else {
+    setTail('');
   }
 
   if (out.degraded) {
@@ -202,17 +260,19 @@ function applyError(err) {
   if (!sheetState) return;
   var s = sheetState;
 
-  // Whatever happened, the authored content stays; only the AI slots change.
+  // The authored content stays; only the AI slots change. Locks come from
+  // isLocked(), which prefers the last server verdict over any cached flag.
   for (var i = 0; i < s.questions.length; i++) {
-    var locked = !s.assumePremium && i > 0;
-    setSlot(i, locked ? renderLockedFiller() : '<div class="exp__deeper exp__deeper--failed"><span>Couldn\'t load the deeper explanation.</span></div>');
+    setSlot(i, isLocked(i)
+      ? renderLockedFiller()
+      : '<div class="exp__deeper exp__deeper--failed"><span>Couldn\'t load the deeper explanation.</span></div>');
   }
 
   if (err && err.code === 'QUOTA_EXHAUSTED') {
     setStatus('');
     setTail('<div class="exp__promo">'
-      + '<div class="exp__promo-title">You\'ve used this month\'s free explanations</div>'
-      + '<div class="exp__promo-sub">Premium removes the limit.</div>'
+      + '<div class="exp__promo-title">You\'ve used this month\'s free AI explanations</div>'
+      + '<div class="exp__promo-sub">The lesson notes above stay free. Premium removes the AI limit.</div>'
       + '<button class="exp__promo-btn" id="exp-upgrade">Upgrade</button>'
       + '</div>');
     var upgrade = el('exp-upgrade');
@@ -223,18 +283,25 @@ function applyError(err) {
   var label = err && err.code === 'TIMEOUT'
     ? 'Taking longer than expected.'
     : 'Couldn\'t reach the AI.';
-  setStatus('<div class="exp__strip">'
-    + '<span>' + label + '</span>'
-    + (s.retries < MAX_RETRIES ? '<button class="exp__strip-btn" id="exp-retry">Retry</button>' : '')
-    + '</div>');
-  wireRetry();
+  if (s.retries < MAX_RETRIES) {
+    setStatus('<div class="exp__strip">'
+      + '<span>' + label + '</span>'
+      + '<button class="exp__strip-btn" id="exp-retry">Retry</button>'
+      + '</div>');
+    wireRetry();
+  } else {
+    // Terminal, but not a dead end: say what still works.
+    setStatus('<div class="exp__strip exp__strip--final">'
+      + '<span>The AI isn\'t reachable right now. Your lesson notes above are complete - try again from your next quiz.</span>'
+      + '</div>');
+  }
 }
 
 function wireRetry() {
   var btn = el('exp-retry');
   if (btn) {
     btn.addEventListener('click', function () {
-      if (!sheetState) return;
+      if (!sheetState || sheetState.inFlight) return;
       sheetState.retries++;
       startFetch(false);
     });
@@ -243,11 +310,18 @@ function wireRetry() {
 
 function startFetch(isReverify) {
   var s = sheetState;
-  if (!s) return;
+  if (!s || s.inFlight) return;
+  s.inFlight = true;
 
-  // Reset the AI slots to loading; the card tops never move.
+  // Abort any straggler before starting anew.
+  if (s.controller) {
+    try { s.controller.abort(); } catch (e) { /* already done */ }
+  }
+
+  // Reset the AI slots to loading; the card tops never move. Locks derive
+  // from the last verdict when there is one.
   for (var i = 0; i < s.questions.length; i++) {
-    var locked = !s.assumePremium && i > 0 && !isReverify;
+    var locked = isReverify ? false : isLocked(i);
     setSlot(i, locked ? renderLockedFiller() : renderDeeperLoading());
   }
   setStatus('');
@@ -255,11 +329,16 @@ function startFetch(isReverify) {
 
   var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   s.controller = controller;
-  var timer = setTimeout(function () {
-    if (controller) controller.abort();
-  }, TIMEOUT_MS);
-
   var mySeq = ++s.fetchSeq;
+
+  // The timer must reach applyError even where AbortController does not
+  // exist - otherwise the sheet shimmers forever on old WebViews.
+  var timer = setTimeout(function () {
+    if (controller) { controller.abort(); return; }
+    if (!sheetState || sheetState.fetchSeq !== mySeq) return;
+    sheetState.inFlight = false;
+    applyError({ code: 'TIMEOUT' });
+  }, TIMEOUT_MS);
 
   explainAnswers(
     { questions: s.questions, userAnswers: s.userAnswers, eraName: s.eraName, adventureName: s.adventureName },
@@ -267,13 +346,53 @@ function startFetch(isReverify) {
   ).then(function (out) {
     clearTimeout(timer);
     if (!sheetState || sheetState.fetchSeq !== mySeq) return;
-    applyResponse(out);
+    sheetState.inFlight = false;
+    var normalized = normalizeResponse(out, s.questions.length);
+    if (!normalized) {
+      applyError({ code: 'REQUEST_FAILED' });
+      return;
+    }
+    applyResponse(normalized);
   }).catch(function (err) {
     clearTimeout(timer);
     if (!sheetState || sheetState.fetchSeq !== mySeq) return;
+    sheetState.inFlight = false;
     if (err && err.name === 'AbortError') err = { code: 'TIMEOUT' };
     applyError(err);
   });
+}
+
+/** Focusable elements currently inside the sheet. */
+function focusables() {
+  var sheet = el('exp-sheet');
+  if (!sheet) return [];
+  return [...sheet.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])')]
+    .filter(function (n) { return n.offsetParent !== null; });
+}
+
+function onKeydown(e) {
+  if (!sheetState) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeExplanations();
+    return;
+  }
+  if (e.key === 'Tab') {
+    var items = focusables();
+    if (items.length === 0) return;
+    var first = items[0];
+    var last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    } else if (!el('exp-sheet').contains(document.activeElement)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 }
 
 /**
@@ -284,17 +403,22 @@ function startFetch(isReverify) {
  * @param {Array}  opts.userAnswers   chosen answer indices, same order
  * @param {string} opts.eraName
  * @param {string} [opts.adventureName]
- * @param {Function} [opts.onAsk]     opens chat; rendered as the trailing
- *                                    pill in full mode only, because chat
- *                                    403s non-subscribers server-side
+ * @param {Function} [opts.onAsk]     opens chat; rendered in full mode only
  */
 export function openExplanations(opts) {
-  closeExplanations();
+  // Synchronous teardown of ANY existing sheet - see rule 3 in the header.
+  var carried = null;
+  if (sheetState
+      && sheetState.lastResponse
+      && sheetState.questions === opts.questions
+      && sheetState.userAnswers === opts.userAnswers) {
+    // Same quiz attempt: the fetched explanations are still the truth.
+    // Reopening must not spend another model call on them - see rule 2.
+    carried = sheetState.lastResponse;
+  }
+  destroySheet();
 
-  // The ONLY use of the cached flag: choosing which skeleton shows for the
-  // second or two before the server answers. Everything after renders from
-  // the response's mode.
-  var assumePremium = isPremium();
+  var assumePremium = carried ? null : isPremium();
 
   sheetState = {
     questions: opts.questions,
@@ -302,37 +426,50 @@ export function openExplanations(opts) {
     eraName: opts.eraName,
     adventureName: opts.adventureName,
     onAsk: opts.onAsk,
-    assumePremium: assumePremium,
+    assumePremium: carried ? carried.mode === 'full' : assumePremium,
     retries: 0,
     fetchSeq: 0,
     controller: null,
-    lastResponse: null,
-    onPremiumChanged: null,
+    inFlight: false,
+    lastResponse: carried,
+    opener: document.activeElement instanceof HTMLElement ? document.activeElement : null,
   };
 
-  document.body.insertAdjacentHTML('beforeend', renderSheet(opts.questions, opts.userAnswers, assumePremium));
+  document.body.insertAdjacentHTML('beforeend', renderSheet(opts.questions, opts.userAnswers, sheetState.assumePremium));
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', onKeydown, true);
 
-  requestAnimationFrame(function () {
-    var sheet = el('exp-sheet');
-    if (sheet) sheet.classList.add('exp-sheet--open');
-  });
+  if (prefersReducedMotion()) {
+    el('exp-sheet').classList.add('exp-sheet--open');
+  } else {
+    requestAnimationFrame(function () {
+      var sheet = el('exp-sheet');
+      if (sheet) sheet.classList.add('exp-sheet--open');
+    });
+  }
 
   el('exp-close').addEventListener('click', closeExplanations);
   el('exp-scrim').addEventListener('click', closeExplanations);
+  el('exp-close').focus();
 
   // An in-sheet upgrade fires this; refetching turns the locked cards real.
   var onPremiumChanged = function () {
-    if (!sheetState) return;
+    if (!sheetState || sheetState.inFlight) return;
     sheetState.retries = 0;
     startFetch(true);
   };
   sheetState.onPremiumChanged = onPremiumChanged;
   window.addEventListener('archives:premium-changed', onPremiumChanged);
 
-  startFetch(false);
+  if (carried) {
+    applyResponse(carried);
+  } else {
+    startFetch(false);
+  }
 }
 
-export function closeExplanations() {
+/** Remove the sheet from the DOM immediately, with no transition grace. */
+function destroySheet() {
   if (sheetState) {
     if (sheetState.controller) {
       try { sheetState.controller.abort(); } catch (e) { /* already done */ }
@@ -341,11 +478,46 @@ export function closeExplanations() {
       window.removeEventListener('archives:premium-changed', sheetState.onPremiumChanged);
     }
   }
+  document.removeEventListener('keydown', onKeydown, true);
+  document.body.style.overflow = '';
+  var sheet = el('exp-sheet');
+  if (sheet) sheet.remove();
+}
+
+export function closeExplanations() {
+  var opener = sheetState && sheetState.opener;
+  var lastResponse = sheetState && sheetState.lastResponse;
+  var questions = sheetState && sheetState.questions;
+  var userAnswers = sheetState && sheetState.userAnswers;
+
+  if (sheetState) {
+    if (sheetState.controller) {
+      try { sheetState.controller.abort(); } catch (e) { /* already done */ }
+    }
+    if (sheetState.onPremiumChanged) {
+      window.removeEventListener('archives:premium-changed', sheetState.onPremiumChanged);
+    }
+  }
+  document.removeEventListener('keydown', onKeydown, true);
+  document.body.style.overflow = '';
+
   var sheet = el('exp-sheet');
   if (sheet) {
-    sheet.classList.remove('exp-sheet--open');
-    sheet.addEventListener('transitionend', function () { sheet.remove(); }, { once: true });
-    setTimeout(function () { if (sheet.parentNode) sheet.remove(); }, 400);
+    if (prefersReducedMotion()) {
+      sheet.remove();
+    } else {
+      sheet.classList.remove('exp-sheet--open');
+      sheet.addEventListener('transitionend', function () { sheet.remove(); }, { once: true });
+      setTimeout(function () { if (sheet.parentNode) sheet.remove(); }, 400);
+    }
   }
-  sheetState = null;
+
+  // Keep the fetched answers around so reopening the same results screen
+  // reuses them instead of refetching. Cleared when a new sheet opens for a
+  // different attempt, or on navigation via the view's cleanup.
+  sheetState = lastResponse
+    ? { questions: questions, userAnswers: userAnswers, lastResponse: lastResponse, closed: true }
+    : null;
+
+  if (opener && document.contains(opener)) opener.focus();
 }

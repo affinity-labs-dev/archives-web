@@ -4714,8 +4714,10 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 /* ============================================
    Understand your answers - the explanations sheet
-   Above the celebration (9500) in the chat/paywall tier: it is opened FROM
-   the celebration's pill and must cover it.
+   Above the celebration (9500) in the chat/paywall tier. Every colour here
+   is an app token: the first version used stock iOS greys, Material pips
+   and a canary-yellow fallback, which is exactly why it read as a generic
+   AI modal instead of an Archives surface.
    ============================================ */
 .exp-sheet {
   position: fixed;
@@ -4726,10 +4728,14 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .exp-sheet--open { opacity: 1; }
 
+/* Dark enough that nothing behind it stays legible - the celebration CTA
+   used to glow straight through. Blur carries the rest. */
 .exp__scrim {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(12, 11, 9, 0.78);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .exp__panel {
@@ -4737,13 +4743,13 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   left: 0;
   right: 0;
   bottom: 0;
-  max-height: 86dvh;
+  max-height: 88dvh;
   display: flex;
   flex-direction: column;
-  background: var(--dark-card, #1c1c1e);
-  color: var(--cream, #f5f0e8);
+  background: var(--dark-elevated);
+  color: var(--cream);
   border-radius: 22px 22px 0 0;
-  border: 1px solid var(--dark-border, #333);
+  border: 1px solid var(--dark-border);
   border-bottom: none;
   transform: translateY(24px);
   transition: transform 0.25s ease;
@@ -4751,10 +4757,12 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .exp-sheet--open .exp__panel { transform: translateY(0); }
 
+@media (prefers-reduced-motion: reduce) {
+  .exp-sheet, .exp__panel { transition: none; }
+}
+
 @media (min-width: 700px) {
-  /* On desktop this is a centred modal, not a bottom sheet: anchored to the
-     middle, wider and height-capped so it reads squarish instead of a tall
-     column pinned to the bottom edge. */
+  /* Desktop: a centred modal, squarish, not a tall bottom column. */
   .exp__panel {
     left: 50%;
     right: auto;
@@ -4762,13 +4770,12 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     bottom: auto;
     transform: translate(-50%, calc(-50% + 24px));
     width: 640px;
-    max-height: 70dvh;
+    max-height: 74dvh;
     border-radius: 22px;
-    border-bottom: 1px solid var(--dark-border, #333);
+    border-bottom: 1px solid var(--dark-border);
     padding-bottom: 0;
   }
   .exp-sheet--open .exp__panel { transform: translate(-50%, -50%); }
-  /* A drag affordance on something that cannot be dragged reads as broken. */
   .exp__grab { display: none; }
 }
 
@@ -4776,8 +4783,9 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   width: 42px;
   height: 4px;
   border-radius: 2px;
-  background: var(--dark-border, #333);
+  background: var(--dark-border);
   margin: 10px auto 0;
+  flex: none;
 }
 
 .exp__header {
@@ -4785,6 +4793,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   align-items: center;
   justify-content: space-between;
   padding: 12px 18px 10px;
+  flex: none;
 }
 .exp__title {
   font-family: var(--font-display);
@@ -4794,19 +4803,30 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .exp__close {
   background: none;
   border: none;
-  color: var(--cream, #f5f0e8);
+  color: var(--cream);
   cursor: pointer;
-  padding: 6px;
+  /* 44px touch floor; the glyph stays 20px. */
+  width: 44px;
+  height: 44px;
+  margin: -12px -12px -12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0.7;
+  border-radius: 50%;
 }
 .exp__close:hover { opacity: 1; }
 
 .exp__body {
   overflow-y: auto;
-  padding: 0 18px 22px;
+  padding: 0 18px 8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* The scroll edge announces itself: content dissolves at the bottom
+     instead of guillotining a line mid-word. */
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
 }
 
 /* Error/timeout strip - degrades the AI, never the sheet */
@@ -4815,28 +4835,37 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  background: rgba(255, 221, 99, 0.08);
-  border: 1px solid rgba(255, 221, 99, 0.35);
-  border-radius: 12px;
+  background: var(--amber-subtle);
+  border: 1px solid var(--dark-border-hover);
+  border-radius: var(--radius-sm);
   padding: 10px 14px;
   font-size: 13px;
 }
+.exp__strip--final { justify-content: flex-start; color: var(--cream-dim); }
 .exp__strip-btn {
-  background: var(--amber, #ffdd63);
-  color: var(--dark, #1a1a1a);
+  background: var(--amber);
+  color: var(--dark);
   border: none;
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 8px 16px;
+  min-height: 36px;
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
+  flex: none;
 }
 
 .exp__card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--dark-border, #333);
-  border-radius: 16px;
+  background: var(--dark-card);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius);
   padding: 14px;
+}
+
+/* The wrong answers are why the sheet exists; they carry the accent. */
+.exp__card--wrong {
+  border-color: var(--dark-border-hover);
+  background: linear-gradient(180deg, var(--amber-subtle), var(--dark-card) 55%);
 }
 
 .exp__card-head { display: flex; gap: 10px; }
@@ -4852,48 +4881,62 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   font-weight: 800;
   margin-top: 2px;
 }
-.exp__pip--right { background: #2e7d32; color: #fff; }
-.exp__pip--wrong { background: #b3372f; color: #fff; }
+.exp__pip--right { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+.exp__pip--wrong { background: var(--red-dim); color: var(--red); border: 1px solid var(--red); }
+.exp__pip--unknown { background: var(--dark-border); color: var(--text-secondary); }
 
 .exp__card-number {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  opacity: 0.6;
+  color: var(--text-secondary);
   margin-bottom: 2px;
 }
 .exp__card-text { font-weight: 700; line-height: 1.35; }
-.exp__card-answers { font-size: 13px; opacity: 0.85; margin-top: 6px; }
-.exp__card-answers strong { color: var(--amber, #ffdd63); font-weight: 600; }
+.exp__card-answers { font-size: 13px; color: var(--cream-dim); margin-top: 6px; }
+.exp__card-answers strong { color: var(--amber); font-weight: 600; }
 
+/* The authored lesson note is the reviewed content, so it leads: full size,
+   full opacity, amber-marked. The AI text below it is the addition. */
 .exp__lesson {
-  margin-top: 10px;
-  border-left: 3px solid var(--dark-border, #333);
-  padding: 2px 0 2px 10px;
-  font-size: 13px;
-  line-height: 1.5;
-  opacity: 0.9;
+  margin-top: 12px;
+  border-left: 3px solid var(--amber);
+  padding: 2px 0 2px 12px;
+  font-size: 14px;
+  line-height: 1.55;
 }
 .exp__lesson-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  opacity: 0.55;
-  margin-bottom: 2px;
+  color: var(--amber);
+  margin-bottom: 3px;
 }
 
-.exp__deeper { margin-top: 10px; }
+.exp__deeper { margin-top: 12px; }
 .exp__deeper-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: var(--amber, #ffdd63);
+  color: var(--text-secondary);
   margin-bottom: 4px;
 }
-.exp__deeper-text { font-size: 14px; line-height: 1.55; }
+.exp__ai-tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border: 1px solid var(--dark-border-hover);
+  border-radius: 4px;
+  color: var(--amber);
+}
+.exp__deeper-text { font-size: 13.5px; line-height: 1.55; color: var(--cream-dim); }
 .exp__deeper--failed {
   font-size: 13px;
-  opacity: 0.6;
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -4902,7 +4945,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   height: 12px;
   border-radius: 6px;
   margin-top: 6px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.06) 75%);
+  background: linear-gradient(90deg, var(--amber-subtle) 25%, var(--amber-dim) 50%, var(--amber-subtle) 75%);
   background-size: 200% 100%;
   animation: expShimmer 1.4s ease infinite;
 }
@@ -4924,34 +4967,35 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   height: 12px;
   border-radius: 6px;
   margin-top: 6px;
-  background: rgba(255, 255, 255, 0.10);
+  background: var(--amber-subtle);
   filter: blur(3px);
 }
 
 /* Upsell / verify tail card */
 .exp__promo {
-  background: linear-gradient(135deg, rgba(255, 221, 99, 0.14), rgba(255, 221, 99, 0.05));
-  border: 1px solid rgba(255, 221, 99, 0.4);
-  border-radius: 16px;
+  background: linear-gradient(135deg, var(--amber-dim), var(--amber-subtle));
+  border: 1px solid var(--dark-border-hover);
+  border-radius: var(--radius);
   padding: 16px;
   text-align: center;
 }
 .exp__promo--neutral {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: var(--dark-border, #333);
+  background: var(--dark-card);
+  border-color: var(--dark-border);
 }
 .exp__promo-title {
   font-family: var(--font-display);
   font-size: 17px;
   margin-bottom: 4px;
 }
-.exp__promo-sub { font-size: 13px; opacity: 0.8; margin-bottom: 12px; }
+.exp__promo-sub { font-size: 13px; color: var(--cream-dim); margin-bottom: 12px; }
 .exp__promo-btn {
-  background: var(--amber, #ffdd63);
-  color: var(--dark, #1a1a1a);
+  background: var(--amber);
+  color: var(--dark);
   border: none;
   border-radius: 999px;
-  padding: 10px 26px;
+  padding: 12px 26px;
+  min-height: 44px;
   font-weight: 800;
   font-size: 14px;
   cursor: pointer;
@@ -4964,16 +5008,25 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   justify-content: center;
   gap: 8px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--dark-border, #333);
+  background: var(--amber-subtle);
+  border: 1px solid var(--dark-border-hover);
   border-radius: 999px;
-  color: var(--cream, #f5f0e8);
+  color: var(--cream);
   padding: 12px;
+  min-height: 44px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
-.exp__ask:hover { background: rgba(255, 255, 255, 0.1); }
+.exp__ask:hover { background: var(--amber-dim); }
+
+/* Provenance, in plain words, at the end. */
+.exp__foot {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  padding: 2px 2px 16px;
+}
 
 /* The next-up module tile: the one visible action in the module grid. */
 .mtile--next {
