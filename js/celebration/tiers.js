@@ -87,7 +87,12 @@ export const TIER_SPECS = {
     // is horizontally uniform, so continuing it into the flanks makes the
     // artboard boundary all but disappear during the dark stretch.
     introBackdrop: {
-      gradient: 'linear-gradient(180deg, #080F22 0%, #0D1A3B 45%, #142758 100%)',
+      // Sky, plus the four ground arcs continued along their own circles -
+      // each fitted through two measured boundary points, expressed in vh so
+      // the geometry stays glued to the contained artboard at every window
+      // size (both scale with viewport height). The arcs are not concentric;
+      // each band is its own circle.
+      gradient: 'radial-gradient(circle at 50% 132.53vh, #543782 46.87vh, transparent 47.17vh), radial-gradient(circle at 50% 158.19vh, #9F7AD8 75.71vh, transparent 76.01vh), radial-gradient(circle at 50% 228.18vh, #CBADFC 147.36vh, transparent 147.66vh), radial-gradient(circle at 50% 347.44vh, #E1CDFF 268.49vh, transparent 268.79vh), linear-gradient(180deg, #080F22 0%, #0D1A3B 45%, #142758 100%)',
       fadeIn: 600, fadeInDur: 600,
       fadeOut: 7400, fadeOutDur: 500,
     },
