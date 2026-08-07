@@ -1,9 +1,30 @@
-node_modules
-test-results
-playwright-report
-coverage
-tests
-supabase
-.claude
-*.md
-!index.html
+# What gets published.
+#
+# vercel.json sets outputDirectory ".", so a deploy serves the REPO ROOT - and
+# this repo also holds the mobile app's source, which arrived when its history
+# was merged in as the reference implementation to port from.
+#
+# This file used to be a denylist. That published every top-level directory
+# nobody had thought to name: backend/src/prompts.ts, gamification/, hooks/,
+# eas.json and google-services.json (with a live Firebase key in it) were all
+# reachable on beta over plain HTTP. Production escaped only because it was
+# last deployed before the merge.
+#
+# So: deny everything, then name what the web app actually needs. A new
+# top-level directory is now invisible to the deploy until someone adds it
+# here on purpose. deploy-manifest.spec.js pins the list below.
+/*
+
+!/index.html
+!/favicon.ico
+!/CNAME
+!/vercel.json
+
+!/js
+!/css
+!/assets
+!/api
+
+# Inside an included directory, so it needs saying explicitly. The functions
+# ship to Vercel; their tests do not.
+/api/**/__tests__
