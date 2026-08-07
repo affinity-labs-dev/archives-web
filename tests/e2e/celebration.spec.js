@@ -402,3 +402,66 @@ test.describe('streak flame', () => {
     expect(b.sum, 'flame is drawn but frozen').not.toBe(a.sum);
   });
 });
+
+test.describe('fit', () => {
+  // Reported from a real phone as "it's cropped". It was not clipped - the
+  // mascot box was a fixed 280-387px, so on a 667px iPhone SE the content came
+  // to 803px and CONTINUE sat below the fold on a screen nobody scrolls.
+  const PHONES = [
+    { name: 'iPhone SE', width: 375, height: 667 },
+    { name: 'small Android', width: 360, height: 640 },
+    { name: 'iPhone 14 Pro', width: 393, height: 852 },
+  ];
+
+  for (const phone of PHONES) {
+    test(`everything fits on a ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      // Reduced motion so the screen is at its end state immediately.
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+
+      for (const screen of ['results&correct=3&total=3', 'results&correct=1&total=3', 'streak&streak=12']) {
+        await openScreen(page, `screen=${screen}`);
+        await page.evaluate(() => window.__play());
+        await page.waitForTimeout(300);
+
+        const m = await page.evaluate(() => {
+          const root = document.querySelector('.qres') || document.querySelector('.streak');
+          const cta = document.querySelector('.qres__cta') || document.querySelector('.streak__cta');
+          const r = root.getBoundingClientRect();
+          const c = cta.getBoundingClientRect();
+          return {
+            overflow: root.scrollHeight - Math.ceil(r.height),
+            ctaBottom: c.bottom,
+            ctaTop: c.top,
+            viewport: window.innerHeight,
+          };
+        });
+
+        expect(m.overflow, `${screen} overflows its screen`).toBeLessThanOrEqual(1);
+        expect(m.ctaBottom, `${screen} CONTINUE is below the fold`).toBeLessThanOrEqual(m.viewport + 1);
+        expect(m.ctaTop, `${screen} CONTINUE is above the fold`).toBeGreaterThanOrEqual(0);
+      }
+    });
+  }
+
+  test('the stage takes the colour of the screen on it', async ({ page }) => {
+    // Otherwise the app's dark chrome frames the celebration - beside the phone
+    // column on a wide window, and behind it on a short one.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    for (const [screen, colour] of [
+      ['results&correct=3&total=3', 'rgb(250, 250, 250)'],
+      ['dailyend', 'rgb(162, 197, 255)'],
+      ['streak&streak=5', 'rgb(229, 212, 255)'],
+    ]) {
+      await openScreen(page, `screen=${screen}`);
+      await expect(page.locator('#cel-root')).toHaveCSS('background-color', colour);
+      // And the browser's own chrome follows it.
+      const theme = await page.evaluate(
+        () => document.querySelector('meta[name="theme-color"]')?.getAttribute('content'),
+      );
+      expect(theme?.toLowerCase()).toBe(
+        '#' + colour.match(/\d+/g).map((n) => (+n).toString(16).padStart(2, '0')).join(''),
+      );
+    }
+  });
+});

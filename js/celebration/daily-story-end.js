@@ -110,6 +110,9 @@ export function buildDailyStoryEnd(slot, opts) {
 
   return {
     el: root,
+    // The stage paints this behind and around the screen, so no app
+    // chrome shows through beside a phone column or under short content.
+    backdrop: '#A2C5FF',
     timeline,
     pauseRives() {
       bg.pause();

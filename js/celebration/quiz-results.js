@@ -166,6 +166,9 @@ export function buildQuizResults(slot, opts) {
 
   return {
     el: root,
+    // The stage paints this behind and around the screen, so no app
+    // chrome shows through beside a phone column or under short content.
+    backdrop: spec.screenBg,
     tier,
     timeline,
     pauseRives() {

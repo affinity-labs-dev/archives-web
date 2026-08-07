@@ -3914,6 +3914,15 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   position: fixed;
   inset: 0;
   z-index: 9500;
+  /*
+   * The active screen's own colour, set from JS as each one mounts.
+   *
+   * Without it the page behind showed through anywhere the screen did not
+   * reach - beside the phone column on a wide window, and under the content on
+   * a short one - so a celebration sat in a dark frame of app chrome.
+   */
+  background: #FAFAFA;
+  transition: background-color 400ms ease;
 }
 
 .cel__slot {
@@ -3922,6 +3931,10 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   opacity: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* dvh tracks the visible area as mobile browser chrome slides away; the
+     percentage is the fallback where it is unsupported. */
+  height: 100%;
+  height: 100dvh;
 }
 
 /*
@@ -3934,19 +3947,36 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   .cel__slot > * {
     max-width: 480px;
     margin: 0 auto;
-    box-shadow: 0 0 60px rgba(0, 0, 0, 0.35);
+    /* A soft edge against the matching backdrop, not a slab on black. */
+    box-shadow: 0 0 80px rgba(0, 0, 0, 0.12);
   }
 }
 
 /* ========== Quiz Results ========== */
 .qres {
   position: relative;
+  /* Bounded, not just "at least". min-height alone let the screen grow to fit
+     its content, so nothing ever pushed back on the mascot and the CTA was
+     simply pushed past the bottom of the viewport. Being exactly viewport
+     height is what makes the shrink below actually engage. */
+  height: 100%;
   min-height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-family: var(--font-cel-body);
 }
+
+/*
+ * Fit, on every phone.
+ *
+ * The mascot box was a fixed 280-387px, so on a 667px iPhone SE the content
+ * came to 803px and CONTINUE sat at 779 - below the fold, on a screen nobody
+ * thinks to scroll. The mascot is now the one element allowed to shrink, so it
+ * gives up whatever space the card, the pills and the CTA need. Everything
+ * else keeps its size at every viewport.
+ */
+.qres__body > *:not(.qres__mascot) { flex: none; }
 
 /* Full-bleed behind everything; never intercepts a tap. */
 .qres__bg {
@@ -3965,7 +3995,14 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* A flex item's default min-height is `auto`, meaning "never smaller than my
+     content" - which quietly re-expanded this to 803px inside a 667px parent
+     and undid the bound above. Zero lets the squeeze reach the mascot. */
+  min-height: 0;
   padding: 8px 20px 24px;
+  /* Clear of the home indicator and any notch. */
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
   text-align: center;
 }
 
@@ -3983,21 +4020,23 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
  */
 .qres__mascot {
   width: 280px;
-  height: 280px;
+  /* Basis, not a fixed height: flex-shrink can take it down to min-height
+     when the viewport is short, and min-height stops it disappearing. */
+  flex: 0 1 280px;
+  min-height: 84px;
   margin-bottom: 20px;
-  flex: none;
 }
 /* Full-bleed, so the skate-through stays in frame for its whole run. */
 .qres--medium .qres__mascot {
   width: calc(100% + 40px);
-  height: 332px;
+  flex-basis: 332px;
   margin-left: -20px;
   margin-right: -20px;
 }
 /* The 3/3 tier draws Ibu as the background, so it renders no mascot - but
    still reserves the space, so the card sits where it does on the other two
    tiers rather than jumping up. */
-.qres--high .qres__mascot { width: 387px; height: 327px; }
+.qres--high .qres__mascot { width: 387px; flex-basis: 327px; }
 .qres__mascot--spacer { visibility: hidden; }
 .qres__mascot-canvas { width: 100%; height: 100%; display: block; }
 
@@ -4183,6 +4222,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .dsend {
   position: relative;
   min-height: 100%;
+  height: 100%;
   overflow: hidden;
   /* Shows if the Rive fails; the background art is a pale sky. */
   background: #A2C5FF;
@@ -4202,7 +4242,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .dsend__close {
   position: absolute;
-  top: 7%;
+  top: max(7%, calc(env(safe-area-inset-top) + 12px));
   right: 16px;
   z-index: 3;
   background: none;
@@ -4229,7 +4269,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .dsend__cta {
   position: absolute;
-  bottom: 6%;
+  bottom: max(6%, calc(env(safe-area-inset-bottom) + 16px));
   left: 33px;
   right: 33px;
   z-index: 2;
@@ -4252,6 +4292,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .streak {
   position: relative;
   min-height: 100%;
+  height: 100%;
   overflow: hidden;
   background: #E5D4FF;
   font-family: var(--font-cel-body);
@@ -4268,7 +4309,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .streak__close {
   position: absolute;
-  top: 7%;
+  top: max(7%, calc(env(safe-area-inset-top) + 12px));
   right: 24px;
   z-index: 10;
   background: none;
@@ -4389,7 +4430,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .streak__cta {
   position: absolute;
-  bottom: 24px;
+  bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
   left: 33px;
   right: 33px;
   z-index: 4;

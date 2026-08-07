@@ -43,6 +43,25 @@ export function createStage() {
   const previousOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
 
+  // The browser's own chrome - the iOS status bar strip, the Android toolbar -
+  // takes theme-color. Matching it to the screen is what makes a celebration
+  // read as full-bleed rather than as a coloured panel inside a dark app.
+  let themeMeta = document.querySelector('meta[name="theme-color"]');
+  const hadThemeMeta = !!themeMeta;
+  const previousTheme = themeMeta ? themeMeta.getAttribute('content') : null;
+  if (!themeMeta) {
+    themeMeta = document.createElement('meta');
+    themeMeta.setAttribute('name', 'theme-color');
+    document.head.appendChild(themeMeta);
+  }
+
+  /** Paint the stage, and the browser chrome, in a screen's own colour. */
+  function setBackdrop(colour) {
+    if (!colour) return;
+    host.style.background = colour;
+    themeMeta.setAttribute('content', colour);
+  }
+
   let active = slotA;
   let idle = slotB;
   let current = null; // the mounted screen: { el, timeline, pauseRives?, destroy }
@@ -101,9 +120,12 @@ export function createStage() {
     /**
      * Put the first screen up, with no transition.
      */
+    setBackdrop,
+
     first(factory) {
       if (destroyed) return null;
       current = mount(active, factory);
+      if (current) setBackdrop(current.backdrop);
       if (G) G.set(active, { opacity: 1 });
       else active.style.opacity = '1';
       return current;
@@ -134,6 +156,9 @@ export function createStage() {
 
       const entered = mount(incoming, factory);
       current = entered;
+      // Changed as the fade starts, and CSS-transitioned over the same 400ms,
+      // so the backdrop travels with the screen instead of snapping.
+      if (entered) setBackdrop(entered.backdrop);
 
       const settle = () => {
         if (leaving) {
@@ -207,6 +232,9 @@ export function createStage() {
       }
       if (host.parentNode) host.parentNode.removeChild(host);
       document.body.style.overflow = previousOverflow;
+      // Hand the browser chrome back to the app.
+      if (hadThemeMeta) themeMeta.setAttribute('content', previousTheme || '');
+      else if (themeMeta.parentNode) themeMeta.parentNode.removeChild(themeMeta);
     },
   };
 }

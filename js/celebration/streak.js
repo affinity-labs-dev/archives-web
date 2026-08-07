@@ -306,6 +306,9 @@ export function buildStreak(slot, opts) {
 
   return {
     el: root,
+    // The stage paints this behind and around the screen, so no app
+    // chrome shows through beside a phone column or under short content.
+    backdrop: '#E5D4FF',
     timeline,
     pauseRives() {
       bgRive.pause();
