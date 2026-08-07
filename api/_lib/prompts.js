@@ -156,7 +156,22 @@ export function buildContext(ctx) {
   if (ctx.eraName) lines.push('- Era: ' + ctx.eraName);
   if (ctx.moduleTitle) lines.push('- Module: ' + ctx.moduleTitle);
   if (ctx.moduleSummary) lines.push('- Module Summary: ' + ctx.moduleSummary);
-  if (ctx.incorrectQuestions && ctx.incorrectQuestions.length > 0) {
+
+  // Prefer the full record with verdicts; fall back to the older
+  // wrong-answers-only shape. The fallback is not optional - cached bundles
+  // send it during every deploy - so both paths must keep working.
+  if (ctx.questions && ctx.questions.length > 0) {
+    lines.push('- The quiz, with the user\'s answers:');
+    ctx.questions.forEach(function(q, i) {
+      lines.push('  ' + (i + 1) + '. Question: ' + q.question);
+      if (q.isCorrect) {
+        lines.push('     Answered correctly: ' + q.correctAnswer);
+      } else {
+        lines.push('     User answered: ' + q.userAnswer);
+        lines.push('     Correct answer: ' + q.correctAnswer);
+      }
+    });
+  } else if (ctx.incorrectQuestions && ctx.incorrectQuestions.length > 0) {
     lines.push('- Questions the user got wrong:');
     ctx.incorrectQuestions.forEach(function(q, i) {
       lines.push('  ' + (i + 1) + '. Question: ' + q.question);

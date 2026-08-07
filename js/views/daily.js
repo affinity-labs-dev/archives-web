@@ -9,7 +9,7 @@ import { setDailyStepComplete } from '../state.js';
 import { escapeHtml, sanitizeUrl, sanitizeHtml, normaliseContentType } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
-import { getStars } from '../components/quiz-helpers.js';
+import { getStars, buildQuizChatMessage } from '../components/quiz-helpers.js';
 import {
   runCelebration,
   prepareCelebration,
@@ -553,6 +553,9 @@ export default function dailyView(app, params) {
       var dsQuizCurrent = 0;
       var dsQuizScore = 0;
       var dsIncorrectAnswers = [];
+      // Answer indices in question order - what /api/ai/explain and the
+      // richer chat prompt are built from.
+      var dsUserAnswers = [];
       var dsQuizContainer = document.getElementById('ds-quiz-container');
 
       function showDailyQuestion() {
@@ -560,9 +563,10 @@ export default function dailyView(app, params) {
         dsQuizContainer.innerHTML = renderQuizCard(dsQuestions[dsQuizCurrent], dsQuizCurrent, dsQuestions.length);
         dsQuizContainer.className = 'quiz fade-in';
 
-        attachQuizHandlers(dsQuizContainer, dsQuestions[dsQuizCurrent], function(isCorrect, selectedAnswer) {
+        attachQuizHandlers(dsQuizContainer, dsQuestions[dsQuizCurrent], function(isCorrect, selectedAnswer, answerIdx) {
           if (aborted) return;
           unlockCelebrationAudio();
+          dsUserAnswers.push(Number.isInteger(answerIdx) ? answerIdx : null);
           if (isCorrect) {
             dsQuizScore++;
           } else {
@@ -632,7 +636,26 @@ export default function dailyView(app, params) {
           eraName: c.today_title || 'Daily Story',
           moduleTitle: storyTitle,
           moduleSummary: summaryText,
-          incorrectQuestions: dsIncorrectAnswers
+          incorrectQuestions: dsIncorrectAnswers,
+          questions: dsAnswerRecord()
+        }, {
+          firstMessage: buildQuizChatMessage(dsQuestions, dsUserAnswers, {
+            moduleTitle: storyTitle,
+            eraName: c.today_title || 'Daily Story'
+          })
+        });
+      }
+
+      function dsAnswerRecord() {
+        return dsQuestions.map(function (q, i) {
+          var correctAns = q.answers.find(function (a) { return a.is_correct; });
+          var userIdx = dsUserAnswers[i];
+          return {
+            question: q.question_text,
+            userAnswer: (userIdx !== null && userIdx !== undefined && q.answers[userIdx]) ? q.answers[userIdx].text : '',
+            correctAnswer: correctAns ? correctAns.text : '',
+            isCorrect: !!(correctAns && q.answers[userIdx] === correctAns)
+          };
         });
       }
 

@@ -79,7 +79,10 @@ export function attachQuizHandlers(container, question, onAnswer) {
       nextBtn.className = 'quiz__next';
       nextBtn.textContent = 'Continue';
       container.appendChild(nextBtn);
-      nextBtn.addEventListener('click', () => onAnswer(isCorrect, selectedText));
+      // The index is what the AI features need: /api/ai/explain and the chat
+      // context are built from (questions[], userAnswers[]) index pairs, the
+      // same shape the mobile app sends its backend.
+      nextBtn.addEventListener('click', () => onAnswer(isCorrect, selectedText, parseInt(btn.dataset.index, 10)));
     });
   });
 }

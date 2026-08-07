@@ -1,5 +1,6 @@
 import { chatToLearn } from '../services/gemini.js';
 import { escapeHtml } from '../utils.js';
+import { prefersReducedMotion } from '../animations.js';
 
 var chatState = null;
 
@@ -34,15 +35,85 @@ function renderChatPanel() {
     + '</div>';
 }
 
+/**
+ * The context chip: the visible trace of the hidden priming message. The
+ * first user turn is sent to the model but never rendered - without this,
+ * the assistant appears to open the conversation psychically, already
+ * knowing the quiz score. One muted line keeps the mechanism honest.
+ */
+function addContextChip(context) {
+  var messagesEl = document.getElementById('chat-messages');
+  if (!messagesEl) return;
+  var parts = [];
+  if (context.moduleTitle) parts.push(context.moduleTitle);
+  var n = context.questions ? context.questions.length
+    : (context.incorrectQuestions ? context.incorrectQuestions.length : 0);
+  if (n > 0) parts.push('your quiz answers');
+  if (parts.length === 0) return;
+
+  var div = document.createElement('div');
+  div.className = 'chat__context-chip';
+  div.textContent = 'The assistant can see: ' + parts.join(' · ');
+  messagesEl.appendChild(div);
+}
+
 function addMessage(role, text) {
   var messagesEl = document.getElementById('chat-messages');
   if (!messagesEl) return;
 
   var div = document.createElement('div');
   div.className = 'chat__bubble chat__bubble--' + role;
-  div.innerHTML = role === 'ai' ? renderMarkdown(text) : '<p>' + escapeHtml(text) + '</p>';
+  if (role === 'ai') {
+    typewrite(div, text, messagesEl);
+  } else {
+    div.innerHTML = '<p>' + escapeHtml(text) + '</p>';
+  }
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+/**
+ * Types an assistant reply out, mobile-style, without a timer per character:
+ * one rAF loop slices the SOURCE text by elapsed time and re-renders the
+ * markdown over the slice - slicing rendered HTML would tear tags apart
+ * mid-entity. Clamped so a long reply cannot crawl (a 2000-char answer at
+ * mobile's fixed 10ms/char would take 20 seconds), instant under reduced
+ * motion, and a click completes it.
+ */
+function typewrite(div, text, messagesEl) {
+  if (prefersReducedMotion() || !text) {
+    div.innerHTML = renderMarkdown(text);
+    return;
+  }
+
+  var msPerChar = Math.max(4, Math.min(10, 3000 / text.length));
+  var start = null;
+  var raf = 0;
+  var done = false;
+
+  function finish() {
+    if (done) return;
+    done = true;
+    if (raf) cancelAnimationFrame(raf);
+    div.innerHTML = renderMarkdown(text);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  div.addEventListener('click', finish, { once: true });
+
+  function frame(now) {
+    if (done) return;
+    if (start === null) start = now;
+    var chars = Math.floor((now - start) / msPerChar);
+    if (chars >= text.length) {
+      finish();
+      return;
+    }
+    div.innerHTML = renderMarkdown(text.slice(0, chars));
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    raf = requestAnimationFrame(frame);
+  }
+  raf = requestAnimationFrame(frame);
 }
 
 function showTyping() {
@@ -118,9 +189,18 @@ async function sendMessage(text) {
 
 /**
  * Open the chat panel with quiz context.
- * @param {object} context - { eraName, moduleTitle, moduleSummary, incorrectQuestions[] }
+ *
+ * @param {object} context - { eraName, moduleTitle, moduleSummary,
+ *   incorrectQuestions[], questions[]? } - `questions` is the full
+ *   per-question record [{question, userAnswer, correctAnswer, isCorrect}]
+ *   that lets the server prompt see right answers too.
+ * @param {object} [opts]
+ * @param {string} [opts.firstMessage] - the priming message. Sent to the
+ *   model as the first user turn but NEVER rendered; the context chip is its
+ *   visible trace. The old code pushed it to history and relied on nothing
+ *   re-rendering history - the same behaviour, now on purpose and marked.
  */
-export function openChat(context) {
+export function openChat(context, opts) {
   closeChat();
 
   chatState = {
@@ -154,13 +234,11 @@ export function openChat(context) {
     }
   });
 
-  // Auto first message
-  var firstMessage = 'Tell me more about what I just learned.';
-  if (context.incorrectQuestions && context.incorrectQuestions.length > 0) {
-    firstMessage = 'I got some questions wrong. Help me understand the correct answers and tell me more about this topic.';
-  }
+  addContextChip(context);
 
-  chatState.history.push({ role: 'user', text: firstMessage });
+  // The hidden first message.
+  var firstMessage = (opts && opts.firstMessage) || 'Tell me more about what I just learned.';
+  chatState.history.push({ role: 'user', text: firstMessage, hidden: true });
   showTyping();
 
   chatToLearn(context, chatState.history).then(function(response) {

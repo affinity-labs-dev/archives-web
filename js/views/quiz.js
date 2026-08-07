@@ -5,7 +5,7 @@ import { renderQuizCard, attachQuizHandlers } from '../components/quiz-card.js';
 import { openChat } from '../components/chat.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
-import { getStars } from '../components/quiz-helpers.js';
+import { getStars, buildQuizChatMessage } from '../components/quiz-helpers.js';
 import {
   runCelebration,
   prepareCelebration,
@@ -47,6 +47,10 @@ export default function quizView(app, { readableId, moduleIndex }) {
     let current = 0;
     let score = 0;
     let incorrectAnswers = [];
+    // Answer indices in question order, the shape /api/ai/explain and the
+    // richer chat prompt are built from. incorrectAnswers stays alongside it
+    // because the chat endpoint's older context shape still reads it.
+    let userAnswers = [];
 
     var quizCrumbs = [
       { label: 'Home', hash: '/' },
@@ -66,9 +70,10 @@ export default function quizView(app, { readableId, moduleIndex }) {
         + '</div></div>';
 
       const container = document.getElementById('quiz-container');
-      attachQuizHandlers(container, questions[current], (isCorrect, selectedAnswer) => {
+      attachQuizHandlers(container, questions[current], (isCorrect, selectedAnswer, answerIdx) => {
         unlockCelebrationAudio();
         if (aborted) return;
+        userAnswers.push(Number.isInteger(answerIdx) ? answerIdx : null);
         if (isCorrect) {
           score++;
         } else {
@@ -116,12 +121,34 @@ export default function quizView(app, { readableId, moduleIndex }) {
       var tmp = document.createElement('div');
       tmp.innerHTML = summaryHtml;
       var summaryText = (tmp.textContent || tmp.innerText || '').substring(0, 1000);
+      var moduleTitle = mod.thumbnail_title || 'Module ' + (idx + 1);
 
       openChat({
-        eraName: (adv.card_content && adv.card_content.era_name) || eraId,
-        moduleTitle: mod.thumbnail_title || 'Module ' + (idx + 1),
+        eraName: eraName,
+        moduleTitle: moduleTitle,
         moduleSummary: summaryText,
-        incorrectQuestions: incorrectAnswers
+        incorrectQuestions: incorrectAnswers,
+        // The full record: the server prompt sees right answers too, so the
+        // assistant can reinforce them instead of guessing what went well.
+        questions: buildAnswerRecord()
+      }, {
+        firstMessage: buildQuizChatMessage(questions, userAnswers, {
+          moduleTitle: moduleTitle,
+          eraName: eraName
+        })
+      });
+    }
+
+    function buildAnswerRecord() {
+      return questions.map(function (q, i) {
+        var correctAns = q.answers.find(function (a) { return a.is_correct; });
+        var userIdx = userAnswers[i];
+        return {
+          question: q.question_text,
+          userAnswer: (userIdx !== null && userIdx !== undefined && q.answers[userIdx]) ? q.answers[userIdx].text : '',
+          correctAnswer: correctAns ? correctAns.text : '',
+          isCorrect: !!(correctAns && q.answers[userIdx] === correctAns)
+        };
       });
     }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getStars } from '../quiz-helpers.js';
+import { getStars, buildQuizChatMessage, buildAskAboutQuizMessage } from '../quiz-helpers.js';
 
 describe('getStars', () => {
   it('returns 3 stars for perfect score', () => {
@@ -37,3 +37,71 @@ describe('getStars', () => {
   });
 });
 
+
+describe('buildQuizChatMessage', () => {
+  // Ported verbatim from the app's QuizResults.tsx buildChatMessage; these pin
+  // that both platforms prime the assistant identically.
+
+  const questions = [
+    {
+      question_text: 'Who crossed in 711?',
+      answers: [
+        { text: 'Tariq ibn Ziyad', is_correct: true },
+        { text: 'Musa ibn Nusayr', is_correct: false },
+      ],
+    },
+    {
+      question_text: 'What became the capital?',
+      answers: [
+        { text: 'Toledo', is_correct: false },
+        { text: 'Cordoba', is_correct: true },
+      ],
+    },
+  ];
+
+  it('lists each wrong answer with what was chosen and what was right', () => {
+    const msg = buildQuizChatMessage(questions, [0, 0], {
+      moduleTitle: 'The Crossing',
+      eraName: 'Al Andalus',
+    });
+    expect(msg).toContain('I got 1/2 correct (50%)');
+    expect(msg).toContain('- Q: "What became the capital?" | You answered: "Toledo" | Correct: "Cordoba"');
+    expect(msg).not.toContain('Who crossed in 711?');
+    expect(msg).toContain('Help me understand these topics better');
+  });
+
+  it('celebrates a perfect score instead of listing nothing', () => {
+    const msg = buildQuizChatMessage(questions, [0, 1], { moduleTitle: 'The Crossing', eraName: 'Al Andalus' });
+    expect(msg).toContain('got all 2 questions correct (100%)');
+    expect(msg).toContain('deeper historical details');
+  });
+
+  it('treats a skipped question as not-wrong rather than inventing an answer', () => {
+    const msg = buildQuizChatMessage(questions, [0, null], { eraName: 'Al Andalus' });
+    expect(msg).toContain('I got 1/2 correct (50%)');
+    expect(msg).not.toContain('got all');
+  });
+});
+
+describe('buildAskAboutQuizMessage', () => {
+  const question = {
+    question_text: 'What became the capital?',
+    answers: [
+      { text: 'Toledo', is_correct: false },
+      { text: 'Cordoba', is_correct: true },
+    ],
+  };
+
+  it('anchors to the one question, saying what went wrong', () => {
+    const msg = buildAskAboutQuizMessage(question, 0, { eraName: 'Al Andalus' });
+    expect(msg).toContain('What became the capital?');
+    expect(msg).toContain('"Cordoba"');
+    expect(msg).toContain('I answered "Toledo"');
+  });
+
+  it('asks for depth, not correction, when the answer was right', () => {
+    const msg = buildAskAboutQuizMessage(question, 1, { eraName: 'Al Andalus' });
+    expect(msg).toContain('which I got right');
+    expect(msg).not.toContain('Toledo');
+  });
+});

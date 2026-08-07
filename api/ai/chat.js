@@ -29,11 +29,25 @@ function sanitizeContext(raw) {
       }))
     : [];
 
+  // The full per-question record, verdicts included, so the prompt can also
+  // reinforce what went RIGHT. Additional to incorrectQuestions, never a
+  // replacement: cached bundles keep sending only the old shape during a
+  // deploy, and buildContext falls back to it.
+  const questions = Array.isArray(ctx.questions)
+    ? ctx.questions.slice(0, 20).map((q) => ({
+        question: clampString(q?.question, 500),
+        userAnswer: clampString(q?.userAnswer, 300),
+        correctAnswer: clampString(q?.correctAnswer, 300),
+        isCorrect: q?.isCorrect === true,
+      }))
+    : [];
+
   return {
     eraName: clampString(ctx.eraName, 200),
     moduleTitle: clampString(ctx.moduleTitle, 300),
     moduleSummary: clampString(ctx.moduleSummary, MAX_SUMMARY_CHARS),
     incorrectQuestions: incorrect,
+    questions,
   };
 }
 

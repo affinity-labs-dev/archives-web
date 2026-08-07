@@ -97,7 +97,9 @@ describe('attachQuizHandlers', () => {
     expect(nextBtn).not.toBeNull();
     nextBtn.click();
 
-    expect(onAnswer).toHaveBeenCalledWith(true, 'Correct B');
+    // The third argument is the answer index - what /api/ai/explain and the
+    // chat context are keyed on.
+    expect(onAnswer).toHaveBeenCalledWith(true, 'Correct B', 1);
   });
 
   it('prevents double-answer submission', () => {

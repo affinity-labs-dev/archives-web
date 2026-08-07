@@ -3442,6 +3442,24 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .chat__bubble--ai strong { color: var(--amber); }
 
+/* The visible trace of the hidden priming message: one muted line saying
+   what context the assistant was given, so its first reply doesn't read as
+   psychic. */
+.chat__context-chip {
+  align-self: center;
+  font-size: 12px;
+  color: var(--muted, #9a9a9a);
+  background: var(--dark-card);
+  border: 1px solid var(--dark-border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-bottom: 4px;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Typing indicator */
 .chat__typing {
   display: flex;
