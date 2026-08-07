@@ -4561,3 +4561,256 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .cel-static .streak__cta {
   pointer-events: auto;
 }
+
+/* ============================================
+   Understand your answers - the explanations sheet
+   Above the celebration (9500) in the chat/paywall tier: it is opened FROM
+   the celebration's pill and must cover it.
+   ============================================ */
+.exp-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.exp-sheet--open { opacity: 1; }
+
+.exp__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.exp__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 86dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--dark-card, #1c1c1e);
+  color: var(--cream, #f5f0e8);
+  border-radius: 22px 22px 0 0;
+  border: 1px solid var(--dark-border, #333);
+  border-bottom: none;
+  transform: translateY(24px);
+  transition: transform 0.25s ease;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.exp-sheet--open .exp__panel { transform: translateY(0); }
+
+@media (min-width: 700px) {
+  .exp__panel {
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, 24px);
+    width: 520px;
+    max-height: 82dvh;
+  }
+  .exp-sheet--open .exp__panel { transform: translate(-50%, 0); }
+}
+
+.exp__grab {
+  width: 42px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--dark-border, #333);
+  margin: 10px auto 0;
+}
+
+.exp__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px 10px;
+}
+.exp__title {
+  font-family: 'Changa One', sans-serif;
+  font-size: 20px;
+  letter-spacing: 0.3px;
+}
+.exp__close {
+  background: none;
+  border: none;
+  color: var(--cream, #f5f0e8);
+  cursor: pointer;
+  padding: 6px;
+  opacity: 0.7;
+}
+.exp__close:hover { opacity: 1; }
+
+.exp__body {
+  overflow-y: auto;
+  padding: 0 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Error/timeout strip - degrades the AI, never the sheet */
+.exp__strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(255, 221, 99, 0.08);
+  border: 1px solid rgba(255, 221, 99, 0.35);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.exp__strip-btn {
+  background: var(--amber, #ffdd63);
+  color: var(--dark, #1a1a1a);
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.exp__card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--dark-border, #333);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.exp__card-head { display: flex; gap: 10px; }
+.exp__pip {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+.exp__pip--right { background: #2e7d32; color: #fff; }
+.exp__pip--wrong { background: #b3372f; color: #fff; }
+
+.exp__card-number {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  opacity: 0.6;
+  margin-bottom: 2px;
+}
+.exp__card-text { font-weight: 700; line-height: 1.35; }
+.exp__card-answers { font-size: 13px; opacity: 0.85; margin-top: 6px; }
+.exp__card-answers strong { color: var(--amber, #ffdd63); font-weight: 600; }
+
+.exp__lesson {
+  margin-top: 10px;
+  border-left: 3px solid var(--dark-border, #333);
+  padding: 2px 0 2px 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.9;
+}
+.exp__lesson-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  opacity: 0.55;
+  margin-bottom: 2px;
+}
+
+.exp__deeper { margin-top: 10px; }
+.exp__deeper-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--amber, #ffdd63);
+  margin-bottom: 4px;
+}
+.exp__deeper-text { font-size: 14px; line-height: 1.55; }
+.exp__deeper--failed {
+  font-size: 13px;
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Loading shimmer */
+.exp__shimmer {
+  height: 12px;
+  border-radius: 6px;
+  margin-top: 6px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.06) 75%);
+  background-size: 200% 100%;
+  animation: expShimmer 1.4s ease infinite;
+}
+@keyframes expShimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .exp__shimmer { animation: none; }
+}
+
+/* Locked filler: synthetic bars behind a fade. Decoration, not hidden text. */
+.exp__deeper--locked {
+  position: relative;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.8), transparent);
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.8), transparent);
+}
+.exp__filler {
+  height: 12px;
+  border-radius: 6px;
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.10);
+  filter: blur(3px);
+}
+
+/* Upsell / verify tail card */
+.exp__promo {
+  background: linear-gradient(135deg, rgba(255, 221, 99, 0.14), rgba(255, 221, 99, 0.05));
+  border: 1px solid rgba(255, 221, 99, 0.4);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+}
+.exp__promo--neutral {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--dark-border, #333);
+}
+.exp__promo-title {
+  font-family: 'Changa One', sans-serif;
+  font-size: 17px;
+  margin-bottom: 4px;
+}
+.exp__promo-sub { font-size: 13px; opacity: 0.8; margin-bottom: 12px; }
+.exp__promo-btn {
+  background: var(--amber, #ffdd63);
+  color: var(--dark, #1a1a1a);
+  border: none;
+  border-radius: 999px;
+  padding: 10px 26px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Trailing "Ask about any of these" pill (full mode only) */
+.exp__ask {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--dark-border, #333);
+  border-radius: 999px;
+  color: var(--cream, #f5f0e8);
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.exp__ask:hover { background: rgba(255, 255, 255, 0.1); }

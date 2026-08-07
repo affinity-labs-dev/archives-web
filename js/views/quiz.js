@@ -3,6 +3,7 @@ import { markComplete } from '../state.js';
 import { renderHeader } from '../components/header.js';
 import { renderQuizCard, attachQuizHandlers } from '../components/quiz-card.js';
 import { openChat } from '../components/chat.js';
+import { openExplanations, closeExplanations } from '../components/explanations.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
 import { getStars, buildQuizChatMessage } from '../components/quiz-helpers.js';
@@ -106,12 +107,25 @@ export default function quizView(app, { readableId, moduleIndex }) {
         correct: score,
         total: questions.length,
         mode: 'adventure',
+        onExplanations: openExplanationsSheet,
         onChat: openAdventureChat,
         onContinue: function () {
           window.location.hash = hasNext
             ? '/lesson/' + readableId + '/' + nextIdx
             : adventureHash;
         }
+      });
+    }
+
+    function openExplanationsSheet() {
+      openExplanations({
+        questions: questions,
+        userAnswers: userAnswers,
+        eraName: eraName,
+        adventureName: advTitle,
+        // Chat 403s non-subscribers server-side, so the pill goes through the
+        // same gate the chat pill uses.
+        onAsk: openAdventureChat
       });
     }
 
@@ -165,7 +179,9 @@ export default function quizView(app, { readableId, moduleIndex }) {
   return () => {
     aborted = true;
     // Synchronous, and before the router's own teardown: the celebration is
-    // mounted on body, so a slower cleanup leaves it over the next page.
+    // mounted on body, so a slower cleanup leaves it over the next page. The
+    // sheet is body-mounted too and would otherwise survive navigation.
+    closeExplanations();
     if (celebration) { celebration.destroy(); celebration = null; }
   };
 }

@@ -5,6 +5,7 @@ import { renderImageCarousel, renderVideoCarousel, initCarousel } from '../compo
 import { startBgMusic, stopBgMusic, renderBgMusicToggle, initBgMusicToggle } from '../components/bg-music.js';
 import { renderQuizCard, attachQuizHandlers } from '../components/quiz-card.js';
 import { openChat } from '../components/chat.js';
+import { openExplanations, closeExplanations } from '../components/explanations.js';
 import { setDailyStepComplete } from '../state.js';
 import { escapeHtml, sanitizeUrl, sanitizeHtml, normaliseContentType } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
@@ -611,10 +612,21 @@ export default function dailyView(app, params) {
           total: total,
           mode: 'daily',
           dailyDate: storyDate,
+          onExplanations: openDailyExplanations,
           onChat: openDailyChat,
           onContinue: function() {
             window.location.hash = '/daily';
           }
+        });
+      }
+
+      function openDailyExplanations() {
+        openExplanations({
+          questions: dsQuestions,
+          userAnswers: dsUserAnswers,
+          eraName: c.today_title || 'Daily Story',
+          adventureName: storyTitle,
+          onAsk: openDailyChat
         });
       }
 
@@ -679,7 +691,9 @@ export default function dailyView(app, params) {
     if (cleanupFn) cleanupFn();
     // Synchronous, and first: the router fades #app for 250ms before calling
     // this, and the celebration is mounted on body - so anything slower leaves
-    // it on screen over a page that has already changed underneath it.
+    // it on screen over a page that has already changed underneath it. The
+    // explanations sheet is body-mounted too.
+    closeExplanations();
     if (celebration) { celebration.destroy(); celebration = null; }
     if (_fitDailyReel) window.removeEventListener('resize', _fitDailyReel);
   };

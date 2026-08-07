@@ -62,3 +62,53 @@ export async function chatToLearn(ctx, messages) {
   const data = await res.json();
   return data.text || '';
 }
+
+/**
+ * Fetch AI explanations for a finished quiz.
+ *
+ * @param {object} payload - { questions, userAnswers, eraName, adventureName }
+ *   `questions` are the raw content objects (question_text, answers[],
+ *   explanation); `userAnswers` the chosen indices, in question order.
+ * @param {object} [opts] - { signal } to abort (the sheet enforces its own
+ *   timeout so a stuck request cannot hold the retry button hostage).
+ * @returns the server verdict verbatim: { explanations, mode, unlockedCount,
+ *   lockedCount, entitlementUnknown?, degraded? }. The sheet renders from
+ *   `mode`, never from the client's cached premium flag.
+ */
+export async function explainAnswers(payload, opts) {
+  const token = await sessionToken();
+  if (!token) {
+    throw new ChatError('Please sign in again to see explanations.', 'NO_SESSION');
+  }
+
+  const res = await fetch('/api/ai/explain', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    signal: opts && opts.signal,
+    body: JSON.stringify({
+      questions: payload.questions,
+      userAnswers: payload.userAnswers,
+      eraName: payload.eraName,
+      adventureName: payload.adventureName,
+    }),
+  });
+
+  if (res.status === 429) {
+    throw new ChatError('You have used this month\'s free explanations.', 'QUOTA_EXHAUSTED');
+  }
+  if (res.status === 504) {
+    throw new ChatError('The explanation took too long.', 'TIMEOUT');
+  }
+  if (!res.ok) {
+    let detail = '';
+    try {
+      detail = (await res.json())?.error || '';
+    } catch (e) { /* error body was not JSON */ }
+    throw new ChatError(detail || 'Explanations are unavailable right now.', 'REQUEST_FAILED');
+  }
+
+  return res.json();
+}
