@@ -167,7 +167,7 @@ export function buildQuizResults(slot, opts) {
   }
 
   animateScoreCard(tl, root, spec, timing, data);
-  animateStarFlight(tl, root, timing, percentage);
+  animateStarFlight(tl, root, timing, percentage, data.xp);
 
   // ── Interaction ─────────────────────────────────────────────────────────
   const onClick = (e) => {

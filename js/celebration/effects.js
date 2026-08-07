@@ -45,11 +45,75 @@ export function renderStars(color) {
  * this timeline is built, so its rect then is meaningless. It is measured once
  * in the first tween's onStart into a shared object the onUpdates read.
  */
-export function animateStarFlight(tl, root, timing, percentage) {
+export function animateStarFlight(tl, root, timing, percentage, xp) {
   if (!G || !tl) return;
 
   const stars = root.querySelectorAll('.qres__star');
   if (!stars.length) return;
+
+  // The landing side: each star that arrives bumps the XP figure a step and
+  // pulses it, and the last one gets the flourish - a bigger pop, the star
+  // icon spinning, and a ring flashing outward. Without this the stars flew
+  // into a number that never noticed them.
+  const xpEl = root.querySelector('.qres__xp');
+  const xpRow = root.querySelector('.qres__xp-row');
+  const xpIcon = root.querySelector('.qres__xp-star');
+  const ring = root.querySelector('.qres__xp-ring');
+  const xpTotal = Number.isFinite(xp) ? xp : 0;
+  const counter = { v: 0 };
+
+  if (xpEl && xpTotal > 0) {
+    // The markup carries the true figure for the no-GSAP path; the timeline
+    // knocks it to zero as the flight begins and the landings pay it back.
+    tl.set(xpEl, { textContent: '0 XP' }, T(timing.xp));
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const landAt = timing.xp + i * STAGGER_MS + FLIGHT_MS;
+      const target = Math.round((xpTotal * (i + 1)) / STAR_COUNT);
+      tl.to(counter, {
+        v: target,
+        duration: T(90),
+        ease: 'power1.out',
+        onUpdate() { xpEl.textContent = Math.round(counter.v) + ' XP'; },
+      }, T(landAt));
+      if (xpRow) {
+        const isLast = i === STAR_COUNT - 1;
+        tl.to(xpRow, {
+          scale: isLast ? 1.35 : 1.12,
+          duration: T(isLast ? 160 : 90),
+          ease: isLast ? 'back.out(2.4)' : 'power2.out',
+        }, T(landAt));
+        tl.to(xpRow, {
+          scale: 1,
+          duration: T(isLast ? 300 : 130),
+          ease: isLast ? 'back.inOut(1.8)' : 'power2.inOut',
+        }, T(landAt + (isLast ? 170 : 95)));
+      }
+    }
+    // The flourish rides the last landing.
+    const finale = timing.xp + (STAR_COUNT - 1) * STAGGER_MS + FLIGHT_MS;
+    if (xpIcon) {
+      tl.fromTo(xpIcon, { rotation: 0 }, {
+        rotation: 360,
+        scale: 1.25,
+        duration: T(450),
+        ease: 'back.out(1.6)',
+      }, T(finale));
+      tl.to(xpIcon, { scale: 1, duration: T(200), ease: 'power2.out' }, T(finale + 460));
+    }
+    if (ring) {
+      tl.fromTo(ring, { opacity: 0.85, scale: 0.4 }, {
+        opacity: 0,
+        scale: 2.4,
+        duration: T(550),
+        ease: 'power2.out',
+      }, T(finale));
+      // Rest state, stated outright for reduced motion and for seeks.
+      tl.set(ring, { opacity: 0 }, T(finale + 560));
+    }
+    // Under reduced motion every duration collapses; the counter's tween
+    // still ends at the full figure, so state it plainly for safety.
+    tl.set(xpEl, { textContent: xpTotal + ' XP' }, T(finale + 600));
+  }
 
   // Measured in onStart, read by every onUpdate below.
   const geo = { ready: false };

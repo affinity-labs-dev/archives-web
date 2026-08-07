@@ -307,8 +307,15 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   color: var(--cream-dim);
   text-decoration: none;
   white-space: nowrap;
-  opacity: 0.5;
+  /* Was 0.5 opacity ON cream-dim (itself 70% cream) - a ~25% ink that read
+     as smudge. One opacity, applied once. */
+  opacity: 0.8;
   transition: opacity 0.2s, color 0.2s;
+  /* Long middle crumbs give way; the page you are on keeps its name. */
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 4px 0;
 }
 
 .bc__link:hover {
@@ -321,15 +328,16 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   height: 10px;
   flex-shrink: 0;
   color: var(--cream-dim);
-  opacity: 0.25;
+  opacity: 0.35;
 }
 
 .bc__current {
-  color: var(--cream-dim);
+  color: var(--cream);
   white-space: nowrap;
-  opacity: 0.75;
+  opacity: 0.9;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* Mobile: hide breadcrumbs, back button is sufficient */
@@ -5116,4 +5124,16 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   padding: 5px 12px;
   border-radius: 999px;
   white-space: nowrap;
+}
+
+/* The XP landing flourish: a ring that flashes outward from the figure when
+   the last star arrives. Invisible at rest and on the no-GSAP path. */
+.qres__xp-row { position: relative; }
+.qres__xp-ring {
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--amber, #D4A04A);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
 }

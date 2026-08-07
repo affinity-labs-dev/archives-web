@@ -59,6 +59,7 @@ export function renderScoreCard(spec, data) {
           </div>
           <div class="qres__card-col qres__card-col--right">
             <div class="qres__xp-row">
+              <span class="qres__xp-ring" aria-hidden="true"></span>
               <svg class="qres__xp-star" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="${SPARKLE_PATH}" fill="${spec.cardText}"/>
               </svg>
