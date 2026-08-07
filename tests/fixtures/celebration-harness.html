@@ -31,6 +31,7 @@
 </script>
 <script type="module">
   import { createStage } from './js/celebration/stage.js';
+  import { runCelebration } from './js/celebration/index.js';
   import { buildQuizResults } from './js/celebration/quiz-results.js';
   import { buildDailyStoryEnd } from './js/celebration/daily-story-end.js';
   import { buildStreak } from './js/celebration/streak.js';
@@ -44,6 +45,22 @@
 
   // Sound is off unless ?silent=0; see the inline script above.
   cues.prepare();
+
+  // ?screen=flow exercises runCelebration end to end - the sequencing, the
+  // streak gate and the teardown - rather than one screen in isolation.
+  if (screen === 'flow') {
+    window.__lastAction = null;
+    window.__flow = runCelebration({
+      correct,
+      total,
+      mode: params.get('mode') || 'daily',
+      dailyDate: params.get('date') || null,
+      onExplanations() { window.__lastAction = 'explain'; },
+      onChat() { window.__lastAction = 'chat'; },
+      onContinue() { window.__lastAction = 'continue'; },
+    });
+    window.__ready = true;
+  } else {
 
   const stage = createStage();
   window.__stage = stage;
@@ -80,6 +97,7 @@
   };
   window.__play = () => built && built.timeline && built.timeline.play();
   window.__ready = true;
+  }
 </script>
 </body>
 </html>

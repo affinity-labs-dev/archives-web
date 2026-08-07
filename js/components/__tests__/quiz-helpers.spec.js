@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getStars, getRewardVideo, getResultMessage } from '../quiz-helpers.js';
+import { getStars } from '../quiz-helpers.js';
 
 describe('getStars', () => {
   it('returns 3 stars for perfect score', () => {
@@ -37,38 +37,3 @@ describe('getStars', () => {
   });
 });
 
-describe('getRewardVideo', () => {
-  it('returns reward3 for 70%+', () => {
-    expect(getRewardVideo(70)).toContain('quiz-reward3');
-    expect(getRewardVideo(100)).toContain('quiz-reward3');
-  });
-
-  it('returns reward2 for 34-69%', () => {
-    expect(getRewardVideo(34)).toContain('quiz-reward2');
-    expect(getRewardVideo(69)).toContain('quiz-reward2');
-  });
-
-  it('returns reward1 for <34%', () => {
-    expect(getRewardVideo(0)).toContain('quiz-reward1');
-    expect(getRewardVideo(33)).toContain('quiz-reward1');
-  });
-});
-
-describe('getResultMessage', () => {
-  it('returns "Brilliant Effort!" for 70%+', () => {
-    const msg = getResultMessage(70);
-    expect(msg.title).toBe('Brilliant Effort!');
-    expect(msg.subtitle).toMatch(/getting better/i);
-  });
-
-  it('returns "You\'ve Got This!" for <70%', () => {
-    const msg = getResultMessage(69);
-    expect(msg.title).toBe("You've Got This!");
-    expect(msg.subtitle).toMatch(/revisit/i);
-  });
-
-  it('returns encouragement for 0%', () => {
-    const msg = getResultMessage(0);
-    expect(msg.title).toBe("You've Got This!");
-  });
-});

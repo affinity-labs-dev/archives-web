@@ -4,20 +4,23 @@ import { renderReelPlayer, initReelPlayer } from '../components/reel-player.js';
 import { renderImageCarousel, renderVideoCarousel, initCarousel } from '../components/carousel.js';
 import { startBgMusic, stopBgMusic, renderBgMusicToggle, initBgMusicToggle } from '../components/bg-music.js';
 import { renderQuizCard, attachQuizHandlers } from '../components/quiz-card.js';
-import { playStars } from '../components/sounds.js';
 import { openChat } from '../components/chat.js';
 import { setDailyStepComplete } from '../state.js';
 import { escapeHtml, sanitizeUrl, sanitizeHtml, normaliseContentType } from '../utils.js';
 import { isPremium } from '../services/revenuecat.js';
 import { showPaywall } from '../components/paywall.js';
-import { tryStreakCelebration } from '../components/streak-celebration.js';
-import { getStars, getRewardVideo, getResultMessage } from '../components/quiz-helpers.js';
-import { animateCounter, starPopIn, celebrationBurst } from '../animations.js';
+import { getStars } from '../components/quiz-helpers.js';
+import {
+  runCelebration,
+  prepareCelebration,
+  unlockCelebrationAudio,
+} from '../celebration/index.js';
 import { localDateStr } from '../utils.js';
 
 export default function dailyView(app, params) {
   app.innerHTML = '<div class="loading"><div class="spinner"></div>Loading</div>';
   var cleanupFn = null;
+  var celebration = null;
   var voAudio = null;
   var currentStep = 0;
   var totalSteps = 0;
@@ -559,6 +562,7 @@ export default function dailyView(app, params) {
 
         attachQuizHandlers(dsQuizContainer, dsQuestions[dsQuizCurrent], function(isCorrect, selectedAnswer) {
           if (aborted) return;
+          unlockCelebrationAudio();
           if (isCorrect) {
             dsQuizScore++;
           } else {
@@ -574,124 +578,67 @@ export default function dailyView(app, params) {
           if (dsQuizCurrent < dsQuestions.length) {
             showDailyQuestion();
           } else {
-            tryStreakCelebration(showDailyScore);
+            finishDailyQuiz();
           }
         });
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
 
-      function showDailyScore() {
+      function finishDailyQuiz() {
         if (aborted) return;
         var total = dsQuestions.length;
-        var percentage = Math.round((dsQuizScore / total) * 100);
-        var stars = getStars(dsQuizScore, total);
-        var videoSrc = getRewardVideo(percentage);
-        var msg = getResultMessage(percentage);
 
-        // Mark questions step complete
-        setDailyStepComplete(storyDate, 'questions', stars || true);
+        // Persist BEFORE celebrating. The streak screen derives its number
+        // from stored daily progress, so the old order - celebrate, then save
+        // - could not see today and came out one short, which a `< 1` clamp
+        // hid. Passing `stars` bare rather than `stars || true` matters too: a
+        // 0-star result is a real result, and `|| true` erased it.
+        setDailyStepComplete(storyDate, 'questions', getStars(dsQuizScore, total));
 
-        // Build stars HTML
-        var starsHtml = '<div class="stars">';
-        for (var si = 0; si < 3; si++) {
-          var filled = si < stars;
-          starsHtml += '<div class="star ' + (filled ? 'star--filled' : 'star--empty') + '" style="opacity:0;transform:scale(0)">'
-            + '<svg viewBox="0 0 24 24" fill="' + (filled ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5">'
-            + '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'
-            + '</svg></div>';
-        }
-        starsHtml += '</div>';
-
-        // Append score screen directly to body (not inside ds__panel)
-        // because panel's transform breaks position:fixed
+        // The panel animates with a transform, which would trap a fixed
+        // overlay inside it; the celebration mounts on body instead, so the
+        // panel is simply hidden behind it.
         var panel = dsQuizContainer.closest('.ds__panel');
-        panel.style.display = 'none';
+        if (panel) panel.style.display = 'none';
 
-        var scoreOverlay = document.createElement('div');
-        scoreOverlay.id = 'ds-score-overlay';
-        scoreOverlay.innerHTML = '<div class="quiz-score">'
-          + '<video class="quiz-score__video" autoplay muted playsinline>'
-          + '<source src="' + escapeHtml(videoSrc) + '" type="video/mp4">'
-          + '</video>'
-          + '<div class="quiz-score__overlay">'
-          + '<div class="quiz-score__content">'
-          + '<div class="quiz-score__title">' + escapeHtml(msg.title) + '</div>'
-          + '<div class="quiz-score__subtitle">' + escapeHtml(msg.subtitle) + '</div>'
-          + starsHtml
-          + '<div class="quiz-score__score-row">'
-          + '<span class="quiz-score__percentage" id="ds-score-pct">0%</span>'
-          + '<span class="quiz-score__correct">' + dsQuizScore + '/' + total + ' correct</span>'
-          + '</div>'
-          + '<div class="quiz-score__progress-bar"><div class="quiz-score__progress-fill" style="width:' + percentage + '%"></div></div>'
-          + '<div class="quiz-score__actions" id="ds-score-actions">'
-          + '<button class="cta-btn" data-action="finish">Finish Story</button>'
-          + '<button class="quiz-score__chat" data-action="chat">Chat to Learn More</button>'
-          + '</div></div></div></div>';
-        document.body.appendChild(scoreOverlay);
-
-        var actionsEl = document.getElementById('ds-score-actions');
-        if (actionsEl) {
-          actionsEl.addEventListener('click', function(e) {
-            var btn = e.target.closest('[data-action]');
-            if (!btn) return;
-            if (btn.dataset.action === 'finish') {
-              var ov = document.getElementById('ds-score-overlay');
-              if (ov) ov.remove();
-              window.location.hash = '/daily';
-              return;
-            } else if (btn.dataset.action === 'chat') {
-              if (!isPremium()) { showPaywall(); return; }
-              // Build summary from explore content or watch reading text
-              var summaryText = '';
-              if (c.card2 && c.card2.reading_text) {
-                var tmp = document.createElement('div');
-                tmp.innerHTML = c.card2.reading_text;
-                summaryText = (tmp.textContent || tmp.innerText || '').substring(0, 1000);
-              } else if (c.card1 && c.card1.bottom_content && c.card1.bottom_content.reading_text) {
-                var tmp = document.createElement('div');
-                tmp.innerHTML = c.card1.bottom_content.reading_text;
-                summaryText = (tmp.textContent || tmp.innerText || '').substring(0, 1000);
-              }
-
-              openChat({
-                eraName: c.today_title || 'Daily Story',
-                moduleTitle: storyTitle,
-                moduleSummary: summaryText,
-                incorrectQuestions: dsIncorrectAnswers
-              });
-            }
-          });
-        }
-
-        // Animate score counter
-        var dsPctEl = document.getElementById('ds-score-pct');
-        if (dsPctEl) animateCounter(dsPctEl, 0, percentage, { suffix: '%', duration: 1.2 });
-
-        // Animate stars pop-in
-        var dsStarEls = scoreOverlay.querySelectorAll('.star');
-        if (dsStarEls.length) starPopIn(dsStarEls);
-
-        // Celebration burst for good scores
-        var dsScoreContent = scoreOverlay.querySelector('.quiz-score__content');
-        if (percentage >= 70 && dsScoreContent) {
-          setTimeout(function() { celebrationBurst(dsScoreContent, { count: percentage === 100 ? 35 : 25 }); }, 600);
-        }
-
-        // Play reward video with audio
-        setTimeout(function() {
-          var vid = scoreOverlay.querySelector('.quiz-score__video');
-          if (vid) {
-            vid.muted = false;
-            vid.volume = 0.7;
-            vid.play().catch(function() {
-              vid.muted = true;
-              vid.play().catch(function() {});
-            });
+        celebration = runCelebration({
+          correct: dsQuizScore,
+          total: total,
+          mode: 'daily',
+          dailyDate: storyDate,
+          onChat: openDailyChat,
+          onContinue: function() {
+            window.location.hash = '/daily';
           }
-        }, 200);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
       }
+
+      function openDailyChat() {
+        if (!isPremium()) { showPaywall(); return; }
+        // card2 carries content_blocks in the daily schema rather than
+        // reading_text, so this nearly always falls through to card1.
+        var summaryText = '';
+        var source = (c.card2 && c.card2.reading_text)
+          || (c.card1 && c.card1.bottom_content && c.card1.bottom_content.reading_text)
+          || '';
+        if (source) {
+          var tmp = document.createElement('div');
+          tmp.innerHTML = source;
+          summaryText = (tmp.textContent || tmp.innerText || '').substring(0, 1000);
+        }
+
+        openChat({
+          eraName: c.today_title || 'Daily Story',
+          moduleTitle: storyTitle,
+          moduleSummary: summaryText,
+          incorrectQuestions: dsIncorrectAnswers
+        });
+      }
+
+      // Downloads the celebration audio while the user answers, and creates
+      // the elements the first answer tap unlocks.
+      prepareCelebration();
 
       // Show first question when the questions step becomes active
       showDailyQuestion();
@@ -707,8 +654,10 @@ export default function dailyView(app, params) {
     stopBgMusic();
     if (voAudio) { voAudio.pause(); voAudio = null; }
     if (cleanupFn) cleanupFn();
-    var ov = document.getElementById('ds-score-overlay');
-    if (ov) ov.remove();
+    // Synchronous, and first: the router fades #app for 250ms before calling
+    // this, and the celebration is mounted on body - so anything slower leaves
+    // it on screen over a page that has already changed underneath it.
+    if (celebration) { celebration.destroy(); celebration = null; }
     if (_fitDailyReel) window.removeEventListener('resize', _fitDailyReel);
   };
 }

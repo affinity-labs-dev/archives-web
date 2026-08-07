@@ -89,7 +89,10 @@ function saveDaily(data) {
 export function setDailyStepComplete(date, step, value) {
   var data = loadDaily();
   if (!data[date]) data[date] = {};
-  data[date][step] = value || true;
+  // `value || true` erased a real 0. The daily story stores a star count
+  // here, so a 0/3 day became indistinguishable from an unscored completion -
+  // and shipped `true` to the cloud, where the mobile app expects a number.
+  data[date][step] = (value === undefined || value === null) ? true : value;
   saveDaily(data);
   pushDailyProgress();
 }

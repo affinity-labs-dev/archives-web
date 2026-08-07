@@ -68,37 +68,37 @@ test.describe('Quiz Flow', () => {
     await expect(page.locator('.quiz__next')).toHaveText('Continue');
   });
 
-  test('completing all questions shows score screen', async ({ page }) => {
+  test('completing all questions shows the results screen', async ({ page }) => {
     await page.goto('/#/quiz/prophets_1/0');
     await completeQuiz(page);
-    await expect(page.locator('.quiz-score')).toBeVisible();
+    await expect(page.locator('.qres')).toBeVisible();
   });
 
-  test('score screen shows percentage, message, and action buttons', async ({ page }) => {
+  test('results screen shows the score, a tier message, and both pills', async ({ page }) => {
+    // Reduced motion collapses the whole choreography to its end state, so
+    // this asserts the finished screen without waiting out up to 8.7s of
+    // entrance animation. tests/e2e/celebration.spec.js covers the timing.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/#/quiz/prophets_1/0');
     await completeQuiz(page);
 
-    // Wait for score screen to fully render
-    await page.waitForSelector('.quiz-score__percentage', { timeout: 10000 });
+    await page.waitForSelector('.qres__pct', { timeout: 15000 });
 
-    // Percentage like "33%"
-    const percentage = page.locator('.quiz-score__percentage');
-    await expect(percentage).toBeVisible();
-    const pctText = await percentage.textContent();
-    expect(pctText).toMatch(/\d+%/);
+    const pct = page.locator('.qres__pct');
+    await expect(pct).toBeVisible();
+    expect(await pct.textContent()).toMatch(/^\d+$/);
 
-    // Score like "1/3 correct"
-    await expect(page.locator('.quiz-score__correct')).toBeVisible();
+    await expect(page.locator('.qres__card-col--right .qres__card-label'))
+      .toHaveText(/Correct: \d+\/\d+/);
 
-    // Result message
-    const title = page.locator('.quiz-score__title');
-    await expect(title).toBeVisible();
-    const titleText = await title.textContent();
-    expect(titleText).toMatch(/Brilliant|Got This/);
+    const headline = page.locator('.qres__headline');
+    await expect(headline).toBeVisible();
+    expect(await headline.textContent()).toMatch(/NICE EFFORT|GOT THIS|AMAZING JOB/);
 
-    // Action buttons
-    await expect(page.locator('[data-action="retry"]')).toBeVisible();
-    await expect(page.locator('[data-action="back"]')).toBeVisible();
+    // Two actions and a CTA - Retake Quiz is gone, matching the app.
+    await expect(page.locator('[data-action="explain"]')).toBeVisible();
+    await expect(page.locator('[data-action="chat"]')).toBeVisible();
+    await expect(page.locator('.qres__cta')).toBeVisible();
   });
 
   test('double-clicking an answer does not register twice', async ({ page }) => {

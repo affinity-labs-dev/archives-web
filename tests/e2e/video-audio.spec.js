@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { mockAuth } from './helpers/mock-auth.js';
-import { completeQuiz } from './helpers/quiz-helper.js';
 
 test.beforeEach(async ({ page }) => {
   await mockAuth(page);
@@ -73,72 +72,19 @@ test.describe('Video Playback', () => {
   });
 });
 
-test.describe('Score Screen Video', () => {
-  test('celebration video renders on quiz completion', async ({ page }) => {
-    await page.goto('/#/quiz/prophets_1/0');
-    await completeQuiz(page);
-
-    const video = page.locator('.quiz-score__video');
-    await expect(video).toBeVisible();
-
-    const hasAutoplay = await video.getAttribute('autoplay');
-    const hasMuted = await video.getAttribute('muted');
-    expect(hasAutoplay).not.toBeNull();
-    expect(hasMuted).not.toBeNull();
-  });
-
-  test('celebration video source points to correct reward file', async ({ page }) => {
-    await page.goto('/#/quiz/prophets_1/0');
-    await completeQuiz(page);
-
-    const src = await page.locator('.quiz-score__video source').getAttribute('src');
-    expect(src).toMatch(/quiz-reward[123]\.mp4/);
-  });
-
-  test('celebration video actually starts playing', async ({ page }) => {
-    await page.goto('/#/quiz/prophets_1/0');
-    await completeQuiz(page);
-
-    // Wait for the video to advance past 0 seconds (proves it actually plays)
-    await page.waitForFunction(() => {
-      const v = document.querySelector('.quiz-score__video');
-      return v && v.currentTime > 0.1 && !v.paused;
-    }, null, { timeout: 15000 });
-  });
-
-  test('celebration video has no decode or network errors', async ({ page }) => {
-    await page.goto('/#/quiz/prophets_1/0');
-    await completeQuiz(page);
-
-    // Give video a moment to attempt playback
-    await page.waitForTimeout(2000);
-
-    const videoError = await page.evaluate(() => {
-      const v = document.querySelector('.quiz-score__video');
-      if (!v || !v.error) return null;
-      return { code: v.error.code, message: v.error.message };
-    });
-    expect(videoError).toBeNull();
-  });
-
-  test('celebration video does not stall after starting', async ({ page }) => {
-    await page.goto('/#/quiz/prophets_1/0');
-    await completeQuiz(page);
-
-    // Wait for playback to begin
-    await page.waitForFunction(() => {
-      const v = document.querySelector('.quiz-score__video');
-      return v && v.currentTime > 0;
-    }, null, { timeout: 15000 });
-
-    // Record time, wait 2s, check it advanced
-    const time1 = await page.evaluate(() => document.querySelector('.quiz-score__video').currentTime);
-    await page.waitForTimeout(2000);
-    const time2 = await page.evaluate(() => document.querySelector('.quiz-score__video').currentTime);
-
-    expect(time2).toBeGreaterThan(time1);
-  });
-});
+// The "Score Screen Video" block that was here is gone with the feature.
+//
+// The old score screen played one of three reward .mp4s full-bleed behind the
+// result, and five tests covered it: that it rendered, pointed at the right
+// file per score band, started, decoded without error, and did not stall.
+//
+// The celebration that replaced it has no video. Each tier is a Rive animation
+// plus an audio cue, which fail in completely different ways - a Rive can load
+// and draw a perfect still frame forever, which no video test would have
+// caught. tests/e2e/celebration.spec.js covers that directly, including a
+// canvas-over-time comparison and a CDN-failure fallback.
+//
+// The reward .mp4s under assets/videos/quiz_reward/ are now unreferenced.
 
 test.describe('Audio', () => {
   test('Audio constructor is available for sound effects', async ({ page }) => {

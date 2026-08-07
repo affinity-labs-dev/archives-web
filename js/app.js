@@ -64,6 +64,19 @@ function startApp(clerk) {
   // links a purchase). Re-render the menu and the current view when it flips.
   window.addEventListener('archives:premium-changed', function() {
     mountUserMenu(userBtnEl);
+
+    // But not while a celebration is on screen. forceResolve() re-renders the
+    // route, which runs the current view's cleanup - and the post-quiz
+    // celebration is mounted on document.body BY that view, so re-rendering
+    // destroys it mid-animation. Entitlement typically resolves a second or
+    // two after first paint, which is squarely inside the ten seconds a
+    // celebration can run, and the user is dumped back into the story having
+    // seen no result at all.
+    //
+    // Nothing is lost by skipping it: the celebration ends in a navigation,
+    // and whatever it lands on reads the new status on its way in.
+    if (document.getElementById('cel-root')) return;
+
     forceResolve();
   });
 

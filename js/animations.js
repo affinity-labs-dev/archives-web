@@ -137,7 +137,8 @@ export function revealOnScroll(selector, opts = {}) {
 const PRESS_SELECTORS = [
   '.era-card', '.adventure-card', '.mtile', '.home__daily', '.home__hero-cta',
   '.dh__start-btn', '.ds__next-btn', '.ds__finish-btn', '.quiz__next',
-  '.quiz-score__retry', '.quiz-score__back', '.quiz__answer', '.cta-btn',
+  '.qres__pill', '.qres__cta', '.dsend__cta', '.streak__cta',
+  '.quiz__answer', '.cta-btn',
   '.header__back'
 ].join(',');
 

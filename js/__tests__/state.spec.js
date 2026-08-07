@@ -121,6 +121,25 @@ describe('Daily Progress', () => {
     const prog = getDailyProgress('2026-03-24');
     expect(Object.keys(prog)).toHaveLength(3);
   });
+
+  it('stores a zero star count as 0, not true', () => {
+    // `value || true` used to erase this. The questions step stores a star
+    // count, so a 0/3 day became indistinguishable from an unscored
+    // completion - and synced `true` to the cloud, where the mobile app
+    // expects a number.
+    setDailyStepComplete('2026-03-25', 'questions', 0);
+    expect(getDailyProgress('2026-03-25').questions).toBe(0);
+  });
+
+  it('still defaults to true when no value is given', () => {
+    setDailyStepComplete('2026-03-26', 'watch');
+    expect(getDailyProgress('2026-03-26').watch).toBe(true);
+  });
+
+  it('keeps a non-zero star count intact', () => {
+    setDailyStepComplete('2026-03-27', 'questions', 3);
+    expect(getDailyProgress('2026-03-27').questions).toBe(3);
+  });
 });
 
 describe('getDailyProgressPercent', () => {
