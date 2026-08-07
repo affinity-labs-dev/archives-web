@@ -357,6 +357,19 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 /* ========== Adventures List ========== */
 /* ========== Home / Era Selection ========== */
+/* Visually hidden, present for screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Keyboard focus. The stylesheet had ZERO :focus-visible rules, and one
    input removes the browser outline - so a keyboard user could not see where
    they were anywhere on the site. Amber ring, keyboard-only. */
@@ -397,6 +410,15 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   font-size: 0.8rem;
   border-radius: 12px;
 }
+
+/* Secondary: same shape, quiet fill. One solid amber button per screen -
+   two identical CTAs side by side is a coin flip, not a hierarchy. */
+.cta-btn--ghost {
+  background: rgba(12, 11, 9, 0.55);
+  color: var(--cream);
+  border: 1px solid var(--dark-border-hover);
+}
+.cta-btn--ghost:hover { filter: none; background: rgba(12, 11, 9, 0.75); }
 
 .home {
   padding: 0;
@@ -451,6 +473,11 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   transition: transform 0.4s ease;
 }
 .pcard:hover .pcard__bg { transform: scale(1.04); }
+@media (prefers-reduced-motion: reduce) {
+  .pcard, .pcard__bg { transition: none; }
+  .pcard:hover { transform: none; }
+  .pcard:hover .pcard__bg { transform: none; }
+}
 .pcard__bg--empty { background: var(--dark-card, #1c1c1e); }
 
 .pcard__overlay {
@@ -1095,6 +1122,16 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 
 .dh__day--clickable { cursor: pointer; }
+
+.dh__week-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  align-self: center;
+  margin-right: 4px;
+}
 
 .dh__day-label {
   font-family: var(--font-body);

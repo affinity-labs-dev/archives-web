@@ -90,7 +90,7 @@ export default function adventureDetailView(app, params) {
       var cls = isPortraitModule(i, sorted.length) ? 'mtile--portrait' : 'mtile--landscape';
       var thumbUrl = sanitizeUrl(mod.thumbnail_url);
 
-      return '<div class="mtile ' + cls + (done ? ' mtile--done' : '') + (i === nextIdx ? ' mtile--next' : '') + '" data-lesson-idx="' + i + '">'
+      return '<div class="mtile ' + cls + (done ? ' mtile--done' : '') + (i === nextIdx ? ' mtile--next' : '') + '" data-lesson-idx="' + i + '" role="link" tabindex="0" aria-label="' + escapeHtml(mod.thumbnail_title || 'Module ' + (i + 1)) + '">'
         + '<img class="mtile__img" src="' + thumbUrl + '" alt="" loading="lazy">'
         + '<div class="mtile__overlay">'
         + '<div class="mtile__number">' + num + '</div>'
@@ -204,6 +204,9 @@ export default function adventureDetailView(app, params) {
 
     // Attach click handlers via event delegation
     app.querySelectorAll('.mtile[data-lesson-idx]').forEach(tile => {
+      tile.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tile.click(); }
+      });
       tile.addEventListener('click', () => {
         window.location.hash = '/lesson/' + readableId + '/' + tile.dataset.lessonIdx;
       });

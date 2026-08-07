@@ -26,12 +26,13 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
     var watchDone = dayProgress && dayProgress.watch;
     var thumb = sanitizeUrl(c.card1.thumbnail_url);
     var watchTitle = escapeHtml(c.card1.thumbnail_title || storyTitle);
-    html += '<div class="dh__hero' + (watchDone ? ' dh__hero--done' : '') + '" data-step="0">';
+    html += '<div class="dh__hero' + (watchDone ? ' dh__hero--done' : '') + '" data-step="0" role="link" tabindex="0" aria-label="Watch the story">';
     if (thumb) html += '<img class="dh__hero-img" src="' + thumb + '" alt="">';
 
     // Week tracker overlaid at top of hero
     html += '<div class="dh__week-wrap">';
-    html += '<div class="dh__week">';
+    html += '<div class="dh__week" aria-label="This week">';
+    html += '<div class="dh__week-label">This week</div>';
     week.forEach(function(day) {
       var dotClass = 'dh__day-dot';
       var dotContent = '';
@@ -60,7 +61,7 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
       if (isViewing) dotClass += ' dh__day-dot--viewing';
       if (clickable) dayClass += ' dh__day--clickable';
 
-      html += '<div class="' + dayClass + '"' + (clickable ? ' data-date="' + escapeHtml(day.date) + '"' : '') + '>'
+      html += '<div class="' + dayClass + '"' + (clickable ? ' data-date="' + escapeHtml(day.date) + '" role="link" tabindex="0" aria-label="' + escapeHtml(day.label) + '"' : '') + '>'
         + '<div class="dh__day-label">' + escapeHtml(day.label) + '</div>'
         + '<div class="' + dotClass + '">' + dotContent + '</div>'
         + (needsLock ? '<svg class="dh__day-lock" viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2"/></svg>' : '')
@@ -75,7 +76,7 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
     html += '<h1 class="dh__hero-title">' + watchTitle + '</h1>';
     html += '<div class="dh__hero-bottom">';
     html += '<span class="dh__hero-dur">3 MIN</span>';
-    html += '<span class="dh__hero-play"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5 3 19 12 5 21"/></svg> Watch</span>';
+
     if (streak > 0) {
       html += '<span class="dh__hero-streak">'
         + '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 23c-3.6 0-8-3-8-9 0-4 2.5-7.5 5-9.5.4-.3 1 0 1 .5 0 1.5 1 3 2.5 3.5.3.1.6-.1.6-.4 0-2.5 1.5-5.5 3.5-7.1.4-.3 1 0 1 .5C18 5 20 9 20 14c0 6-4.4 9-8 9z"/></svg>'
@@ -127,7 +128,7 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
 
     if (c.card2) {
       var exploreDone = dayProgress && dayProgress.explore;
-      html += '<div class="dh__card dh__card--explore' + (exploreDone ? ' dh__card--done' : '') + '" data-step="' + steps.indexOf('explore') + '">';
+      html += '<div class="dh__card dh__card--explore' + (exploreDone ? ' dh__card--done' : '') + '" data-step="' + steps.indexOf('explore') + '" role="link" tabindex="0">';
       html += '<div class="dh__card-row">';
       html += '<div class="dh__card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>';
       html += '<span class="dh__card-label">Explore</span>';
@@ -142,7 +143,7 @@ function buildContent(c, storyTitle, storyDate, dayNum, totalDays, steps, dayPro
 
     if (c.card3 && c.card3.questions && c.card3.questions.length > 0) {
       var questionsDone = dayProgress && dayProgress.questions;
-      html += '<div class="dh__card dh__card--questions' + (questionsDone ? ' dh__card--done' : '') + '" data-step="' + steps.indexOf('questions') + '">';
+      html += '<div class="dh__card dh__card--questions' + (questionsDone ? ' dh__card--done' : '') + '" data-step="' + steps.indexOf('questions') + '" role="link" tabindex="0">';
       html += '<div class="dh__card-row">';
       html += '<div class="dh__card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>';
       html += '<span class="dh__card-label">Questions</span>';
@@ -221,6 +222,9 @@ export default function dailyHomeView(app, params) {
 
       // Hero + card clicks
       app.querySelectorAll('[data-step]').forEach(function(card) {
+        card.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+        });
         card.addEventListener('click', function() {
           if (!isToday && !isPremium()) {
             showPaywall(function() { window.location.hash = playBase + '?step=' + card.dataset.step; });
@@ -258,6 +262,9 @@ export default function dailyHomeView(app, params) {
 
       // Day clicks — switch days in-place with crossfade
       app.querySelectorAll('.dh__day--clickable').forEach(function(dayEl) {
+        dayEl.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dayEl.click(); }
+        });
         dayEl.addEventListener('click', function() {
           if (aborted) return;
           var newDate = dayEl.dataset.date;

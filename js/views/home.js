@@ -151,7 +151,7 @@ export default function homeView(app) {
           }
           heroLink.href = advBg;
 
-          pairAdvCard = '<div class="pcard" id="pcard-adventure">'
+          pairAdvCard = '<div class="pcard" id="pcard-adventure" role="link" tabindex="0" aria-label="' + escapeHtml(heroCta) + ': ' + advTitle + '">'
             + '<img class="pcard__bg" src="' + advBg + '" alt="" fetchpriority="high">'
             + '<div class="pcard__overlay">'
             + '<div class="pcard__kicker">' + heroBadge + '</div>'
@@ -159,7 +159,7 @@ export default function homeView(app) {
             + '<div class="pcard__meta">' + eraName
             + (advCompleted > 0 ? ' · ' + advCompleted + '/' + advTotal + ' done' : (featuredAdv.timeline ? ' · ' + escapeHtml(featuredAdv.timeline) : ''))
             + '</div>'
-            + '<button class="cta-btn cta-btn--sm pcard__btn" type="button">' + escapeHtml(heroCta) + '</button>'
+            + '<button class="cta-btn cta-btn--sm cta-btn--ghost pcard__btn" type="button">' + escapeHtml(heroCta) + '</button>'
             + '</div></div>';
         }
 
@@ -182,7 +182,7 @@ export default function homeView(app) {
       var dailyProgress = getDailyProgress(new Date().toISOString().slice(0, 10));
       var dailyStarted = dailyProgress && Object.keys(dailyProgress).length > 0;
 
-      var pairDailyCard = '<div class="pcard" id="pcard-daily" data-nav="daily">'
+      var pairDailyCard = '<div class="pcard" id="pcard-daily" data-nav="daily" role="link" tabindex="0" aria-label="Open today&#39;s story">'
         + (dailyThumb ? '<img class="pcard__bg" src="' + dailyThumb + '" alt="" loading="lazy">' : '<div class="pcard__bg pcard__bg--empty"></div>')
         + '<div class="pcard__overlay">'
         + '<div class="pcard__kicker">Daily'
@@ -213,7 +213,7 @@ export default function homeView(app) {
         var badge = eraPremium ? '<span class="era-card__badge era-card__badge--premium">Premium</span>' : '';
         var lockIcon = '';
 
-        return '<div class="era-card" data-era="' + escapeHtml(era.era_id) + '">'
+        return '<div class="era-card" data-era="' + escapeHtml(era.era_id) + '" role="link" tabindex="0" aria-label="' + escapeHtml(era.title) + '">'
           + (bgUrl ? '<img class="era-card__bg" src="' + bgUrl + '" alt="" loading="lazy">' : '<div class="era-card__bg"></div>')
           + '<div class="era-card__overlay">'
           + '<div class="era-card__number">' + num + '</div>'
@@ -284,7 +284,22 @@ export default function homeView(app) {
       var daily = document.getElementById('pcard-daily');
       if (daily) daily.addEventListener('click', function() { window.location.hash = '/daily'; });
 
+      // The cards are divs with click handlers; role=link + tabindex made
+      // them reachable, this makes them operable.
+      [advCard, daily].forEach(function (card) {
+        if (!card) return;
+        card.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            card.click();
+          }
+        });
+      });
+
       app.querySelectorAll('.era-card[data-era]').forEach(function(card) {
+        card.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+        });
         card.addEventListener('click', function() {
           var era = activeEras.find(function(e) { return e.era_id === card.dataset.era; });
           if (era && era.status === 'premium' && !isPremium()) {

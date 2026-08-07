@@ -50,6 +50,16 @@ export function attachQuizHandlers(container, question, onAnswer) {
       btn.classList.add(isCorrect ? 'correct' : 'wrong');
       btn.classList.add('answered');
 
+      // Screen readers hear the verdict; sighted users see the colours.
+      var live = document.createElement('div');
+      live.className = 'sr-only';
+      live.setAttribute('role', 'status');
+      var correctBtn = container.querySelector('.quiz__answer[data-correct="true"] .quiz__answer-text');
+      live.textContent = isCorrect
+        ? 'Correct.'
+        : 'Incorrect. The correct answer is ' + (correctBtn ? correctBtn.textContent : '') + '.';
+      container.appendChild(live);
+
       // GSAP-powered feedback
       if (isCorrect) {
         bounceCorrect(btn);
