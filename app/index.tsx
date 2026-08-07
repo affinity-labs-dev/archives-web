@@ -19,6 +19,7 @@ import { useHeroDive } from "@/hooks/today/useHeroDive";
 import { useTodayModalSlots } from "@/hooks/today/useTodayModalSlots";
 import { useTodayQuest } from "@/hooks/today/useTodayQuest";
 import { useTodayHistory } from "@/hooks/today/useTodayHistory";
+import { useTodayCardsData } from "@/hooks/today/useTodayCardsData";
 import { useGamificationOrchestrator } from "@/gamification";
 import { useUser } from "@clerk/clerk-expo";
 
@@ -176,6 +177,33 @@ export default function TodayOnWeb() {
     setQuizResultsVisible(false);
   }, [slots, hero]);
 
+  // The app's own card builder, rather than a hand-rolled array.
+  //
+  // Mine got three things wrong at once, all invisible unless you compare with
+  // the phone: every kicker read "TODAY" instead of Watch / Explore /
+  // Questions, the titles came from the wrong fields, and the tuple was
+  // [watch, explore, questions] when the deck expects
+  // [explore, watch, questions] - so Explore sat in the centre slot where
+  // Watch belongs.
+  //
+  // This is the whole lesson of the port in miniature: every one of those was a
+  // detail I retyped instead of imported.
+  const cards = useTodayCardsData({
+    todayQuest: quest as any,
+    displayedQuest: null,
+    watchCompleted: progress >= 33,
+    exploreCompleted: progress >= 66,
+    questCompleted: progress >= 100,
+    quizCorrectAnswers: lastCorrectRef.current,
+    isExploreUnlocked: true,
+    isQuizUnlocked: true,
+    openModal: openAt,
+  });
+
+  // NOTE: every hook above this line. The early returns below mean a hook
+  // placed after them is skipped on the first render, and React fails the whole
+  // tree with "Rendered more hooks than during the previous render".
+
   if (error) {
     return (
       <View style={styles.centre}>
@@ -193,36 +221,6 @@ export default function TodayOnWeb() {
 
   const c = quest.content;
   const img = (u?: string) => (u ? { uri: u } : undefined);
-
-  const cards: [TodayCardData, TodayCardData, TodayCardData] = [
-    {
-      kind: "watch",
-      kicker: "TODAY",
-      title: c.card1?.title || c.today_title || "Today's Story",
-      minutes: `${c.card1?.duration_minutes ?? 3} min`,
-      pillLabel: "Watch",
-      imageSource: img(c.card1?.thumbnail_url || c.card1?.image_url || c.background_image),
-      onPress: openVideo,
-    },
-    {
-      kind: "explore",
-      kicker: "TODAY",
-      title: c.card2?.title || "Explore",
-      minutes: `${c.card2?.duration_minutes ?? 1} min`,
-      pillLabel: "Read",
-      imageSource: img(c.card2?.thumbnail_url || c.card2?.image_url),
-      onPress: () => openAt("reading"),
-    },
-    {
-      kind: "questions",
-      kicker: "TODAY",
-      title: c.card3?.title || "Questions",
-      minutes: `${c.card3?.duration_minutes ?? 2} min`,
-      pillLabel: "Start",
-      imageSource: img(c.card3?.thumbnail_url || c.card3?.image_url),
-      onPress: () => openAt("quiz"),
-    },
-  ];
 
   // Each step hands off to the next through the same 400ms dual-slot crossfade
   // the app uses, so the sequence is watch -> read -> quiz without a flash.
