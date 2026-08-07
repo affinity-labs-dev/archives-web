@@ -43,6 +43,16 @@ describe('the table allowlist', () => {
     expect(refusal({ table: 'pg_catalog' }).status).toBe(404);
   });
 
+  it('refuses ai_usage in particular - the quota counter must stay unreachable', () => {
+    // The /api/ai/explain monthly allowance is stored there. If this table
+    // ever appears in TABLE_POLICY, any signed-in user can PATCH their own
+    // counter to zero and the quota is theatre; that is why it was not put in
+    // ai_user_data, which is SCOPED_RW. This pin exists so adding it fails a
+    // test instead of passing review.
+    expect(refusal({ table: 'ai_usage' }).status).toBe(404);
+    expect(Object.keys(TABLE_POLICY)).not.toContain('ai_usage');
+  });
+
   it('covers exactly the tables the mobile modules use', () => {
     // Guards against a table quietly appearing in the allowlist without a
     // caller, which is how a proxy grows into a general database gateway.
