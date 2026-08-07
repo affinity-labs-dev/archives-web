@@ -1,6 +1,60 @@
 /* ========== Reset & Base ========== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ========== Celebration Fonts ========== */
+/*
+ * Bounded and Onest are the mobile app's typefaces. They are used ONLY by the
+ * post-quiz celebration screens, so those screens read as the app rather than
+ * as the website - everything else keeps Changa One / DM Sans via
+ * --font-display / --font-body below.
+ *
+ * Subset to Latin + common punctuation and converted to woff2 offline with
+ * fontTools. Bounded-Black ships as a 521KB .ttf and is 27KB here; the five
+ * files together are 86KB rather than 778KB. The .ttf originals stay in
+ * assets/fonts/ because the mobile app loads those paths.
+ *
+ * `font-display: block` on Bounded is deliberate. It renders the streak count
+ * at 90px and the score percentage at 32px, and a swap from the fallback
+ * mid-count-up visibly reflows the number. The celebration also awaits
+ * document.fonts.load() before starting its timeline, so the block period is
+ * never actually observed - this is the belt to that braces.
+ */
+@font-face {
+  font-family: 'Bounded';
+  src: url('../assets/fonts/Bounded-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Onest';
+  src: url('../assets/fonts/Onest-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Onest';
+  src: url('../assets/fonts/Onest-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Onest';
+  src: url('../assets/fonts/Onest-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Onest';
+  src: url('../assets/fonts/Onest-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --amber: #D4A04A;
   --amber-glow: #E8B85E;
@@ -22,6 +76,9 @@
   --radius-sm: 10px;
   --font-display: 'Changa One', 'Georgia', serif;
   --font-body: 'DM Sans', sans-serif;
+  /* The mobile app's pair, used only by the celebration screens. */
+  --font-cel-display: 'Bounded', 'Changa One', sans-serif;
+  --font-cel-body: 'Onest', 'DM Sans', sans-serif;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   /* Responsive spacing */
